@@ -31,7 +31,6 @@ from pathlib import Path
 from metabolon.locus import pulse_reports
 from metabolon.vasomotor import (
     EVENT_LOG,
-    MAX_DAILY_SYSTOLES,
     _fetch_telemetry,
     _hours_to_reset,
     adapt,

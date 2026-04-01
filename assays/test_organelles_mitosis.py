@@ -644,6 +644,156 @@ class TestSetup:
 # ── smoketest tests ───────────────────────────────────────────────────
 
 
+# ── Additional coverage tests ──────────────────────────────────────
+
+
+class TestSyncCredException:
+    """Cover lines 284-285: exception during credential copy in sync()."""
+
+    @patch("metabolon.organelles.mitosis.time.monotonic", return_value=0.0)
+    @patch("metabolon.organelles.mitosis._sync_target")
+    @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
+    def test_credentials_copy_exception(self, _, mock_sync_target, __):
+        mock_sync_target.return_value = ReplicationResult("germline", True, 0.1)
+        mock_creds = MagicMock()
+        mock_creds.exists.return_value = True
+        mock_creds.read_bytes.side_effect = OSError("permission denied")
+
+        with patch("metabolon.organelles.mitosis.Path") as mock_path:
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_creds
+            report = sync()
+
+        auth_results = [r for r in report.results if r.target == "cc-auth"]
+        assert len(auth_results) == 1
+        assert auth_results[0].success is False
+        assert "permission denied" in auth_results[0].message
+
+
+class TestStatusFewerChunks:
+    """Cover lines 334-335: fewer chunks than SYNC_TARGETS in status()."""
+
+    @patch("metabolon.organelles.mitosis._fly_cmd")
+    @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
+    def test_fewer_chunks_than_targets(self, _, mock_fly):
+        # Return only one chunk for two targets
+        epoch = str(int(time.time()) - 60)
+        mock_fly.return_value = subprocess.CompletedProcess([], 0, stdout=epoch)
+        info = status()
+        # First target should be parsed, second should be "unknown"
+        names = [t["name"] for t in SYNC_TARGETS]
+        assert info["targets"][names[0]]["state"] in ("ok", "stale")
+        assert info["targets"][names[1]]["state"] == "unknown"
+
+
+class TestSetupCloneException:
+    """Cover lines 392-393: exception during clone check in setup()."""
+
+    @patch("metabolon.organelles.mitosis._fly_cmd")
+    @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
+    def test_clone_check_exception(self, _, mock_fly):
+        # First _fly_cmd call throws (during repo existence check)
+        mock_fly.side_effect = RuntimeError("SSH connection lost")
+        result = setup()
+        clone_steps = [s for s in result["steps"] if s["name"].startswith("clone-")]
+        assert len(clone_steps) >= 1
+        assert clone_steps[0]["success"] is False
+        assert "SSH connection lost" in clone_steps[0]["message"]
+
+
+class TestSmoketestReadException:
+    """Cover lines 524-526: exception reading passcode in smoketest()."""
+
+    @patch("metabolon.organelles.mitosis.sync")
+    @patch("metabolon.organelles.mitosis._fly_cmd")
+    @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
+    def test_read_passcode_exception(self, _, mock_fly, mock_sync):
+        good_report = FidelityReport(
+            results=[ReplicationResult("epigenome", True, 0.1)]
+        )
+        mock_sync.side_effect = [good_report, FidelityReport()]
+        # _fly_cmd raises when trying to cat the passcode file
+        mock_fly.side_effect = [
+            RuntimeError("SSH timeout"),  # cat passcode
+        ]
+        with patch("metabolon.organelles.mitosis.Path") as mock_path:
+            mock_probe = MagicMock()
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
+            result = smoketest()
+
+        assert result["success"] is False
+        assert "read failed" in result["error"]
+        mock_probe.unlink.assert_called()
+
+
+class TestSmoketestAuthException:
+    """Cover lines 536-537: exception during claude --version in smoketest()."""
+
+    @patch("metabolon.organelles.mitosis.sync")
+    @patch("metabolon.organelles.mitosis._fly_cmd")
+    @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
+    def test_claude_version_exception(self, _, mock_fly, mock_sync):
+        passcode = "mitosis-testcode1"
+
+        good_report = FidelityReport(
+            results=[ReplicationResult("epigenome", True, 0.1)]
+        )
+        mock_sync.side_effect = [good_report, FidelityReport()]
+
+        # First call: cat returns passcode; second call: claude --version throws
+        mock_fly.side_effect = [
+            subprocess.CompletedProcess(
+                [], 0, stdout=f"---\nname: probe\nPasscode: {passcode}\n"
+            ),
+            RuntimeError("command not found"),
+        ]
+
+        with patch("metabolon.organelles.mitosis.Path") as mock_path:
+            mock_probe = MagicMock()
+            # Make write_text a no-op and __str__ return something usable
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
+            result = smoketest()
+
+        assert result["success"] is True
+        assert result["passcode"] == passcode
+        assert result["claude_auth"] is False
+
+
+class TestSmoketestFlyNoiseFiltered:
+    """Cover line 521: fly noise lines filtered during smoketest read."""
+
+    @patch("metabolon.organelles.mitosis.sync")
+    @patch("metabolon.organelles.mitosis._fly_cmd")
+    @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
+    def test_fly_noise_in_read_response(self, _, mock_fly, mock_sync):
+        passcode = "mitosis-noiseok1"
+
+        good_report = FidelityReport(
+            results=[ReplicationResult("epigenome", True, 0.1)]
+        )
+        mock_sync.side_effect = [good_report, FidelityReport()]
+
+        # First call: cat returns noisy output with passcode embedded
+        # Second call: claude --version
+        mock_fly.side_effect = [
+            subprocess.CompletedProcess(
+                [], 0,
+                stdout=f"Connecting to soma...\nWarning: stuff\nPasscode: {passcode}\n",
+            ),
+            subprocess.CompletedProcess([], 0, stdout="Claude Code v1.0"),
+        ]
+
+        with patch("metabolon.organelles.mitosis.Path") as mock_path:
+            mock_probe = MagicMock()
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
+            result = smoketest()
+
+        assert result["success"] is True
+        assert result["passcode"] == passcode
+
+
+# ── Smoketest tests ───────────────────────────────────────────────────
+
+
 class TestSmoketest:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=False)
     def test_soma_not_reachable(self, _):
