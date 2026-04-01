@@ -1,0 +1,205 @@
+#!/usr/bin/env -S uv run --script
+from __future__ import annotations
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""health-check — one-line health status from sleep/HRV/readiness data.
+
+Data sources (tried in order):
+  1. sopor trend --days 3 --json
+  2. ~/.cache/oura/ JSON files
+  3. Oura API (OURA_PERSONAL_ACCESS_TOKEN)
+
+Output: green/yellow/red status with key metrics.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+THRESHOLD_READINESS_YELLOW = 70
+THRESHOLD_READINESS_RED = 50
+THRESHOLD_SLEEP_YELLOW = 6.0  # hours
+THRESHOLD_HRV_YELLOW = 30  # ms (deviation from baseline)
+
+
+def _run_sopor() -> list[dict] | None:
+    """Try sopor CLI, return parsed JSON rows or None."""
+    sopor_path = shutil.which("sopor")
+    if sopor_path is None:
+        return None
+    try:
+        result = subprocess.run(
+            [sopor_path, "trend", "--days", "3", "--json"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        if isinstance(data, list):
+            return data
+        return None
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
+        return None
+
+
+def _read_oura_cache(cache_dir: Path) -> list[dict] | None:
+    """Read latest data from ~/.cache/oura/ JSON files."""
+    if not cache_dir.is_dir():
+        return None
+    # Look for common cache file patterns
+    candidates = sorted(cache_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidates:
+        return None
+    rows: list[dict] = []
+    for path in candidates[:3]:
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                rows.extend(data)
+            elif isinstance(data, dict):
+                rows.append(data)
+        except (json.JSONDecodeError, OSError):
+            continue
+    return rows if rows else None
+
+
+def _read_oura_api() -> list[dict] | None:
+    """Try Oura API via personal access token."""
+    token = os.environ.get("OURA_PERSONAL_ACCESS_TOKEN", "")
+    if not token:
+        return None
+    try:
+        from urllib.request import Request, urlopen
+        end = datetime.now().strftime("%Y-%m-%d")
+        start = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
+        url = f"https://api.ouraring.com/v2/usercollection/daily_sleep?start_date={start}&end_date={end}"
+        req = Request(url, headers={"Authorization": f"Bearer {token}"})
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        return data.get("data", [])
+    except Exception:
+        return None
+
+
+def _extract_metrics(rows: list[dict]) -> dict:
+    """Extract the most recent day's sleep, hrv, readiness from rows."""
+    if not rows:
+        return {}
+    # Take the last row (most recent)
+    latest = rows[-1] if isinstance(rows, list) else rows
+    metrics: dict = {}
+    # Normalize common field names from sopor / oura
+    # Sleep score (0-100 or hours)
+    for key in ("sleep_score", "score", "sleep"):
+        if key in latest:
+            metrics["sleep_score"] = latest[key]
+            break
+    # Sleep duration in hours
+    for key in ("sleep_duration", "total_sleep", "duration", "sleep_hours"):
+        if key in latest:
+            metrics["sleep_hours"] = latest[key]
+            break
+    # HRV
+    for key in ("hrv", "hrv_balance", "average_hrv", "rmssd"):
+        if key in latest:
+            metrics["hrv"] = latest[key]
+            break
+    # Readiness
+    for key in ("readiness", "readiness_score", "ready"):
+        if key in latest:
+            metrics["readiness"] = latest[key]
+            break
+    # Also pass through the raw date if present
+    for key in ("date", "day", "summary_date"):
+        if key in latest:
+            metrics["date"] = latest[key]
+            break
+    return metrics
+
+
+def classify(metrics: dict) -> str:
+    """Return green/yellow/red based on metrics."""
+    readiness = metrics.get("readiness", 100)
+    sleep_hours = metrics.get("sleep_hours", 8.0)
+    hrv = metrics.get("hrv", 40)
+    if readiness < THRESHOLD_READINESS_RED or sleep_hours < 4.5:
+        return "red"
+    if readiness < THRESHOLD_READINESS_YELLOW or sleep_hours < THRESHOLD_SLEEP_YELLOW or hrv < THRESHOLD_HRV_YELLOW:
+        return "yellow"
+    return "green"
+
+
+def format_status(metrics: dict, status: str, use_json: bool = False) -> str:
+    """Build the output string or JSON blob."""
+    readiness = metrics.get("readiness", "n/a")
+    sleep_hours = metrics.get("sleep_hours", "n/a")
+    hrv = metrics.get("hrv", "n/a")
+    sleep_score = metrics.get("sleep_score", "n/a")
+    date_str = metrics.get("date", datetime.now().strftime("%Y-%m-%d"))
+
+    advisories: list[str] = []
+    if isinstance(readiness, (int, float)) and readiness < THRESHOLD_READINESS_YELLOW:
+        advisories.append("Light activity only today.")
+    if isinstance(sleep_hours, (int, float)) and sleep_hours < THRESHOLD_SLEEP_YELLOW:
+        advisories.append("Sleep debt — prioritize early bedtime.")
+
+    if use_json:
+        return json.dumps({
+            "status": status,
+            "date": date_str,
+            "readiness": readiness,
+            "sleep_hours": sleep_hours,
+            "sleep_score": sleep_score,
+            "hrv": hrv,
+            "advisories": advisories,
+        }, indent=2)
+
+    parts = [f"[{status.upper()}", f"{date_str}]", f"readiness={readiness}", f"sleep={sleep_hours}h", f"sleep_score={sleep_score}", f"hrv={hrv}"]
+    line = " ".join(parts)
+    if advisories:
+        line += "  " + " ".join(advisories)
+    return line
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="One-line health status from sleep/HRV/readiness data.")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("--days", type=int, default=3, help="Days of history to consider (default: 3)")
+    args = parser.parse_args(argv)
+
+    # Try data sources in order
+    rows = _run_sopor()
+    source = "sopor"
+    if rows is None:
+        cache_dir = Path.home() / ".cache" / "oura"
+        rows = _read_oura_cache(cache_dir)
+        source = "oura-cache"
+    if rows is None:
+        rows = _read_oura_api()
+        source = "oura-api"
+
+    if not rows:
+        if args.json:
+            print(json.dumps({"status": "unknown", "advisories": ["No health data available."]}))
+        else:
+            print("[UNKNOWN] No health data available. Install sopor or configure Oura.")
+        return 1
+
+    metrics = _extract_metrics(rows)
+    metrics["_source"] = source
+    status = classify(metrics)
+    print(format_status(metrics, status, use_json=args.json))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
