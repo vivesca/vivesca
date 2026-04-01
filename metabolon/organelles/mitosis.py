@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Lucerna coordinates
-LUCERNA_APP = "soma"  # fly.io app name (formerly gemmule, renamed to soma)
+LUCERNA_APP = "gemmule"  # fly.io app name
 LUCERNA_USER = "terry"
 LUCERNA_HOME = f"/home/{LUCERNA_USER}"
 
