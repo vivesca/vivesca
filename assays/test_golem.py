@@ -956,20 +956,21 @@ class TestGolemBashJsonFlag:
 class TestGolemBashJsonOutput:
     """Tests for --json flag output structure on the main golem command.
 
-    These tests mock the claude binary to verify JSON output without making
-    real API calls.
+    These tests mock the codex binary to verify JSON output without making
+    real API calls. Codex provider is used because it skips the preflight
+    HTTP check that would otherwise timeout.
     """
 
     def test_json_output_success(self, tmp_path):
         """When golem succeeds, --json outputs valid JSON with expected fields."""
-        # Create a mock claude that succeeds
-        mock_claude = tmp_path / "claude"
-        mock_claude.write_text(
+        # Create a mock codex that succeeds
+        mock_codex = tmp_path / "codex"
+        mock_codex.write_text(
             '#!/usr/bin/env bash\n'
             'echo "Task completed successfully"\n'
             'exit 0\n'
         )
-        mock_claude.chmod(0o755)
+        mock_codex.chmod(0o755)
 
         log_file = tmp_path / "golem.jsonl"
 
@@ -977,15 +978,16 @@ class TestGolemBashJsonOutput:
             [
                 str(EFFECTORS_DIR / "golem"),
                 "--json",
+                "--provider", "codex",
                 "--max-turns", "1",
                 "test task",
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=30,
             env={
                 **os.environ,
                 "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 "GOLEM_LOG": str(log_file),
-                "ZHIPU_API_KEY": "test-key",
+                "OPENAI_API_KEY": "test-key",
             },
         )
 
@@ -1003,20 +1005,20 @@ class TestGolemBashJsonOutput:
 
         # Verify values
         assert data["exit_code"] == 0
-        assert data["provider"] == "zhipu"
+        assert data["provider"] == "codex"
         assert data["duration"] >= 0
         assert "Task completed successfully" in data["output"]
 
     def test_json_output_failure(self, tmp_path):
         """When golem fails, --json outputs valid JSON with non-zero exit_code."""
-        # Create a mock claude that fails
-        mock_claude = tmp_path / "claude"
-        mock_claude.write_text(
+        # Create a mock codex that fails
+        mock_codex = tmp_path / "codex"
+        mock_codex.write_text(
             '#!/usr/bin/env bash\n'
             'echo "Error: something went wrong" >&2\n'
             'exit 1\n'
         )
-        mock_claude.chmod(0o755)
+        mock_codex.chmod(0o755)
 
         log_file = tmp_path / "golem.jsonl"
 
@@ -1024,15 +1026,16 @@ class TestGolemBashJsonOutput:
             [
                 str(EFFECTORS_DIR / "golem"),
                 "--json",
+                "--provider", "codex",
                 "--max-turns", "1",
                 "test task",
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=30,
             env={
                 **os.environ,
                 "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 "GOLEM_LOG": str(log_file),
-                "ZHIPU_API_KEY": "test-key",
+                "OPENAI_API_KEY": "test-key",
             },
         )
 
@@ -1040,18 +1043,18 @@ class TestGolemBashJsonOutput:
         data = json.loads(r.stdout)
 
         assert data["exit_code"] != 0
-        assert data["provider"] == "zhipu"
+        assert data["provider"] == "codex"
 
     def test_json_output_with_provider(self, tmp_path):
         """--json output includes the correct provider."""
-        # Create a mock claude that succeeds
-        mock_claude = tmp_path / "claude"
-        mock_claude.write_text(
+        # Create a mock codex that succeeds
+        mock_codex = tmp_path / "codex"
+        mock_codex.write_text(
             '#!/usr/bin/env bash\n'
             'echo "OK"\n'
             'exit 0\n'
         )
-        mock_claude.chmod(0o755)
+        mock_codex.chmod(0o755)
 
         log_file = tmp_path / "golem.jsonl"
 
@@ -1059,31 +1062,31 @@ class TestGolemBashJsonOutput:
             [
                 str(EFFECTORS_DIR / "golem"),
                 "--json",
-                "--provider", "volcano",
+                "--provider", "codex",
                 "--max-turns", "1",
                 "test task",
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=30,
             env={
                 **os.environ,
                 "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 "GOLEM_LOG": str(log_file),
-                "VOLCANO_API_KEY": "test-key",
+                "OPENAI_API_KEY": "test-key",
             },
         )
 
         data = json.loads(r.stdout)
-        assert data["provider"] == "volcano"
+        assert data["provider"] == "codex"
 
     def test_json_output_types(self, tmp_path):
         """--json output has correct types for all fields."""
-        mock_claude = tmp_path / "claude"
-        mock_claude.write_text(
+        mock_codex = tmp_path / "codex"
+        mock_codex.write_text(
             '#!/usr/bin/env bash\n'
             'echo "output"\n'
             'exit 0\n'
         )
-        mock_claude.chmod(0o755)
+        mock_codex.chmod(0o755)
 
         log_file = tmp_path / "golem.jsonl"
 
@@ -1091,15 +1094,16 @@ class TestGolemBashJsonOutput:
             [
                 str(EFFECTORS_DIR / "golem"),
                 "--json",
+                "--provider", "codex",
                 "--max-turns", "1",
                 "test task",
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=30,
             env={
                 **os.environ,
                 "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 "GOLEM_LOG": str(log_file),
-                "ZHIPU_API_KEY": "test-key",
+                "OPENAI_API_KEY": "test-key",
             },
         )
 
@@ -1116,14 +1120,14 @@ class TestGolemBashJsonOutput:
 
     def test_json_escapes_output(self, tmp_path):
         """--json properly escapes special characters in output."""
-        # Create a mock claude that outputs JSON-like content
-        mock_claude = tmp_path / "claude"
-        mock_claude.write_text(
+        # Create a mock codex that outputs JSON-like content
+        mock_codex = tmp_path / "codex"
+        mock_codex.write_text(
             '#!/usr/bin/env bash\n'
             'echo \'{"nested": "value", "quotes": "with \\"escapes\\""}\'\n'
             'exit 0\n'
         )
-        mock_claude.chmod(0o755)
+        mock_codex.chmod(0o755)
 
         log_file = tmp_path / "golem.jsonl"
 
@@ -1131,15 +1135,16 @@ class TestGolemBashJsonOutput:
             [
                 str(EFFECTORS_DIR / "golem"),
                 "--json",
+                "--provider", "codex",
                 "--max-turns", "1",
                 "test task",
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=30,
             env={
                 **os.environ,
                 "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 "GOLEM_LOG": str(log_file),
-                "ZHIPU_API_KEY": "test-key",
+                "OPENAI_API_KEY": "test-key",
             },
         )
 
@@ -1149,13 +1154,13 @@ class TestGolemBashJsonOutput:
 
     def test_json_with_quiet_suppresses_stderr(self, tmp_path):
         """--json with --quiet still outputs JSON but suppresses other output."""
-        mock_claude = tmp_path / "claude"
-        mock_claude.write_text(
+        mock_codex = tmp_path / "codex"
+        mock_codex.write_text(
             '#!/usr/bin/env bash\n'
             'echo "output"\n'
             'exit 0\n'
         )
-        mock_claude.chmod(0o755)
+        mock_codex.chmod(0o755)
 
         log_file = tmp_path / "golem.jsonl"
 
@@ -1164,15 +1169,16 @@ class TestGolemBashJsonOutput:
                 str(EFFECTORS_DIR / "golem"),
                 "--json",
                 "--quiet",
+                "--provider", "codex",
                 "--max-turns", "1",
                 "test task",
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=30,
             env={
                 **os.environ,
                 "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 "GOLEM_LOG": str(log_file),
-                "ZHIPU_API_KEY": "test-key",
+                "OPENAI_API_KEY": "test-key",
             },
         )
 
