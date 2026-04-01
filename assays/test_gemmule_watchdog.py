@@ -61,13 +61,6 @@ class _P:
         _mod[self.name] = self.orig
 
 
-@pytest.fixture(autouse=True)
-def _restore_pytest_tmp():
-    """Recreate /tmp/pytest-vivesca after each test in case clean_temps removed it."""
-    yield
-    Path("/tmp/pytest-vivesca").mkdir(parents=True, exist_ok=True)
-
-
 # ── Constants ──────────────────────────────────────────────────────────
 
 
