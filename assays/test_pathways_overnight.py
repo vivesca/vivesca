@@ -170,12 +170,17 @@ class TestComposePost:
         call_args = fake_symbiont.transduce.call_args
         assert call_args[0][0] == "deepseek"
 
-    @patch(
-        "metabolon.pathways.overnight._acquire_catalyst",
-        side_effect=Exception("no catalyst"),
-    )
-    def test_returns_none_on_exception(self, mock_catalyst):
-        result = mod.compose_post("crystal", "Title", "slug")
+    @patch("metabolon.pathways.overnight._acquire_catalyst")
+    @patch("metabolon.pathways.overnight.PUBLISHED", new_callable=lambda: PropertyMock)
+    def test_returns_none_on_exception(self, mock_published_prop, mock_catalyst):
+        fake_symbiont = MagicMock()
+        fake_symbiont.transduce.side_effect = RuntimeError("transduction failed")
+        mock_catalyst.return_value = fake_symbiont
+        fake_dir = MagicMock()
+        fake_path = MagicMock()
+        fake_dir.__truediv__ = MagicMock(return_value=fake_path)
+        with patch.object(mod, "PUBLISHED", fake_dir):
+            result = mod.compose_post("crystal", "Title", "slug")
         assert result is None
 
     @patch("metabolon.pathways.overnight._acquire_catalyst")
