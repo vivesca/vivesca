@@ -1,94 +1,341 @@
-# Receptor Health — 2026-03-30 02:30
+# Receptor Health — 2026-04-02 05:42
 
 
 ## Attachment Integrity
 
-- Total receptors: 14
-- Total references: 23
-- Attached: 15
-- Detached: 8
-- Mechanically silent: 0
-- Focal adhesion risks: 1
+- Total receptors: 101
+- Total references: 210
+- Attached: 76
+- Detached: 134
+- Mechanically silent: 36
+- Focal adhesion risks: 37
 
 ## Activation State
-0 open | 0 extended | 62 bent (3 anoikis candidates)
-Anoikis candidates logged to ~/epigenome/chromatin/receptor-retirement.md
+0 open | 0 extended | 183 bent (47 anoikis candidates)
+Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement.md
 
 ## Anoikis Candidates (retirement flagged)
-- folding
-- involution
-- palpation
+- agent-cli
+- amicus
+- auscultation
+- comes
+- cron
+- defuddle
+- deleo
+- deltos
+- docima
+- elencho
+- evolvo
+- exauro
+- fingo
+- fiscus
+- gist
+- graphis
+- hypha
+- iter
+- judex
+- lararium
+- legatum
+- legatus
+- limen
+- lucus
+- manus
+- obsidian-cli
+- opifex
+- overnight
+- peira
+- photos
+- poros
+- praeco
+- qianli
+- rector
+- redarguo
+- salus
+- skill-review
+- sopor
+- speculor
+- synaxis
+- theoria
+- theoros
+- usus
+- vectura
+- video-digest
+- wechat-article
+- weekly
 
 ## Quiescent (bent but ligands healthy)
 - adhesion
-- annealing
+- adytum
+- agoras
+- analyze
+- anam
+- artifex
+- askesis
 - assay
-- auscultation
+- auceps
+- auspex
 - autophagy
 - autopoiesis
-- chaperone
+- bouleusis
+- caelum
+- cardo
+- centrosome
+- certus
 - chemoreception
 - circadian
 - conjugation
+- consilium
+- contract
+- cursus
+- custodia
 - cytokinesis
 - cytometry
+- daily
 - debridement
+- diagnosis
+- dialexis
 - differentiation
-- ecdysis
+- digest
 - ecphory
-- electroreception
 - endocytosis
 - endosomal
 - endosymbiosis
+- eow
+- epistula
 - etiology
+- evaluate-ai-repo
+- evaluate-job
+- examen
 - expression
-- glycolysis
-- gradient
+- fasti
+- fodina
+- friction
+- gnome
+- grapho
 - hemostasis
-- histochemistry
+- heuretes
 - histology
+- hkicpa
+- horizo
 - hybridization
+- imessage
+- indago
 - infradian
-- ingestion
 - integrin
-- karyotyping
-- kinesin
+- involution
+- iris
+- judge
+- kairos
+- keryx
+- kindle
+- kritike
+- lacuna
+- libra
+- linkedin-profile
+- linkedin-research
+- lustro
+- mandatum
+- mappa
 - maturation
+- meeting-prep
 - meiosis
+- melete
+- message
 - metabolize
 - methylation
+- mitogen
 - mitosis
 - modification
-- nucleation
+- monthly
+- mora
+- morphogenesis
+- nauta
+- nexis
+- nexum
+- nuntius
+- obsidian-markdown
+- oghma
 - ontogenesis
 - opsonization
+- palpation
+- parsimonia
+- peirasmos
 - phagocytosis
 - pinocytosis
 - polarization
-- polymerization
-- porta
+- pondus
+- praecepta
+- presentation
 - proliferation
-- proofreading
+- prospective
+- python
+- qmd
+- quies
 - quorum
 - receptor
+- remote-llm
 - replication
-- rheotaxis
+- rust
+- sarcio
+- sched
+- scrinium
+- scrutor
 - secretion
+- solutions
+- specification
 - specula
+- splicing
 - sporulation
+- statio
+- stilus
+- stips
+- summarize
+- taobao
+- taxis
+- tecton
+- todo
+- topica
 - transcription
 - transcription-factor
-- translation
+- trutina
+- usage
+- waking-up
 
 ## Detached References
-- folding: `sortase`
-- involution: `fasti`
+- agent-cli: `graphis`
+- agoras: `cerno`
+- amicus: `amicus`
+- anam: `claude-history`
+- anam: `cerno`
+- auscultation: `log`
+- comes: `launchctl`
+- cron: `launchctl`
+- defuddle: `defuddle`
+- deleo: `deleo`
+- deltos: `deltos`
+- deltos: `security`
+- docima: `docima`
+- elencho: `elencho`
+- endosymbiosis: `currently`
+- epistula: `cora`
+- evolvo: `evolvo`
+- exauro: `exauro`
+- fingo: `fingo`
+- fiscus: `import`
+- fiscus: `result`
+- gist: `tg-clip`
+- graphis: `graphis`
+- hemostasis: `launchctl`
+- heuretes: `lucus`
+- horizo: `horizo`
+- hypha: `hypha`
 - involution: `sopor`
-- nucleation: `sortase`
+- iris: `iris`
+- iris: `item`
+- iter: `iter`
+- judex: `lucus`
+- keryx: `defuddle`
+- keryx: `launchctl`
+- keryx: `wacli`
+- kindle: `kindle-extract`
+- lararium: `lararium`
+- legatum: `now-age`
+- legatum: `prewrap`
+- legatum: `peira`
+- legatus: `legatus`
+- limen: `limen`
+- linkedin-research: `nexum`
+- lucus: `lucus`
+- lustro: `from`
+- lustro: `summarize`
+- lustro: `bird`
+- lustro: `lustro`
+- manus: `peekaboo`
+- manus: `osascript`
+- manus: `import`
+- manus: `data`
+- mitosis: `digest`
+- monthly: `digest`
+- monthly: `lustro`
+- nauta: `item`
+- nauta: `var`
+- nauta: `rodney`
+- nauta: `security`
+- nauta: `import`
+- nauta: `from`
+- nauta: `async`
+- nauta: `await`
+- nauta: `mac`
+- nauta: `tell`
+- nauta: `execute`
+- nauta: `function`
+- nauta: `end`
+- nexis: `nexis`
+- nexum: `nexum`
+- nuntius: `cora`
+- nuntius: `import`
+- nuntius: `data`
+- nuntius: `def`
+- nuntius: `elif`
+- obsidian-cli: `obsidian`
+- opifex: `opifex`
+- overnight: `legatus`
 - palpation: `strace`
+- peira: `peira`
+- photos: `osascript`
+- photos: `tell`
+- photos: `repeat`
+- photos: `end`
+- photos: `sips`
+- poros: `poros`
+- praeco: `praeco`
+- praeco: `launchctl`
+- qianli: `qianli`
+- qmd: `qmd`
+- qmd: `bun`
+- quies: `nyx`
+- rector: `cerno`
+- rector: `opifex`
+- redarguo: `redarguo`
 - replication: `lucus`
-- sporulation: `adj`
-- sporulation: `noun`
+- rust: `bacon`
+- salus: `salus`
+- scrutor: `opencode`
+- skill-review: `evolvo`
+- sopor: `sopor`
+- speculor: `speculor`
+- speculor: `launchctl`
+- summarize: `summarize`
+- summarize: `from`
+- summarize: `ytt`
+- summarize: `transcript`
+- summarize: `entries`
+- summarize: `full_text`
+- synaxis: `synaxis`
+- theoria: `theoria`
+- theoros: `theoros`
+- usage: `claude-monitor`
+- usage: `import`
+- usus: `usus`
+- vectura: `vectura`
+- video-digest: `find-generic-password`
+- video-digest: `yt-dlp`
+- video-digest: `ffmpeg`
+- video-digest: `ffprobe`
+- wechat-article: `exauro`
+- weekly: `oura`
+- weekly: `from`
+- weekly: `import`
+- weekly: `log`
+- weekly: `cutoff`
+- weekly: `fired`
+- weekly: `parts`
+- weekly: `skills_dir`
+- weekly: `name`
+- weekly: `text`
+- weekly: `lines`
+- weekly: `recent`
+- weekly: `counts`
 
 ## Verdict: NEEDS_ATTENTION
 

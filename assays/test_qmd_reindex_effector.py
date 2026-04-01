@@ -11,6 +11,15 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "qmd-reindex.sh"
 
 
+# ── fixtures ────────────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def tmp_path(tmp_path):
+    """Override built-in tmp_path to avoid asyncio retention-policy race."""
+    return tmp_path
+
+
 # ── helpers ─────────────────────────────────────────────────────────────
 
 

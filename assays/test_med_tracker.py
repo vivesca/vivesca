@@ -936,3 +936,496 @@ def test_subprocess_add_and_status(tmp_path):
     )
     assert status_result.returncode == 0
     assert "E2EDrug" in status_result.stdout
+
+
+# ── additional coverage: parse_schedule edge cases ─────────────────────
+
+
+def test_parse_schedule_extra_columns(tmp_path):
+    """parse_schedule takes only first 4 columns when row has extras."""
+    content = """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| WideDrug | 2026-03-01 | 2026-04-01 | normal | extra1 | extra2 |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert len(meds) == 1
+    assert meds[0]["drug"] == "WideDrug"
+    assert meds[0]["notes"] == "normal"
+
+
+def test_parse_schedule_multiple_tables(tmp_path):
+    """parse_schedule picks up rows from all tables, not just the first."""
+    content = """\
+# Section A
+
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugA | 2026-01-01 | 2026-01-10 | First table |
+
+Some text between tables.
+
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugB | 2026-02-01 | 2026-02-10 | Second table |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert len(meds) == 2
+    assert meds[0]["drug"] == "DrugA"
+    assert meds[1]["drug"] == "DrugB"
+
+
+# ── format_date additional edge cases ──────────────────────────────────
+
+
+def test_format_date_slash_separator_raises():
+    """format_date rejects slash-separated dates."""
+    with pytest.raises(ValueError):
+        format_date("2026/04/01")
+
+
+def test_format_date_european_format_raises():
+    """format_date rejects DD-MM-YYYY format."""
+    with pytest.raises(ValueError):
+        format_date("01-04-2026")
+
+
+# ── cmd_status with Unicode ────────────────────────────────────────────
+
+
+def test_cmd_status_unicode_notes(tmp_path, capsys):
+    """cmd_status handles Unicode characters in notes correctly."""
+    start, end = _active_date_range(-2, 5)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Ibuprofène | {start} | {end} | Anti-inflammatoire ≤ 400mg |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "Ibuprofène" in out
+    assert "≤" in out
+
+
+# ── cmd_add with special characters ────────────────────────────────────
+
+
+def test_cmd_add_pipe_in_notes(tmp_path, capsys):
+    """cmd_add writes notes containing pipe characters."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="Piper", start="2026-07-01", end="2026-07-10", notes="see ref | 42")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    content = sched.read_text()
+    assert "Piper" in content
+    assert "|" in content
+
+
+def test_cmd_add_preserves_header_on_fresh_file(tmp_path, capsys):
+    """cmd_add appends to a file that only has the header and separator."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="FreshDrug", start="2026-08-01", end="2026-08-10", notes="brand new")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    content = sched.read_text()
+    lines = content.strip().splitlines()
+    # Header and separator must still be present
+    assert lines[0].startswith("| drug")
+    assert lines[1].startswith("|---")
+    assert "FreshDrug" in lines[-1]
+
+
+# ── cmd_interactions with 3+ concurrent CYP3A4 meds ───────────────────
+
+
+def test_cmd_interactions_three_cyp3a4_meds(tmp_path, capsys):
+    """cmd_interactions warns when 3+ CYP3A4 meds are active simultaneously."""
+    s1, e1 = _active_date_range(-5, 10)
+    s2, e2 = _active_date_range(-3, 12)
+    s3, e3 = _active_date_range(-1, 8)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| InhibitorA | {s1} | {e1} | CYP3A4 inhibitor |
+| SubstrateB | {s2} | {e2} | CYP3A4 substrate |
+| SubstrateC | {s3} | {e3} | CYP3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "CYP3A4 Interaction Warning" in out
+    assert "InhibitorA" in out
+    assert "SubstrateB" in out
+    assert "SubstrateC" in out
+
+
+def test_cmd_interactions_3A4_keyword_only(tmp_path, capsys):
+    """cmd_interactions detects '3A4' keyword alone (without CYP prefix)."""
+    s1, e1 = _active_date_range(-5, 10)
+    s2, e2 = _active_date_range(-3, 12)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugX | {s1} | {e1} | 3A4 metabolized |
+| DrugY | {s2} | {e2} | CYP3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "CYP3A4 Interaction Warning" in out
+    assert "DrugX" in out
+
+
+# ── main() unknown subcommand ──────────────────────────────────────────
+
+
+def test_main_unknown_subcommand():
+    """main() with unknown subcommand exits with error."""
+    _, err, code = _run_main("bogus")
+    assert code == 2  # argparse exits 2 for unknown subcommand
+
+
+# ── subprocess unknown command ─────────────────────────────────────────
+
+
+def test_subprocess_unknown_command():
+    """med-tracker with unknown command exits non-zero."""
+    import subprocess
+    result = subprocess.run(
+        ["python3", str(Path.home() / "germline/effectors/med-tracker"), "nonexistent"],
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode != 0
+
+
+# ── cmd_interactions ValueError path ────────────────────────────────────
+
+
+def test_cmd_interactions_skips_bad_dates(tmp_path, capsys):
+    """cmd_interactions silently skips rows with unparseable dates."""
+    start, end = _active_date_range(-3, 10)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| BadDateDrug | not-a-date | also-bad | CYP3A4 inhibitor |
+| GoodDrug | {start} | {end} | CYP3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    # Only one valid CYP3A4 med — no warning
+    assert "No CYP3A4 interaction concerns" in out
+    assert "GoodDrug" in out
+    assert "BadDateDrug" not in out
+
+
+# ── cmd_add exact-case duplicate ────────────────────────────────────────
+
+
+def test_cmd_add_rejects_duplicate_exact_case(tmp_path):
+    """cmd_add rejects duplicate even when case matches exactly."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Metformin | 2026-01-01 | 2026-01-10 | Diabetes |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="Metformin", start="2026-07-01", end="2026-07-10", notes="repeat")
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_add(args)
+        assert exc_info.value.code == 1
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert "2026-07-01" not in sched.read_text()
+
+
+# ── parse_schedule with alignment colons ────────────────────────────────
+
+
+def test_parse_schedule_alignment_colons_in_separator(tmp_path):
+    """parse_schedule treats alignment-colon separator as a data row.
+
+    The code only skips lines starting with '|---' or '|-'.
+    '|:---' does NOT match, so it gets parsed as a row with ':-----' etc.
+    This documents actual behavior.
+    """
+    content = """\
+| drug | start | end | notes |
+|:-----|:------|:----|:------|
+| ColonDrug | 2026-03-01 | 2026-04-01 | aligned |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    # The colon separator row is NOT filtered (doesn't start with |-)
+    assert len(meds) == 2
+    assert meds[0]["drug"] == ":-----"  # separator row parsed as data
+    assert meds[1]["drug"] == "ColonDrug"
+
+
+# ── parse_schedule in_table persistence ─────────────────────────────────
+
+
+def test_parse_schedule_in_table_persists_across_blank_lines(tmp_path):
+    """parse_schedule continues parsing after blank lines in table region."""
+    content = """\
+# Schedule
+
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Drug1 | 2026-01-01 | 2026-01-10 | first |
+
+| Drug2 | 2026-02-01 | 2026-02-10 | second |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert len(meds) == 2
+    assert meds[0]["drug"] == "Drug1"
+    assert meds[1]["drug"] == "Drug2"
+
+
+# ── cmd_add with hyphenated drug name ───────────────────────────────────
+
+
+def test_cmd_add_hyphenated_drug_name(tmp_path, capsys):
+    """cmd_add handles drug names with hyphens."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="Co-amoxiclav", start="2026-05-01", end="2026-05-14", notes="antibiotic")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    content = sched.read_text()
+    assert "Co-amoxiclav" in content
+    assert "antibiotic" in content
+
+
+# ── subprocess add duplicate ────────────────────────────────────────────
+
+
+def test_subprocess_add_duplicate(tmp_path):
+    """med-tracker add rejects duplicate via subprocess."""
+    import subprocess
+    sched_dir = tmp_path / "epigenome" / "chromatin" / "Health"
+    sched_dir.mkdir(parents=True, exist_ok=True)
+    (sched_dir / "medication-schedule.md").write_text(
+        "| drug | start | end | notes |\n|------|-------|-----|-------|\n"
+        "| Dup | 2026-01-01 | 2026-01-10 | Original |\n"
+    )
+    env = {**os.environ, "HOME": str(tmp_path)}
+    script = str(Path.home() / "germline/effectors/med-tracker")
+
+    result = subprocess.run(
+        [script, "add", "dup", "--start", "2026-10-01", "--end", "2026-10-10"],
+        capture_output=True, text=True, timeout=10, env=env,
+    )
+    assert result.returncode == 1
+    assert "already exists" in result.stderr
+
+
+# ── cmd_status all expired ──────────────────────────────────────────────
+
+
+def test_cmd_status_all_expired_shows_no_active(tmp_path, capsys):
+    """cmd_status shows no active medications when all entries are expired."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Old1 | 2025-01-01 | 2025-01-15 | Gone |
+| Old2 | 2025-12-01 | 2025-12-31 | Also gone |
+| Old3 | 2026-01-01 | 2026-01-05 | Done |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "No active medications" in out
+    assert "Old1" not in out
+    assert "Old2" not in out
+    assert "Old3" not in out
+
+
+# ── format_date trailing whitespace ─────────────────────────────────────
+
+
+def test_format_date_trailing_whitespace_raises():
+    """format_date rejects date with trailing whitespace."""
+    with pytest.raises(ValueError):
+        format_date("2026-04-01  ")
+
+
+def test_format_date_leading_whitespace_raises():
+    """format_date rejects date with leading whitespace."""
+    with pytest.raises(ValueError):
+        format_date("  2026-04-01")
+
+
+# ── parse_schedule single-field row ─────────────────────────────────────
+
+
+def test_parse_schedule_single_field_row_skipped(tmp_path):
+    """parse_schedule skips rows with only 1-3 columns."""
+    content = """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| OnlyOne |
+| Two | TwoB |
+| Three | ThreeB | ThreeC |
+| ValidEntry | 2026-03-01 | 2026-04-01 | ok |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert len(meds) == 1
+    assert meds[0]["drug"] == "ValidEntry"
+
+
+# ── cmd_status heading and format ───────────────────────────────────────
+
+
+def test_cmd_status_output_contains_heading(tmp_path, capsys):
+    """cmd_status output starts with '# Medication Status' heading."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert out.startswith("# Medication Status")
+
+
+# ── cmd_interactions output heading ──────────────────────────────────────
+
+
+def test_cmd_interactions_output_contains_heading(tmp_path, capsys):
+    """cmd_interactions output starts with '# Medication Interactions'."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert out.startswith("# Medication Interactions")
+
+
+# ── subprocess interactions via exec with populated schedule ────────────
+
+
+def test_subprocess_interactions_with_cyp3a4_warning(tmp_path):
+    """med-tracker interactions shows warning when multiple CYP3A4 meds active."""
+    import subprocess
+    start1, end1 = _active_date_range(-5, 10)
+    start2, end2 = _active_date_range(-3, 12)
+    sched_dir = tmp_path / "epigenome" / "chromatin" / "Health"
+    sched_dir.mkdir(parents=True, exist_ok=True)
+    (sched_dir / "medication-schedule.md").write_text(
+        f"| drug | start | end | notes |\n|------|-------|-----|-------|\n"
+        f"| DrugA | {start1} | {end1} | CYP3A4 inhibitor |\n"
+        f"| DrugB | {start2} | {end2} | CYP3A4 substrate |\n"
+    )
+    env = {**os.environ, "HOME": str(tmp_path)}
+    script = str(Path.home() / "germline/effectors/med-tracker")
+
+    result = subprocess.run(
+        [script, "interactions"],
+        capture_output=True, text=True, timeout=10, env=env,
+    )
+    assert result.returncode == 0
+    assert "CYP3A4 Interaction Warning" in result.stdout
+
+
+# ── cmd_add file permission handling ────────────────────────────────────
+
+
+def test_cmd_add_to_readonly_file_raises(tmp_path):
+    """cmd_add raises when schedule file is read-only."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Existing | 2026-01-01 | 2026-01-10 | Old |
+""")
+    sched.chmod(0o444)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="Blocked", start="2026-09-01", end="2026-09-10", notes="nope")
+        with pytest.raises(PermissionError):
+            cmd_add(args)
+    finally:
+        sched.chmod(0o644)
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH

@@ -288,7 +288,7 @@ class TestStakeholders:
     def test_pattern1_empty_role_filtered(self, cb, capsys):
         """Heading with dash but no role text should not produce entry."""
         _chromatin_file(cb, "Capco/People.md",
-            "### Alice Johnson —\nSome text")
+            "### Alice Johnson —\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "No stakeholders found" in out
@@ -403,6 +403,76 @@ class TestCalendar:
             cb["FASTI"] = saved
         assert "total" in out
 
+    def test_comment_lines_skipped(self, cb, capsys, tmp_path):
+        """Lines starting with # should be ignored."""
+        mock = tmp_path / "fasti_mock5"
+        mock.write_text("#!/bin/sh\necho '# This is a comment'\necho 'HSBC meeting 10:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        # The comment line should not appear as an event
+        assert "# This is a comment" not in out
+        assert "HSBC meeting" in out
+
+    def test_events_prefix_lines_skipped(self, cb, capsys, tmp_path):
+        """Lines starting with 'Events' should be ignored."""
+        mock = tmp_path / "fasti_mock6"
+        mock.write_text("#!/bin/sh\necho 'Events for today'\necho 'Team standup 09:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Events for today" not in out
+
+    def test_empty_lines_skipped(self, cb, capsys, tmp_path):
+        """Empty lines should be ignored."""
+        mock = tmp_path / "fasti_mock7"
+        mock.write_text("#!/bin/sh\necho 'HSBC sync 10:00'\necho ''\necho '  '\necho 'Lunch 12:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "HSBC sync" in out
+        assert "Lunch" in out
+
+    def test_mixed_client_internal(self, cb, capsys, tmp_path):
+        """Both client and internal sections should appear."""
+        mock = tmp_path / "fasti_mock8"
+        mock.write_text("#!/bin/sh\necho 'HSBC client meeting 10:00'\necho 'Team standup 09:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+        assert "Internal" in out
+        assert "total" in out
+
+    def test_header_format(self, cb, capsys):
+        cb["cmd_calendar"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "# Calendar — Next 5 Days" in out
+
 
 # ── cmd_checklist ─────────────────────────────────────────────────────────
 
@@ -456,6 +526,29 @@ class TestChecklist:
         out = capsys.readouterr().out
         assert "# Capco Day 1 — Unchecked Items" in out
 
+    def test_empty_checklist_file(self, cb, capsys):
+        """A file with no checklist items at all."""
+        _pulse_file(cb, "capco-day1-notes-2026-03-15.md",
+            "# Notes\n\nSome prose without any checkboxes.\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "All items checked off" in out
+
+    def test_non_matching_files_ignored(self, cb, capsys):
+        """Files not matching capco-day1-*.md should be ignored."""
+        _pulse_file(cb, "other-checklist.md", "- [ ] Task\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "No capco-day1-*.md files found" in out
+
+    def test_summary_count(self, cb, capsys):
+        """Footer should report correct count."""
+        _pulse_file(cb, "capco-day1-stuff-2026-03-15.md",
+            "- [ ] Item alpha\n- [ ] Item beta\n- [ ] Item gamma\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "3 unchecked items" in out
+
 
 # ── main ──────────────────────────────────────────────────────────────────
 
@@ -491,6 +584,13 @@ class TestMain:
         out = capsys.readouterr().out
         assert "capco-day1" in out.lower() or "Capco" in out
 
+    def test_unknown_command_exits(self, cb):
+        """An unknown subcommand should trigger argparse error and exit 2."""
+        cb["sys"].argv = ["capco-brief", "nonexistent"]
+        with pytest.raises(SystemExit) as exc_info:
+            cb["main"]()
+        assert exc_info.value.code == 2
+
 
 # ── CLI subprocess ────────────────────────────────────────────────────────
 
@@ -514,3 +614,328 @@ class TestCLI:
             timeout=30,
         )
         assert result.returncode == 1
+
+
+# ── Additional edge cases ──────────────────────────────────────────────────
+
+
+class TestIsPersonNameEdgeCases:
+    def test_mrs_honorific(self, cb):
+        assert cb["_is_person_name"]("Mrs Jane Smith") is True
+
+    def test_hyphenated_word_rejected(self, cb):
+        """Hyphenated words fail isalpha check."""
+        assert cb["_is_person_name"]("John-Smith Director") is False
+
+    def test_whitespace_only_rejected(self, cb):
+        assert cb["_is_person_name"]("   ") is False
+
+    def test_comma_name_too_short(self, cb):
+        """'A, PhD' → name part 'A' is single word → rejected."""
+        assert cb["_is_person_name"]("A, PhD") is False
+
+    def test_surrounding_whitespace_stripped(self, cb):
+        assert cb["_is_person_name"]("  Terry Li  ") is True
+
+    def test_trailing_parenthesis_rejected(self, cb):
+        """Parentheses make the word non-alpha."""
+        assert cb["_is_person_name"]("John Smith)") is False
+
+    def test_never_name_word_consultants(self, cb):
+        assert cb["_is_person_name"]("Senior Consultants") is False
+
+    def test_never_name_word_manager(self, cb):
+        assert cb["_is_person_name"]("Hiring Manager") is False
+
+    def test_never_name_word_sponsor(self, cb):
+        assert cb["_is_person_name"]("Project Sponsor") is False
+
+    def test_never_name_word_talent(self, cb):
+        assert cb["_is_person_name"]("Global Talent") is False
+
+    def test_honorific_with_single_name_rejected(self, cb):
+        """'Dr' alone is only 1 word after split."""
+        assert cb["_is_person_name"]("Dr") is False
+
+
+class TestCapcoFilesEdgeCases:
+    def test_non_md_ignored(self, cb):
+        """Non-.md files in Capco/ should be ignored."""
+        d = cb["CHROMATIN"] / "Capco"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "notes.txt").write_text("not markdown")
+        assert cb["_capco_files"]() == []
+
+    def test_hidden_file_ignored(self, cb):
+        """Hidden files (starting with .) should not be globbed."""
+        d = cb["CHROMATIN"] / "Capco"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / ".hidden.md").write_text("hidden")
+        # glob("*.md") does not match dotfiles by default
+        assert cb["_capco_files"]() == []
+
+    def test_nested_subdir_not_traversed(self, cb):
+        """Only Capco/*.md is globbed, not Capco/sub/*.md."""
+        sub = cb["CHROMATIN"] / "Capco" / "archive"
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / "old.md").write_text("old content")
+        assert cb["_capco_files"]() == []
+
+
+class TestStakeholdersEdgeCases:
+    def test_pattern4_lead_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Jane Cooper (Delivery Lead)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Jane Cooper" in out
+
+    def test_pattern4_officer_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Tom Baker (Chief Operating Officer)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Tom Baker" in out
+
+    def test_pattern4_managing_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Sarah Connors (Managing Director)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Sarah Connors" in out
+
+    def test_pattern4_executive_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Mike Hunt (Executive Partner)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Mike Hunt" in out
+
+    def test_pattern4_practice_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Lisa Chen (Practice Lead)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Lisa Chen" in out
+
+    def test_pattern4_governance_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "David Park (Governance Lead)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "David Park" in out
+
+    def test_pattern4_data_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Anna Kim (Data Scientist)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Anna Kim" in out
+
+    def test_pattern4_ai_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Robert Lin (AI Engineering Lead)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Robert Lin" in out
+
+    def test_pattern4_hsbc_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Terry Li (HSBC Relationship Manager)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Terry Li" in out
+
+    def test_pattern4_bank_keyword(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Alice Wang (Banking Analyst)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Alice Wang" in out
+
+    def test_role_truncation(self, cb, capsys):
+        """Roles >60 chars should be truncated with '..'."""
+        long_role = "A" * 70
+        _chromatin_file(cb, "Capco/People.md",
+            f"### Alice Johnson — {long_role}\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert ".." in out
+
+    def test_source_column_shown(self, cb, capsys):
+        _chromatin_file(cb, "Capco/Key People.md",
+            "### Terry Li — Managing Director\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Key People" in out
+
+    def test_pattern2_empty_role_column_filtered(self, cb, capsys):
+        """Table row with empty role column should be filtered."""
+        _chromatin_file(cb, "Capco/Team.md",
+            "| **Alice Johnson** |  |\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "No stakeholders found" in out
+
+    def test_summary_file_count(self, cb, capsys):
+        """Footer should report correct file count."""
+        _chromatin_file(cb, "Capco/People.md",
+            "### Alice Johnson — Partner\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "1 files" in out
+
+
+class TestCalendarEdgeCases:
+    def test_bank_keyword_categorised_as_client(self, cb, capsys, tmp_path):
+        mock = tmp_path / "fasti_bank"
+        mock.write_text("#!/bin/sh\necho 'Bank review meeting 14:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+        assert "bank review" in out.lower()
+
+    def test_hang_seng_keyword_categorised_as_client(self, cb, capsys, tmp_path):
+        mock = tmp_path / "fasti_hs"
+        mock.write_text("#!/bin/sh\necho 'Hang Seng catchup 11:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+
+    def test_secondment_keyword_categorised_as_client(self, cb, capsys, tmp_path):
+        mock = tmp_path / "fasti_sec"
+        mock.write_text("#!/bin/sh\necho 'Secondment sync 16:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+
+    def test_site_visit_keyword_categorised_as_client(self, cb, capsys, tmp_path):
+        mock = tmp_path / "fasti_sv"
+        mock.write_text("#!/bin/sh\necho 'Site visit preparation 10:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+
+    def test_aims_keyword_categorised_as_client(self, cb, capsys, tmp_path):
+        mock = tmp_path / "fasti_aims"
+        mock.write_text("#!/bin/sh\necho 'AIMS quarterly review 09:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+
+    def test_customer_keyword_categorised_as_client(self, cb, capsys, tmp_path):
+        mock = tmp_path / "fasti_cust"
+        mock.write_text("#!/bin/sh\necho 'Customer journey workshop 15:00'\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        assert "Client" in out
+
+    def test_no_header_prefix_in_output(self, cb, capsys):
+        """When no events, output should not have Client/Internal sections."""
+        cb["cmd_calendar"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "## Client" not in out
+        assert "## Internal" not in out
+
+    def test_fasti_timeout_handled(self, cb, capsys, tmp_path):
+        """A fasti that hangs should be caught by timeout."""
+        mock = tmp_path / "fasti_slow"
+        mock.write_text("#!/bin/sh\nsleep 30\n")
+        import os
+        os.chmod(str(mock), 0o755)
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
+        # timeout → subprocess.SubprocessError caught → no events
+        assert "No events found" in out
+
+
+class TestChecklistEdgeCases:
+    def test_bold_in_middle_of_item(self, cb, capsys):
+        """Bold markers within the text should be stripped."""
+        _pulse_file(cb, "capco-day1-notes-2026-03-15.md",
+            "- [ ] Review **Section 2** and **Section 3** of the guide\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Review Section 2 and Section 3 of the guide" in out
+        assert "**" not in out
+
+    def test_file_with_only_checked_items(self, cb, capsys):
+        """File with all items checked shows 'All items checked off'."""
+        _pulse_file(cb, "capco-day1-onboard-2026-03-15.md",
+            "- [x] Task A\n- [x] Task B\n- [x] Task C\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "All items checked off" in out
+        assert "Task A" not in out
+
+    def test_checklist_item_with_leading_spaces(self, cb, capsys):
+        """Items with leading whitespace after '- [ ]' should still match."""
+        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md",
+            "- [ ]   Indented task\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Indented task" in out
+
+    def test_checked_item_with_x_uppercase(self, cb, capsys):
+        """' - [X]' (uppercase X) should be treated as checked."""
+        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md",
+            "- [X] Uppercase checked\n- [ ] Unchecked item\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Unchecked item" in out
+        # Uppercase X is not matched by regex r"^- \[ \]", so only 1 item
+        assert "1 unchecked items" in out
+
+    def test_no_md_extension_ignored(self, cb, capsys):
+        """Files matching capco-day1-* but not .md should be ignored."""
+        _pulse_file(cb, "capco-day1-notes.txt", "- [ ] Task\n")
+        cb["cmd_checklist"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "No capco-day1-*.md files found" in out

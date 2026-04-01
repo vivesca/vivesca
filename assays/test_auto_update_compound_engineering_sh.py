@@ -660,3 +660,160 @@ class TestSourceNoHardcodedPaths:
         """LOG_FILE is derived from $HOME, not a hard-coded absolute path."""
         src = SCRIPT.read_text()
         assert 'LOG_FILE="$HOME/' in src
+
+
+# ── extra arguments / robustness tests ──────────────────────────────────────
+
+
+class TestExtraArguments:
+    def test_unknown_args_still_run_updates(self, tmp_path):
+        """Passing extra unknown args doesn't prevent the script from running."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        r = _run_script(args=["--unknown-flag"], path_dirs=[bindir], tmp_path=tmp_path)
+        # Script doesn't validate extra args — still runs updates
+        assert r.returncode == 0
+        assert record.exists()
+        calls = record.read_text()
+        assert "@every-env/compound-plugin" in calls
+
+    def test_no_args_runs_normally(self, tmp_path):
+        """Running with no arguments performs updates normally."""
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.returncode == 0
+        log_text = _log_file(tmp_path).read_text()
+        assert "Update completed:" in log_text
+
+
+# ── log file permissions tests ──────────────────────────────────────────────
+
+
+class TestLogFilePermissions:
+    def test_log_file_readable_by_user(self, tmp_path):
+        """Log file is readable after creation."""
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log = _log_file(tmp_path)
+        assert log.exists()
+        assert os.access(log, os.R_OK)
+
+    def test_log_file_is_regular_file(self, tmp_path):
+        """Log file is a regular file, not a directory or symlink."""
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log = _log_file(tmp_path)
+        assert log.is_file()
+
+
+# ── runner command structure tests ──────────────────────────────────────────
+
+
+class TestRunnerCommandStructure:
+    def test_opencode_command_has_install_subcommand(self, tmp_path):
+        """The opencode invocation uses 'install' subcommand."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        lines = record.read_text().strip().splitlines()
+        assert "install" in lines[0]
+
+    def test_codex_command_has_install_subcommand(self, tmp_path):
+        """The codex invocation uses 'install' subcommand."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        lines = record.read_text().strip().splitlines()
+        assert "install" in lines[1]
+
+    def test_both_invocations_install_compound_engineering(self, tmp_path):
+        """Both calls install 'compound-engineering' specifically."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        lines = record.read_text().strip().splitlines()
+        for line in lines:
+            assert "install compound-engineering" in line
+
+
+# ── log content on no-runner error ──────────────────────────────────────────
+
+
+class TestNoRunnerLogContent:
+    def test_no_runner_log_has_no_update_markers(self, tmp_path):
+        """When no runner is found, log should not contain update markers."""
+        no_runner = TestRunnerSelection()._no_runner_path(tmp_path)
+        _run_script(env_extra={"PATH": no_runner}, tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "Update started:" not in log_text
+        assert "Update completed:" not in log_text
+
+    def test_no_runner_exits_before_update_section(self, tmp_path):
+        """Script exits early before running any updates when no runner available."""
+        no_runner = TestRunnerSelection()._no_runner_path(tmp_path)
+        _run_script(env_extra={"PATH": no_runner}, tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "Updating OpenCode" not in log_text
+        assert "Updating Codex" not in log_text
+
+
+# ── help vs run: side-effect isolation ──────────────────────────────────────
+
+
+class TestHelpVsRunIsolation:
+    def test_help_does_not_call_runner(self, tmp_path):
+        """--help should not invoke bunx/npx at all."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(args=["--help"], path_dirs=[bindir], tmp_path=tmp_path)
+        assert not record.exists() or record.read_text().strip() == ""
+
+    def test_help_short_flag_does_not_call_runner(self, tmp_path):
+        """-h should not invoke bunx/npx at all."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(args=["-h"], path_dirs=[bindir], tmp_path=tmp_path)
+        assert not record.exists() or record.read_text().strip() == ""
+
+
+# ── flaky runner: first fails, second succeeds ──────────────────────────────
+
+
+class TestFlakyRunnerReversed:
+    def _make_flaky_bin_reverse(self, tmp_path: Path) -> Path:
+        """Create a mock bunx that fails first call, succeeds second."""
+        bindir = tmp_path / "bin"
+        bindir.mkdir(exist_ok=True)
+        count_file = tmp_path / ".call_count"
+        count_file.write_text("0")
+        script = bindir / "bunx"
+        script.write_text(
+            '#!/bin/bash\n'
+            f'COUNT_FILE="{count_file}"\n'
+            'COUNT=$(cat "$COUNT_FILE")\n'
+            'COUNT=$((COUNT + 1))\n'
+            'echo $COUNT > "$COUNT_FILE"\n'
+            'if [ "$COUNT" -eq 1 ]; then\n'
+            '    echo "failure"\n'
+            '    exit 1\n'
+            'else\n'
+            '    echo "success"\n'
+            '    exit 0\n'
+            'fi\n'
+        )
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        return bindir
+
+    def test_first_fails_second_succeeds_log(self, tmp_path):
+        """First target (opencode) fails, second (codex) succeeds."""
+        bindir = self._make_flaky_bin_reverse(tmp_path)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "❌ OpenCode update failed" in log_text
+        assert "✅ Codex updated successfully" in log_text
+
+    def test_reversed_failure_still_exits_0(self, tmp_path):
+        """Script exits 0 even when first update fails and second succeeds."""
+        bindir = self._make_flaky_bin_reverse(tmp_path)
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.returncode == 0
