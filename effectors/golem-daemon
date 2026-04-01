@@ -1331,9 +1331,12 @@ def daemon_loop():
 
                 time.sleep(POLL_INTERVAL)
 
-        # Graceful shutdown: wait for running tasks to finish
-        if running:
-            _drain_running(running, timeout=60)
+        # Graceful shutdown: drain running tasks, then commit+push
+        remaining = _drain_running(running, timeout=60)
+        if remaining:
+            log(f"SIGTERM: {remaining} tasks still running after 60s drain, forcing shutdown")
+        else:
+            log("SIGTERM: all running tasks completed during drain")
 
     except KeyboardInterrupt:
         log("Interrupted")

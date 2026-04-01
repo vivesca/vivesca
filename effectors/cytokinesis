@@ -354,26 +354,37 @@ def cmd_gather(args):
     results["now"]["age_label"] = label
     results["now"]["age_seconds"] = secs
 
-    # RFTS gate (methylation mark verification)
-    results["rfts"] = rfts_verify()
+    # RFTS gate (methylation mark verification) — slow, run in thread
+    # Deps, Peira, Reflect, Methylation — parallelize all slow checks
+    import concurrent.futures
 
-    # Deps
-    results["deps"] = dep_check()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+        rfts_fut = pool.submit(rfts_verify)
+        deps_fut = pool.submit(dep_check)
+        peira_fut = pool.submit(peira_status)
+        sid = latest_session_id() if args.reflect else None
+        reflect_fut = pool.submit(run_reflect, sid) if sid else None
+        methyl_fut = pool.submit(run_methylation_audit)
 
-    # Peira
-    results["peira"] = peira_status()
+        for name, fut, key, default in [
+            ("rfts", rfts_fut, "rfts", []),
+            ("deps", deps_fut, "deps", []),
+            ("peira", peira_fut, "peira", None),
+            ("methylation", methyl_fut, "methylation", {}),
+        ]:
+            try:
+                results[key] = fut.result(timeout=10)
+            except (concurrent.futures.TimeoutError, Exception):
+                results[key] = default
 
-    # Reflection scan (auto-detect current session)
-    sid = latest_session_id()
-    if sid:
-        candidates, reflect_usage = run_reflect(sid)
-        results["reflect"] = candidates
-        results["reflect_session"] = sid
-        results["reflect_usage"] = reflect_usage
-
-    # Methylation audit (genome rules → hooks/skills check)
-    methylation = run_methylation_audit()
-    results["methylation"] = methylation
+        if reflect_fut:
+            try:
+                candidates, reflect_usage = reflect_fut.result(timeout=20)
+                results["reflect"] = candidates
+                results["reflect_session"] = sid
+                results["reflect_usage"] = reflect_usage
+            except (concurrent.futures.TimeoutError, Exception):
+                results["reflect"] = []
 
     # Output
     if args.syntactic:
@@ -1026,6 +1037,7 @@ def main():
     g.add_argument("--syntactic", action="store_true", help="JSON output (for code)")
     g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
     g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
+    g.add_argument("--reflect", action="store_true", help="Include LLM reflection scan (slow)")
 
     # archive
     sub.add_parser("archive", help="Move completed items to archive")

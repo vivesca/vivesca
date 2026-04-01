@@ -263,7 +263,7 @@ _run_golem() {
     prompt="$(cat "$_coaching_tmp")"
     rm -f "$_coaching_tmp"
   fi
-  local args=(--print --dangerously-skip-permissions --max-turns "$MAX_TURNS")
+  local args=(--print --no-session-persistence --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
   local start_ts=$(date +%s)
   local output
