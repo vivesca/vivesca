@@ -1,70 +1,115 @@
 from __future__ import annotations
 
+"""Tests for metabolon/respirometry/schema.py."""
+
+
+import pytest
+
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
-def test_consumption_event_properties() -> None:
-    # Test a charge (negative HKD)
-    charge_event = ConsumptionEvent(
-        date="2024-05-15",
-        merchant="ParknShop",
-        category="Groceries",
+# ── ConsumptionEvent tests ────────────────────────────────────────────────
+
+
+def test_consumption_event_creation():
+    """Test basic CreationEvent initialization."""
+    event = ConsumptionEvent(
+        date="2026-04-01",
+        merchant="Coffee Shop",
+        category="Food & Dining",
         currency="HKD",
         foreign_amount=None,
-        hkd=-125.50,
+        hkd=-45.0,
+    )
+    assert event.date == "2026-04-01"
+    assert event.merchant == "Coffee Shop"
+    assert event.category == "Food & Dining"
+    assert event.currency == "HKD"
+    assert event.foreign_amount is None
+    assert event.hkd == -45.0
+
+
+def test_consumption_event_is_charge():
+    """Test is_charge property (negative HKD)."""
+    charge_event = ConsumptionEvent(
+        date="2026-04-01",
+        merchant="Coffee Shop",
+        category="Food & Dining",
+        currency="HKD",
+        foreign_amount=None,
+        hkd=-45.0,
     )
     assert charge_event.is_charge is True
     assert charge_event.is_credit is False
 
-    # Test a credit (positive HKD)
+
+def test_consumption_event_is_credit():
+    """Test is_credit property (positive HKD)."""
     credit_event = ConsumptionEvent(
-        date="2024-05-16",
+        date="2026-04-01",
         merchant="Refund",
-        category="Refund",
+        category="Refunds",
         currency="HKD",
         foreign_amount=None,
-        hkd=50.00,
+        hkd=45.0,
     )
-    assert credit_event.is_charge is False
     assert credit_event.is_credit is True
+    assert credit_event.is_charge is False
 
-    # Test with foreign amount
-    foreign_event = ConsumptionEvent(
-        date="2024-05-17",
+
+def test_consumption_event_with_foreign_amount():
+    """Test ConsumptionEvent with foreign_amount set."""
+    event = ConsumptionEvent(
+        date="2026-04-01",
         merchant="Amazon US",
-        currency="USD",
-        foreign_amount=30.00,
         category="Shopping",
-        hkd=-234.00,
+        currency="USD",
+        foreign_amount=29.99,
+        hkd=-235.0,
     )
-    assert foreign_event.is_charge is True
-    assert foreign_event.foreign_amount == 30.00
+    assert event.currency == "USD"
+    assert event.foreign_amount == 29.99
+    assert event.hkd == -235.0
 
 
-def test_resirogram_meta_filename_stem() -> None:
+# ── RespirogramMeta tests ─────────────────────────────────────────────────
+
+
+def test_resiprogram_meta_creation():
+    """Test basic RespirogramMeta initialization."""
     meta = RespirogramMeta(
         bank="mox",
         card="Mox Credit Card",
-        period_start="2024-05-01",
-        period_end="2024-05-31",
-        statement_date="2024-05-31",
-        balance=1500.00,
-        minimum_due=150.00,
-        due_date="2024-06-15",
-        credit_limit=50000.00,
+        period_start="2026-03-01",
+        period_end="2026-03-31",
+        statement_date="2026-04-01",
+        balance=5000.0,
+        minimum_due=500.0,
+        due_date="2026-04-21",
+        credit_limit=100000.0,
     )
-    assert meta.filename_stem == "2024-05-mox"
+    assert meta.bank == "mox"
+    assert meta.card == "Mox Credit Card"
+    assert meta.period_start == "2026-03-01"
+    assert meta.period_end == "2026-03-31"
+    assert meta.statement_date == "2026-04-01"
+    assert meta.balance == 5000.0
+    assert meta.minimum_due == 500.0
+    assert meta.due_date == "2026-04-21"
+    assert meta.credit_limit == 100000.0
 
-    # Test another bank
-    hsbc_meta = RespirogramMeta(
+
+def test_resiprogram_meta_filename_stem():
+    """Test filename_stem property."""
+    meta = RespirogramMeta(
         bank="hsbc",
         card="HSBC Visa",
-        period_start="2024-04-01",
-        period_end="2024-04-30",
-        statement_date="2024-04-30",
-        balance=0.0,
-        minimum_due=0.0,
-        due_date="2024-05-15",
-        credit_limit=100000.00,
+        period_start="2026-02-01",
+        period_end="2026-02-28",
+        statement_date="2026-03-05",
+        balance=1234.56,
+        minimum_due=123.46,
+        due_date="2026-03-25",
+        credit_limit=50000.0,
     )
-    assert hsbc_meta.filename_stem == "2024-04-hsbc"
+    assert meta.filename_stem == "2026-03-hsbc"
