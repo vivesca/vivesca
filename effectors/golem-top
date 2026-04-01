@@ -27,7 +27,8 @@ def get_ps_output() -> str:
     result = subprocess.run(
         ["ps", "-eo", "pid,etime,args"],
         capture_output=True, text=True,
-, timeout=300, )
+        timeout=300,
+    )
     return result.stdout
 
 def parse_ps_lines(raw: str) -> list[dict]:
