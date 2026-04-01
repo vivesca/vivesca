@@ -28,6 +28,9 @@ scan_log = _mod["scan_log"]
 get_recent_files = _mod["get_recent_files"]
 run_pytest_on_files = _mod["run_pytest_on_files"]
 check_consulting_content = _mod["check_consulting_content"]
+_detect_section_keyword = _mod["_detect_section_keyword"]
+_compute_quality_score = _mod["_compute_quality_score"]
+_verdict_from_score = _mod["_verdict_from_score"]
 diagnose_failure = _mod["diagnose_failure"]
 read_log_tail = _mod["read_log_tail"]
 count_pending_tasks = _mod["count_pending_tasks"]
@@ -469,6 +472,10 @@ class TestCheckConsultingContent:
         assert r[0]["has_paragraphs"] is False
         assert r[0]["has_structure_elements"] is False
         assert r[0]["structure_ok"] is False
+        assert r[0]["has_introduction"] is False
+        assert r[0]["has_conclusion"] is False
+        assert r[0]["quality_score"] == 0
+        assert r[0]["verdict"] == "poor"
 
     def test_multiple_files(self, tmp_path):
         (tmp_path / "a.md").write_text("# A\n\n" + " ".join(["w"] * 250) + "\n\n- item\n")
@@ -481,6 +488,224 @@ class TestCheckConsultingContent:
             _mod["GERMLINE"] = orig
         assert r[0]["structure_ok"] is True
         assert r[1]["structure_ok"] is False
+
+
+# ── _detect_section_keyword ───────────────────────────────────────────
+
+
+class TestDetectSectionKeyword:
+    def test_introduction(self):
+        lines = ["# Introduction", "", "Some text."]
+        assert _detect_section_keyword(lines, ("introduction", "intro")) is True
+
+    def test_case_insensitive(self):
+        lines = ["## OVERVIEW OF FINDINGS"]
+        assert _detect_section_keyword(lines, ("overview",)) is True
+
+    def test_conclusion_variants(self):
+        for heading in ["## Conclusion", "## Summary", "## Recommendations", "## Next Steps"]:
+            assert _detect_section_keyword(
+                [heading], ("conclusion", "summary", "recommendations", "next steps")
+            ) is True
+
+    def test_no_match(self):
+        lines = ["# Methods", "## Results", "Some details."]
+        assert _detect_section_keyword(lines, ("introduction", "intro")) is False
+
+    def test_keyword_in_body_not_heading(self):
+        lines = ["# Results", "The introduction of this study..."]
+        assert _detect_section_keyword(lines, ("introduction",)) is False
+
+    def test_empty_lines(self):
+        assert _detect_section_keyword([], ("intro",)) is False
+
+
+# ── _compute_quality_score ─────────────────────────────────────────────
+
+
+class TestComputeQualityScore:
+    def test_perfect_score(self):
+        entry = {
+            "word_count": 600, "has_headings": True, "has_paragraphs": True,
+            "has_structure_elements": True, "has_introduction": True,
+            "has_conclusion": True,
+        }
+        assert _compute_quality_score(entry) == 100
+
+    def test_zero_score(self):
+        entry = {"word_count": 0}
+        assert _compute_quality_score(entry) == 0
+
+    def test_word_count_partial(self):
+        entry = {"word_count": 250, "has_headings": False, "has_paragraphs": False,
+                 "has_structure_elements": False, "has_introduction": False,
+                 "has_conclusion": False}
+        score = _compute_quality_score(entry)
+        assert 10 <= score <= 20  # ~15 from word count (250/500*30)
+
+    def test_word_count_max_30(self):
+        entry = {"word_count": 5000, "has_headings": False, "has_paragraphs": False,
+                 "has_structure_elements": False, "has_introduction": False,
+                 "has_conclusion": False}
+        assert _compute_quality_score(entry) == 30
+
+    def test_structure_only(self):
+        entry = {"word_count": 0, "has_headings": True, "has_paragraphs": True,
+                 "has_structure_elements": True, "has_introduction": False,
+                 "has_conclusion": False}
+        assert _compute_quality_score(entry) == 40
+
+    def test_all_structure_no_words(self):
+        entry = {"word_count": 0, "has_headings": True, "has_paragraphs": True,
+                 "has_structure_elements": True, "has_introduction": True,
+                 "has_conclusion": True}
+        assert _compute_quality_score(entry) == 70
+
+
+# ── _verdict_from_score ────────────────────────────────────────────────
+
+
+class TestVerdictFromScore:
+    def test_excellent(self):
+        assert _verdict_from_score(80) == "excellent"
+        assert _verdict_from_score(100) == "excellent"
+
+    def test_good(self):
+        assert _verdict_from_score(60) == "good"
+        assert _verdict_from_score(79) == "good"
+
+    def test_needs_work(self):
+        assert _verdict_from_score(40) == "needs_work"
+        assert _verdict_from_score(59) == "needs_work"
+
+    def test_poor(self):
+        assert _verdict_from_score(0) == "poor"
+        assert _verdict_from_score(39) == "poor"
+
+
+# ── check_consulting_content quality scoring ───────────────────────────
+
+
+class TestCheckConsultingContentQuality:
+    def test_excellent_document(self, tmp_path):
+        f = tmp_path / "excellent.md"
+        body = ("This is the introduction paragraph with enough content "
+                "to meet the word count requirement for a proper report. " * 15)
+        f.write_text(textwrap.dedent(f"""\
+            # Report Title
+
+            ## Introduction
+
+            {body}
+
+            ## Analysis
+
+            - Key finding one with detailed explanation
+            - Key finding two with supporting evidence
+
+            **Important**: This is a critical insight.
+
+            ## Conclusion
+
+            This concludes our analysis with actionable takeaways.
+        """))
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["excellent.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["adequate"] is True
+        assert r[0]["has_introduction"] is True
+        assert r[0]["has_conclusion"] is True
+        assert r[0]["quality_score"] >= 80
+        assert r[0]["verdict"] == "excellent"
+
+    def test_poor_document(self, tmp_path):
+        f = tmp_path / "poor.md"
+        f.write_text("Just a line.\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["poor.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["adequate"] is False
+        assert r[0]["quality_score"] < 40
+        assert r[0]["verdict"] == "poor"
+
+    def test_introduction_detection(self, tmp_path):
+        f = tmp_path / "intro.md"
+        f.write_text("# Overview\n\n" + " ".join(["word"] * 250) + "\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["intro.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_introduction"] is True
+        assert r[0]["has_conclusion"] is False
+
+    def test_conclusion_detection(self, tmp_path):
+        f = tmp_path / "concl.md"
+        f.write_text("# Summary\n\n" + " ".join(["word"] * 250) + "\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["concl.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_introduction"] is False
+        assert r[0]["has_conclusion"] is True
+
+    def test_background_counts_as_intro(self, tmp_path):
+        f = tmp_path / "bg.md"
+        f.write_text("## Background\n\n" + " ".join(["word"] * 250) + "\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["bg.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_introduction"] is True
+
+    def test_takeaways_counts_as_conclusion(self, tmp_path):
+        f = tmp_path / "take.md"
+        f.write_text("## Takeaways\n\n" + " ".join(["word"] * 250) + "\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["take.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_conclusion"] is True
+
+    def test_good_document_score_range(self, tmp_path):
+        f = tmp_path / "good.md"
+        f.write_text(textwrap.dedent("""\
+            # Report
+
+            ## Intro
+
+            """ + " ".join(["word"] * 300) + """
+
+            ## Analysis
+
+            - item one
+            - item two
+
+            ## Conclusion
+
+            Final words here.
+        """))
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["good.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["quality_score"] >= 60
+        assert r[0]["verdict"] in ("good", "excellent")
 
 
 # ── read_log_tail ──────────────────────────────────────────────────────
@@ -702,12 +927,16 @@ class TestGenerateReview:
                 "word_count": 350, "adequate": True,
                 "has_headings": True, "has_paragraphs": True,
                 "has_structure_elements": True, "structure_ok": True,
+                "has_introduction": True, "has_conclusion": True,
+                "quality_score": 100, "verdict": "excellent",
             }],
             failed_diagnoses=[], pending_count=5,
             auto_requeue=False, queued_count=0, fixed_count=0,
         )
         assert "OK|structured" in r
-        assert "[HPS]" in r
+        assert "[HPSIC]" in r
+        assert "score=100" in r
+        assert "(excellent)" in r
 
     def test_consulting_unstructured(self):
         r = generate_review(
@@ -718,12 +947,15 @@ class TestGenerateReview:
                 "word_count": 50, "adequate": False,
                 "has_headings": False, "has_paragraphs": False,
                 "has_structure_elements": False, "structure_ok": False,
+                "has_introduction": False, "has_conclusion": False,
+                "quality_score": 3, "verdict": "poor",
             }],
             failed_diagnoses=[], pending_count=5,
             auto_requeue=False, queued_count=0, fixed_count=0,
         )
         assert "TOO SHORT|UNSTRUCTURED" in r
-        assert "[___]" in r
+        assert "[_____]" in r
+        assert "score=3" in r
 
     def test_empty(self):
         r = generate_review(

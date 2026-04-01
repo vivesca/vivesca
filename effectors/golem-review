@@ -186,12 +186,57 @@ def run_pytest_on_files(files: list[str]) -> dict:
 # ── check_consulting_content ───────────────────────────────────────────
 
 
+def _detect_section_keyword(lines: list[str], keywords: tuple[str, ...]) -> bool:
+    """Check if any markdown heading contains one of the keywords."""
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            heading_text = stripped.lstrip("#").strip().lower()
+            if any(kw in heading_text for kw in keywords):
+                return True
+    return False
+
+
+def _compute_quality_score(entry: dict) -> int:
+    """Compute a 0-100 quality score from consulting content checks.
+
+    Breakdown: words 30, headings 15, paragraphs 15, structure 10,
+               intro 15, conclusion 15.
+    """
+    score = 0
+    wc = entry.get("word_count", 0)
+    score += min(30, int(wc / 500 * 30)) if wc > 0 else 0
+    if entry.get("has_headings"):
+        score += 15
+    if entry.get("has_paragraphs"):
+        score += 15
+    if entry.get("has_structure_elements"):
+        score += 10
+    if entry.get("has_introduction"):
+        score += 15
+    if entry.get("has_conclusion"):
+        score += 15
+    return score
+
+
+def _verdict_from_score(score: int) -> str:
+    """Map quality score to a verdict string."""
+    if score >= 80:
+        return "excellent"
+    if score >= 60:
+        return "good"
+    if score >= 40:
+        return "needs_work"
+    return "poor"
+
+
 def check_consulting_content(files: list[str]) -> list[dict]:
     """Check each file: exists? adequate word count (>200)? proper structure?
 
     Returns list of {file, exists, word_count, adequate,
                      has_headings, has_paragraphs, has_structure_elements,
-                     structure_ok}.
+                     structure_ok, has_introduction, has_conclusion,
+                     quality_score, verdict}.
     """
     results = []
     for rel_path in files:
@@ -201,6 +246,8 @@ def check_consulting_content(files: list[str]) -> list[dict]:
             "adequate": False,
             "has_headings": False, "has_paragraphs": False,
             "has_structure_elements": False, "structure_ok": False,
+            "has_introduction": False, "has_conclusion": False,
+            "quality_score": 0, "verdict": "poor",
         }
 
         if not full_path.exists():
@@ -257,6 +304,18 @@ def check_consulting_content(files: list[str]) -> list[dict]:
             entry["has_headings"]
             and (entry["has_paragraphs"] or entry["has_structure_elements"])
         )
+
+        # Introduction / conclusion detection via heading keywords
+        entry["has_introduction"] = _detect_section_keyword(
+            lines, ("introduction", "intro", "overview", "background", "context"),
+        )
+        entry["has_conclusion"] = _detect_section_keyword(
+            lines, ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
+        )
+
+        # Quality score and verdict
+        entry["quality_score"] = _compute_quality_score(entry)
+        entry["verdict"] = _verdict_from_score(entry["quality_score"])
 
         results.append(entry)
 
@@ -544,9 +603,14 @@ def generate_review(
             heads = "H" if r.get("has_headings") else "_"
             paras = "P" if r.get("has_paragraphs") else "_"
             elems = "S" if r.get("has_structure_elements") else "_"
+            intro = "I" if r.get("has_introduction") else "_"
+            concl = "C" if r.get("has_conclusion") else "_"
+            score = r.get("quality_score", 0)
+            verdict = r.get("verdict", "poor")
             lines.append(
                 f"- [{status}|{struct}] {r['file']}: {wc} words ({exists}) "
-                f"[{heads}{paras}{elems}]"
+                f"[{heads}{paras}{elems}{intro}{concl}] "
+                f"score={score} ({verdict})"
             )
         lines.append("")
 
