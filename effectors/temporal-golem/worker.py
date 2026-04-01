@@ -1,23 +1,17 @@
-"""Temporal worker that polls 'golem-tasks' and executes golem commands as activities."""
+"""temporal-golem worker — polls 'golem-tasks' queue and runs golem activities."""
 from __future__ import annotations
 
 import asyncio
-import subprocess
-import os
-import sys
 from pathlib import Path
-from datetime import timedelta
 
-from temporalio import activity, workflow
-from temporalio.worker import Worker
+from temporalio import activity
 
-# ---------------------------------------------------------------------------
-# Activity — run a single golem command
-# ---------------------------------------------------------------------------
-
+TASK_QUEUE = "golem-tasks"
 GOLEM_SCRIPT = Path(__file__).resolve().parent.parent / "golem"
+ACTIVITY_TIMEOUT = 1800  # 30 min
+HEARTBEAT_INTERVAL = 30  # seconds
 
-# Per-provider concurrency limits (shared via module-level semaphore dict)
+# Per-provider concurrency limits
 _PROVIDER_SEMAPHORES: dict[str, asyncio.Semaphore] = {
     "zhipu": asyncio.Semaphore(8),
     "infini": asyncio.Semaphore(8),
@@ -26,16 +20,21 @@ _PROVIDER_SEMAPHORES: dict[str, asyncio.Semaphore] = {
 
 
 @activity.defn
-async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
-    """Execute a single golem task.
+async def run_golem_task(
+    task: str,
+    provider: str = "zhipu",
+    max_turns: int = 50,
+) -> dict:
+    """Run a single golem task as a Temporal activity.
 
-    Runs ``bash effectors/golem --provider <provider> --max-turns <N> <task>``.
-    Heartbeats every 30 s while the subprocess is alive.  Raises
-    ``temporalio.exceptions.ActivityError`` on non-zero exit so Temporal
-    triggers the retry policy.
+    Executes `bash effectors/golem --provider X --max-turns N <task>`,
+    heartbeating every 30s with a 30-minute timeout.
     """
-    semaphore = _PROVIDER_SEMAPHORES.get(provider, asyncio.Semaphore(4))
-    async with semaphore:
+    sem = _PROVIDER_SEMAPHORES.get(provider)
+    if sem is None:
+        raise ValueError(f"Unknown provider: {provider}")
+
+    async with sem:
         cmd = [
             "bash",
             str(GOLEM_SCRIPT),
@@ -43,80 +42,56 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
             "--max-turns", str(max_turns),
             task,
         ]
+
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={**os.environ, "GOLEM_PROVIDER": provider},
         )
-
-        async def _heartbeat_loop() -> None:
-            while proc.returncode is None:
-                try:
-                    activity.heartbeat("golem-running")
-                except Exception:
-                    pass
-                await asyncio.sleep(30)
-
-        heartbeat_task = asyncio.create_task(_heartbeat_loop())
 
         try:
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timedelta(minutes=30).total_seconds()
+                proc.communicate(), timeout=ACTIVITY_TIMEOUT,
             )
         except asyncio.TimeoutError:
             proc.kill()
-            await proc.wait()
-            raise RuntimeError(f"Golem task timed out after 30 min: {task[:80]}")
-        finally:
-            heartbeat_task.cancel()
+            raise RuntimeError(f"Golem task timed out after {ACTIVITY_TIMEOUT}s")
 
-        exit_code = proc.returncode or 0
-        result = {
-            "task": task[:200],
-            "provider": provider,
-            "exit_code": exit_code,
-            "stdout": (stdout or b"").decode(errors="replace")[:4000],
-            "stderr": (stderr or b"").decode(errors="replace")[:2000],
-            "success": exit_code == 0,
-        }
+        # Heartbeat once after completion for the record
+        activity.heartbeat(f"completed:{task[:40]}")
 
-        if exit_code != 0:
+        if proc.returncode != 0:
             raise RuntimeError(
-                f"Golem exited {exit_code}: {(stderr or b'').decode(errors='replace')[:300]}"
+                f"Golem exited {proc.returncode}: {stderr.decode(errors='replace')[:200]}"
             )
 
-        return result
+        return {
+            "success": True,
+            "exit_code": 0,
+            "provider": provider,
+            "stdout": stdout.decode(errors="replace"),
+            "stderr": stderr.decode(errors="replace"),
+        }
 
 
-# ---------------------------------------------------------------------------
-# Worker entry-point
-# ---------------------------------------------------------------------------
-
-TASK_QUEUE = "golem-tasks"
-
-
-async def main() -> None:
-    """Start the Temporal worker."""
+async def run_worker(temporal_endpoint: str = "localhost:7233") -> None:
+    """Start a Temporal worker connected to the given endpoint."""
+    from temporalio.worker import Worker
     from workflow import GolemDispatchWorkflow
 
+    client = await __import__("temporalio.client", fromlist=["Client"]).Client.connect(
+        temporal_endpoint,
+    )
     worker = Worker(
-        client=await _connect_client(),
+        client,
         task_queue=TASK_QUEUE,
         workflows=[GolemDispatchWorkflow],
         activities=[run_golem_task],
     )
-    print(f"Temporal worker started on queue '{TASK_QUEUE}'")
     await worker.run()
 
 
-async def _connect_client():
-    from temporalio.client import Client
-
-    host = os.environ.get("TEMPORAL_HOST", "localhost:7233")
-    namespace = os.environ.get("TEMPORAL_NAMESPACE", "default")
-    return await Client.connect(host, namespace=namespace)
-
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    endpoint = sys.argv[1] if len(sys.argv) > 1 else "localhost:7233"
+    asyncio.run(run_worker(endpoint))

@@ -238,7 +238,8 @@ class TestCli:
         mock_client = AsyncMock()
         mock_client.start_workflow = AsyncMock(return_value=mock_handle)
 
-        with patch("cli._get_client", return_value=mock_client):
+        mock_gc = AsyncMock(return_value=mock_client)
+        with patch("cli._get_client", mock_gc):
             runner = CliRunner()
             result = runner.invoke(main, ["submit", "-p", "zhipu", "Write tests for bar.py"])
 
@@ -259,11 +260,12 @@ class TestCli:
         mock_client = AsyncMock()
         mock_client.start_workflow = AsyncMock(return_value=mock_handle)
 
+        mock_gc = AsyncMock(return_value=mock_client)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Task alpha\n# comment\nTask beta\n\nTask gamma\n")
             f.flush()
 
-            with patch("cli._get_client", return_value=mock_client):
+            with patch("cli._get_client", mock_gc):
                 runner = CliRunner()
                 result = runner.invoke(
                     main, ["submit", "-p", "volcano", "-f", f.name]
@@ -271,7 +273,6 @@ class TestCli:
 
         assert result.exit_code == 0, f"Output: {result.output}"
         output = json.loads(result.output)
-        # Should skip blank lines and comments -> 3 tasks
         assert output["tasks_submitted"] == 3
 
     def test_status_completed(self):
@@ -288,10 +289,12 @@ class TestCli:
         mock_handle.describe = AsyncMock(return_value=mock_desc)
         mock_handle.result = AsyncMock(return_value={"total": 1, "succeeded": 1, "failed": 0})
 
-        mock_client = AsyncMock()
-        mock_client.get_workflow_handle.return_value = mock_handle
+        mock_client = MagicMock()
+        # get_workflow_handle is synchronous (returns handle directly)
+        mock_client.get_workflow_handle = MagicMock(return_value=mock_handle)
 
-        with patch("cli._get_client", return_value=mock_client):
+        mock_gc = AsyncMock(return_value=mock_client)
+        with patch("cli._get_client", mock_gc):
             runner = CliRunner()
             result = runner.invoke(main, ["status", "golem-zhipu-abcd"])
 
@@ -315,7 +318,8 @@ class TestCli:
         mock_client = AsyncMock()
         mock_client.list_workflows = _aiter
 
-        with patch("cli._get_client", return_value=mock_client):
+        mock_gc = AsyncMock(return_value=mock_client)
+        with patch("cli._get_client", mock_gc):
             runner = CliRunner()
             result = runner.invoke(main, ["list", "-n", "5"])
 
@@ -335,7 +339,8 @@ class TestCli:
         mock_client = AsyncMock()
         mock_client.start_workflow = AsyncMock(return_value=mock_handle)
 
-        with patch("cli._get_client", return_value=mock_client):
+        mock_gc = AsyncMock(return_value=mock_client)
+        with patch("cli._get_client", mock_gc):
             runner = CliRunner()
             result = runner.invoke(
                 main, ["submit", "-p", "infini", "-w", "my-custom-batch", "Do stuff"]
@@ -356,7 +361,8 @@ class TestCli:
         mock_client = AsyncMock()
         mock_client.start_workflow = AsyncMock(return_value=mock_handle)
 
-        with patch("cli._get_client", return_value=mock_client):
+        mock_gc = AsyncMock(return_value=mock_client)
+        with patch("cli._get_client", mock_gc):
             runner = CliRunner()
             result = runner.invoke(
                 main, ["submit", "-p", "zhipu", "Task A", "Task B", "Task C"]
