@@ -87,7 +87,7 @@ class TestDRMemorySync:
 
         def mock_exists(self_path):
             s = str(self_path)
-            return "memory" in s
+            return "memory" in s or "officina" in s or "projects" in s
 
         with patch("shutil.copy2"):
             with patch("shutil.copytree", mock_copytree):
@@ -102,7 +102,7 @@ class TestDRMemorySync:
         copytree_calls = []
 
         def mock_exists(self_path):
-            return "memory" in str(self_path)
+            return "memory" in str(self_path) or "officina" in str(self_path) or "projects" in str(self_path)
 
         with patch("shutil.copy2"):
             with patch("shutil.copytree", side_effect=lambda s, d: copytree_calls.append((s, d))):
@@ -184,18 +184,21 @@ class TestDRSynaxisConfig:
 
 class TestDRBrewfile:
     def test_brew_bundle_dump_called(self, dr):
-        with patch("shutil.copy2"):
-            with patch("shutil.copytree"):
-                with patch("pathlib.Path.exists", return_value=False):
-                    with patch("subprocess.run") as mock_run:
-                        dr.sync()
-                        # Check brew bundle dump is in the calls
-                        run_cmds = [c[0][0] for c in mock_run.call_args_list]
-                        brew_found = any(
-                            "brew" in cmd and "bundle" in cmd and "dump" in cmd
-                            for cmd in run_cmds
-                        )
-                        assert brew_found
+        with patch("platform.system", return_value="Darwin"):
+            with patch("shutil.copy2"):
+                with patch("shutil.copytree"):
+                    def mock_exists(self_path):
+                        return "officina" in str(self_path)
+                    with patch("pathlib.Path.exists", mock_exists):
+                        with patch("subprocess.run") as mock_run:
+                            dr.sync()
+                            # Check brew bundle dump is in the calls
+                            run_cmds = [c[0][0] for c in mock_run.call_args_list]
+                            brew_found = any(
+                                "brew" in cmd and "bundle" in cmd and "dump" in cmd
+                                for cmd in run_cmds
+                            )
+                            assert brew_found
 
 
 # ── Git commit / push logic ────────────────────────────────────────────────
@@ -205,7 +208,9 @@ class TestDRGitLogic:
     def test_no_changes_no_commit(self, dr, capsys):
         with patch("shutil.copy2"):
             with patch("shutil.copytree"):
-                with patch("pathlib.Path.exists", return_value=False):
+                def mock_exists(self_path):
+                    return "officina" in str(self_path)
+                with patch("pathlib.Path.exists", mock_exists):
                     mock_result = MagicMock(stdout="")
                     with patch("subprocess.run", return_value=mock_result):
                         dr.sync()
@@ -214,7 +219,9 @@ class TestDRGitLogic:
     def test_changes_committed_and_pushed(self, dr, capsys):
         with patch("shutil.copy2"):
             with patch("shutil.copytree"):
-                with patch("pathlib.Path.exists", return_value=False):
+                def mock_exists(self_path):
+                    return "officina" in str(self_path)
+                with patch("pathlib.Path.exists", mock_exists):
                     mock_status = MagicMock(stdout=" M claude-backup/settings.json\n")
 
                     def side_effect(*args, **kwargs):
@@ -233,10 +240,13 @@ class TestDRGitLogic:
 
 class TestDRNoSources:
     def test_no_files_to_backup(self, dr):
-        with patch("shutil.copy2"):
-            with patch("shutil.copytree"):
-                with patch("pathlib.Path.exists", return_value=False):
-                    with patch("subprocess.run") as mock_run:
-                        dr.sync()
-                        # brew bundle dump should still be called
-                        assert mock_run.call_count >= 1
+        with patch("platform.system", return_value="Darwin"):
+            with patch("shutil.copy2"):
+                with patch("shutil.copytree"):
+                    def mock_exists(self_path):
+                        return "officina" in str(self_path)
+                    with patch("pathlib.Path.exists", mock_exists):
+                        with patch("subprocess.run") as mock_run:
+                            dr.sync()
+                            # brew bundle dump should still be called
+                            assert mock_run.call_count >= 1

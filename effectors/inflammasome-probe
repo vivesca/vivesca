@@ -294,6 +294,10 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return
+
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"[{ts}] inflammasome-probe starting")
 

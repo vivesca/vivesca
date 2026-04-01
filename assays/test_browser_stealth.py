@@ -27,7 +27,12 @@ from metabolon.organelles.browser_stealth import (
 def mock_context() -> MagicMock:
     """Playwright BrowserContext mock."""
     ctx = MagicMock()
-    ctx.add_init_script = MagicMock()
+
+    # Make async methods return awaitable
+    async def mock_add_init_script(*args, **kwargs):
+        pass
+
+    ctx.add_init_script = MagicMock(side_effect=mock_add_init_script)
     ctx.set_extra_http_headers = MagicMock()
     return ctx
 

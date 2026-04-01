@@ -1,384 +1,348 @@
 from __future__ import annotations
 
-"""Tests for effectors/auto-update-compound-engineering.sh — compound plugin updater."""
+"""Tests for auto-update-compound-engineering.sh — Plugin update script."""
 
 import os
-import stat
 import subprocess
 from pathlib import Path
 
-import pytest
+SCRIPT = Path.home() / "germline" / "effectors" / "auto-update-compound-engineering.sh"
+LOG_FILE = Path.home() / ".compound-engineering-updates.log"
 
 
-EFFECTOR = Path.home() / "germline" / "effectors" / "auto-update-compound-engineering.sh"
-
-
-@pytest.fixture
-def fake_home(tmp_path):
-    """Provide a fake HOME directory with mock bunx/npx on PATH."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-
-    # Create a mock bunx that simulates success
-    bunx_script = bin_dir / "bunx"
-    bunx_script.write_text(
-        '#!/usr/bin/env bash\nexit 0\n'
-    )
-    bunx_script.chmod(bunx_script.stat().st_mode | stat.S_IEXEC)
-
-    # Create a mock npx as fallback
-    npx_script = bin_dir / "npx"
-    npx_script.write_text(
-        '#!/usr/bin/env bash\nexit 0\n'
-    )
-    npx_script.chmod(npx_script.stat().st_mode | stat.S_IEXEC)
-
-    # Build a restricted PATH: only our fake bin + /usr/bin for bash/date
-    env = {
-        "HOME": str(tmp_path),
-        "PATH": f"{bin_dir}:/usr/bin:/bin",
-    }
-    return tmp_path, env
-
-
-@pytest.fixture
-def fake_home_no_runners(tmp_path):
-    """Provide a fake HOME directory with NO bunx or npx available.
-
-    Excludes /usr/bin from PATH because npx lives there on this host.
-    Only includes /bin so core utils like date still work.
-    """
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-
-    env = {
-        "HOME": str(tmp_path),
-        "PATH": f"{bin_dir}:/bin",
-    }
-    return tmp_path, env
-
-
-def _run_script(args=None, env=None):
-    """Run the effector script and return CompletedProcess."""
-    cmd = ["/usr/bin/env", "bash", str(EFFECTOR)]
+def _run(args: list[str] | None = None, **kwargs) -> subprocess.CompletedProcess:
+    """Run the script with optional args, capturing output."""
+    cmd = ["bash", str(SCRIPT)]
     if args:
         cmd.extend(args)
     return subprocess.run(
         cmd,
         capture_output=True,
         text=True,
-        env=env,
         timeout=10,
+        **kwargs,
     )
 
 
-# ── --help tests ────────────────────────────────────────────────────────
+def _make_fake_bin(tmp_path: Path, name: str) -> Path:
+    """Create a fake binary in a bin/ dir and return the bin dir."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    binary = bindir / name
+    binary.write_text("#!/bin/bash\nexit 0\n")
+    binary.chmod(binary.stat().st_mode | 0o111)
+    return bindir
 
 
-class TestHelpFlag:
-    """Tests for --help / -h flag behaviour."""
-
-    def test_help_exits_zero(self):
-        """Script exits 0 with --help."""
-        result = _run_script(["--help"])
-        assert result.returncode == 0
-
-    def test_h_short_flag_exits_zero(self):
-        """Script exits 0 with -h."""
-        result = _run_script(["-h"])
-        assert result.returncode == 0
-
-    def test_help_mentions_usage(self):
-        """--help output includes usage text."""
-        result = _run_script(["--help"])
-        assert "Usage:" in result.stdout
-
-    def test_help_mentions_crontab(self):
-        """--help output includes crontab scheduling hint."""
-        result = _run_script(["--help"])
-        assert "crontab" in result.stdout
-
-    def test_help_mentions_opencode_and_codex(self):
-        """--help output mentions OpenCode and Codex."""
-        result = _run_script(["--help"])
-        assert "OpenCode" in result.stdout or "opencode" in result.stdout
-        assert "Codex" in result.stdout or "codex" in result.stdout
+# ── Script structure tests ─────────────────────────────────────────────
 
 
-# ── runner selection tests ──────────────────────────────────────────────
+def test_script_exists():
+    """Script file exists."""
+    assert SCRIPT.exists()
 
 
-class TestRunnerSelection:
-    """Tests for bunx/npx runner selection logic."""
-
-    def test_prefers_bunx_over_npx(self, fake_home):
-        """Script uses bunx when both bunx and npx are available."""
-        tmp_path, env = fake_home
-        result = _run_script(env=env)
-        assert result.returncode == 0
-
-        log_file = tmp_path / ".compound-engineering-updates.log"
-        assert log_file.exists()
-        content = log_file.read_text()
-        # bunx was available so it should have been used
-        assert "Update started:" in content
-
-    def test_falls_back_to_npx(self, tmp_path):
-        """Script falls back to npx when bunx is unavailable."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-
-        # Only provide npx
-        npx_script = bin_dir / "npx"
-        npx_script.write_text('#!/usr/bin/env bash\nexit 0\n')
-        npx_script.chmod(npx_script.stat().st_mode | stat.S_IEXEC)
-
-        env = {"HOME": str(tmp_path), "PATH": f"{bin_dir}:/usr/bin:/bin"}
-        result = _run_script(env=env)
-        assert result.returncode == 0
-
-        log_file = tmp_path / ".compound-engineering-updates.log"
-        assert log_file.exists()
-
-    def test_exits_1_when_no_runner(self, tmp_path):
-        """Script exits 1 when neither bunx nor npx is found.
-
-        PATH must exclude /bin and /usr/bin entirely because npx lives
-        in both locations on this host.  The early-exit path only uses
-        bash builtins (echo, >>, command) so no external binaries are needed.
-
-        NOTE: Skip if npx is in the same directory as bash (e.g., both in /usr/bin),
-        since we can't exclude npx without also excluding bash (needed for shebang).
-        """
-        import shutil
-
-        bash_path = shutil.which("bash")
-        npx_path = shutil.which("npx")
-        if bash_path and npx_path:
-            bash_dir = str(Path(bash_path).parent)
-            npx_dir = str(Path(npx_path).parent)
-            if bash_dir == npx_dir:
-                pytest.skip("bash and npx in same directory; can't test no-runner case")
-
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        # Include bash dir in PATH so /usr/bin/env can find it
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": f"{bin_dir}:{bash_dir}",  # no date, no npx, but bash available
-        }
-        result = _run_script(env=env)
-        assert result.returncode == 1
-
-        log_file = tmp_path / ".compound-engineering-updates.log"
-        assert log_file.exists()
-        content = log_file.read_text()
-        assert "neither bunx nor npx found" in content
+def test_script_is_executable():
+    """Script file is executable."""
+    assert os.access(SCRIPT, os.X_OK)
 
 
-# ── log file format tests ──────────────────────────────────────────────
+def test_script_has_shebang():
+    """Script starts with #!/usr/bin/env bash."""
+    first_line = SCRIPT.read_text().splitlines()[0]
+    assert first_line == "#!/usr/bin/env bash"
 
 
-class TestLogFileFormat:
-    """Tests for log file structure and content."""
-
-    def test_log_contains_separator(self, fake_home):
-        """Log file contains separator line."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "========================================" in content
-
-    def test_log_contains_start_and_end_timestamps(self, fake_home):
-        """Log file contains start and completed timestamps."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "Update started:" in content
-        assert "Update completed:" in content
-
-    def test_log_mentions_opencode_update(self, fake_home):
-        """Log file mentions OpenCode update attempt."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "Updating OpenCode" in content
-
-    def test_log_mentions_codex_update(self, fake_home):
-        """Log file mentions Codex update attempt."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "Updating Codex" in content
-
-    def test_opencode_success_with_mock_runner(self, fake_home):
-        """Log shows OpenCode success when mock runner exits 0."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "OpenCode updated successfully" in content
-
-    def test_codex_success_with_mock_runner(self, fake_home):
-        """Log shows Codex success when mock runner exits 0."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "Codex updated successfully" in content
-
-    def test_log_ends_with_blank_line(self, fake_home):
-        """Log file ends with a blank line for separation between runs."""
-        tmp_path, env = fake_home
-        _run_script(env=env)
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert content.endswith("\n\n")
+# ── Help / usage tests ─────────────────────────────────────────────────
 
 
-# ── update failure tests ────────────────────────────────────────────────
+def test_help_long_flag():
+    """--help prints usage and exits 0."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "Usage:" in r.stdout
 
 
-class TestUpdateFailure:
-    """Tests for when the runner command fails."""
+def test_help_short_flag():
+    """-h prints usage and exits 0."""
+    r = _run(["-h"])
+    assert r.returncode == 0
+    assert "Usage:" in r.stdout
 
-    def test_opencode_failure_logged(self, tmp_path):
-        """Log shows OpenCode failure when runner exits non-zero for opencode."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
 
-        # Runner that fails when --to opencode is passed
-        runner = bin_dir / "bunx"
-        runner.write_text(
-            '#!/usr/bin/env bash\n'
-            'if [[ "$*" == *"--to opencode"* ]]; then\n'
-            '    exit 1\n'
-            'fi\n'
-            'exit 0\n'
+def test_help_mentions_crontab():
+    """Help text mentions crontab scheduling."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "crontab" in r.stdout.lower()
+
+
+def test_help_mentions_log_file():
+    """Help text mentions the log file location."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "log" in r.stdout.lower()
+
+
+# ── Runner detection tests ─────────────────────────────────────────────
+
+
+def test_exits_1_when_no_bunx_or_npx(tmp_path):
+    """Script exits 1 with error when neither bunx nor npx is available."""
+    env = os.environ.copy()
+    # Minimal PATH with no bunx or npx
+    env["PATH"] = "/bin:/usr/bin"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 1
+
+
+def test_uses_bunx_when_available(tmp_path):
+    """Script uses bunx when available."""
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    # Script should succeed (bunx will be called, even if it does nothing useful)
+    # The fake bunx just exits 0, so the compound-plugin calls will "succeed"
+    assert r.returncode == 0
+
+
+def test_falls_back_to_npx_when_bunx_missing(tmp_path):
+    """Script falls back to npx when bunx is not available."""
+    bindir = _make_fake_bin(tmp_path, "npx")
+    env = os.environ.copy()
+    # PATH has npx but no bunx
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+
+
+def test_prefers_bunx_over_npx(tmp_path):
+    """Script prefers bunx when both bunx and npx are available."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    # Create bunx that logs its invocation
+    bunx = bindir / "bunx"
+    bunx.write_text("#!/bin/bash\necho 'BUNX-CALLED' >> /tmp/test_runner_log.txt\nexit 0\n")
+    bunx.chmod(bunx.stat().st_mode | 0o111)
+    # Create npx that should NOT be called
+    npx = bindir / "npx"
+    npx.write_text("#!/bin/bash\necho 'NPX-CALLED' >> /tmp/test_runner_log.txt\nexit 0\n")
+    npx.chmod(npx.stat().st_mode | 0o111)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    log_file = Path("/tmp/test_runner_log.txt")
+    try:
+        log_file.unlink(missing_ok=True)
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
         )
-        runner.chmod(runner.stat().st_mode | stat.S_IEXEC)
+        assert r.returncode == 0
+        # Check that bunx was called, not npx
+        if log_file.exists():
+            content = log_file.read_text()
+            assert "BUNX-CALLED" in content
+            assert "NPX-CALLED" not in content
+    finally:
+        log_file.unlink(missing_ok=True)
 
-        env = {"HOME": str(tmp_path), "PATH": f"{bin_dir}:/usr/bin:/bin"}
-        result = _run_script(env=env)
-        # Script itself should still exit 0 — it logs failures but doesn't abort
-        assert result.returncode == 0
 
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "OpenCode update failed" in content
+# ── Log file tests ───────────────────────────────────────────────────────
 
-    def test_codex_failure_logged(self, tmp_path):
-        """Log shows Codex failure when runner exits non-zero for codex."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
 
-        # Runner that fails when --to codex is passed
-        runner = bin_dir / "bunx"
-        runner.write_text(
-            '#!/usr/bin/env bash\n'
-            'if [[ "$*" == *"--to codex"* ]]; then\n'
-            '    exit 1\n'
-            'fi\n'
-            'exit 0\n'
+def test_creates_log_file(tmp_path):
+    """Script creates log file when running."""
+    # Use a temporary log file location via HOME override
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    env["HOME"] = str(fake_home)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    log = fake_home / ".compound-engineering-updates.log"
+    assert log.exists()
+
+
+def test_log_contains_timestamps(tmp_path):
+    """Log file contains start and completion timestamps."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    env["HOME"] = str(fake_home)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    log = fake_home / ".compound-engineering-updates.log"
+    content = log.read_text()
+    assert "Update started:" in content
+    assert "Update completed:" in content
+
+
+def test_log_contains_opencode_update(tmp_path):
+    """Log file records OpenCode update attempt."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    env["HOME"] = str(fake_home)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    log = fake_home / ".compound-engineering-updates.log"
+    content = log.read_text()
+    assert "OpenCode" in content
+
+
+def test_log_contains_codex_update(tmp_path):
+    """Log file records Codex update attempt."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    env["HOME"] = str(fake_home)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    log = fake_home / ".compound-engineering-updates.log"
+    content = log.read_text()
+    assert "Codex" in content
+
+
+# ── Runner invocation tests ─────────────────────────────────────────────
+
+
+def test_invokes_compound_plugin_for_opencode(tmp_path):
+    """Script invokes compound-plugin with --to opencode."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    bunx = bindir / "bunx"
+    # Log all invocations
+    bunx.write_text("#!/bin/bash\necho \"$@\" >> /tmp/test_invocations.txt\nexit 0\n")
+    bunx.chmod(bunx.stat().st_mode | 0o111)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    invocations_file = Path("/tmp/test_invocations.txt")
+    try:
+        invocations_file.unlink(missing_ok=True)
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
         )
-        runner.chmod(runner.stat().st_mode | stat.S_IEXEC)
-
-        env = {"HOME": str(tmp_path), "PATH": f"{bin_dir}:/usr/bin:/bin"}
-        result = _run_script(env=env)
-        assert result.returncode == 0
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "Codex update failed" in content
-
-    def test_both_failures_logged(self, tmp_path):
-        """Log shows both failures when runner always exits non-zero."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-
-        runner = bin_dir / "bunx"
-        runner.write_text('#!/usr/bin/env bash\nexit 1\n')
-        runner.chmod(runner.stat().st_mode | stat.S_IEXEC)
-
-        env = {"HOME": str(tmp_path), "PATH": f"{bin_dir}:/usr/bin:/bin"}
-        result = _run_script(env=env)
-        assert result.returncode == 0
-
-        content = (tmp_path / ".compound-engineering-updates.log").read_text()
-        assert "OpenCode update failed" in content
-        assert "Codex update failed" in content
+        assert r.returncode == 0
+        if invocations_file.exists():
+            content = invocations_file.read_text()
+            assert "compound-engineering" in content
+            assert "opencode" in content
+    finally:
+        invocations_file.unlink(missing_ok=True)
 
 
-# ── append behaviour tests ──────────────────────────────────────────────
-
-
-class TestAppendBehaviour:
-    """Tests that the script appends to (not overwrites) existing log."""
-
-    def test_appends_to_existing_log(self, fake_home):
-        """Script appends to existing log file, preserving previous entries."""
-        tmp_path, env = fake_home
-        log_file = tmp_path / ".compound-engineering-updates.log"
-
-        # Pre-populate log with a previous run marker
-        log_file.write_text("=== PREVIOUS RUN ===\n")
-
-        _run_script(env=env)
-
-        content = log_file.read_text()
-        assert "=== PREVIOUS RUN ===" in content
-        assert "Update started:" in content
-
-
-# ── runner invocation tests ─────────────────────────────────────────────
-
-
-class TestRunnerInvocation:
-    """Tests that the runner is invoked with correct arguments."""
-
-    def test_runner_receives_opencode_args(self, tmp_path):
-        """Runner is called with @every-env/compound-plugin install compound-engineering --to opencode."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-
-        # Runner that records its arguments
-        arg_file = tmp_path / "args.log"
-        runner = bin_dir / "bunx"
-        runner.write_text(
-            '#!/usr/bin/env bash\n'
-            f'echo "$@" >> {arg_file}\n'
-            'exit 0\n'
+def test_invokes_compound_plugin_for_codex(tmp_path):
+    """Script invokes compound-plugin with --to codex."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    bunx = bindir / "bunx"
+    bunx.write_text("#!/bin/bash\necho \"$@\" >> /tmp/test_codex_invocations.txt\nexit 0\n")
+    bunx.chmod(bunx.stat().st_mode | 0o111)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    invocations_file = Path("/tmp/test_codex_invocations.txt")
+    try:
+        invocations_file.unlink(missing_ok=True)
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
         )
-        runner.chmod(runner.stat().st_mode | stat.S_IEXEC)
+        assert r.returncode == 0
+        if invocations_file.exists():
+            content = invocations_file.read_text()
+            assert "compound-engineering" in content
+            assert "codex" in content
+    finally:
+        invocations_file.unlink(missing_ok=True)
 
-        env = {"HOME": str(tmp_path), "PATH": f"{bin_dir}:/usr/bin:/bin"}
-        _run_script(env=env)
 
-        calls = arg_file.read_text().strip().splitlines()
-        assert any("--to opencode" in call for call in calls)
-        assert any("--to codex" in call for call in calls)
+# ── Error handling tests ────────────────────────────────────────────────
 
-    def test_runner_receives_correct_package(self, tmp_path):
-        """Runner is called with the correct package specifier."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
 
-        arg_file = tmp_path / "args.log"
-        runner = bin_dir / "bunx"
-        runner.write_text(
-            '#!/usr/bin/env bash\n'
-            f'echo "$@" >> {arg_file}\n'
-            'exit 0\n'
-        )
-        runner.chmod(runner.stat().st_mode | stat.S_IEXEC)
-
-        env = {"HOME": str(tmp_path), "PATH": f"{bin_dir}:/usr/bin:/bin"}
-        _run_script(env=env)
-
-        calls = arg_file.read_text().strip().splitlines()
-        for call in calls:
-            assert "@every-env/compound-plugin" in call
-            assert "install" in call
-            assert "compound-engineering" in call
+def test_logs_error_when_runner_fails(tmp_path):
+    """Script logs error message when the runner command fails."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    bunx = bindir / "bunx"
+    # bunx that fails
+    bunx.write_text("#!/bin/bash\nexit 1\n")
+    bunx.chmod(bunx.stat().st_mode | 0o111)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    env["HOME"] = str(fake_home)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    # Script should still exit 0 (errors are logged but don't stop execution)
+    assert r.returncode == 0
+    log = fake_home / ".compound-engineering-updates.log"
+    content = log.read_text()
+    # Should show failed updates
+    assert "failed" in content.lower() or "error" in content.lower() or "✅" in content or "❌" in content

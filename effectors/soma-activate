@@ -15,6 +15,11 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  sed -n '2,13p' "$0" | sed 's/^# \?//'
+  exit 0
+fi
+
 log()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 ok()   { printf '    \033[32m[ok]\033[0m %s\n' "$*"; }
 skip() { printf '    \033[33m[skip]\033[0m %s\n' "$*"; }

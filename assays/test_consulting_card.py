@@ -60,12 +60,43 @@ def _cards_dir(tmp_path):
 def _mock_openai(mock_response):
     """Context manager: inject a mock OpenAI class into the exec'd globals.
 
-    The effector does ``from openai import OpenAI`` at load time, so the
-    name lives in _ns.  Patching ``openai.OpenAI`` won't reach it.
+    generate_card does ``from openai import OpenAI`` inside the function, so we need
+    to mock both the sys.modules entry and the _ns entry.
     """
     MockClient = MagicMock()
     MockClient.return_value.chat.completions.create.return_value = mock_response
-    return patch.dict(_ns, {"OpenAI": MockClient}), MockClient
+
+    import types
+    mock_openai_module = types.ModuleType("openai")
+    mock_openai_module.OpenAI = MockClient
+
+    import sys
+    original = sys.modules.get("openai")
+
+    def _enter():
+        sys.modules["openai"] = mock_openai_module
+        return None
+
+    def _exit(*args):
+        if original is None:
+            sys.modules.pop("openai", None)
+        else:
+            sys.modules["openai"] = original
+        return None
+
+    ctx_patch_dict = patch.dict(_ns, {"OpenAI": MockClient})
+    from contextlib import contextmanager
+
+    @contextmanager
+    def combined_ctx():
+        with ctx_patch_dict:
+            _enter()
+            try:
+                yield
+            finally:
+                _exit()
+
+    return combined_ctx(), MockClient
 
 
 # ── Constants ─────────────────────────────────────────────────────────────
