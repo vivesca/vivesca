@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -37,28 +36,13 @@ def _run_script(
     env_extra: dict | None = None,
     path_dirs: list[Path] | None = None,
     tmp_path: Path | None = None,
-    replace_path: bool = False,
 ) -> subprocess.CompletedProcess:
-    """Run the script with an optional custom PATH.
-
-    If replace_path=False (default) and path_dirs provided, prepend them to PATH
-    keep system entries so essential commands like bash are still found.
-    If replace_path=True, use exactly path_dirs as the new PATH (for filtered tests).
-    """
+    """Run the script with an optional custom PATH and HOME."""
     env = os.environ.copy()
-    # Unset HOME override if present so script uses tmp_path as HOME
     if tmp_path is not None:
         env["HOME"] = str(tmp_path)
     if path_dirs is not None:
-        if replace_path:
-            # Use exactly the provided path dirs (already filtered)
-            env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
-        else:
-            # Prepend custom path dirs, keep system PATH after
-            # This ensures bash is still found but any system-level
-            # commands come AFTER our mocks and only gets used if
-            # we don't provide a mock
-            env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
+        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
@@ -72,7 +56,7 @@ def _make_mock_bin(tmp_path: Path, name: str, stdout: str = "", exit_code: int =
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     script = bindir / name
-    script.write_text(f"#!/bin/bash\necho {stdout}\nexit {exit_code}\n")
+    script.write_text(f"#!/bin/bash\necho -n '{stdout}'\nexit {exit_code}\n")
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
 
@@ -89,14 +73,6 @@ def _make_recording_bin(tmp_path: Path, name: str, record_file: Path, exit_code:
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
-
-
-def _log_file(tmp_path: Path) -> Path:
-    return tmp_path / ".coding-tools-update.log"
-
-
-def _health_file(tmp_path: Path) -> Path:
-    return tmp_path / ".coding-tools-health.json"
 
 
 # ── --help tests ────────────────────────────────────────────────────────
@@ -119,63 +95,90 @@ class TestHelpFlag:
         r = _run_script(["--help"], tmp_path=tmp_path)
         assert "Homebrew" in r.stdout
 
+    def test_help_does_not_create_log(self, tmp_path):
+        _run_script(["--help"], tmp_path=tmp_path)
+        assert not (tmp_path / ".coding-tools-update.log").exists()
+
+    def test_help_mentions_log_file(self, tmp_path):
+        r = _run_script(["--help"], tmp_path=tmp_path)
+        assert "log" in r.stdout.lower()
+        assert ".coding-tools-update.log" in r.stdout
+
 
 # ── homebrew check tests ────────────────────────────────────────────────
 
 
 class TestHomebrewCheck:
     def test_no_brew_exits_1(self, tmp_path):
-        """Script exits 1 when Homebrew not found on PATH."""
-        # Create a minimal PATH with bash but no brew
-        safe_bin = tmp_path / "safe-bin"
-        safe_bin.mkdir()
-        bash_path = shutil.which("bash")
-        if bash_path:
-            os.symlink(bash_path, safe_bin / "bash")
-        # Build filtered PATH without brew
-        filtered = []
+        """Script exits 1 when brew not found on PATH."""
+        # Filter PATH to exclude any dir with brew
+        filtered_path = []
         for dir_path in os.environ.get("PATH", "").split(os.pathsep):
             if not dir_path:
                 continue
             if not (Path(dir_path) / "brew").exists():
-                filtered.append(dir_path)
-        r = _run_script(
-            env_extra={"PATH": str(safe_bin) + os.pathsep + os.pathsep.join(filtered)},
-            tmp_path=tmp_path,
-        )
+                filtered_path.append(Path(dir_path))
+        r = _run_script(path_dirs=filtered_path, tmp_path=tmp_path)
         assert r.returncode == 1
 
+    def test_no_brew_writes_error(self, tmp_path):
+        filtered_path = []
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            if not (Path(dir_path) / "brew").exists():
+                filtered_path.append(Path(dir_path))
+        r = _run_script(path_dirs=filtered_path, tmp_path=tmp_path)
+        assert "Homebrew not found" in r.stderr
 
-# ── basic execution tests ───────────────────────────────────────────────
+
+# ── logging tests ───────────────────────────────────────────────────────
 
 
-class TestBasicExecution:
+class TestLogging:
     def test_creates_log_file(self, tmp_path):
         bindir = _make_mock_bin(tmp_path, "brew")
-        # Add other required mocks too
-        _make_mock_bin(tmp_path, "npm")
-        _make_mock_bin(tmp_path, "pnpm")
-        _make_mock_bin(tmp_path, "uv")
-        _make_mock_bin(tmp_path, "cargo")
-        _make_mock_bin(tmp_path, "mas")
-        _make_mock_bin(tmp_path, "date")
-        # And mocks for the health check commands
-        for cmd in ("claude", "opencode", "gemini", "codex", "agent-browser"):
-            _make_mock_bin(tmp_path, cmd)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
-        assert _log_file(tmp_path).exists()
+        assert (tmp_path / ".coding-tools-update.log").exists()
 
-    def test_creates_health_file(self, tmp_path):
+    def test_log_contains_date_marker(self, tmp_path):
         bindir = _make_mock_bin(tmp_path, "brew")
-        # Add other required mocks
-        _make_mock_bin(tmp_path, "npm")
-        _make_mock_bin(tmp_path, "pnpm")
-        _make_mock_bin(tmp_path, "uv")
-        _make_mock_bin(tmp_path, "cargo")
-        _make_mock_bin(tmp_path, "mas")
-        _make_mock_bin(tmp_path, "date")
-        # And mocks for the health check commands
-        for cmd in ("claude", "opencode", "gemini", "codex", "agent-browser"):
-            _make_mock_bin(tmp_path, cmd)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
-        assert _health_file(tmp_path).exists()
+        log_text = (tmp_path / ".coding-tools-update.log").read_text()
+        assert "===" in log_text
+
+    def test_log_contains_year(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "brew")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = (tmp_path / ".coding-tools-update.log").read_text()
+        assert re.search(r"20\d{2}", log_text) is not None
+
+
+# ── tool health tests ───────────────────────────────────────────────────
+
+
+class TestToolHealth:
+    def test_creates_health_file(self, tmp_path):
+        # Make mocks for all required tools
+        bindir = tmp_path / "bin"
+        bindir.mkdir(exist_ok=True)
+        for tool in ("brew", "claude", "opencode", "gemini", "codex", "agent-browser", "mas"):
+            script = bindir / tool
+            script.write_text("#!/bin/bash\nexit 0\n")
+            script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        health_file = tmp_path / ".coding-tools-health.json"
+        assert health_file.exists()
+
+    def test_health_file_status_ok(self, tmp_path):
+        bindir = tmp_path / "bin"
+        bindir.mkdir(exist_ok=True)
+        for tool in ("brew", "claude", "opencode", "gemini", "codex", "agent-browser", "mas"):
+            script = bindir / tool
+            script.write_text("#!/bin/bash\nexit 0\n")
+            script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        import json
+        health = json.loads((tmp_path / ".coding-tools-health.json").read_text())
+        assert health["status"] == "ok"
+        assert health["failures"] == []
