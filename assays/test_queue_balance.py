@@ -95,7 +95,7 @@ def test_empty_queue():
     with tempfile.TemporaryDirectory() as td:
         result = _run_queue_balance(queue, Path(td))
     assert result.returncode == 0, f"stderr: {result.stderr}"
-    assert "0" in result.stdout
+    assert "No tasks found" in result.stdout
 
 
 def test_missing_file():
@@ -134,14 +134,13 @@ def test_ignores_done_section():
     with tempfile.TemporaryDirectory() as td:
         result = _run_queue_balance(queue, Path(td))
     assert result.returncode == 0, f"stderr: {result.stderr}"
-    # Only zhipu=1 from Pending, not 2 zhipu + 1 infini
-    lines = result.stdout.splitlines()
-    # Find the zhipu count line
-    zhipu_count = 0
-    for line in lines:
-        if "zhipu" in line.lower():
-            zhipu_count += 1
-    # Should see zhipu mentioned exactly once (for the pending task)
-    assert zhipu_count == 1
+    # Only zhipu=1 from Pending, not 2 zhipu + 1 infini from Done
+    # Check the table row shows zhipu with count 1
+    table_lines = [l for l in result.stdout.splitlines()
+                   if l.strip().startswith("zhipu")]
+    assert len(table_lines) >= 1, f"no zhipu table row found in:\n{result.stdout}"
+    # The first table row should show exactly 1 task
+    first_row = table_lines[0]
+    assert "1" in first_row.split()[1], f"expected 1 task for zhipu, got: {first_row}"
     # Should NOT see infini (it's only in Done)
     assert "infini" not in result.stdout.lower()
