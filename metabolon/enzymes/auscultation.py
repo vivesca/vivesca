@@ -14,7 +14,14 @@ from pathlib import Path
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-_LOG_DIR = Path.home() / "Library" / "Logs" / "vivesca"
+import platform as _platform
+
+# macOS: ~/Library/Logs/vivesca/   Linux: ~/.local/share/vivesca/
+_LOG_DIR = (
+    Path.home() / "Library" / "Logs" / "vivesca"
+    if _platform.system() == "Darwin"
+    else Path.home() / ".local" / "share" / "vivesca"
+)
 _TMP_DIR = Path.home() / "tmp"
 
 

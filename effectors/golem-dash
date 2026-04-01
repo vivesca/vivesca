@@ -219,6 +219,41 @@ def fmt_eta(seconds: float) -> str:
         return f"{seconds / 86400:.1f}d"
 
 
+def compute_avg_duration_by_provider(records: list[dict]) -> dict[str, float]:
+    """Compute average duration of successful tasks per provider."""
+    totals: dict[str, list[float]] = {}
+    for rec in records:
+        if rec.get("exit") == 0 and rec.get("duration", 0) > 0:
+            prov = rec.get("provider", "unknown")
+            totals.setdefault(prov, []).append(rec["duration"])
+    return {prov: sum(durs) / len(durs) for prov, durs in totals.items()}
+
+
+def estimate_task_progress(elapsed: float, avg_duration: float) -> float:
+    """Estimate task progress as a fraction [0.0, 1.0].
+
+    Based on elapsed time vs average task duration for the provider.
+    Returns 0.0 if avg_duration is 0 (no data).
+    """
+    if avg_duration <= 0:
+        return 0.0
+    return min(elapsed / avg_duration, 1.0)
+
+
+def compute_completions_per_minute(records: list[dict], window_minutes: int = 30) -> float:
+    """Compute completions per minute over the given window."""
+    if not records:
+        return 0.0
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=window_minutes)
+    count = 0
+    for rec in records:
+        ts = parse_ts(rec.get("ts", ""))
+        if ts >= cutoff and rec.get("exit") == 0:
+            count += 1
+    return count / window_minutes
+
+
 def update_task_first_seen(running: list[dict]) -> None:
     """Track first-seen timestamps for running tasks to compute elapsed time."""
     global _task_first_seen
@@ -386,8 +421,11 @@ def sparkline(values: list[int]) -> str:
     return "".join(chars[min(int(v / mx * (len(chars) - 1)), len(chars) - 1)] for v in values)
 
 
-def build_running_tasks_table(running: list[dict]) -> Table:
-    """Build a table showing each running task with elapsed time."""
+def build_running_tasks_table(
+    running: list[dict],
+    avg_duration_by_provider: dict[str, float] | None = None,
+) -> Table:
+    """Build a table showing each running task with elapsed time and progress."""
     table = Table(
         show_header=True,
         header_style="bold",
@@ -397,9 +435,12 @@ def build_running_tasks_table(running: list[dict]) -> Table:
     )
     table.add_column("TaskID", style="cyan", min_width=9)
     table.add_column("Provider", min_width=8)
+    table.add_column("Progress", justify="right", min_width=14)
     table.add_column("Elapsed", justify="right", min_width=7)
     table.add_column("Through", style="dim", min_width=10)
     table.add_column("Prompt", style="dim", min_width=30, max_width=50, no_wrap=True)
+
+    avg_map = avg_duration_by_provider or {}
 
     for task in running:
         tid = task.get("task_id", "?")
@@ -420,7 +461,20 @@ def build_running_tasks_table(running: list[dict]) -> Table:
         elif elapsed > 300:
             elapsed_str = f"[yellow]{elapsed_str}[/yellow]"
 
-        table.add_row(tid, prov, elapsed_str, through_str, prompt)
+        # Progress bar based on avg duration for this provider
+        avg_dur = avg_map.get(prov, 0)
+        pct = estimate_task_progress(elapsed, avg_dur)
+        bar_w = 8
+        filled = int(pct * bar_w)
+        bar_str = "█" * filled + "░" * (bar_w - filled)
+        if pct >= 1.0:
+            progress_str = f"[yellow]{bar_str} {pct:.0%}[/yellow]"
+        elif pct >= 0.5:
+            progress_str = f"[cyan]{bar_str} {pct:.0%}[/cyan]"
+        else:
+            progress_str = f"[dim]{bar_str} {pct:.0%}[/dim]"
+
+        table.add_row(tid, prov, progress_str, elapsed_str, through_str, prompt)
 
     return table
 
@@ -569,7 +623,8 @@ def build_dashboard(
     # === Running tasks table ===
     components = [header, table, summary, drain_progress]
     if running:
-        components.append(build_running_tasks_table(running))
+        avg_durs = compute_avg_duration_by_provider(all_records)
+        components.append(build_running_tasks_table(running, avg_durs))
 
     # === Cooldown info ===
     cooldown_lines = []
