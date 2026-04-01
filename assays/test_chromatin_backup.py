@@ -1289,12 +1289,11 @@ class TestTheirsFallback:
         )
         assert "new_file.md" in ls.stdout
 
-    def test_theirs_fallback_commit_is_local_only(self, tmp_path):
-        """After --theirs resolution, commit is local but not pushed.
+    def test_theirs_fallback_commit_is_pushed(self, tmp_path):
+        """After --theirs resolution, the fallback commit is pushed to remote.
 
-        The theirs fallback creates a merge commit that includes the resolved
-        conflict, so the working tree is clean afterward. The change-check
-        exits 0 before reaching the push line.
+        The theirs fallback creates a commit that resolves to remote content.
+        The push-check (HEAD != origin/main) fires and pushes the result.
         """
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
@@ -1363,7 +1362,7 @@ class TestTheirsFallback:
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
 
-        # Local HEAD should be ahead of remote (fallback commit not pushed)
+        # Local HEAD should match remote (fallback commit was pushed)
         local_head = subprocess.run(
             ["git", "-C", str(chromatin), "rev-parse", "HEAD"],
             capture_output=True,
@@ -1374,8 +1373,7 @@ class TestTheirsFallback:
             capture_output=True,
             text=True,
         )
-        # The fallback commit is local-only; remote still has the pre-fallback state
-        assert local_head.stdout.strip() != remote_head.stdout.strip()
+        assert local_head.stdout.strip() == remote_head.stdout.strip()
 
         # Local tree should have the resolved file and extra.md
         local_ls = subprocess.run(

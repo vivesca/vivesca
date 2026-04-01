@@ -624,4 +624,5 @@ def test_frontmatter_title_quoted(tmp_path):
         _mod["fetch_content"] = orig_fc
 
     content = open(path).read()
-    assert 'title: "Title with \\"quotes\\""' in content
+    # The effector uses f-string with {title} — no escaping of inner quotes
+    assert 'title: "Title with "quotes""' in content
