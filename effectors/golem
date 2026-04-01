@@ -470,6 +470,12 @@ _run_golem() {
     _emit_rl_marker=true
   fi
   if $_emit_rl_marker; then
+    # If window unknown, fill in per-provider defaults so daemon can parse it
+    if [[ -z "$_rl_window" ]]; then
+      case "$PROVIDER" in
+        infini) _rl_window=5 ;;   # Infini: 1000 req / 5 hours
+      esac
+    fi
     echo "GOLEM_RATE_LIMIT: provider=$PROVIDER exit=$exit_code window=${_rl_window:-?}h duration=${duration}s" >&2
   fi
 

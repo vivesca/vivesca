@@ -48,8 +48,14 @@ FLY_API_BASE = "https://api.machines.dev"
 HEALTH_CHECK_INTERVAL = 50  # Run health check every N poll cycles (~25 min)
 PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after excessive failures
 PROVIDER_FAILURE_WINDOW = 600   # 10 min sliding window for failure counting
-PROVIDER_FAILURE_THRESHOLD = 5  # cooldown after N failures within the window
+PROVIDER_FAILURE_THRESHOLD = 3  # cooldown after N failures within the window
 RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion (matches Infini window)
+# Per-provider rate limit windows (seconds). Used when provider is known to have
+# strict quotas and fast-exit patterns suggest rate-limiting even without
+# explicit 429 text in the output.
+PROVIDER_RATE_WINDOWS: dict[str, int] = {
+    "infini": 18000,  # 1000 req / 5 hours
+}
 
 # Rate-limit detection patterns (checked against task output/tail)
 RATE_LIMIT_PATTERNS = re.compile(
@@ -169,7 +175,7 @@ RUNNING_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem-running.jso
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {
     "zhipu": 8,
-    "infini": 2,  # 1000 req/5hr limit — 2 concurrent is safe
+    "infini": 1,  # 1000 req/5hr limit — 1 concurrent to avoid burst exhaustion
     "volcano": 16,
     "gemini": 4,
     "codex": 4,
@@ -1133,14 +1139,26 @@ def daemon_loop():
                                 provider_failure_times[provider] = [t for t in times if t >= window_start]
                                 recent_fails = len(provider_failure_times[provider])
                                 if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
-                                    # If failures include exit=2 with empty output (silent
-                                    # rate-limit), use the longer RATE_LIMIT cooldown.
-                                    # Otherwise use the shorter PROVIDER cooldown.
-                                    silent_ratelimit = (exit_code == 2 and not tail.strip())
-                                    cooldown_dur = RATE_LIMIT_COOLDOWN_SECONDS if silent_ratelimit else PROVIDER_COOLDOWN_SECONDS
+                                    # If failures suggest silent rate-limiting, use the
+                                    # longer RATE_LIMIT cooldown instead of the shorter
+                                    # PROVIDER cooldown.  Detect via:
+                                    #   1. exit=2 with empty output (claude init failure)
+                                    #   2. exit=1 or 2 with short duration (≤10s) — rate-limited
+                                    #      preflight/retry exhaustion completes fast
+                                    #   3. Provider has a known rate-limit window (PROVIDER_RATE_WINDOWS)
+                                    known_window = provider in PROVIDER_RATE_WINDOWS
+                                    silent_ratelimit = (
+                                        (exit_code == 2 and not tail.strip())
+                                        or (exit_code in (1, 2) and duration <= 10)
+                                        or (known_window and duration <= 10)
+                                    )
+                                    if silent_ratelimit:
+                                        cooldown_dur = PROVIDER_RATE_WINDOWS.get(provider, RATE_LIMIT_COOLDOWN_SECONDS)
+                                    else:
+                                        cooldown_dur = PROVIDER_COOLDOWN_SECONDS
                                     cooldown_end = now + cooldown_dur
                                     provider_cooldown_until[provider] = cooldown_end
-                                    log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{' (silent rate-limit suspected)' if silent_ratelimit else ''}")
+                                    log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{' (rate-limit suspected, exit={} dur={}s)'.format(exit_code, duration) if silent_ratelimit else ''}")
                     except Exception as e:
                         log(f"Future error: {e}")
                         _write_jsonl_record(task_id, provider, 1, 0, cmd)
