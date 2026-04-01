@@ -265,3 +265,5 @@
 {"ts": "2026-04-01T00:02:59+00:00", "model": "sonar", "query": "test query"}
 {"ts": "2026-04-01T01:24:14+00:00", "model": "sonar", "query": "test query"}
 {"ts": "2026-04-01T01:24:14+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T01:42:51+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T01:42:51+00:00", "model": "sonar", "query": "test query"}

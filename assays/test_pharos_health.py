@@ -28,15 +28,11 @@ def _run(
 
     tmpdir = tempfile.mkdtemp(prefix="pharos_test_")
 
-    # Mock df — outputs the requested disk percentage
+    # Mock df — outputs only the pcent column (matches --output=pcent)
     df_mock = Path(tmpdir) / "df"
     df_mock.write_text(f"""#!/bin/bash
-if [ "$1" = "/" ] || [ "$1" = "/" ]; then
-    echo "Use%  Mounted"
-    echo " {disk_pct}% /"
-else
-    /usr/bin/df "$@"
-fi
+echo "Use%"
+echo " {disk_pct}%"
 """)
     df_mock.chmod(df_mock.stat().st_mode | stat.S_IEXEC)
 
