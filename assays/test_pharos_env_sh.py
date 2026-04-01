@@ -227,3 +227,168 @@ class TestNoArgs:
         """exec "$@" with no args is a no-op in bash — returns 0."""
         r = _run()
         assert r.returncode == 0
+
+
+# ── PATH isolation ──────────────────────────────────────────────────────
+
+
+class TestPathIsolation:
+    def test_path_does_not_append_caller_path(self):
+        """Script sets PATH entirely; it does not prepend to caller's PATH."""
+        r = _run("printenv", "PATH")
+        path = r.stdout.strip()
+        # PATH should be exactly what the script sets, not inherited + prepended
+        # Verify it starts with /home/terry/.local/bin (no inherited prefix)
+        assert path.startswith("/home/terry/.local/bin")
+
+    def test_path_has_nine_entries(self):
+        """PATH contains exactly 9 colon-separated directories."""
+        r = _run("printenv", "PATH")
+        path = r.stdout.strip()
+        entries = path.split(":")
+        assert len(entries) == 9
+
+    def test_path_no_duplicate_entries(self):
+        """PATH has no duplicate directories."""
+        r = _run("printenv", "PATH")
+        path = r.stdout.strip()
+        entries = path.split(":")
+        assert len(entries) == len(set(entries))
+
+
+# ── exec behaviour ──────────────────────────────────────────────────────
+
+
+class TestExecBehaviour:
+    def test_command_not_found_exits_nonzero(self):
+        """Non-existent command causes a non-zero exit (set -e propagates)."""
+        r = _run("this-command-does-not-exist-xyz")
+        assert r.returncode != 0
+
+    def test_args_with_spaces(self):
+        """Arguments containing spaces are forwarded correctly."""
+        r = _run("echo", "hello world", "foo bar")
+        assert r.returncode == 0
+        assert r.stdout.strip() == "hello world foo bar"
+
+    def test_args_with_special_chars(self):
+        """Arguments with shell-special characters are forwarded safely."""
+        r = _run("printf", "%s", "a*b?c")
+        assert r.returncode == 0
+        assert r.stdout == "a*b?c"
+
+    def test_exit_code_42_propagated(self):
+        """A specific non-zero exit code (42) propagates through exec."""
+        r = _run("bash", "-c", "exit 42")
+        assert r.returncode == 42
+
+    def test_env_after_set_a_does_not_leak(self):
+        """After set +a, subsequent vars are NOT auto-exported."""
+        # The script does set +a after sourcing zshenv, so any command
+        # run via exec should have a clean auto-export state.
+        # We test this indirectly: HOME is set via export, not via set -a.
+        env = os.environ.copy()
+        env["HOME"] = "/tmp/wrong"
+        r = _run("printenv", "HOME", env=env)
+        assert r.stdout.strip() == "/home/terry"
+
+
+# ── idempotency ────────────────────────────────────────────────────────
+
+
+class TestIdempotency:
+    def test_same_output_on_two_runs(self):
+        """Running the script twice with same args produces identical output."""
+        r1 = _run("printenv", "PATH")
+        r2 = _run("printenv", "PATH")
+        assert r1.stdout == r2.stdout
+        assert r1.returncode == r2.returncode
+
+    def test_same_home_on_two_runs(self):
+        """HOME is identical across two invocations."""
+        r1 = _run("printenv", "HOME")
+        r2 = _run("printenv", "HOME")
+        assert r1.stdout == r2.stdout
+
+
+# ── zshenv.local edge cases ────────────────────────────────────────────
+
+
+class TestZshenvEdgeCases:
+    def test_zshenv_with_comments(self, tmp_path):
+        """Lines starting with # and blank lines in zshenv are ignored."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text(
+            "# This is a comment\n"
+            "\n"
+            "PHAROS_COMMENT_TEST=yes\n"
+            "# another comment\n"
+        )
+        r = _run_patched(tmp_path, "printenv", "PHAROS_COMMENT_TEST")
+        assert r.returncode == 0
+        assert r.stdout.strip() == "yes"
+
+    def test_zshenv_multiline_exports(self, tmp_path):
+        """Multiple export lines in zshenv are all sourced."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text(
+            'PHAROS_MULTI_A="first"\n'
+            'PHAROS_MULTI_B="second"\n'
+            'PHAROS_MULTI_C="third"\n'
+        )
+        r_a = _run_patched(tmp_path, "printenv", "PHAROS_MULTI_A")
+        r_b = _run_patched(tmp_path, "printenv", "PHAROS_MULTI_B")
+        r_c = _run_patched(tmp_path, "printenv", "PHAROS_MULTI_C")
+        assert r_a.stdout.strip() == "first"
+        assert r_b.stdout.strip() == "second"
+        assert r_c.stdout.strip() == "third"
+
+    def test_zshenv_overrides_existing_var(self, tmp_path):
+        """zshenv.local can override an already-set environment variable."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text('PHAROS_OVERRIDE="new_value"\n')
+        env = os.environ.copy()
+        env["PHAROS_OVERRIDE"] = "old_value"
+        script = _make_patched_script(tmp_path)
+        r = subprocess.run(
+            ["bash", str(script), "printenv", "PHAROS_OVERRIDE"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.stdout.strip() == "new_value"
+
+    def test_zshenv_vars_visible_before_exec(self, tmp_path):
+        """Variables from zshenv are visible to the exec'd command."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text('PHAROS_BEFORE_EXEC="visible"\n')
+        r = _run_patched(tmp_path, "bash", "-c", "echo $PHAROS_BEFORE_EXEC")
+        assert r.returncode == 0
+        assert r.stdout.strip() == "visible"
+
+    def test_zshenv_empty_file(self, tmp_path):
+        """An empty .zshenv.local does not cause errors."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text("")
+        r = _run_patched(tmp_path, "true")
+        assert r.returncode == 0
+
+
+# ── HOME override robustness ───────────────────────────────────────────
+
+
+class TestHomeOverride:
+    def test_home_overrides_empty(self):
+        """HOME is set even when caller HOME is empty string."""
+        env = os.environ.copy()
+        env["HOME"] = ""
+        r = _run("printenv", "HOME", env=env)
+        assert r.stdout.strip() == "/home/terry"
+
+    def test_home_overrides_unset(self):
+        """HOME is set even when not in caller env at all."""
+        env = os.environ.copy()
+        env.pop("HOME", None)
+        r = _run("printenv", "HOME", env=env)
+        assert r.stdout.strip() == "/home/terry"

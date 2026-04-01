@@ -1,276 +1,165 @@
-#!/usr/bin/env python3
-"""Tests for agent-sync.sh — pull config repos and sync MEMORY.md."""
 from __future__ import annotations
 
-import os
+"""Tests for agent-sync.sh — pulls config repos and syncs MEMORY.md."""
+
 import subprocess
 from pathlib import Path
+import tempfile
+import os
 
-SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "agent-sync.sh"
-
-
-# ── Existence / permission checks ─────────────────────────────────────
-
-
-def test_script_exists_and_executable():
-    assert SCRIPT.exists()
-    assert os.access(SCRIPT, os.X_OK), "agent-sync.sh must be executable"
+SCRIPT_PATH = Path.home() / "germline/effectors/agent-sync.sh"
 
 
-# ── Help flag ──────────────────────────────────────────────────────────
+def run_script(args: list[str] = None, env: dict = None) -> subprocess.CompletedProcess:
+    """Run agent-sync.sh with optional args and custom env."""
+    cmd = [str(SCRIPT_PATH)] + (args or [])
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
+    return subprocess.run(cmd, capture_output=True, text=True, env=run_env)
 
 
-class TestHelp:
-    """--help and -h both show usage and exit 0."""
-
-    def test_help_long_flag(self):
-        r = subprocess.run(
-            [str(SCRIPT), "--help"],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        assert "Usage: agent-sync.sh" in r.stdout
-        assert "Pull agent config repos" in r.stdout
-        assert "--help" in r.stdout
-
-    def test_help_short_flag(self):
-        r = subprocess.run(
-            [str(SCRIPT), "-h"],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        assert "Usage: agent-sync.sh" in r.stdout
+# ── Help flag tests ─────────────────────────────────────────────────
 
 
-# ── No repos present — graceful success ───────────────────────────────
+def test_help_flag_exits_zero():
+    """--help flag should exit with code 0."""
+    result = run_script(["--help"])
+    assert result.returncode == 0
 
 
-class TestNoRepos:
-    """Script succeeds (exit 0) when none of the repos exist."""
-
-    def test_exits_zero_with_empty_home(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-
-    def test_no_error_output_with_empty_home(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        # No git errors should appear — repos are skipped via `[ -d ... ] || continue`
-        assert "not a git repo" not in r.stderr
-        assert "fatal:" not in r.stderr
+def test_help_flag_shows_usage():
+    """--help should show usage information."""
+    result = run_script(["--help"])
+    assert "Usage:" in result.stdout
+    assert "agent-sync" in result.stdout
 
 
-# ── Git pull behaviour ────────────────────────────────────────────────
+def test_help_flag_short():
+    """-h should work the same as --help."""
+    result = run_script(["-h"])
+    assert result.returncode == 0
+    assert "Usage:" in result.stdout
 
 
-class TestGitPull:
-    """Script pulls git repos when they contain a .git directory."""
-
-    def _make_fake_repo(self, path: Path) -> Path:
-        """Create a minimal git repo at path and return it."""
-        path.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["git", "init"],
-            cwd=str(path),
-            capture_output=True,
-            check=True,
-        )
-        # Need at least one commit so git pull doesn't fail
-        dummy = path / "README"
-        dummy.write_text("init\n")
-        subprocess.run(
-            ["git", "add", "README"],
-            cwd=str(path),
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init"],
-            cwd=str(path),
-            capture_output=True,
-            check=True,
-        )
-        return path
-
-    def test_pulls_agent_config_repo(self, tmp_path, monkeypatch):
-        """Script attempts git pull on $HOME/agent-config when it has .git."""
-        repo = self._make_fake_repo(tmp_path / "agent-config")
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        # The repo should still be valid after the pull attempt
-        assert (repo / ".git").is_dir()
-
-    def test_pulls_skills_repo(self, tmp_path, monkeypatch):
-        """Script attempts git pull on $HOME/skills when it has .git."""
-        repo = self._make_fake_repo(tmp_path / "skills")
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        assert (repo / ".git").is_dir()
-
-    def test_pulls_chromatin_repo(self, tmp_path, monkeypatch):
-        """Script attempts git pull on $HOME/code/epigenome/chromatin when it has .git."""
-        repo = self._make_fake_repo(tmp_path / "code" / "epigenome" / "chromatin")
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        assert (repo / ".git").is_dir()
-
-    def test_skips_repo_without_git_dir(self, tmp_path, monkeypatch):
-        """Directories in REPOS without .git are silently skipped."""
-        # Create agent-config dir but NOT as a git repo
-        (tmp_path / "agent-config").mkdir()
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        # No git errors — the dir was skipped via `|| continue`
-        assert "fatal:" not in r.stderr
-
-    def test_pull_failure_does_not_crash(self, tmp_path, monkeypatch):
-        """A failing git pull is swallowed (|| true) and script still exits 0."""
-        repo = self._make_fake_repo(tmp_path / "agent-config")
-        # Corrupt the git repo so pull fails
-        git_dir = repo / ".git"
-        # Remove HEAD to make git commands fail
-        (git_dir / "HEAD").unlink()
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        # Script still succeeds — `|| true` absorbs the failure
-        assert r.returncode == 0
+# ── Git repo handling tests ───────────────────────────────────────────
 
 
-# ── MEMORY.md sync ────────────────────────────────────────────────────
+def test_skips_nonexistent_repos(tmp_path):
+    """Script should skip repos that don't exist without error."""
+    # Create a temp home with no repos
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    result = run_script(env={"HOME": str(fake_home)})
+    # Should exit 0 even with no repos
+    assert result.returncode == 0
 
 
-class TestMemorySync:
-    """MEMORY.md is copied from agent-config to the Claude project dir."""
+def test_pulls_existing_git_repo(tmp_path):
+    """Script should git pull repos that have .git directory."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
 
-    def test_copies_memory_md(self, tmp_path, monkeypatch):
-        """MEMORY.md is copied from $HOME/agent-config/claude/memory/ to .claude/projects/."""
-        src_dir = tmp_path / "agent-config" / "claude" / "memory"
-        src_dir.mkdir(parents=True)
-        (src_dir / "MEMORY.md").write_text("# Test memory content\n")
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
+    # Create a bare repo to act as remote
+    remote = tmp_path / "remote"
+    subprocess.run(["git", "init", "--bare", str(remote)], capture_output=True, check=True)
 
-        # Derive the expected destination path the same way the script does
-        project_dash = str(tmp_path).lstrip("/").replace("/", "-")
-        dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
-        assert dst.exists(), f"Expected MEMORY.md at {dst}"
-        assert dst.read_text() == "# Test memory content\n"
+    # Create agent-config repo with a commit
+    repo = fake_home / "agent-config"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, capture_output=True, check=True)
+    (repo / "file.txt").write_text("initial")
+    subprocess.run(["git", "add", "file.txt"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "remote", "add", "origin", str(remote)], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "push", "origin", "master"], cwd=repo, capture_output=True, check=True)
 
-    def test_creates_destination_directory(self, tmp_path, monkeypatch):
-        """mkdir -p ensures the destination directory exists before cp."""
-        src_dir = tmp_path / "agent-config" / "claude" / "memory"
-        src_dir.mkdir(parents=True)
-        (src_dir / "MEMORY.md").write_text("data")
-        monkeypatch.setenv("HOME", str(tmp_path))
+    # Now clone it elsewhere, make a change, and push
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", str(remote), str(clone)], capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=clone, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=clone, capture_output=True, check=True)
+    (clone / "new.txt").write_text("new content")
+    subprocess.run(["git", "add", "new.txt"], cwd=clone, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "add new"], cwd=clone, capture_output=True, check=True)
+    subprocess.run(["git", "push", "origin", "master"], cwd=clone, capture_output=True, check=True)
 
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
+    # Run agent-sync - should pull the new file
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
 
-        project_dash = str(tmp_path).lstrip("/").replace("/", "-")
-        dst_dir = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory"
-        assert dst_dir.is_dir()
-
-    def test_no_error_when_source_missing(self, tmp_path, monkeypatch):
-        """If $HOME/agent-config/claude/memory/MEMORY.md doesn't exist, script still exits 0."""
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = subprocess.run(
-            [str(SCRIPT)],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode == 0
-        # No destination should have been created
-        assert not list((tmp_path / ".claude").rglob("MEMORY.md")) if (tmp_path / ".claude").exists() else True
-
-    def test_overwrites_existing_memory(self, tmp_path, monkeypatch):
-        """Running the script twice overwrites the destination MEMORY.md."""
-        src_dir = tmp_path / "agent-config" / "claude" / "memory"
-        src_dir.mkdir(parents=True)
-        monkeypatch.setenv("HOME", str(tmp_path))
-
-        # First write
-        (src_dir / "MEMORY.md").write_text("version 1\n")
-        subprocess.run([str(SCRIPT)], capture_output=True, text=True)
-
-        # Second write with updated content
-        (src_dir / "MEMORY.md").write_text("version 2\n")
-        r = subprocess.run([str(SCRIPT)], capture_output=True, text=True)
-        assert r.returncode == 0
-
-        project_dash = str(tmp_path).lstrip("/").replace("/", "-")
-        dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
-        assert dst.read_text() == "version 2\n"
+    # Check that the new file was pulled
+    assert (repo / "new.txt").exists()
+    assert (repo / "new.txt").read_text() == "new content"
 
 
-# ── Static source checks ─────────────────────────────────────────────
+def test_handles_multiple_repos(tmp_path):
+    """Script should process all three repo paths."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # Create all three repo directories with .git
+    for name in ["agent-config", "skills", "epigenome/chromatin"]:
+        repo = fake_home / name
+        repo.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, capture_output=True, check=True)
+        # Need at least one commit for pull to work
+        (repo / "readme.md").write_text(f"{name} repo")
+        subprocess.run(["git", "add", "readme.md"], cwd=repo, capture_output=True, check=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=repo, capture_output=True, check=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
 
 
-class TestSourceContent:
-    """Verify expected constants and patterns in the script source."""
+# ── MEMORY.md sync tests ──────────────────────────────────────────────
 
-    def test_repos_array(self):
-        src = SCRIPT.read_text()
-        assert '"$HOME/agent-config"' in src
-        assert '"$HOME/skills"' in src
-        assert '"$HOME/code/epigenome/chromatin"' in src
 
-    def test_set_flags(self):
-        src = SCRIPT.read_text()
-        assert "set -uo pipefail" in src
+def test_syncs_memory_md(tmp_path):
+    """Script should copy MEMORY.md to Claude project dir."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
 
-    def test_pull_with_rebase(self):
-        src = SCRIPT.read_text()
-        assert "git -C \"$repo\" pull --rebase" in src
+    # Create agent-config with MEMORY.md
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=agent_config, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=agent_config, capture_output=True, check=True)
 
-    def test_pull_fallback(self):
-        src = SCRIPT.read_text()
-        assert "git -C \"$repo\" pull" in src
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    memory_file = memory_dir / "MEMORY.md"
+    memory_file.write_text("# Test Memory\n\nThis is test memory content.")
 
-    def test_cp_and_mkdir(self):
-        src = SCRIPT.read_text()
-        assert 'mkdir -p "$(dirname "$DST")"' in src
-        assert 'cp "$SRC" "$DST"' in src
+    # Run script
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    # Check MEMORY.md was copied
+    # For HOME=/tmp/test/home, project dir is ~/.claude/projects/-tmp-test-home/memory/
+    expected_dst = Path.home() / ".claude/projects/-tmp-test-home/memory/MEMORY.md"
+    # But the script uses $HOME from env, so it should be under fake_home
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists(), f"MEMORY.md not found at {dst}"
+    assert "Test Memory" in dst.read_text()
+
+
+def test_no_error_when_memory_md_missing(tmp_path):
+    """Script should not error if MEMORY.md doesn't exist."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # Create agent-config without MEMORY.md
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0

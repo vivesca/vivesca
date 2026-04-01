@@ -302,13 +302,13 @@ _run_golem() {
   while [[ $_attempt -lt $_max_retries ]]; do
     # Pre-flight health check: detect rate-limit before wasting time on claude
     # Skip preflight for non-CC providers (gemini, codex have their own error handling)
-    if [[ -n "${_CLI:-}" ]]; then
+    if [[ -n "${_CLI:-}" && "${_CLI}" != "claude" ]]; then
       : # non-CC provider, skip preflight
     else
-    local _preflight_result
-    _pf_rc=0
-    _preflight_result=$(_preflight_check) || _pf_rc=$?
-    if [[ $_pf_rc -eq 1 ]]; then
+      local _preflight_result
+      local _pf_rc=0
+      _preflight_result=$(_preflight_check) || _pf_rc=$?
+      if [[ $_pf_rc -eq 1 ]]; then
       # Rate-limited — extract reset time and compute smart backoff
       _attempt=$(( _attempt + 1 ))
       # Parse "reset at YYYY-MM-DD HH:MM:SS" into epoch seconds
@@ -534,26 +534,6 @@ print(json.dumps(result))
   fi
 
   return $exit_code
-}
-
-# _configure_provider: set _KEY, _URL, _OPUS, _SONNET, _HAIKU for given provider
-_configure_provider() {
-  local prov="$1"
-  case "$prov" in
-    zhipu)
-      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-      _URL="https://open.bigmodel.cn/api/anthropic"
-      _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
-    volcano)
-      _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
-      _URL="https://ark.cn-beijing.volces.com/api/coding"
-      _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
-    infini)
-      _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
-      _URL="https://cloud.infini-ai.com/maas/coding"
-      _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.7" ;;
-    *) echo "Unknown provider: $prov (zhipu|volcano|infini)" >&2; return 1 ;;
-  esac
 }
 
 # _run_with_fallback: run _run_golem, retry on fallback provider if primary fails
