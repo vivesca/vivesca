@@ -13,14 +13,16 @@ Credentials: TELEGRAM_API_ID, TELEGRAM_API_HASH from env (set in .zshenv.local).
 
 import asyncio
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 SESSION_DIR = Path.home() / ".config" / "telethon"
 SESSION_NAME = "vivesca"
 
 
 def _get_client():
-    """Create a Telethon client (lazy import)."""
+    """Create a Telethon bot client (no interactive auth needed)."""
     from telethon import TelegramClient
 
     api_id = int(os.environ.get("TELEGRAM_API_ID", "0"))
@@ -33,6 +35,22 @@ def _get_client():
     return TelegramClient(session_path, api_id, api_hash)
 
 
+def _bot_token() -> str:
+    """Get bot token from env."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        raise ValueError("TELEGRAM_BOT_TOKEN must be set")
+    return token
+
+
+def _chat_id() -> int:
+    """Get chat ID from env."""
+    cid = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not cid:
+        raise ValueError("TELEGRAM_CHAT_ID must be set")
+    return int(cid)
+
+
 def _format_message(msg) -> str:
     """Format a single Telethon message for display."""
     ts = msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "?"
@@ -41,26 +59,40 @@ def _format_message(msg) -> str:
     return f"{ts}  {sender}: {text}"
 
 
-async def _read_chat_async(chat: str, limit: int = 30) -> str:
-    """Read recent messages from a chat."""
+async def _with_client(fn: Callable[[Any], Awaitable[str]]) -> str:
+    """Connect as user (session must exist), run fn(client), disconnect."""
     client = _get_client()
-    async with client:
-        entity = await client.get_entity(chat)
-        messages = await client.get_messages(entity, limit=limit)
+    await client.connect()
+    if not await client.is_user_authorized():
+        raise ValueError(
+            "Telethon session not authenticated. Run: "
+            "uv run python -m metabolon.organelles.telegram_auth"
+        )
+    try:
+        return await fn(client)
+    finally:
+        client.disconnect()
+
+
+async def _read_chat_async(chat_id: str, limit: int = 30) -> str:
+    """Read recent messages from a chat."""
+    async def _do(client):
+        target = int(chat_id) if chat_id.lstrip("-").isdigit() else chat_id
+        messages = await client.get_messages(target, limit=limit)
         if not messages:
             return "No messages found"
         msgs = messages if isinstance(messages, list) else [messages]
         lines = [_format_message(m) for m in reversed(msgs)]
         return "\n".join(lines)
+    return await _with_client(_do)
 
 
-async def _search_async(query: str, chat: str = "", limit: int = 20) -> str:
+async def _search_async(query: str, chat_id: str = "", limit: int = 20) -> str:
     """Search messages by text, optionally scoped to a chat."""
-    client = _get_client()
-    async with client:
+    async def _do(client):
         entity = None
-        if chat:
-            entity = await client.get_entity(chat)
+        if chat_id:
+            entity = int(chat_id) if chat_id.lstrip("-").isdigit() else chat_id
         messages = await client.get_messages(
             entity, search=query, limit=limit
         )
@@ -69,30 +101,30 @@ async def _search_async(query: str, chat: str = "", limit: int = 20) -> str:
         msgs = messages if isinstance(messages, list) else [messages]
         lines = [_format_message(m) for m in reversed(msgs)]
         return "\n".join(lines)
+    return await _with_client(_do)
 
 
 async def _list_chats_async(limit: int = 20) -> str:
     """List recent dialogs/chats."""
-    client = _get_client()
-    async with client:
+    async def _do(client):
         dialogs = await client.get_dialogs(limit=limit)
         lines = []
         for d in dialogs:
             unread = f" [{d.unread_count} unread]" if d.unread_count else ""
             lines.append(f"{d.name or d.id}{unread}")
         return "\n".join(lines) if lines else "No chats"
+    return await _with_client(_do)
 
 
 async def _auth_check_async() -> str:
-    """Check if Telethon session is authenticated."""
-    client = _get_client()
-    async with client:
+    """Check bot authentication."""
+    async def _do(client):
         me = await client.get_me()
         if me:
             name = getattr(me, "first_name", None) or str(getattr(me, "id", "unknown"))
-            phone = getattr(me, "phone", None) or "no phone"
-            return f"Authenticated as: {name} ({phone})"
-        return "Not authenticated — run interactive login"
+            return f"Authenticated as bot: {name}"
+        return "Not authenticated"
+    return await _with_client(_do)
 
 
 def _run(coro):
@@ -111,8 +143,10 @@ def _run(coro):
 # --- Public sync API (matches gap_junction pattern) ---
 
 
-def read_chat(chat: str = "me", limit: int = 30) -> str:
-    """Read recent messages. chat='me' for Saved Messages (bot notifications land here)."""
+def read_chat(chat: str = "", limit: int = 30) -> str:
+    """Read recent messages. Defaults to the bot's chat with Terry."""
+    if not chat:
+        chat = str(_chat_id())
     return _run(_read_chat_async(chat, limit))
 
 
