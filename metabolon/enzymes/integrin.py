@@ -1272,6 +1272,24 @@ def find_latest_cache_version(cache_dir: Path) -> Path | None:
     return versions[-1][1]
 
 
+def _safe_walk(root: Path) -> list[Path]:
+    """Like rglob('*') but skips unreadable directories.
+
+    os.walk with onerror silences PermissionError per-directory instead
+    of aborting the entire traversal.
+    """
+    results: list[Path] = []
+    def _on_error(_: OSError) -> None:
+        pass  # skip unreadable directories
+    for dirpath, _dirnames, filenames in os.walk(root, onerror=_on_error):
+        dp = Path(dirpath)
+        for fname in filenames:
+            results.append(dp / fname)
+        # Also yield subdirectories (matching rglob("*") behavior)
+        results.append(dp)
+    return results
+
+
 def diff_fork(local_dir: Path, cache_dir: Path) -> dict:
     """Compare local fork against upstream cache.
 
