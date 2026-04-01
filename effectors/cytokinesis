@@ -369,14 +369,17 @@ def cmd_gather(args):
             sid = latest_session_id()
             if sid:
                 reflect_fut = pool.submit(run_reflect, sid)
-        methyl_fut = pool.submit(run_methylation_audit)
+        # Methylation audit uses an LLM call (60s) — opt-in only
+        methyl_fut = pool.submit(run_methylation_audit) if getattr(args, 'reflect', False) else None
 
-        for name, fut, key, default in [
+        _futures = [
             ("rfts", rfts_fut, "rfts", []),
             ("deps", deps_fut, "deps", []),
             ("peira", peira_fut, "peira", None),
-            ("methylation", methyl_fut, "methylation", {}),
-        ]:
+        ]
+        if methyl_fut:
+            _futures.append(("methylation", methyl_fut, "methylation", {}))
+        for name, fut, key, default in _futures:
             try:
                 results[key] = fut.result(timeout=10)
             except (concurrent.futures.TimeoutError, Exception):
