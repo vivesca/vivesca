@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "vivesca": {
-      "command": "/home/terry/germline/.venv/bin/vivesca",
-      "args": ["serve"]
+      "url": "http://127.0.0.1:8741/mcp"
     }
   },
   "env": {
