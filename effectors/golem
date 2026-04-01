@@ -137,7 +137,7 @@ fi
 
 # Strip optional task ID prefix: [t-xxxxxx] placed by golem-daemon before flags
 # e.g. "golem [t-a4a00f] --provider volcano ..." → task_id=t-a4a00f, then parse flags
-if [[ "${1:-}" =~ ^\[t-[0-9a-f]+\]$ ]]; then
+if [[ "${1:-}" =~ ^\[t-[0-9a-fA-F]+\]$ ]]; then
   GOLEM_TASK_ID="${1:1:-1}"  # strip brackets
   export GOLEM_TASK_ID
   shift

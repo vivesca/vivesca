@@ -1,122 +1,114 @@
-"""temporal-golem CLI — submit workflows and check status."""
+"""CLI for submitting and inspecting golem Temporal workflows.
+
+Usage:
+    temporal-golem submit -p zhipu "Write tests for foo.py"
+    temporal-golem submit -p volcano -f tasks.txt
+    temporal-golem status <workflow-id>
+    temporal-golem list [-n 10]
+"""
 from __future__ import annotations
 
 import asyncio
 import json
 import sys
-from datetime import timedelta
+import uuid
 from pathlib import Path
-from typing import Optional
 
 import click
+from temporalio.client import Client, WorkflowFailureError
 
-# Add this directory to path for workflow imports
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-TASK_QUEUE = "golem-tasks"
+from workflow import GolemDispatchWorkflow
 
 
-async def _get_client():
-    """Create and return a Temporal client connection."""
-    from temporalio.client import Client
-    return await Client.connect("localhost:7233")
+async def _get_client(target_host: str = "localhost:7233") -> Client:
+    """Create a Temporal client connected to the given host."""
+    return await Client.connect(target_host)
 
 
 @click.group()
 def main():
-    """temporal-golem — Temporal-based golem task orchestrator."""
+    """Temporal golem orchestrator CLI."""
     pass
 
 
 @main.command()
-@click.option("-p", "--provider", default="zhipu", help="Golem provider (zhipu, infini, volcano)")
-@click.option("-f", "--file", "task_file", default=None, help="Read tasks from file (one per line)")
+@click.option("-p", "--provider", default="zhipu", help="Provider name")
 @click.option("-w", "--workflow-id", default=None, help="Custom workflow ID")
+@click.option("-f", "--file", "filepath", default=None, help="Read tasks from file")
+@click.option("--max-turns", default=50, type=int, help="Max turns per task")
 @click.argument("tasks", nargs=-1)
-def submit(provider: str, task_file: Optional[str], workflow_id: Optional[str], tasks: tuple[str, ...]):
-    """Submit golem tasks to the Temporal workflow."""
-    # Collect tasks from args and/or file
-    all_tasks = list(tasks)
+def submit(provider: str, workflow_id: str | None, filepath: str | None, max_turns: int, tasks: tuple[str, ...]):
+    """Submit one or more golem tasks as a Temporal workflow."""
+    task_list = list(tasks)
 
-    if task_file:
-        try:
-            with open(task_file) as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        all_tasks.append(line)
-        except FileNotFoundError:
-            click.echo(json.dumps({"error": f"File not found: {task_file}"}))
-            sys.exit(1)
+    if filepath:
+        lines = Path(filepath).read_text().splitlines()
+        for line in lines:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                task_list.append(stripped)
 
-    if not all_tasks:
-        click.echo("Error: no tasks provided. Pass TASK args or use --file.")
+    if not task_list:
+        click.echo(json.dumps({"error": "no tasks provided"}))
         sys.exit(1)
 
-    specs = [{"task": t, "provider": provider} for t in all_tasks]
+    specs = [
+        {"task": t, "provider": provider, "max_turns": max_turns}
+        for t in task_list
+    ]
 
-    if workflow_id is None:
-        import secrets
-        workflow_id = f"golem-{provider}-{secrets.token_hex(4)}"
+    wf_id = workflow_id or f"golem-{provider}-{uuid.uuid4().hex[:8]}"
 
-    async def _submit():
+    async def _run():
         client = await _get_client()
-        from workflow import GolemDispatchWorkflow
         handle = await client.start_workflow(
             GolemDispatchWorkflow.run,
-            specs,
-            id=workflow_id,
-            task_queue=TASK_QUEUE,
+            args=[specs],
+            id=wf_id,
+            task_queue="golem-tasks",
         )
         return handle
 
-    handle = asyncio.get_event_loop().run_until_complete(_submit())
-
-    output = {
+    handle = asyncio.run(_run())
+    click.echo(json.dumps({
         "workflow_id": handle.id,
         "tasks_submitted": len(specs),
         "provider": provider,
-        "status": "STARTED",
-    }
-    click.echo(json.dumps(output))
+    }))
 
 
 @main.command()
 @click.argument("workflow_id")
 def status(workflow_id: str):
-    """Check status of a submitted workflow."""
-    async def _status():
+    """Show the status of a golem workflow."""
+    async def _run():
         client = await _get_client()
         handle = client.get_workflow_handle(workflow_id)
         desc = await handle.describe()
         result = None
         if desc.status.name == "COMPLETED":
             result = await handle.result()
-        return desc, result
+        return {
+            "workflow_id": workflow_id,
+            "status": desc.status.name,
+            "run_id": desc.run_id,
+            "start_time": str(desc.start_time),
+            "result": result,
+        }
 
-    desc, result = asyncio.get_event_loop().run_until_complete(_status())
-
-    output = {
-        "workflow_id": workflow_id,
-        "status": desc.status.name,
-        "run_id": desc.run_id,
-        "start_time": str(desc.start_time),
-    }
-    if result is not None:
-        output["result"] = result
-
-    click.echo(json.dumps(output))
+    output = asyncio.run(_run())
+    click.echo(json.dumps(output, default=str))
 
 
 @main.command(name="list")
-@click.option("-n", "--limit", default=10, help="Max workflows to return")
+@click.option("-n", "--limit", default=10, type=int, help="Max workflows to show")
 def list_workflows(limit: int):
     """List recent golem workflows."""
-    async def _list():
+    async def _run():
         client = await _get_client()
         results = []
         async for wf in client.list_workflows(
-            query="WorkflowType = 'GolemDispatchWorkflow'",
+            query="WorkflowId STARTS_WITH 'golem-'",
             page_size=limit,
         ):
             results.append({
@@ -128,8 +120,8 @@ def list_workflows(limit: int):
                 break
         return results
 
-    results = asyncio.get_event_loop().run_until_complete(_list())
-    click.echo(json.dumps(results))
+    output = asyncio.run(_run())
+    click.echo(json.dumps(output, default=str))
 
 
 if __name__ == "__main__":

@@ -1,8 +1,6 @@
-version: "3.8"
-
 services:
   postgresql:
-    image: postgres:15
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: temporal
       POSTGRES_PASSWORD: temporal
@@ -14,27 +12,26 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U temporal"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
 
   temporal-server:
-    image: temporalio/server:latest
+    image: temporalio/auto-setup:latest
     depends_on:
       postgresql:
         condition: service_healthy
     environment:
       - DB=postgresql
       - DB_PORT=5432
-      - DB_NAME=temporal
       - DB_USER=temporal
       - DB_PASSWORD=temporal
+      - DB_NAME=temporal
       - DB_HOST=postgresql
-      - ENABLE_ES=false
+      - ENABLE_UI=1
     ports:
       - "7233:7233"
-    command: ["serve"]
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      test: ["CMD", "tctl", "--address", "temporal-server:7233", "cluster", "health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -43,7 +40,7 @@ services:
     image: temporalio/ui:latest
     depends_on:
       temporal-server:
-        condition: service_healthy
+        condition: service_started
     environment:
       - TEMPORAL_ADDRESS=temporal-server:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:8080
@@ -54,7 +51,7 @@ services:
     image: temporalio/admin-tools:latest
     depends_on:
       temporal-server:
-        condition: service_healthy
+        condition: service_started
     environment:
       - TEMPORAL_CLI_ADDRESS=temporal-server:7233
     stdin_open: true

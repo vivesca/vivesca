@@ -1,11 +1,12 @@
 [project]
 name = "temporal-golem"
 version = "0.1.0"
-description = "Temporal.io-based orchestrator for golem task dispatch"
+description = "Temporal.io orchestrator for golem task dispatch."
 requires-python = ">=3.11"
 dependencies = [
     "temporalio>=1.24.0",
     "click>=8.0",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

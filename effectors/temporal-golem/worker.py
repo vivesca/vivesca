@@ -1,34 +1,67 @@
-"""temporal-golem worker — polls 'golem-tasks' queue and runs golem activities."""
+"""Temporal worker for golem task orchestration.
+
+Polls the 'golem-tasks' task queue and executes golem commands as activities.
+Each activity runs `bash effectors/golem --provider X task`, heartbeats every
+30s, has a 30min timeout, and a retry policy (3 attempts, exponential backoff).
+
+Usage:
+    python worker.py                # Start worker
+"""
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from pathlib import Path
 
-from temporalio import activity
+from temporalio import activity, workflow
+from temporalio.client import Client
+from temporalio.worker import Worker
 
 TASK_QUEUE = "golem-tasks"
 GOLEM_SCRIPT = Path(__file__).resolve().parent.parent / "golem"
-ACTIVITY_TIMEOUT = 1800  # 30 min
-HEARTBEAT_INTERVAL = 30  # seconds
 
-# Per-provider concurrency limits
+# Per-provider concurrency limits (matching golem-daemon config)
 _PROVIDER_SEMAPHORES: dict[str, asyncio.Semaphore] = {
     "zhipu": asyncio.Semaphore(8),
     "infini": asyncio.Semaphore(8),
     "volcano": asyncio.Semaphore(16),
 }
 
+# How long we wait between heartbeats
+_HEARTBEAT_INTERVAL = timedelta(seconds=30)
+# Maximum time a single golem invocation may run
+_ACTIVITY_TIMEOUT = timedelta(minutes=30)
+
+
+async def _heartbeat_loop(task_name: str, interval: float = 30.0) -> asyncio.Event:
+    """Background task that heartbeats every *interval* seconds until cancelled."""
+    stop = asyncio.Event()
+
+    async def _loop():
+        n = 0
+        while not stop.is_set():
+            try:
+                activity.heartbeat(f"running:{task_name[:60]} tick:{n}")
+            except Exception:
+                pass
+            n += 1
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass  # expected — interval elapsed
+
+    hb_task = asyncio.create_task(_loop())
+    # Attach the stop event so the caller can signal shutdown and await the task.
+    stop.task = hb_task  # type: ignore[attr-defined]
+    return stop
+
 
 @activity.defn
-async def run_golem_task(
-    task: str,
-    provider: str = "zhipu",
-    max_turns: int = 50,
-) -> dict:
-    """Run a single golem task as a Temporal activity.
+async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
+    """Execute a single golem task as a subprocess.
 
-    Executes `bash effectors/golem --provider X --max-turns N <task>`,
-    heartbeating every 30s with a 30-minute timeout.
+    Returns a dict with keys: success, exit_code, provider, stdout.
+    Raises RuntimeError if the subprocess fails or times out.
     """
     sem = _PROVIDER_SEMAPHORES.get(provider)
     if sem is None:
@@ -36,65 +69,63 @@ async def run_golem_task(
 
     async with sem:
         cmd = [
-            "bash",
-            str(GOLEM_SCRIPT),
+            "bash", str(GOLEM_SCRIPT),
             "--provider", provider,
             "--max-turns", str(max_turns),
             task,
         ]
-
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
 
+        # Start periodic heartbeating while subprocess runs.
+        hb_stop = await _heartbeat_loop(task)
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=ACTIVITY_TIMEOUT,
-            )
-        except asyncio.TimeoutError:
-            proc.kill()
-            raise RuntimeError(f"Golem task timed out after {ACTIVITY_TIMEOUT}s")
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=_ACTIVITY_TIMEOUT.total_seconds(),
+                )
+            except asyncio.TimeoutError:
+                proc.kill()
+                raise RuntimeError(f"Golem task timed out after {_ACTIVITY_TIMEOUT}")
+        finally:
+            hb_stop.set()
+            await hb_stop.task  # type: ignore[attr-defined]
 
-        # Heartbeat once after completion for the record
-        activity.heartbeat(f"completed:{task[:40]}")
+        activity.heartbeat(f"completed:{task[:80]}")
 
-        # After communicate() the process has exited.  In real asyncio
-        # subprocess proc.returncode is always set; mocks may leave it None.
+        # returncode is 0 on success; None means communicate() returned before
+        # the process fully reaped (can happen with certain mock setups).
         rc = proc.returncode if proc.returncode is not None else 0
+
         if rc != 0:
+            stderr = stderr_bytes.decode(errors="replace")
             raise RuntimeError(
-                f"Golem exited {rc}: {stderr.decode(errors='replace')[:200]}"
+                f"Golem exited {rc}: {stderr[:500]}"
             )
 
         return {
             "success": True,
-            "exit_code": 0,
+            "exit_code": rc,
             "provider": provider,
-            "stdout": stdout.decode(errors="replace"),
-            "stderr": stderr.decode(errors="replace"),
+            "stdout": stdout_bytes.decode(errors="replace"),
         }
 
 
-async def run_worker(temporal_endpoint: str = "localhost:7233") -> None:
-    """Start a Temporal worker connected to the given endpoint."""
-    from temporalio.worker import Worker
-    from workflow import GolemDispatchWorkflow
-
-    client = await __import__("temporalio.client", fromlist=["Client"]).Client.connect(
-        temporal_endpoint,
-    )
+async def main() -> None:
+    """Start the Temporal worker."""
+    client = await Client.connect("localhost:7233")
     worker = Worker(
-        client,
+        client=client,
         task_queue=TASK_QUEUE,
-        workflows=[GolemDispatchWorkflow],
         activities=[run_golem_task],
     )
+    print(f"Temporal golem worker started on queue '{TASK_QUEUE}'")
     await worker.run()
 
 
 if __name__ == "__main__":
-    import sys
-    endpoint = sys.argv[1] if len(sys.argv) > 1 else "localhost:7233"
-    asyncio.run(run_worker(endpoint))
+    asyncio.run(main())

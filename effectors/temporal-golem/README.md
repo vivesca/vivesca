@@ -1,28 +1,31 @@
 # temporal-golem
 
 Temporal.io-based orchestrator to replace the golem-daemon markdown queue.
+Phase 1 scaffold — worker, workflow, CLI, and Docker Compose for local development.
 
 ## Architecture
 
-- **worker.py** — Temporal worker that polls `golem-tasks` task queue and runs golem commands as activities
-- **workflow.py** — `GolemDispatchWorkflow` that accepts task lists, dispatches with per-provider concurrency limits
-- **cli.py** — CLI to submit workflows and check status
-- **docker-compose.yml** — Temporal server + PostgreSQL + Web UI
+```
+CLI (cli.py) ──submit──> Temporal Server ──dispatch──> Worker (worker.py)
+                              │                         │
+                              │                    bash effectors/golem
+                              │                         │
+                              └──status/list────────────┘
+```
+
+- **worker.py** — Temporal worker that polls `golem-tasks` task queue. Each activity runs `bash effectors/golem --provider X --max-turns N "task"`, heartbeats every 30s, has a 30min timeout, and retries up to 3 times with exponential backoff.
+- **workflow.py** — `GolemDispatchWorkflow` accepts a list of task specs, dispatches them sequentially (per-provider concurrency enforced by semaphores in the worker), and returns an aggregate result.
+- **cli.py** — Click CLI for submitting workflows and checking status.
 
 ## Per-provider concurrency
 
-| Provider | Max concurrent |
-|----------|---------------|
-| zhipu    | 8             |
-| infini   | 8             |
-| volcano  | 16            |
+| Provider | Max concurrent tasks |
+|----------|---------------------|
+| zhipu    | 8                   |
+| infini   | 8                   |
+| volcano  | 16                  |
 
-## Activity details
-
-- Runs `bash effectors/golem --provider X --max-turns N <task>`
-- Heartbeats every 30s
-- 30-minute timeout per attempt
-- Retry policy: 3 attempts, exponential backoff (2x), starting at 10s
+Concurrency is enforced via `asyncio.Semaphore` in the worker, one per provider.
 
 ## Quick start
 
@@ -30,68 +33,68 @@ Temporal.io-based orchestrator to replace the golem-daemon markdown queue.
 
 ```bash
 cd effectors/temporal-golem
-./start.sh
+docker-compose up -d
 ```
 
-Or manually:
-
-```bash
-docker compose up -d
-```
+This starts:
+- PostgreSQL on port 5432
+- Temporal server on port 7233
+- Temporal Web UI on port 8080
+- Admin tools container
 
 ### 2. Start the worker
 
 ```bash
-cd effectors/temporal-golem
-python worker.py  # connects to localhost:7233
+python3 worker.py
+```
+
+Or use the combined script:
+
+```bash
+./start.sh
 ```
 
 ### 3. Submit tasks
 
 ```bash
 # Single task
-python cli.py submit -p zhipu "Write tests for foo.py"
+temporal-golem submit -p zhipu "Write tests for metabolon/foo.py"
 
 # Multiple tasks
-python cli.py submit -p infini "Task A" "Task B" "Task C"
+temporal-golem submit -p volcano "Task A" "Task B" "Task C"
 
-# From file
-python cli.py submit -p volcano -f tasks.txt
+# From file (one task per line, # comments supported)
+temporal-golem submit -p infini -f tasks.txt
 
 # Custom workflow ID
-python cli.py submit -p zhipu -w my-batch "Do the thing"
+temporal-golem submit -p zhipu -w my-batch-001 "Do the thing"
 ```
 
 ### 4. Check status
 
 ```bash
-python cli.py status golem-zhipu-abcd1234
-python cli.py list -n 5
+temporal-golem status golem-zhipu-abcd1234
+temporal-golem list -n 10
 ```
 
-### 5. Web UI
+## Docker Compose services
 
-Open http://localhost:8080 for the Temporal Web UI.
+| Service             | Port  | Purpose                |
+|---------------------|-------|------------------------|
+| postgresql          | 5432  | Persistence store      |
+| temporal-server     | 7233  | Temporal server        |
+| temporal-ui         | 8080  | Web UI                 |
+| temporal-admin-tools| —     | `tctl` admin CLI       |
 
-## Services
+## Activity retry policy
 
-| Service            | Port  | Purpose           |
-|--------------------|-------|-------------------|
-| PostgreSQL         | 5432  | Persistence       |
-| Temporal Server    | 7233  | gRPC endpoint     |
-| Temporal Web UI    | 8080  | Visual dashboard  |
-| Admin Tools        | —     | CLI management    |
+- Maximum attempts: 3
+- Initial interval: 10s
+- Backoff coefficient: 2.0
+- Maximum interval: 5m
+- Start-to-close timeout: 30m
 
-## Migration from golem-daemon
-
-This is Phase 1 (scaffold). The golem-daemon markdown queue still works. Once Temporal is validated:
-
-1. Worker replaces the daemon's `run_golem()` subprocess loop
-2. Workflow replaces the daemon's queue parsing + concurrency management
-3. CLI replaces `golem-daemon status` / manual queue edits
-4. Temporal Web UI replaces `golem-top` for visibility
-
-## Testing
+## Running tests
 
 ```bash
 cd ~/germline

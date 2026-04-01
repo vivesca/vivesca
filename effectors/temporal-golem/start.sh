@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
-# start.sh — Spin up Temporal server + dependencies and wait for health
+# start.sh — launch Temporal infrastructure and golem worker.
 set -euo pipefail
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
-echo "==> Starting Temporal server stack..."
-docker compose up -d
+echo "==> Starting Temporal server (docker-compose)..."
+docker-compose up -d
 
 echo "==> Waiting for Temporal server to be healthy..."
 for i in $(seq 1 30); do
-    if docker compose exec -T temporal-server temporal operator cluster health 2>/dev/null; then
-        echo "==> Temporal server is healthy!"
-        echo "==> Web UI: http://localhost:8080"
-        echo "==> gRPC endpoint: localhost:7233"
-        exit 0
+    if docker-compose exec -T temporal-server tctl --address localhost:7233 cluster health >/dev/null 2>&1; then
+        echo "    Temporal server is healthy."
+        break
     fi
-    echo "  Waiting... ($i/30)"
-    sleep 5
+    echo "    Waiting... ($i/30)"
+    sleep 2
 done
 
-echo "ERROR: Temporal server did not become healthy within 150s"
-exit 1
+echo "==> Starting golem worker..."
+python3 worker.py
