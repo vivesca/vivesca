@@ -69,9 +69,14 @@ def load_jsonl(date_filter: str | None) -> list[dict]:
     """Load JSONL records, optionally filtering by date."""
     if not JSONL_FILE.exists():
         return []
-    
+
     records = []
-    for line in JSONL_FILE.read_text().strip().split("\n"):
+    try:
+        content = JSONL_FILE.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+
+    for line in content.strip().split("\n"):
         if not line.strip():
             continue
         try:
