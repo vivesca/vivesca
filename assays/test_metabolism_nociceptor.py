@@ -22,6 +22,8 @@ from metabolon.metabolism.nociceptor import (
     scan,
 )
 
+MOD = "metabolon.metabolism.nociceptor"
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -36,13 +38,12 @@ def _write_jsonl(path: Path, entries: list[dict]) -> None:
     path.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
 
 
-def _patch_logs(tmp_path):
-    """Return context manager patching all three log paths to tmp_path."""
-    return (
-        patch("metabolon.metabolism.nociceptor.INFECTION_LOG", tmp_path / "inf.jsonl"),
-        patch("metabolon.metabolism.nociceptor.SIGNAL_LOG", tmp_path / "sig.jsonl"),
-        patch("metabolon.metabolism.nociceptor.HOOK_LOG", tmp_path / "hook.jsonl"),
-    )
+def _patched_logs(tmp_path):
+    """Context manager that patches all three log paths."""
+    pi = patch(f"{MOD}.INFECTION_LOG", tmp_path / "inf.jsonl")
+    ps = patch(f"{MOD}.SIGNAL_LOG", tmp_path / "sig.jsonl")
+    ph = patch(f"{MOD}.HOOK_LOG", tmp_path / "hook.jsonl")
+    return pi, ps, ph
 
 
 # ---------------------------------------------------------------------------
@@ -190,112 +191,101 @@ class TestReadJsonl:
 
 class TestScan:
     def test_empty_logs(self, tmp_path):
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                assert scan(hours=24) == []
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            assert scan(hours=24) == []
 
     def test_infection_entries(self, tmp_path):
-        inf = tmp_path / "inf.jsonl"
-        _write_jsonl(inf, [
+        _write_jsonl(tmp_path / "inf.jsonl", [
             {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert len(events) == 1
         assert events[0].source == "infection"
         assert events[0].pain_type == "network"
         assert events[0].site == "curl"
 
     def test_signal_error_entries(self, tmp_path):
-        sig = tmp_path / "sig.jsonl"
-        _write_jsonl(sig, [
+        _write_jsonl(tmp_path / "sig.jsonl", [
             {"ts": _ts(0), "outcome": "error", "error": "403 denied", "tool": "deploy"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert len(events) == 1
         assert events[0].source == "signal"
         assert events[0].pain_type == "auth"
 
     def test_signal_correction_entries(self, tmp_path):
-        sig = tmp_path / "sig.jsonl"
-        _write_jsonl(sig, [
+        _write_jsonl(tmp_path / "sig.jsonl", [
             {"ts": _ts(0), "outcome": "correction", "message": "fixed", "substrate": "x"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert len(events) == 1
         assert events[0].source == "signal"
 
     def test_signal_non_error_filtered(self, tmp_path):
-        sig = tmp_path / "sig.jsonl"
-        _write_jsonl(sig, [
+        _write_jsonl(tmp_path / "sig.jsonl", [
             {"ts": _ts(0), "outcome": "success", "message": "ok"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                assert scan(1) == []
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            assert scan(1) == []
 
     def test_hook_denial_entries(self, tmp_path):
-        hook = tmp_path / "hook.jsonl"
-        _write_jsonl(hook, [
+        _write_jsonl(tmp_path / "hook.jsonl", [
             {"ts": _ts(0), "rule": "deny-dangerous", "hook": "pre-commit"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert len(events) == 1
         assert events[0].source == "hook"
         assert events[0].pain_type == "logic"
         assert events[0].recommended_action == "review hook rule"
 
     def test_hook_empty_rule_skipped(self, tmp_path):
-        hook = tmp_path / "hook.jsonl"
-        _write_jsonl(hook, [
+        _write_jsonl(tmp_path / "hook.jsonl", [
             {"ts": _ts(0), "rule": "", "hook": "pre-commit"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                assert scan(1) == []
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            assert scan(1) == []
 
     def test_chronic_detection(self, tmp_path):
         """Same fingerprint >= CHRONIC_THRESHOLD triggers chronic type."""
-        inf = tmp_path / "inf.jsonl"
-        entries = [
+        _write_jsonl(tmp_path / "inf.jsonl", [
             {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fpX"}
             for _ in range(CHRONIC_THRESHOLD)
-        ]
-        _write_jsonl(inf, entries)
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert len(events) == CHRONIC_THRESHOLD
-        # The last event should be chronic
         assert events[-1].pain_type == "chronic"
         assert events[-1].count == CHRONIC_THRESHOLD
 
     def test_error_truncated_to_200(self, tmp_path):
         long_err = "x" * 300
-        inf = tmp_path / "inf.jsonl"
-        _write_jsonl(inf, [
+        _write_jsonl(tmp_path / "inf.jsonl", [
             {"ts": _ts(0), "error": long_err, "tool": "t", "fingerprint": "fp1"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert len(events[0].error) <= 200
 
     def test_signal_uses_message_fallback(self, tmp_path):
-        sig = tmp_path / "sig.jsonl"
-        _write_jsonl(sig, [
+        _write_jsonl(tmp_path / "sig.jsonl", [
             {"ts": _ts(0), "outcome": "error", "message": "quota hit", "substrate": "sub1"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                events = scan(1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
         assert events[0].error == "quota hit"
         assert events[0].site == "sub1"
 
@@ -306,45 +296,40 @@ class TestScan:
 
 class TestReport:
     def test_no_events(self, tmp_path):
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                r = report(hours=1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
         assert "No pain events" in r
 
     def test_with_events(self, tmp_path):
-        inf = tmp_path / "inf.jsonl"
-        _write_jsonl(inf, [
+        _write_jsonl(tmp_path / "inf.jsonl", [
             {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                r = report(hours=1)
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
         assert "Pain report" in r
         assert "NETWORK" in r
 
     def test_chronic_section(self, tmp_path):
-        inf = tmp_path / "inf.jsonl"
-        entries = [
+        _write_jsonl(tmp_path / "inf.jsonl", [
             {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fpC"}
             for _ in range(CHRONIC_THRESHOLD)
-        ]
-        _write_jsonl(inf, entries)
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                r = report(hours=1)
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
         assert "CHRONIC INFECTIONS" in r
 
     def test_deduplication_in_report(self, tmp_path):
         """Same site:error pair appears only once per type section."""
-        sig = tmp_path / "sig.jsonl"
-        _write_jsonl(sig, [
+        _write_jsonl(tmp_path / "sig.jsonl", [
             {"ts": _ts(0), "outcome": "error", "error": "timeout", "tool": "a"},
             {"ts": _ts(0), "outcome": "error", "error": "timeout", "tool": "a"},
         ])
-        with _patch_logs(tmp_path) as (pi, ps, ph):
-            with pi, ps, ph:
-                r = report(hours=1)
-        # The "[signal] a: timeout" line should appear exactly once
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
         assert r.count("[signal] a: timeout") == 1
 
 
