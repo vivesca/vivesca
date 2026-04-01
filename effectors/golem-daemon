@@ -183,7 +183,7 @@ RUNNING_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem-running.jso
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {
     "zhipu": 8,
-    "infini": 4,  # 1000 req/5hr limit — 4 concurrent × ~5min avg = ~48 req/hr, well within budget
+    "infini": 2,  # 1000 req/5hr limit — reduced from 4 to prevent parallel 429s triggering crash loop
     "volcano": 16,
     "gemini": 4,
     "codex": 4,
