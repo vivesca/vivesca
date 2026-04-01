@@ -359,6 +359,39 @@ class TestTgNotifyEdgeCases:
         assert r.returncode == 1
         assert "ALERT" in r.stderr
 
+    def test_tg_notify_is_directory_falls_back_to_stderr(self, tmp_path):
+        """tg-notify.sh is a directory (not a file) → falls back to stderr."""
+        stub_dir = tmp_path / "stubs"
+        stub_dir.mkdir()
+        df_stub = stub_dir / "df"
+        df_stub.write_text("#!/bin/bash\nif [ \"$1\" = '/' ]; then\necho 'Use%'\necho '90%'\nfi\n")
+        df_stub.chmod(0o755)
+        free_stub = stub_dir / "free"
+        free_stub.write_text("#!/bin/bash\necho '              total        used        free'\necho 'Mem:        8000       2000       6000'\n")
+        free_stub.chmod(0o755)
+        systemctl_stub = stub_dir / "systemctl"
+        systemctl_stub.write_text("#!/bin/bash\ntrue\n")
+        systemctl_stub.chmod(0o755)
+
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        notify_dir = scripts_dir / "tg-notify.sh"
+        notify_dir.mkdir()  # directory, not executable file
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = str(stub_dir) + ":" + env.get("PATH", "/usr/bin:/bin")
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode == 1
+        assert "ALERT" in r.stderr
+
 
 # ── multiple failed units count ────────────────────────────────────────
 
