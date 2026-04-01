@@ -374,8 +374,6 @@ Return ONLY the JSON array."""
 
 def stopping_gate(state: PolarizationState) -> dict:
     """6-check stopping gate. All must pass before stopping."""
-    budget = state.get("budget_status", "green")
-
     # Re-check budget (may have changed during systole)
     fresh_budget = _budget_status()
 
