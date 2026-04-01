@@ -174,7 +174,8 @@ class TestChromeStarts:
         bin_dir.mkdir()
 
         chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 1\n")
+        # Sleep long enough to survive the script's 1s wait + kill -0 check
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
         chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
         r = _run(env={"PATH": str(bin_dir)})
