@@ -131,10 +131,10 @@ def test_fix_adds_path_import():
     """apply_fixes adds Path import if not present and Path.home() used."""
     _mod = _load_test_fixer()
     apply_fixes = _mod["apply_fixes"]
-    
+
     test_code = '''
 def test_foo():
-    path = str(Path.home() / "germline")
+    path = "/home/terry/germline"
 '''
     fixed = apply_fixes(test_code)
     assert "from pathlib import Path" in fixed
@@ -144,11 +144,11 @@ def test_fix_preserves_existing_path_import():
     """apply_fixes does not duplicate Path import."""
     _mod = _load_test_fixer()
     apply_fixes = _mod["apply_fixes"]
-    
+
     test_code = '''
 from pathlib import Path
 def test_foo():
-    path = str(Path.home() / "germline")
+    path = "/home/terry/germline"
 '''
     fixed = apply_fixes(test_code)
     assert fixed.count("from pathlib import Path") == 1

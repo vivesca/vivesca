@@ -64,7 +64,7 @@ def rsync_dir(
     cmd.append(f"{remote_host}:{src}")
     cmd.append(str(dst_path) + "/")
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, )
     output = (result.stdout + result.stderr).strip()
     return result.returncode, output
 

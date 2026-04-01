@@ -73,6 +73,7 @@ def get_chrome_key() -> bytes:
         ["security", "find-generic-password", "-w", "-s", "Chrome Safe Storage"],
         capture_output=True,
         text=True,
+        timeout=300,
     )
     if result.returncode != 0:
         raise RuntimeError(

@@ -57,7 +57,7 @@ def detect_issues(code: str) -> list[str]:
                 'threading', 'multiprocessing', 'concurrent', 'asyncio', 'logging',
                 'argparse', 'shutil', 'glob', 'copy', 'dataclasses', 'enum',
             }:
-                issues.append(f"Direct import of '{module}' - effectors are scripts, use exec() or subprocess.run()")
+                issues.append(f"Direct import of '{module}' - effectors are scripts, use exec() or subprocess.run(timeout=300, )")
     
     return issues
 
@@ -195,6 +195,7 @@ def run_pytest(test_file: Path) -> dict:
         capture_output=True,
         text=True,
         cwd=Path.home() / "germline",
+        timeout=300,
     )
     
     output = result.stdout + result.stderr

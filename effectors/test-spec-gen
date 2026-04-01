@@ -172,7 +172,7 @@ def main():
             subprocess.run(
                 ["sortase", "exec", str(plan), "-p", str(GERMLINE), "-b", "goose", "--timeout", "180"],
                 cwd=str(GERMLINE),
-            )
+, timeout=300, )
 
 
 if __name__ == "__main__":
