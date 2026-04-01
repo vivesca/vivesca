@@ -59,16 +59,26 @@ class TestIntakeEmails:
             assert result["ok"] is True
             assert result["content"] == "email1\nemail2"
 
-    def test_second_command_tried_after_timeout(self):
-        """Test that timeout falls back to search command."""
+    def test_second_command_tried_after_non_timeout_failure(self):
+        """Test that non-timeout failure retries with search command."""
         with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
-            mock_run.return_value = (False, "[timed out] connection error")
+            mock_run.return_value = (False, "some error")
             result = intake_emails()
             
             assert mock_run.call_count == 2
             mock_run.assert_called_with(
                 ["gog", "gmail", "search", "in:inbox", "--limit", "20"], timeout=30
             )
+            assert result["ok"] is False
+            assert "some error" in result["content"]
+
+    def test_no_retry_on_timeout_failure(self):
+        """Test that timeout doesn't retry (already timed out once)."""
+        with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
+            mock_run.return_value = (False, "[timed out] connection error")
+            result = intake_emails()
+            
+            assert mock_run.call_count == 1
             assert result["ok"] is False
             assert "[timed out" in result["content"]
 
@@ -120,15 +130,15 @@ class TestIntakeWhatsapp:
         """Test when primary messages command succeeds."""
         with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
             mock_run.return_value = (True, "msg1\nmsg2")
-            with patch("datetime.date.today") as mock_date:
-                mock_date.return_value.isoformat.return_value = "2024-01-01"
-                result = intake_whatsapp()
+            today = datetime.date.today()
+            yesterday = (today - datetime.timedelta(days=1)).isoformat()
+            result = intake_whatsapp()
             
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]
             assert args[:3] == ["wacli", "messages", "list"]
             assert "--after" in args
-            assert "2023-12-31" in args  # yesterday
+            assert yesterday in args  # yesterday
             assert result["label"] == "WhatsApp Messages (last 24h)"
             assert result["ok"] is True
 
@@ -241,32 +251,23 @@ class TestIntake:
             "todo": "stuff",
         }
         
-        mock_future_today = MagicMock()
-        mock_future_today.result.return_value = {"ok": True, "content": "today event"}
-        mock_future_tomorrow = MagicMock()
-        mock_future_tomorrow.result.return_value = {"ok": True, "content": "tomorrow event"}
+        mock_sense_cal.side_effect = lambda *args: {"ok": True, "content": f"event {args[0]}"}
+        mock_transduce.return_value = {}  # base ctx from transduce
+        mock_secrete.return_value = '{"test": "json"}'
         
-        with patch("concurrent.futures.ThreadPoolExecutor") as mock_pool:
-            mock_pool_instance = MagicMock()
-            mock_pool_instance.submit.side_effect = [mock_future_today, mock_future_tomorrow]
-            mock_pool.return_value.__enter__.return_value = mock_pool_instance
-            
-            mock_transduce.return_value = {}  # base ctx from transduce
-            mock_secrete.return_value = '{"test": "json"}'
-            
-            result = intake(as_json=True)
-            
-            # Verify all the pieces
-            mock_intake_ctx.assert_called_once_with(
-                include=["date", "now", "budget", "todo"],
-                calendar_date="today",
-                calendar_days=2,
-                todo_filter="all",
-            )
-            assert mock_pool_instance.submit.call_count == 2
-            assert mock_transduce.called
-            mock_secrete_json.assert_called_once()
-            assert result == '{"test": "json"}'
+        result = intake(as_json=True)
+        
+        # Verify all the pieces
+        mock_intake_ctx.assert_called_once_with(
+            include=["date", "now", "budget", "todo"],
+            calendar_date="today",
+            calendar_days=2,
+            todo_filter="all",
+        )
+        assert mock_sense_cal.call_count == 2
+        assert mock_transduce.called
+        mock_secrete_json.assert_called_once()
+        assert result == '{"test": "json"}'
 
     @patch("metabolon.pinocytosis.interphase.secrete_text")
     @patch("metabolon.pinocytosis.interphase.transduce")
@@ -277,65 +278,31 @@ class TestIntake:
     ):
         """Test intake returns text output."""
         mock_intake_ctx.return_value = {"datetime": "2024-01-01"}
-        mock_future_today = MagicMock()
-        mock_future_today.result.return_value = {"ok": True, "content": "today"}
-        mock_future_tomorrow = MagicMock()
-        mock_future_tomorrow.result.return_value = {"ok": True, "content": "tomorrow"}
+        mock_sense_cal.side_effect = lambda *args: {"ok": True, "content": f"event {args[0]}"}
+        mock_transduce.return_value = {}
+        mock_secrete.return_value = "FORMATTED TEXT OUTPUT"
         
-        with patch("concurrent.futures.ThreadPoolExecutor"):
-            mock_transduce.return_value = {}
-            mock_secrete.return_value = "FORMATTED TEXT OUTPUT"
-            
-            result = intake(as_json=False)
-            
-            mock_secrete_text.assert_called_once()
-            assert result == "FORMATTED TEXT OUTPUT"
+        result = intake(as_json=False)
+        
+        mock_secrete_text.assert_called_once()
+        assert result == "FORMATTED TEXT OUTPUT"
 
     def test_gatherer_exception_handling(self):
         """Test that exceptions in gatherers are caught and formatted."""
         with patch("metabolon.pinocytosis.interphase.intake_context") as mock_intake_ctx:
             mock_intake_ctx.return_value = {}
             
-            mock_future_today = MagicMock()
-            mock_future_today.result.return_value = {}
-            mock_future_tomorrow = MagicMock()
-            mock_future_tomorrow.result.return_value = {}
-            
-            with patch("concurrent.futures.ThreadPoolExecutor") as mock_pool:
-                # First pool for calendar
-                mock_pool_instance = MagicMock()
-                mock_pool_instance.submit.side_effect = [
-                    mock_future_today, 
-                    mock_future_tomorrow,
-                ]
-                mock_pool.return_value.__enter__.return_value = mock_pool_instance
+            with patch("metabolon.pinocytosis.interphase.sense_calendar") as mock_sense_cal:
+                mock_sense_cal.return_value = {"ok": True, "content": "event"}
                 
-                # Second pool for gatherers - make a gatherer raise
-                def mock_submit(fn):
-                    f = MagicMock()
-                    f.result.side_effect = RuntimeError("Something went wrong")
-                    return f
+                # Make one gatherer raise an exception
+                original_emails = _SCRIPT_GATHERERS["emails"]
+                def faulty_gatherer():
+                    raise RuntimeError("Something went wrong")
                 
-                # We need to mock the second pool creation
-                first_pool = True
-                def patched_pool_ctor(*args, **kwargs):
-                    nonlocal first_pool
-                    if first_pool:
-                        first_pool = False
-                        return mock_pool.return_value
-                    else:
-                        inst = MagicMock()
-                        inst.submit = mock_submit
-                        inst.__enter__ = MagicMock(return_value=inst)
-                        # Make as_completed return all futures
-                        futures = [mock_submit(fn) for key, fn in _SCRIPT_GATHERERS.items()]
-                        inst.__exit__ = MagicMock(return_value=None)
-                        return inst
-                
-                with patch("concurrent.futures.ThreadPoolExecutor", patched_pool_ctor):
-                    from metabolon.pinocytosis.interphase import intake
-                    with patch("metabolon.pinocytosis.interphase.sense_calendar"), \
-                         patch("metabolon.pinocytosis.interphase.transduce") as mock_transduce:
+                _SCRIPT_GATHERERS["emails"] = faulty_gatherer
+                try:
+                    with patch("metabolon.pinocytosis.interphase.transduce") as mock_transduce:
                         mock_transduce.return_value = {}
                         with patch("metabolon.pinocytosis.interphase.secrete_json") as mock_secrete:
                             mock_secrete.return_value = "{}"
@@ -343,13 +310,11 @@ class TestIntake:
                             result = intake(as_json=True)
                             # Check that the error was captured in results
                             called_order = mock_secrete.call_args[0][0]
-                            assert len(called_order) > 0
-                            # At least one key should have the error
-                            has_error = any(
-                                "gatherer error" in val.get("content", "") 
-                                for val in called_order.values()
-                            )
-                            assert has_error
+                            assert "emails" in called_order
+                            assert called_order["emails"]["ok"] is False
+                            assert "[gatherer error: Something went wrong]" in called_order["emails"]["content"]
+                finally:
+                    _SCRIPT_GATHERERS["emails"] = original_emails
 
 
 def test_main_parses_args():
