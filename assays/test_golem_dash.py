@@ -962,3 +962,338 @@ def test_build_dashboard_uses_ema_for_running_tasks(tmp_path):
     panel = _mod["build_dashboard"](window_minutes=60)
     assert panel is not None
     del _mod["_task_first_seen"][tid]
+
+
+# ── New: compute_recent_events ─────────────────────────────────────────
+
+
+def test_recent_events_basic():
+    """Returns last N events with classification."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "provider": "infini", "duration": 100,
+         "ts": (now - timedelta(minutes=4)).isoformat(), "tail": ""},
+        {"exit": 1, "provider": "zhipu", "duration": 50,
+         "ts": (now - timedelta(minutes=3)).isoformat(), "tail": "syntax error"},
+        {"exit": 1, "provider": "volcano", "duration": 3,
+         "ts": (now - timedelta(minutes=2)).isoformat(), "tail": "429 rate limit"},
+        {"exit": 137, "provider": "codex", "duration": 60,
+         "ts": (now - timedelta(minutes=1)).isoformat(), "tail": " "},
+        {"exit": 0, "provider": "gemini", "duration": 200,
+         "ts": now.isoformat(), "tail": ""},
+    ]
+    events = _mod["compute_recent_events"](records, n=5)
+    assert len(events) == 5
+    # Most recent event last
+    assert events[-1]["outcome"] == "success"
+    assert events[-1]["provider"] == "gemini"
+    assert events[-2]["outcome"] == "killed"
+    assert events[-3]["outcome"] == "rate_limited"
+    assert events[-4]["outcome"] == "failed"
+    assert events[-5]["outcome"] == "success"
+
+
+def test_recent_events_caps_at_n():
+    """Only returns last N events even if more records exist."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "provider": "infini", "duration": 100,
+         "ts": (now - timedelta(minutes=i)).isoformat(), "tail": ""}
+        for i in range(20)
+    ]
+    events = _mod["compute_recent_events"](records, n=3)
+    assert len(events) == 3
+
+
+def test_recent_events_empty():
+    """No records = no events."""
+    events = _mod["compute_recent_events"]([], n=5)
+    assert events == []
+
+
+def test_recent_events_includes_age():
+    """Each event includes an 'age_seconds' field."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "provider": "infini", "duration": 100,
+         "ts": (now - timedelta(seconds=30)).isoformat(), "tail": ""},
+    ]
+    events = _mod["compute_recent_events"](records, n=5)
+    assert len(events) == 1
+    assert "age_seconds" in events[0]
+    assert events[0]["age_seconds"] >= 25  # roughly 30s ago
+
+
+def test_recent_events_includes_task_id():
+    """Events include task_id when available."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "provider": "infini", "duration": 100,
+         "ts": now.isoformat(), "tail": "", "task_id": "t-abc"},
+    ]
+    events = _mod["compute_recent_events"](records, n=5)
+    assert events[0]["task_id"] == "t-abc"
+
+
+# ── New: spinner_char ──────────────────────────────────────────────────
+
+
+def test_spinner_char_returns_single_char():
+    """spinner_char returns a single unicode character."""
+    ch = _mod["spinner_char"]()
+    assert len(ch) == 1
+    assert ch in "⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏"
+
+
+def test_spinner_char_cycles():
+    """spinner_char cycles through different characters over time."""
+    # Patch time.time to return different values
+    chars = set()
+    original_time = time.time
+    try:
+        for offset in range(16):
+            _mod["time"] = type("t", (), {"time": lambda self, o=offset: 1000.0 + o})()
+            chars.add(_mod["spinner_char"]())
+    finally:
+        import time as real_time
+        _mod["time"] = real_time
+    assert len(chars) > 1  # Should cycle through multiple characters
+
+
+# ── New: sort_running_by_completion ────────────────────────────────────
+
+
+def test_sort_running_by_completion_basic():
+    """Sorts running tasks by estimated completion time (soonest first)."""
+    t_now = time.time()
+    # Task A: 30s elapsed, avg 120s → 90s remaining
+    # Task B: 90s elapsed, avg 120s → 30s remaining
+    # Task C: 60s elapsed, avg 200s → 140s remaining
+    # Expected order: B (30s), A (90s), C (140s)
+    tasks = [
+        {"task_id": "t-a", "provider": "infini"},
+        {"task_id": "t-b", "provider": "infini"},
+        {"task_id": "t-c", "provider": "zhipu"},
+    ]
+    _mod["_task_first_seen"]["t-a"] = t_now - 30
+    _mod["_task_first_seen"]["t-b"] = t_now - 90
+    _mod["_task_first_seen"]["t-c"] = t_now - 60
+
+    avg_durs = {"infini": 120.0, "zhipu": 200.0}
+    sorted_tasks = _mod["sort_running_by_completion"](tasks, avg_durs)
+    assert [t["task_id"] for t in sorted_tasks] == ["t-b", "t-a", "t-c"]
+
+    # Cleanup
+    for tid in ["t-a", "t-b", "t-c"]:
+        _mod["_task_first_seen"].pop(tid, None)
+
+
+def test_sort_running_by_completion_no_avg():
+    """Tasks with no avg duration are sorted last."""
+    t_now = time.time()
+    tasks = [
+        {"task_id": "t-yes", "provider": "infini"},
+        {"task_id": "t-no", "provider": "unknown"},
+    ]
+    _mod["_task_first_seen"]["t-yes"] = t_now - 60
+    _mod["_task_first_seen"]["t-no"] = t_now - 10
+
+    sorted_tasks = _mod["sort_running_by_completion"](tasks, {"infini": 120.0})
+    assert sorted_tasks[0]["task_id"] == "t-yes"
+    assert sorted_tasks[1]["task_id"] == "t-no"
+
+    for tid in ["t-yes", "t-no"]:
+        _mod["_task_first_seen"].pop(tid, None)
+
+
+def test_sort_running_by_completion_empty():
+    """Empty list = empty result."""
+    result = _mod["sort_running_by_completion"]([], {})
+    assert result == []
+
+
+# ── New: build_drain_timeline ─────────────────────────────────────────
+
+
+def test_drain_timeline_no_pending():
+    """No pending tasks = no timeline."""
+    result = _mod["build_drain_timeline"]({}, {})
+    assert result is None or "No pending" in str(result)
+
+
+def test_drain_timeline_with_pending():
+    """Shows per-provider drain bars with wall-clock ETAs."""
+    now = datetime.now(timezone.utc)
+    # Provider with known ETA
+    per_provider_eta = {"infini": 600.0, "zhipu": 1800.0}
+    pending = {"infini": 3, "zhipu": 10}
+    table = _mod["build_drain_timeline"](per_provider_eta, pending)
+    # Should be a Table
+    from rich.table import Table
+    assert isinstance(table, Table)
+    rendered = table.columns
+    col_names = [c.header for c in rendered]
+    assert "Provider" in col_names
+    assert "Queue" in col_names
+    assert "ETA" in col_names or "Finishes" in col_names
+
+
+def test_drain_timeline_inf_eta():
+    """Provider with inf ETA still renders."""
+    per_provider_eta = {"infini": float("inf")}
+    pending = {"infini": 5}
+    table = _mod["build_drain_timeline"](per_provider_eta, pending)
+    assert table is not None
+
+
+# ── New: --json output mode ───────────────────────────────────────────
+
+
+def test_json_output_mode(tmp_path):
+    """--json flag produces valid JSON output."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 100, "provider": "infini", "ts": now.isoformat(), "tail": ""},
+        {"exit": 1, "duration": 50, "provider": "zhipu", "ts": now.isoformat(), "tail": "error"},
+    ]
+    jsonl.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    running_json.write_text("[]")
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text("- [ ] task1 --provider infini\n- [x] task2 --provider zhipu\n")
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    result = _mod["build_json_snapshot"](window_minutes=60)
+    assert isinstance(result, dict)
+    assert "pending" in result
+    assert "completed" in result
+    assert "providers" in result
+    assert "eta_seconds" in result
+    assert "drain_rate" in result
+    assert "recent_events" in result
+    assert result["pending"] == 1
+    assert result["completed"] == 1
+
+
+def test_json_snapshot_includes_running_tasks(tmp_path):
+    """JSON snapshot includes currently running tasks with progress."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    jsonl.write_text(json.dumps(
+        {"exit": 0, "duration": 120, "provider": "infini", "ts": now.isoformat(), "tail": ""}
+    ) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    tid = "t-json"
+    _mod["_task_first_seen"][tid] = time.time() - 60
+    running_json.write_text(json.dumps([
+        {"task_id": tid, "provider": "infini", "cmd": '"test"', "dispatch_provider": "infini"},
+    ]))
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text("- [ ] task1 --provider infini\n")
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    result = _mod["build_json_snapshot"](window_minutes=60)
+    assert "running_tasks" in result
+    assert len(result["running_tasks"]) == 1
+    assert result["running_tasks"][0]["task_id"] == tid
+    assert "progress" in result["running_tasks"][0]
+    assert "eta_remaining" in result["running_tasks"][0]
+
+    del _mod["_task_first_seen"][tid]
+
+
+# ── Enhanced: build_dashboard includes recent events ──────────────────
+
+
+def test_build_dashboard_includes_recent_events(tmp_path):
+    """Dashboard includes a recent events section when events exist."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 100, "provider": "infini",
+         "ts": (now - timedelta(minutes=i * 5)).isoformat(), "tail": ""}
+        for i in range(6)
+    ]
+    jsonl.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    running_json.write_text("[]")
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text("- [ ] task1 --provider infini\n")
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    panel = _mod["build_dashboard"](window_minutes=60)
+    from rich.console import Console
+    console = Console(file=open("/dev/null", "w"), width=140)
+    with console.capture() as cap:
+        console.print(panel)
+    output = cap.get()
+    assert "Recent" in output
+
+
+# ── Enhanced: build_dashboard includes drain timeline ──────────────────
+
+
+def test_build_dashboard_includes_drain_timeline(tmp_path):
+    """Dashboard includes a per-provider drain timeline when queue has items."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 100, "provider": "infini",
+         "ts": (now - timedelta(minutes=i * 5)).isoformat(), "tail": ""}
+        for i in range(4)
+    ]
+    jsonl.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    running_json.write_text("[]")
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text(
+        "- [ ] task1 --provider infini\n"
+        "- [ ] task2 --provider zhipu\n"
+        "- [x] task3 --provider infini\n"
+    )
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    panel = _mod["build_dashboard"](window_minutes=60)
+    from rich.console import Console
+    console = Console(file=open("/dev/null", "w"), width=140)
+    with console.capture() as cap:
+        console.print(panel)
+    output = cap.get()
+    assert "Drain" in output

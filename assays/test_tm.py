@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -266,8 +267,8 @@ def test_usage_mentions_all_subcommands(mock_tmux):
 
 
 @pytest.mark.skipif(
-    subprocess.run(["tmux", "list-sessions"], capture_output=True).returncode != 0,
-    reason="No tmux server running",
+    shutil.which("tmux") is None,
+    reason="tmux not installed",
 )
 def test_ls_with_real_tmux():
     """tm ls works with a real tmux server (integration test)."""

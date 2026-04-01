@@ -752,3 +752,202 @@ class TestInvalidFlags:
             timeout=10,
         )
         assert r.returncode == 1
+
+
+# ── additional coverage: set -euo pipefail, echo messages, heredoc ─────────
+
+
+class TestSetFlags:
+    """Verify strict bash flags are properly set."""
+
+    def test_set_e_is_active(self):
+        """set -e exits on first error."""
+        src = _src()
+        assert "set -e" in src
+
+    def test_set_u_is_active(self):
+        """set -u treats unset variables as errors."""
+        assert "set -u" in _src() or "set -euo pipefail" in _src()
+
+    def test_set_o_pipefail_is_active(self):
+        """set -o pipefail catches failures in piped commands."""
+        assert "pipefail" in _src()
+
+    def test_set_flag_is_first_non_shebang(self):
+        """set -euo pipefail appears before any real commands."""
+        lines = _src().splitlines()
+        # Skip shebang and blank/comment lines
+        for line in lines[1:]:
+            stripped = line.strip()
+            if stripped == "" or stripped.startswith("#"):
+                continue
+            assert "set -euo pipefail" in stripped, (
+                f"First non-comment line after shebang should be set: {stripped}"
+            )
+            break
+
+
+class TestEchoMessages:
+    """Verify informational echo messages in the script."""
+
+    def test_bootstrap_banner_at_start(self):
+        """Bootstrap banner appears early in execution (after guard checks)."""
+        src = _src()
+        banner_pos = src.index("=== Hetzner Claude Code Bootstrap ===")
+        # Banner must come after the EUID guard
+        guard_pos = src.index("EUID")
+        assert guard_pos < banner_pos
+
+    def test_tailscale_reminder_message(self):
+        """Script prints a Tailscale reminder after install."""
+        src = _src()
+        reminder = "Run 'sudo tailscale up' after bootstrap"
+        assert reminder in src
+
+    def test_clone_repos_echo_messages(self):
+        """Script prints guidance about cloning repos."""
+        src = _src()
+        assert "Clone your repos" in src
+
+    def test_next_steps_are_numbered(self):
+        """Next steps in completion message are numbered."""
+        src = _src()
+        for i in range(1, 6):
+            assert f"{i}." in src, f"Missing numbered step {i} in completion message"
+
+    def test_completion_mentions_ssh_as_terry(self):
+        """Completion message mentions SSH as terry."""
+        src = _src()
+        assert "ssh terry@" in src
+
+    def test_public_ip_note(self):
+        """Completion message mentions public IP becomes irrelevant."""
+        src = _src()
+        assert "public IP" in src
+
+
+class TestHeredocIntegrity:
+    """Verify heredoc blocks are well-formed."""
+
+    def test_tmux_heredoc_has_open_and_close(self):
+        """The TMUX heredoc has both open and close delimiters."""
+        src = _src()
+        assert '<< "TMUX"' in src
+        assert "TMUX'" in src
+
+    def test_tmux_heredoc_contains_six_or_more_lines(self):
+        """The tmux config heredoc has substantive content."""
+        src = _src()
+        # Count tmux set/bind/unbind directives
+        lines = [l.strip() for l in src.splitlines() if l.strip().startswith(("set ", "bind ", "unbind "))]
+        assert len(lines) >= 6
+
+    def test_tmux_heredoc_content_between_delimiters(self):
+        """All tmux config lines appear between the heredoc open and close."""
+        src = _src()
+        open_pos = src.index('<< "TMUX"')
+        close_pos = src.index("TMUX'")
+        content = src[open_pos:close_pos]
+        assert "set -g prefix" in content
+        assert "set -g mouse on" in content
+
+
+class TestAptUsage:
+    """Verify apt-get usage patterns."""
+
+    def test_apt_get_update_before_install(self):
+        """apt-get update appears before apt-get install."""
+        src = _src()
+        update_pos = src.index("apt-get update")
+        install_pos = src.index("apt-get install")
+        assert update_pos < install_pos
+
+    def test_apt_get_upgrade_before_install(self):
+        """apt-get upgrade appears before apt-get install."""
+        src = _src()
+        upgrade_pos = src.index("apt-get upgrade")
+        install_pos = src.index("apt-get install")
+        assert upgrade_pos < install_pos
+
+    def test_no_apt_without_get(self):
+        """Script uses apt-get, not bare apt (more scriptable)."""
+        src = _src()
+        for i, line in enumerate(src.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if "apt " in stripped and "apt-get" not in stripped and "apt-cache" not in stripped:
+                pytest.fail(f"Line {i}: bare 'apt' instead of 'apt-get': {stripped}")
+
+
+class TestSudoUsage:
+    """Verify sudo usage patterns."""
+
+    def test_sudo_u_terry_count(self):
+        """There are multiple sudo -u terry blocks for user-scoped installs."""
+        src = _src()
+        count = src.count("sudo -u terry")
+        assert count >= 5, f"Expected >= 5 sudo -u terry blocks, got {count}"
+
+    def test_system_commands_run_as_root(self):
+        """apt-get, systemctl, and user creation run as root (no sudo prefix)."""
+        src = _src()
+        for cmd in ["apt-get update", "adduser", "systemctl restart"]:
+            pos = src.index(cmd)
+            preceding = src[max(0, pos - 200):pos]
+            # These commands should NOT be inside a sudo -u terry block
+            # Check there's no open sudo block between the last close and this command
+            lines_before = preceding.splitlines()
+            in_sudo_block = False
+            for line in lines_before:
+                if "sudo -u terry" in line:
+                    in_sudo_block = True
+                if in_sudo_block and line.strip() == "'":
+                    in_sudo_block = False
+            assert not in_sudo_block, f"{cmd} should run as root, not inside sudo -u terry"
+
+
+class TestNodeInstall:
+    """Verify Node.js installation via fnm."""
+
+    def test_fnm_install_uses_lts(self):
+        """fnm install uses --lts flag."""
+        assert "fnm install --lts" in _src()
+
+    def test_fnm_path_includes_local_share(self):
+        """fnm PATH includes .local/share/fnm."""
+        assert ".local/share/fnm" in _src()
+
+    def test_fnm_env_eval_in_node_block(self):
+        """Node install block has eval (fnm env) after PATH setup."""
+        src = _src()
+        fnm_install_pos = src.index("fnm.vercel.app/install")
+        block_end = src.index("fnm default lts-latest")
+        block = src[fnm_install_pos:block_end]
+        assert "PATH=" in block
+        assert 'eval "$(fnm env)"' in block
+
+
+class TestCompletionOrdering:
+    """Verify the completion message sections are in correct order."""
+
+    def test_tailscale_step_before_claude_step(self):
+        """Step 2 (Tailscale) appears before step 3 (Claude Code)."""
+        src = _src()
+        ts_pos = src.index("tailscale up")
+        # Find claude mention in next steps (after "Next steps:")
+        next_steps_pos = src.index("Next steps:")
+        claude_after_steps = src.index("claude", next_steps_pos)
+        assert ts_pos < claude_after_steps
+
+    def test_ssh_step_is_first(self):
+        """Step 1 is SSH in as terry."""
+        src = _src()
+        next_steps_pos = src.index("Next steps:")
+        step1_pos = src.index("1.", next_steps_pos)
+        assert "SSH in as terry" in src[step1_pos:step1_pos + 60]
+
+    def test_gh_auth_is_last_step(self):
+        """Step 5 (gh auth login) is the last numbered step."""
+        src = _src()
+        assert "5. Set up git credentials: gh auth login" in src

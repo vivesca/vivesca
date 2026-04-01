@@ -695,6 +695,205 @@ def test_consulting_new_fields_in_generate_review_with_issues():
     assert "avg_p=3w" in review
 
 
+# ── Consulting directory scanning tests ─────────────────────────────────
+
+
+def test_scan_consulting_dirs_empty():
+    """No consulting dirs → empty list."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original = globals()["EPIGENOME"]
+        try:
+            globals()["EPIGENOME"] = Path(tmpdir)
+            result = scan_consulting_dirs()
+            assert result == []
+        finally:
+            globals()["EPIGENOME"] = original
+
+
+def test_scan_consulting_dirs_finds_md():
+    """Finds .md files in consulting subdirectories."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        consulting = base / "chromatin" / "euchromatin" / "consulting"
+        for subdir in ["cards", "deep-dives", "case-studies", "prep", "regulatory"]:
+            d = consulting / subdir
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "doc.md").write_text("# Test\n\nContent here.")
+        (consulting / "cards" / "notes.txt").write_text("not markdown")
+
+        original = globals()["EPIGENOME"]
+        try:
+            globals()["EPIGENOME"] = base
+            result = scan_consulting_dirs()
+            assert len(result) == 5
+            assert all(r.endswith(".md") for r in result)
+            assert all("consulting" in r for r in result)
+        finally:
+            globals()["EPIGENOME"] = original
+
+
+def test_scan_consulting_dirs_custom_base():
+    """scan_consulting_dirs accepts custom base_dir."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        consulting = base / "consulting"
+        cards = consulting / "cards"
+        cards.mkdir(parents=True, exist_ok=True)
+        (cards / "card1.md").write_text("# Card")
+
+        result = scan_consulting_dirs(base_dir=base)
+        assert len(result) == 1
+        assert "card1.md" in result[0]
+
+
+def test_scan_consulting_dirs_ignores_reviewer_cycle():
+    """Excludes reviewer-cycle- files from scan."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        consulting = base / "consulting"
+        cards = consulting / "cards"
+        cards.mkdir(parents=True, exist_ok=True)
+        (cards / "good.md").write_text("# Good")
+        (cards / "reviewer-cycle-1.md").write_text("# Cycle")
+
+        result = scan_consulting_dirs(base_dir=base)
+        assert len(result) == 1
+        assert "good.md" in result[0]
+
+
+# ── Consulting quality summary tests ────────────────────────────────────
+
+
+def test_compute_consulting_summary_empty():
+    """No results → all zeros."""
+    summary = compute_consulting_summary([])
+    assert summary["total"] == 0
+    assert summary["passed"] == 0
+    assert summary["failed"] == 0
+    assert summary["avg_word_count"] == 0.0
+    assert summary["avg_quality_score"] == 0.0
+    assert summary["pass_rate"] == 0.0
+
+
+def test_compute_consulting_summary_all_pass():
+    """All passing results."""
+    results = [
+        {"word_count": 300, "quality_score": 80, "overall_quality_pass": True},
+        {"word_count": 400, "quality_score": 90, "overall_quality_pass": True},
+    ]
+    summary = compute_consulting_summary(results)
+    assert summary["total"] == 2
+    assert summary["passed"] == 2
+    assert summary["failed"] == 0
+    assert summary["avg_word_count"] == 350.0
+    assert summary["avg_quality_score"] == 85.0
+    assert summary["pass_rate"] == 1.0
+
+
+def test_compute_consulting_summary_mixed():
+    """Mix of passing and failing results."""
+    results = [
+        {"word_count": 300, "quality_score": 80, "overall_quality_pass": True},
+        {"word_count": 50, "quality_score": 10, "overall_quality_pass": False},
+        {"word_count": 100, "quality_score": 30, "overall_quality_pass": False},
+    ]
+    summary = compute_consulting_summary(results)
+    assert summary["total"] == 3
+    assert summary["passed"] == 1
+    assert summary["failed"] == 2
+    assert summary["avg_word_count"] == pytest.approx(150.0)
+    assert summary["avg_quality_score"] == pytest.approx(40.0)
+    assert summary["pass_rate"] == pytest.approx(1 / 3)
+
+
+def test_compute_consulting_summary_skips_missing():
+    """Missing files (exists=False) are excluded from pass/fail counts."""
+    results = [
+        {"exists": False, "word_count": 0, "quality_score": 0, "overall_quality_pass": False},
+        {"exists": True, "word_count": 300, "quality_score": 80, "overall_quality_pass": True},
+    ]
+    summary = compute_consulting_summary(results)
+    assert summary["total"] == 2
+    assert summary["passed"] == 1
+    assert summary["failed"] == 0  # missing not counted as failed
+    assert summary["missing"] == 1
+
+
+def test_consulting_summary_in_review():
+    """generate_review includes consulting summary section."""
+    summary = {"total": 5, "passed": 3, "failed": 1, "missing": 1,
+               "avg_word_count": 250.0, "avg_quality_score": 65.0,
+               "pass_rate": 0.75, "verdicts": {"excellent": 1, "good": 2, "poor": 1}}
+    review = generate_review(
+        activity={"completed": [], "failed": [], "timeouts": []},
+        recent_files=[],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[],
+        consulting_summary=summary,
+        failed_diagnoses=[],
+        pending_count=0,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "Consulting Quality Summary" in review
+    assert "5 files" in review
+    assert "3 passed" in review
+    assert "1 failed" in review
+    assert "1 missing" in review
+    assert "65" in review  # avg quality score
+
+
+def test_consulting_summary_not_shown_when_none():
+    """No consulting summary → section not rendered."""
+    review = generate_review(
+        activity={"completed": [], "failed": [], "timeouts": []},
+        recent_files=[],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[],
+        consulting_summary=None,
+        failed_diagnoses=[],
+        pending_count=0,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "Consulting Quality Summary" not in review
+
+
+def test_consulting_full_integration():
+    """Full integration: scan dirs → check content → compute summary → review."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        consulting = base / "consulting"
+        cards = consulting / "cards"
+        cards.mkdir(parents=True, exist_ok=True)
+
+        # Good file (>200 words, structured)
+        good_content = "# Introduction\n\n" + "Adequate body text. " * 50 + "\n\n## Conclusion\n\nSummary here."
+        (cards / "good.md").write_text(good_content)
+
+        # Short file
+        (cards / "short.md").write_text("# Intro\n\nShort.")
+
+        # Scan and check
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = base
+            files = scan_consulting_dirs(base_dir=base)
+            assert len(files) == 2
+
+            results = check_consulting_content(files)
+            assert len(results) == 2
+
+            summary = compute_consulting_summary(results)
+            assert summary["total"] == 2
+            assert summary["passed"] >= 1  # good.md should pass
+            assert summary["failed"] >= 1  # short.md should fail
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v", "--tb=short"])
