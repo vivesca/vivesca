@@ -11,7 +11,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/synapse.py"
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/synapse.py"
           }
         ]
       }
@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/terminus.py"
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/terminus.py"
           }
         ]
       }
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/interoceptor.py"
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/interoceptor.py"
           }
         ]
       }
@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/compaction.py"
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/compaction.py"
           }
         ]
       }
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/axon.py"
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/axon.py"
           }
         ]
       }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/dendrite.py"
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/dendrite.py"
           }
         ]
       }
@@ -76,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/morphogen.py",
+            "command": "python3 /home/terry/germline/membrane/cytoskeleton/morphogen.py",
             "timeout": 2000
           }
         ]

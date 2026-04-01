@@ -45,12 +45,13 @@ STALE_DAYS = _mod["STALE_DAYS"]
 
 def test_chromatin_path():
     """CHROMATIN path is correctly defined."""
-    assert CHROMATIN == Path.home() / "code" / "epigenome" / "chromatin"
+    assert CHROMATIN == Path.home() / "epigenome" / "chromatin"
 
 
 def test_memory_dir_path():
     """MEMORY_DIR path is correctly defined."""
-    assert MEMORY_DIR == Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
+    expected_stem = str(Path.home()).strip("/").replace("/", "-")
+    assert MEMORY_DIR == Path.home() / ".claude" / "projects" / f"-{expected_stem}" / "memory"
 
 
 def test_praxis_file_path():
@@ -555,7 +556,10 @@ def test_build_digest_structure():
     assert "🫀" in result or "AKM" in result
 
     # Should have sections (if any issues found) or healthy message
-    assert "Stale Notes" in result or "healthy" in result.lower() or "nothing flagged" in result
+    assert any(
+        section in result
+        for section in ["Stale Notes", "Orphan Links", "Overdue TODOs", "Prospective Reminders"]
+    ) or "healthy" in result.lower() or "nothing flagged" in result
 
 
 def test_build_digest_healthy_when_no_issues():

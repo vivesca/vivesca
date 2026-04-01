@@ -174,7 +174,7 @@ def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> s
         text = experiment_file.read_text()
         if "status: active" not in text:
             continue
-        match = re.search(r"watch_keywords:\s*\[(.+?)\]", text)
+        match = re.search(r"watch_keywords:\\s*\\[(.+?)\\]", text)
         if not match:
             continue
         keywords = [keyword.strip().lower() for keyword in match.group(1).split(",")]
@@ -505,12 +505,12 @@ def interoception(
                 if not frontmatter_match:
                     continue
                 frontmatter = frontmatter_match.group(1)
-                status_match = re.search(r"^status:\s*(\S+)", frontmatter, re.MULTILINE)
+                status_match = re.search(r"^status:\\s*(\\S+)", frontmatter, re.MULTILINE)
                 if not status_match or status_match.group(1).strip('"') != "active":
                     continue
-                name_match = re.search(r'^name:\s*"?([^"\\n]+)"?', frontmatter, re.MULTILINE)
-                start_match = re.search(r"^start_date:\s*(\S+)", frontmatter, re.MULTILINE)
-                hypothesis_match = re.search(r'^hypothesis:\s*"?([^"\\n]+)"?', frontmatter, re.MULTILINE)
+                name_match = re.search(r'^name:\\s*"?([^"\\\\n]+)"?', frontmatter, re.MULTILINE)
+                start_match = re.search(r"^start_date:\\s*(\\S+)", frontmatter, re.MULTILINE)
+                hypothesis_match = re.search(r'^hypothesis:\\s*"?([^"\\\\n]+)"?', frontmatter, re.MULTILINE)
                 name = name_match.group(1).strip() if name_match else experiment_file.stem
                 hypothesis = hypothesis_match.group(1).strip() if hypothesis_match else ""
                 start_date = None
@@ -522,19 +522,19 @@ def interoception(
                     except ValueError:
                         start_date = None
                 total_days = ""
-                end_match = re.search(r"^end_date:\s*(\S+)", frontmatter, re.MULTILINE)
+                end_match = re.search(r"^end_date:\\s*(\\S+)", frontmatter, re.MULTILINE)
                 if end_match and start_date is not None:
                     try:
                         end_date = datetime.date.fromisoformat(end_match.group(1))
                         total_days = (end_date - start_date).days + 1
                     except ValueError:
                         total_days = ""
-                checkin_blocks = re.findall(r"(### Day \d+[^\\n]*\\n(?:[^\\n#][^\\n]*\\n)*)", text)
+                checkin_blocks = re.findall(r"(### Day \\d+[^\\\\n]*\\\\n(?:[^\\\\n#][^\\\\n]*\\\\n)*)", text)
                 checkin_summary = ""
                 if checkin_blocks:
                     last_block = checkin_blocks[-1]
-                    readiness_match = re.search(r"Readiness:\s*avg\s*([\d.]+)", last_block)
-                    sleep_match = re.search(r"Sleep:\s*avg\s*([\d.]+)", last_block)
+                    readiness_match = re.search(r"Readiness:\\s*avg\\s*([\\d.]+)", last_block)
+                    sleep_match = re.search(r"Sleep:\\s*avg\\s*([\\d.]+)", last_block)
                     exp_parts = []
                     if sleep_match:
                         exp_parts.append(f"sleep {sleep_match.group(1)}")
@@ -542,7 +542,7 @@ def interoception(
                         exp_parts.append(f"readiness {readiness_match.group(1)}")
                     if exp_parts:
                         checkin_summary = f" Last check-in: {', '.join(exp_parts)}."
-                baseline_match = re.search(r"Readiness:\s*avg\s*([\d.]+)", text)
+                baseline_match = re.search(r"Readiness:\\s*avg\\s*([\\d.]+)", text)
                 baseline_value = baseline_match.group(1) if baseline_match else None
                 if day_number and total_days:
                     day_label = f"Day {day_number} of {total_days}"
@@ -641,7 +641,7 @@ def interoception(
             events = 0
             for line in scheduled.splitlines():
                 stripped = line.strip()
-                if stripped and re.search(r"\d{1,2}:\d{2}|\d{1,2}\s*[ap]m", stripped.lower()):
+                if stripped and re.search(r"\\d{1,2}:\\d{2}|\\d{1,2}\\s*[ap]m", stripped.lower()):
                     events += 1
             links.append({"name": "calendar", "events": events})
         except Exception:
@@ -682,7 +682,7 @@ def interoception(
                 recent_entries = 0
                 seven_days_ago = datetime.date.today() - datetime.timedelta(days=7)
                 for line in reversed(lines_log[-50:]):
-                    match = re.match(r"^##\s+(\d{4}-\d{2}-\d{2})", line)
+                    match = re.match(r"^##\\s+(\\d{4}-\\d{2}-\\d{2})", line)
                     if match:
                         entry_date = datetime.date.fromisoformat(match.group(1))
                         if entry_date >= seven_days_ago:
