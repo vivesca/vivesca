@@ -94,7 +94,7 @@ Removed 22 tasks:
 - [ ] `golem [t-b8c4b6] --provider volcano --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-303f28] --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-33be17] --provider infini --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-ae4a14] --provider volcano --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-ae4a14] --provider volcano --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-c984c9] --provider zhipu --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-0d8a5d] --provider infini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [x] `golem [t-d613b7] --provider volcano --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
@@ -108,7 +108,7 @@ Removed 22 tasks:
 - [ ] `golem [t-0e6d69] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-d16ffe] --provider volcano --max-turns 30 "Health check: goose-worker, quorum, plan-exec.deprecated, safe_rm.py, respirometry, test-spec-gen, weekly-gather, centrosome, engram, coverage-map. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-956754] --provider zhipu --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-827b8c] --provider infini --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-827b8c] --provider infini --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-16f797] --provider volcano --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-90e019] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-cdf585] --provider infini --max-turns 30 "Write tests for effectors/golem-orchestrator. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
@@ -125,7 +125,7 @@ Removed 22 tasks:
 - [ ] `golem [t-d66010] --provider infini --max-turns 30 "Health check: generate-solutions-index.py, rename-kindle-asins.py, council, cn-route, phagocytosis.py, compound-engineering-status, find, oci-arm-retry, oura-weekly-digest.py, diapedesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-1e71a0] --provider volcano --max-turns 30 "Write tests for effectors/tmux-osc52.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-ba350e] --provider zhipu --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-6ba64a] --provider infini --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-6ba64a] --provider infini --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-fc9db2] --provider volcano --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-85d2a1] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-env.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-b9efbf] --provider infini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
