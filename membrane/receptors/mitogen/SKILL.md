@@ -92,20 +92,20 @@ Keep standalone when tasks have no shared context.
 
 ### Phase 3: Dispatch (on soma)
 
-**All dispatch happens on soma via SSH.** CC writes the queue, pushes to git, soma daemon picks it up.
+**All dispatch happens on soma via Hatchet.** CC writes the queue, Hatchet workers drain it with per-provider concurrency and rate limits.
 
 **Option A — CC dispatches directly on soma:**
 ```bash
 ssh soma 'source ~/.env.fly && cd ~/germline && bash effectors/golem --provider infini --max-turns 50 "task..."' &
 ```
 
-**Option B — Write queue locally, push, daemon drains on soma:**
+**Option B — Write queue locally, push, Hatchet drains on soma:**
 ```bash
 # 1. Write tasks to loci/golem-queue.md locally
 # 2. Push
 cd ~/germline && git add loci/golem-queue.md && git commit -m "queue: new tasks" && git push
-# 3. Pull on soma and restart daemon
-ssh soma 'cd ~/germline && git pull --ff-only && python3 effectors/golem-daemon stop; python3 effectors/golem-daemon start'
+# 3. Pull on soma and trigger dispatch
+ssh soma 'cd ~/germline && git pull --ff-only && python3 effectors/hatchet-golem/dispatch.py'
 ```
 
 **Option C — Write queue directly on soma via SSH:**
@@ -113,10 +113,10 @@ ssh soma 'cd ~/germline && git pull --ff-only && python3 effectors/golem-daemon 
 ssh soma 'cat >> ~/germline/loci/golem-queue.md << "EOF"
 - [ ] `golem --provider zhipu --max-turns 40 "task..."`
 EOF'
-ssh soma 'cd ~/germline && python3 effectors/golem-daemon stop; python3 effectors/golem-daemon start'
+ssh soma 'cd ~/germline && python3 effectors/hatchet-golem/dispatch.py'
 ```
 
-**The daemon runs on soma 24/7** — supervisor auto-restarts it. CC writes judgment into the queue from anywhere (iMac, Blink, soma tmux). Daemon executes even when CC is offline.
+**Hatchet runs on soma 24/7** — Docker containers (engine + API + workers). Cron task auto-requeues every 30min. CC writes judgment into the queue from anywhere (iMac, Blink, soma tmux). Hatchet executes even when CC is offline.
 
 ### Phase 4: Verify + commit (on soma)
 
