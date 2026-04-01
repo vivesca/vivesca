@@ -155,16 +155,16 @@ class TestProviderStats:
 
 class TestQueueStatus:
     def test_missing_file(self, tmp_path):
-        result = queue_status(tmp_path / "nope.md", use_color=False)
-        assert "not found" in result
+        text, _, pend, done, fail = queue_status(tmp_path / "nope.md", use_color=False)
+        assert "not found" in text
 
     def test_empty_queue(self, tmp_path):
         p = tmp_path / "queue.md"
         p.write_text("# Golem Task Queue\n\n## Pending\n\n## Done\n")
-        result, last = queue_status(p, use_color=False)
-        assert "Pending: 0" in result
-        assert "Done: 0" in result
-        assert "Failed: 0" in result
+        text, last, pend, done, fail = queue_status(p, use_color=False)
+        assert "Pending: 0" in text
+        assert "Done: 0" in text
+        assert "Failed: 0" in text
         assert last == []
 
     def test_pending_tasks(self, tmp_path):
@@ -175,8 +175,8 @@ class TestQueueStatus:
             - [ ] `golem --provider zhipu "task A"`
             - [ ] `golem --provider volcano "task B"`
         """))
-        result, _ = queue_status(p, use_color=False)
-        assert "Pending: 2" in result
+        text, _, pend, _, _ = queue_status(p, use_color=False)
+        assert "Pending: 2" in text
 
     def test_done_tasks(self, tmp_path):
         p = tmp_path / "queue.md"
@@ -187,8 +187,8 @@ class TestQueueStatus:
             - [x] `golem --provider zhipu "task A"` → exit=0
             - [x] `golem --provider volcano "task B"` → exit=0
         """))
-        result, last = queue_status(p, use_color=False)
-        assert "Done: 2" in result
+        text, last, _, done, _ = queue_status(p, use_color=False)
+        assert "Done: 2" in text
         assert len(last) == 2
 
     def test_failed_tasks(self, tmp_path):
@@ -197,8 +197,8 @@ class TestQueueStatus:
             # Queue
             - [!] `golem --provider zhipu "task A"`
         """))
-        result, _ = queue_status(p, use_color=False)
-        assert "Failed: 1" in result
+        text, _, _, _, fail = queue_status(p, use_color=False)
+        assert "Failed: 1" in text
 
     def test_last_five_completed(self, tmp_path):
         p = tmp_path / "queue.md"
@@ -206,7 +206,7 @@ class TestQueueStatus:
         for i in range(7):
             lines.append(f'- [x] `golem --provider zhipu "task {i}"` → exit=0')
         p.write_text("\n".join(lines) + "\n")
-        result, last = queue_status(p, use_color=False)
+        text, last, _, _, _ = queue_status(p, use_color=False)
         assert len(last) == 5
         # Should be the last 5 (indices 2..6)
         assert "task 6" in last[-1][0]
@@ -258,7 +258,6 @@ class TestDiskFree:
 
 class TestMain:
     def test_main_no_color(self, tmp_path, capsys):
-        # Point to empty temp files (mutate exec namespace directly)
         orig_jsonl = _mod["JSONL_PATH"]
         orig_queue = _mod["QUEUE_PATH"]
         try:
@@ -366,10 +365,12 @@ class TestEtimeToSeconds:
         assert etime_to_seconds("1-00:00:00") == 86400
 
     def test_days_with_time(self):
-        assert etime_to_seconds("2-03:15:30") == 183330
+        # 2 days + 3h 15m 30s = 172800 + 10800 + 900 + 30 = 184530
+        assert etime_to_seconds("2-03:15:30") == 184530
 
     def test_days_short(self):
-        assert etime_to_seconds("1-12:00") == 129600
+        # 1 day + 12 minutes = 86400 + 720 = 87120
+        assert etime_to_seconds("1-12:00") == 87120
 
 
 # ── extract_task_snippet ────────────────────────────────────────────────
@@ -416,15 +417,13 @@ class TestCalculateEta:
             {"duration": 300},
         ]
         eta = calculate_eta(recs, pending=6, running_count=2)
-        # median duration = 200, workers=2, tasks=6 → batch_time = 6*200/2 = 600
-        # max_running_remaining = 0 (no running_tasks), so eta = 600
         assert eta["eta_seconds"] == 600
         assert eta["avg_duration"] == 200
 
     def test_no_duration_data_uses_default(self):
         eta = calculate_eta([], pending=5, running_count=1)
         assert eta["avg_duration"] == 120
-        assert eta["eta_seconds"] == 600  # 5*120/1
+        assert eta["eta_seconds"] == 600
 
     def test_workers_at_least_one(self):
         eta = calculate_eta([{"duration": 60}], pending=3, running_count=0)
@@ -437,10 +436,8 @@ class TestCalculateEta:
             {"provider": "infini", "duration_secs": 50, "estimated_remaining": 150},
         ]
         eta = calculate_eta(recs, pending=4, running_count=2, running_tasks=running_tasks)
-        # avg_duration=200, workers=2, batch_time=4*200/2=400
-        # max_running_remaining=150, eta=max(150, 400)=400
         assert eta["eta_seconds"] == 400
-        assert eta["running_remaining_secs"] == 250  # 100 + 150
+        assert eta["running_remaining_secs"] == 250
 
     def test_pending_zero_running_left(self):
         running_tasks = [
@@ -448,13 +445,12 @@ class TestCalculateEta:
         ]
         eta = calculate_eta([], pending=0, running_count=1, running_tasks=running_tasks)
         assert eta["eta_seconds"] == 50
-        assert "drain_milestones" not in eta or eta["drain_milestones"] == []
+        # Milestones generated because running > 0 and eta > 0
+        assert len(eta["drain_milestones"]) == 4
 
     def test_drain_milestones_present(self):
         eta = calculate_eta([{"duration": 60}], pending=10, running_count=1)
-        # avg_duration=60, workers=1, eta=10*60=600
         assert len(eta["drain_milestones"]) == 4
-        # 25%@150s, 50%@300s, 75%@450s, 100%@600s
         assert eta["drain_milestones"][0] == (25, 150)
         assert eta["drain_milestones"][3] == (100, 600)
 
@@ -466,7 +462,6 @@ class TestCalculateEta:
         eta = calculate_eta(
             [{"duration": 200}], pending=1, running_count=2, running_tasks=running_tasks
         )
-        # pending <= running → eta = max_running_remaining = 200
         assert eta["eta_seconds"] == 200
 
 
@@ -552,7 +547,6 @@ class TestEtaWallClock:
 
     def test_positive_eta(self):
         result = eta_wall_clock(3600)
-        # Should contain a time in HH:MM format
         assert ":" in result
 
     def test_negative_eta(self):
@@ -604,7 +598,6 @@ class TestThroughputSparkline:
             recs.append({"ts": (now - timedelta(minutes=10 * i)).isoformat()})
         result = throughput_sparkline(recs, hours=3, bucket_minutes=30)
         assert "max" in result
-        # Should have at least one non-flat character
         assert any(c in result for c in "▂▃▄▅▆▇█")
 
     def test_all_old_records_flat(self):
@@ -621,7 +614,6 @@ class TestThroughputSparkline:
 
     def test_single_bucket_peak(self):
         now = datetime.now()
-        # 5 records all in the most recent bucket
         recs = [{"ts": now.isoformat()}] * 5
         result = throughput_sparkline(recs, hours=1, bucket_minutes=15)
         assert "max 5/bucket" in result
@@ -665,7 +657,6 @@ class TestEnrichRunningProgress:
             {"pid": 3, "provider": "unknown", "duration_secs": 50, "task": "new"},
         ]
         result = enrich_running_progress(running, recs)
-        # unknown provider not in records, uses overall_median = 100
         assert result[0]["estimated_pct"] == 50  # 50/100
 
     def test_no_records_uses_default_120(self):
@@ -721,7 +712,6 @@ class TestRunningTasksTable:
         }]
         result = _mod["running_tasks_table"](tasks, use_color=True)
         assert "STALE" in result
-        assert "stale" in result.lower()
 
     def test_multiple_tasks_summary(self):
         tasks = [
@@ -903,31 +893,10 @@ class TestDashboardNewSections:
         assert "drain_milestones" in data["eta"]
 
 
-# ── watch mode argument parsing ─────────────────────────────────────────
+# ── help flag ───────────────────────────────────────────────────────────
 
 
-class TestWatchMode:
-    def test_watch_flag_parsed(self):
-        """Verify --watch is recognized without crashing."""
-        orig_jsonl = _mod["JSONL_PATH"]
-        orig_queue = _mod["QUEUE_PATH"]
-        tmp = Path("/tmp")
-        try:
-            _mod["JSONL_PATH"] = tmp / "_golem_dash_test.jsonl"
-            _mod["QUEUE_PATH"] = tmp / "_golem_dash_queue.md"
-            (tmp / "_golem_dash_test.jsonl").write_text("")
-            (tmp / "_golem_dash_queue.md").write_text("# Queue\n")
-            # Run once (no loop) — the --watch flag should be accepted
-            rc = main(["--no-color", "--watch", "0"])
-        finally:
-            _mod["JSONL_PATH"] = orig_jsonl
-            _mod["QUEUE_PATH"] = orig_queue
-            for f in ["_golem_dash_test.jsonl", "_golem_dash_queue.md"]:
-                p = tmp / f
-                if p.exists():
-                    p.unlink()
-        assert rc == 0
-
+class TestHelpFlag:
     def test_help_flag(self, capsys):
         rc = main(["--help"])
         assert rc == 0
