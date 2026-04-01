@@ -338,3 +338,72 @@ class TestLifecycle:
         assert store.allele_variants("x") == [0, 1]
         assert store.allele_variants("y") == [0]
         assert store.active_allele("y") == "y desc"
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+
+class TestEdgeCases:
+    def test_promote_idempotent(self, tmp_path):
+        """Promoting the same allele twice does not change state."""
+        store = _make_store(tmp_path)
+        store.seed_tool("t", "v0")
+        store.express_variant("t", "v1")
+        store.promote("t", 1)
+        assert store.active_allele("t") == "v1"
+        store.promote("t", 1)
+        assert store.active_allele("t") == "v1"
+
+    def test_promote_to_v0_resets_active(self, tmp_path):
+        """Can promote back to the founding variant."""
+        store = _make_store(tmp_path)
+        store.seed_tool("t", "founding")
+        store.express_variant("t", "v1")
+        store.promote("t", 1)
+        assert store.active_allele("t") == "v1"
+        store.promote("t", 0)
+        assert store.active_allele("t") == "founding"
+
+    def test_express_variant_unseeded_tool_creates_no_dir(self, tmp_path):
+        """express_variant on an unseeded tool fails — no locus dir exists."""
+        store = _make_store(tmp_path)
+        with pytest.raises(FileNotFoundError):
+            store.express_variant("ghost", "content")
+
+    def test_cap_one_keeps_founder_and_active(self, tmp_path):
+        """With cap=1, after seeding only v0 exists (at limit)."""
+        store = _make_store(tmp_path, allele_cap=1)
+        store.seed_tool("t", "v0")
+        assert store.allele_variants("t") == [0]
+
+    def test_cap_one_evicts_recessive(self, tmp_path):
+        """With cap=2, seed v0, express v1, promote v1, express v2.
+        v0 is founding (kept), v1 is active (kept), v2 evicts nothing.
+        But if we express v3, the oldest recessive should be evicted."""
+        store = _make_store(tmp_path, allele_cap=3)
+        store.seed_tool("t", "v0")
+        store.express_variant("t", "v1")
+        store.promote("t", 1)
+        store.express_variant("t", "v2")
+        store.express_variant("t", "v3")
+        variants = store.allele_variants("t")
+        # cap=3: v0 (founding), v1 (active), and newest should remain
+        assert 0 in variants
+        assert 1 in variants
+        assert 3 in variants
+        assert len(variants) <= 3
+
+    def test_allele_variants_ignores_v_prefix_non_numeric(self, tmp_path):
+        """Files like vX.md where X is not a number are skipped."""
+        store = _make_store(tmp_path)
+        store.seed_tool("t", "v0")
+        (tmp_path / "t" / "vNaN.md").write_text("bad")
+        assert store.allele_variants("t") == [0]
+
+    def test_seed_tool_with_empty_description(self, tmp_path):
+        """Seeding with empty string is valid — creates empty v0.md."""
+        store = _make_store(tmp_path)
+        store.seed_tool("t", "")
+        assert store.active_allele("t") == ""
+        assert store.founding_allele("t") == ""
