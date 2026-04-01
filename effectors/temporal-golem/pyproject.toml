@@ -1,0 +1,14 @@
+[project]
+name = "temporal-golem"
+version = "0.1.0"
+description = "Temporal.io-based orchestrator replacing golem-daemon markdown queue"
+requires-python = ">=3.11"
+dependencies = [
+    "temporalio>=1.7.0",
+    "click>=8.0",
+    "pydantic>=2.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"

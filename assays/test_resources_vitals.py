@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from metabolon.resources.vitals import express_vitals
 
 
@@ -27,7 +25,7 @@ def _no_file() -> Path:
 class TestNightlyReport:
     """Tests for the nightly health file handling."""
 
-    def test_missing_health_file_shows_placeholder(self, tmp_path: Path):
+    def test_missing_health_file_shows_placeholder(self):
         result = express_vitals(
             health_path=_no_file(),
             settings_path=_no_file(),
@@ -111,7 +109,7 @@ class TestPlugins:
         assert "**Enabled (2):**" in result
         assert "**Disabled (2):**" in result
 
-    def test_settings_file_missing(self, tmp_path: Path):
+    def test_settings_file_missing(self):
         result = express_vitals(
             health_path=_no_file(), settings_path=_no_file(), stats_path=_no_file()
         )

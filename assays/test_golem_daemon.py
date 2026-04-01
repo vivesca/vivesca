@@ -124,7 +124,7 @@ def test_parse_queue_returns_pending_tasks(tmp_path):
 
     assert len(pending) == 3
     # Commands should include the golem prefix
-    commands = [cmd for _, cmd in pending]
+    commands = [cmd for _, cmd, _ in pending]
     assert any("infini" in c for c in commands)
     assert any("volcano" in c for c in commands)
 
@@ -140,7 +140,7 @@ def test_parse_queue_skips_done_tasks(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     # Should not include "Completed task"
-    commands = [cmd for _, cmd in pending]
+    commands = [cmd for _, cmd, _ in pending]
     assert not any("Completed task" in c for c in commands)
 
 
@@ -184,7 +184,7 @@ def test_provider_extraction_from_queue(tmp_path):
     finally:
         _mod["QUEUE_FILE"] = original_queue
 
-    providers = [parse_provider(cmd) for _, cmd in pending]
+    providers = [parse_provider(cmd) for _, cmd, _ in pending]
     assert "infini" in providers
     assert "volcano" in providers
     assert "default" in providers
@@ -1080,7 +1080,7 @@ class TestParseQueueEdgeCases:
 
         # Only valid pending golem commands should be returned
         assert len(pending) == 2
-        commands = [cmd for _, cmd in pending]
+        commands = [cmd for _, cmd, _ in pending]
         assert any("valid task" in c for c in commands)
         assert any("another valid" in c for c in commands)
 
@@ -1437,7 +1437,7 @@ def test_parse_queue_high_priority_before_normal(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     assert len(pending) == 4
-    commands = [cmd for _, cmd in pending]
+    commands = [cmd for _, cmd, _ in pending]
     # High-priority tasks should come first
     assert "urgent task" in commands[0]
     assert "another urgent" in commands[1]
@@ -1481,7 +1481,7 @@ def test_parse_queue_only_high_priority(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     assert len(pending) == 2
-    commands = [cmd for _, cmd in pending]
+    commands = [cmd for _, cmd, _ in pending]
     assert "urgent1" in commands[0]
     assert "urgent2" in commands[1]
 
@@ -1519,7 +1519,7 @@ def test_parse_queue_high_priority_preserves_file_order(tmp_path):
     finally:
         _mod["QUEUE_FILE"] = original_queue
 
-    commands = [cmd for _, cmd in pending]
+    commands = [cmd for _, cmd, _ in pending]
     # urgent-A before urgent-C (stable sort preserves relative order)
     idx_a = next(i for i, c in enumerate(commands) if "urgent-A" in c)
     idx_c = next(i for i, c in enumerate(commands) if "urgent-C" in c)
@@ -1858,7 +1858,7 @@ class TestCmdRetryAllEdgeCases:
 
         # Originally 1 pending + 2 re-queued = 3
         assert len(pending) == 3
-        commands = [cmd for _, cmd in pending]
+        commands = [cmd for _, cmd, _ in pending]
         assert any("normal task" in c for c in commands)
         assert any("failed task 1" in c for c in commands)
         assert any("failed task 2" in c for c in commands)

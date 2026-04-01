@@ -338,9 +338,12 @@ class TestDetectStaleness:
         assert result.stale is False
 
     def test_custom_threshold(self):
-        mark = _make_mark(durability="methyl", age_days=50, access_count=0)
-        assert _detect_staleness(mark, threshold_days=30).stale is True
-        assert _detect_staleness(mark, threshold_days=60).stale is False
+        # Must use separate mark objects: _detect_staleness mutates in-place
+        mark_stale = _make_mark(durability="methyl", age_days=50, access_count=0)
+        assert _detect_staleness(mark_stale, threshold_days=30).stale is True
+
+        mark_fresh = _make_mark(durability="methyl", age_days=50, access_count=0)
+        assert _detect_staleness(mark_fresh, threshold_days=60).stale is False
 
 
 # ---------------------------------------------------------------------------

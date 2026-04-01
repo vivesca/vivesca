@@ -160,7 +160,7 @@ case "$PROVIDER" in
   volcano)
     _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
     _URL="https://ark.cn-beijing.volces.com/api/coding"
-    _AUTH_MODE="token"  # volcano needs AUTH_TOKEN, not API_KEY
+    # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
     _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
   infini)
     # WARNING: Infini API does NOT support CC tool-use. Models ask for permission
@@ -199,32 +199,49 @@ _run_golem() {
   $BARE && args+=(--bare)
   local start_ts=$(date +%s)
   local output
-  # Volcano needs AUTH_TOKEN; others need API_KEY
-  local _api_key="$_KEY" _auth_token=""
-  if [[ "${_AUTH_MODE:-}" == "token" ]]; then
-    _api_key=""
-    _auth_token="$_KEY"
-  fi
-  # Only set ANTHROPIC_AUTH_TOKEN if non-empty (volcano case)
-  # If empty, explicitly unset it to avoid inheritance from parent env
-  if [[ -n "$_auth_token" ]]; then
-    export ANTHROPIC_AUTH_TOKEN="$_auth_token"
-  else
-    unset ANTHROPIC_AUTH_TOKEN
-  fi
+  local exit_code=0
+  # All providers use ANTHROPIC_API_KEY (x-api-key header). Volcano accepts it too.
+  unset ANTHROPIC_AUTH_TOKEN  # prevent inheritance from parent env
 
-  output=$(
-  CLAUDECODE= \
-  ANTHROPIC_API_KEY="$_api_key" \
-  ANTHROPIC_BASE_URL="$_URL" \
-  ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
-  ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
-  ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
-  API_TIMEOUT_MS=3000000 \
-  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
-  )
-  local exit_code=$?
+  # Retry loop with exponential backoff for rate limits (429)
+  local _max_retries=3
+  local _attempt=0
+  local _backoff=30  # initial backoff in seconds
+
+  while [[ $_attempt -lt $_max_retries ]]; do
+    output=$(
+    CLAUDECODE= \
+    ANTHROPIC_API_KEY="$_KEY" \
+    ANTHROPIC_BASE_URL="$_URL" \
+    ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
+    ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
+    ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
+    API_TIMEOUT_MS=3000000 \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
+    )
+    exit_code=$?
+
+    # Success — break immediately
+    [[ $exit_code -eq 0 ]] && break
+
+    # Detect rate-limiting in output (429 / AccountQuotaExceeded / rate limit)
+    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded'; then
+      _attempt=$(( _attempt + 1 ))
+      if [[ $_attempt -lt $_max_retries ]]; then
+        # Try to extract reset time from error message (e.g. "reset at 2026-04-01 11:05:30")
+        local _reset_time
+        _reset_time=$(echo "$output" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+        $QUIET || echo "[retry] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), backoff ${_backoff}s${_reset_time:+, $_reset_time}" >&2
+        sleep "$_backoff"
+        _backoff=$(( _backoff * 2 ))  # exponential: 30 → 60 → 120
+      fi
+    else
+      # Non-rate-limit failure — don't retry
+      break
+    fi
+  done
+
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
 
@@ -251,11 +268,12 @@ _run_golem() {
   fi
 
   # Log result with enriched fields
-  printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d}\n' \
+  local task_id="${GOLEM_TASK_ID:-}"
+  printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$duration" "$exit_code" "$MAX_TURNS" \
     "$(echo "$short_prompt" | tr '"' "'")" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
-    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" >> "$GOLEM_LOG"
+    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$GOLEM_LOG"
   if $JSON_OUTPUT; then
     local _json_tmp
     _json_tmp="$(mktemp)"
@@ -294,7 +312,6 @@ print(json.dumps(result))
 # _configure_provider: set _KEY, _URL, _OPUS, _SONNET, _HAIKU for given provider
 _configure_provider() {
   local prov="$1"
-  unset _AUTH_MODE
   case "$prov" in
     zhipu)
       _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
@@ -303,7 +320,6 @@ _configure_provider() {
     volcano)
       _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
       _URL="https://ark.cn-beijing.volces.com/api/coding"
-      _AUTH_MODE="token"
       _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
