@@ -2,6 +2,20 @@
 # Sync Claude config (MEMORY.md, settings.json) to officina repo.
 # Runs every 15min via com.terry.pharos-sync LaunchAgent.
 
+sync_file() {
+    local src="$1" dst="$2"
+    [ -f "$src" ] || return 1
+    if [ ! -f "$dst" ] || ! diff -q "$src" "$dst" &>/dev/null; then
+        mkdir -p "$(dirname "$dst")"
+        cp "$src" "$dst"
+        echo "updated: $(basename "$dst")"
+        return 0
+    fi
+    return 1
+}
+
+# Only run main if executed directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: pharos-sync.sh"
     echo
@@ -14,18 +28,6 @@ set -uo pipefail
 
 OFFICINA="$HOME/officina"
 CLAUDE_DIR="$HOME/.claude"
-
-sync_file() {
-    local src="$1" dst="$2"
-    [ -f "$src" ] || return 1
-    if [ ! -f "$dst" ] || ! diff -q "$src" "$dst" &>/dev/null; then
-        mkdir -p "$(dirname "$dst")"
-        cp "$src" "$dst"
-        echo "updated: $(basename "$dst")"
-        return 0
-    fi
-    return 1
-}
 
 changed=false
 
@@ -73,3 +75,4 @@ $changed || exit 0
 git -C "$OFFICINA" add claude/memory/ claude/settings.json
 git -C "$OFFICINA" commit -m "sync: claude config $(date '+%Y-%m-%d %H:%M')" || true
 git -C "$OFFICINA" push || true
+fi
