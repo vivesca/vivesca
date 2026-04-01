@@ -39,7 +39,7 @@ DEFAULT_CONFIG = {
 
 
 def log(msg: str) -> None:
-    ts = datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
     print(line)
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
