@@ -14,12 +14,10 @@ import pytest
 
 
 @pytest.fixture
-def mock_chromatin(tmp_path):
-    """Mock chromatin directory for file operations."""
-    chromatin_dir = tmp_path / "chromatin"
-    chromatin_dir.mkdir(parents=True, exist_ok=True)
-    with patch("metabolon.organelles.potentiation._chromatin", chromatin_dir):
-        yield chromatin_dir
+def potentiation():
+    """Import potentiation module (no mock). Use when testing pure functions."""
+    from metabolon.organelles import potentiation
+    return potentiation
 
 
 @pytest.fixture
@@ -28,6 +26,15 @@ def mock_now():
     fixed_dt = datetime(2026, 3, 25, 12, 0, 0, tzinfo=timezone(timedelta(hours=8)))
     with patch("metabolon.organelles.potentiation._now_hkt", return_value=fixed_dt):
         yield fixed_dt
+
+
+@pytest.fixture
+def mock_chromatin(tmp_path):
+    """Mock chromatin directory for file operations."""
+    chromatin_dir = tmp_path / "chromatin"
+    chromatin_dir.mkdir(parents=True, exist_ok=True)
+    with patch("metabolon.organelles.potentiation._chromatin", chromatin_dir):
+        yield chromatin_dir
 
 
 @pytest.fixture
@@ -40,93 +47,93 @@ def potentiation_module(mock_chromatin):
 # ── FSRS Algorithm Tests ────────────────────────────────────────────────────
 
 
-def test_fsrs_forgetting_curve_zero_stability(potentiation_module):
+def test_fsrs_forgetting_curve_zero_stability(potentiation):
     """Forgetting curve returns 0 for zero/negative stability."""
-    assert potentiation_module._fsrs_forgetting_curve(0, 0) == 0.0
-    assert potentiation_module._fsrs_forgetting_curve(10, -5) == 0.0
+    assert potentiation._fsrs_forgetting_curve(0, 0) == 0.0
+    assert potentiation._fsrs_forgetting_curve(10, -5) == 0.0
 
 
-def test_fsrs_forgetting_curve_normal(potentiation_module):
+def test_fsrs_forgetting_curve_normal(potentiation):
     """Forgetting curve decreases with elapsed days."""
     # At day 0, retrievability should be 1.0
-    r0 = potentiation_module._fsrs_forgetting_curve(0, 10)
+    r0 = potentiation._fsrs_forgetting_curve(0, 10)
     assert abs(r0 - 1.0) < 0.01
     
     # After 10 days with stability 10, R should be < 1.0
-    r10 = potentiation_module._fsrs_forgetting_curve(10, 10)
+    r10 = potentiation._fsrs_forgetting_curve(10, 10)
     assert 0.5 < r10 < 1.0
     
     # More elapsed days = lower retrievability
-    r20 = potentiation_module._fsrs_forgetting_curve(20, 10)
+    r20 = potentiation._fsrs_forgetting_curve(20, 10)
     assert r20 < r10
 
 
-def test_fsrs_initial_stability_range(potentiation_module):
+def test_fsrs_initial_stability_range(potentiation):
     """Initial stability values are positive for all ratings."""
     for rating in [1, 2, 3, 4]:
-        s = potentiation_module._fsrs_initial_stability(rating)
+        s = potentiation._fsrs_initial_stability(rating)
         assert s > 0, f"Initial stability for rating {rating} should be positive"
 
 
-def test_fsrs_initial_difficulty_range(potentiation_module):
+def test_fsrs_initial_difficulty_range(potentiation):
     """Initial difficulty is in valid range [1, 10]."""
     for rating in [1, 2, 3, 4]:
-        d = potentiation_module._fsrs_initial_difficulty(rating)
+        d = potentiation._fsrs_initial_difficulty(rating)
         assert 1.0 <= d <= 10.0, f"Initial difficulty {d} out of range for rating {rating}"
 
 
-def test_fsrs_initial_difficulty_again_hardest(potentiation_module):
+def test_fsrs_initial_difficulty_again_hardest(potentiation):
     """Again rating (1) produces highest difficulty."""
-    d_again = potentiation_module._fsrs_initial_difficulty(1)
-    d_easy = potentiation_module._fsrs_initial_difficulty(4)
+    d_again = potentiation._fsrs_initial_difficulty(1)
+    d_easy = potentiation._fsrs_initial_difficulty(4)
     assert d_again > d_easy, "Again should produce higher difficulty than Easy"
 
 
-def test_fsrs_next_difficulty_bounds(potentiation_module):
+def test_fsrs_next_difficulty_bounds(potentiation):
     """Next difficulty stays within bounds [1, 10]."""
     for rating in [1, 2, 3, 4]:
         for d0 in [1.0, 5.0, 10.0]:
-            d = potentiation_module._fsrs_next_difficulty(d0, rating)
+            d = potentiation._fsrs_next_difficulty(d0, rating)
             assert 1.0 <= d <= 10.0, f"Difficulty {d} out of bounds"
 
 
-def test_fsrs_next_stability_recall_positive(potentiation_module):
+def test_fsrs_next_stability_recall_positive(potentiation):
     """Next stability for recall is always positive."""
     for rating in [2, 3, 4]:  # Hard, Good, Easy
-        s = potentiation_module._fsrs_next_stability_recall(
+        s = potentiation._fsrs_next_stability_recall(
             difficulty=5.0, stability=10.0, retrievability=0.8, rating=rating
         )
         assert s > 0, f"Next stability for rating {rating} should be positive"
 
 
-def test_fsrs_next_stability_forget_positive(potentiation_module):
+def test_fsrs_next_stability_forget_positive(potentiation):
     """Next stability for forget (Again) is always positive."""
-    s = potentiation_module._fsrs_next_stability_forget(
+    s = potentiation._fsrs_next_stability_forget(
         difficulty=5.0, stability=10.0, retrievability=0.5
     )
     assert s > 0, "Next stability for forget should be positive"
 
 
-def test_fsrs_interval_positive(potentiation_module):
+def test_fsrs_interval_positive(potentiation):
     """Interval is always at least 1 day."""
     # Very high retention
-    assert potentiation_module._fsrs_interval(10, 0.99) >= 1.0
+    assert potentiation._fsrs_interval(10, 0.99) >= 1.0
     # Normal retention
-    assert potentiation_module._fsrs_interval(5, 0.9) >= 1.0
+    assert potentiation._fsrs_interval(5, 0.9) >= 1.0
     # Zero stability edge case
-    assert potentiation_module._fsrs_interval(0, 0.9) >= 1.0
+    assert potentiation._fsrs_interval(0, 0.9) >= 1.0
 
 
-def test_fsrs_interval_higher_stability_longer(potentiation_module):
+def test_fsrs_interval_higher_stability_longer(potentiation):
     """Higher stability produces longer intervals."""
-    i_low = potentiation_module._fsrs_interval(5, 0.9)
-    i_high = potentiation_module._fsrs_interval(20, 0.9)
+    i_low = potentiation._fsrs_interval(5, 0.9)
+    i_high = potentiation._fsrs_interval(20, 0.9)
     assert i_high > i_low
 
 
-def test_fsrs_next_states_returns_all_ratings(potentiation_module):
+def test_fsrs_next_states_returns_all_ratings(potentiation):
     """fsrs_next_states returns states for all 4 ratings."""
-    states = potentiation_module.fsrs_next_states(None, 0.9, 0)
+    states = potentiation.fsrs_next_states(None, 0.9, 0)
     assert hasattr(states, 'again')
     assert hasattr(states, 'hard')
     assert hasattr(states, 'good')
@@ -135,20 +142,20 @@ def test_fsrs_next_states_returns_all_ratings(potentiation_module):
     assert states.good.memory.stability > 0
 
 
-def test_fsrs_next_states_new_card(potentiation_module):
+def test_fsrs_next_states_new_card(potentiation):
     """New card (prev=None) gets initial stability and difficulty."""
-    states = potentiation_module.fsrs_next_states(None, 0.9, 0)
+    states = potentiation.fsrs_next_states(None, 0.9, 0)
     
     # Easy rating should have lower difficulty than Again
     assert states.again.memory.difficulty > states.easy.memory.difficulty
 
 
-def test_fsrs_next_states_review_card(potentiation_module):
+def test_fsrs_next_states_review_card(potentiation):
     """Review card uses elapsed days for retrievability."""
     from metabolon.organelles.potentiation import _MemoryState
     
     prev = _MemoryState(stability=10.0, difficulty=5.0)
-    states = potentiation_module.fsrs_next_states(prev, 0.9, 5)
+    states = potentiation.fsrs_next_states(prev, 0.9, 5)
     
     # All states should have valid memory
     assert states.again.memory.stability > 0
@@ -158,41 +165,41 @@ def test_fsrs_next_states_review_card(potentiation_module):
 # ── Timezone Helper Tests ───────────────────────────────────────────────────
 
 
-def test_hkt_timezone(potentiation_module):
+def test_hkt_timezone(potentiation):
     """HKT timezone is UTC+8."""
-    assert potentiation_module.HKT.utcoffset(None) == timedelta(hours=8)
+    assert potentiation.HKT.utcoffset(None) == timedelta(hours=8)
 
 
-def test_parse_datetime_iso8601(potentiation_module):
+def test_parse_datetime_iso8601(potentiation):
     """Parse ISO8601 datetime strings."""
-    dt = potentiation_module._parse_datetime("2026-03-25T12:00:00+08:00")
+    dt = potentiation._parse_datetime("2026-03-25T12:00:00+08:00")
     assert dt is not None
     assert dt.year == 2026
     assert dt.month == 3
     assert dt.day == 25
 
 
-def test_parse_datetime_rfc3339(potentiation_module):
+def test_parse_datetime_rfc3339(potentiation):
     """Parse RFC3339 datetime strings."""
-    dt = potentiation_module._parse_datetime("2026-03-25T12:00:00.123456+08:00")
+    dt = potentiation._parse_datetime("2026-03-25T12:00:00.123456+08:00")
     assert dt is not None
     assert dt.year == 2026
 
 
-def test_parse_datetime_empty(potentiation_module):
+def test_parse_datetime_empty(potentiation):
     """Parse empty string returns None."""
-    assert potentiation_module._parse_datetime("") is None
-    assert potentiation_module._parse_datetime(None) is None
+    assert potentiation._parse_datetime("") is None
+    assert potentiation._parse_datetime(None) is None
 
 
-def test_parse_datetime_invalid(potentiation_module):
+def test_parse_datetime_invalid(potentiation):
     """Parse invalid string returns None."""
-    assert potentiation_module._parse_datetime("not-a-date") is None
+    assert potentiation._parse_datetime("not-a-date") is None
 
 
-def test_today_hkt(potentiation_module, mock_now):
+def test_today_hkt(potentiation, mock_now):
     """_today_hkt returns current date in HKT."""
-    today = potentiation_module._today_hkt()
+    today = potentiation._today_hkt()
     assert today.year == 2026
     assert today.month == 3
     assert today.day == 25
@@ -201,112 +208,112 @@ def test_today_hkt(potentiation_module, mock_now):
 # ── Rating Helper Tests ─────────────────────────────────────────────────────
 
 
-def test_rating_from_str_valid(potentiation_module):
+def test_rating_from_str_valid(potentiation):
     """Valid rating strings are recognized."""
-    assert potentiation_module._rating_from_str("again") == "again"
-    assert potentiation_module._rating_from_str("miss") == "again"
-    assert potentiation_module._rating_from_str("hard") == "hard"
-    assert potentiation_module._rating_from_str("guess") == "hard"
-    assert potentiation_module._rating_from_str("good") == "good"
-    assert potentiation_module._rating_from_str("ok") == "good"
-    assert potentiation_module._rating_from_str("easy") == "easy"
-    assert potentiation_module._rating_from_str("confident") == "easy"
+    assert potentiation._rating_from_str("again") == "again"
+    assert potentiation._rating_from_str("miss") == "again"
+    assert potentiation._rating_from_str("hard") == "hard"
+    assert potentiation._rating_from_str("guess") == "hard"
+    assert potentiation._rating_from_str("good") == "good"
+    assert potentiation._rating_from_str("ok") == "good"
+    assert potentiation._rating_from_str("easy") == "easy"
+    assert potentiation._rating_from_str("confident") == "easy"
 
 
-def test_rating_from_str_case_insensitive(potentiation_module):
+def test_rating_from_str_case_insensitive(potentiation):
     """Rating strings are case-insensitive."""
-    assert potentiation_module._rating_from_str("AGAIN") == "again"
-    assert potentiation_module._rating_from_str("Good") == "good"
-    assert potentiation_module._rating_from_str("EASY") == "easy"
+    assert potentiation._rating_from_str("AGAIN") == "again"
+    assert potentiation._rating_from_str("Good") == "good"
+    assert potentiation._rating_from_str("EASY") == "easy"
 
 
-def test_rating_from_str_invalid(potentiation_module):
+def test_rating_from_str_invalid(potentiation):
     """Invalid rating strings return None."""
-    assert potentiation_module._rating_from_str("unknown") is None
-    assert potentiation_module._rating_from_str("") is None
+    assert potentiation._rating_from_str("unknown") is None
+    assert potentiation._rating_from_str("") is None
 
 
-def test_state_name(potentiation_module):
+def test_state_name(potentiation):
     """State names are correctly mapped."""
-    assert potentiation_module._state_name(1) == "learning"
-    assert potentiation_module._state_name(2) == "review"
-    assert potentiation_module._state_name(3) == "relearning"
-    assert potentiation_module._state_name(0) == "new"
-    assert potentiation_module._state_name(99) == "new"
+    assert potentiation._state_name(1) == "learning"
+    assert potentiation._state_name(2) == "review"
+    assert potentiation._state_name(3) == "relearning"
+    assert potentiation._state_name(0) == "new"
+    assert potentiation._state_name(99) == "new"
 
 
 # ── Mode/Phase/Quota Tests ───────────────────────────────────────────────────
 
 
-def test_get_mode_drill(potentiation_module):
+def test_get_mode_drill(potentiation):
     """Rate < 60% returns drill mode."""
-    assert potentiation_module._get_mode(0.0) == "drill"
-    assert potentiation_module._get_mode(0.50) == "drill"
-    assert potentiation_module._get_mode(0.59) == "drill"
+    assert potentiation._get_mode(0.0) == "drill"
+    assert potentiation._get_mode(0.50) == "drill"
+    assert potentiation._get_mode(0.59) == "drill"
 
 
-def test_get_mode_free_recall(potentiation_module):
+def test_get_mode_free_recall(potentiation):
     """Rate 60-70% returns free-recall mode."""
-    assert potentiation_module._get_mode(0.60) == "free-recall"
-    assert potentiation_module._get_mode(0.65) == "free-recall"
-    assert potentiation_module._get_mode(0.69) == "free-recall"
+    assert potentiation._get_mode(0.60) == "free-recall"
+    assert potentiation._get_mode(0.65) == "free-recall"
+    assert potentiation._get_mode(0.69) == "free-recall"
 
 
-def test_get_mode_mcq(potentiation_module):
+def test_get_mode_mcq(potentiation):
     """Rate >= 70% returns MCQ mode."""
-    assert potentiation_module._get_mode(0.70) == "MCQ"
-    assert potentiation_module._get_mode(0.85) == "MCQ"
-    assert potentiation_module._get_mode(1.0) == "MCQ"
+    assert potentiation._get_mode(0.70) == "MCQ"
+    assert potentiation._get_mode(0.85) == "MCQ"
+    assert potentiation._get_mode(1.0) == "MCQ"
 
 
-def test_module_weight(potentiation_module):
+def test_module_weight(potentiation):
     """Module weights are correctly assigned."""
-    assert potentiation_module._module_weight("M1-ai-risks") == 0.10
-    assert potentiation_module._module_weight("M2-clustering") == 0.30
-    assert potentiation_module._module_weight("M3-bias-unfairness") == 0.20
-    assert potentiation_module._module_weight("M4-ethical-frameworks") == 0.20
-    assert potentiation_module._module_weight("M5-data-governance") == 0.20
-    assert potentiation_module._module_weight("M6-unknown") == 0.0
+    assert potentiation._module_weight("M1-ai-risks") == 0.10
+    assert potentiation._module_weight("M2-clustering") == 0.30
+    assert potentiation._module_weight("M3-bias-unfairness") == 0.20
+    assert potentiation._module_weight("M4-ethical-frameworks") == 0.20
+    assert potentiation._module_weight("M5-data-governance") == 0.20
+    assert potentiation._module_weight("M6-unknown") == 0.0
 
 
-def test_get_phase_dates(potentiation_module):
+def test_get_phase_dates(potentiation):
     """Phase determination based on date."""
     from datetime import date
     
     # Cruise phase (until March 13)
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 10)):
-        phase, name = potentiation_module._get_phase()
+        phase, name = potentiation._get_phase()
         assert phase == 1
         assert name == "Cruise"
     
     # Ramp phase (March 14-28)
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 20)):
-        phase, name = potentiation_module._get_phase()
+        phase, name = potentiation._get_phase()
         assert phase == 2
         assert name == "Ramp"
     
     # Peak phase (after March 28)
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 4, 1)):
-        phase, name = potentiation_module._get_phase()
+        phase, name = potentiation._get_phase()
         assert phase == 3
         assert name == "Peak"
 
 
-def test_daily_quota(potentiation_module):
+def test_daily_quota(potentiation):
     """Daily quota depends on phase."""
     from datetime import date
     
     # Phase 1 (Cruise): 10
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 10)):
-        assert potentiation_module._daily_quota() == 10
+        assert potentiation._daily_quota() == 10
     
     # Phase 2 (Ramp): 15
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 20)):
-        assert potentiation_module._daily_quota() == 15
+        assert potentiation._daily_quota() == 15
     
     # Phase 3 (Peak): 20
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 4, 1)):
-        assert potentiation_module._daily_quota() == 20
+        assert potentiation._daily_quota() == 20
 
 
 # ── Card Helper Tests ────────────────────────────────────────────────────────
@@ -374,19 +381,19 @@ def test_schedule_card_caps_at_exam(potentiation_module, mock_now):
     assert due <= exam_cutoff
 
 
-def test_card_due_hkt(potentiation_module):
+def test_card_due_hkt(potentiation):
     """_card_due_hkt converts due string to HKT datetime."""
     card = {"due": "2026-03-25T12:00:00+00:00"}
-    due_hkt = potentiation_module._card_due_hkt(card)
+    due_hkt = potentiation._card_due_hkt(card)
     
     assert due_hkt is not None
-    assert due_hkt.tzinfo == potentiation_module.HKT
+    assert due_hkt.tzinfo == potentiation.HKT
 
 
-def test_card_due_hkt_missing(potentiation_module):
+def test_card_due_hkt_missing(potentiation):
     """_card_due_hkt returns None for missing due."""
-    assert potentiation_module._card_due_hkt({}) is None
-    assert potentiation_module._card_due_hkt({"due": ""}) is None
+    assert potentiation._card_due_hkt({}) is None
+    assert potentiation._card_due_hkt({"due": ""}) is None
 
 
 # ── State I/O Tests ──────────────────────────────────────────────────────────
@@ -552,46 +559,46 @@ def test_parse_tracker_dash_rate(potentiation_module, mock_chromatin):
 # ── Topic Resolution Tests ────────────────────────────────────────────────────
 
 
-def test_resolve_topic_exact_match(potentiation_module):
+def test_resolve_topic_exact_match(potentiation):
     """Resolve topic with exact match."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
     
-    result = potentiation_module._resolve_topic("M1-ai-risks", tracker)
+    result = potentiation._resolve_topic("M1-ai-risks", tracker)
     assert result == "M1-ai-risks"
 
 
-def test_resolve_topic_case_insensitive(potentiation_module, capsys):
+def test_resolve_topic_case_insensitive(potentiation, capsys):
     """Resolve topic case-insensitively."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
     
-    result = potentiation_module._resolve_topic("m1-ai-risks", tracker)
+    result = potentiation._resolve_topic("m1-ai-risks", tracker)
     assert result == "M1-ai-risks"
 
 
-def test_resolve_topic_partial_match(potentiation_module, capsys):
+def test_resolve_topic_partial_match(potentiation, capsys):
     """Resolve topic with partial match."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
     
-    result = potentiation_module._resolve_topic("ai-risks", tracker)
+    result = potentiation._resolve_topic("ai-risks", tracker)
     assert result == "M1-ai-risks"
 
 
-def test_resolve_topic_not_found(potentiation_module, capsys):
+def test_resolve_topic_not_found(potentiation, capsys):
     """Resolve topic not found returns None."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
     
-    result = potentiation_module._resolve_topic("nonexistent", tracker)
+    result = potentiation._resolve_topic("nonexistent", tracker)
     assert result is None
 
 
-def test_resolve_topic_ambiguous(potentiation_module, capsys):
+def test_resolve_topic_ambiguous(potentiation, capsys):
     """Ambiguous topic prints options and returns None."""
     tracker = {"topics": {
         "M2-clustering": {},
         "M2-classification": {},
     }}
     
-    result = potentiation_module._resolve_topic("cluster", tracker)
+    result = potentiation._resolve_topic("cluster", tracker)
     # Should match M2-clustering uniquely
     assert result == "M2-clustering" or result is None
 
@@ -599,11 +606,11 @@ def test_resolve_topic_ambiguous(potentiation_module, capsys):
 # ── Normalize Helper Tests ────────────────────────────────────────────────────
 
 
-def test_normalize(potentiation_module):
+def test_normalize(potentiation):
     """_normalize removes non-alphanumeric and lowercases."""
-    assert potentiation_module._normalize("M1-AI-Risks") == "m1airisks"
-    assert potentiation_module._normalize("Hello World!") == "helloworld"
-    assert potentiation_module._normalize("") == ""
+    assert potentiation._normalize("M1-AI-Risks") == "m1airisks"
+    assert potentiation._normalize("Hello World!") == "helloworld"
+    assert potentiation._normalize("") == ""
 
 
 # ── Topics with Drills Tests ──────────────────────────────────────────────────
@@ -617,12 +624,12 @@ def test_topics_with_drills_missing_file(potentiation_module, mock_chromatin):
 
 def test_topics_with_drills(potentiation_module, mock_chromatin):
     """Topics with drills parses drill file."""
-    # The regex pattern looks for (M\d-[\w-]+) with parentheses
+    # The regex pattern looks for (M\d-[\w-]+) in lines starting with "## "
     drill_content = '''
-## (M1-ai-risks) Definition Drills
+## Definition Drills (M1-ai-risks)
 Some content
 
-## (M2-clustering) Definition Drills
+## Definition Drills (M2-clustering)
 More content
 '''
     drill_file = mock_chromatin / "GARP RAI Definition Drills.md"
@@ -637,42 +644,42 @@ More content
 # ── TTY/Display Helper Tests ────────────────────────────────────────────────
 
 
-def test_is_tty(potentiation_module):
+def test_is_tty(potentiation):
     """_is_tty returns False in test environment."""
     # In pytest, stdout is typically not a TTY
-    result = potentiation_module._is_tty()
+    result = potentiation._is_tty()
     assert isinstance(result, bool)
 
 
-def test_color_when_tty(potentiation_module):
+def test_color_when_tty(potentiation):
     """_color adds ANSI codes when TTY."""
     with patch("metabolon.organelles.potentiation._is_tty", return_value=True):
-        result = potentiation_module._color("test", "31")
+        result = potentiation._color("test", "31")
         assert result == "\033[31mtest\033[0m"
 
 
-def test_color_when_not_tty(potentiation_module):
+def test_color_when_not_tty(potentiation):
     """_color returns plain text when not TTY."""
     with patch("metabolon.organelles.potentiation._is_tty", return_value=False):
-        result = potentiation_module._color("test", "31")
+        result = potentiation._color("test", "31")
         assert result == "test"
 
 
-def test_color_helpers(potentiation_module):
+def test_color_helpers(potentiation):
     """Color helper functions work correctly."""
     with patch("metabolon.organelles.potentiation._is_tty", return_value=True):
-        assert "\033[31m" in potentiation_module._red("error")
-        assert "\033[32m" in potentiation_module._green("ok")
-        assert "\033[33m" in potentiation_module._yellow("warn")
-        assert "\033[36m" in potentiation_module._cyan("info")
-        assert "\033[1m" in potentiation_module._bold("strong")
-        assert "\033[2m" in potentiation_module._dim("faint")
+        assert "\033[31m" in potentiation._red("error")
+        assert "\033[32m" in potentiation._green("ok")
+        assert "\033[33m" in potentiation._yellow("warn")
+        assert "\033[36m" in potentiation._cyan("info")
+        assert "\033[1m" in potentiation._bold("strong")
+        assert "\033[2m" in potentiation._dim("faint")
 
 
 # ── Today's Reviews Tests ─────────────────────────────────────────────────────
 
 
-def test_get_today_reviews(potentiation_module, mock_now):
+def test_get_today_reviews(potentiation, mock_now):
     """_get_today_reviews filters by today's date."""
     today_str = mock_now.strftime("%Y-%m-%d")
     yesterday_str = (mock_now - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -684,7 +691,7 @@ def test_get_today_reviews(potentiation_module, mock_now):
         ]
     }
     
-    result = potentiation_module._get_today_reviews(state)
+    result = potentiation._get_today_reviews(state)
     
     assert len(result) == 1
     assert result[0]["topic"] == "M1-ai-risks"
@@ -810,8 +817,9 @@ def test_cmd_coverage(potentiation_module, mock_chromatin, mock_now, capsys):
 
 
 def test_cmd_reconcile_in_sync(potentiation_module, mock_chromatin, mock_now, capsys):
-    """cmd_reconcile reports in-sync."""
-    # Use the proper table format expected by _TOPIC_ROW_RE
+    """cmd_reconcile reports in-sync when summary matches topic totals."""
+    # Need 10+ topics for reconcile to work
+    # Summary total=10, correct=8 matches topic totals
     tracker_content = '''
 # GARP RAI Quiz Tracker
 
@@ -854,23 +862,68 @@ def test_cmd_reconcile_in_sync(potentiation_module, mock_chromatin, mock_now, ca
     assert "in sync" in captured.out.lower() or "no changes" in captured.out.lower()
 
 
+def test_cmd_reconcile_out_of_sync(potentiation_module, mock_chromatin, mock_now, capsys):
+    """cmd_reconcile updates summary when out of sync."""
+    # Summary says 10, but topic totals = 15
+    tracker_content = '''
+# GARP RAI Quiz Tracker
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Questions | 10 |
+| Correct | 5 |
+| Rate | 50% |
+| Sessions | 2 |
+
+## Topics
+
+| Topic | Attempts | Correct | Rate |
+|-------|----------|---------|------|
+| M1-ai-risks | 10 | 8 | 80% |
+| M2-clustering | 5 | 4 | 80% |
+| M3-bias-unfairness | 0 | 0 | — |
+| M3-fairness-measures | 0 | 0 | — |
+| M3-xai | 0 | 0 | — |
+| M3-autonomy-safety | 0 | 0 | — |
+| M3-reputational-existential | 0 | 0 | — |
+| M3-genai-risks | 0 | 0 | — |
+| M4-ethical-frameworks | 0 | 0 | — |
+| M4-ethics-principles | 0 | 0 | — |
+| M4-bias-discrimination | 0 | 0 | — |
+| M4-privacy-cybersecurity | 0 | 0 | — |
+| M4-governance-challenges | 0 | 0 | — |
+| M4-regulatory | 0 | 0 | — |
+| M5-data-governance | 0 | 0 | — |
+| M5-model-governance | 0 | 0 | — |
+'''
+    tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
+    tracker_file.write_text(tracker_content)
+
+    potentiation_module.cmd_reconcile()
+
+    captured = capsys.readouterr()
+    assert "Reconciled" in captured.out
+
+
 # ── CLI Tests ─────────────────────────────────────────────────────────────────
 
 
-def test_cli_no_args(potentiation_module, capsys):
+def test_cli_no_args(potentiation, capsys):
     """CLI with no args prints help."""
     with patch("sys.argv", ["melete"]):
-        potentiation_module._cli()
+        potentiation._cli()
     
     captured = capsys.readouterr()
     assert "melete" in captured.out
 
 
-def test_cli_unknown_command(potentiation_module, capsys):
+def test_cli_unknown_command(potentiation, capsys):
     """CLI with unknown command exits."""
     with patch("sys.argv", ["melete", "unknown"]):
         with pytest.raises(SystemExit):
-            potentiation_module._cli()
+            potentiation._cli()
 
 
 def test_cli_session(potentiation_module, mock_chromatin, mock_now, capsys):
