@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-WORKER_PATH = "/home/terry/germline/effectors/hatchet-golem/worker.py"
+WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-golem/worker.py")
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────

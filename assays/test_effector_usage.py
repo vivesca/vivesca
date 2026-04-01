@@ -13,7 +13,7 @@ import pytest
 
 def _load_module():
     """Load effector-usage by exec-ing its source."""
-    source = Path("/home/terry/germline/effectors/effector-usage").read_text()
+    source = Path(str(Path.home() / "germline/effectors/effector-usage")).read_text()
     ns: dict = {"__name__": "effector_usage_test"}
     exec(source, ns)
     return ns
@@ -258,5 +258,5 @@ class TestListEffectors:
 def test_ast_parse():
     """Verify the effector file is syntactically valid Python."""
     import ast
-    source = Path("/home/terry/germline/effectors/effector-usage").read_text()
+    source = Path(str(Path.home() / "germline/effectors/effector-usage")).read_text()
     ast.parse(source)

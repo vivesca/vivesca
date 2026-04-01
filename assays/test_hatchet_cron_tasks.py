@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-WORKER_PATH = "/home/terry/germline/effectors/hatchet-golem/worker.py"
+WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-golem/worker.py")
 
 
 def _make_mock_hatchet():

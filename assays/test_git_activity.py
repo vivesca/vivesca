@@ -13,7 +13,7 @@ import pytest
 
 def _load():
     """Load git-activity module via exec."""
-    source = Path("/home/terry/germline/effectors/git-activity").read_text()
+    source = Path(str(Path.home() / "germline/effectors/git-activity")).read_text()
     ns: dict = {"__name__": "git_activity"}
     exec(source, ns)
     return ns

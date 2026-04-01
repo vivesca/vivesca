@@ -14,7 +14,7 @@ import pytest
 
 def _load_module():
     """Load soma-scale by exec-ing, with urlopen mocked."""
-    source = open("/home/terry/germline/effectors/soma-scale").read()
+    source = open(str(Path.home() / "germline/effectors/soma-scale")).read()
     mock_urlopen = MagicMock()
     ns: dict = {"__name__": "soma_scale", "__builtins__": __builtins__}
     exec(source, ns)

@@ -14,7 +14,7 @@ import pytest
 
 def _load_dash():
     """Load golem-dash module via exec."""
-    source = Path("/home/terry/germline/effectors/golem-dash").read_text()
+    source = Path(str(Path.home() / "germline/effectors/golem-dash")).read_text()
     ns: dict = {"__name__": "golem_dash"}
     exec(source, ns)
     return ns
@@ -298,10 +298,10 @@ class TestMain:
         assert "zhipu" in captured.out
 
     def test_script_exists(self):
-        assert Path("/home/terry/germline/effectors/golem-dash").exists()
+        assert Path(str(Path.home() / "germline/effectors/golem-dash")).exists()
 
     def test_script_executable(self):
-        p = Path("/home/terry/germline/effectors/golem-dash")
+        p = Path(str(Path.home() / "germline/effectors/golem-dash"))
         assert p.stat().st_mode & 0o111
 
     def test_main_json_output(self, tmp_path, capsys):
@@ -378,7 +378,7 @@ class TestEtimeToSeconds:
 
 class TestExtractTaskSnippet:
     def test_golem_command(self):
-        result = extract_task_snippet('/home/terry/germline/effectors/golem --provider zhipu "hello world"')
+        result = extract_task_snippet(str(Path.home() / "germline/effectors/golem --provider zhipu ")hello world"')
         assert "hello world" in result
 
     def test_shell_prefix(self):

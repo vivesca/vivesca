@@ -100,18 +100,34 @@ def _fly_cmd(cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
     )
 
 
-def _is_soma_reachable() -> bool:
-    """Check if soma machine is running via fly status."""
-    try:
-        result = subprocess.run(
-            ["fly", "status", "-a", LUCERNA_APP],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        return result.returncode == 0 and "started" in result.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
+def _running_on_soma() -> bool:
+    """Detect if we're executing on the soma machine itself."""
+    return Path("/.fly").is_dir()
+
+
+def _is_soma_reachable(retries: int = 3, backoff: float = 5.0) -> bool:
+    """Check if soma machine is running via fly status, with retry.
+
+    When running on soma itself, skip the API call — we're obviously reachable.
+    """
+    if _running_on_soma():
+        return True
+
+    for attempt in range(retries):
+        try:
+            result = subprocess.run(
+                ["fly", "status", "-a", LUCERNA_APP],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode == 0 and "started" in result.stdout:
+                return True
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        if attempt < retries - 1:
+            time.sleep(backoff * (attempt + 1))
+    return False
 
 
 def _build_commit_message(local: str) -> str:

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path("/home/terry/germline/effectors/perplexity.sh")
+SCRIPT = Path(str(Path.home() / "germline/effectors/perplexity.sh"))
 
 
 def _run(args: list[str], env_extra: dict | None = None) -> subprocess.CompletedProcess[str]:

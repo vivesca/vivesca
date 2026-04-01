@@ -19,7 +19,7 @@ import pytest
 
 def _load():
     """Load golem-daemon by exec-ing its source (not __main__)."""
-    src = open("/home/terry/germline/effectors/golem-daemon").read()
+    src = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
     ns: dict = {"__name__": "golem_daemon_test"}
     exec(src, ns)
     return ns

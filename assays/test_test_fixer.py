@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 def _load_test_fixer():
     """Load the test-fixer module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/test-fixer").read()
+    source = open(str(Path.home() / "germline/effectors/test-fixer")).read()
     ns: dict = {"__name__": "test_fixer"}
     exec(source, ns)
     return ns
@@ -22,7 +22,7 @@ def _load_test_fixer():
 def test_cli_requires_test_file_arg():
     """test-fixer exits with error if no test file provided."""
     result = subprocess.run(
-        ["/home/terry/germline/effectors/test-fixer"],
+        [str(Path.home() / "germline/effectors/test-fixer")],
         capture_output=True,
         text=True,
     )
@@ -34,7 +34,7 @@ def test_cli_requires_test_file_arg():
 def test_cli_reports_missing_file():
     """test-fixer reports error for non-existent test file."""
     result = subprocess.run(
-        ["/home/terry/germline/effectors/test-fixer", "/nonexistent/test_file.py"],
+        [str(Path.home() / "germline/effectors/test-fixer"), "/nonexistent/test_file.py"],
         capture_output=True,
         text=True,
     )
@@ -52,7 +52,7 @@ def test_detect_hardcoded_macos_path():
     
     test_code = '''
 def test_foo():
-    path = "/Users/terry/germline/effectors/foo"
+    path = str(Path.home() / "germline/effectors/foo")
     assert True
 '''
     issues = detect_issues(test_code)
@@ -66,7 +66,7 @@ def test_detect_hardcoded_linux_path():
     
     test_code = '''
 def test_bar():
-    config = open("/home/terry/.config/app.conf")
+    config = open(str(Path.home() / ".config/app.conf"))
 '''
     issues = detect_issues(test_code)
     assert any("home/terry" in i for i in issues)
@@ -110,10 +110,10 @@ def test_fix_hardcoded_path():
     _mod = _load_test_fixer()
     apply_fixes = _mod["apply_fixes"]
     
-    test_code = '''path = "/Users/terry/germline/effectors/foo"'''
+    test_code = '''path = str(Path.home() / "germline/effectors/foo")'''
     fixed = apply_fixes(test_code)
     assert "Path.home()" in fixed
-    assert "/Users/terry/" not in fixed
+    assert str(Path.home() / "") not in fixed
 
 
 def test_fix_hardcoded_linux_path():
@@ -121,10 +121,10 @@ def test_fix_hardcoded_linux_path():
     _mod = _load_test_fixer()
     apply_fixes = _mod["apply_fixes"]
     
-    test_code = '''config = open("/home/terry/.config/app.conf")'''
+    test_code = '''config = open(str(Path.home() / ".config/app.conf"))'''
     fixed = apply_fixes(test_code)
     assert "Path.home()" in fixed
-    assert "/home/terry/" not in fixed
+    assert str(Path.home() / "") not in fixed
 
 
 def test_fix_adds_path_import():
@@ -134,7 +134,7 @@ def test_fix_adds_path_import():
     
     test_code = '''
 def test_foo():
-    path = "/home/terry/germline"
+    path = str(Path.home() / "germline")
 '''
     fixed = apply_fixes(test_code)
     assert "from pathlib import Path" in fixed
@@ -148,7 +148,7 @@ def test_fix_preserves_existing_path_import():
     test_code = '''
 from pathlib import Path
 def test_foo():
-    path = "/home/terry/germline"
+    path = str(Path.home() / "germline")
 '''
     fixed = apply_fixes(test_code)
     assert fixed.count("from pathlib import Path") == 1

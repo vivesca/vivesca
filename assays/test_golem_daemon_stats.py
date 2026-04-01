@@ -13,7 +13,7 @@ import pytest
 
 def _load_module(tmp_jsonl: Path, tmp_queue: Path) -> dict:
     """Load golem-daemon with JSONLFILE and QUEUE_FILE overridden."""
-    source = Path("/home/terry/germline/effectors/golem-daemon").read_text()
+    source = Path(str(Path.home() / "germline/effectors/golem-daemon")).read_text()
     ns: dict = {"__name__": "golem_daemon"}
     exec(source, ns)
     # Patch module-level path constants

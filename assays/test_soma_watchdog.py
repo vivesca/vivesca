@@ -15,7 +15,7 @@ import pytest
 
 def _load():
     """Load soma-watchdog by exec-ing its source."""
-    src = open("/home/terry/germline/effectors/soma-watchdog").read()
+    src = open(str(Path.home() / "germline/effectors/soma-watchdog")).read()
     ns: dict = {"__name__": "soma_watchdog"}
     exec(src, ns)
     return ns

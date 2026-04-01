@@ -13,7 +13,7 @@ import pytest
 
 def _load():
     """Load golem-review by exec-ing its source."""
-    source = open("/home/terry/germline/effectors/golem-review").read()
+    source = open(str(Path.home() / "germline/effectors/golem-review")).read()
     ns: dict = {"__name__": "golem_review_test"}
     exec(source, ns)
     return ns

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 # Execute the mitosis-checkpoint file directly
-mitosis_path = Path("/home/terry/germline/effectors/mitosis-checkpoint.py")
+mitosis_path = Path(str(Path.home() / "germline/effectors/mitosis-checkpoint.py"))
 mitosis_code = mitosis_path.read_text()
 namespace = {}
 exec(mitosis_code, namespace)

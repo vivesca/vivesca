@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Execute the methylation file directly
-methylation_code = Path("/home/terry/germline/effectors/methylation").read_text()
+methylation_code = Path(str(Path.home() / "germline/effectors/methylation")).read_text()
 namespace = {}
 exec(methylation_code, namespace)
 

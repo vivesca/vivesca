@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch, mock_open
 from pathlib import Path
 
 # Execute the replisome file directly
-replisome_path = Path("/home/terry/germline/effectors/replisome")
+replisome_path = Path(str(Path.home() / "germline/effectors/replisome"))
 replisome_code = replisome_path.read_text()
 
 # Create module namespace and exec

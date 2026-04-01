@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 
-EFFECTOR = Path("/home/terry/germline/effectors/provider-bench")
+EFFECTOR = Path(str(Path.home() / "germline/effectors/provider-bench"))
 
 
 def _load_effector():

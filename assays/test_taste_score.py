@@ -12,7 +12,7 @@ import tempfile
 import time
 
 # Execute the taste-score file directly
-taste_score_path = Path("/home/terry/germline/effectors/taste-score")
+taste_score_path = Path(str(Path.home() / "germline/effectors/taste-score"))
 taste_score_code = taste_score_path.read_text()
 namespace = {}
 exec(taste_score_code, namespace)

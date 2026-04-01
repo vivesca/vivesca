@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 
-EFFECTOR_PATH = Path("/home/terry/germline/effectors/soma-pull")
+EFFECTOR_PATH = Path(str(Path.home() / "germline/effectors/soma-pull"))
 
 
 def _load_module():

@@ -15,11 +15,11 @@ import pytest
 
 def _load_circadian_probe():
     """Load the circadian-probe module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/circadian-probe.py").read()
+    source = open(str(Path.home() / "germline/effectors/circadian-probe.py")).read()
     # Provide __file__ since the script uses it to find the config file
     ns: dict = {
         "__name__": "circadian_probe",
-        "__file__": "/home/terry/germline/effectors/circadian-probe.py",
+        "__file__": str(Path.home() / "germline/effectors/circadian-probe.py"),
     }
     exec(source, ns)
     return ns
@@ -693,10 +693,10 @@ def test_send_via_telegram_success():
     mock_module.secrete_text = MagicMock()
 
     with patch.dict("sys.modules", {"metabolon.organelles.secretory_vesicle": mock_module}):
-        source = open("/home/terry/germline/effectors/circadian-probe.py").read()
+        source = open(str(Path.home() / "germline/effectors/circadian-probe.py")).read()
         ns = {
             "__name__": "test",
-            "__file__": "/home/terry/germline/effectors/circadian-probe.py",
+            "__file__": str(Path.home() / "germline/effectors/circadian-probe.py"),
         }
         exec(source, ns)
         send_via_telegram_fresh = ns["send_via_telegram"]
@@ -712,10 +712,10 @@ def test_send_via_telegram_failure():
     mock_module.secrete_text = MagicMock(side_effect=Exception("API error"))
 
     with patch.dict("sys.modules", {"metabolon.organelles.secretory_vesicle": mock_module}):
-        source = open("/home/terry/germline/effectors/circadian-probe.py").read()
+        source = open(str(Path.home() / "germline/effectors/circadian-probe.py")).read()
         ns = {
             "__name__": "test",
-            "__file__": "/home/terry/germline/effectors/circadian-probe.py",
+            "__file__": str(Path.home() / "germline/effectors/circadian-probe.py"),
         }
         exec(source, ns)
         send_via_telegram_fresh = ns["send_via_telegram"]
@@ -730,10 +730,10 @@ def test_send_via_telegram_handles_import_error():
     # Remove the module if it exists
     sys.modules.pop("metabolon.organelles.secretory_vesicle", None)
 
-    source = open("/home/terry/germline/effectors/circadian-probe.py").read()
+    source = open(str(Path.home() / "germline/effectors/circadian-probe.py")).read()
     ns = {
         "__name__": "test",
-        "__file__": "/home/terry/germline/effectors/circadian-probe.py",
+        "__file__": str(Path.home() / "germline/effectors/circadian-probe.py"),
     }
     exec(source, ns)
     send_via_telegram_fresh = ns["send_via_telegram"]
@@ -748,7 +748,7 @@ def test_send_via_telegram_handles_import_error():
 
 def test_circadian_probe_cli_runs():
     """circadian-probe.py runs without errors."""
-    probe_path = Path("/home/terry/germline/effectors/circadian-probe.py")
+    probe_path = Path(str(Path.home() / "germline/effectors/circadian-probe.py"))
 
     # Mock send_via_telegram to avoid actual API calls
     with patch.dict("sys.modules", {"metabolon.organelles.secretory_vesicle": MagicMock()}):
@@ -765,7 +765,7 @@ def test_circadian_probe_cli_runs():
 
 def test_circadian_probe_cli_outputs_digest():
     """circadian-probe.py outputs a digest to stdout."""
-    probe_path = Path("/home/terry/germline/effectors/circadian-probe.py")
+    probe_path = Path(str(Path.home() / "germline/effectors/circadian-probe.py"))
 
     # Mock the Telegram import
     mock_module = MagicMock()
@@ -785,7 +785,7 @@ def test_circadian_probe_cli_outputs_digest():
 
 def test_circadian_probe_cli_exits_on_telegram_failure():
     """circadian-probe.py exits with code 1 when Telegram fails."""
-    probe_path = Path("/home/terry/germline/effectors/circadian-probe.py")
+    probe_path = Path(str(Path.home() / "germline/effectors/circadian-probe.py"))
 
     # Create a mock that raises an exception
     def mock_secrete_text(msg, **kwargs):

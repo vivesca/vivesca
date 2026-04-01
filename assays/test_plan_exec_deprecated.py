@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-EFFECTOR = Path("/home/terry/germline/effectors/plan-exec.deprecated")
+EFFECTOR = Path(str(Path.home() / "germline/effectors/plan-exec.deprecated"))
 
 
 def _load():

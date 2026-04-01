@@ -13,7 +13,7 @@ import typer
 
 # Add the effectors directory to path so we can import lacuna
 import sys
-sys.path.insert(0, '/home/terry/germline/effectors')
+sys.path.insert(0, str(Path.home() / "germline/effectors"))
 
 # Import the module functions we need to test
 import lacuna

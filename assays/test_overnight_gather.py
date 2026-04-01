@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from pathlib import Path
 
 # Execute the overnight-gather file directly
-overnight_code = Path("/home/terry/germline/effectors/overnight-gather").read_text()
+overnight_code = Path(str(Path.home() / "germline/effectors/overnight-gather")).read_text()
 namespace = {}
 exec(overnight_code, namespace)
 

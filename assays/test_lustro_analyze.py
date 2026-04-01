@@ -12,7 +12,7 @@ import pytest
 
 def _load_module():
     """Load lustro-analyze by exec-ing its source."""
-    source = open("/home/terry/germline/effectors/lustro-analyze").read()
+    source = open(str(Path.home() / "germline/effectors/lustro-analyze")).read()
     ns: dict = {"__name__": "lustro_analyze"}
     exec(source, ns)
     return ns
@@ -335,7 +335,7 @@ class TestParser:
 class TestCLI:
     def test_help_flag(self):
         result = subprocess.run(
-            ["python3", "/home/terry/germline/effectors/lustro-analyze", "--help"],
+            ["python3", str(Path.home() / "germline/effectors/lustro-analyze"), "--help"],
             capture_output=True, text=True, timeout=10,
         )
         assert result.returncode == 0
@@ -344,7 +344,7 @@ class TestCLI:
 
     def test_cli_with_dir(self, tmp_article_dir):
         result = subprocess.run(
-            ["python3", "/home/terry/germline/effectors/lustro-analyze",
+            ["python3", str(Path.home() / "germline/effectors/lustro-analyze"),
              "--dir", str(tmp_article_dir), "--top", "3"],
             capture_output=True, text=True, timeout=15,
         )
@@ -355,7 +355,7 @@ class TestCLI:
 
     def test_cli_topic_filter(self, tmp_article_dir):
         result = subprocess.run(
-            ["python3", "/home/terry/germline/effectors/lustro-analyze",
+            ["python3", str(Path.home() / "germline/effectors/lustro-analyze"),
              "--dir", str(tmp_article_dir), "--topic", "AI"],
             capture_output=True, text=True, timeout=15,
         )
@@ -365,7 +365,7 @@ class TestCLI:
     def test_cli_output_file(self, tmp_article_dir, tmp_path):
         outfile = tmp_path / "report.txt"
         result = subprocess.run(
-            ["python3", "/home/terry/germline/effectors/lustro-analyze",
+            ["python3", str(Path.home() / "germline/effectors/lustro-analyze"),
              "--dir", str(tmp_article_dir), "--output", str(outfile)],
             capture_output=True, text=True, timeout=15,
         )

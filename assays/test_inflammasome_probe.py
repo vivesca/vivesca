@@ -16,7 +16,7 @@ from pathlib import Path
 current_module = sys.modules[__name__]
 
 # Execute the inflammasome-probe file directly into the current module
-inflammasome_probe_code = Path("/home/terry/germline/effectors/inflammasome-probe").read_text()
+inflammasome_probe_code = Path(str(Path.home() / "germline/effectors/inflammasome-probe")).read_text()
 exec(inflammasome_probe_code, globals())
 
 # ---------------------------------------------------------------------------
@@ -309,7 +309,7 @@ def test_novel_failure_repair_handles_unfixed_result():
 
 def test_script_executable():
     """Test that the script is marked executable and can be parsed."""
-    probe_path = Path("/home/terry/germline/effectors/inflammasome-probe")
+    probe_path = Path(str(Path.home() / "germline/effectors/inflammasome-probe"))
     assert probe_path.exists()
     assert (probe_path.stat().st_mode & 0o111) != 0  # Has executable bit
 

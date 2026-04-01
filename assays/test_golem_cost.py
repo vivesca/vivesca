@@ -11,7 +11,7 @@ import pytest
 
 def _load_mod():
     """Load golem-cost module via exec."""
-    source = Path("/home/terry/germline/effectors/golem-cost").read_text()
+    source = Path(str(Path.home() / "germline/effectors/golem-cost")).read_text()
     ns: dict = {"__name__": "golem_cost"}
     exec(source, ns)
     return ns
@@ -341,8 +341,8 @@ class TestMain:
         assert "golem-cost" in out
 
     def test_script_exists(self):
-        assert Path("/home/terry/germline/effectors/golem-cost").exists()
+        assert Path(str(Path.home() / "germline/effectors/golem-cost")).exists()
 
     def test_script_executable(self):
-        p = Path("/home/terry/germline/effectors/golem-cost")
+        p = Path(str(Path.home() / "germline/effectors/golem-cost"))
         assert p.stat().st_mode & 0o111

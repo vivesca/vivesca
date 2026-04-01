@@ -494,7 +494,7 @@ class TestDaemonMarkFailedTailFix:
 
 def _load_golem_daemon():
     """Load the golem-daemon module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/golem-daemon").read()
+    source = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
     ns: dict = {"__name__": "golem_daemon"}
     exec(source, ns)
     return ns

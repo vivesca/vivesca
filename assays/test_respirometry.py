@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta, date
 from pathlib import Path
 
 # Execute the respirometry file directly
-respirometry_code = Path("/home/terry/germline/effectors/respirometry").read_text()
+respirometry_code = Path(str(Path.home() / "germline/effectors/respirometry")).read_text()
 namespace = {}
 exec(respirometry_code, namespace)
 
@@ -329,7 +329,7 @@ def test_derive_session_stats_empty():
 def test_main_help():
     """Test that respirometry --help exits successfully."""
     result = subprocess.run(
-        ["/home/terry/germline/effectors/respirometry", "--help"],
+        [str(Path.home() / "germline/effectors/respirometry"), "--help"],
         capture_output=True,
         text=True
     )
@@ -340,7 +340,7 @@ def test_main_budget_flag_works():
     """Test that --budget outputs one of the expected values."""
     # Since there's no credentials in test environment, it should output "unknown"
     result = subprocess.run(
-        ["/home/terry/germline/effectors/respirometry", "--budget"],
+        [str(Path.home() / "germline/effectors/respirometry"), "--budget"],
         capture_output=True,
         text=True
     )

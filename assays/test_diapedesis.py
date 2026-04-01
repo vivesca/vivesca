@@ -12,7 +12,7 @@ from pathlib import Path
 import argparse
 
 # Execute the diapedesis file directly
-diapedesis_path = Path("/home/terry/germline/effectors/diapedesis")
+diapedesis_path = Path(str(Path.home() / "germline/effectors/diapedesis"))
 diapedesis_code = diapedesis_path.read_text()
 namespace = {}
 exec(diapedesis_code, namespace)

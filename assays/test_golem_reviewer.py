@@ -77,7 +77,7 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
     
     # Create a test file in assays with hardcoded path
     temp_test_file = GERMLINE / "assays" / "tmp_test_hardcoded.py"
-    temp_test_file.write_text("test_path = '/Users/terry/germline/some/file.py'\n")
+    temp_test_file.write_text("test_path = str(Path.home() / "germline/some/file.py")\n")
     
     try:
         # Mock the run function to return our test file as an error
@@ -98,7 +98,7 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
         # Check the file was modified
         new_content = temp_test_file.read_text()
         assert str(Path.home()) in new_content
-        assert "/Users/terry/" not in new_content
+        assert str(Path.home() / "") not in new_content
         
         # Verify AST still valid
         import ast

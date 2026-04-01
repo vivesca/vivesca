@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 
 # Execute the channel file directly into the namespace
-channel_path = Path("/home/terry/germline/effectors/channel")
+channel_path = Path(str(Path.home() / "germline/effectors/channel"))
 channel_code = channel_path.read_text()
 _channel_dict = {}
 exec(channel_code, _channel_dict)

@@ -662,7 +662,7 @@ class TestReviewerFixCollectionErrors:
         test_file.parent.mkdir(parents=True)
         test_file.write_text(
             'import os\n'
-            'path = "/Users/terry/germline/foo.py"\n'
+            'path = str(Path.home() / "germline/foo.py")\n'
             'def test_something():\n'
             '    assert True\n'
         )
@@ -671,7 +671,7 @@ class TestReviewerFixCollectionErrors:
             fixed = ns.fix_collection_errors()
         assert fixed == 1
         content = test_file.read_text()
-        assert "/Users/terry/" not in content
+        assert str(Path.home() / "") not in content
         assert str(Path.home()) in content
 
 
@@ -750,10 +750,10 @@ class TestValidateFile:
     def test_hardcoded_mac_path(self, tmp_path):
         ns = _load("golem-validate")
         f = tmp_path / "path.py"
-        f.write_text('p = "/Users/terry/germline"\n')
+        f.write_text('p = str(Path.home() / "germline")\n')
         status, issues = ns.validate_file(f)
         assert status == "FAIL"
-        assert any("/Users/terry/" in i for i in issues)
+        assert any(str(Path.home() / "") in i for i in issues)
 
     def test_todo_marker(self, tmp_path):
         ns = _load("golem-validate")

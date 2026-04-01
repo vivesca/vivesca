@@ -10,7 +10,7 @@ import pytest
 
 
 def _load_module() -> dict:
-    source = Path("/home/terry/germline/effectors/soma-clean").read_text()
+    source = Path(str(Path.home() / "germline/effectors/soma-clean")).read_text()
     ns: dict = {"__name__": "soma_clean"}
     exec(source, ns)
     return ns

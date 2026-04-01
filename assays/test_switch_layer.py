@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Execute the switch-layer script directly
-switch_layer_path = Path("/home/terry/germline/effectors/switch-layer")
+switch_layer_path = Path(str(Path.home() / "germline/effectors/switch-layer"))
 switch_layer_code = switch_layer_path.read_text()
 namespace = {}
 exec(switch_layer_code, namespace)

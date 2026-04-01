@@ -153,13 +153,13 @@ def test_url_deduplication():
     """Test that duplicate URLs are removed before selection."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
-        
+
         # Track what fzf receives on stdin
         fzf_input_file = tmpdir_path / "fzf_input.txt"
         mock_fzf = tmpdir_path / "fzf"
         mock_fzf.write_text(
             '#!/bin/bash\n'
-            'cat > "$1"\n' f'{fzf_input_file}\n'
+            f'cat > {fzf_input_file}\n'
             '# Output first line for selection\n'
             'head -1\n'
         )

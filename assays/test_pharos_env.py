@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 
-PHAROS_ENV_SH = Path("/home/terry/germline/effectors/pharos-env.sh")
+PHAROS_ENV_SH = Path(str(Path.home() / "germline/effectors/pharos-env.sh"))
 
 
 def test_pharos_env_help_flag():
@@ -93,7 +93,7 @@ def test_pharos_env_non_zero_exit_code_passed_through():
 def test_pharos_env_sources_zshenv_local_if_exists():
     """pharos-env.sh sources ~/.zshenv.local if it exists."""
     # Check if it exists
-    zshenv_local = Path("/home/terry/.zshenv.local")
+    zshenv_local = Path(str(Path.home() / ".zshenv.local"))
     if zshenv_local.exists():
         # If it exists, we just verify that the script at least tries to source it
         # Can't really test the content since it has actual secrets

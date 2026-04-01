@@ -13,7 +13,7 @@ import pytest
 
 def _load_council():
     """Load the council module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/council").read()
+    source = open(str(Path.home() / "germline/effectors/council")).read()
     # Create a proper module for dataclass to work
     module = types.ModuleType("council", "Mocked council module")
     sys.modules["council"] = module
@@ -486,7 +486,7 @@ def test_synthesize_empty_critiques():
 
 def test_council_cli_help():
     """council --help shows usage information."""
-    council_path = Path("/home/terry/germline/effectors/council")
+    council_path = Path(str(Path.home() / "germline/effectors/council"))
     result = subprocess.run(
         [sys.executable, str(council_path), "--help"],
         capture_output=True,
@@ -498,7 +498,7 @@ def test_council_cli_help():
 
 def test_council_cli_json_output():
     """council --json outputs valid JSON structure when commands succeed."""
-    council_path = Path("/home/terry/germline/effectors/council")
+    council_path = Path(str(Path.home() / "germline/effectors/council"))
 
     # Run the script - this will actually call codex/gemini
     # We just check it produces some output
@@ -517,7 +517,7 @@ def test_council_cli_json_output():
 
 def test_council_cli_timeout_flag():
     """council --timeout sets custom timeout."""
-    council_path = Path("/home/terry/germline/effectors/council")
+    council_path = Path(str(Path.home() / "germline/effectors/council"))
 
     with patch("subprocess.run") as mock_run:
         mock_result = MagicMock()
@@ -541,7 +541,7 @@ def test_council_cli_timeout_flag():
 
 def test_council_cli_verbose_flag():
     """council --verbose prints debug info to stderr."""
-    council_path = Path("/home/terry/germline/effectors/council")
+    council_path = Path(str(Path.home() / "germline/effectors/council"))
 
     with patch("subprocess.run") as mock_run:
         mock_result = MagicMock()

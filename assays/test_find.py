@@ -81,19 +81,19 @@ class TestFindBlocking:
 
     def test_blocks_library(self, sg):
         """Massive-dir block uses source's hardcoded path."""
-        with patch("sys.argv", ["find", "/home/terry/Library"]):
+        with patch("sys.argv", ["find", str(Path.home() / "Library")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
     def test_blocks_pictures(self, sg):
-        with patch("sys.argv", ["find", "/home/terry/Pictures"]):
+        with patch("sys.argv", ["find", str(Path.home() / "Pictures")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
     def test_blocks_downloads(self, sg):
-        with patch("sys.argv", ["find", "/home/terry/Downloads"]):
+        with patch("sys.argv", ["find", str(Path.home() / "Downloads")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1

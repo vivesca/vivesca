@@ -12,7 +12,7 @@ import pytest
 
 def _load_secrets_sync():
     """Load secrets-sync by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/secrets-sync").read()
+    source = open(str(Path.home() / "germline/effectors/secrets-sync")).read()
     ns: dict = {"__name__": "secrets_sync"}
     exec(source, ns)
     return ns
@@ -171,7 +171,7 @@ def test_sync_env_empty_pairs(capsys):
 
 
 def test_sync_ssh_keys_dry_run(capsys):
-    keys = [Path("/home/terry/.ssh/id_ed25519")]
+    keys = [Path(str(Path.home() / ".ssh/id_ed25519"))]
     with patch("subprocess.run") as mock_run:
         ok = sync_ssh_keys("user@host", keys, dry_run=True)
     assert ok is True
@@ -182,7 +182,7 @@ def test_sync_ssh_keys_dry_run(capsys):
 
 
 def test_sync_ssh_keys_copies_and_chmods():
-    keys = [Path("/home/terry/.ssh/id_ed25519")]
+    keys = [Path(str(Path.home() / ".ssh/id_ed25519"))]
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         ok = sync_ssh_keys("user@host", keys, dry_run=False)
@@ -194,7 +194,7 @@ def test_sync_ssh_keys_copies_and_chmods():
 
 
 def test_sync_ssh_keys_scp_failure():
-    keys = [Path("/home/terry/.ssh/id_ed25519")]
+    keys = [Path(str(Path.home() / ".ssh/id_ed25519"))]
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stderr=""),  # mkdir via run_remote

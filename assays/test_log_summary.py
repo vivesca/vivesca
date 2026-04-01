@@ -11,7 +11,7 @@ import pytest
 
 def _load_module():
     """Load log-summary by exec-ing its source."""
-    source = Path("/home/terry/germline/effectors/log-summary").read_text()
+    source = Path(str(Path.home() / "germline/effectors/log-summary")).read_text()
     ns: dict = {"__name__": "log_summary"}
     exec(source, ns)
     return ns

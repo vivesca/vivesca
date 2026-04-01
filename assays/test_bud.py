@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Execute the bud file directly
-bud_path = Path("/home/terry/germline/effectors/bud")
+bud_path = Path(str(Path.home() / "germline/effectors/bud"))
 bud_code = bud_path.read_text()
 namespace = {}
 exec(bud_code, namespace)

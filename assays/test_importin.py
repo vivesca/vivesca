@@ -12,7 +12,7 @@ import pytest
 
 def _load_importin():
     """Load the importin module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/importin").read()
+    source = open(str(Path.home() / "germline/effectors/importin")).read()
     ns: dict = {"__name__": "importin"}
     exec(source, ns)
     return ns
@@ -219,7 +219,7 @@ def test_credentials_mapping_has_expected_keys():
 def test_cli_help_flag():
     """CLI --help prints docstring and exits 0."""
     result = subprocess.run(
-        ["python3", "/home/terry/germline/effectors/importin", "--help"],
+        ["python3", str(Path.home() / "germline/effectors/importin"), "--help"],
         capture_output=True,
         text=True,
     )
@@ -230,7 +230,7 @@ def test_cli_help_flag():
 def test_cli_h_flag():
     """CLI -h prints docstring and exits 0."""
     result = subprocess.run(
-        ["python3", "/home/terry/germline/effectors/importin", "-h"],
+        ["python3", str(Path.home() / "germline/effectors/importin"), "-h"],
         capture_output=True,
         text=True,
     )
@@ -241,7 +241,7 @@ def test_cli_h_flag():
 def test_cli_non_macos_exits_with_error():
     """CLI exits with error on non-macOS platforms."""
     result = subprocess.run(
-        ["python3", "/home/terry/germline/effectors/importin"],
+        ["python3", str(Path.home() / "germline/effectors/importin")],
         capture_output=True,
         text=True,
     )

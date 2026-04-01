@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch, mock_open
 from datetime import datetime
 
 # Execute the script directly
-script_path = Path("/home/terry/germline/effectors/generate-solutions-index.py")
+script_path = Path(str(Path.home() / "germline/effectors/generate-solutions-index.py"))
 script_code = script_path.read_text()
 
 # Create module namespace and exec

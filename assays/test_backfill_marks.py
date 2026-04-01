@@ -13,7 +13,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Execute the backfill-marks script directly
-backfill_marks_path = Path("/home/terry/germline/effectors/backfill-marks")
+backfill_marks_path = Path(str(Path.home() / "germline/effectors/backfill-marks"))
 backfill_marks_code = backfill_marks_path.read_text()
 namespace = {}
 exec(backfill_marks_code, namespace)

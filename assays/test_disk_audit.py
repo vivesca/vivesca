@@ -13,7 +13,7 @@ import pytest
 def _load_disk_audit():
     """Load the disk-audit effector by exec-ing its Python body."""
     import sys, types
-    source = open("/home/terry/germline/effectors/disk-audit").read()
+    source = open(str(Path.home() / "germline/effectors/disk-audit")).read()
     mod = types.ModuleType("disk_audit")
     sys.modules["disk_audit"] = mod
     ns: dict = {"__name__": "disk_audit"}
@@ -478,7 +478,7 @@ class TestSubprocessInvocation:
     def test_exit_code_zero(self):
         import subprocess
         result = subprocess.run(
-            ["/home/terry/germline/effectors/disk-audit"],
+            [str(Path.home() / "germline/effectors/disk-audit")],
             capture_output=True, text=True, timeout=30,
         )
         assert result.returncode == 0
@@ -486,7 +486,7 @@ class TestSubprocessInvocation:
     def test_help_via_subprocess(self):
         import subprocess
         result = subprocess.run(
-            ["/home/terry/germline/effectors/disk-audit", "--help"],
+            [str(Path.home() / "germline/effectors/disk-audit"), "--help"],
             capture_output=True, text=True, timeout=30,
         )
         assert result.returncode == 0

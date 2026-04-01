@@ -30,7 +30,7 @@ import pytest
 import yaml
 
 # Execute the linkedin-monitor file directly
-linkedin_code = Path("/home/terry/germline/effectors/linkedin-monitor").read_text()
+linkedin_code = Path(str(Path.home() / "germline/effectors/linkedin-monitor")).read_text()
 namespace = {}
 exec(linkedin_code, namespace)
 
@@ -510,7 +510,7 @@ def test_fetch_activity_constructs_activity_url():
 def test_main_help():
     """Test that linkedin-monitor --help exits successfully."""
     result = subprocess.run(
-        ["/home/terry/germline/effectors/linkedin-monitor", "--help"],
+        [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],
         capture_output=True,
         text=True
     )
@@ -1693,14 +1693,14 @@ class TestSubprocessExecution:
 
     def test_script_exists(self):
         """Test linkedin-monitor script exists and is readable."""
-        script_path = Path("/home/terry/germline/effectors/linkedin-monitor")
+        script_path = Path(str(Path.home() / "germline/effectors/linkedin-monitor"))
         assert script_path.exists()
         assert script_path.is_file()
 
     def test_script_executable(self):
         """Test linkedin-monitor can be executed."""
         result = subprocess.run(
-            ["/home/terry/germline/effectors/linkedin-monitor", "--help"],
+            [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],
             capture_output=True,
             text=True,
             timeout=10
@@ -1711,7 +1711,7 @@ class TestSubprocessExecution:
     def test_script_version_or_usage(self):
         """Test linkedin-monitor shows usage information."""
         result = subprocess.run(
-            ["/home/terry/germline/effectors/linkedin-monitor", "--help"],
+            [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],
             capture_output=True,
             text=True,
             timeout=10
@@ -1727,7 +1727,7 @@ class TestSubprocessExecution:
         env['HOME'] = '/nonexistent/home/path'
 
         result = subprocess.run(
-            ["/home/terry/germline/effectors/linkedin-monitor"],
+            [str(Path.home() / "germline/effectors/linkedin-monitor")],
             capture_output=True,
             text=True,
             timeout=10,

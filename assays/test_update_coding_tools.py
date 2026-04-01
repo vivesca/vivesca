@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 
-SCRIPT_PATH = Path("/home/terry/germline/effectors/update-coding-tools.sh")
+SCRIPT_PATH = Path(str(Path.home() / "germline/effectors/update-coding-tools.sh"))
 
 
 def test_script_exists_and_is_executable():

@@ -36,10 +36,15 @@ def check_and_heal() -> None:
 
     info = status()
 
-    # Unreachable = machine down, can't self-heal
+    # Unreachable = machine down, can't self-heal.
+    # But transient API blips happen — wait and re-check once before alerting.
     if not info["reachable"]:
-        _alert("Gemmule UNREACHABLE — fly machine may be stopped.")
-        return
+        import time
+        time.sleep(15)
+        info = status()
+        if not info["reachable"]:
+            _alert("Gemmule UNREACHABLE — fly machine may be stopped.")
+            return
 
     # Find stale or missing targets
     sick = [

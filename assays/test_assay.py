@@ -11,7 +11,7 @@ import pytest
 
 def _load_assay():
     """Load the assay module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/assay").read()
+    source = open(str(Path.home() / "germline/effectors/assay")).read()
     ns: dict = {"__name__": "assay"}
     exec(source, ns)
     return ns

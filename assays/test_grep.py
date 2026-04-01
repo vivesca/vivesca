@@ -87,19 +87,19 @@ class TestGrepBlocking:
         """Test massive-dir blocking with the hardcoded path from source."""
         # The script has hardcoded paths: /home/terry/Library etc.
         # Test with those exact paths to verify blocking logic.
-        with patch("sys.argv", ["grep", "-r", "pattern", "/home/terry/Library"]):
+        with patch("sys.argv", ["grep", "-r", "pattern", str(Path.home() / "Library")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
     def test_blocks_pictures(self, sg):
-        with patch("sys.argv", ["grep", "-r", "pattern", "/home/terry/Pictures"]):
+        with patch("sys.argv", ["grep", "-r", "pattern", str(Path.home() / "Pictures")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
     def test_blocks_downloads(self, sg):
-        with patch("sys.argv", ["grep", "-r", "pattern", "/home/terry/Downloads"]):
+        with patch("sys.argv", ["grep", "-r", "pattern", str(Path.home() / "Downloads")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1

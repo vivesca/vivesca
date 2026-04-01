@@ -17,7 +17,7 @@ import pytest
 # ── Module loader ──────────────────────────────────────────────────────────────
 def _load_legatum():
     """Load the legatum script via exec (no .py extension)."""
-    source = open("/home/terry/germline/effectors/legatum").read()
+    source = open(str(Path.home() / "germline/effectors/legatum")).read()
     ns: dict = {"__name__": "legatum"}
     exec(source, ns)
     return ns

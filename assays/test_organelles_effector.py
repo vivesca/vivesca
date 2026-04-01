@@ -79,7 +79,7 @@ class TestRunCliSuccess:
     @patch("metabolon.organelles.effector.os.path.expanduser")
     @patch("metabolon.organelles.effector.subprocess.run")
     def test_expanduser_called(self, mock_run, mock_expand):
-        mock_expand.return_value = "/home/terry/bin/foo"
+        mock_expand.return_value = str(Path.home() / "bin/foo")
         mock_run.return_value = _ok(stdout="expanded")
         result = run_cli("~/bin/foo", [])
         mock_expand.assert_called_once_with("~/bin/foo")

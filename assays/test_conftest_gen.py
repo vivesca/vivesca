@@ -10,7 +10,7 @@ import pytest
 
 def _load_module() -> dict:
     """Load conftest-gen via exec (effector pattern)."""
-    source = Path("/home/terry/germline/effectors/conftest-gen").read_text()
+    source = Path(str(Path.home() / "germline/effectors/conftest-gen")).read_text()
     ns: dict = {"__name__": "conftest_gen"}
     exec(source, ns)
     return ns
@@ -33,39 +33,39 @@ class TestScanFile:
 
     def test_detects_linux_path(self, tmp_path: Path):
         p = tmp_path / "linux.py"
-        p.write_text('PATH = "/home/terry/project"\n')
+        p.write_text('PATH = str(Path.home() / "project")\n')
         results = scan_file(p)
         assert len(results) == 1
         f = results[0]
         assert f.line == 1
-        assert "/home/terry/project" in f.original
+        assert str(Path.home() / "project") in f.original
         assert "Path.home()" in f.replacement
 
     def test_detects_macos_path(self, tmp_path: Path):
         p = tmp_path / "mac.py"
-        p.write_text('PATH = "/Users/terry/project"\n')
+        p.write_text('PATH = str(Path.home() / "project")\n')
         results = scan_file(p)
         assert len(results) == 1
         f = results[0]
-        assert "/Users/terry/project" in f.original
+        assert str(Path.home() / "project") in f.original
         assert "Path.home()" in f.replacement
 
     def test_detects_home_only(self, tmp_path: Path):
         p = tmp_path / "home.py"
-        p.write_text('HOME = "/Users/terry/project"\n')
+        p.write_text('HOME = str(Path.home() / "project")\n')
         results = scan_file(p)
         assert len(results) == 1
         assert "Path.home()" in results[0].replacement
 
     def test_multiple_paths_on_same_line(self, tmp_path: Path):
         p = tmp_path / "multi.py"
-        p.write_text('a = "/home/terry/a"; b = "/home/terry/b"\n')
+        p.write_text('a = str(Path.home() / "a"); b = str(Path.home() / "b")\n')
         results = scan_file(p)
         assert len(results) == 2
 
     def test_paths_across_multiple_lines(self, tmp_path: Path):
         p = tmp_path / "lines.py"
-        p.write_text('a = "/home/terry/a"\nb = "/home/terry/b"\n')
+        p.write_text('a = str(Path.home() / "a")\nb = str(Path.home() / "b")\n')
         results = scan_file(p)
         assert len(results) == 2
         assert results[0].line == 1
@@ -84,7 +84,7 @@ class TestApplyFix:
 
     def test_applies_single_fix(self, tmp_path: Path):
         p = tmp_path / "fix.py"
-        p.write_text('PATH = "/home/terry/project"\n')
+        p.write_text('PATH = str(Path.home() / "project")\n')
         findings = scan_file(p)
         result = apply_fix(p, findings)
         assert result == 1
@@ -93,7 +93,7 @@ class TestApplyFix:
 
     def test_applies_multiple_fixes(self, tmp_path: Path):
         p = tmp_path / "multi.py"
-        p.write_text('a = "/home/terry/a"\nb = "/home/terry/b"\n')
+        p.write_text('a = str(Path.home() / "a")\nb = str(Path.home() / "b")\n')
         findings = scan_file(p)
         result = apply_fix(p, findings)
         assert result == 2
@@ -104,7 +104,7 @@ class TestApplyFix:
 
     def test_preserves_other_content(self, tmp_path: Path):
         p = tmp_path / "preserve.py"
-        original = 'x = 1\nPATH = "/home/terry/project"\ny = 2\n'
+        original = 'x = 1\nPATH = str(Path.home() / "project")\ny = 2\n'
         p.write_text(original)
         findings = scan_file(p)
         apply_fix(p, findings)
@@ -120,8 +120,8 @@ class TestSubprocessCLI:
     def test_dry_run_shows_findings(self, tmp_path: Path):
         """Verify subprocess works in dry-run mode."""
         p = tmp_path / "test_sub.py"
-        p.write_text('X = "/home/terry/x"\n')
-        script = "/home/terry/germline/effectors/conftest-gen"
+        p.write_text('X = str(Path.home() / "x")\n')
+        script = str(Path.home() / "germline/effectors/conftest-gen")
         result = subprocess.run(
             [script, "--assays-dir", str(tmp_path)],
             capture_output=True, text=True, timeout=30,
@@ -134,8 +134,8 @@ class TestSubprocessCLI:
     def test_fix_mode_applies_changes(self, tmp_path: Path):
         """Verify subprocess works with --fix."""
         p = tmp_path / "test_sub.py"
-        p.write_text('X = "/home/terry/x"\n')
-        script = "/home/terry/germline/effectors/conftest-gen"
+        p.write_text('X = str(Path.home() / "x")\n')
+        script = str(Path.home() / "germline/effectors/conftest-gen")
         result = subprocess.run(
             [script, "--fix", "--assays-dir", str(tmp_path)],
             capture_output=True, text=True, timeout=30,

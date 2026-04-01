@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 # Execute the paracrine file directly
-paracrine_path = Path("/home/terry/germline/effectors/paracrine")
+paracrine_path = Path(str(Path.home() / "germline/effectors/paracrine"))
 paracrine_code = paracrine_path.read_text()
 namespace = {}
 exec(paracrine_code, namespace)

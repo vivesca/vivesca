@@ -20,7 +20,7 @@ def _load_module():
     import types
     import unittest.mock as _um
 
-    source = open("/home/terry/germline/effectors/consulting-card.py").read()
+    source = open(str(Path.home() / "germline/effectors/consulting-card.py")).read()
     openai_stub = types.ModuleType("openai")
     openai_stub.OpenAI = _um.MagicMock()
     saved = sys.modules.get("openai")
@@ -28,7 +28,7 @@ def _load_module():
     try:
         ns: dict = {
             "__name__": "consulting_card",
-            "__file__": "/home/terry/germline/effectors/consulting-card.py",
+            "__file__": str(Path.home() / "germline/effectors/consulting-card.py"),
         }
         exec(source, ns)
     finally:
