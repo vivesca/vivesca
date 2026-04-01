@@ -1773,32 +1773,47 @@ def cmd_stats() -> int:
     today_total = len(today_records)
     today_passed = sum(1 for r in today_records if r.get("exit") == 0)
 
-    # Avg duration by provider
+    # Per-provider stats with rate-limit classification
     provider_stats: dict[str, dict] = {}
     for r in records:
         p = r.get("provider", "unknown")
         d = r.get("duration", 0)
         if p not in provider_stats:
-            provider_stats[p] = {"count": 0, "total_dur": 0, "passed": 0, "failed": 0}
+            provider_stats[p] = {"count": 0, "total_dur": 0, "passed": 0, "failed": 0, "rate_limited": 0}
         provider_stats[p]["count"] += 1
         provider_stats[p]["total_dur"] += d
         if r.get("exit") == 0:
             provider_stats[p]["passed"] += 1
         else:
             provider_stats[p]["failed"] += 1
+            # Classify as rate-limited if: fast exit, killed, or tail has RL markers
+            tail = r.get("tail", "")
+            tail_lower = tail.lower()
+            if (r.get("duration", 999) <= 10
+                    or r.get("exit") == 137
+                    or "accountquota" in tail_lower
+                    or "429" in tail
+                    or "rate" in tail_lower and "limit" in tail_lower
+                    or "usage" in tail_lower and "limit" in tail_lower
+                    or "golem_rate_limit" in tail):
+                provider_stats[p]["rate_limited"] += 1
 
     # Print stats
     print(f"Total tasks: {total} (passed: {passed}, failed: {failed})")
     print(f"Permanently failed (retries exhausted): {retries}")
     print(f"Tasks today ({today}): {today_total} (passed: {today_passed}, failed: {today_total - today_passed})")
     print()
-    print("By provider:")
+    print("By provider:                                                          capability")
     for provider in sorted(provider_stats):
         s = provider_stats[provider]
         avg_dur = s["total_dur"] / s["count"] if s["count"] else 0
         avg_min = int(avg_dur // 60)
         avg_sec = int(avg_dur % 60)
-        print(f"  {provider:10s}  {s['count']:4d} tasks  {s['passed']:4d} passed  {s['failed']:4d} failed  avg {avg_min}m{avg_sec:02d}s")
+        rl = s["rate_limited"]
+        real_fail = s["failed"] - rl
+        real_total = s["passed"] + real_fail
+        cap_pct = f"{100 * s['passed'] // real_total}%" if real_total else "n/a"
+        print(f"  {provider:10s}  {s['count']:4d} tasks  {s['passed']:4d} pass  {rl:4d} rate-limited  {real_fail:4d} real-fail  avg {avg_min}m{avg_sec:02d}s  {cap_pct:>4s}")
 
     return 0
 
