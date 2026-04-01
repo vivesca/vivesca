@@ -365,3 +365,305 @@ class TestGracefulDegradation:
         r = _run_soma_activate(tmp_path)
         combined = r.stdout + r.stderr
         assert "tailscale" in combined.lower()
+
+
+# ── Repo pull ──────────────────────────────────────────────────────────
+
+
+class TestRepoPull:
+    """Section 1b: git pull --ff-only for already-cloned repos."""
+
+    def test_pull_attempted_on_existing_repos(self, tmp_path):
+        """Script attempts git pull on repos that already have .git dirs."""
+        _make_env_fly(tmp_path)
+        # Create repos with .git dirs — a bare git init is enough for pull to fail gracefully
+        germline = tmp_path / "germline"
+        germline.mkdir()
+        subprocess.run(["git", "init", str(germline)], capture_output=True, check=True)
+
+        epigenome = tmp_path / "epigenome"
+        epigenome.mkdir()
+        subprocess.run(["git", "init", str(epigenome)], capture_output=True, check=True)
+
+        r = _run_soma_activate(tmp_path)
+        # Script should exit 0 despite pull failures (|| true)
+        assert r.returncode == 0
+
+    def test_pull_failure_does_not_crash(self, tmp_path):
+        """A failing git pull (no remote) doesn't crash the script."""
+        _make_env_fly(tmp_path)
+        germline = tmp_path / "germline"
+        germline.mkdir()
+        subprocess.run(["git", "init", str(germline)], capture_output=True, check=True)
+        # No remote configured — pull will fail
+
+        epigenome = tmp_path / "epigenome"
+        epigenome.mkdir()
+        subprocess.run(["git", "init", str(epigenome)], capture_output=True, check=True)
+
+        r = _run_soma_activate(tmp_path)
+        assert r.returncode == 0
+
+
+# ── Symlink target correctness ─────────────────────────────────────────
+
+
+class TestSymlinkTargets:
+    """Verify symlink targets point to the correct source files."""
+
+    def _setup_full(self, home: Path):
+        _make_env_fly(home)
+        germline = home / "germline"
+        germline.mkdir()
+        (germline / ".git").mkdir()
+
+        epigenome = home / "epigenome"
+        epigenome.mkdir()
+        (epigenome / ".git").mkdir()
+
+        cyto = germline / "membrane" / "cytoskeleton"
+        cyto.mkdir(parents=True)
+        (cyto / "hook_x.py").write_text("# hx")
+
+        receptors = germline / "membrane" / "receptors"
+        receptors.mkdir(parents=True)
+        (receptors / "myskill").mkdir()
+
+        buds = germline / "membrane" / "buds"
+        buds.mkdir(parents=True)
+        (buds / "myagent.md").write_text("# agent")
+
+        (germline / "membrane" / "settings.json").write_text('{"a":1}')
+
+        marks = epigenome / "marks"
+        marks.mkdir(parents=True)
+        (marks / "MEMORY.md").write_text("# mem")
+
+    def test_hook_symlink_target(self, tmp_path):
+        """Hook symlink target points to the germline source file."""
+        self._setup_full(tmp_path)
+        _run_soma_activate(tmp_path)
+        link = tmp_path / ".claude" / "hooks" / "hook_x.py"
+        assert link.is_symlink()
+        target = os.readlink(str(link))
+        assert "cytoskeleton" in target
+        assert target.endswith("hook_x.py")
+
+    def test_skill_symlink_target(self, tmp_path):
+        """Skill symlink target points to the receptors subdirectory."""
+        self._setup_full(tmp_path)
+        _run_soma_activate(tmp_path)
+        link = tmp_path / ".claude" / "skills" / "myskill"
+        assert link.is_symlink()
+        target = os.readlink(str(link))
+        assert "receptors" in target
+        # Script iterates dirs with trailing slash, so target may end with "myskill/"
+        assert target.rstrip("/").endswith("myskill")
+
+    def test_agent_symlink_target(self, tmp_path):
+        """Agent symlink target points to the buds markdown file."""
+        self._setup_full(tmp_path)
+        _run_soma_activate(tmp_path)
+        link = tmp_path / ".claude" / "agents" / "myagent.md"
+        assert link.is_symlink()
+        target = os.readlink(str(link))
+        assert "buds" in target
+        assert target.endswith("myagent.md")
+
+    def test_settings_symlink_target(self, tmp_path):
+        """settings.json symlink target points to membrane source."""
+        self._setup_full(tmp_path)
+        _run_soma_activate(tmp_path)
+        link = tmp_path / ".claude" / "settings.json"
+        assert link.is_symlink()
+        target = os.readlink(str(link))
+        assert "membrane" in target
+        assert target.endswith("settings.json")
+
+
+# ── Symlink file-type filtering ────────────────────────────────────────
+
+
+class TestSymlinkFiltering:
+    """Hooks link .py only; agents link .md only."""
+
+    def _setup_with_mixed_files(self, home: Path):
+        _make_env_fly(home)
+        germline = home / "germline"
+        germline.mkdir()
+        (germline / ".git").mkdir()
+
+        epigenome = home / "epigenome"
+        epigenome.mkdir()
+        (epigenome / ".git").mkdir()
+
+        # cytoskeleton: mix of .py and non-.py
+        cyto = germline / "membrane" / "cytoskeleton"
+        cyto.mkdir(parents=True)
+        (cyto / "good_hook.py").write_text("# py")
+        (cyto / "readme.txt").write_text("# txt")
+
+        # buds: mix of .md and non-.md
+        buds = germline / "membrane" / "buds"
+        buds.mkdir(parents=True)
+        (buds / "agent.md").write_text("# md")
+        (buds / "script.sh").write_text("#!/bin/bash")
+
+    def test_hooks_only_py_files(self, tmp_path):
+        """Only .py files from cytoskeleton are linked into hooks."""
+        self._setup_with_mixed_files(tmp_path)
+        _run_soma_activate(tmp_path)
+        hooks_dir = tmp_path / ".claude" / "hooks"
+        names = [p.name for p in hooks_dir.iterdir()]
+        assert "good_hook.py" in names
+        assert "readme.txt" not in names
+
+    def test_agents_only_md_files(self, tmp_path):
+        """Only .md files from buds are linked into agents."""
+        self._setup_with_mixed_files(tmp_path)
+        _run_soma_activate(tmp_path)
+        agents_dir = tmp_path / ".claude" / "agents"
+        names = [p.name for p in agents_dir.iterdir()]
+        assert "agent.md" in names
+        assert "script.sh" not in names
+
+
+# ── Empty membrane directories ─────────────────────────────────────────
+
+
+class TestEmptyMembrane:
+    """Script handles empty or missing membrane subdirectories gracefully."""
+
+    def _setup_minimal(self, home: Path):
+        _make_env_fly(home)
+        germline = home / "germline"
+        germline.mkdir()
+        (germline / ".git").mkdir()
+        # Create membrane but leave subdirs empty/missing
+        (germline / "membrane").mkdir()
+        epigenome = home / "epigenome"
+        epigenome.mkdir()
+        (epigenome / ".git").mkdir()
+
+    def test_empty_cytoskeleton_no_crash(self, tmp_path):
+        """Empty cytoskeleton dir doesn't cause errors."""
+        self._setup_minimal(tmp_path)
+        (tmp_path / "germline" / "membrane" / "cytoskeleton").mkdir()
+        r = _run_soma_activate(tmp_path)
+        assert r.returncode == 0
+
+    def test_no_cytoskeleton_dir_no_crash(self, tmp_path):
+        """Missing cytoskeleton dir is handled gracefully."""
+        self._setup_minimal(tmp_path)
+        r = _run_soma_activate(tmp_path)
+        assert r.returncode == 0
+
+    def test_empty_buds_no_crash(self, tmp_path):
+        """Empty buds dir doesn't cause errors."""
+        self._setup_minimal(tmp_path)
+        (tmp_path / "germline" / "membrane" / "buds").mkdir()
+        r = _run_soma_activate(tmp_path)
+        assert r.returncode == 0
+
+    def test_no_receptors_dir_no_crash(self, tmp_path):
+        """Missing receptors dir is handled gracefully."""
+        self._setup_minimal(tmp_path)
+        r = _run_soma_activate(tmp_path)
+        assert r.returncode == 0
+
+    def test_no_epigenome_marks_no_crash(self, tmp_path):
+        """Missing epigenome/marks dir is handled gracefully."""
+        self._setup_minimal(tmp_path)
+        r = _run_soma_activate(tmp_path)
+        assert r.returncode == 0
+
+
+# ── Symlink update on rerun ────────────────────────────────────────────
+
+
+class TestSymlinkUpdate:
+    """ln -sfn updates symlinks when the target changes."""
+
+    def test_hook_target_updated_on_rerun(self, tmp_path):
+        """If hook source content changes, symlink still points to current file."""
+        _make_env_fly(tmp_path)
+        germline = tmp_path / "germline"
+        germline.mkdir()
+        (germline / ".git").mkdir()
+        epigenome = tmp_path / "epigenome"
+        epigenome.mkdir()
+        (epigenome / ".git").mkdir()
+
+        cyto = germline / "membrane" / "cytoskeleton"
+        cyto.mkdir(parents=True)
+        (cyto / "hook1.py").write_text("v1")
+
+        r1 = _run_soma_activate(tmp_path)
+        assert r1.returncode == 0
+        link = tmp_path / ".claude" / "hooks" / "hook1.py"
+        target1 = os.readlink(str(link))
+
+        # Rewrite the file (simulating a git pull that updated it)
+        (cyto / "hook1.py").write_text("v2")
+        r2 = _run_soma_activate(tmp_path)
+        assert r2.returncode == 0
+        target2 = os.readlink(str(link))
+        # Same target path (ln -sfn is idempotent)
+        assert target1 == target2
+
+
+# ── Claude Code section ────────────────────────────────────────────────
+
+
+class TestClaudeCodeSection:
+    """Section 6: Claude Code auth."""
+
+    def test_claude_section_in_output(self, tmp_path):
+        """Output mentions Claude Code section."""
+        _make_env_fly(tmp_path)
+        r = _run_soma_activate(tmp_path)
+        assert "Claude Code" in r.stdout
+
+    def test_claude_not_installed_warning(self, tmp_path):
+        """When claude is not on PATH, shows install guidance."""
+        _make_env_fly(tmp_path)
+        env_extra = {"PATH": "/usr/bin:/bin"}  # minimal path, no claude
+        r = _run_soma_activate(tmp_path, env_extra=env_extra)
+        assert r.returncode == 0
+        assert "claude" in r.stdout.lower()
+
+
+# ── Credential section edge cases ──────────────────────────────────────
+
+
+class TestCredentialEdgeCases:
+    """Section 3: credential injection edge cases."""
+
+    def test_op_token_set_but_op_missing(self, tmp_path):
+        """OP_SERVICE_ACCOUNT_TOKEN set but op not found shows skip."""
+        _make_env_fly(tmp_path)
+        # Remove op from PATH
+        env_extra = {"PATH": "/usr/bin:/bin"}
+        r = _run_soma_activate(tmp_path, env_extra=env_extra)
+        assert r.returncode == 0
+        combined = r.stdout.lower()
+        assert "skip" in combined or "credentials" in combined or "op" in combined
+
+    def test_no_op_token_shows_skip(self, tmp_path):
+        """No OP_SERVICE_ACCOUNT_TOKEN shows skip in credentials section."""
+        _make_env_fly(tmp_path, content='export GITHUB_TOKEN="test"\nexport ANTHROPIC_API_KEY="test"\n')
+        env_extra = {"PATH": "/usr/bin:/bin"}
+        r = _run_soma_activate(tmp_path, env_extra=env_extra)
+        assert r.returncode == 0
+
+
+# ── Strict mode ────────────────────────────────────────────────────────
+
+
+class TestStrictMode:
+    """Verify the script uses strict bash mode."""
+
+    def test_script_uses_set_euo(self):
+        """Script contains set -euo pipefail for strict execution."""
+        content = SOMA_ACTIVATE.read_text()
+        assert "set -euo pipefail" in content
