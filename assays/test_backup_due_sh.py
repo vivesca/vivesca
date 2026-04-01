@@ -3,8 +3,10 @@ from __future__ import annotations
 """Tests for effectors/backup-due.sh — bash script tested via subprocess."""
 
 import os
+import shutil
 import stat
 import subprocess
+import tempfile
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -14,6 +16,18 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "backup-due.sh"
 DUE_RELATIVE = "Library/Group Containers/5JMF32H3VU.com.phocusllp.duemac.shared/Compact.duecdb"
 BACKUP_RELATIVE = "epigenome/oscillators/backups"
+
+
+# ── fixture override ─────────────────────────────────────────────────────
+# Override pytest's tmp_path to avoid pytest-asyncio auto-mode +
+# tmp_path_retention_policy="none" cleaning up the directory between tests.
+
+
+@pytest.fixture()
+def tmp_path():
+    d = Path(tempfile.mkdtemp(prefix="backup-due-test-"))
+    yield d
+    shutil.rmtree(d, ignore_errors=True)
 
 
 # ── helpers ─────────────────────────────────────────────────────────────
