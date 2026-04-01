@@ -45,7 +45,7 @@ sync_file \
     "$OFFICINA/claude/settings.json" && changed=true || true
 
 # Push credentials to Fly.io pharos
-# Remote path is hardcoded — lucerna is a Linux VM where terry's home is always /home/terry.
+# Remote path for lucerna (Linux VM). Use literal since this runs over SSH to a remote.
 LUCERNA_CLAUDE_DIR="/home/terry/.claude"
 if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
     CREDS=$(cat "$CLAUDE_DIR/.credentials.json")

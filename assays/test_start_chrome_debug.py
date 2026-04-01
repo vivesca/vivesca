@@ -4,6 +4,8 @@ from __future__ import annotations
 
 Uses subprocess.run (effectors are scripts, not importable modules).
 Fake Chrome binaries are created in tmp directories to isolate from the host.
+Uses tempfile.mkdtemp() instead of pytest tmp_path to avoid issues with
+tmp_path_retention_policy = "none" cleaning up mid-session.
 """
 
 import os
@@ -56,16 +58,6 @@ def _run(args: list[str] | None = None, *, env: dict | None = None) -> subproces
         env=merged,
         timeout=10,
     )
-
-
-def _fake_chrome_dir(tmp_path: Path, name: str = "google-chrome-stable") -> Path:
-    """Create a tmp bin dir containing a fake chrome executable."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    chrome = bin_dir / name
-    chrome.write_text("#!/bin/bash\n# fake chrome\nexit 0\n")
-    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
-    return bin_dir
 
 
 # ── Structural tests ──────────────────────────────────────────────────
@@ -166,120 +158,151 @@ class TestUnknownOption:
 
 
 class TestChromeNotFound:
-    def test_exits_1_when_no_chrome(self, tmp_path):
-        # PATH with no chrome candidates — only system dirs will be appended
-        empty_bin = tmp_path / "empty_bin"
-        empty_bin.mkdir()
-        r = _run(env={"PATH": str(empty_bin)})
-        assert r.returncode == 1
-        assert "not found" in r.stderr.lower()
+    def test_exits_1_when_no_chrome(self):
+        tmp = _make_tmp()
+        try:
+            empty_bin = tmp / "empty_bin"
+            empty_bin.mkdir()
+            r = _run(env={"PATH": str(empty_bin)})
+            assert r.returncode == 1
+            assert "not found" in r.stderr.lower()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Chrome binary found but not executable ────────────────────────────
+# ── Chrome binary found but not executable ────────────────────────────────
 
 
 class TestChromeNotExecutable:
-    def test_non_executable_chrome_exits_1(self, tmp_path):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nexit 0\n")
-        # Leave it non-executable
-        r = _run(env={"PATH": str(bin_dir)})
-        # The script checks `command -v` first (finds it), then `-x`
-        assert r.returncode == 1
-        assert "not executable" in r.stderr.lower()
+    def test_non_executable_chrome_exits_1(self):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text("#!/bin/bash\nexit 0\n")
+            # Leave it non-executable
+            r = _run(env={"PATH": str(bin_dir)})
+            # The script checks `command -v` first (finds it), then `-x`
+            assert r.returncode == 1
+            assert "not executable" in r.stderr.lower()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Port flag accepted ────────────────────────────────────────────────
+# ── Port flag accepted ────────────────────────────────────────────────────
 
 
 class TestPortFlag:
-    def test_custom_port_passed_through(self, tmp_path):
+    def test_custom_port_passed_through(self):
         """With a fake chrome that survives the 1s background check."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        # Fake chrome must sleep >2s: script does `sleep 1` then kill -0 check
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            # Fake chrome must sleep >2s: script does `sleep 1` then kill -0 check
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "9333" in r.stdout
+            r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "9333" in r.stdout
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_short_flag_p(self, tmp_path):
+    def test_short_flag_p(self):
         """Short -p flag should behave identically to --port."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(["-p", "9444"], env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "9444" in r.stdout
+            r = _run(["-p", "9444"], env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "9444" in r.stdout
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_default_port_is_9222(self, tmp_path):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    def test_default_port_is_9222(self):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "9222" in r.stdout
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "9222" in r.stdout
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Chrome receives correct flags ─────────────────────────────────────
+# ── Chrome receives correct flags ─────────────────────────────────────────
 
 
 class TestChromeArgs:
     """Verify Chrome is launched with the correct arguments."""
 
-    def test_remote_debugging_port_flag(self, tmp_path):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        log = tmp_path / "chrome_args.log"
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text(f"#!/bin/bash\necho \"$@\" > {log}\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    def test_remote_debugging_port_flag(self):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            log = tmp / "chrome_args.log"
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text(f"#!/bin/bash\necho \"$@\" > {log}\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        _wait_for_file(log)
-        args = log.read_text()
-        assert "--remote-debugging-port=9333" in args
+            r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            _wait_for_file(log)
+            args = log.read_text()
+            assert "--remote-debugging-port=9333" in args
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_user_data_dir_flag(self, tmp_path):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        log = tmp_path / "chrome_args.log"
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text(f"#!/bin/bash\necho \"$@\" > {log}\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    def test_user_data_dir_flag(self):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            log = tmp / "chrome_args.log"
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text(f"#!/bin/bash\necho \"$@\" > {log}\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        _wait_for_file(log)
-        args = log.read_text()
-        assert "--user-data-dir=" in args
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            _wait_for_file(log)
+            args = log.read_text()
+            assert "--user-data-dir=" in args
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_connect_url_printed(self, tmp_path):
+    def test_connect_url_printed(self):
         """Script should print the connect URL after launch."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "Connect via: http://localhost:9222" in r.stdout
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "Connect via: http://localhost:9222" in r.stdout
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Chromium fallback ─────────────────────────────────────────────────
+# ── Chromium fallback ─────────────────────────────────────────────────────
 
 
 class TestChromiumFallback:
@@ -287,36 +310,44 @@ class TestChromiumFallback:
 
     @pytest.mark.parametrize("name", ["google-chrome-stable", "google-chrome",
                                        "chromium-browser", "chromium"])
-    def test_fallback_binary_found(self, tmp_path, name: str):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        chrome = bin_dir / name
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
-
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "Chrome started" in r.stdout
-
-    def test_first_candidate_wins(self, tmp_path):
-        """When multiple candidates exist, the first (google-chrome-stable) wins."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        log = tmp_path / "which_chrome.log"
-
-        for name in ("google-chrome-stable", "google-chrome",
-                     "chromium-browser", "chromium"):
+    def test_fallback_binary_found(self, name: str):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
             chrome = bin_dir / name
-            chrome.write_text(f"#!/bin/bash\necho '{name}' >> {log}\nsleep 3\n")
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
             chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        lines = log.read_text().strip().splitlines()
-        assert lines == ["google-chrome-stable"]
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "Chrome started" in r.stdout
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_first_candidate_wins(self):
+        """When multiple candidates exist, the first (google-chrome-stable) wins."""
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            log = tmp / "which_chrome.log"
+
+            for name in ("google-chrome-stable", "google-chrome",
+                         "chromium-browser", "chromium"):
+                chrome = bin_dir / name
+                chrome.write_text(f"#!/bin/bash\necho '{name}' >> {log}\nsleep 3\n")
+                chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            lines = log.read_text().strip().splitlines()
+            assert lines == ["google-chrome-stable"]
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Platform detection ────────────────────────────────────────────────
+# ── Platform detection ────────────────────────────────────────────────────
 
 
 class TestPlatformDetection:
@@ -342,66 +373,78 @@ class TestPlatformDetection:
         assert "Unsupported platform:" in r.stderr
 
 
-# ── Chrome already running (curl succeeds) ────────────────────────────
+# ── Chrome already running (curl succeeds) ────────────────────────────────
 
 
 class TestChromeAlreadyRunning:
-    def test_detects_running_chrome(self, tmp_path):
+    def test_detects_running_chrome(self):
         """If curl to the debug port succeeds, script exits 0 without launching.
 
         Chrome detection runs before the curl check, so we need a fake chrome
         binary in PATH as well.
         """
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
 
-        # Fake chrome (found by detection loop but never launched)
-        chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+            # Fake chrome (found by detection loop but never launched)
+            chrome = bin_dir / "google-chrome-stable"
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        # A fake curl that succeeds — placed BEFORE /usr/bin in PATH
-        curl = bin_dir / "curl"
-        curl.write_text("#!/bin/bash\nexit 0\n")
-        curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+            # A fake curl that succeeds — placed BEFORE /usr/bin in PATH
+            curl = bin_dir / "curl"
+            curl.write_text("#!/bin/bash\nexit 0\n")
+            curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "already running" in r.stdout.lower()
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "already running" in r.stdout.lower()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Chrome starts and background check passes ─────────────────────────
+# ── Chrome starts and background check passes ─────────────────────────────
 
 
 class TestChromeStarts:
-    def test_successful_start_message(self, tmp_path):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
+    def test_successful_start_message(self):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
 
-        chrome = bin_dir / "google-chrome-stable"
-        # Sleep long enough to survive the script's 1s wait + kill -0 check
-        chrome.write_text("#!/bin/bash\nsleep 3\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+            chrome = bin_dir / "google-chrome-stable"
+            # Sleep long enough to survive the script's 1s wait + kill -0 check
+            chrome.write_text("#!/bin/bash\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 0
-        assert "Chrome started" in r.stdout
-        assert "pid" in r.stdout.lower()
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 0
+            assert "Chrome started" in r.stdout
+            assert "pid" in r.stdout.lower()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ── Chrome dies immediately ──────────────────────────────────────────
+# ── Chrome dies immediately ──────────────────────────────────────────────
 
 
 class TestChromeDiesImmediately:
-    def test_immediate_exit_detected(self, tmp_path):
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
+    def test_immediate_exit_detected(self):
+        tmp = _make_tmp()
+        try:
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
 
-        chrome = bin_dir / "google-chrome-stable"
-        # Chrome exits immediately
-        chrome.write_text("#!/bin/bash\nexit 1\n")
-        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+            chrome = bin_dir / "google-chrome-stable"
+            # Chrome exits immediately
+            chrome.write_text("#!/bin/bash\nexit 1\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
-        r = _run(env={"PATH": str(bin_dir)})
-        assert r.returncode == 1
-        assert "failed to start" in r.stderr.lower()
+            r = _run(env={"PATH": str(bin_dir)})
+            assert r.returncode == 1
+            assert "failed to start" in r.stderr.lower()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
