@@ -143,3 +143,166 @@ def test_no_error_when_memory_md_missing(tmp_path):
 
     result = run_script(env={"HOME": str(fake_home)})
     assert result.returncode == 0
+
+
+# ── Default run (no args) tests ────────────────────────────────────────
+
+
+def test_no_args_exits_zero(tmp_path):
+    """Running with no arguments should exit 0."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+def test_no_args_no_stdout(tmp_path):
+    """Default run with empty home produces no stdout."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.stdout.strip() == ""
+
+
+# ── Partial repo existence ─────────────────────────────────────────────
+
+
+def test_partial_repos_exist(tmp_path):
+    """Only some repos exist — should handle gracefully."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # Only create skills repo, not agent-config or epigenome/chromatin
+    repo = fake_home / "skills"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, capture_output=True, check=True)
+    (repo / "readme.md").write_text("skills")
+    subprocess.run(["git", "add", "readme.md"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo, capture_output=True, check=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── MEMORY.md fidelity and edge cases ──────────────────────────────────
+
+
+def test_memory_md_content_preserved(tmp_path):
+    """MEMORY.md content should be copied exactly, including special chars."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+
+    # Content with special characters, unicode, long lines
+    content = "# Memory\n\n- Item with 'quotes' and \"doubles\"\n- Unicode: café, 日本語\n- Empty lines below:\n\n\n- End\n"
+    (memory_dir / "MEMORY.md").write_text(content)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == content
+
+
+def test_memory_md_sync_creates_deep_dirs(tmp_path):
+    """Destination directory tree should be created if it doesn't exist."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("data")
+
+    # Ensure .claue/projects dir does NOT exist beforehand
+    claude_dir = fake_home / ".claude"
+    assert not claude_dir.exists()
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+
+
+def test_memory_md_overwrites_existing(tmp_path):
+    """MEMORY.md should be overwritten if it already exists at destination."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("new content")
+
+    # Pre-create destination with old content
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst_dir = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory"
+    dst_dir.mkdir(parents=True)
+    (dst_dir / "MEMORY.md").write_text("old content")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    assert dst_dir.exists()
+    assert (dst_dir / "MEMORY.md").read_text() == "new content"
+
+
+def test_memory_sync_without_agent_config_repo(tmp_path):
+    """If agent-config dir doesn't exist, no MEMORY.md sync should happen."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # Only create skills, not agent-config
+    repo = fake_home / "skills"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    # No .claude dir should be created
+    assert not (fake_home / ".claude").exists()
+
+
+# ── Path derivation tests ──────────────────────────────────────────────
+
+
+def test_project_dash_derivation(tmp_path):
+    """Verify the HOME→project-dash path transformation."""
+    fake_home = tmp_path / "deep" / "nested" / "home"
+    fake_home.mkdir(parents=True)
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("nested test")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    # e.g. HOME=/tmp/xxx/deep/nested/home → project_dash = tmp-xxx-deep-nested-home
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists(), f"Expected MEMORY.md at {dst}"
+    assert dst.read_text() == "nested test"
