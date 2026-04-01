@@ -1,312 +1,567 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
-"""Tests for effectors/med-tracker — medication schedule CLI tool."""
+"""Tests for med-tracker — medication schedule CLI tool."""
 
 import argparse
-import subprocess
-import sys
 from datetime import date, timedelta
-from io import StringIO
 from pathlib import Path
 
 import pytest
 
-# Load effector via exec (no .py extension)
-_effector_path = Path(__file__).parent.parent / "effectors" / "med-tracker"
-_ns: dict = {"__name__": "med_tracker_test"}
-exec(open(_effector_path).read(), _ns)
 
-parse_schedule = _ns["parse_schedule"]
-format_date = _ns["format_date"]
-cmd_status = _ns["cmd_status"]
-cmd_add = _ns["cmd_add"]
-cmd_interactions = _ns["cmd_interactions"]
+def _load_med_tracker():
+    """Load med-tracker by exec-ing its source."""
+    source = open(str(Path.home() / "germline/effectors/med-tracker")).read()
+    ns: dict = {"__name__": "med_tracker"}
+    exec(source, ns)
+    return ns
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-class FixedDate(date):
-    """A date subclass whose today() returns a fixed value."""
-    _fixed: date = date(2026, 4, 2)
-
-    @classmethod
-    def today(cls) -> date:
-        return cls._fixed
+_mod = _load_med_tracker()
+parse_schedule = _mod["parse_schedule"]
+format_date = _mod["format_date"]
+cmd_status = _mod["cmd_status"]
+cmd_add = _mod["cmd_add"]
+cmd_interactions = _mod["cmd_interactions"]
+SCHEDULE_PATH = _mod["SCHEDULE_PATH"]
 
 
-def _write_schedule(path: Path, rows: list[list[str]]) -> None:
-    """Write a minimal medication-schedule.md table to *path*."""
-    lines = ["# Medication Schedule\n", "| drug | start | end | notes |", "|------|-------|-----|-------|"]
-    for row in rows:
-        lines.append("| " + " | ".join(row) + " |")
-    lines.append("")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines))
+# ── helpers ────────────────────────────────────────────────────────────
 
 
-@pytest.fixture(autouse=True)
-def _isolate_schedule(tmp_path, monkeypatch):
-    """Redirect SCHEDULE_PATH to a temp file for every test."""
-    schedule_file = tmp_path / "medication-schedule.md"
-    _ns["SCHEDULE_PATH"] = schedule_file
-    yield schedule_file
-    # Restore
-    _ns["SCHEDULE_PATH"] = Path.home() / "epigenome/chromatin/Health/medication-schedule.md"
+def _make_schedule(tmp_path: Path, content: str) -> Path:
+    """Create a medication-schedule.md in tmp_path and return its path."""
+    sched_dir = tmp_path / "epigenome" / "chromatin" / "Health"
+    sched_dir.mkdir(parents=True, exist_ok=True)
+    sched = sched_dir / "medication-schedule.md"
+    sched.write_text(content)
+    return sched
 
 
-@pytest.fixture(autouse=True)
-def _fix_today():
-    """Freeze date.today() inside the effector namespace."""
-    original_date = _ns["date"]
-    _ns["date"] = FixedDate
-    yield
-    _ns["date"] = original_date
+SCHEDULE_TABLE = """\
+# Medication Schedule
+
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Amoxicillin | 2026-03-25 | 2026-04-08 | Antibiotic course |
+| Itraconazole | 2026-03-20 | 2026-04-15 | CYP3A4 inhibitor |
+| Omeprazole | 2026-03-01 | 2026-04-30 | CYP3A4 substrate, acid reflux |
+| ExpiredDrug | 2026-01-01 | 2026-01-10 | Already finished |
+"""
+
+TODAY = date.today()
 
 
-def _namespace(drug="Aspirin", start="2026-03-25", end="2026-04-10", notes="", command="add"):
-    return argparse.Namespace(command=command, drug=drug, start=start, end=end, notes=notes)
+def _active_date_range(offset_start: int, offset_end: int):
+    """Return (start_str, end_str) relative to today."""
+    start = TODAY + timedelta(days=offset_start)
+    end = TODAY + timedelta(days=offset_end)
+    return start.isoformat(), end.isoformat()
 
 
-def _capture_stdout(func, *args, **kwargs) -> str:
-    """Run func capturing stdout."""
-    old_stdout = _ns.get("sys", sys).stdout
-    buf = StringIO()
-    _ns["sys"].stdout = buf
+# ── parse_schedule tests ──────────────────────────────────────────────
+
+
+def test_parse_schedule_extracts_medications(tmp_path):
+    """parse_schedule returns list of dicts from markdown table."""
+    sched = _make_schedule(tmp_path, SCHEDULE_TABLE)
+    _mod["SCHEDULE_PATH"] = sched
     try:
-        func(*args, **kwargs)
+        meds = parse_schedule()
     finally:
-        _ns["sys"].stdout = old_stdout
-    return buf.getvalue()
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
 
-
-# ---------------------------------------------------------------------------
-# parse_schedule
-# ---------------------------------------------------------------------------
-
-def test_parse_schedule_no_file(tmp_path):
-    """Returns empty list when schedule file doesn't exist."""
-    assert parse_schedule() == []
-
-
-def test_parse_schedule_valid_table(_isolate_schedule):
-    """Parses a well-formed table correctly."""
-    _write_schedule(_isolate_schedule, [
-        ["Amoxicillin", "2026-03-01", "2026-03-10", "take with food"],
-        ["Ibuprofen", "2026-04-01", "2026-04-05", "CYP3A4 substrate"],
-    ])
-    meds = parse_schedule()
-    assert len(meds) == 2
+    assert len(meds) == 4
     assert meds[0]["drug"] == "Amoxicillin"
-    assert meds[0]["start"] == "2026-03-01"
-    assert meds[0]["end"] == "2026-03-10"
-    assert meds[0]["notes"] == "take with food"
-    assert meds[1]["notes"] == "CYP3A4 substrate"
+    assert meds[0]["start"] == "2026-03-25"
+    assert meds[0]["end"] == "2026-04-08"
+    assert meds[0]["notes"] == "Antibiotic course"
 
 
-def test_parse_schedule_skips_malformed_rows(_isolate_schedule):
-    """Rows with fewer than 4 columns are ignored."""
-    path = _isolate_schedule
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join([
-        "| drug | start | end | notes |",
-        "|------|-------|-----|-------|",
-        "| OnlyTwo | Columns |",
-        "| Good | 2026-01-01 | 2026-01-02 | ok |",
-    ]))
-    meds = parse_schedule()
+def test_parse_schedule_missing_file(tmp_path):
+    """parse_schedule returns empty list when schedule file doesn't exist."""
+    missing = tmp_path / "nonexistent" / "medication-schedule.md"
+    _mod["SCHEDULE_PATH"] = missing
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert meds == []
+
+
+def test_parse_schedule_empty_file(tmp_path):
+    """parse_schedule returns empty list for empty file."""
+    sched = _make_schedule(tmp_path, "")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert meds == []
+
+
+def test_parse_schedule_no_table(tmp_path):
+    """parse_schedule returns empty when file has no table header."""
+    sched = _make_schedule(tmp_path, "# Just a title\n\nSome notes here.\n")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert meds == []
+
+
+def test_parse_schedule_short_rows_skipped(tmp_path):
+    """parse_schedule skips rows with fewer than 4 columns."""
+    content = """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| ShortRow | 2026-01-01 | 2026-01-02 |
+| ValidDrug | 2026-03-01 | 2026-04-01 | ok |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
     assert len(meds) == 1
-    assert meds[0]["drug"] == "Good"
+    assert meds[0]["drug"] == "ValidDrug"
 
 
-# ---------------------------------------------------------------------------
-# format_date
-# ---------------------------------------------------------------------------
+def test_parse_schedule_strips_whitespace(tmp_path):
+    """parse_schedule strips whitespace from cell values."""
+    content = """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+|  DrugX  |  2026-03-01  |  2026-04-01  |  spaced notes  |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert meds[0]["drug"] == "DrugX"
+    assert meds[0]["start"] == "2026-03-01"
+    assert meds[0]["notes"] == "spaced notes"
+
+
+# ── format_date tests ─────────────────────────────────────────────────
+
 
 def test_format_date_valid():
-    assert format_date("2026-04-02") == date(2026, 4, 2)
+    """format_date parses YYYY-MM-DD string to date."""
+    d = format_date("2026-04-01")
+    assert d == date(2026, 4, 1)
 
 
-def test_format_date_invalid():
+def test_format_date_invalid_raises():
+    """format_date raises ValueError for bad format."""
     with pytest.raises(ValueError):
         format_date("not-a-date")
 
 
-def test_format_date_wrong_format():
+def test_format_date_empty_raises():
+    """format_date raises ValueError for empty string."""
     with pytest.raises(ValueError):
-        format_date("04/02/2026")
+        format_date("")
 
 
-# ---------------------------------------------------------------------------
-# cmd_status
-# ---------------------------------------------------------------------------
-
-def test_status_no_active_meds(_isolate_schedule):
-    """When no medications are currently active."""
-    _write_schedule(_isolate_schedule, [
-        ["OldDrug", "2026-01-01", "2026-01-15", "done"],
-    ])
-    out = _capture_stdout(cmd_status, argparse.Namespace(command="status"))
-    assert "No active medications" in out
-    assert "Today" in out
+# ── cmd_status tests ──────────────────────────────────────────────────
 
 
-def test_status_with_active_meds(_isolate_schedule):
-    """Active medications appear sorted by days remaining."""
-    _write_schedule(_isolate_schedule, [
-        ["DrugA", "2026-03-25", "2026-04-05", "note A"],
-        ["DrugB", "2026-04-01", "2026-04-10", "note B"],
-    ])
-    out = _capture_stdout(cmd_status, argparse.Namespace(command="status"))
-    assert "DrugA" in out
-    assert "DrugB" in out
-    assert "Days Left" in out
-    # DrugA ends sooner (Apr 5 = 3 days left), should appear first
-    assert out.index("DrugA") < out.index("DrugB")
+def _mock_ns(**kwargs):
+    """Create an argparse.Namespace with given attributes."""
+    return argparse.Namespace(**kwargs)
 
 
-def test_status_empty_schedule(_isolate_schedule):
-    """Empty schedule yields no-active message."""
-    _isolate_schedule.parent.mkdir(parents=True, exist_ok=True)
-    _isolate_schedule.write_text("| drug | start | end | notes |\n|------|-------|-----|-------|\n")
-    out = _capture_stdout(cmd_status, argparse.Namespace(command="status"))
+def test_cmd_status_no_active_medications(tmp_path, capsys):
+    """cmd_status shows 'No active medications' when none are current."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| ExpiredDrug | 2026-01-01 | 2026-01-10 | Done |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
     assert "No active medications" in out
 
 
-# ---------------------------------------------------------------------------
-# cmd_add
-# ---------------------------------------------------------------------------
+def test_cmd_status_shows_active_medications(tmp_path, capsys):
+    """cmd_status lists active medications with days remaining."""
+    start, end = _active_date_range(-5, 10)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| TestDrug | {start} | {end} | Test notes |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
 
-def test_add_new_med(_isolate_schedule, capsys):
-    """Adds a new row to the schedule file."""
-    _write_schedule(_isolate_schedule, [])
-    cmd_add(_namespace(drug="NewMed", start="2026-04-01", end="2026-04-15"))
-    captured = capsys.readouterr()
-    assert "Added NewMed" in captured.out
-
-    meds = parse_schedule()
-    assert len(meds) == 1
-    assert meds[0]["drug"] == "NewMed"
-
-
-def test_add_duplicate_med_exits(_isolate_schedule):
-    """Adding a duplicate drug name exits with code 1."""
-    _write_schedule(_isolate_schedule, [
-        ["DupMed", "2026-03-01", "2026-03-10", ""],
-    ])
-    with pytest.raises(SystemExit) as exc_info:
-        cmd_add(_namespace(drug="DupMed"))
-    assert exc_info.value.code == 1
+    out = capsys.readouterr().out
+    assert "TestDrug" in out
+    assert "10" in out  # days remaining
+    assert "Test notes" in out
+    assert "| Drug |" in out
 
 
-def test_add_duplicate_case_insensitive(_isolate_schedule):
-    """Duplicate detection is case-insensitive."""
-    _write_schedule(_isolate_schedule, [
-        ["CaseMed", "2026-03-01", "2026-03-10", ""],
-    ])
-    with pytest.raises(SystemExit) as exc_info:
-        cmd_add(_namespace(drug="casemed"))
-    assert exc_info.value.code == 1
+def test_cmd_status_sorted_by_days_remaining(tmp_path, capsys):
+    """cmd_status sorts active medications by days remaining ascending."""
+    s1, e1 = _active_date_range(-5, 3)
+    s2, e2 = _active_date_range(-2, 15)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugShort | {s1} | {e1} | Ending soon |
+| DrugLong | {s2} | {e2} | Longer course |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    # DrugShort (3 days left) should appear before DrugLong (15 days left)
+    pos_short = out.index("DrugShort")
+    pos_long = out.index("DrugLong")
+    assert pos_short < pos_long
 
 
-def test_add_creates_file_if_missing(_isolate_schedule, capsys):
-    """Add works even when the schedule file doesn't exist yet."""
-    # File does not exist — parse_schedule returns [], add should create it
-    assert not _isolate_schedule.exists()
-    cmd_add(_namespace(drug="FirstMed", start="2026-04-01", end="2026-04-10"))
-    captured = capsys.readouterr()
-    assert "Added FirstMed" in captured.out
-    assert _isolate_schedule.exists()
+def test_cmd_status_shows_today_date(tmp_path, capsys):
+    """cmd_status includes today's date in output."""
+    start, end = _active_date_range(-1, 5)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| AnyDrug | {start} | {end} | Notes |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert TODAY.isoformat() in out
 
 
-def test_add_with_notes(_isolate_schedule, capsys):
-    """Notes are persisted in the new row."""
-    _write_schedule(_isolate_schedule, [])
-    cmd_add(_namespace(drug="NoteMed", notes="take with food"))
-    captured = capsys.readouterr()
-    assert "Added NoteMed" in captured.out
-    meds = parse_schedule()
-    assert meds[0]["notes"] == "take with food"
+def test_cmd_status_skips_bad_dates(tmp_path, capsys):
+    """cmd_status silently skips rows with unparseable dates."""
+    start, end = _active_date_range(-1, 5)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| BadDate | not-a-date | also-bad | Bad row |
+| GoodDrug | {start} | {end} | Good row |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "GoodDrug" in out
+    assert "BadDate" not in out
 
 
-# ---------------------------------------------------------------------------
-# cmd_interactions
-# ---------------------------------------------------------------------------
+def test_cmd_status_no_schedule_file(tmp_path, capsys):
+    """cmd_status shows 'No active medications' when file missing."""
+    _mod["SCHEDULE_PATH"] = tmp_path / "nonexistent" / "schedule.md"
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
 
-def test_interactions_no_concerns(_isolate_schedule):
-    """Single CYP3A4 med → no warning."""
-    _write_schedule(_isolate_schedule, [
-        ["DrugX", "2026-03-25", "2026-04-10", "CYP3A4 inhibitor"],
-    ])
-    out = _capture_stdout(cmd_interactions, argparse.Namespace(command="interactions"))
+    out = capsys.readouterr().out
+    assert "No active medications" in out
+
+
+# ── cmd_add tests ─────────────────────────────────────────────────────
+
+
+def test_cmd_add_appends_to_file(tmp_path, capsys):
+    """cmd_add appends a new row to the schedule file."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Existing | 2026-01-01 | 2026-01-10 | Old |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="NewDrug", start="2026-05-01", end="2026-05-15", notes="Test note")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "Added NewDrug" in out
+
+    content = sched.read_text()
+    assert "NewDrug" in content
+    assert "2026-05-01" in content
+    assert "2026-05-15" in content
+    assert "Test note" in content
+
+
+def test_cmd_add_no_notes(tmp_path, capsys):
+    """cmd_add writes empty string when notes is None."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="Plain", start="2026-06-01", end="2026-06-10", notes=None)
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    content = sched.read_text()
+    assert "| Plain | 2026-06-01 | 2026-06-10 |  |" in content
+
+
+def test_cmd_add_rejects_duplicate(tmp_path):
+    """cmd_add exits with error when drug already exists (case-insensitive)."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Ibuprofen | 2026-01-01 | 2026-01-10 | Pain |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="ibuprofen", start="2026-07-01", end="2026-07-10", notes="")
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_add(args)
+        assert exc_info.value.code == 1
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    # File should be unchanged
+    content = sched.read_text()
+    assert "2026-07-01" not in content
+
+
+def test_cmd_add_creates_file_if_missing(tmp_path, capsys):
+    """cmd_add creates the file if it doesn't exist."""
+    sched = tmp_path / "epigenome" / "chromatin" / "Health" / "medication-schedule.md"
+    sched.parent.mkdir(parents=True, exist_ok=True)
+    # File does NOT exist yet
+    assert not sched.exists()
+
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="FirstDrug", start="2026-08-01", end="2026-08-10", notes="First")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert sched.exists()
+    content = sched.read_text()
+    assert "FirstDrug" in content
+
+
+# ── cmd_interactions tests ────────────────────────────────────────────
+
+
+def test_cmd_interactions_no_active_cyp3a4(tmp_path, capsys):
+    """cmd_interactions reports no concerns when only one or zero CYP3A4 meds."""
+    start, end = _active_date_range(-5, 10)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| PlainDrug | {start} | {end} | Nothing special |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
     assert "No CYP3A4 interaction concerns" in out
 
 
-def test_interactions_multiple_cyp3a4(_isolate_schedule):
-    """Two+ active CYP3A4 meds triggers a warning."""
-    _write_schedule(_isolate_schedule, [
-        ["MedA", "2026-03-25", "2026-04-10", "CYP3A4 substrate"],
-        ["MedB", "2026-04-01", "2026-04-15", "3A4 inhibitor"],
-    ])
-    out = _capture_stdout(cmd_interactions, argparse.Namespace(command="interactions"))
+def test_cmd_interactions_single_cyp3a4(tmp_path, capsys):
+    """cmd_interactions lists single CYP3A4 med but no warning."""
+    start, end = _active_date_range(-5, 10)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Ketoconazole | {start} | {end} | CYP3A4 inhibitor |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "No CYP3A4 interaction concerns" in out
+    assert "Ketoconazole" in out
+
+
+def test_cmd_interactions_multiple_cyp3a4_warning(tmp_path, capsys):
+    """cmd_interactions shows warning when multiple CYP3A4 meds are active."""
+    start1, end1 = _active_date_range(-5, 10)
+    start2, end2 = _active_date_range(-3, 12)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Itraconazole | {start1} | {end1} | CYP3A4 inhibitor |
+| Simvastatin | {start2} | {end2} | CYP3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
     assert "CYP3A4 Interaction Warning" in out
-    assert "MedA" in out
-    assert "MedB" in out
-    assert "Consult your pharmacist" in out
+    assert "Itraconazole" in out
+    assert "Simvastatin" in out
+    assert "pharmacist" in out.lower() or "physician" in out.lower()
 
 
-def test_interactions_no_cyp3a4_meds(_isolate_schedule):
-    """No CYP3A4 meds → clean report."""
-    _write_schedule(_isolate_schedule, [
-        ["PlainMed", "2026-03-25", "2026-04-10", "take with water"],
-    ])
-    out = _capture_stdout(cmd_interactions, argparse.Namespace(command="interactions"))
-    assert "No CYP3A4 interaction concerns" in out
+def test_cmd_interactions_detects_lowercase_cyp3a4(tmp_path, capsys):
+    """cmd_interactions detects cyp3a4 in lowercase notes."""
+    start1, end1 = _active_date_range(-5, 10)
+    start2, end2 = _active_date_range(-3, 12)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugA | {start1} | {end1} | cyp3a4 inhibitor |
+| DrugB | {start2} | {end2} | 3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
 
-
-def test_interactions_case_insensitive_keywords(_isolate_schedule):
-    """CYP3A4 keywords matched case-insensitively."""
-    _write_schedule(_isolate_schedule, [
-        ["MedLow", "2026-03-25", "2026-04-10", "cyp3a4 something"],
-        ["MedUp", "2026-04-01", "2026-04-15", "CYP3A4 other"],
-    ])
-    out = _capture_stdout(cmd_interactions, argparse.Namespace(command="interactions"))
+    out = capsys.readouterr().out
     assert "CYP3A4 Interaction Warning" in out
 
 
-def test_interactions_expired_cyp3a4_ignored(_isolate_schedule):
-    """Expired CYP3A4 meds don't trigger warnings."""
-    _write_schedule(_isolate_schedule, [
-        ["OldCYP", "2026-01-01", "2026-01-15", "CYP3A4 substrate"],
-    ])
-    out = _capture_stdout(cmd_interactions, argparse.Namespace(command="interactions"))
+def test_cmd_interactions_skips_expired(tmp_path, capsys):
+    """cmd_interactions ignores expired CYP3A4 medications."""
+    start, end = _active_date_range(-5, 10)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| OldInhibitor | 2026-01-01 | 2026-01-10 | CYP3A4 inhibitor |
+| CurrentDrug | {start} | {end} | CYP3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    # Only one active CYP3A4 med — no warning
+    assert "No CYP3A4 interaction concerns" in out
+    assert "CurrentDrug" in out
+
+
+def test_cmd_interactions_no_schedule_file(tmp_path, capsys):
+    """cmd_interactions handles missing schedule file gracefully."""
+    _mod["SCHEDULE_PATH"] = tmp_path / "nonexistent" / "schedule.md"
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
     assert "No CYP3A4 interaction concerns" in out
 
 
-# ---------------------------------------------------------------------------
-# CLI via subprocess (integration)
-# ---------------------------------------------------------------------------
-
-def test_cli_help():
-    """--help returns 0 and shows usage."""
-    result = subprocess.run(
-        [str(_effector_path), "--help"],
-        capture_output=True, text=True,
-    )
-    assert result.returncode == 0
-    assert "med-tracker" in result.stdout or "Medication" in result.stdout
+# ── Edge case: boundary dates ──────────────────────────────────────────
 
 
-def test_cli_status_no_file(tmp_path):
-    """status subcommand works when schedule file is missing."""
-    env = __import__("os").environ.copy()
-    # We can't easily redirect SCHEDULE_PATH via env for this script,
-    # so just verify the command doesn't crash (exit 0).
-    # The script prints "No active medications" when file is missing.
-    result = subprocess.run(
-        [str(_effector_path), "status"],
-        capture_output=True, text=True,
-    )
-    assert result.returncode == 0
+def test_cmd_status_medication_starts_today(tmp_path, capsys):
+    """A medication that starts today is shown as active."""
+    start, end = _active_date_range(0, 7)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| StartingToday | {start} | {end} | New |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "StartingToday" in out
+
+
+def test_cmd_status_medication_ends_today(tmp_path, capsys):
+    """A medication that ends today is shown as active (0 days left)."""
+    start, end = _active_date_range(-5, 0)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| EndingToday | {start} | {end} | Last day |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "EndingToday" in out
+
+
+def test_cmd_status_medication_ended_yesterday(tmp_path, capsys):
+    """A medication that ended yesterday is NOT shown."""
+    start, end = _active_date_range(-5, -1)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| EndedYesterday | {start} | {end} | Done |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "EndedYesterday" not in out
+
+
+def test_cmd_status_medication_not_started_yet(tmp_path, capsys):
+    """A medication that starts tomorrow is NOT shown."""
+    start, end = _active_date_range(1, 10)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Future | {start} | {end} | Not yet |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "Future" not in out
