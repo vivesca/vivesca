@@ -1,12 +1,15 @@
 """Tests for effectors/start-chrome-debug.sh"""
 import os
+import signal
 import stat
 import subprocess
-import tempfile
 import pytest
 from pathlib import Path
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
+
+# Fake chrome sleep time — must survive the script's `sleep 1` + `kill -0` check
+_FAKE_CHROME_SLEEP = 2
 
 
 def run_script(*args, check=False, env=None, timeout=None):
@@ -19,6 +22,19 @@ def run_script(*args, check=False, env=None, timeout=None):
         env=env,
         timeout=timeout,
     )
+
+
+@pytest.fixture(autouse=True)
+def _kill_leftover_fake_chromes():
+    """Kill any lingering fake-chrome processes between tests."""
+    yield
+    # Kill any 'sleep N' processes spawned by our fake chrome scripts
+    # that might still be running after a test finishes.
+    try:
+        subprocess.run(["pkill", "-f", f"sleep {_FAKE_CHROME_SLEEP}"],
+                       capture_output=True, timeout=3)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
 
 class TestHelpOption:
@@ -106,7 +122,7 @@ class TestChromeDetection:
             f"echo launched >> {marker}\n"
             f"echo args: $@ >> {marker}\n"
             # Stay alive long enough for kill -0 check
-            f"sleep 5\n"
+            f"sleep {_FAKE_CHROME_SLEEP}\n"
         )
         fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
 
@@ -134,7 +150,7 @@ class TestChromeDetection:
         marker = tmp_path / "launched.txt"
         fake_chrome = tmp_path / "google-chrome-stable"
         fake_chrome.write_text(
-            f"#!/bin/bash\necho $@ >> {marker}\nsleep 5\n"
+            f"#!/bin/bash\necho $@ >> {marker}\nsleep {_FAKE_CHROME_SLEEP}\n"
         )
         fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
 
@@ -156,7 +172,7 @@ class TestChromeDetection:
         marker = tmp_path / "launched.txt"
         fake_chrome = tmp_path / "google-chrome-stable"
         fake_chrome.write_text(
-            f"#!/bin/bash\necho $@ >> {marker}\nsleep 5\n"
+            f"#!/bin/bash\necho $@ >> {marker}\nsleep {_FAKE_CHROME_SLEEP}\n"
         )
         fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
 

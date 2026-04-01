@@ -140,72 +140,56 @@ class TestCheckProvider:
         assert result.status == "FAIL"
         assert "ZHIPU_API_KEY" in (result.error or "")
 
-    @mock.patch("subprocess.run")
-    def test_check_provider_success(self, mock_run):
+    def test_check_provider_success(self):
         """Test check_provider with successful golem run."""
-        import importlib.util
+        module = _load_module()
 
-        # Mock successful subprocess run
-        mock_run.return_value = mock.Mock(
+        mock_run = mock.Mock(
             returncode=0,
             stdout="Hello! I'm ready to help.",
             stderr="",
         )
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        result = module.check_provider(
-            provider="zhipu",
-            env={"ZHIPU_API_KEY": "test-key"},
-            golem_path=Path("/fake/golem"),
-        )
+        with mock.patch.object(module.subprocess, "run", return_value=mock_run):
+            result = module.check_provider(
+                provider="zhipu",
+                env={"ZHIPU_API_KEY": "test-key"},
+                golem_path=Path("/fake/golem"),
+            )
         assert result.status == "OK"
         assert result.exit_code == 0
         assert result.has_output is True
 
-    @mock.patch("subprocess.run")
-    def test_check_provider_failure(self, mock_run):
+    def test_check_provider_failure(self):
         """Test check_provider when golem fails."""
-        import importlib.util
+        module = _load_module()
 
-        # Mock failed subprocess run
-        mock_run.return_value = mock.Mock(
+        mock_run = mock.Mock(
             returncode=1,
             stdout="",
             stderr="API error",
         )
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        result = module.check_provider(
-            provider="zhipu",
-            env={"ZHIPU_API_KEY": "test-key"},
-            golem_path=Path("/fake/golem"),
-        )
+        with mock.patch.object(module.subprocess, "run", return_value=mock_run):
+            result = module.check_provider(
+                provider="zhipu",
+                env={"ZHIPU_API_KEY": "test-key"},
+                golem_path=Path("/fake/golem"),
+            )
         assert result.status == "FAIL"
         assert result.exit_code == 1
 
-    @mock.patch("subprocess.run")
-    def test_check_provider_timeout(self, mock_run):
+    def test_check_provider_timeout(self):
         """Test check_provider when golem times out."""
-        import importlib.util
+        module = _load_module()
 
-        # Mock timeout
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="golem", timeout=60)
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        result = module.check_provider(
-            provider="zhipu",
-            env={"ZHIPU_API_KEY": "test-key"},
-            golem_path=Path("/fake/golem"),
-        )
+        with mock.patch.object(
+            module.subprocess, "run",
+            side_effect=subprocess.TimeoutExpired(cmd="golem", timeout=60),
+        ):
+            result = module.check_provider(
+                provider="zhipu",
+                env={"ZHIPU_API_KEY": "test-key"},
+                golem_path=Path("/fake/golem"),
+            )
         assert result.status == "FAIL"
         assert "timeout" in (result.error or "").lower()
 
@@ -215,11 +199,7 @@ class TestOutputFormatting:
 
     def test_print_table(self, capsys):
         """Test print_table outputs expected format."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         results = [
             module.HealthResult(
@@ -251,11 +231,7 @@ class TestOutputFormatting:
 
     def test_print_json(self, capsys):
         """Test print_json outputs valid JSON."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         results = [
             module.HealthResult(
@@ -281,11 +257,7 @@ class TestProviderConfig:
 
     def test_all_providers_have_model(self):
         """Test all providers have model defined."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         for provider, config in module.PROVIDERS.items():
             assert "model" in config
@@ -293,11 +265,7 @@ class TestProviderConfig:
 
     def test_all_providers_have_key_var(self):
         """Test all providers have key_var defined."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         for provider, config in module.PROVIDERS.items():
             assert "key_var" in config
@@ -305,11 +273,7 @@ class TestProviderConfig:
 
     def test_expected_providers_exist(self):
         """Test expected providers are configured."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         expected = {"zhipu", "infini", "volcano"}
         assert set(module.PROVIDERS.keys()) == expected
