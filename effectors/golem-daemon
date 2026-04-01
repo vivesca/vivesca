@@ -371,6 +371,26 @@ def parse_provider(cmd: str) -> str:
     return m.group(1) if m else "default"
 
 
+def is_rate_limited(tail: str) -> bool:
+    """Check if task output contains rate-limit/quota-exhaustion indicators."""
+    return bool(RATE_LIMIT_PATTERNS.search(tail))
+
+
+def parse_rate_limit_window(tail: str) -> int | None:
+    """Try to extract rate-limit window in seconds from error message.
+
+    Looks for patterns like "5-hour", "1-hour", "30-minute" in the tail.
+    Returns seconds or None if not parseable.
+    """
+    m = re.search(r'(\d+)[- ]hour', tail)
+    if m:
+        return int(m.group(1)) * 3600
+    m = re.search(r'(\d+)[- ]minute', tail)
+    if m:
+        return int(m.group(1)) * 60
+    return None
+
+
 def get_provider_limit(provider: str) -> int:
     """Get concurrency limit for a provider."""
     return PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
@@ -411,28 +431,31 @@ def mark_done(line_num: int, result: str = "", task_id: str = ""):
 
 
 def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: str = "") -> dict:
-    """Mark task as failed. Retry once unless exit_code=2 (command error).
+    """Mark task as failed. Retry once unless genuinely permanent.
 
+    Permanent failures: exit_code=2 (command error) UNLESS rate-limited.
+    Rate-limited tasks (detected via output patterns) are always retried.
     High-priority [!!] tasks keep their priority on retry; they become [!] on
     permanent failure just like normal tasks.
     """
+    rate_limited = is_rate_limited(result)
     with QueueLock():
         if not QUEUE_FILE.exists():
-            return {"retried": False}
+            return {"retried": False, "rate_limited": rate_limited}
         if line_num < 0:
-            return {"retried": False}
+            return {"retried": False, "rate_limited": rate_limited}
         try:
             lines = QUEUE_FILE.read_text().splitlines()
         except (PermissionError, OSError, UnicodeDecodeError):
-            return {"retried": False}
+            return {"retried": False, "rate_limited": rate_limited}
         if line_num >= len(lines):
-            return {"retried": False}
+            return {"retried": False, "rate_limited": rate_limited}
         original = lines[line_num]
         # Verify the line is still a pending task (normal or high-priority)
         stripped = original.strip()
         is_high = stripped.startswith("- [!!] ")
         if not is_high and not stripped.startswith("- [ ] "):
-            return {"retried": False}
+            return {"retried": False, "rate_limited": rate_limited}
         cmd_match = re.search(r'`([^`]+)`', original)
 
         def _to_failed(line: str) -> str:
@@ -443,8 +466,8 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: st
 
         # Determine new line content
         retried = False
-        # Exit 2 = command not found / usage error — never retry
-        if exit_code == 2 or not cmd_match:
+        # Exit 2 = command not found / usage error — never retry UNLESS rate-limited
+        if (exit_code == 2 and not rate_limited) or not cmd_match:
             lines[line_num] = _to_failed(original)
         elif '(retry)' not in cmd_match.group(1):
             old_cmd = cmd_match.group(1)
@@ -457,11 +480,12 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: st
         try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
         except (PermissionError, OSError):
-            return {"retried": False}
+            return {"retried": False, "rate_limited": rate_limited}
 
         if retried:
-            log(f"Re-queued [{task_id}] (retry): {cmd_match.group(1)[:60]}...")
-        return {"retried": retried}
+            suffix = " (rate-limited)" if rate_limited else ""
+            log(f"Re-queued [{task_id}] (retry){suffix}: {cmd_match.group(1)[:60]}...")
+        return {"retried": retried, "rate_limited": rate_limited}
 
 
 def _golem_env() -> dict:

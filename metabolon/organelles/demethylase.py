@@ -356,8 +356,6 @@ def sweep(
         for path in SIGNALS_DIR.glob("signal_*.md"):
             age = (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days
             if age > 14:
-                if not dry_run:
-                    path.unlink()
                 signal_stale.append(MarkAnalysis(
                     path=path, name=path.stem, mark_type="signal",
                     durability="acetyl", protected=False, source="unknown",

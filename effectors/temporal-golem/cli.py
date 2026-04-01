@@ -20,8 +20,9 @@ from typing import List, Optional
 import click
 from temporalio.client import Client, WorkflowFailureError
 
-# Re-export models for convenience
-from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec  # noqa: F401
+# Make local imports work when run from any cwd
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec  # noqa: E402
 
 
 async def _connect() -> Client:
@@ -82,7 +83,7 @@ def submit(provider: str, tasks: tuple[str, ...], task_file: Optional[str], work
         if workflow_id:
             wid = workflow_id
         else:
-            timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            timestamp = datetime.now(tz=None).strftime("%Y%m%d-%H%M%S")
             wid = f"golem-{provider}-{timestamp}"
 
         handle = await client.start_workflow(
@@ -111,7 +112,7 @@ def status(workflow_id: str, as_json: bool) -> None:
         click.echo(f"Status:   {status_name}")
         click.echo(f"Started:  {desc.start_time}")
 
-        if desc.close_time:
+        if not as_json and desc.close_time:
             click.echo(f"Finished: {desc.close_time}")
 
         if status_name == "COMPLETED":

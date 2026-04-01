@@ -8,17 +8,21 @@ concurrently up to the provider's concurrency limit.  Results are collected
 and returned as a :class:`GolemDispatchOutput`.
 """
 
+import asyncio
+import sys
 from datetime import timedelta
+from pathlib import Path
 from typing import List
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
-# Re-export models for convenience (tests import from here)
-from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec  # noqa: F401
+# Make local imports work when run from any cwd
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec  # noqa: E402
 
 with workflow.unsafe.imports_passed_through():
-    from worker import run_golem_task
+    from worker import run_golem_task  # noqa: E402
 
 # ── Per-provider concurrency limits ───────────────────────────────────
 PROVIDER_CONCURRENCY = {
@@ -75,7 +79,6 @@ class GolemDispatchWorkflow:
 
             await asyncio.gather(*[_run_one(s) for s in specs])
 
-        import asyncio
         await asyncio.gather(*[
             _run_group(p, specs) for p, specs in provider_groups.items()
         ])

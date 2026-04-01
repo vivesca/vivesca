@@ -168,10 +168,18 @@ case "$PROVIDER" in
     _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
     _URL="https://cloud.infini-ai.com/maas/coding"
     _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
-  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
+  gemini)
+    _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
+    _CLI="gemini"  # uses gemini CLI, not claude
+    ;;
+  codex)
+    _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
+    _CLI="codex"  # uses codex CLI, not claude
+    ;;
+  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
 esac
 
-# Fallback provider mapping: zhipu->infini, infini->zhipu, volcano->infini
+# Fallback provider mapping
 _fallback_provider() {
   case "$1" in
     zhipu) echo "infini" ;;
@@ -271,20 +279,36 @@ _run_golem() {
       # Don't retry on auth errors — just try claude directly (maybe endpoint behaves differently)
     fi
 
-    output=$(
-    timeout "$_claude_timeout" \
-    env CLAUDECODE= \
-    ANTHROPIC_API_KEY="$_KEY" \
-    ANTHROPIC_BASE_URL="$_URL" \
-    ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
-    ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
-    ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
-    API_TIMEOUT_MS=3000000 \
-    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-    CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-2}" \
-    claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
-    )
-    exit_code=$?
+    if [[ "${_CLI:-claude}" == "gemini" ]]; then
+      output=$(
+      timeout "$_claude_timeout" \
+      env GOOGLE_API_KEY="$_KEY" \
+      gemini -p "$prompt" --sandbox < /dev/null 2>&1
+      )
+      exit_code=$?
+    elif [[ "${_CLI:-claude}" == "codex" ]]; then
+      output=$(
+      timeout "$_claude_timeout" \
+      env OPENAI_API_KEY="$_KEY" \
+      codex --approval-mode full-auto --quiet "$prompt" < /dev/null 2>&1
+      )
+      exit_code=$?
+    else
+      output=$(
+      timeout "$_claude_timeout" \
+      env CLAUDECODE= \
+      ANTHROPIC_API_KEY="$_KEY" \
+      ANTHROPIC_BASE_URL="$_URL" \
+      ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
+      ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
+      ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
+      API_TIMEOUT_MS=3000000 \
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-2}" \
+      claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
+      )
+      exit_code=$?
+    fi
     # Timeout returns 124 — treat as rate-limit for retry purposes
     [[ $exit_code -eq 124 ]] && exit_code=1
 

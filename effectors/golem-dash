@@ -420,16 +420,16 @@ def eta_section(eta: dict, throughput: float, use_color: bool = True) -> str:
     return "\n".join(lines)
 
 
-def queue_status(queue_path: Path, use_color: bool = True) -> tuple[str, list[tuple[str, str]], int]:
+def queue_status(queue_path: Path, use_color: bool = True) -> tuple[str, list[tuple[str, str]], int, int, int]:
     """Parse queue file, return status summary.
 
-    Returns: (status_text, last_done, pending_count)
+    Returns: (status_text, last_done, pending_count, done_count, failed_count)
     """
     pending = done = failed = 0
     last_done: list[tuple[str, str]] = []
 
     if not queue_path.exists():
-        return "Queue file not found.", [], 0
+        return "Queue file not found.", [], 0, 0, 0
 
     for line in queue_path.read_text().splitlines():
         m = re.match(r'^- \[ \] `([^`]+)`', line)
@@ -461,7 +461,7 @@ def queue_status(queue_path: Path, use_color: bool = True) -> tuple[str, list[tu
         f"Total: {b}{total}{rst}",
     ]
 
-    return "  ".join(parts), last_done[-5:] if last_done else [], pending
+    return "  ".join(parts), last_done[-5:] if last_done else [], pending, done, failed
 
 
 def last_completed_table(last_done: list[tuple[str, str]], use_color: bool = True) -> str:
@@ -508,9 +508,11 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
 
     # Gather data
     records = load_jsonl(JSONL_PATH)
-    status_text, last_done, pending = queue_status(QUEUE_PATH, use_color)
+    status_text, last_done, pending, done, failed = queue_status(QUEUE_PATH, use_color)
     running = get_running_golems()
     eta = calculate_eta(records, pending, len(running))
+    thr = throughput_rate(records, window_minutes=60)
+    m15, m60 = completion_burst(records)
 
     if json_output:
         data = {
@@ -518,35 +520,47 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
             "running": running,
             "queue": {
                 "pending": pending,
+                "done": done,
+                "failed": failed,
                 "completed_count": len(last_done),
             },
             "eta": eta,
+            "throughput_per_hour": thr,
+            "completion_burst": {"last_15min": m15, "last_60min": m60},
             "disk_free": disk_free(False),
         }
         print(json.dumps(data, indent=2))
         return 0
 
-    # 1. Running tasks (real-time progress)
+    total = pending + done + failed
+
+    # 1. Progress bar
+    print(f"\n{b}Progress{rst}")
+    print(f"  {progress_bar(done, total, width=30, use_color=use_color)}")
+    burst_str = f"  Last 15min: {m15}  |  Last 60min: {m60}"
+    print(burst_str)
+
+    # 2. Running tasks (real-time progress)
     print(f"\n{b}Running Tasks{rst}")
     print(running_tasks_table(running, use_color))
 
-    # 2. ETA to drain
+    # 3. ETA to drain
     print(f"\n{b}ETA to Drain{rst}")
-    print(eta_section(eta, use_color))
+    print(eta_section(eta, thr, use_color))
 
-    # 3. Provider stats
+    # 4. Provider stats
     print(f"\n{b}Provider Stats{rst}")
     print(provider_stats(records, use_color))
 
-    # 4. Queue status
+    # 5. Queue status
     print(f"\n{b}Queue Status{rst}")
     print(status_text)
 
-    # 5. Last 5 completed
+    # 6. Last 5 completed
     print(f"\n{b}Last Completed{rst}")
     print(last_completed_table(last_done, use_color))
 
-    # 6. Disk free
+    # 7. Disk free
     print(f"\n{b}Disk{rst}")
     print(disk_free(use_color))
     print()

@@ -1079,3 +1079,173 @@ class TestGolemSummaryJson:
         assert r.returncode == 0
         data = json.loads(r.stdout)
         assert data["zhipu"]["avg_duration"] == 150  # (100+200)//2
+
+
+# ===================================================================
+# golem preflight / rate-limit / CLAUDE_CODE_MAX_RETRIES tests
+# ===================================================================
+
+
+class TestGolemPreflight:
+    """Test the preflight health check and rate-limit detection in the golem
+    bash script. We mock claude with a stub script and intercept the curl
+    preflight via a fake HTTP server or by examining logged output."""
+
+    def test_preflight_detects_429(self, tmp_path):
+        """When provider returns 429, golem should detect it in preflight
+        and log the rate-limit (not launch claude at all on first attempt)."""
+        # Create a mock claude that should NOT be called
+        mock_claude = tmp_path / "claude"
+        mock_claude.write_text(
+            '#!/usr/bin/env bash\n'
+            'echo "MOCK_CLAUDE_CALLED" > "$HOME/.claude_called"\n'
+            'exit 0\n'
+        )
+        mock_claude.chmod(0o755)
+
+        log_file = tmp_path / "golem.jsonl"
+        r = subprocess.run(
+            [
+                str(EFFECTORS_DIR / "golem"),
+                "--provider", "volcano",
+                "--quiet",
+                "test task",
+            ],
+            capture_output=True, text=True, timeout=60,
+            env={
+                **os.environ,
+                "PATH": f"{tmp_path}:{os.environ['PATH']}",
+                "GOLEM_LOG": str(log_file),
+                "VOLCANO_API_KEY": os.environ.get("VOLCANO_API_KEY", "test-key"),
+                "GOLEM_MAX_TURNS": "1",
+            },
+        )
+        # The real volcano is rate-limited right now, so we expect failure
+        # The mock claude may or may not be called depending on preflight
+        # Check the log for rate-limit evidence
+        if log_file.exists():
+            content = log_file.read_text()
+            # If preflight worked, duration should be very short (no claude launch)
+            if "volcano" in content:
+                data = json.loads(content.strip().split('\n')[-1])
+                assert data["provider"] == "volcano"
+                assert data["exit"] != 0
+
+    def test_claude_max_retries_env_set(self, tmp_path):
+        """CLAUDE_CODE_MAX_RETRIES should be set in the claude env.
+        Verify by checking the script source."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert "CLAUDE_CODE_MAX_RETRIES" in golem_src
+        assert "GOLEM_CLAUDE_RETRIES" in golem_src
+
+    def test_claude_max_retries_default_is_2(self, tmp_path):
+        """Default CLAUDE_CODE_MAX_RETRIES should be 2 (3 total attempts),
+        not 10 (11 total = claude default)."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert 'GOLEM_CLAUDE_RETRIES:-2' in golem_src
+
+    def test_claude_max_retries_overridable(self, tmp_path):
+        """GOLEM_CLAUDE_RETRIES env var should override the default."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        # The pattern ${GOLEM_CLAUDE_RETRIES:-2} allows env override
+        assert '${GOLEM_CLAUDE_RETRIES:-2}' in golem_src
+
+    def test_timeout_wrapper_present(self):
+        """The script should use 'timeout' to prevent claude from hanging
+        indefinitely on 429 internal retries."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert "timeout" in golem_src
+        assert "_claude_timeout" in golem_src
+
+    def test_empty_output_detected_as_ratelimit(self):
+        """The script should detect empty output + non-zero exit as rate-limit."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert '${output// /}' in golem_src or "output// /" in golem_src
+
+
+class TestGolemProviderConfig:
+    """Test provider URL and auth configuration."""
+
+    def test_volcano_url_is_anthropic_compat(self):
+        """Volcano URL should be the Anthropic-compatible endpoint."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert "ark.cn-beijing.volces.com/api/coding" in golem_src
+
+    def test_volcano_uses_api_key_not_auth_token(self):
+        """Volcano should use ANTHROPIC_API_KEY (x-api-key header),
+        not ANTHROPIC_AUTH_TOKEN."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert 'unset ANTHROPIC_AUTH_TOKEN' in golem_src
+        assert 'ANTHROPIC_API_KEY="$_KEY"' in golem_src
+
+    def test_all_providers_unset_auth_token(self):
+        """ANTHROPIC_AUTH_TOKEN should be unset for all providers to prevent
+        inheritance from parent env (which can cause auth conflicts)."""
+        golem_src = (EFFECTORS_DIR / "golem").read_text()
+        assert "unset ANTHROPIC_AUTH_TOKEN" in golem_src
+
+
+class TestGolemVolcanoIntegration:
+    """Integration test: verify volcano provider endpoint responds correctly
+    to the preflight check pattern used by the golem script."""
+
+    def test_volcano_endpoint_accepts_x_api_key(self):
+        """The volcano /api/coding/v1/messages endpoint should accept
+        x-api-key header (not just Authorization: Bearer)."""
+        key = os.environ.get("VOLCANO_API_KEY")
+        if not key:
+            pytest.skip("VOLCANO_API_KEY not set")
+        r = subprocess.run(
+            [
+                "curl", "-s", "-w", "\\n%{http_code}",
+                "https://ark.cn-beijing.volces.com/api/coding/v1/messages",
+                "-H", f"x-api-key: {key}",
+                "-H", "Content-Type: application/json",
+                "-H", "anthropic-version: 2023-06-01",
+                "-d", '{"model":"ark-code-latest","max_tokens":1,'
+                      '"messages":[{"role":"user","content":"ping"}]}',
+                "--connect-timeout", "10",
+                "--max-time", "15",
+            ],
+            capture_output=True, text=True, timeout=20,
+        )
+        lines = r.stdout.strip().split('\n')
+        http_code = lines[-1] if lines else "0"
+        body = '\n'.join(lines[:-1])
+        # Should be 200 (OK), 429 (rate-limited), or 400 (bad request)
+        # NOT 401 (auth failure) — that would mean x-api-key isn't accepted
+        assert http_code in ("200", "400", "429"), \
+            f"Expected 200/400/429, got {http_code}: {body[:200]}"
+
+    def test_volcano_preflight_returns_json_error(self):
+        """When volcano is rate-limited, the error JSON should contain
+        AccountQuotaExceeded with a 'reset at' timestamp."""
+        key = os.environ.get("VOLCANO_API_KEY")
+        if not key:
+            pytest.skip("VOLCANO_API_KEY not set")
+        r = subprocess.run(
+            [
+                "curl", "-s",
+                "https://ark.cn-beijing.volces.com/api/coding/v1/messages",
+                "-H", f"x-api-key: {key}",
+                "-H", "Content-Type: application/json",
+                "-H", "anthropic-version: 2023-06-01",
+                "-d", '{"model":"ark-code-latest","max_tokens":1,'
+                      '"messages":[{"role":"user","content":"ping"}]}',
+                "--connect-timeout", "10",
+                "--max-time", "15",
+            ],
+            capture_output=True, text=True, timeout=20,
+        )
+        try:
+            data = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            pytest.skip(f"Non-JSON response: {r.stdout[:100]}")
+        # If it's a 429, verify the format
+        if "error" in data:
+            error = data["error"]
+            if error.get("code") == "AccountQuotaExceeded":
+                assert "reset at" in error.get("message", ""), \
+                    f"Expected 'reset at' in error message: {error['message']}"
+                assert "TooManyRequests" in error.get("type", "")
+

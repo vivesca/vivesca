@@ -163,12 +163,29 @@ def test_max_retries_is_3():
 def test_preflight_runs_before_claude():
     """Pre-flight check runs inside the retry loop, before claude."""
     source = GOLEM.read_text()
-    # The preflight check should be inside the while loop, before the
-    # claude invocation
-    while_block = source[source.index("while [[ $_attempt") : source.index("done")]
-    preflight_pos = while_block.index("_preflight_check")
-    claude_pos = while_block.index("claude")
-    assert preflight_pos < claude_pos, "preflight should run before claude"
+    # Find the retry while loop and extract its body by tracking nesting
+    while_start = source.index("while [[ $_attempt")
+    pos = while_start
+    depth = 0
+    done_pos = None
+    while pos < len(source):
+        if source[pos:pos+6] == "while ":
+            depth += 1
+            pos += 6
+        elif source[pos:pos+4] == "done":
+            depth -= 1
+            if depth == 0:
+                done_pos = pos
+                break
+            pos += 4
+        else:
+            pos += 1
+    assert done_pos is not None, "could not find matching 'done' for retry loop"
+    while_block = source[while_start:done_pos]
+    assert "preflight" in while_block.lower(), "preflight check not in retry loop"
+    assert "claude" in while_block, "claude invocation not in retry loop"
+    assert while_block.index("preflight") < while_block.index("claude"), \
+        "preflight should run before claude"
 
 
 def test_preflight_skip_on_auth_error():
@@ -193,32 +210,34 @@ def test_volcano_falls_back_to_infini():
 # ── Summary subcommand ───────────────────────────────────────────────
 
 
-def test_summary_with_existing_log(tmp_path):
+def test_summary_with_existing_log():
     """golem summary reads and parses JSONL entries."""
-    log_file = tmp_path / "golem.jsonl"
-    log_file.write_text(
-        '{"ts":"2026-04-01T00:00:00Z","provider":"volcano","duration":10,"exit":0,"turns":30,"prompt":"test","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0,"task_id":""}\n'
-    )
-    env = {"GOLEM_LOG": str(log_file)}
-    r = _run_golem_fragment(env_extra=env, args=["summary"])
-    assert r.returncode == 0
-    assert "volcano" in r.stdout
-    assert "1" in r.stdout  # 1 run
+    with tempfile.TemporaryDirectory() as tmp:
+        log_file = Path(tmp) / "golem.jsonl"
+        log_file.write_text(
+            '{"ts":"2026-04-01T00:00:00Z","provider":"volcano","duration":10,"exit":0,"turns":30,"prompt":"test","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0,"task_id":""}\n'
+        )
+        env = {"GOLEM_LOG": str(log_file)}
+        r = _run_golem_fragment(env_extra=env, args=["summary"])
+        assert r.returncode == 0
+        assert "volcano" in r.stdout
+        assert "1" in r.stdout  # 1 run
 
 
-def test_summary_json_flag(tmp_path):
+def test_summary_json_flag():
     """golem summary --json outputs valid JSON."""
-    log_file = tmp_path / "golem.jsonl"
-    log_file.write_text(
-        '{"ts":"2026-04-01T00:00:00Z","provider":"zhipu","duration":30,"exit":1,"turns":30,"prompt":"test","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0,"task_id":""}\n'
-    )
-    env = {"GOLEM_LOG": str(log_file)}
-    r = _run_golem_fragment(env_extra=env, args=["summary", "--json"])
-    assert r.returncode == 0
-    data = json.loads(r.stdout)
-    assert "zhipu" in data
-    assert data["zhipu"]["runs"] == 1
-    assert data["zhipu"]["fail"] == 1
+    with tempfile.TemporaryDirectory() as tmp:
+        log_file = Path(tmp) / "golem.jsonl"
+        log_file.write_text(
+            '{"ts":"2026-04-01T00:00:00Z","provider":"zhipu","duration":30,"exit":1,"turns":30,"prompt":"test","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0,"task_id":""}\n'
+        )
+        env = {"GOLEM_LOG": str(log_file)}
+        r = _run_golem_fragment(env_extra=env, args=["summary", "--json"])
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert "zhipu" in data
+        assert data["zhipu"]["runs"] == 1
+        assert data["zhipu"]["fail"] == 1
 
 
 # ── Integration: preflight curl against volcano ──────────────────────
