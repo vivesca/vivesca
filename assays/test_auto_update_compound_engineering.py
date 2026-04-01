@@ -87,30 +87,30 @@ def test_help_mentions_log_file():
 # ── Runner detection tests ─────────────────────────────────────────────
 
 
-def test_auto_update_compound_engineering_exits_1_when_no_bunx_or_npx(tmp_path):
+def test_auto_update_compound_engineering_exits_1_when_no_bunx_or_npx():
     """Script exits 1 with error when neither bunx nor npx is available."""
-    # Create a minimal environment with empty PATH and isolated HOME
-    fake_home = tmp_path / "home"
-    fake_home.mkdir(exist_ok=True)
-    empty_bin = tmp_path / "bin"
-    empty_bin.mkdir(exist_ok=True)
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        empty_bin = tmp_path / "bin"
+        empty_bin.mkdir()
 
-    # Run script with empty PATH and isolated HOME
-    env = os.environ.copy()
-    env['PATH'] = str(empty_bin)
-    env['HOME'] = str(fake_home)
-    r = subprocess.run(
-        ['bash', str(SCRIPT)],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    assert r.returncode == 1
-    # Check that error was logged
-    log = fake_home / ".compound-engineering-updates.log"
-    assert log.exists()
-    assert "neither bunx nor npx" in log.read_text().lower()
+        env = os.environ.copy()
+        env['PATH'] = str(empty_bin)
+        env['HOME'] = str(fake_home)
+        r = subprocess.run(
+            ['/bin/bash', str(SCRIPT)],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 1
+        log = fake_home / ".compound-engineering-updates.log"
+        assert log.exists()
+        assert "neither bunx nor npx" in log.read_text().lower()
 
 
 def test_auto_update_compound_engineering_uses_bunx_when_available(tmp_path):

@@ -71,3 +71,20 @@ def germline_dir(home_dir):
 def effectors_dir(germline_dir):
     """Return the effectors directory as a Path."""
     return germline_dir / "effectors"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def clean_pytest_temp_dirs():
+    """Remove leftover pytest temporary directories before test session starts.
+
+    This prevents FileExistsError when pytest's tmp_path fixture tries to create
+    a directory that already exists and is non-empty.
+    """
+    import tempfile
+    tmpdir = Path(tempfile.gettempdir())
+    for path in tmpdir.glob("pytest-*"):
+        if path.is_dir():
+            try:
+                shutil.rmtree(path, ignore_errors=True)
+            except OSError:
+                pass

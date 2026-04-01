@@ -180,30 +180,37 @@ if $FULL_REQUESTED && ! $FORCE; then
 fi
 
 # Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
-case "$PROVIDER" in
-  zhipu)
-    _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-    _URL="https://open.bigmodel.cn/api/anthropic"
-    _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
-  volcano)
-    _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
-    _URL="https://ark.cn-beijing.volces.com/api/coding"
-    # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
-    _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
-  infini)
-    _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
-    _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.5-air" ;;
-  gemini)
-    _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
-    _CLI="gemini"  # uses gemini CLI, not claude
-    ;;
-  codex)
-    _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
-    _CLI="codex"  # uses codex CLI, not claude
-    ;;
-  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
-esac
+_configure_provider() {
+  local prov="$1"
+  case "$prov" in
+    zhipu)
+      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+      _URL="https://open.bigmodel.cn/api/anthropic"
+      _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
+    volcano)
+      _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
+      _URL="https://ark.cn-beijing.volces.com/api/coding"
+      # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
+      _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
+    infini)
+      _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
+      _URL="https://cloud.infini-ai.com/maas/coding"
+      _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.7" ;;
+    gemini)
+      _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
+      _CLI="gemini"  # uses gemini CLI, not claude
+      ;;
+    codex)
+      _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
+      _CLI="codex"  # uses codex CLI, not claude
+      ;;
+    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
+  esac
+}
+
+# Initial configuration
+_CLI="claude"
+_configure_provider "$PROVIDER"
 
 # Fallback provider mapping
 _fallback_provider() {
