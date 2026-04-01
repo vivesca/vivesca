@@ -1849,6 +1849,8 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
             } if nxt_done else None,
             "throughput_based_eta_seconds": tp_eta,
             "drain_projection": projection,
+            "drain_bar": drain_bar(done, len(running), pending, eta["eta_seconds"], use_color=False),
+            "heartbeat": heartbeat_line(stall_secs, m15, m60, trend, ewma, use_color=False),
         }
         print(json.dumps(data, indent=2))
         return 0
