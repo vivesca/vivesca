@@ -2403,3 +2403,286 @@ class TestDashboardNextCompletion:
         assert rc == 0
         captured = capsys.readouterr()
         assert "ETA" in captured.out
+
+
+# ── task_phase (NEW) ──────────────────────────────────────────────────────
+
+
+class TestTaskPhase:
+    """Tests for task_phase — maps estimated progress to phase label."""
+
+    def test_starting(self):
+        func = _mod["task_phase"]
+        for pct in (0, 5, 10, 15):
+            assert func(pct) == "starting"
+
+    def test_running(self):
+        func = _mod["task_phase"]
+        for pct in (16, 30, 50, 75):
+            assert func(pct) == "running"
+
+    def test_wrapping(self):
+        func = _mod["task_phase"]
+        for pct in (76, 85, 95):
+            assert func(pct) == "wrapping"
+
+    def test_finishing(self):
+        func = _mod["task_phase"]
+        for pct in (96, 97, 98, 99):
+            assert func(pct) == "finishing"
+
+    def test_overdue(self):
+        func = _mod["task_phase"]
+        assert func(100) == "overdue"
+
+    def test_boundary_values(self):
+        func = _mod["task_phase"]
+        assert func(15) == "starting"
+        assert func(16) == "running"
+        assert func(75) == "running"
+        assert func(76) == "wrapping"
+        assert func(95) == "wrapping"
+        assert func(96) == "finishing"
+
+
+# ── drain_bar (NEW) ──────────────────────────────────────────────────────
+
+
+class TestDrainBar:
+    """Tests for drain_bar — visual drain bar with done/running/pending."""
+
+    def test_empty_queue(self):
+        func = _mod["drain_bar"]
+        result = func(done=0, running=0, pending=0, eta_seconds=0, use_color=False)
+        assert "queue empty" in result
+
+    def test_all_done(self):
+        func = _mod["drain_bar"]
+        result = func(done=10, running=0, pending=0, eta_seconds=0, use_color=False)
+        assert "100%" in result
+
+    def test_partial_progress(self):
+        func = _mod["drain_bar"]
+        result = func(done=5, running=2, pending=3, eta_seconds=300, use_color=False)
+        assert "50%" in result
+        assert "█" in result  # done segment
+        assert "▓" in result  # running segment
+        assert "░" in result  # pending segment
+
+    def test_shows_eta_wall_clock(self):
+        func = _mod["drain_bar"]
+        result = func(done=5, running=1, pending=5, eta_seconds=3600, use_color=False)
+        assert "ETA" in result
+        assert ":" in result  # wall clock time has colons
+
+    def test_no_eta_when_zero(self):
+        func = _mod["drain_bar"]
+        result = func(done=5, running=0, pending=0, eta_seconds=0, use_color=False)
+        assert "ETA —" in result or "ETA" in result
+
+    def test_color_mode(self):
+        func = _mod["drain_bar"]
+        result = func(done=5, running=2, pending=3, eta_seconds=300, use_color=True)
+        assert "\033[" in result
+
+    def test_no_color_mode(self):
+        func = _mod["drain_bar"]
+        result = func(done=5, running=2, pending=3, eta_seconds=300, use_color=False)
+        assert "\033[" not in result
+
+    def test_width_parameter(self):
+        func = _mod["drain_bar"]
+        result_w20 = func(done=5, running=0, pending=5, eta_seconds=0, width=20, use_color=False)
+        result_w40 = func(done=5, running=0, pending=5, eta_seconds=0, width=40, use_color=False)
+        assert len(result_w40) > len(result_w20)
+
+
+# ── heartbeat_line (NEW) ─────────────────────────────────────────────────
+
+
+class TestHeartbeatLine:
+    """Tests for heartbeat_line — activity heartbeat indicator."""
+
+    def test_no_completions(self):
+        func = _mod["heartbeat_line"]
+        result = func(None, 0, 0, "steady", 0.0, use_color=False)
+        assert "no completions" in result
+
+    def test_recent_completion(self):
+        func = _mod["heartbeat_line"]
+        result = func(30, 3, 10, "accelerating", 5.0, use_color=False)
+        assert "30s ago" in result
+        assert "burst 3/10" in result
+        assert "accel" in result
+        assert "5.0/hr" in result
+
+    def test_old_completion(self):
+        func = _mod["heartbeat_line"]
+        result = func(600, 0, 1, "decelerating", 0.5, use_color=False)
+        assert "10m 0s ago" in result
+        assert "decel" in result
+
+    def test_stall_warning_color(self):
+        func = _mod["heartbeat_line"]
+        result = func(600, 0, 0, "steady", 0.0, use_color=True)
+        # Should use red for stale (> 300s)
+        assert "\033[" in result
+
+    def test_trend_arrows(self):
+        func = _mod["heartbeat_line"]
+        r_acc = func(10, 1, 2, "accelerating", 3.0, use_color=False)
+        assert "↑" in r_acc
+        r_dec = func(10, 1, 2, "decelerating", 3.0, use_color=False)
+        assert "↓" in r_dec
+        r_std = func(10, 1, 2, "steady", 3.0, use_color=False)
+        assert "→" in r_std
+
+    def test_zero_ewma(self):
+        func = _mod["heartbeat_line"]
+        result = func(60, 0, 0, "steady", 0.0, use_color=False)
+        assert "—/hr" in result
+
+
+# ── Dashboard shows Drain bar and Heartbeat (NEW) ───────────────────────
+
+
+class TestDashboardDrainHeartbeat:
+    """Tests that the dashboard output includes the new Drain and Heartbeat sections."""
+
+    def test_shows_drain_bar(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(textwrap.dedent("""\
+                - [x] `golem --provider zhipu "task A"` → exit=0
+                - [ ] `golem --provider zhipu "task B"`
+            """))
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Drain" in captured.out
+        assert "50%" in captured.out
+
+    def test_shows_heartbeat(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            now_iso = datetime.now().isoformat()
+            (tmp_path / "golem.jsonl").write_text(
+                f'{{"ts":"{now_iso}","provider":"zhipu","duration":10,"exit":0}}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Heartbeat" in captured.out
+        assert "burst" in captured.out
+
+    def test_json_includes_drain_bar(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            rc = main(["--json"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert "drain_bar" in data
+        assert "heartbeat" in data
+        assert "burst" in data["heartbeat"]
+
+    def test_drain_bar_empty_queue(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text("")
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Drain" in captured.out
+        assert "queue empty" in captured.out
+
+
+# ── running_tasks_table with phase icons (NEW) ───────────────────────────
+
+
+class TestRunningTasksTablePhase:
+    """Tests for phase icons in the running tasks table."""
+
+    def test_starting_task_shows_icon(self):
+        func = _mod["running_tasks_table"]
+        tasks = [{
+            "pid": 111, "provider": "zhipu", "duration_secs": 5,
+            "task": "new task", "estimated_pct": 5, "estimated_remaining": 100,
+            "is_stale": False,
+        }]
+        result = func(tasks, use_color=False)
+        assert "○" in result  # starting icon
+
+    def test_running_task_shows_icon(self):
+        func = _mod["running_tasks_table"]
+        tasks = [{
+            "pid": 222, "provider": "zhipu", "duration_secs": 50,
+            "task": "mid task", "estimated_pct": 50, "estimated_remaining": 50,
+            "is_stale": False,
+        }]
+        result = func(tasks, use_color=False)
+        assert "◑" in result  # running icon
+
+    def test_wrapping_task_shows_icon(self):
+        func = _mod["running_tasks_table"]
+        tasks = [{
+            "pid": 333, "provider": "infini", "duration_secs": 80,
+            "task": "almost", "estimated_pct": 80, "estimated_remaining": 20,
+            "is_stale": False,
+        }]
+        result = func(tasks, use_color=False)
+        assert "◕" in result  # wrapping icon
+
+    def test_finishing_task_shows_icon(self):
+        func = _mod["running_tasks_table"]
+        tasks = [{
+            "pid": 444, "provider": "zhipu", "duration_secs": 95,
+            "task": "nearly done", "estimated_pct": 97, "estimated_remaining": 3,
+            "is_stale": False,
+        }]
+        result = func(tasks, use_color=False)
+        assert "●" in result  # finishing icon
+
+    def test_stale_task_no_phase_icon(self):
+        func = _mod["running_tasks_table"]
+        tasks = [{
+            "pid": 555, "provider": "infini", "duration_secs": 300,
+            "task": "stale", "estimated_pct": 100, "estimated_remaining": 0,
+            "is_stale": True,
+        }]
+        result = func(tasks, use_color=False)
+        assert "STALE" in result
