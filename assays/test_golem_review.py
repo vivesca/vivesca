@@ -408,13 +408,12 @@ def test_generate_review():
 
 
 def test_main_help(capsys):
-    ret = main()  # no --help → runs review but GERMLINE is real; just test --help
     # Test --help specifically
     import sys
     old_argv = sys.argv
     try:
         sys.argv = ["golem-review", "--help"]
-        ret = main()
+        ret = cmd_review()
         captured = capsys.readouterr()
         assert "golem-review" in captured.out
         assert ret == 0
