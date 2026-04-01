@@ -126,6 +126,17 @@ class TestHumanDelay:
         delay = await human_delay()
         assert 0.5 <= delay <= 2.0
 
+    @pytest.mark.asyncio
+    @patch("metabolon.organelles.browser_stealth.random.uniform")
+    @patch("metabolon.organelles.browser_stealth.asyncio.sleep")
+    async def test_calls_random_uniform(self, mock_sleep: MagicMock, mock_uniform: MagicMock) -> None:
+        """human_delay should call random.uniform with given range."""
+        mock_sleep.return_value = None
+        mock_uniform.return_value = 1.5
+        delay = await human_delay(0.5, 2.0)
+        mock_uniform.assert_called_once_with(0.5, 2.0)
+        assert delay == 1.5
+
 
 # ── stealth_context ──────────────────────────────────────────────────────
 
