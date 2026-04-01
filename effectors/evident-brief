@@ -30,8 +30,26 @@ BASE_URL = "https://evidentinsights.com/bankingbrief/"
 JINA_PREFIX = "https://r.jina.ai/"
 CACHE_DIR = Path.home() / ".cache" / "lustro-articles"
 
-# Firecrawl API key — from env or hardcoded fallback
-FIRECRAWL_KEY = os.environ.get("FIRECRAWL_API_KEY", "fc-38b9a21d9df3447a977325d380c0d67c")
+# Firecrawl API key — env > 1Password (Agents vault)
+FIRECRAWL_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+
+
+def _get_firecrawl_key() -> str:
+    """Resolve Firecrawl API key: env var, then 1Password."""
+    if FIRECRAWL_KEY:
+        return FIRECRAWL_KEY
+    try:
+        r = subprocess.run(
+            ["op", "item", "get", "Firecrawl", "--vault", "Agents", "--fields", "credential", "--reveal"],
+            capture_output=True, text=True, timeout=10,
+        )
+        key = r.stdout.strip()
+        if key and key.startswith("fc-"):
+            return key
+    except Exception:
+        pass
+    print("No Firecrawl API key found (set FIRECRAWL_API_KEY or add to 1Password Agents vault).", file=sys.stderr)
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -40,8 +58,11 @@ FIRECRAWL_KEY = os.environ.get("FIRECRAWL_API_KEY", "fc-38b9a21d9df3447a977325d3
 
 def firecrawl_fetch(url: str) -> str:
     """Fetch a URL via Firecrawl. Returns markdown string."""
+    key = _get_firecrawl_key()
+    if not key:
+        raise RuntimeError("No Firecrawl API key")
     from firecrawl import FirecrawlApp
-    fc = FirecrawlApp(api_key=FIRECRAWL_KEY)
+    fc = FirecrawlApp(api_key=key)
     doc = fc.scrape(url, formats=["markdown"])
     return doc.markdown or ""
 
@@ -111,11 +132,34 @@ def fetch_markdown(url: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Index parsing (agent-browser — cookie wall blocks Firecrawl/Jina on index)
+# Index parsing: Firecrawl map() → agent-browser fallback
 # ---------------------------------------------------------------------------
 
-def parse_index() -> list[dict]:
-    """Parse the brief index page. Returns [{title, date, slug, url}, ...]."""
+def _parse_index_firecrawl() -> list[dict]:
+    """Use Firecrawl map() to discover all brief URLs (1 credit)."""
+    key = _get_firecrawl_key()
+    if not key:
+        return []
+    from firecrawl import FirecrawlApp
+    fc = FirecrawlApp(api_key=key)
+    result = fc.map(INDEX_URL, limit=50)
+    briefs = []
+    slug_re = re.compile(r'/bankingbrief/([a-z0-9][-a-z0-9]+)$')
+    for item in (result.links or []) if hasattr(result, 'links') else []:
+        url = item.url if hasattr(item, 'url') else str(item)
+        m = slug_re.search(url)
+        if m:
+            slug = m.group(1)
+            title = (item.title or slug.replace("-", " ").title()) if hasattr(item, 'title') else slug.replace("-", " ").title()
+            # Clean Evident prefix from title
+            title = re.sub(r'^Evident\s*-\s*', '', title)
+            title = re.sub(r'\s*\|.*$', '', title).strip()
+            briefs.append({"title": title, "slug": slug, "url": url, "date": ""})
+    return briefs
+
+
+def _parse_index_browser() -> list[dict]:
+    """Fallback: use agent-browser to parse index (handles cookie wall)."""
     try:
         _ab(f"open {INDEX_URL}", timeout=20)
         time.sleep(2)
@@ -130,7 +174,6 @@ def parse_index() -> list[dict]:
                 break
 
         snap = _ab("snapshot")
-
         briefs = []
         seen = set()
         date_re = re.compile(
@@ -158,16 +201,26 @@ def parse_index() -> list[dict]:
                     if slug and slug not in seen:
                         seen.add(slug)
                         briefs.append({
-                            "title": title,
-                            "slug": slug,
-                            "url": f"{BASE_URL}{slug}",
-                            "date": current_date or "",
+                            "title": title, "slug": slug,
+                            "url": f"{BASE_URL}{slug}", "date": current_date or "",
                         })
                         current_date = None
 
         return [b for b in briefs if b.get("date")]
     finally:
         subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
+
+
+def parse_index() -> list[dict]:
+    """Parse the brief index. Firecrawl map → agent-browser fallback."""
+    try:
+        briefs = _parse_index_firecrawl()
+        if briefs:
+            print(f"[map] {len(briefs)} briefs found", file=sys.stderr)
+            return briefs
+    except Exception as e:
+        print(f"[map] failed: {e}", file=sys.stderr)
+    return _parse_index_browser()
 
 
 # ---------------------------------------------------------------------------
