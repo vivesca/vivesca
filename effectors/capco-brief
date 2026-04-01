@@ -49,72 +49,65 @@ def _capco_files() -> list[Path]:
 
 # ── stakeholders ─────────────────────────────────────────────────────
 
-# A person name: exactly 2–3 title-cased words, matching a strict pattern
-_NAME_RE = re.compile(r"^[A-Z][a-z]+(?: [A-Z][a-z]+){1,2}$")
-
-# First/last words that disqualify a string as a person name
-_NOT_NAME_WORDS = frozenset({
-    # org / brand suffixes
+# Words that should NEVER appear in a person name at any position
+_NEVER_NAME_WORDS = frozenset({
+    # organisational / brand
     "bank", "institute", "centre", "center", "library", "university",
     "college", "association", "foundation", "council", "group", "labs",
     "capital", "markets", "consulting", "partners", "solutions",
     "technology", "services", "systems", "software", "platform",
-    # non-name concepts
-    "role", "manager", "team", "office", "day", "week", "month", "year",
-    "morning", "evening", "night", "lunch", "checklist", "outfit", "alarm",
-    "reception", "laptop", "phone", "bag", "item", "route", "dress",
-    "transport", "benefits", "insurance", "probation", "payroll", "tax",
-    "sim", "coffee", "not", "do", "what", "key", "note", "event",
-    "capco", "hsbc", "cncbi", "mpf", "aia", "hkid", "ibkr", "garp",
-    "review", "model", "data", "risk", "governance", "ai", "regulatory",
+    "capco", "hsbc", "cncbi", "wipro", "openai", "google", "apple",
+    # structural / concept
+    "role", "team", "office", "day", "week", "month", "year",
+    "checklist", "outfit", "alarm", "reception", "laptop", "phone",
+    "bag", "item", "route", "dress", "transport", "benefits",
+    "insurance", "probation", "payroll", "tax", "coffee", "event",
+    "review", "model", "data", "risk", "governance", "regulatory",
     "compliance", "engagement", "delivery", "strategy", "digital",
-    "transformation", "innovation", "operations", "managed", "fixed",
-    "scaled", "consumer", "principle", "four", "common", "named",
-    "newly", "super", "application", "selection", "use", "quick",
-    "typical", "pricing", "stage", "outputs", "inputs", "active",
-    "compliance", "smart", "process", "redesign", "explicit",
-    "technical", "standard", "hong", "kong", "first", "formal",
-    "deep", "module", "exam", "basic", "parent", "strategic",
-    "service", "org", "thought", "wells", "fargo", "delta",
-    "structured", "content", "arrival", "social", "one",
-    "mitigation", "prompt", "sensitive", "improper", "unbounded",
-    "system", "excessive", "agent", "agentic", "supply", "unexpected",
+    "transformation", "innovation", "operations", "consumer",
+    "application", "selection", "use", "quick", "pricing", "stage",
+    "outputs", "inputs", "active", "smart", "process", "redesign",
+    "technical", "standard", "first", "formal", "deep", "module",
+    "exam", "basic", "parent", "strategic", "service", "org",
+    "thought", "content", "arrival", "social", "mitigation",
+    "prompt", "sensitive", "improper", "unbounded", "system",
+    "excessive", "agent", "agentic", "supply", "unexpected",
     "cascading", "rogue", "bounded", "control", "minimum",
-    "due", "dynamic", "connect", "minimum", "why", "tiering",
-    "governance", "connectivity", "workflow", "low", "medium", "high",
-    "big", "inference", "governance", "decision", "performance",
-    "about", "content", "consulting", "talent",
-    "baringa", "neurons", "alan", "turing",
-    "hawaiian", "morgan", "stanley",
-    # additional concept words that sneak through
-    "the", "your", "her", "his", "their", "this", "that",
-})
-
-# Two-word combos that are org names, not people
-_ORG_NAMES = frozenset({
-    "delta capita", "sun life", "hang seng", "wells fargo",
-    "first hawaiian", "morgan stanley", "standard chartered",
-    "neurons lab", "baringa partners", "hong kong", "big data",
-    "microsoft", "openai", "wipro", "apple", "google",
+    "due", "dynamic", "connect", "connectivity", "workflow",
+    "performance", "consulting", "talent", "context", "information",
+    "numbers", "jurisdiction", "matrix", "maturity", "operating",
+    "capability", "transfer", "senior", "consultants", "approver",
+    "assistant", "rugby", "captain", "rapport", "opportunities",
+    "next", "steps", "managing", "principal", "intelligent",
+    "document", "integration", "structural", "flags", "organisational",
+    "sponsor", "sun", "life", "asia", "to", "for", "the", "your",
+    "her", "his", "their", "this", "that", "about", "why", "how",
+    "what", "when", "where", "which", "who", "from", "with",
+    "named", "newly", "super", "typical", "explicit", "hong",
+    "kong", "scaled", "fixed", "managed", "common", "principle",
+    "four", "low", "medium", "high", "big", "inference", "decision",
+    "baringa", "neurons", "alan", "turing", "hawaiian", "morgan",
+    "stanley", "delta", "managed", "one", "up", "not",
 })
 
 
 def _is_person_name(s: str) -> bool:
-    """Return True if s looks like a real person name (2-3 capitalized words)."""
+    """Return True if s looks like a real person name (2-3 title-case words)."""
     s = s.strip("* ")
-    if not _NAME_RE.match(s):
-        return False
     words = s.split()
-    if len(words) < 2 or len(words) > 3:
+    if len(words) < 2 or len(words) > 4:
         return False
-    # first AND last word must not be a stop word
-    if words[0].lower() in _NOT_NAME_WORDS:
-        return False
-    if words[-1].lower() in _NOT_NAME_WORDS:
-        return False
-    # check full name against known org names
-    if s.lower() in _ORG_NAMES:
-        return False
+    for w in words:
+        # strip trailing punctuation from table extraction artifacts
+        w_clean = w.rstrip(":.,;")
+        # each word must be purely alphabetic, title-cased, ≥2 chars
+        if len(w_clean) < 2 or not w_clean.isalpha():
+            if w_clean.lower() not in ("dr", "mr", "mrs", "ms"):
+                return False
+        if not w_clean[0].isupper():
+            return False
+        if w_clean.lower() in _NEVER_NAME_WORDS:
+            return False
     return True
 
 
