@@ -49,6 +49,9 @@ def notify(msg):
         pass
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__.strip())
+        sys.exit(0)
     loop = "--loop" in sys.argv
     attempt = 0
 
