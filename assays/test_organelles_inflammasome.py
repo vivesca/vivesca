@@ -858,7 +858,11 @@ class TestAdaptiveResponse:
     @patch.object(mod, "_load_priming", return_value={"rss_state": 1})
     def test_second_failure_triggers_repair(self, mock_load, mock_save):
         results = [{"name": "rss_state", "passed": False, "message": "stale data"}]
-        with patch.object(mod, "_repair_rss_stale", return_value=(True, "dispatched")):
+        mock_repair = MagicMock(return_value=(True, "dispatched"))
+        patched_patterns = [
+            ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch_background"),
+        ] + mod._REPAIR_PATTERNS[1:]
+        with patch.object(mod, "_REPAIR_PATTERNS", patched_patterns):
             out = mod.adaptive_response(results)
         assert out[0]["repair_attempted"] == "rss_fetch_background:ok"
 
@@ -866,7 +870,11 @@ class TestAdaptiveResponse:
     @patch.object(mod, "_load_priming", return_value={"rss_state": 1})
     def test_repair_failure(self, mock_load, mock_save):
         results = [{"name": "rss_state", "passed": False, "message": "stale data"}]
-        with patch.object(mod, "_repair_rss_stale", return_value=(False, "vivesca not found")):
+        mock_repair = MagicMock(return_value=(False, "vivesca not found"))
+        patched_patterns = [
+            ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch_background"),
+        ] + mod._REPAIR_PATTERNS[1:]
+        with patch.object(mod, "_REPAIR_PATTERNS", patched_patterns):
             out = mod.adaptive_response(results)
         assert "rss_fetch_background:fail" in out[0]["repair_attempted"]
 
@@ -874,7 +882,13 @@ class TestAdaptiveResponse:
     @patch.object(mod, "_load_priming", return_value={"mcp_server": 1})
     def test_mcp_server_repair_triggered(self, mock_load, mock_save):
         results = [{"name": "mcp_server", "passed": False, "message": "is not loaded"}]
-        with patch.object(mod, "_repair_mcp_not_loaded", return_value=(True, "loaded ok")):
+        mock_repair = MagicMock(return_value=(True, "loaded ok"))
+        patched_patterns = [
+            mod._REPAIR_PATTERNS[0],
+            ("mcp_server", lambda msg: "not loaded" in msg, mock_repair, "launchctl_load_mcp"),
+            mod._REPAIR_PATTERNS[2],
+        ]
+        with patch.object(mod, "_REPAIR_PATTERNS", patched_patterns):
             out = mod.adaptive_response(results)
         assert out[0]["repair_attempted"] == "launchctl_load_mcp:ok"
 
@@ -882,7 +896,13 @@ class TestAdaptiveResponse:
     @patch.object(mod, "_load_priming", return_value={"rheotaxis": 1})
     def test_rheotaxis_key_repair_triggered(self, mock_load, mock_save):
         results = [{"name": "rheotaxis", "passed": False, "message": "API key not set or empty"}]
-        with patch.object(mod, "_repair_chemotaxis_key", return_value=(True, "key loaded")):
+        mock_repair = MagicMock(return_value=(True, "key loaded"))
+        patched_patterns = [
+            mod._REPAIR_PATTERNS[0],
+            mod._REPAIR_PATTERNS[1],
+            ("rheotaxis", lambda msg: "not set" in msg, mock_repair, "importin_load_keychain"),
+        ]
+        with patch.object(mod, "_REPAIR_PATTERNS", patched_patterns):
             out = mod.adaptive_response(results)
         assert out[0]["repair_attempted"] == "importin_load_keychain:ok"
 
@@ -913,7 +933,8 @@ class TestAdaptiveResponse:
     def test_pyroptosis_escalation(self, mock_load, mock_save):
         results = [{"name": "test_probe", "passed": False, "message": "keeps failing"}]
         out = mod.adaptive_response(results)
-        assert "pyroptosis:3" in out[0]["repair_attempted"]
+        # is_primed increments 3→4 before check_pyroptosis sees it
+        assert "pyroptosis:4" in out[0]["repair_attempted"]
 
     @patch.object(mod, "_save_priming")
     @patch.object(mod, "_load_priming", return_value={})
