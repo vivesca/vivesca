@@ -319,3 +319,140 @@ class TestLogFileLocation:
         assert record.exists(), f"Record file not created. stderr={r.stderr}"
         calls = record.read_text()
         assert "--to opencode" in calls
+
+
+# ── command argument detail tests ─────────────────────────────────────────
+
+
+class TestCommandArgs:
+    def test_uses_full_package_name(self, tmp_path):
+        """Runner is called with @every-env/compound-plugin."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        calls = record.read_text()
+        assert "@every-env/compound-plugin install compound-engineering" in calls
+
+    def test_opencode_runs_before_codex(self, tmp_path):
+        """OpenCode update is attempted before Codex update."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        lines = record.read_text().strip().splitlines()
+        assert len(lines) >= 2
+        assert "--to opencode" in lines[0]
+        assert "--to codex" in lines[1]
+
+    def test_exactly_two_invocations(self, tmp_path):
+        """Runner is called exactly twice (once for each target)."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        lines = record.read_text().strip().splitlines()
+        assert len(lines) == 2
+
+
+# ── log structure tests ──────────────────────────────────────────────────
+
+
+class TestLogStructure:
+    def test_log_has_separator_line(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "========================================" in log_text
+
+    def test_log_has_updating_opencode_status(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "Updating OpenCode..." in log_text
+
+    def test_log_has_updating_codex_status(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "Updating Codex..." in log_text
+
+    def test_log_ends_with_empty_line(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert log_text.endswith("\n\n"), "Log should end with an empty line"
+
+    def test_success_uses_checkmark_emoji(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "✅" in log_text
+
+    def test_failure_uses_cross_emoji(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx", exit_code=1)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "❌" in log_text
+
+    def test_opencode_status_before_codex_status(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        oc_pos = log_text.index("Updating OpenCode...")
+        cx_pos = log_text.index("Updating Codex...")
+        assert oc_pos < cx_pos
+
+
+# ── stderr / exit code tests ─────────────────────────────────────────────
+
+
+class TestStderrAndExitCode:
+    def test_no_stderr_on_success(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.stderr == ""
+
+    def test_exits_0_even_on_update_failure(self, tmp_path):
+        """Script exits 0 even when individual updates fail."""
+        bindir = _make_mock_bin(tmp_path, "bunx", exit_code=1)
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.returncode == 0
+
+
+# ── source analysis tests ────────────────────────────────────────────────
+
+
+class TestSourceAnalysis:
+    def _src(self) -> str:
+        return SCRIPT.read_text()
+
+    def test_uses_home_variable_not_hardcoded(self):
+        src = self._src()
+        assert "$HOME" in src
+        assert "/home/terry" not in src
+        assert "/Users/terry" not in src
+
+    def test_no_todo_fixme_markers(self):
+        src = self._src()
+        for marker in ("TODO", "FIXME"):
+            assert marker not in src, f"Script contains {marker}"
+
+    def test_help_mentions_opencode_and_codex(self):
+        r = _run_script(["--help"])
+        assert "OpenCode" in r.stdout
+        assert "Codex" in r.stdout
+
+    def test_uses_append_not_overwrite(self):
+        """All log writes use >> (append), not > (overwrite)."""
+        src = self._src()
+        for line in src.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            # Lines that write to LOG_FILE should use >>
+            if "LOG_FILE" in stripped and ">" in stripped:
+                # >> is append, > (single) is overwrite — ensure >>
+                assert ">>" in stripped, f"Line uses overwrite instead of append: {stripped}"
+
+    def test_hash_r_clears_path_cache(self):
+        """Script clears hash table to get fresh runner path."""
+        src = self._src()
+        assert "hash -r" in src
