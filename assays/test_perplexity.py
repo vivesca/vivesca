@@ -42,16 +42,24 @@ def _run(
     )
 
 
+def _make_tmpdir(tmp_path: Path) -> Path:
+    """Ensure a stable tmpdir that persists through subprocess execution."""
+    d = tmp_path / "_work"
+    d.mkdir(exist_ok=True)
+    return d
+
+
 def _make_fake_curl(tmpdir: Path, response_body: str) -> Path:
     """Create a fake curl that captures the -d body and prints response_body.
 
-    The response is written via a temp file to avoid shell-escaping issues
-    with complex JSON payloads.
+    Response is base64-encoded into the script itself so no external files
+    are needed (avoids tmp_path cleanup races between pytest and subprocess).
     """
+    import base64
+
     fake = tmpdir / "curl"
     capture = tmpdir / "captured_request.json"
-    resp_file = tmpdir / "mock_response.bin"
-    resp_file.write_text(response_body)
+    b64 = base64.b64encode(response_body.encode()).decode()
     fake.write_text(
         f"""#!/usr/bin/env bash
 # fake curl: capture -d argument, return canned response
@@ -61,7 +69,7 @@ while [ "$#" -gt 0 ]; do
         *)  shift ;;
     esac
 done
-cat {resp_file}
+printf '%s' '{b64}' | base64 -d
 """
     )
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
@@ -69,9 +77,10 @@ cat {resp_file}
 
 
 def _run_with_fake_curl(
-    tmpdir: Path, mode: str, query: str, response_body: str,
+    tmp_path: Path, mode: str, query: str, response_body: str,
 ) -> tuple[subprocess.CompletedProcess, dict]:
     """Run perplexity.sh with a fake curl; return (proc, captured_request)."""
+    tmpdir = _make_tmpdir(tmp_path)
     _make_fake_curl(tmpdir, response_body)
     env_extra = {
         "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}",
@@ -291,11 +300,12 @@ class TestExtraArgs:
     def test_three_args_ignores_third(self, tmp_path):
         """Extra positional args are ignored by bash — only $1 and $2 are used."""
         body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        tmpdir = _make_tmpdir(tmp_path)
+        _make_fake_curl(tmpdir, body)
         env_extra = {
-            "PATH": f"{tmp_path}:{os.environ.get('PATH', '')}",
+            "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}",
             "PERPLEXITY_API_KEY": "test-key-12345",
         }
-        _make_fake_curl(tmp_path, body)
         proc = _run("search", "hello", "extra", env_extra=env_extra)
         assert proc.returncode == 0, f"stderr: {proc.stderr}"
 
@@ -312,13 +322,15 @@ class TestExtraArgs:
 class TestAuthHeader:
     def test_curl_receives_bearer_token(self, tmp_path):
         """Verify the fake curl sees the Authorization header with Bearer."""
-        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        import base64
 
-        # Build a fake curl that captures -H args
-        fake = tmp_path / "curl"
-        capture = tmp_path / "captured_headers.txt"
-        resp_file = tmp_path / "mock_response.bin"
-        resp_file.write_text(body)
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        tmpdir = _make_tmpdir(tmp_path)
+
+        # Build a fake curl that captures -H args, embeds response via base64
+        fake = tmpdir / "curl"
+        capture = tmpdir / "captured_headers.txt"
+        b64 = base64.b64encode(body.encode()).decode()
         fake.write_text(
             f"""#!/usr/bin/env bash
 while [ "$#" -gt 0 ]; do
@@ -328,13 +340,13 @@ while [ "$#" -gt 0 ]; do
         *)  shift ;;
     esac
 done
-cat {resp_file}
+printf '%s' '{b64}' | base64 -d
 """
         )
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
 
         env_extra = {
-            "PATH": f"{tmp_path}:{os.environ.get('PATH', '')}",
+            "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}",
             "PERPLEXITY_API_KEY": "test-key-12345",
         }
         proc = _run("search", "test", env_extra=env_extra)

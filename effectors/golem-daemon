@@ -1162,6 +1162,17 @@ def auto_requeue(min_pending: int = 50) -> int:
     if len(pending) >= min_pending:
         return 0
 
+    # Build set of prompts already in queue (pending OR completed) to avoid duplication
+    _completed_prompts: set[str] = set()
+    if QUEUE_FILE.exists():
+        for line in QUEUE_FILE.read_text().splitlines():
+            m = re.search(r'`golem\s+(?:\[t-[a-f0-9]+\]\s+)?(.+)`', line)
+            if m:
+                # Normalize: strip provider/turns flags, keep just the quoted prompt
+                prompt_match = re.search(r'"(.+)"', m.group(1))
+                if prompt_match:
+                    _completed_prompts.add(prompt_match.group(1)[:80])  # first 80 chars as key
+
     germline = Path.home() / "germline"
     epigenome = Path.home() / "epigenome"
     tasks = []
@@ -1170,6 +1181,9 @@ def auto_requeue(min_pending: int = 50) -> int:
 
     def add(prompt, turns=25):
         nonlocal pi
+        # Skip if a similar prompt was already queued (pending or completed)
+        if prompt[:80] in _completed_prompts:
+            return
         p = providers[pi % 3]
         pi += 1
         prompt = prompt.replace('"', '\\"')
