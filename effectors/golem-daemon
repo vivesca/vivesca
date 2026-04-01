@@ -1022,7 +1022,7 @@ def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
 
         # Clean Python cache
         subprocess.run(
-            "find /home/terry/germline -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null",
+            f"find {Path.home()}/germline -name __pycache__ -type d -exec rm -rf {{}} + 2>/dev/null",
             shell=True, timeout=30
         )
 
