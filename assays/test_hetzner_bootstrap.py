@@ -100,7 +100,7 @@ class TestContentStructure:
 
     def test_ssh_key_copy(self):
         assert "/root/.ssh/authorized_keys" in self.content
-        assert "/home/terry/.ssh/" in self.content
+        assert "~terry/.ssh" in self.content
 
     def test_fnm_node_install(self):
         assert "fnm.vercel.app/install" in self.content
