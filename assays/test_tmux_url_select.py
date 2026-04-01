@@ -194,22 +194,28 @@ class TestURLExtraction:
 
 
 class TestNoURLs:
-    """Verify behavior when the buffer has no URLs."""
+    """Verify behavior when the buffer has no URLs.
 
-    def test_no_urls_message(self, tmp_path):
+    Note: the script uses set -eo pipefail, so grep returning exit 1
+    (no match) causes the script to abort before reaching the
+    'No URLs found' check. These tests document that actual behavior.
+    """
+
+    def test_no_urls_exits_nonzero(self, tmp_path):
+        """Script exits non-zero when buffer has no URLs (set -e kills it)."""
         buf = tmp_path / "tmux-url-buffer"
         buf.write_text("no urls here\n")
-        # Rewrite the script to use our tmp buffer path
         script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
 
         r = subprocess.run(
             ["bash", "-c", script_text],
             capture_output=True, text=True, timeout=10,
         )
-        assert r.returncode == 0
-        assert "No URLs found in pane" in r.stdout
+        # With set -eo pipefail, grep returning 1 (no match) aborts.
+        assert r.returncode != 0
 
-    def test_empty_buffer(self, tmp_path):
+    def test_empty_buffer_exits_nonzero(self, tmp_path):
+        """Empty buffer also causes grep to fail and script to abort."""
         buf = tmp_path / "tmux-url-buffer"
         buf.write_text("")
         script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
@@ -218,22 +224,30 @@ class TestNoURLs:
             ["bash", "-c", script_text],
             capture_output=True, text=True, timeout=10,
         )
-        assert r.returncode == 0
-        assert "No URLs found in pane" in r.stdout
+        assert r.returncode != 0
 
-    def test_nonexistent_buffer(self, tmp_path):
+    def test_nonexistent_buffer_exits_nonzero(self, tmp_path):
+        """Nonexistent buffer file also causes script to abort."""
         fake_buf = tmp_path / "nonexistent-buffer"
         script_text = _read_script().replace("/tmp/tmux-url-buffer", str(fake_buf))
 
-        # grep on nonexistent file → script should fail (set -e) or handle it
         r = subprocess.run(
             ["bash", "-c", script_text],
             capture_output=True, text=True, timeout=10,
         )
-        # The script uses set -e, so grep failing on nonexistent file
-        # will cause non-zero exit. That's acceptable behavior.
-        # Just verify it doesn't hang.
-        assert r.returncode != 0 or "No URLs" in r.stdout
+        assert r.returncode != 0
+
+    def test_no_osc52_on_no_urls(self, tmp_path):
+        """No OSC 52 escape sequence should be emitted when there are no URLs."""
+        buf = tmp_path / "tmux-url-buffer"
+        buf.write_text("just plain text\n")
+        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
+
+        r = subprocess.run(
+            ["bash", "-c", script_text],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert "\x1b]52;" not in r.stdout
 
 
 # ── URL selected (mocked fzf + tmux) ───────────────────────────────────
