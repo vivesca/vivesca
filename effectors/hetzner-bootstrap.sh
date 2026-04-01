@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Hetzner VPS Bootstrap for Claude Code
 # Run as root on a fresh Ubuntu 22.04 VPS
 # Usage: ssh root@<IP> 'bash -s' < hetzner-bootstrap.sh

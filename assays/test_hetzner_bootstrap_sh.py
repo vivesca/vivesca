@@ -141,8 +141,8 @@ class TestContentChecks:
     def test_harden_ssh_robust(self):
         """SSH hardening should match both commented and uncommented lines."""
         src = SCRIPT.read_text()
-        assert "sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/'" in src
-        assert "sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/'" in src
+        assert r"sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/'" in src
+        assert r"sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/'" in src
 
     def test_restarts_sshd(self):
         src = SCRIPT.read_text()
