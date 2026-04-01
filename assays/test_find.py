@@ -54,11 +54,10 @@ class TestFindSymlink:
 
 class TestFindBinaries:
     def test_find_entry_exists(self, sg):
-        assert "find" in sg.BINARIES
-        assert sg.BINARIES["find"] == "/usr/bin/find"
+        assert "find" in sg._KNOWN_WRAPPERS
 
     def test_all_three_binaries_defined(self, sg):
-        assert set(sg.BINARIES.keys()) == {"grep", "rg", "find"}
+        assert sg._KNOWN_WRAPPERS == {"grep", "rg", "find"}
 
 
 # ── Root/home blocking ──────────────────────────────────────────────────────

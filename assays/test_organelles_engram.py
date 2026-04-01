@@ -193,21 +193,24 @@ class TestMakeLineContext:
 
     def test_single_line(self):
         text = "hello world"
-        line, before, after = _make_line_context(text, 0, 5, context_lines=2)
+        # _make_line_context(text, match_start, context_lines)
+        line, before, after = _make_line_context(text, 0, 2)
         assert line == "hello world"
         assert before == []
         assert after == []
 
     def test_multi_line_with_context(self):
         text = "line0\nline1\nline2\nline3\nline4"
-        line, before, after = _make_line_context(text, 12, 15, context_lines=1)
+        # match_start=12 is inside "line2" (offset: line0=0, line1=6, line2=12)
+        line, before, after = _make_line_context(text, 12, 1)
         assert line == "line2"
         assert before == ["line1"]
         assert after == ["line3"]
 
     def test_zero_context_lines(self):
         text = "a\nb\nc"
-        line, before, after = _make_line_context(text, 2, 3, context_lines=0)
+        # match_start=2 is inside "b" (a=0, b=2)
+        line, before, after = _make_line_context(text, 2, 0)
         assert line == "b"
         assert before == []
         assert after == []
@@ -476,6 +479,7 @@ class TestSearchPrompts:
     @patch("metabolon.organelles.engram._history_files")
     def test_finds_match_in_history(self, mock_hf, mock_os):
         from metabolon.organelles.engram import _search_prompts
+        from io import StringIO
 
         mock_os.return_value = Path("/fake/opencode")
         ts_ms = 1718409600000  # some timestamp in range
@@ -486,7 +490,8 @@ class TestSearchPrompts:
         })
         fake_path = MagicMock()
         fake_path.exists.return_value = True
-        fake_path.open.return_value.__iter__ = lambda s: iter(entry.splitlines())
+        fake_path.open.return_value.__enter__ = lambda s: StringIO(entry)
+        fake_path.open.return_value.__exit__ = MagicMock(return_value=False)
         mock_hf.return_value = [("Claude", fake_path)]
 
         # Use wide time range
