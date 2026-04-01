@@ -21,6 +21,7 @@ from metabolon.organelles.engram import (
     _fuzzy_search,
     _highlight_matches,
     _is_plain_word,
+    _iter_opencode_messages,
     _make_line_context,
     _make_snippet,
     _matches_role,
