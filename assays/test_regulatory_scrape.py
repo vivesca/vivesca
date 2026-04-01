@@ -214,8 +214,8 @@ def test_fetch_content_returns_empty_on_all_failures():
 def test_scrape_one_writes_file(tmp_path):
     """scrape_one creates a frontmattered markdown file."""
     content = "X" * 300
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content", return_value=content):
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content", return_value=content):
         result = scrape_one(
             "https://example.com/doc", "fca", "2024-04-22",
             "AI Update", "guidance",
@@ -233,8 +233,8 @@ def test_scrape_one_writes_file(tmp_path):
 
 def test_scrape_one_custom_slug(tmp_path):
     """scrape_one uses custom slug when provided."""
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content", return_value="X" * 300):
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content", return_value="X" * 300):
         result = scrape_one(
             "https://example.com/doc", "fca", "2024-04-22",
             "AI Update", "guidance", slug="custom-slug",
@@ -250,8 +250,8 @@ def test_scrape_one_skips_existing(tmp_path):
     existing = tmp_path / filename
     existing.write_text("X" * 600)
 
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content") as mock_fc:
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content") as mock_fc:
         result = scrape_one(
             "https://example.com/doc", "fca", "2024-04-22",
             "AI Update", "guidance",
