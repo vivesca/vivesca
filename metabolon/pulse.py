@@ -500,169 +500,169 @@ def fire_systole(
         )
 
     with open(log_file, "a") as log_fh:
-     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=log_fh,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        last_log_size = os.path.getsize(log_file)
-        last_growth_time = time.time()
-        last_deliverable_time = time.time()
-        last_deliverable_count = 0
-        churn_seconds = genome.get("churn_seconds", 600)
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            last_log_size = os.path.getsize(log_file)
+            last_growth_time = time.time()
+            last_deliverable_time = time.time()
+            last_deliverable_count = 0
+            churn_seconds = genome.get("churn_seconds", 600)
 
-        stall_warned = False
-        churn_warned = False
-        last_print_time = start
+            stall_warned = False
+            churn_warned = False
+            last_print_time = start
 
-        while True:
-            time.sleep(30)
-            elapsed_so_far = round(time.time() - start)
+            while True:
+                time.sleep(30)
+                elapsed_so_far = round(time.time() - start)
 
-            ret = proc.poll()
-            if ret is not None:
-                elapsed = round(time.time() - start, 1)
-                try:
-                    with open(log_file) as f:
-                        f.seek(max(0, os.path.getsize(log_file) - 300))
-                        tail = f.read().strip()[-200:]
-                except Exception:
-                    tail = "(unreadable)"
+                ret = proc.poll()
+                if ret is not None:
+                    elapsed = round(time.time() - start, 1)
+                    try:
+                        with open(log_file) as f:
+                            f.seek(max(0, os.path.getsize(log_file) - 300))
+                            tail = f.read().strip()[-200:]
+                    except Exception:
+                        tail = "(unreadable)"
+                    recent_count = _count_recent_secretions(SECRETION_DIRS, start)
+                    record_event(
+                        "systole_yield",
+                        systole=systole_num,
+                        secretion_count=recent_count,
+                    )
+                    record_event(
+                        "systole_end",
+                        systole=systole_num,
+                        exit_code=ret,
+                        elapsed_s=elapsed,
+                        output_tail=tail,
+                    )
+                    record_status(state="completed", elapsed_s=elapsed)
+                    return ret == 0, tail
+
+                current_log_size = os.path.getsize(log_file)
+                if current_log_size > last_log_size:
+                    last_log_size = current_log_size
+                    last_growth_time = time.time()
+
+                stall_duration = round(time.time() - last_growth_time)
+
+                if stall_duration > stall_seconds:
+                    if not stall_warned:
+                        record_event(
+                            "systole_stall_warning",
+                            systole=systole_num,
+                            elapsed_s=elapsed_so_far,
+                            stall_s=stall_duration,
+                        )
+                        stall_warned = True
+                else:
+                    if stall_warned:
+                        record_event(
+                            "systole_stall_resolved",
+                            systole=systole_num,
+                            elapsed_s=elapsed_so_far,
+                            stall_s=stall_duration,
+                        )
+                    stall_warned = False
+
                 recent_count = _count_recent_secretions(SECRETION_DIRS, start)
-                record_event(
-                    "systole_yield",
-                    systole=systole_num,
-                    secretion_count=recent_count,
-                )
-                record_event(
-                    "systole_end",
-                    systole=systole_num,
-                    exit_code=ret,
-                    elapsed_s=elapsed,
-                    output_tail=tail,
-                )
-                record_status(state="completed", elapsed_s=elapsed)
-                return ret == 0, tail
+                if recent_count > last_deliverable_count:
+                    last_deliverable_time = time.time()
+                    last_deliverable_count = recent_count
 
-            current_log_size = os.path.getsize(log_file)
-            if current_log_size > last_log_size:
-                last_log_size = current_log_size
-                last_growth_time = time.time()
+                churn_duration = round(time.time() - last_deliverable_time)
 
-            stall_duration = round(time.time() - last_growth_time)
+                if churn_duration > churn_seconds and elapsed_so_far > churn_seconds:
+                    if not churn_warned:
+                        record_event(
+                            "systole_churn_warning",
+                            systole=systole_num,
+                            elapsed_s=elapsed_so_far,
+                            churn_s=churn_duration,
+                        )
+                        churn_warned = True
+                    # Reduced ejection: if churning 2x the threshold, soft-stop
+                    if churn_duration > churn_seconds * 2:
+                        proc.terminate()
+                        proc.wait(timeout=30)
+                        log_fh.write(
+                            f"\n--- REDUCED EJECTION after {elapsed_so_far}s (churn {churn_duration}s) ---\n"
+                        )
+                        record_event(
+                            "reduced_ejection",
+                            systole=systole_num,
+                            elapsed_s=elapsed_so_far,
+                            churn_s=churn_duration,
+                        )
+                        print(
+                            f"  ~ Reduced ejection: systole {systole_num} soft-stopped at {elapsed_so_far}s (no output for {churn_duration}s)",
+                            flush=True,
+                        )
+                        return True, ""
+                else:
+                    if churn_warned:
+                        record_event(
+                            "systole_churn_resolved",
+                            systole=systole_num,
+                            elapsed_s=elapsed_so_far,
+                            churn_s=churn_duration,
+                        )
+                    churn_warned = False
 
-            if stall_duration > stall_seconds:
-                if not stall_warned:
+                if elapsed_so_far > max_systole_seconds:
+                    proc.kill()
+                    proc.wait()
+                    log_fh.write(f"\n--- KILLED after {elapsed_so_far}s ---\n")
                     record_event(
-                        "systole_stall_warning",
+                        "systole_killed",
                         systole=systole_num,
                         elapsed_s=elapsed_so_far,
-                        stall_s=stall_duration,
+                        reason="timeout",
                     )
-                    stall_warned = True
-            else:
-                if stall_warned:
-                    record_event(
-                        "systole_stall_resolved",
-                        systole=systole_num,
-                        elapsed_s=elapsed_so_far,
-                        stall_s=stall_duration,
-                    )
-                stall_warned = False
+                    print(f"  ! Killed systole {systole_num} at {elapsed_so_far}s", flush=True)
+                    return True, ""
 
-            recent_count = _count_recent_secretions(SECRETION_DIRS, start)
-            if recent_count > last_deliverable_count:
-                last_deliverable_time = time.time()
-                last_deliverable_count = recent_count
-
-            churn_duration = round(time.time() - last_deliverable_time)
-
-            if churn_duration > churn_seconds and elapsed_so_far > churn_seconds:
-                if not churn_warned:
-                    record_event(
-                        "systole_churn_warning",
-                        systole=systole_num,
-                        elapsed_s=elapsed_so_far,
-                        churn_s=churn_duration,
-                    )
-                    churn_warned = True
-                # Reduced ejection: if churning 2x the threshold, soft-stop
-                if churn_duration > churn_seconds * 2:
-                    proc.terminate()
-                    proc.wait(timeout=30)
-                    log_fh.write(
-                        f"\n--- REDUCED EJECTION after {elapsed_so_far}s (churn {churn_duration}s) ---\n"
-                    )
-                    record_event(
-                        "reduced_ejection",
-                        systole=systole_num,
-                        elapsed_s=elapsed_so_far,
-                        churn_s=churn_duration,
-                    )
+                try:
+                    cpu = subprocess.run(
+                        ["ps", "-p", str(proc.pid), "-o", "cputime="],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                    ).stdout.strip()
+                except Exception:
+                    cpu = "?"
+                stall_status = f"stall={stall_duration}s" if stall_duration > 60 else "log=active"
+                churn_status = f"churn={churn_duration}s" if churn_duration > 120 else "files=ok"
+                now = time.time()
+                if now - last_print_time >= 60:
                     print(
-                        f"  ~ Reduced ejection: systole {systole_num} soft-stopped at {elapsed_so_far}s (no output for {churn_duration}s)",
+                        f"  ... {elapsed_so_far}s elapsed, cpu={cpu}, {stall_status}, {churn_status}",
                         flush=True,
                     )
-                    return True, ""
-            else:
-                if churn_warned:
-                    record_event(
-                        "systole_churn_resolved",
-                        systole=systole_num,
-                        elapsed_s=elapsed_so_far,
-                        churn_s=churn_duration,
-                    )
-                churn_warned = False
-
-            if elapsed_so_far > max_systole_seconds:
-                proc.kill()
-                proc.wait()
-                log_fh.write(f"\n--- KILLED after {elapsed_so_far}s ---\n")
-                record_event(
-                    "systole_killed",
-                    systole=systole_num,
+                    last_print_time = now
+                record_status(
                     elapsed_s=elapsed_so_far,
-                    reason="timeout",
+                    stall_s=stall_duration,
+                    churn_s=churn_duration,
+                    cpu=cpu,
+                    new_deliverables=recent_count,
+                    log_active=stall_duration < 60,
+                    producing_files=churn_duration < 120,
                 )
-                print(f"  ! Killed systole {systole_num} at {elapsed_so_far}s", flush=True)
-                return True, ""
 
-            try:
-                cpu = subprocess.run(
-                    ["ps", "-p", str(proc.pid), "-o", "cputime="],
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                ).stdout.strip()
-            except Exception:
-                cpu = "?"
-            stall_status = f"stall={stall_duration}s" if stall_duration > 60 else "log=active"
-            churn_status = f"churn={churn_duration}s" if churn_duration > 120 else "files=ok"
-            now = time.time()
-            if now - last_print_time >= 60:
-                print(
-                    f"  ... {elapsed_so_far}s elapsed, cpu={cpu}, {stall_status}, {churn_status}",
-                    flush=True,
-                )
-                last_print_time = now
-            record_status(
-                elapsed_s=elapsed_so_far,
-                stall_s=stall_duration,
-                churn_s=churn_duration,
-                cpu=cpu,
-                new_deliverables=recent_count,
-                log_active=stall_duration < 60,
-                producing_files=churn_duration < 120,
-            )
-
-    except Exception as e:
-        elapsed = round(time.time() - start, 1)
-        record_event("systole_error", systole=systole_num, error=str(e), elapsed_s=elapsed)
-        return False, ""
-    finally:
-        log_fh.close()
+        except Exception as e:
+            elapsed = round(time.time() - start, 1)
+            record_event("systole_error", systole=systole_num, error=str(e), elapsed_s=elapsed)
+            return False, ""
+        finally:
+            log_fh.close()
 
 
 # ---------------------------------------------------------------------------
