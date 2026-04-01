@@ -5,7 +5,7 @@ from pathlib import Path, PurePosixPath
 
 # Load the effector script
 TEST_GERMLINE = Path(__file__).parent.parent
-GOLEM_REVIEW = TEST_GERMLINE / "effectors" / "golem-review"
+GOLEM_REVIEW = TEST_GERMLINE / "effectors" / "golem-tools"
 exec(open(GOLEM_REVIEW).read(), globals())
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 

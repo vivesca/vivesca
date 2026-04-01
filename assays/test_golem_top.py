@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-EFFECTOR = Path.home() / "germline" / "effectors" / "golem-top"
+EFFECTOR = Path.home() / "germline" / "effectors" / "golem-tools"
 
 # Load the effector into a namespace
 NS = {"__name__": "golem_top", "__file__": str(EFFECTOR)}
@@ -27,7 +27,7 @@ etime_to_seconds = NS["etime_to_seconds"]
 format_duration = NS["format_duration"]
 group_tasks = NS["group_tasks"]
 render_table = NS["render_table"]
-run = NS["run"]
+run = NS["top_run"]
 truncate = NS["truncate"]
 
 

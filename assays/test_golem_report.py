@@ -10,8 +10,8 @@ import pytest
 
 
 def _load_golem_report():
-    """Load the golem-report module by exec-ing its Python body."""
-    source = open(str(Path.home() / "germline/effectors/golem-report")).read()
+    """Load the golem-tools module by exec-ing its Python body."""
+    source = open(str(Path.home() / "germline/effectors/golem-tools")).read()
     ns: dict = {"__name__": "golem_report"}
     exec(source, ns)
     return ns
@@ -23,7 +23,7 @@ extract_task_id = _mod["extract_task_id"]
 get_task_id = _mod["get_task_id"]
 is_rate_limited = _mod["is_rate_limited"]
 truncate_prompt = _mod["truncate_prompt"]
-load_jsonl = _mod["load_jsonl"]
+load_jsonl = _mod["report_load_jsonl"]
 generate_report = _mod["generate_report"]
 parse_args = _mod["parse_args"]
 JSONL_FILE = _mod["JSONL_FILE"]

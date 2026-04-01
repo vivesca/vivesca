@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 
-GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-health"
+GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-tools"
 
 
 def _load_module():
@@ -46,7 +46,7 @@ class TestArgumentParsing:
     def test_help_runs(self):
         """Test --help runs without error."""
         result = subprocess.run(
-            [sys.executable, str(GOLEM_HEALTH_PATH), "--help"],
+            [sys.executable, str(GOLEM_HEALTH_PATH), "health", "--help"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -57,7 +57,7 @@ class TestArgumentParsing:
     def test_invalid_provider_fails(self):
         """Test invalid provider name is rejected."""
         result = subprocess.run(
-            [sys.executable, str(GOLEM_HEALTH_PATH), "--provider", "invalid"],
+            [sys.executable, str(GOLEM_HEALTH_PATH), "health", "--provider", "invalid"],
             capture_output=True,
             text=True,
             timeout=10,

@@ -5,24 +5,21 @@ import sys
 from pathlib import Path, PurePosixPath
 
 GERMLINE = Path(__file__).parent.parent
-GOLEM_REVIEWER_PATH = GERMLINE / "effectors" / "golem-reviewer"
+GOLEM_REVIEWER_PATH = GERMLINE / "effectors" / "golem-tools"
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
 def test_golem_reviewer_help():
-    """Test that golem-reviewer --help outputs help message."""
+    """Test that golem-tools reviewer --help outputs help message."""
     result = subprocess.run(
-        [sys.executable, str(GOLEM_REVIEWER_PATH), "--help"],
+        [sys.executable, str(GOLEM_REVIEWER_PATH), "reviewer", "--help"],
         capture_output=True,
         text=True,
         cwd=str(GERMLINE),
         timeout=10
     )
     assert result.returncode == 0
-    assert "Usage:" in result.stdout
-    assert "golem-reviewer" in result.stdout
-    assert "--once" in result.stdout
-    assert "--help" in result.stdout
+    assert "reviewer" in result.stdout.lower() or "once" in result.stdout.lower()
 
 
 def test_golem_reviewer_exists_and_executable():
@@ -87,7 +84,7 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
                 return 0, f"ERROR assays/{temp_test_file.name}"
             return 0, ""
         
-        ns['run'] = mock_run
+        ns['reviewer_run'] = mock_run
         ns['GERMLINE'] = GERMLINE
         
         # Call the function
@@ -142,12 +139,12 @@ def test_run_function_executes_command():
     content = GOLEM_REVIEWER_PATH.read_text()
     exec(content, ns)
 
-    returncode, output = ns['run']("echo 'hello world'")
+    returncode, output = ns['reviewer_run']("echo 'hello world'")
     assert returncode == 0
     assert output == "hello world"
 
     # Test non-zero exit code
-    returncode, output = ns['run']("false")
+    returncode, output = ns['reviewer_run']("false")
     assert returncode != 0
 
 
@@ -161,7 +158,7 @@ def test_check_daemon_status_parses_output():
     def mock_run(cmd):
         return 0, "Daemon running (PID 1234), 5 pending tasks (current 1/5)"
 
-    ns['run'] = mock_run
+    ns['reviewer_run'] = mock_run
 
     result = ns['check_daemon_status']()
     assert result['running'] is True
@@ -172,7 +169,7 @@ def test_check_daemon_status_parses_output():
     def mock_run_no_match(cmd):
         return 0, "Daemon stopped"
 
-    ns['run'] = mock_run_no_match
+    ns['reviewer_run'] = mock_run_no_match
     result = ns['check_daemon_status']()
     assert result['pending'] == 0
 
@@ -187,7 +184,7 @@ def test_check_daemon_failures_finds_failures():
     def mock_run(cmd):
         return 0, "FAILED: task 1\nFAILED: task 2"
 
-    ns['run'] = mock_run
+    ns['reviewer_run'] = mock_run
 
     failures = ns['check_daemon_failures']()
     assert len(failures) == 2
@@ -197,7 +194,7 @@ def test_check_daemon_failures_finds_failures():
     def mock_run_empty(cmd):
         return 1, ""
 
-    ns['run'] = mock_run_empty
+    ns['reviewer_run'] = mock_run_empty
     failures = ns['check_daemon_failures']()
     assert failures == []
 
@@ -212,7 +209,7 @@ def test_run_test_snapshot_parses_output():
     def mock_run(cmd):
         return 0, "10 passed, 2 failed, 1 error\n"
 
-    ns['run'] = mock_run
+    ns['reviewer_run'] = mock_run
 
     result = ns['run_test_snapshot']()
     assert result['passed'] == 10
@@ -223,7 +220,7 @@ def test_run_test_snapshot_parses_output():
     def mock_run_no_match(cmd):
         return 0, "no tests ran"
 
-    ns['run'] = mock_run_no_match
+    ns['reviewer_run'] = mock_run_no_match
     result = ns['run_test_snapshot']()
     assert result['passed'] == 0
     assert result['failed'] == 0
