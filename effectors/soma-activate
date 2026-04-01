@@ -98,16 +98,25 @@ if [[ -d ~/germline/membrane/buds ]]; then
 fi
 
 # Memory -> epigenome/marks
-mkdir -p ~/.claude/projects/-home-terry/memory
-ln -sfn ~/epigenome/marks/* ~/.claude/projects/-home-terry/memory/ 2>/dev/null || true
-if [[ -f ~/epigenome/marks/MEMORY.md ]]; then
-  ln -sfn ~/epigenome/marks/MEMORY.md ~/.claude/projects/-home-terry/memory/MEMORY.md
+memory_dir="${HOME}/.claude/projects/-home-terry/memory"
+mkdir -p "$memory_dir"
+if [[ -d "${HOME}/epigenome/marks" ]]; then
+  ln -sfn "${HOME}"/epigenome/marks/* "$memory_dir"/ 2>/dev/null || true
+fi
+if [[ -f "${HOME}/epigenome/marks/MEMORY.md" ]]; then
+  ln -sfn "${HOME}/epigenome/marks/MEMORY.md" "$memory_dir/MEMORY.md"
   ok "memory linked"
 fi
 
 # Claude settings
-if [[ -f ~/germline/membrane/settings.json ]]; then
-  ln -sfn ~/germline/membrane/settings.json ~/.claude/settings.json
+settings_source=""
+if [[ -f "${HOME}/germline/membrane/expression.json" ]]; then
+  settings_source="${HOME}/germline/membrane/expression.json"
+elif [[ -f "${HOME}/germline/membrane/settings.json" ]]; then
+  settings_source="${HOME}/germline/membrane/settings.json"
+fi
+if [[ -n "$settings_source" ]]; then
+  ln -sfn "$settings_source" ~/.claude/settings.json
   ok "settings.json linked"
 fi
 
