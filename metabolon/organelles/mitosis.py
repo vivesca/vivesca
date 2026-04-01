@@ -6,7 +6,7 @@ The iMac is the self-renewing daughter cell. Lucerna (fly.io, nrt) is the
 differentiated standby — kept synchronized via one-way push, activated only
 when the primary dies.
 
-Sync is git-based and unidirectional: Mac pushes to GitHub, gemmule pulls.
+Sync is git-based and unidirectional: Mac pushes to GitHub, soma pulls.
 No direct SSH or rsync needed — all remote commands go through `fly ssh console`.
 
 State divergence is impossible by design: Mac is always authoritative.
@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Lucerna coordinates
-LUCERNA_APP = "gemmule"  # fly.io app name (formerly gemmule)
+LUCERNA_APP = "soma"  # fly.io app name (formerly gemmule, renamed to soma)
 LUCERNA_USER = "terry"
 LUCERNA_HOME = f"/home/{LUCERNA_USER}"
 
-# Sync targets: git repos that get pushed locally then pulled on gemmule.
+# Sync targets: git repos that get pushed locally then pulled on soma.
 # All organism state lives in these repos.
 SYNC_TARGETS: list[dict] = [
     {
@@ -85,7 +85,7 @@ def _expand(path: str) -> str:
 
 
 def _fly_cmd(cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
-    """Run a command on gemmule via fly ssh console.
+    """Run a command on soma via fly ssh console.
 
     Wraps in bash -c "..." so pipes, variables, and semicolons work.
     The -C flag takes a single string which fly passes to the remote shell.
@@ -100,8 +100,8 @@ def _fly_cmd(cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
     )
 
 
-def _is_gemmule_reachable() -> bool:
-    """Check if gemmule machine is running via fly status."""
+def _is_soma_reachable() -> bool:
+    """Check if soma machine is running via fly status."""
     try:
         result = subprocess.run(
             ["fly", "status", "-a", LUCERNA_APP],
@@ -180,7 +180,7 @@ def _git_push(local_path: str) -> tuple[bool, str]:
 
 
 def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
-    """Pull latest on gemmule. Returns (success, message).
+    """Pull latest on soma. Returns (success, message).
 
     On success, writes epoch to .last-sync so status() can distinguish
     "no new commits" from "sync broken".
@@ -215,7 +215,7 @@ def _sync_target(target: dict) -> ReplicationResult:
     # Push local (non-fatal — pull may still succeed from a prior push)
     push_ok, push_msg = _git_push(target["local"])
 
-    # Pull on gemmule
+    # Pull on soma
     pull_ok, pull_msg = _git_pull_remote(target["remote"])
     elapsed = time.monotonic() - t0
 
@@ -233,18 +233,18 @@ def _sync_target(target: dict) -> ReplicationResult:
 
 
 def sync(targets: list[str] | None = None) -> FidelityReport:
-    """Push current state to gemmule.
+    """Push current state to soma.
 
-    Workflow per target: git add+commit+push locally, git pull on gemmule.
+    Workflow per target: git add+commit+push locally, git pull on soma.
 
     Args:
         targets: Specific target names to sync. None = all.
     """
     report = FidelityReport(started=time.monotonic())
 
-    if not _is_gemmule_reachable():
+    if not _is_soma_reachable():
         report.finished = time.monotonic()
-        report.results.append(ReplicationResult("connectivity", False, 0, "gemmule not running"))
+        report.results.append(ReplicationResult("connectivity", False, 0, "soma not running"))
         return report
 
     manifest = SYNC_TARGETS
@@ -275,20 +275,20 @@ def sync(targets: list[str] | None = None) -> FidelityReport:
 
 
 def status() -> dict:
-    """Check gemmule health and sync freshness."""
+    """Check soma health and sync freshness."""
     info: dict = {
         "reachable": False,
         "machine_state": "unknown",
         "targets": {},
     }
 
-    info["reachable"] = _is_gemmule_reachable()
+    info["reachable"] = _is_soma_reachable()
     if not info["reachable"]:
         return info
 
     info["machine_state"] = "started"
 
-    # Check each repo's last sync time on gemmule in one SSH call.
+    # Check each repo's last sync time on soma in one SSH call.
     # Prefer .last-sync (written by _git_pull_remote) over git log timestamp,
     # because commit age grows stale even when the repo is fully synced.
     stat_parts = []
@@ -335,14 +335,14 @@ def status() -> dict:
 
 
 def setup() -> dict:
-    """Bootstrap gemmule with required repos and vivesca install.
+    """Bootstrap soma with required repos and vivesca install.
 
     Idempotent — safe to run repeatedly.
     """
     steps: list[dict] = []
 
-    if not _is_gemmule_reachable():
-        return {"success": False, "error": "gemmule not running", "steps": steps}
+    if not _is_soma_reachable():
+        return {"success": False, "error": "soma not running", "steps": steps}
 
     # Clone missing repos
     for target in SYNC_TARGETS:
@@ -469,15 +469,15 @@ def setup() -> dict:
 
 
 def smoketest() -> dict:
-    """End-to-end DR test: write passcode locally, sync, ask claude on gemmule to read it back.
+    """End-to-end DR test: write passcode locally, sync, ask claude on soma to read it back.
 
     Proves: sync pipeline + memory access + claude auth + full round-trip.
     """
     import random
     import string
 
-    if not _is_gemmule_reachable():
-        return {"success": False, "error": "gemmule not running"}
+    if not _is_soma_reachable():
+        return {"success": False, "error": "soma not running"}
 
     # Generate random passcode
     passcode = "mitosis-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -489,7 +489,7 @@ def smoketest() -> dict:
         f"Passcode: {passcode}\n"
     )
 
-    # Sync to gemmule
+    # Sync to soma
     report = sync(["epigenome"])
     if not report.ok:
         probe_file.unlink(missing_ok=True)

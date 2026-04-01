@@ -54,7 +54,7 @@ def test_check_and_heal_all_healthy_silent():
 
 
 def test_check_and_heal_unreachable_alerts():
-    """Test when gemmule is unreachable, it alerts immediately."""
+    """Test when soma is unreachable, it alerts immediately."""
     mock_status = MagicMock()
     mock_status.return_value = {
         "reachable": False,

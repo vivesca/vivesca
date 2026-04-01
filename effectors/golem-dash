@@ -902,10 +902,17 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
     return "\n".join(lines)
 
 
-def eta_section(eta: dict, throughput: float, use_color: bool = True) -> str:
-    """Format ETA section with throughput, wall-clock estimate, and drain milestones."""
+def eta_section(
+    eta: dict, throughput: float, use_color: bool = True,
+    confidence_intervals: dict | None = None,
+    stall_secs: int | None = None, trend: str = "",
+) -> str:
+    """Format ETA section with throughput, wall-clock estimate, confidence intervals, and stall detection."""
     b = BOLD if use_color else ""
     c = CYAN if use_color else ""
+    g = GREEN if use_color else ""
+    y = YELLOW if use_color else ""
+    r_col = RED if use_color else ""
     dim = DIM if use_color else ""
     rst = RESET if use_color else ""
 
@@ -925,6 +932,25 @@ def eta_section(eta: dict, throughput: float, use_color: bool = True) -> str:
         f"  ETA: {c}{b}{eta['eta_str']}{rst}  ({wall})  |  "
         f"Throughput: {dim}{thr_str}{rst}",
     ]
+
+    # Confidence intervals
+    if confidence_intervals:
+        best_str = fmt_duration(confidence_intervals["best"]) if confidence_intervals["best"] > 0 else "—"
+        worst_str = fmt_duration(confidence_intervals["worst"]) if confidence_intervals["worst"] > 0 else "—"
+        lines.append(
+            f"  Range: {g}{best_str}{rst} ~ {r_col}{worst_str}{rst}"
+        )
+
+    # Throughput trend
+    if trend and trend != "steady":
+        arrow = "\u2191" if trend == "accelerating" else "\u2193"
+        trend_color = g if trend == "accelerating" else r_col
+        lines.append(f"  Trend: {trend_color}{arrow} {trend}{rst}")
+
+    # Stall detection
+    if stall_secs is not None and stall_secs > 300:
+        stall_str = fmt_duration(stall_secs)
+        lines.append(f"  {r_col}\u26a0 No completion in {stall_str}{rst}")
 
     # Drain milestones
     milestones = eta.get("drain_milestones", [])
@@ -1038,6 +1064,12 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     prov_pending = per_provider_pending(QUEUE_PATH)
     prov_concurrency = provider_concurrency_display(records, running, use_color)
 
+    # New: confidence intervals, stall detection, per-provider ETA, trend
+    conf_intervals = eta_confidence_intervals(records, pending, len(running), running)
+    stall_secs = time_since_last_completion(records)
+    trend = throughput_trend(records)
+    prov_etas = per_provider_eta(records, prov_pending, running)
+
     if json_output:
         data = {
             "timestamp": datetime.now().isoformat(),
@@ -1049,12 +1081,15 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
                 "completed_count": len(last_done),
                 "per_provider_pending": prov_pending,
             },
-            "eta": {**eta, "confidence": conf},
+            "eta": {**eta, "confidence": conf, "confidence_intervals": conf_intervals},
             "throughput_per_hour": thr,
             "ewma_throughput": ewma,
             "throughput_sparkline": spark,
+            "throughput_trend": trend,
+            "stall_secs": stall_secs,
             "completion_burst": {"last_15min": m15, "last_60min": m60},
             "provider_concurrency": prov_concurrency,
+            "per_provider_eta": prov_etas,
             "disk_free": disk_free(False),
         }
         print(json.dumps(data, indent=2))
@@ -1076,15 +1111,34 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     print(f"\n{b}Running Tasks{rst}")
     print(running_tasks_table(running, use_color))
 
-    # 4. ETA to drain with milestones + confidence
+    # 4. ETA to drain with milestones + confidence + intervals + stall + trend
     print(f"\n{b}ETA to Drain{rst}")
-    print(eta_section(eta, thr, use_color))
+    print(eta_section(
+        eta, thr, use_color,
+        confidence_intervals=conf_intervals,
+        stall_secs=stall_secs,
+        trend=trend,
+    ))
     # Show EWMA throughput and confidence indicator
     y = YELLOW if use_color else ""
     dim = DIM if use_color else ""
     ewma_str = f"{ewma:.1f}/hr" if ewma > 0 else "—/hr"
     conf_str = conf
     print(f"  EWMA: {dim}{ewma_str}{rst}  |  Confidence: {y}{conf_str}{rst}")
+
+    # 4b. Per-provider ETA breakdown
+    if prov_etas:
+        print(f"\n{b}Per-Provider ETA{rst}")
+        c = CYAN if use_color else ""
+        dim = DIM if use_color else ""
+        rst = RESET if use_color else ""
+        for prov in sorted(prov_etas):
+            info = prov_etas[prov]
+            rate_str = f"{info['rate']:.1f}/hr" if info["rate"] > 0 else "—/hr"
+            print(
+                f"  {c}{prov:<10}{rst} {info['pending']:>3} pending  "
+                f"ETA {info['eta_str']:<8} {dim}({rate_str}){rst}"
+            )
 
     # 5. Provider stats
     print(f"\n{b}Provider Stats{rst}")

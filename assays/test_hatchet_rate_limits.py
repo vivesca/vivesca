@@ -51,9 +51,9 @@ def test_rate_limit_keys_registered():
     mock_hatchet = _make_mock_hatchet()
     _exec_worker(mock_hatchet)
 
-    assert mock_hatchet.rate_limits.put.call_count == 4
+    assert mock_hatchet.rate_limits.put.call_count == 5
     keys = [c.args[0] for c in mock_hatchet.rate_limits.put.call_args_list]
-    assert keys == ["zhipu-rpm", "infini-rpm", "volcano-rpm", "gemini-rpm"]
+    assert keys == ["zhipu-rpm", "infini-rpm", "volcano-rpm", "gemini-rpm", "codex-rpm"]
 
 
 def test_zhipu_rate_limit_params():
@@ -99,6 +99,18 @@ def test_gemini_rate_limit_params():
 
     call_args = mock_hatchet.rate_limits.put.call_args_list[3]
     assert call_args.args[0] == "gemini-rpm"
+    assert call_args.kwargs["limit"] == 60
+    from hatchet_sdk.rate_limit import RateLimitDuration
+    assert call_args.kwargs["duration"] == RateLimitDuration.MINUTE
+
+
+def test_codex_rate_limit_params():
+    """codex-rpm: 60 req/minute."""
+    mock_hatchet = _make_mock_hatchet()
+    _exec_worker(mock_hatchet)
+
+    call_args = mock_hatchet.rate_limits.put.call_args_list[4]
+    assert call_args.args[0] == "codex-rpm"
     assert call_args.kwargs["limit"] == 60
     from hatchet_sdk.rate_limit import RateLimitDuration
     assert call_args.kwargs["duration"] == RateLimitDuration.MINUTE
@@ -151,9 +163,18 @@ def test_gemini_task_rate_limit_key():
     assert rl.units == 1
 
 
-def test_four_tasks_registered():
-    """Exactly 4 provider tasks are decorated."""
+def test_codex_task_rate_limit_key():
+    """golem-codex task uses 'codex-rpm' rate limit key."""
     calls = _capture_task_calls()
-    assert len(calls) == 4
+    codex = next(c for c in calls if c["name"] == "golem-codex")
+    rl = codex["rate_limits"][0]
+    assert rl.static_key == "codex-rpm"
+    assert rl.units == 1
+
+
+def test_five_tasks_registered():
+    """Exactly 5 provider tasks are decorated."""
+    calls = _capture_task_calls()
+    assert len(calls) == 5
     names = {c["name"] for c in calls}
-    assert names == {"golem-zhipu", "golem-infini", "golem-volcano", "golem-gemini"}
+    assert names == {"golem-zhipu", "golem-infini", "golem-volcano", "golem-gemini", "golem-codex"}

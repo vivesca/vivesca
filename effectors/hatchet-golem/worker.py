@@ -22,6 +22,7 @@ hatchet.rate_limits.put("zhipu-rpm", limit=200, duration=RateLimitDuration.HOUR)
 hatchet.rate_limits.put("infini-rpm", limit=200, duration=RateLimitDuration.HOUR)
 hatchet.rate_limits.put("volcano-rpm", limit=200, duration=RateLimitDuration.HOUR)
 hatchet.rate_limits.put("gemini-rpm", limit=60, duration=RateLimitDuration.MINUTE)
+hatchet.rate_limits.put("codex-rpm", limit=60, duration=RateLimitDuration.MINUTE)
 
 
 def _run_golem(input, context, provider: str) -> dict:
@@ -111,10 +112,25 @@ def golem_gemini(input, context):
     return _run_golem(input, context, "gemini")
 
 
+@hatchet.task(
+    name="golem-codex",
+    execution_timeout="30m",
+    retries=2,
+    concurrency=ConcurrencyExpression(
+        expression="'codex'",
+        max_runs=4,
+        limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
+    ),
+    rate_limits=[RateLimit(static_key="codex-rpm", units=1)],
+)
+def golem_codex(input, context):
+    return _run_golem(input, context, "codex")
+
+
 def main():
     worker = hatchet.worker(
         "golem-worker",
-        workflows=[golem_zhipu, golem_infini, golem_volcano, golem_gemini],
+        workflows=[golem_zhipu, golem_infini, golem_volcano, golem_gemini, golem_codex],
     )
     print("Hatchet golem worker started")
     worker.start()

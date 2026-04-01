@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-"""mitosis — DR sync tools for gemmule hot standby.
+"""mitosis — DR sync tools for soma hot standby.
 
-One-way push from iMac to gemmule (fly.io, nrt).
+One-way push from iMac to soma (fly.io, nrt).
 Mac is authoritative. Lucerna never writes back.
 """
 
@@ -19,10 +19,10 @@ from metabolon.morphology import EffectorResult, Vital
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def mitosis(action: str, targets: list[str] | None = None) -> EffectorResult | Vital:
-    """Git sync and DR status for gemmule hot standby.
+    """Git sync and DR status for soma hot standby.
 
     Args:
-        action: "sync" to push state to gemmule, "status" to check health/freshness.
+        action: "sync" to push state to soma, "status" to check health/freshness.
         targets: Specific targets to sync (e.g. ["chromatin", "marks"]).
                  None syncs all targets. Only used with action="sync".
     """
@@ -52,7 +52,7 @@ def mitosis(action: str, targets: list[str] | None = None) -> EffectorResult | V
         if not info["reachable"]:
             return Vital(
                 status="error",
-                message="gemmule unreachable via Tailscale",
+                message="soma unreachable via Tailscale",
                 details=info,
             )
 
@@ -64,13 +64,13 @@ def mitosis(action: str, targets: list[str] | None = None) -> EffectorResult | V
         if stale:
             return Vital(
                 status="warning",
-                message=f"gemmule reachable but {len(stale)} targets stale/missing: {', '.join(stale)}",
+                message=f"soma reachable but {len(stale)} targets stale/missing: {', '.join(stale)}",
                 details=info,
             )
 
         return Vital(
             status="ok",
-            message=f"gemmule healthy, machine {info.get('machine_state', 'unknown')}",
+            message=f"soma healthy, machine {info.get('machine_state', 'unknown')}",
             details=info,
         )
 

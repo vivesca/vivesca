@@ -245,7 +245,7 @@ def test_cli_non_macos_exits_with_error():
         capture_output=True,
         text=True,
     )
-    # On Linux (gemmule), should exit with error
+    # On Linux (soma), should exit with error
     assert result.returncode == 1
     assert "requires macOS Keychain" in result.stderr
 

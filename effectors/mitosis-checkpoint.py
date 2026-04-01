@@ -7,7 +7,7 @@ from __future__ import annotations
 """Mitosis checkpoint — watchdog for DR sync health.
 
 In cell biology, the spindle assembly checkpoint ensures mitosis completes
-correctly before the cell proceeds. This effector monitors gemmule sync
+correctly before the cell proceeds. This effector monitors soma sync
 freshness and self-heals before alerting.
 
 Logic:

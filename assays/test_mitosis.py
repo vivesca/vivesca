@@ -16,7 +16,7 @@ def test_unknown_action():
 
 
 def test_status_unreachable():
-    """Test status when gemmule unreachable."""
+    """Test status when soma unreachable."""
     mock_status = MagicMock(return_value={"reachable": False})
     
     with patch("metabolon.organelles.mitosis.status", mock_status):
@@ -24,7 +24,7 @@ def test_status_unreachable():
     
     assert isinstance(result, Vital)
     assert result.status == "error"
-    assert "gemmule unreachable" in result.message
+    assert "soma unreachable" in result.message
     assert result.details["reachable"] is False
 
 
@@ -64,7 +64,7 @@ def test_status_all_ok():
     
     assert isinstance(result, Vital)
     assert result.status == "ok"
-    assert "gemmule healthy" in result.message
+    assert "soma healthy" in result.message
     assert "machine running" in result.message
 
 
