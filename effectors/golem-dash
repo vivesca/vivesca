@@ -480,7 +480,7 @@ def main():
                         current_byte = 0
                     elif new_size > current_byte:
                         # Read new records
-                        with open(JSONL_PATH) as f:
+                        with open(JSONL_PATH, errors="replace") as f:
                             f.seek(current_byte)
                             new_lines = f.readlines()
                         for line in new_lines:
