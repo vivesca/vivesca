@@ -70,7 +70,7 @@ def auscultation(
     if action == "logs":
         logs = _glob_logs()
         if not logs:
-            return "No log files found in ~/Library/Logs/vivesca/ or ~/tmp/"
+            return f"No log files found in {_LOG_DIR} or {_TMP_DIR}"
 
         if log_name:
             logs = [lg for lg in logs if lg.name == log_name]
