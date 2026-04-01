@@ -49,7 +49,8 @@ async def _read_chat_async(chat: str, limit: int = 30) -> str:
         messages = await client.get_messages(entity, limit=limit)
         if not messages:
             return "No messages found"
-        lines = [_format_message(m) for m in reversed(messages)]
+        msgs = messages if isinstance(messages, list) else [messages]
+        lines = [_format_message(m) for m in reversed(msgs)]
         return "\n".join(lines)
 
 
@@ -65,7 +66,8 @@ async def _search_async(query: str, chat: str = "", limit: int = 20) -> str:
         )
         if not messages:
             return f"No messages matching '{query}'"
-        lines = [_format_message(m) for m in reversed(messages)]
+        msgs = messages if isinstance(messages, list) else [messages]
+        lines = [_format_message(m) for m in reversed(msgs)]
         return "\n".join(lines)
 
 
@@ -87,7 +89,9 @@ async def _auth_check_async() -> str:
     async with client:
         me = await client.get_me()
         if me:
-            return f"Authenticated as: {me.first_name} ({me.phone})"
+            name = getattr(me, "first_name", None) or str(getattr(me, "id", "unknown"))
+            phone = getattr(me, "phone", None) or "no phone"
+            return f"Authenticated as: {name} ({phone})"
         return "Not authenticated — run interactive login"
 
 
