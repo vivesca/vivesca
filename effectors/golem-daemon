@@ -54,7 +54,7 @@ RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion (mat
 # Rate-limit detection patterns (checked against task output/tail)
 RATE_LIMIT_PATTERNS = re.compile(
     r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests',
+    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests',
     re.IGNORECASE,
 )
 
@@ -204,8 +204,40 @@ def log(msg: str):
         pass  # Don't crash daemon on log failure
 
 
+def startup_pull() -> str:
+    """Pull latest changes at startup. Continues with local state on failure.
+
+    Returns:
+        'ok' on success, or a description of the failure.
+    """
+    germline_dir = Path.home() / "germline"
+    try:
+        result = subprocess.run(
+            f"git -C {germline_dir} pull --rebase",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            log(f"startup pull: {result.stdout.strip()[:80] or 'up to date'}")
+            return "ok"
+        log(f"startup pull failed (continuing with local state): {result.stderr[:80]}")
+        return f"pull failed: {result.stderr[:60]}"
+    except subprocess.TimeoutExpired:
+        log("startup pull timed out (continuing with local state)")
+        return "pull timed out"
+    except Exception as e:
+        log(f"startup pull error (continuing with local state): {e}")
+        return f"pull error: {e}"
+
+
 def auto_commit() -> str:
     """Auto-commit staged changes from assays/, effectors/, metabolon/.
+
+    After a successful commit, pushes to remote with 3 retries and 30s backoff.
+    If all push retries fail, logs the error but does not crash — the commit
+    is still local and will be pushed on the next successful attempt.
 
     Returns:
         Commit hash if committed, or 'nothing to commit' if no changes.
@@ -240,13 +272,35 @@ def auto_commit() -> str:
         )
         if result.returncode == 0:
             # Extract commit hash from output
+            commit_hash = "committed"
             for line in result.stdout.splitlines():
                 if line.startswith("["):
                     # Format: [main abc1234] ...
                     parts = line.split()
                     if len(parts) >= 2:
-                        return parts[1].rstrip("]")
-            return "committed"
+                        commit_hash = parts[1].rstrip("]")
+                        break
+            # Push with retry: 3 attempts, 30s backoff
+            for attempt in range(1, 4):
+                try:
+                    push_result = subprocess.run(
+                        f"git -C {germline_dir} push",
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if push_result.returncode == 0:
+                        return commit_hash
+                    log(f"git push failed (attempt {attempt}/3): {push_result.stderr[:80]}")
+                except subprocess.TimeoutExpired:
+                    log(f"git push timed out (attempt {attempt}/3)")
+                except Exception as e:
+                    log(f"git push error (attempt {attempt}/3): {e}")
+                if attempt < 3:
+                    time.sleep(30)
+            log(f"git push failed after 3 attempts for {commit_hash}, continuing with local state")
+            return commit_hash
         return f"commit failed: {result.stderr[:60]}"
     except Exception as e:
         return f"auto_commit error: {e}"
@@ -890,6 +944,7 @@ def _update_running_file(running: dict):
 def daemon_loop():
     """Main daemon loop: poll queue, run tasks, mark done."""
     rotate_logs()
+    startup_pull()
     log("Daemon started")
     write_pid()
 
