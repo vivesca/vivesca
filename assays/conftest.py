@@ -80,7 +80,31 @@ def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
     This prevents FileExistsError when pytest's tmp_path fixture tries to create
     a directory that already exists and is non-empty.
     """
+    import os
+    import stat
     import tempfile
+
+    def _force_rmtree(path: Path) -> None:
+        """Remove a directory tree, handling permission errors on readonly files."""
+        for dirpath, dirnames, filenames in os.walk(path, topdown=False):
+            for name in filenames:
+                f = os.path.join(dirpath, name)
+                try:
+                    os.chmod(f, stat.S_IWRITE)
+                    os.unlink(f)
+                except OSError:
+                    pass
+            for name in dirnames:
+                d = os.path.join(dirpath, name)
+                try:
+                    os.chmod(d, stat.S_IWRITE)
+                    os.rmdir(d)
+                except OSError:
+                    pass
+        try:
+            os.rmdir(path)
+        except OSError:
+            pass
 
     tmpdir = Path(tempfile.gettempdir())
     basetemp = pytestconfig.option.basetemp
@@ -93,12 +117,12 @@ def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
             continue
         try:
             if active_basetemp is not None and path == active_basetemp:
-                for child in path.iterdir():
+                for child in list(path.iterdir()):
                     if child.is_dir():
-                        shutil.rmtree(child, ignore_errors=True)
+                        _force_rmtree(child)
                     else:
                         child.unlink(missing_ok=True)
                 continue
-            shutil.rmtree(path, ignore_errors=True)
+            _force_rmtree(path)
         except OSError:
             pass
