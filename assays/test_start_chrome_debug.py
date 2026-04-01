@@ -182,7 +182,7 @@ def test_google_chrome_fallback(tmp_path):
     """Script finds 'google-chrome' if others are absent."""
     bindir = _make_fake_chrome(tmp_path, name="google-chrome")
     env = os.environ.copy()
-    env["PATH"] = str(bindir)
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
     r = subprocess.run(
         ["bash", str(SCRIPT)],
         capture_output=True,
