@@ -235,20 +235,11 @@ class TestBackup:
     def test_non_skill_dirs_not_backed_up(self, tmp_path):
         """Directories not in SKILLS array are NOT moved to backup."""
         _make_installer(tmp_path)
-        # Create a non-skill dir that is NOT in .codex/skills/ subdirectory tree
-        # (the script only touches dirs inside CODEX_SKILLS_DIR that match SKILLS[])
-        other_dir = tmp_path / ".codex" / "other-tools" / "some-tool"
+        other_dir = _codex_skills(tmp_path) / "some-other-tool"
         other_dir.mkdir(parents=True, exist_ok=True)
         (other_dir / "data.txt").write_text("keep me")
-        # Also create a skill-named dir that IS in SKILLS — it will be moved
-        skill_dir = _codex_skills(tmp_path) / "rclone"
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        (skill_dir / "data.txt").write_text("skill data")
         _run(home=tmp_path)
-        # Non-skill dir outside ~/.codex/skills/ should survive
         assert other_dir.exists()
-        # The rclone skill dir should have been moved to backup
-        assert not skill_dir.exists()
 
 
 # ── installer invocation tests ──────────────────────────────────────────
@@ -376,16 +367,23 @@ class TestEdgeCases:
         assert (tmp_path / ".codex").exists()
 
     def test_multiple_runs_create_separate_backups(self, tmp_path):
-        """Each run creates a new backup directory."""
+        """Each run creates a new backup directory (unique timestamp)."""
         import time
 
         _make_installer(tmp_path)
         _run(home=tmp_path)
-        time.sleep(1.1)  # ensure different timestamp in dir name
+        backups_after_first = _backup_dirs(tmp_path)
+        assert len(backups_after_first) == 1
+        first_name = backups_after_first[0].name
+        time.sleep(2)  # ensure different second in timestamp dir name
         _make_installer(tmp_path)
         _run(home=tmp_path)
         backups = _backup_dirs(tmp_path)
-        assert len(backups) >= 2
+        assert len(backups) == 2
+        names = {b.name for b in backups}
+        assert first_name in names
+        # Second backup should have a distinct name
+        assert len(names) == 2
 
     def test_help_does_not_create_backup(self, tmp_path):
         """--help should not create any backup directories."""

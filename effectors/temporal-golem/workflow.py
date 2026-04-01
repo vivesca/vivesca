@@ -91,8 +91,7 @@ class GolemDispatchWorkflow:
                 retry_policy=_RETRY_POLICY,
             )
             result["provider"] = affinity_provider
-            if dispatch_provider != affinity_provider:
-                result["dispatch_provider"] = dispatch_provider
+            result["dispatch_provider"] = dispatch_provider
             return result
         except Exception as exc:
             error_message = str(exc)
