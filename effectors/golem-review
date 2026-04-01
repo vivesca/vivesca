@@ -200,23 +200,35 @@ def _detect_section_keyword(lines: list[str], keywords: tuple[str, ...]) -> bool
 def _compute_quality_score(entry: dict) -> int:
     """Compute a 0-100 quality score from consulting content checks.
 
-    Breakdown: words 30, headings 15, paragraphs 15, structure 10,
-               intro 15, conclusion 15.
+    Breakdown: words 25, headings 10, paragraphs 10, structure 10,
+               intro 10, conclusion 10, min_sections_ok 10,
+               section_count 10, no broken sections 5.
     """
     score = 0
     wc = entry.get("word_count", 0)
-    score += min(30, int(wc / 500 * 30)) if wc > 0 else 0
+    score += min(25, int(wc / 500 * 25)) if wc > 0 else 0
     if entry.get("has_headings"):
-        score += 15
+        score += 10
     if entry.get("has_paragraphs"):
-        score += 15
+        score += 10
     if entry.get("has_structure_elements"):
         score += 10
     if entry.get("has_introduction"):
-        score += 15
+        score += 10
     if entry.get("has_conclusion"):
-        score += 15
-    return score
+        score += 10
+    if entry.get("min_sections_ok"):
+        score += 10
+    # Section count bonus: 2+ = 5, 4+ = 10
+    sec = entry.get("section_count", 0)
+    if sec >= 4:
+        score += 10
+    elif sec >= 2:
+        score += 5
+    # Penalty: broken sections reduce score
+    broken = entry.get("broken_sections", 0)
+    score -= min(5, broken * 2)
+    return max(0, score)
 
 
 def _verdict_from_score(score: int) -> str:
@@ -647,9 +659,13 @@ def generate_review(
             concl = "C" if r.get("has_conclusion") else "_"
             score = r.get("quality_score", 0)
             verdict = r.get("verdict", "poor")
+            sec_count = r.get("section_count", 0)
+            broken = r.get("broken_sections", 0)
+            min_ok = "M" if r.get("min_sections_ok") else "_"
             lines.append(
                 f"- [{status}|{struct}] {r['file']}: {wc} words ({exists}) "
-                f"[{heads}{paras}{elems}{intro}{concl}] "
+                f"[{heads}{paras}{elems}{intro}{concl}{min_ok}] "
+                f"secs={sec_count}(broken:{broken}) "
                 f"score={score} ({verdict})"
             )
         lines.append("")

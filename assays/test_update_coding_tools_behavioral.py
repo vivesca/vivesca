@@ -32,11 +32,24 @@ def _create_fake_bin(tmp_path: Path, name: str, body: str) -> Path:
     return script
 
 
+def _create_sysbin(tmp_path: Path) -> Path:
+    """Create a minimal sysbin/ with symlinks to essential system tools only."""
+    sysbin = tmp_path / "sysbin"
+    sysbin.mkdir(exist_ok=True)
+    for tool in ("bash", "date", "tee", "sed"):
+        link = sysbin / tool
+        if not link.exists():
+            link.symlink_to(f"/usr/bin/{tool}")
+    return sysbin
+
+
 def _env_with_fake_path(tmp_path: Path) -> dict[str, str]:
-    """Build env dict with HOME=tmp_path and PATH pointing to our fake bin/."""
+    """Build env dict with HOME=tmp_path and PATH restricted to fake bin + sysbin."""
+    _create_sysbin(tmp_path)
     env = os.environ.copy()
     env["HOME"] = str(tmp_path)
-    env["PATH"] = str(tmp_path / "bin") + ":" + "/usr/bin:/bin"
+    # Only our fake bin + minimal system tools — no /usr/bin to avoid system codex/gemini
+    env["PATH"] = str(tmp_path / "bin") + ":" + str(tmp_path / "sysbin")
     # Strip any brew-related vars so the fake brew is the only one found
     for key in list(env):
         if "HOMEBREW" in key.upper():
@@ -181,7 +194,7 @@ esac
         assert len(data["failures"]) >= 2
 
     def test_degraded_log_mentions_repair_attempt(self, tmp_path: Path):
-        self._setup_with_missing(tmp_path, ["gemini"])
+        self._setup_with_missing(tmp_path, ["claude"])
         _run_script(tmp_path)
         log = (tmp_path / LOG_NAME).read_text()
         assert "Repairing" in log or "DEGRADED" in log
