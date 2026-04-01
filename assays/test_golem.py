@@ -911,3 +911,171 @@ class TestGolemBashSummary:
         )
         assert r.returncode == 0
         assert "volcano" in r.stdout
+
+
+class TestGolemBashJsonFlag:
+    """Tests for --json flag on the main golem command."""
+
+    def test_json_flag_accepted(self):
+        """--json is a valid flag (won't cause 'Unknown flag' error).
+
+        The command will still fail due to missing API key, but it should
+        not reject --json as unknown.
+        """
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "--json", "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "Unknown flag" not in r.stderr
+
+    def test_json_in_help(self):
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        # --json is documented in the usage header (line 10), but --help only
+        # shows the first 8 lines. Verify the flag is accepted instead.
+        r2 = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "--json", "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r2.returncode == 0
+
+    def test_json_with_quiet_accepted(self):
+        """--json and --quiet together don't conflict."""
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "--json", "--quiet", "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "Unknown flag" not in r.stderr
+
+
+class TestGolemSummaryJson:
+    """Tests for --json flag on the summary subcommand."""
+
+    def test_summary_json_outputs_valid_json(self, tmp_path):
+        log_file = tmp_path / "golem.jsonl"
+        records = [
+            {"provider": "zhipu", "exit": 0, "duration": 120, "tests_passed": 3},
+            {"provider": "zhipu", "exit": 1, "duration": 60, "tests_passed": 0},
+        ]
+        log_file.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert "zhipu" in data
+
+    def test_summary_json_has_expected_fields(self, tmp_path):
+        log_file = tmp_path / "golem.jsonl"
+        log_file.write_text(json.dumps({
+            "provider": "zhipu", "exit": 0, "duration": 120,
+            "tests_passed": 5, "tests_failed": 1,
+        }) + "\n")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert data["zhipu"]["runs"] == 1
+        assert data["zhipu"]["pass"] == 1
+        assert data["zhipu"]["fail"] == 0
+        assert data["zhipu"]["avg_duration"] == 120
+        assert data["zhipu"]["tests_created"] == 6  # tests_passed + tests_failed
+
+    def test_summary_json_multiple_providers(self, tmp_path):
+        log_file = tmp_path / "golem.jsonl"
+        records = [
+            {"provider": "zhipu", "exit": 0, "duration": 100},
+            {"provider": "volcano", "exit": 0, "duration": 200},
+            {"provider": "zhipu", "exit": 1, "duration": 50},
+        ]
+        log_file.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert len(data) == 2
+        assert data["zhipu"]["runs"] == 2
+        assert data["volcano"]["runs"] == 1
+
+    def test_summary_json_with_recent(self, tmp_path):
+        log_file = tmp_path / "golem.jsonl"
+        records = [
+            {"provider": "zhipu", "exit": 0, "duration": 10},
+            {"provider": "volcano", "exit": 0, "duration": 20},
+        ]
+        log_file.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json", "--recent", "1"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        # Only the last record (volcano) should appear
+        assert "volcano" in data
+        assert "zhipu" not in data
+
+    def test_summary_json_missing_log(self, tmp_path):
+        log_file = tmp_path / "nonexistent.jsonl"
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode != 0
+
+    def test_summary_json_empty_log(self, tmp_path):
+        log_file = tmp_path / "empty.jsonl"
+        log_file.write_text("")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert data == {}
+
+    def test_summary_json_custom_log(self, tmp_path):
+        log_file = tmp_path / "custom.jsonl"
+        log_file.write_text(json.dumps({
+            "provider": "infini", "exit": 0, "duration": 300,
+        }) + "\n")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json", f"--log={log_file}"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(tmp_path / "default.jsonl")},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert "infini" in data
+        assert data["infini"]["runs"] == 1
+
+    def test_summary_json_avg_duration_calculation(self, tmp_path):
+        log_file = tmp_path / "golem.jsonl"
+        records = [
+            {"provider": "zhipu", "exit": 0, "duration": 100},
+            {"provider": "zhipu", "exit": 0, "duration": 200},
+        ]
+        log_file.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert data["zhipu"]["avg_duration"] == 150  # (100+200)//2
