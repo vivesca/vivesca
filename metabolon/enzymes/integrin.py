@@ -50,6 +50,7 @@ from metabolon.morphology import Secretion
 SKILLS_DIR = receptors
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
 RECEPTOR_RETIREMENT_LOG = chromatin / "receptor-retirement.md"
+USER_HOME_PATTERN = re.escape(str(Path.home()))
 
 # Shell builtins and ubiquitous utilities -- always resolvable
 BUILTINS = frozenset(
@@ -244,8 +245,8 @@ def _check_untested_code() -> list[dict]:
 
 
 # Match paths inside backticks (preserves spaces) or bare paths
-_SKILL_PATH_BACKTICK_RE = re.compile(r"`((?:/Users/\w+|~/)[^`]+)`")
-_SKILL_PATH_BARE_RE = re.compile(r"(?:^|\s)((?:/Users/\w+|~/)[a-zA-Z][^\s`\"'>]*)")
+_SKILL_PATH_BACKTICK_RE = re.compile(rf"`((?:{USER_HOME_PATTERN}|~/)[^`]+)`")
+_SKILL_PATH_BARE_RE = re.compile(rf"(?:^|\s)((?:{USER_HOME_PATTERN}|~/)[a-zA-Z][^\s`\"'>]*)")
 _SKIP_FRAGMENTS = frozenset(("YYYY", "*", "/tmp/", "{", "$(", "example", "<"))
 
 

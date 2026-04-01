@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 HOME = Path.home()
+HOME_BIN_PATTERN = re.escape(f"{HOME}/bin/")
 HOOKS_DIR = HOME / ".claude" / "hooks"
 
 # Repo root: hooks → claude → vivesca
@@ -506,11 +507,11 @@ def mod_bash_post(data):
     # CLI friction log
     if isinstance(result, str) and ("Exit code" in result or "error:" in result):
         personal = re.search(
-            r"~/bin/|/Users/\w+/bin/|\.cargo/bin/|moneo|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
+            rf"~/bin/|{HOME_BIN_PATTERN}|\.cargo/bin/|moneo|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
             cmd,
         )
         if personal:
-            cli_match = re.search(r"(?:~/bin/|/Users/\w+/bin/|\.cargo/bin/)?(\w[\w-]*)", cmd)
+            cli_match = re.search(rf"(?:~/bin/|{HOME_BIN_PATTERN}|\.cargo/bin/)?(\w[\w-]*)", cmd)
             entry = {
                 "ts": datetime.now().isoformat(timespec="seconds"),
                 "cli": cli_match.group(1) if cli_match else "unknown",

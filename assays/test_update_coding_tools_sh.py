@@ -51,27 +51,31 @@ def _run_script(
     )
 
 
-def _make_mock_bin(tmp_path: Path, name: str, stdout: str = "", exit_code: int = 0) -> Path:
-    """Create a mock executable script in tmp_path/bin/<name>."""
+def _make_all_mocks(tmp_path: Path) -> Path:
+    """Create mock executables for ALL commands the script uses."""
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
-    script = bindir / name
-    script.write_text(f"#!/bin/bash\necho -n '{stdout}'\nexit {exit_code}\n")
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
-    return bindir
 
+    # Mock brew with shellenv support
+    brew_script = bindir / "brew"
+    brew_script.write_text("""#!/bin/bash
+if [[ "$1" == "shellenv" ]]; then
+    echo "export HOMEBREW_PREFIX=/tmp/test"
+    echo "export PATH=/tmp/test/bin:\\$PATH"
+fi
+exit 0
+""")
+    brew_script.chmod(brew_script.stat().st_mode | stat.S_IEXEC)
 
-def _make_recording_bin(tmp_path: Path, name: str, record_file: Path, exit_code: int = 0) -> Path:
-    """Create a mock bin that records all args to record_file."""
-    bindir = tmp_path / "bin"
-    bindir.mkdir(exist_ok=True)
-    script = bindir / name
-    script.write_text(
-        "#!/bin/bash\n"
-        f'echo "$@" >> {record_file}\n'
-        f"exit {exit_code}\n"
-    )
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    # Mock all other commands the script runs
+    for cmd in (
+        "npm", "pnpm", "uv", "cargo", "mas",
+        "claude", "opencode", "gemini", "codex", "agent-browser"
+    ):
+        script = bindir / cmd
+        script.write_text("#!/bin/bash\nexit 0\n")
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+
     return bindir
 
 
@@ -137,18 +141,18 @@ class TestHomebrewCheck:
 
 class TestLogging:
     def test_creates_log_file(self, tmp_path):
-        bindir = _make_mock_bin(tmp_path, "brew")
+        bindir = _make_all_mocks(tmp_path)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert (tmp_path / ".coding-tools-update.log").exists()
 
     def test_log_contains_date_marker(self, tmp_path):
-        bindir = _make_mock_bin(tmp_path, "brew")
+        bindir = _make_all_mocks(tmp_path)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         log_text = (tmp_path / ".coding-tools-update.log").read_text()
         assert "===" in log_text
 
     def test_log_contains_year(self, tmp_path):
-        bindir = _make_mock_bin(tmp_path, "brew")
+        bindir = _make_all_mocks(tmp_path)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         log_text = (tmp_path / ".coding-tools-update.log").read_text()
         assert re.search(r"20\d{2}", log_text) is not None
@@ -159,24 +163,13 @@ class TestLogging:
 
 class TestToolHealth:
     def test_creates_health_file(self, tmp_path):
-        # Make mocks for all required tools
-        bindir = tmp_path / "bin"
-        bindir.mkdir(exist_ok=True)
-        for tool in ("brew", "claude", "opencode", "gemini", "codex", "agent-browser", "mas"):
-            script = bindir / tool
-            script.write_text("#!/bin/bash\nexit 0\n")
-            script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        bindir = _make_all_mocks(tmp_path)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         health_file = tmp_path / ".coding-tools-health.json"
         assert health_file.exists()
 
     def test_health_file_status_ok(self, tmp_path):
-        bindir = tmp_path / "bin"
-        bindir.mkdir(exist_ok=True)
-        for tool in ("brew", "claude", "opencode", "gemini", "codex", "agent-browser", "mas"):
-            script = bindir / tool
-            script.write_text("#!/bin/bash\nexit 0\n")
-            script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        bindir = _make_all_mocks(tmp_path)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         import json
         health = json.loads((tmp_path / ".coding-tools-health.json").read_text())

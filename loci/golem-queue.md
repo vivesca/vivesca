@@ -12,6 +12,10 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 - [x] `golem [t-porta01] --provider zhipu --max-turns 40 "Rewrite porta (web auth gateway) as a Python effector at ~/germline/effectors/porta. Read the porta references in membrane/receptors/ to understand the interface — grep -r porta membrane/receptors/. Core function: manage browser cookies/auth state for headless automation. Subcommands: porta status (show active sessions), porta login <service> (interactive OAuth/cookie capture), porta export --service X (export cookies for curl/requests), porta clear --service X. Store sessions at ~/.config/porta/sessions/. Use browser_cookie3 or similar for cookie extraction. Add --help. chmod +x. Write subprocess tests at assays/test_porta.py. Commit."`
 - [x] `golem [t-72bfe7] [t-auto01] --provider codex --max-turns 40 "Soma (Linux/Fly.io) has no scheduled automation — the 22 LaunchAgents at ~/officina/launchd/ are macOS .plist files that don't work on Linux. Create a crontab from the plist definitions. Steps: 1) Read all .plist files in ~/officina/launchd/ 2) Extract the schedule (StartCalendarInterval or StartInterval) and the command (ProgramArguments) from each 3) Convert to cron syntax 4) Write to a file at ~/officina/soma-crontab.txt 5) Install with crontab ~/officina/soma-crontab.txt. Before installing, print the generated crontab for review. Skip any agents that depend on macOS-only tools (launchctl, osascript, security find-generic-password). Commit the crontab file."`
 
+### Test infrastructure — fixture fix
+
+- [ ] `golem [t-fix-tmp] --provider zhipu --max-turns 25 "Multiple tests fail because /tmp/pytest-vivesca does not exist. Find all test files that reference this path: grep -r 'pytest-vivesca' assays/. Either 1) add a conftest.py fixture that creates /tmp/pytest-vivesca as a tmpdir before tests run and cleans up after, or 2) replace hardcoded /tmp/pytest-vivesca with tmp_path (pytest built-in fixture) in each test file. Option 2 is preferred — it's the pytest-native approach. Run uv run pytest on affected files after fixing. Commit."`
+
 ### Test infrastructure (dedup'd — one of each)
 
 - [x] `golem [t-a27bf7] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
@@ -147,7 +151,7 @@ Removed 22 tasks:
 - [x] `golem [t-268fda] --provider volcano --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-211cc5] --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-76aaa3] --provider infini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [x] `golem [t-f19634] --provider volcano --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [x] `golem [t-f19634] --provider volcano --max-turns 25 "Scan assays/ for hardcoded $HOME paths. Replace with Path.home(). Commit."`
 - [x] `golem [t-6886a8] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [x] `golem [t-f4e863] --provider infini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [x] `golem [t-8ffdb9] --provider volcano --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
@@ -164,3 +168,40 @@ Removed 22 tasks:
 - [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_pharos_sync.sh.py for effectors/pharos-sync.sh. Run uv run pytest assays/test_pharos_sync.sh.py -v --tb=short."`
 - [ ] `golem --provider infini --max-turns 50 "Write assays/test_plan_exec.deprecated.py for effectors/plan-exec.deprecated. Run uv run pytest assays/test_plan_exec.deprecated.py -v --tb=short."`
 - [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_qmd_reindex.sh.py for effectors/qmd-reindex.sh. Run uv run pytest assays/test_qmd_reindex.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_auto_update_compound_engineering.sh.py for effectors/auto-update-compound-engineering.sh. Run uv run pytest assays/test_auto_update_compound_engineering.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_fasti.py for effectors/fasti. Run uv run pytest assays/test_fasti.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_golem_orchestrator.py for effectors/golem-orchestrator. Run uv run pytest assays/test_golem_orchestrator.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_hetzner_bootstrap.sh.py for effectors/hetzner-bootstrap.sh. Run uv run pytest assays/test_hetzner_bootstrap.sh.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_pharos_env.sh.py for effectors/pharos-env.sh. Run uv run pytest assays/test_pharos_env.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_pharos_health.sh.py for effectors/pharos-health.sh. Run uv run pytest assays/test_pharos_health.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_pharos_sync.sh.py for effectors/pharos-sync.sh. Run uv run pytest assays/test_pharos_sync.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_plan_exec.deprecated.py for effectors/plan-exec.deprecated. Run uv run pytest assays/test_plan_exec.deprecated.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_qmd_reindex.sh.py for effectors/qmd-reindex.sh. Run uv run pytest assays/test_qmd_reindex.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_auto_update_compound_engineering.sh.py for effectors/auto-update-compound-engineering.sh. Run uv run pytest assays/test_auto_update_compound_engineering.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_fasti.py for effectors/fasti. Run uv run pytest assays/test_fasti.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_golem_orchestrator.py for effectors/golem-orchestrator. Run uv run pytest assays/test_golem_orchestrator.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_hetzner_bootstrap.sh.py for effectors/hetzner-bootstrap.sh. Run uv run pytest assays/test_hetzner_bootstrap.sh.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_pharos_env.sh.py for effectors/pharos-env.sh. Run uv run pytest assays/test_pharos_env.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_pharos_health.sh.py for effectors/pharos-health.sh. Run uv run pytest assays/test_pharos_health.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_pharos_sync.sh.py for effectors/pharos-sync.sh. Run uv run pytest assays/test_pharos_sync.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_plan_exec.deprecated.py for effectors/plan-exec.deprecated. Run uv run pytest assays/test_plan_exec.deprecated.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_qmd_reindex.sh.py for effectors/qmd-reindex.sh. Run uv run pytest assays/test_qmd_reindex.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_auto_update_compound_engineering.sh.py for effectors/auto-update-compound-engineering.sh. Run uv run pytest assays/test_auto_update_compound_engineering.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_fasti.py for effectors/fasti. Run uv run pytest assays/test_fasti.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_golem_orchestrator.py for effectors/golem-orchestrator. Run uv run pytest assays/test_golem_orchestrator.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_hetzner_bootstrap.sh.py for effectors/hetzner-bootstrap.sh. Run uv run pytest assays/test_hetzner_bootstrap.sh.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_pharos_env.sh.py for effectors/pharos-env.sh. Run uv run pytest assays/test_pharos_env.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_pharos_health.sh.py for effectors/pharos-health.sh. Run uv run pytest assays/test_pharos_health.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_pharos_sync.sh.py for effectors/pharos-sync.sh. Run uv run pytest assays/test_pharos_sync.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_plan_exec.deprecated.py for effectors/plan-exec.deprecated. Run uv run pytest assays/test_plan_exec.deprecated.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_qmd_reindex.sh.py for effectors/qmd-reindex.sh. Run uv run pytest assays/test_qmd_reindex.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_auto_update_compound_engineering.sh.py for effectors/auto-update-compound-engineering.sh. Run uv run pytest assays/test_auto_update_compound_engineering.sh.py -v --tb=short."`
