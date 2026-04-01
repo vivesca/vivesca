@@ -825,7 +825,7 @@ def run_methylation_audit():
     try:
         result = subprocess.run(
             ["channel", "haiku", "-p", prompt],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=15,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if result.returncode != 0:

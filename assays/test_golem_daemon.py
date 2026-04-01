@@ -92,7 +92,7 @@ def test_provider_limits_constant():
 def _make_queue_file(tmp_path: Path, content: str) -> Path:
     """Create a fake golem-queue.md in tmp_path."""
     queue_dir = tmp_path / "germline" / "loci"
-    queue_dir.mkdir(parents=True)
+    queue_dir.mkdir(parents=True, exist_ok=True)
     queue_path = queue_dir / "golem-queue.md"
     queue_path.write_text(content)
     return queue_path
@@ -354,7 +354,7 @@ def test_validate_syntax_error_detection(tmp_path, monkeypatch):
     """validate_golem_output detects SyntaxError in .py files."""
     # Create a file with syntax error
     bad_file = tmp_path / "germline" / "assays" / "test_bad.py"
-    bad_file.parent.mkdir(parents=True)
+    bad_file.parent.mkdir(parents=True, exist_ok=True)
     bad_file.write_text("def broken(\n")  # Missing closing paren
 
     # Mock git diff to return our file
@@ -387,7 +387,7 @@ def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
     """validate_golem_output detects TODO/FIXME comments."""
     # Create a file with TODO
     todo_file = tmp_path / "germline" / "assays" / "test_todo.py"
-    todo_file.parent.mkdir(parents=True)
+    todo_file.parent.mkdir(parents=True, exist_ok=True)
     todo_file.write_text('def foo():\n    # TODO: implement this\n    pass\n')
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
@@ -416,7 +416,7 @@ def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
 def test_validate_stub_detection(tmp_path, monkeypatch):
     """validate_golem_output detects 'stub' in code."""
     stub_file = tmp_path / "germline" / "assays" / "test_stub.py"
-    stub_file.parent.mkdir(parents=True)
+    stub_file.parent.mkdir(parents=True, exist_ok=True)
     stub_file.write_text('def foo():\n    return stub_function()\n')
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
@@ -446,7 +446,7 @@ def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
     """validate_golem_output rejects test files not flat in assays/."""
     # Create nested test file
     nested_file = tmp_path / "germline" / "assays" / "subdir" / "test_nested.py"
-    nested_file.parent.mkdir(parents=True)
+    nested_file.parent.mkdir(parents=True, exist_ok=True)
     nested_file.write_text('def test_foo(): pass\n')
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
@@ -499,7 +499,7 @@ def test_validate_pycache_detection():
 def test_validate_passes_clean_files(tmp_path, monkeypatch):
     """validate_golem_output passes clean .py files."""
     clean_file = tmp_path / "germline" / "assays" / "test_clean.py"
-    clean_file.parent.mkdir(parents=True)
+    clean_file.parent.mkdir(parents=True, exist_ok=True)
     clean_file.write_text('def test_foo():\n    assert True\n')
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
@@ -576,7 +576,7 @@ def test_validate_git_diff_fails_gracefully():
 def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
     """validate_golem_output accepts test files flat in assays/."""
     flat_file = tmp_path / "germline" / "assays" / "test_flat.py"
-    flat_file.parent.mkdir(parents=True)
+    flat_file.parent.mkdir(parents=True, exist_ok=True)
     flat_file.write_text('def test_bar():\n    assert 1 + 1 == 2\n')
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
@@ -744,7 +744,7 @@ cmd_clean = _mod["cmd_clean"]
 def _make_queue_for_clean(tmp_path: Path, content: str) -> Path:
     """Create a queue file for clean tests and return its path."""
     queue_dir = tmp_path / "germline" / "loci"
-    queue_dir.mkdir(parents=True)
+    queue_dir.mkdir(parents=True, exist_ok=True)
     queue_path = queue_dir / "golem-queue.md"
     queue_path.write_text(content)
     return queue_path
@@ -883,7 +883,7 @@ mark_done = _mod["mark_done"]
 def _make_queue_dir(tmp_path: Path) -> Path:
     """Create the queue directory structure and return queue file path."""
     queue_dir = tmp_path / "germline" / "loci"
-    queue_dir.mkdir(parents=True)
+    queue_dir.mkdir(parents=True, exist_ok=True)
     return queue_dir / "golem-queue.md"
 
 
@@ -1906,7 +1906,7 @@ JSONLFILE = _mod["JSONLFILE"]
 def _make_jsonl_dir(tmp_path: Path) -> Path:
     """Create the vivesca directory structure for JSONL stats."""
     vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
-    vivesca_dir.mkdir(parents=True)
+    vivesca_dir.mkdir(parents=True, exist_ok=True)
     return vivesca_dir / "golem.jsonl"
 
 
