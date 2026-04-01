@@ -23,7 +23,7 @@ def test_format_search_results_with_results():
 
 
 def test_histone_search_success():
-    with patch("metabolon.enzymes.histone.search") as mock_search:
+    with patch("metabolon.organelles.chromatin.search") as mock_search:
         mock_search.return_value = [{"name": "test", "path": "/test", "content": "test content"}]
         result = histone("search", query="test query")
         assert isinstance(result, HistoneResult)

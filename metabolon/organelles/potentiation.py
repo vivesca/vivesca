@@ -852,11 +852,19 @@ def _is_tty() -> bool:
 
 def _print_panel(title: str) -> None:
     if _is_tty():
+        BOX_TOP_LEFT = "\u256d"
+        BOX_HORIZ = "\u2500"
+        BOX_TOP_RIGHT = "\u256e"
+        BOX_VERT = "\u2502"
+        BOX_BOTTOM_LEFT = "\u2570"
+        BOX_BOTTOM_RIGHT = "\u256f"
+        BOLD = "\033[1m"
+        RESET = "\033[0m"
         w = len(title) + 2
         print()
-        print(f"\u256d{'\u2500' * w}\u256e")
-        print(f"\u2502 \033[1m{title}\033[0m \u2502")
-        print(f"\u2570{'\u2500' * w}\u256f")
+        print(f"{BOX_TOP_LEFT}{BOX_HORIZ * w}{BOX_TOP_RIGHT}")
+        print(f"{BOX_VERT} {BOLD}{title}{RESET} {BOX_VERT}")
+        print(f"{BOX_BOTTOM_LEFT}{BOX_HORIZ * w}{BOX_BOTTOM_RIGHT}")
     else:
         print(f"## {title}")
 
