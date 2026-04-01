@@ -198,17 +198,20 @@ class TestEdgeCases:
         assert "line3" in decoded
 
     def test_special_chars_in_pane(self, tmp_path, tty_file):
-        """Pane content with shell-special characters round-trips correctly."""
-        content = "hello $world 'quotes' \"dquotes\" &|;<>"
+        """Pane content with unicode survives the OSC 52 pipeline."""
+        content = "hello café ☕ naïve"
         fake = tmp_path / "tmux"
-        # Use printf to avoid echo interpretation
-        fake.write_text(f"#!/bin/bash\nprintf '%s\\n' {repr(content)}\n")
+        # Write content to a file and cat it to avoid shell quoting issues
+        data_file = tmp_path / "pane_data.txt"
+        data_file.write_text(content + "\n")
+        fake.write_text(f"#!/bin/bash\ncat '{data_file}'\n")
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
         self._run_with_mock("%0", tty_file, tmp_path)
         raw = tty_file.read_bytes()
         payload = raw.split(b";c;", 1)[1].rstrip(b"\x07")
         decoded = base64.b64decode(payload).decode()
-        assert "hello" in decoded
+        assert "café" in decoded
+        assert "naïve" in decoded
 
     def test_base64_payload_has_no_newlines(self, fake_tmux_dir, tty_file):
         """The tr -d '\\n' ensures no newlines in the base64 payload."""
@@ -220,16 +223,17 @@ class TestEdgeCases:
 
 # ── tmux invocation flags ───────────────────────────────────────────────
 class TestTmuxFlags:
-    def test_tmux_called_with_capture_pane_flags(self, tmp_path, tty_file):
+    def test_tmux_called_with_capture_pane_flags(self, tmp_path):
         """Verify tmux is invoked with capture-pane -p -t <pane>."""
+        tty_file = tmp_path / "tty"
+        args_file = tmp_path / "tmux_args.txt"
         fake = tmp_path / "tmux"
-        # Record args passed to tmux
-        fake.write_text("#!/bin/bash\necho \"$@\" > /tmp/tmux_args_test\nexit 0\n")
+        fake.write_text(f"#!/bin/bash\necho \"$@\" > {args_file}\nexit 0\n")
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
         env = os.environ.copy()
         env["PATH"] = str(tmp_path) + ":" + env.get("PATH", "/usr/bin:/bin")
         _run("mypane42", str(tty_file), env=env)
-        args = Path("/tmp/tmux_args_test").read_text().strip()
+        args = args_file.read_text().strip()
         assert "capture-pane" in args
         assert "-p" in args
         assert "-t" in args
