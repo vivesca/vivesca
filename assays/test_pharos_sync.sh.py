@@ -277,7 +277,7 @@ class TestRemoteSyncPatterns:
         assert "ENDCREDS" in _src()
 
     def test_credentials_escapes_home(self):
-        """\$HOME is escaped so it expands on the remote, not locally."""
+        r"""\$HOME is escaped so it expands on the remote, not locally."""
         assert r"\$HOME" in _src()
 
     def test_chown_after_creds_write(self):
