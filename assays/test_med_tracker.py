@@ -11,9 +11,6 @@ from pathlib import Path
 
 import pytest
 
-# This file has no async tests — opt out of pytest-asyncio fixture interference.
-pytestmark = pytest.mark.filterwarnings("ignore::pytest.PytestConfigWarning")
-
 
 def _load_med_tracker():
     """Load med-tracker by exec-ing its source."""
@@ -792,3 +789,144 @@ def test_subprocess_status_no_file(tmp_path, monkeypatch):
     )
     assert result.returncode == 0
     assert "No active medications" in result.stdout
+
+
+# ── additional edge cases ───────────────────────────────────────────────
+
+
+def test_parse_schedule_skips_header_row_in_body(tmp_path):
+    """parse_schedule skips a row that looks like the header (| drug |...)."""
+    content = """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| RealDrug | 2026-03-01 | 2026-04-01 | ok |
+| drug | start | end | notes |
+| OtherDrug | 2026-03-15 | 2026-04-15 | fine |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    # The "| drug | start | end | notes |" row in the body is filtered
+    # because the code checks `not line.startswith("| drug")`.
+    assert len(meds) == 2
+    assert meds[0]["drug"] == "RealDrug"
+    assert meds[1]["drug"] == "OtherDrug"
+
+
+def test_cmd_status_mix_active_and_expired(tmp_path, capsys):
+    """cmd_status shows only active meds when schedule has expired entries too."""
+    active_start, active_end = _active_date_range(-3, 5)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| OldMeds | 2026-01-01 | 2026-01-15 | Expired |
+| CurrentMeds | {active_start} | {active_end} | Active |
+| AlsoOld | 2025-12-01 | 2025-12-31 | Long gone |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "CurrentMeds" in out
+    assert "OldMeds" not in out
+    assert "AlsoOld" not in out
+
+
+def test_cmd_status_days_remaining_zero(tmp_path, capsys):
+    """Days remaining is 0 when medication ends today."""
+    start, end = _active_date_range(-5, 0)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| LastDay | {start} | {end} | Final |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_status(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "| 0 |" in out
+
+
+def test_cmd_interactions_zero_medications(tmp_path, capsys):
+    """cmd_interactions handles empty schedule without error."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "No CYP3A4 interaction concerns" in out
+
+
+def test_cmd_add_preserves_existing_content(tmp_path, capsys):
+    """cmd_add appends without overwriting existing rows."""
+    original = """\
+# Schedule
+
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Keeper | 2026-01-01 | 2026-01-10 | Must survive |
+"""
+    sched = _make_schedule(tmp_path, original)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="Appended", start="2026-09-01", end="2026-09-05", notes="new")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    content = sched.read_text()
+    assert "Keeper" in content
+    assert "Must survive" in content
+    assert "Appended" in content
+
+
+def test_subprocess_interactions_no_file(tmp_path):
+    """med-tracker interactions runs via subprocess with no schedule file."""
+    import subprocess
+    env = {**os.environ, "HOME": str(tmp_path)}
+    result = subprocess.run(
+        ["python3", str(Path.home() / "germline/effectors/med-tracker"), "interactions"],
+        capture_output=True, text=True, timeout=10, env=env,
+    )
+    assert result.returncode == 0
+    assert "No CYP3A4 interaction concerns" in result.stdout
+
+
+def test_subprocess_add_and_status(tmp_path):
+    """End-to-end: add a drug via subprocess then check it shows in status."""
+    import subprocess
+    env = {**os.environ, "HOME": str(tmp_path)}
+    script = str(Path.home() / "germline/effectors/med-tracker")
+
+    # Add a drug
+    start, end = _active_date_range(-1, 5)
+    add_result = subprocess.run(
+        [script, "add", "E2EDrug", "--start", start, "--end", end, "--notes", "e2e test"],
+        capture_output=True, text=True, timeout=10, env=env,
+    )
+    assert add_result.returncode == 0
+    assert "Added E2EDrug" in add_result.stdout
+
+    # Verify it appears in status
+    status_result = subprocess.run(
+        [script, "status"],
+        capture_output=True, text=True, timeout=10, env=env,
+    )
+    assert status_result.returncode == 0
+    assert "E2EDrug" in status_result.stdout
