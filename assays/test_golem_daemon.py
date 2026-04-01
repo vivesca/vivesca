@@ -1131,8 +1131,13 @@ class TestParseQueueEdgeCases:
             _mod["QUEUE_FILE"] = original_queue
 
         assert len(pending) == 2
-        assert pending[0] == (2, 'golem "first"')
-        assert pending[1] == (4, 'golem "second"')
+        # parse_queue now returns 3-tuples and injects task IDs into commands
+        assert pending[0][0] == 2  # line number
+        assert "first" in pending[0][1]
+        assert pending[0][2].startswith("t-")  # task_id
+        assert pending[1][0] == 4  # line number
+        assert "second" in pending[1][1]
+        assert pending[1][2].startswith("t-")  # task_id
 
     def test_parse_queue_binary_content(self, tmp_path):
         """parse_queue returns empty for a file with binary/null bytes."""
@@ -1389,7 +1394,8 @@ class TestParseQueueConcurrentModification:
             _mod["QUEUE_FILE"] = original_queue
 
         assert len(pending) == 1
-        assert len(pending[0][1]) == len(long_cmd)
+        # Command includes injected task ID, so it's longer than original
+        assert len(pending[0][1]) >= len(long_cmd)
 
     def test_parse_queue_duplicate_tasks(self, tmp_path):
         """parse_queue returns both entries if identical tasks appear."""
@@ -1457,13 +1463,22 @@ def test_parse_queue_high_priority_line_numbers_preserved(tmp_path):
     finally:
         _mod["QUEUE_FILE"] = original_queue
 
-    # Build a map of command snippet -> line number
-    by_cmd = {cmd: ln for ln, cmd, _ in pending}
+    # Build a map of task snippet -> line number (commands contain injected task IDs)
+    by_snippet = {}
+    for ln, cmd, _ in pending:
+        if "urgent task" in cmd:
+            by_snippet["urgent task"] = ln
+        elif "another urgent" in cmd:
+            by_snippet["another urgent"] = ln
+        elif "normal task 1" in cmd:
+            by_snippet["normal task 1"] = ln
+        elif "normal task 2" in cmd:
+            by_snippet["normal task 2"] = ln
     # "urgent task" is on line 5, "normal task 1" on line 4, etc.
-    assert by_cmd['golem --provider volcano "urgent task"'] == 5
-    assert by_cmd['golem --provider infini --max-turns 50 "normal task 1"'] == 4
-    assert by_cmd['golem "normal task 2"'] == 6
-    assert by_cmd['golem --provider zhipu "another urgent"'] == 7
+    assert by_snippet["urgent task"] == 5
+    assert by_snippet["normal task 1"] == 4
+    assert by_snippet["normal task 2"] == 6
+    assert by_snippet["another urgent"] == 7
 
 
 def test_parse_queue_only_high_priority(tmp_path):

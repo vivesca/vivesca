@@ -46,7 +46,9 @@ IDLE_STOP_MINUTES = 10  # Stop machine after N minutes idle
 FLY_APP_NAME = "gemmule"
 FLY_API_BASE = "https://api.machines.dev"
 HEALTH_CHECK_INTERVAL = 50  # Run health check every N poll cycles (~25 min)
-PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after consecutive failures
+PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after excessive failures
+PROVIDER_FAILURE_WINDOW = 600   # 10 min sliding window for failure counting
+PROVIDER_FAILURE_THRESHOLD = 5  # cooldown after N failures within the window
 
 
 def disk_hygiene() -> int:
@@ -857,7 +859,7 @@ def daemon_loop():
     max_workers = max(PROVIDER_LIMITS.values())
     running = {}  # future -> (line_num, cmd, provider, task_id)
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
-    provider_consecutive_fails: dict[str, int] = {}  # provider -> consecutive failure count
+    provider_failure_times: dict[str, list[float]] = {}  # provider -> list of failure timestamps
     provider_cooldown_until: dict[str, float] = {}  # provider -> timestamp when cooldown ends
     poll_cycle = 0
     disk_space_paused = False
@@ -925,8 +927,7 @@ def daemon_loop():
                             if not test_passed:
                                 log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
                             mark_done(line_num, f"exit={exit_code}", task_id=task_id)
-                            # Success → reset provider failure count
-                            provider_consecutive_fails[provider] = 0
+                            # Note: don't reset failure times on success — window expires old entries naturally
                             # Auto-commit every 5 successful completions
                             global _mark_done_count
                             _mark_done_count += 1

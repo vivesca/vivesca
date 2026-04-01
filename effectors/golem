@@ -225,8 +225,8 @@ _run_golem() {
     # Success — break immediately
     [[ $exit_code -eq 0 ]] && break
 
-    # Detect rate-limiting in output (429 / AccountQuotaExceeded / rate limit)
-    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded'; then
+    # Detect rate-limiting in output (429 / AccountQuotaExceeded / rate limit / Infini 20013)
+    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded'; then
       _attempt=$(( _attempt + 1 ))
       if [[ $_attempt -lt $_max_retries ]]; then
         # Try to extract reset time from error message (e.g. "reset at 2026-04-01 11:05:30")

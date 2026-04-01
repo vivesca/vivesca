@@ -15,13 +15,8 @@ SCRIPT = Path.home() / "germline" / "effectors" / "tmux-url-select.sh"
 BUFFER = Path("/tmp/tmux-url-buffer")
 
 # Regex from the script: https?://[^ >)"']+
-# We extract the same pattern for standalone tests.
-URL_PATTERN = r"https?://[^ >)\"']+"
-
-# Helper script that runs just the extraction pipeline.
-GREP_SCRIPT = """#!/usr/bin/env bash
-grep -oE '{pattern}' "$1" | awk '!seen[$0]++'
-"""
+# Passed directly to grep (no shell quoting needed when using exec form).
+URL_PATTERN = r"""https?://[^ >)"']+"""
 
 
 def _run(
@@ -43,24 +38,29 @@ def _run(
 
 
 def _run_extract(buffer_content: str) -> list[str]:
-    """Write content to the buffer and run just the extraction pipeline."""
+    """Write content to the buffer and run just the grep+dedup pipeline.
+
+    Uses subprocess list form (no shell) so the regex pattern with single
+    quotes is passed directly to grep without bash quoting issues.
+    Deduplication is done in Python to match the awk ``!seen[$0]++`` logic.
+    """
     _write_buffer(buffer_content)
     try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
-            f.write(GREP_SCRIPT.format(pattern=URL_PATTERN))
-            f.flush()
-            tmp_script = f.name
-        os.chmod(tmp_script, 0o755)
         r = subprocess.run(
-            ["bash", tmp_script, str(BUFFER)],
+            ["grep", "-oE", URL_PATTERN, str(BUFFER)],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        os.unlink(tmp_script)
-        if r.returncode != 0:
+        if r.returncode != 0 or not r.stdout.strip():
             return []
-        return r.stdout.strip().split("\n") if r.stdout.strip() else []
+        urls: list[str] = []
+        seen: set[str] = set()
+        for line in r.stdout.strip().split("\n"):
+            if line not in seen:
+                seen.add(line)
+                urls.append(line)
+        return urls
     finally:
         _remove_buffer()
 
@@ -75,10 +75,10 @@ def _remove_buffer() -> None:
 
 
 def _make_fzf_mock(tmpdir: str, selection: str) -> None:
-    """Create a mock fzf that echoes the selection."""
+    """Create a mock fzf that consumes stdin (avoids SIGPIPE) then echoes the selection."""
     mock = os.path.join(tmpdir, "fzf")
     with open(mock, "w") as f:
-        f.write(f"#!/bin/sh\necho '{selection}'\n")
+        f.write(f"#!/bin/sh\ncat >/dev/null\necho '{selection}'\n")
     os.chmod(mock, 0o755)
 
 
@@ -87,6 +87,14 @@ def _make_tmux_mock(tmpdir: str) -> None:
     mock = os.path.join(tmpdir, "tmux")
     with open(mock, "w") as f:
         f.write("#!/bin/sh\nexit 0\n")
+    os.chmod(mock, 0o755)
+
+
+def _make_tmux_log_mock(tmpdir: str, log_path: str) -> None:
+    """Create a mock tmux that logs its arguments to a file."""
+    mock = os.path.join(tmpdir, "tmux")
+    with open(mock, "w") as f:
+        f.write(f"#!/bin/sh\necho \"$@\" > '{log_path}'\n")
     os.chmod(mock, 0o755)
 
 
@@ -210,8 +218,24 @@ class TestEndToEnd:
             _write_buffer("https://example.com/test\n")
             try:
                 r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                assert r.returncode == 0
                 expected_b64 = base64.b64encode(b"https://example.com/test").decode()
                 assert expected_b64 in r.stdout
+            finally:
+                _remove_buffer()
+
+    def test_osc52_escape_sequence_format(self):
+        """OSC 52 uses format ESC]52;c;<base64>BEL."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            url = "https://example.com/escape-test"
+            _make_fzf_mock(tmpdir, url)
+            _make_tmux_mock(tmpdir)
+            _write_buffer(f"{url}\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                assert r.returncode == 0
+                expected_b64 = base64.b64encode(url.encode()).decode()
+                assert f"\033]52;c;{expected_b64}\a" in r.stdout
             finally:
                 _remove_buffer()
 
@@ -220,7 +244,7 @@ class TestEndToEnd:
         with tempfile.TemporaryDirectory() as tmpdir:
             mock = os.path.join(tmpdir, "fzf")
             with open(mock, "w") as f:
-                f.write("#!/bin/sh\nexit 1\n")
+                f.write("#!/bin/sh\ncat >/dev/null\nexit 1\n")
             os.chmod(mock, 0o755)
             _make_tmux_mock(tmpdir)
             _write_buffer("https://example.com\n")
@@ -230,3 +254,98 @@ class TestEndToEnd:
                 assert "]52;c;" not in r.stdout
             finally:
                 _remove_buffer()
+
+    def test_fzf_empty_output_no_osc52(self):
+        """When fzf outputs nothing (empty selection), no OSC 52 is emitted."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock = os.path.join(tmpdir, "fzf")
+            with open(mock, "w") as f:
+                # Consume stdin, output nothing, exit 0
+                f.write("#!/bin/sh\ncat >/dev/null\nexit 0\n")
+            os.chmod(mock, 0o755)
+            _make_tmux_mock(tmpdir)
+            _write_buffer("https://example.com\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                assert r.returncode == 0
+                assert "]52;c;" not in r.stdout
+            finally:
+                _remove_buffer()
+
+    def test_tmux_display_message_called(self):
+        """After selecting, tmux display-message is called with the URL."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "tmux.log")
+            _make_fzf_mock(tmpdir, "https://example.com/msg")
+            _make_tmux_log_mock(tmpdir, log_file)
+            _write_buffer("https://example.com/msg\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                assert r.returncode == 0
+                log = open(log_file).read()
+                assert "display-message" in log
+                assert "https://example.com/msg" in log
+            finally:
+                _remove_buffer()
+
+    def test_url_with_query_and_fragment(self):
+        """URLs with query strings and fragments are handled correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            url = "https://example.com/path?q=hello&lang=en#section"
+            _make_fzf_mock(tmpdir, url)
+            _make_tmux_mock(tmpdir)
+            _write_buffer(f"link: {url} end\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                assert r.returncode == 0
+                expected_b64 = base64.b64encode(url.encode()).decode()
+                assert expected_b64 in r.stdout
+            finally:
+                _remove_buffer()
+
+
+# ── Full pipeline test (grep+awk in bash) ──────────────────────────────
+
+
+class TestPipeline:
+    """Test the full grep+awk pipeline as the script actually runs it."""
+
+    def _run_pipeline(self, buffer_content: str) -> tuple[int, str]:
+        """Run the exact grep+awk pipeline from the script via bash -c."""
+        _write_buffer(buffer_content)
+        try:
+            # Use the same quoting trick as the original script: '...'"'"'...'
+            cmd = """grep -oE 'https?://[^ >)"'"'"']+' /tmp/tmux-url-buffer | awk '!seen[$0]++'"""
+            r = subprocess.run(
+                ["bash", "-c", cmd],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return r.returncode, r.stdout.strip()
+        finally:
+            _remove_buffer()
+
+    def test_pipeline_extracts_single_url(self):
+        rc, out = self._run_pipeline("Visit https://example.com/here\n")
+        assert rc == 0
+        assert out == "https://example.com/here"
+
+    def test_pipeline_deduplicates(self):
+        rc, out = self._run_pipeline(
+            "https://a.com\nhttps://a.com\nhttps://b.com\n"
+        )
+        assert rc == 0
+        lines = out.split("\n")
+        assert lines == ["https://a.com", "https://b.com"]
+
+    def test_pipeline_no_urls_returns_1(self):
+        rc, out = self._run_pipeline("just text no urls\n")
+        assert rc != 0
+
+    def test_pipeline_url_with_path_and_query(self):
+        rc, out = self._run_pipeline(
+            "check https://example.com/api/v1?q=test&limit=10 here\n"
+        )
+        assert rc == 0
+        assert out == "https://example.com/api/v1?q=test&limit=10"
