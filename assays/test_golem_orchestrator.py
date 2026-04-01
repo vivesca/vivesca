@@ -79,7 +79,8 @@ def test_source_env_parses_export_lines():
 export API_KEY="secret123"
 export DB_HOST='localhost'
 """
-    with patch("os.path.exists", return_value=True),          patch("builtins.open", mock_open(read_data=env_content)):
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data=env_content)):
         result = _source_env()
         assert result.get("API_KEY") == "secret123"
         assert result.get("DB_HOST") == "localhost"
@@ -99,7 +100,8 @@ def test_source_env_skips_non_export_lines():
 API_KEY=no_export_prefix
 export VALID_KEY="valid"
 """
-    with patch("os.path.exists", return_value=True),          patch("builtins.open", mock_open(read_data=env_content)):
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data=env_content)):
         result = _source_env()
         assert "VALID_KEY" in result
         # Non-export line should not be parsed
@@ -159,7 +161,9 @@ def test_find_worker_pid_returns_none_for_missing_pidfile():
 
 def test_find_worker_pid_returns_pid_from_file():
     """_find_worker_pid returns PID from pidfile if process alive."""
-    with patch.object(Path, "exists", return_value=True),          patch.object(Path, "read_text", return_value="12345"),          patch("os.kill") as mock_kill:
+    with patch.object(Path, "exists", return_value=True), \
+         patch.object(Path, "read_text", return_value="12345"), \
+         patch("os.kill") as mock_kill:
         result = _find_worker_pid("hatchet")
         assert result == 12345
         # Should verify process is alive with signal 0
@@ -172,7 +176,8 @@ def test_find_worker_pid_removes_stale_pidfile():
     mock_path.exists.return_value = True
     mock_path.read_text.return_value = "12345"
     
-    with patch.dict(WORKER_PIDFILES, {"hatchet": mock_path}),          patch("os.kill", side_effect=ProcessLookupError):
+    with patch.dict(WORKER_PIDFILES, {"hatchet": mock_path}), \
+         patch("os.kill", side_effect=ProcessLookupError):
         result = _find_worker_pid("hatchet")
         assert result is None
         mock_path.unlink.assert_called_once_with(missing_ok=True)
@@ -195,7 +200,9 @@ def test_find_worker_pid_handles_invalid_pid():
 
 def test_is_running_daemon_from_pidfile():
     """_is_running detects daemon via pidfile."""
-    with patch.object(Path, "exists", return_value=True),          patch.object(Path, "read_text", return_value="9999"),          patch("os.kill") as mock_kill:
+    with patch.object(Path, "exists", return_value=True), \
+         patch.object(Path, "read_text", return_value="9999"), \
+         patch("os.kill") as mock_kill:
         result = _is_running("daemon")
         assert result is not None
         assert result["backend"] == "daemon"
@@ -204,7 +211,8 @@ def test_is_running_daemon_from_pidfile():
 
 def test_is_running_daemon_not_running():
     """_is_running returns None when daemon not running."""
-    with patch.object(Path, "exists", return_value=False),          patch("subprocess.run") as mock_run:
+    with patch.object(Path, "exists", return_value=False), \
+         patch("subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
             args=[], returncode=1, stdout="", stderr=""
         )
@@ -214,10 +222,10 @@ def test_is_running_daemon_not_running():
 
 def test_is_running_daemon_from_pgrep():
     """_is_running detects daemon via pgrep when pidfile missing."""
-    with patch.object(Path, "exists", return_value=False),          patch("subprocess.run") as mock_run:
+    with patch.object(Path, "exists", return_value=False), \
+         patch("subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="8888
-", stderr=""
+            args=[], returncode=0, stdout="8888\n", stderr=""
         )
         result = _is_running("daemon")
         assert result is not None
@@ -226,12 +234,11 @@ def test_is_running_daemon_from_pgrep():
 
 def test_is_running_hatchet_with_containers():
     """_is_running detects hatchet with Docker containers."""
-    with patch("subprocess.run") as mock_run,          patch.object(_mod, "_find_worker_pid", return_value=None):
+    with patch("subprocess.run") as mock_run, \
+         patch.object(_mod, "_find_worker_pid", return_value=None):
         # Mock docker ps output
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="hatchet-golem-server
-hatchet-golem-db
-", stderr=""
+            args=[], returncode=0, stdout="hatchet-golem-server\nhatchet-golem-db\n", stderr=""
         )
         result = _is_running("hatchet")
         assert result is not None
@@ -241,7 +248,8 @@ hatchet-golem-db
 
 def test_is_running_hatchet_with_worker():
     """_is_running detects hatchet with worker PID."""
-    with patch("subprocess.run") as mock_run,          patch.object(_mod, "_find_worker_pid", return_value=5555):
+    with patch("subprocess.run") as mock_run, \
+         patch.object(_mod, "_find_worker_pid", return_value=5555):
         mock_run.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -252,10 +260,10 @@ def test_is_running_hatchet_with_worker():
 
 def test_is_running_temporal_with_containers():
     """_is_running detects temporal with Docker containers."""
-    with patch("subprocess.run") as mock_run,          patch.object(_mod, "_find_worker_pid", return_value=None):
+    with patch("subprocess.run") as mock_run, \
+         patch.object(_mod, "_find_worker_pid", return_value=None):
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="temporal-golem-server
-", stderr=""
+            args=[], returncode=0, stdout="temporal-golem-server\n", stderr=""
         )
         result = _is_running("temporal")
         assert result is not None
@@ -310,7 +318,10 @@ def test_cmd_stop_nothing_running(capsys):
 
 def test_cmd_stop_daemon():
     """cmd_stop stops daemon correctly."""
-    with patch.object(_mod, "_is_running", return_value={"backend": "daemon", "pid": 9999}),          patch("subprocess.run") as mock_run,          patch("os.kill") as mock_kill,          patch("time.sleep"):
+    with patch.object(_mod, "_is_running", return_value={"backend": "daemon", "pid": 9999}), \
+         patch("subprocess.run") as mock_run, \
+         patch("os.kill") as mock_kill, \
+         patch("time.sleep"):
         cmd_stop("daemon")
         # Should call golem-daemon stop
         assert mock_run.called
@@ -321,7 +332,10 @@ def test_cmd_stop_hatchet():
     """cmd_stop stops hatchet correctly."""
     with patch.object(_mod, "_is_running", return_value={
         "backend": "hatchet", "containers": 2, "worker_pid": 7777
-    }),          patch("os.kill") as mock_kill,          patch.object(_mod, "_docker") as mock_docker,          patch("time.sleep"):
+    }), \
+         patch("os.kill") as mock_kill, \
+         patch.object(_mod, "_docker") as mock_docker, \
+         patch("time.sleep"):
         mock_docker.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -336,7 +350,10 @@ def test_cmd_stop_temporal():
     """cmd_stop stops temporal correctly."""
     with patch.object(_mod, "_is_running", return_value={
         "backend": "temporal", "containers": 1, "worker_pid": 8888
-    }),          patch("os.kill") as mock_kill,          patch.object(_mod, "_docker") as mock_docker,          patch("time.sleep"):
+    }), \
+         patch("os.kill") as mock_kill, \
+         patch.object(_mod, "_docker") as mock_docker, \
+         patch("time.sleep"):
         mock_docker.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -356,7 +373,11 @@ def test_cmd_stop_all_backends():
     def mock_is_running(backend):
         return running.get(backend)
     
-    with patch.object(_mod, "_is_running", side_effect=mock_is_running),          patch("subprocess.run") as mock_run,          patch("os.kill") as mock_kill,          patch.object(_mod, "_docker") as mock_docker,          patch("time.sleep"):
+    with patch.object(_mod, "_is_running", side_effect=mock_is_running), \
+         patch("subprocess.run") as mock_run, \
+         patch("os.kill") as mock_kill, \
+         patch.object(_mod, "_docker") as mock_docker, \
+         patch("time.sleep"):
         mock_docker.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -378,7 +399,9 @@ def test_cmd_start_already_running(capsys):
 
 def test_cmd_start_daemon():
     """cmd_start starts daemon correctly."""
-    with patch.object(_mod, "_is_running", return_value=None),          patch("subprocess.Popen") as mock_popen,          patch.object(_mod, "_source_env", return_value={}):
+    with patch.object(_mod, "_is_running", return_value=None), \
+         patch("subprocess.Popen") as mock_popen, \
+         patch.object(_mod, "_source_env", return_value={}):
         mock_popen.return_value = MagicMock(pid=54321)
         cmd_start("daemon")
         assert mock_popen.called
@@ -391,7 +414,12 @@ def test_cmd_start_daemon():
 def test_cmd_start_hatchet():
     """cmd_start starts hatchet correctly."""
     mock_log = MagicMock()
-    with patch.object(_mod, "_is_running", return_value=None),          patch("subprocess.Popen") as mock_popen,          patch.object(_mod, "_docker") as mock_docker,          patch.object(_mod, "_source_env", return_value={}),          patch("builtins.open", return_value=mock_log),          patch("time.sleep"):
+    with patch.object(_mod, "_is_running", return_value=None), \
+         patch("subprocess.Popen") as mock_popen, \
+         patch.object(_mod, "_docker") as mock_docker, \
+         patch.object(_mod, "_source_env", return_value={}), \
+         patch("builtins.open", return_value=mock_log), \
+         patch("time.sleep"):
         mock_docker.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -415,7 +443,9 @@ def test_cmd_start_invalid_backend():
 
 def test_cmd_switch_stops_all_starts_backend():
     """cmd_switch stops all backends then starts the given one."""
-    with patch.object(_mod, "cmd_stop") as mock_stop,          patch.object(_mod, "cmd_start") as mock_start,          patch("time.sleep"):
+    with patch.object(_mod, "cmd_stop") as mock_stop, \
+         patch.object(_mod, "cmd_start") as mock_start, \
+         patch("time.sleep"):
         cmd_switch("daemon")
         # Should stop all (None arg)
         mock_stop.assert_called_with(None)
@@ -428,20 +458,23 @@ def test_cmd_switch_stops_all_starts_backend():
 
 def test_cmd_dispatch_no_backend_running():
     """cmd_dispatch exits when no backend running."""
-    with patch.object(_mod, "_is_running", return_value=None),          pytest.raises(SystemExit):
+    with patch.object(_mod, "_is_running", return_value=None), \
+         pytest.raises(SystemExit):
         cmd_dispatch(None)
 
 
 def test_cmd_dispatch_auto_detect_running_backend():
     """cmd_dispatch auto-detects running backend."""
-    with patch.object(_mod, "_is_running", return_value={"backend": "daemon"}),          patch.object(_mod, "_source_env", return_value={}):
+    with patch.object(_mod, "_is_running", return_value={"backend": "daemon"}), \
+         patch.object(_mod, "_source_env", return_value={}):
         # daemon just prints a message, does not subprocess
         cmd_dispatch(None)  # Should not raise
 
 
 def test_cmd_dispatch_daemon_message(capsys):
     """cmd_dispatch for daemon prints automatic dispatch message."""
-    with patch.object(_mod, "_is_running", return_value={"backend": "daemon"}),          patch.object(_mod, "_source_env", return_value={}):
+    with patch.object(_mod, "_is_running", return_value={"backend": "daemon"}), \
+         patch.object(_mod, "_source_env", return_value={}):
         cmd_dispatch("daemon")
         captured = capsys.readouterr()
         assert "automatically" in captured.out
@@ -449,7 +482,9 @@ def test_cmd_dispatch_daemon_message(capsys):
 
 def test_cmd_dispatch_hatchet():
     """cmd_dispatch runs hatchet dispatch.py."""
-    with patch.object(_mod, "_is_running", return_value={"backend": "hatchet"}),          patch.object(_mod, "_source_env", return_value={}),          patch("subprocess.run") as mock_run:
+    with patch.object(_mod, "_is_running", return_value={"backend": "hatchet"}), \
+         patch.object(_mod, "_source_env", return_value={}), \
+         patch("subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -461,7 +496,9 @@ def test_cmd_dispatch_hatchet():
 
 def test_cmd_dispatch_temporal():
     """cmd_dispatch runs temporal dispatch.py."""
-    with patch.object(_mod, "_is_running", return_value={"backend": "temporal"}),          patch.object(_mod, "_source_env", return_value={}),          patch("subprocess.run") as mock_run:
+    with patch.object(_mod, "_is_running", return_value={"backend": "temporal"}), \
+         patch.object(_mod, "_source_env", return_value={}), \
+         patch("subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="", stderr=""
         )
@@ -476,86 +513,99 @@ def test_cmd_dispatch_temporal():
 
 def test_main_shows_help():
     """main shows help with -h or --help."""
-    with patch("sys.argv", ["golem-orchestrator", "-h"]),          patch("sys.exit") as mock_exit:
+    with patch("sys.argv", ["golem-orchestrator", "-h"]), \
+         patch("sys.exit") as mock_exit:
         main()
         mock_exit.assert_called_with(0)
 
 
 def test_main_shows_help_no_args():
     """main shows help with no args."""
-    with patch("sys.argv", ["golem-orchestrator"]),          patch("sys.exit") as mock_exit:
+    with patch("sys.argv", ["golem-orchestrator"]), \
+         patch("sys.exit") as mock_exit:
         main()
         mock_exit.assert_called_with(0)
 
 
 def test_main_status_command():
     """main calls cmd_status for status command."""
-    with patch("sys.argv", ["golem-orchestrator", "status"]),          patch.object(_mod, "cmd_status") as mock_status:
+    with patch("sys.argv", ["golem-orchestrator", "status"]), \
+         patch.object(_mod, "cmd_status") as mock_status:
         main()
         mock_status.assert_called_once()
 
 
 def test_main_stop_command():
     """main calls cmd_stop for stop command."""
-    with patch("sys.argv", ["golem-orchestrator", "stop"]),          patch.object(_mod, "cmd_stop") as mock_stop:
+    with patch("sys.argv", ["golem-orchestrator", "stop"]), \
+         patch.object(_mod, "cmd_stop") as mock_stop:
         main()
         mock_stop.assert_called_with(None)
 
 
 def test_main_stop_specific_backend():
     """main calls cmd_stop with specific backend."""
-    with patch("sys.argv", ["golem-orchestrator", "stop", "daemon"]),          patch.object(_mod, "cmd_stop") as mock_stop:
+    with patch("sys.argv", ["golem-orchestrator", "stop", "daemon"]), \
+         patch.object(_mod, "cmd_stop") as mock_stop:
         main()
         mock_stop.assert_called_with("daemon")
 
 
 def test_main_start_requires_backend():
     """main exits if start missing backend arg."""
-    with patch("sys.argv", ["golem-orchestrator", "start"]),          pytest.raises(SystemExit):
+    with patch("sys.argv", ["golem-orchestrator", "start"]), \
+         pytest.raises(SystemExit):
         main()
 
 
 def test_main_start_invalid_backend():
     """main exits if start given invalid backend."""
-    with patch("sys.argv", ["golem-orchestrator", "start", "invalid"]),          pytest.raises(SystemExit):
+    with patch("sys.argv", ["golem-orchestrator", "start", "invalid"]), \
+         pytest.raises(SystemExit):
         main()
 
 
 def test_main_start_valid_backend():
     """main calls cmd_start with valid backend."""
-    with patch("sys.argv", ["golem-orchestrator", "start", "daemon"]),          patch.object(_mod, "cmd_start") as mock_start:
+    with patch("sys.argv", ["golem-orchestrator", "start", "daemon"]), \
+         patch.object(_mod, "cmd_start") as mock_start:
         main()
         mock_start.assert_called_with("daemon")
 
 
 def test_main_switch_requires_backend():
     """main exits if switch missing backend arg."""
-    with patch("sys.argv", ["golem-orchestrator", "switch"]),          pytest.raises(SystemExit):
+    with patch("sys.argv", ["golem-orchestrator", "switch"]), \
+         pytest.raises(SystemExit):
         main()
 
 
 def test_main_switch_valid_backend():
     """main calls cmd_switch with valid backend."""
-    with patch("sys.argv", ["golem-orchestrator", "switch", "temporal"]),          patch.object(_mod, "cmd_switch") as mock_switch:
+    with patch("sys.argv", ["golem-orchestrator", "switch", "temporal"]), \
+         patch.object(_mod, "cmd_switch") as mock_switch:
         main()
         mock_switch.assert_called_with("temporal")
 
 
 def test_main_dispatch_command():
     """main calls cmd_dispatch for dispatch command."""
-    with patch("sys.argv", ["golem-orchestrator", "dispatch"]),          patch.object(_mod, "cmd_dispatch") as mock_dispatch:
+    with patch("sys.argv", ["golem-orchestrator", "dispatch"]), \
+         patch.object(_mod, "cmd_dispatch") as mock_dispatch:
         main()
         mock_dispatch.assert_called_with(None)
 
 
 def test_main_dispatch_with_backend():
     """main calls cmd_dispatch with specific backend."""
-    with patch("sys.argv", ["golem-orchestrator", "dispatch", "hatchet"]),          patch.object(_mod, "cmd_dispatch") as mock_dispatch:
+    with patch("sys.argv", ["golem-orchestrator", "dispatch", "hatchet"]), \
+         patch.object(_mod, "cmd_dispatch") as mock_dispatch:
         main()
         mock_dispatch.assert_called_with("hatchet")
 
 
 def test_main_unknown_command():
     """main exits for unknown command."""
-    with patch("sys.argv", ["golem-orchestrator", "unknown"]),          pytest.raises(SystemExit):
+    with patch("sys.argv", ["golem-orchestrator", "unknown"]), \
+         pytest.raises(SystemExit):
         main()
