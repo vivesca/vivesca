@@ -1,25 +1,29 @@
 from __future__ import annotations
 
-"""Tests for metabolon/organelles/demethylase.py — internal functions and edge cases.
+"""Tests for metabolon.organelles.demethylase — active memory erasure and
+consolidation, ephemeral signal channel, and downstream cascade execution.
 
-Focuses on functions and branches NOT covered by assays/test_demethylase.py:
-_parse_frontmatter, _validate_downstream_command, _parse_downstream,
-_detect_staleness, _cluster_marks, _infer_durability, _infer_protected,
-_update_frontmatter_field, _find_existing_signal, format_report, and
-sweep/consolidate edge cases.
+All filesystem interactions are redirected to tmp_path fixtures.
+External calls (subprocess, datetime) are mocked where needed.
 """
 
-
+import json
+import os
+import subprocess
+import textwrap
+from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.organelles.demethylase import (
+    ConsolidationReport,
+    DemethylaseReport,
     MarkAnalysis,
     _cluster_marks,
     _detect_staleness,
     _effective_threshold,
-    _find_existing_signal,
     _infer_durability,
     _infer_protected,
     _infer_source,
@@ -38,1217 +42,841 @@ from metabolon.organelles.demethylase import (
     sweep,
     transduce,
 )
+import metabolon.organelles.demethylase as dm
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Fixtures
 # ---------------------------------------------------------------------------
 
+@pytest.fixture
+def marks_dir(tmp_path):
+    """Temporary marks directory populated with sample mark files."""
+    d = tmp_path / "marks"
+    d.mkdir()
+    return d
 
-def _write_mark(path: Path, name: str, mtype: str = "feedback", **extra_fm) -> None:
-    """Write a minimal mark file with YAML frontmatter."""
-    fm_lines = [f"name: {name}", f"type: {mtype}"]
-    for k, v in extra_fm.items():
-        fm_lines.append(f"{k}: {v}")
-    path.write_text("---\n" + "\n".join(fm_lines) + "\n---\n\nBody text.\n")
+
+@pytest.fixture
+def signals_dir(tmp_path):
+    """Temporary signals directory; patches SIGNALS_DIR for signal tests."""
+    d = tmp_path / "signals"
+    d.mkdir()
+    return d
 
 
-def _make_mark(**overrides) -> MarkAnalysis:
-    """Create a MarkAnalysis with sensible defaults, overridden by **overrides."""
+@pytest.fixture(autouse=True)
+def _patch_paths(marks_dir, signals_dir, tmp_path):
+    """Redirect module-level paths to tmp directories for every test."""
+    dm.MARKS_DIR = marks_dir
+    dm.SIGNALS_DIR = signals_dir
+    dm.SIGNAL_HISTORY_PATH = tmp_path / "signal-history.jsonl"
+    yield
+
+
+def _write_mark(directory, name, frontmatter=None, body=""):
+    """Helper to create a mark file with frontmatter."""
+    path = directory / name
+    if frontmatter is None:
+        frontmatter = {"name": name.replace(".md", ""), "type": "feedback", "source": "cc"}
+    fm_lines = [f"{k}: {v}" for k, v in frontmatter.items()]
+    content = "---\n" + "\n".join(fm_lines) + "\n---\n\n" + body + "\n"
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _write_mark_with_age(directory, filename, age_days, frontmatter=None):
+    """Write a mark file and set its mtime to age_days ago."""
+    path = _write_mark(directory, filename, frontmatter=frontmatter)
+    old_time = (datetime.now() - timedelta(days=age_days)).timestamp()
+    os.utime(path, (old_time, old_time))
+    return path
+
+
+def _make_mark(path, age_days=10, access_count=0, **overrides):
+    """Create a MarkAnalysis with sensible defaults."""
     defaults = dict(
-        path=Path("/fake/mark.md"),
-        name="test-mark",
-        mark_type="feedback",
-        durability="methyl",
-        protected=False,
-        source="cc",
-        age_days=100,
-        last_modified_days=100,
-        access_count=0,
-        stale=False,
-        reason="",
+        path=path, name=path.stem, mark_type="feedback",
+        durability="methyl", protected=False, source="cc",
+        age_days=age_days, last_modified_days=age_days,
+        access_count=access_count,
     )
     defaults.update(overrides)
     return MarkAnalysis(**defaults)
 
 
-def _patch_signals(monkeypatch, tmp_path: Path) -> Path:
-    """Patch SIGNALS_DIR and SIGNAL_HISTORY_PATH to tmp_path subdirs."""
-    sig_dir = tmp_path / "signals"
-    hist = tmp_path / "state" / "signal-history.jsonl"
-    monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
-    monkeypatch.setattr(
-        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
-    )
-    return sig_dir
-
-
-# ---------------------------------------------------------------------------
+# ===================================================================
 # _parse_frontmatter
-# ---------------------------------------------------------------------------
-
+# ===================================================================
 
 class TestParseFrontmatter:
-    def test_basic_frontmatter(self, tmp_path: Path):
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: foo\ntype: bar\n---\n\nbody\n")
-        fm = _parse_frontmatter(p)
-        assert fm == {"name": "foo", "type": "bar"}
 
-    def test_no_frontmatter(self, tmp_path: Path):
-        p = tmp_path / "plain.md"
-        p.write_text("Just some text without frontmatter.\n")
+    def test_basic_frontmatter(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\nname: foo\ntype: bar\n---\nbody\n")
+        assert _parse_frontmatter(p) == {"name": "foo", "type": "bar"}
+
+    def test_no_frontmatter(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("Just a regular file\n")
         assert _parse_frontmatter(p) == {}
 
-    def test_unclosed_frontmatter(self, tmp_path: Path):
-        p = tmp_path / "unclosed.md"
+    def test_unclosed_frontmatter(self, tmp_path):
+        p = tmp_path / "test.md"
         p.write_text("---\nname: foo\n")
         assert _parse_frontmatter(p) == {}
 
-    def test_empty_file(self, tmp_path: Path):
-        p = tmp_path / "empty.md"
-        p.write_text("")
+    def test_empty_frontmatter(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\n---\nbody\n")
         assert _parse_frontmatter(p) == {}
 
-    def test_value_with_colon(self, tmp_path: Path):
-        """Values containing colons should be preserved."""
-        p = tmp_path / "colon.md"
-        p.write_text("---\nname: key: value\n---\n")
-        fm = _parse_frontmatter(p)
-        assert fm["name"] == "key: value"
+    def test_multiline_value_uses_first_colon(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\nreason: old mark: extra\n---\n")
+        result = _parse_frontmatter(p)
+        assert result["reason"] == "old mark: extra"
 
-    def test_empty_value(self, tmp_path: Path):
-        p = tmp_path / "blank.md"
-        p.write_text("---\nname:\n---\n")
-        fm = _parse_frontmatter(p)
-        assert fm["name"] == ""
+    def test_colon_in_value_preserved(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\nurl: https://example.com\n---\n")
+        assert _parse_frontmatter(p)["url"] == "https://example.com"
 
 
-# ---------------------------------------------------------------------------
+# ===================================================================
 # _validate_downstream_command
-# ---------------------------------------------------------------------------
-
+# ===================================================================
 
 class TestValidateDownstreamCommand:
+
     def test_safe_command(self):
         assert _validate_downstream_command("echo hello") == ["echo", "hello"]
 
-    def test_safe_with_path(self):
-        result = _validate_downstream_command("touch /tmp/sentinel")
-        assert result == ["touch", "/tmp/sentinel"]
-
     def test_pipe_rejected(self):
-        assert _validate_downstream_command("echo hello | wc -l") is None
+        assert _validate_downstream_command("echo foo | wc") is None
 
     def test_semicolon_rejected(self):
-        assert _validate_downstream_command("echo a; echo b") is None
+        assert _validate_downstream_command("ls; rm -rf /") is None
 
     def test_backtick_rejected(self):
-        assert _validate_downstream_command("echo `date`") is None
+        assert _validate_downstream_command("echo `whoami`") is None
 
     def test_dollar_rejected(self):
         assert _validate_downstream_command("echo $HOME") is None
 
     def test_ampersand_rejected(self):
-        assert _validate_downstream_command("sleep 1 &") is None
+        assert _validate_downstream_command("sleep 10 &") is None
 
     def test_redirect_rejected(self):
-        assert _validate_downstream_command("echo hi > /tmp/out") is None
+        assert _validate_downstream_command("cat /etc/passwd > /tmp/x") is None
 
-    def test_quoted_safe_args(self):
-        """shlex.split handles quoted args; no metacharacters in parts."""
-        result = _validate_downstream_command('echo "hello world"')
-        assert result == ["echo", "hello world"]
+    def test_quoted_safe_command(self):
+        assert _validate_downstream_command("echo 'hello world'") == ["echo", "hello world"]
 
 
-# ---------------------------------------------------------------------------
+# ===================================================================
 # _parse_downstream
-# ---------------------------------------------------------------------------
-
+# ===================================================================
 
 class TestParseDownstream:
-    def test_extracts_downstream_commands(self, tmp_path: Path):
-        p = tmp_path / "sig.md"
-        p.write_text(
-            "---\nname: test\nsource: cc\ndownstream:\n  - echo hello\n  - echo world\n---\n\nbody\n"
-        )
-        assert _parse_downstream(p) == ["echo hello", "echo world"]
 
-    def test_no_downstream_key(self, tmp_path: Path):
-        p = tmp_path / "sig.md"
-        p.write_text("---\nname: test\n---\n\nbody\n")
+    def test_extracts_commands(self, tmp_path):
+        p = tmp_path / "s.md"
+        p.write_text("---\nname: test\ndownstream:\n  - echo hello\n  - ls /tmp\n---\nbody\n")
+        assert _parse_downstream(p) == ["echo hello", "ls /tmp"]
+
+    def test_no_downstream(self, tmp_path):
+        p = tmp_path / "s.md"
+        p.write_text("---\nname: test\n---\nbody\n")
         assert _parse_downstream(p) == []
 
-    def test_no_frontmatter(self, tmp_path: Path):
-        p = tmp_path / "sig.md"
-        p.write_text("No frontmatter here.\n")
+    def test_no_frontmatter(self, tmp_path):
+        p = tmp_path / "s.md"
+        p.write_text("no fm here\n")
         assert _parse_downstream(p) == []
 
-    def test_empty_list_item(self, tmp_path: Path):
-        """Bare '-' (no value) produces an empty-string entry."""
-        p = tmp_path / "sig.md"
-        p.write_text("---\ndownstream:\n  -\n---\n\nbody\n")
+    def test_empty_bullet(self, tmp_path):
+        p = tmp_path / "s.md"
+        p.write_text("---\nname: test\ndownstream:\n  -\n---\nbody\n")
         assert _parse_downstream(p) == [""]
 
-    def test_comment_lines_ignored(self, tmp_path: Path):
-        p = tmp_path / "sig.md"
-        p.write_text(
-            "---\ndownstream:\n  - echo hi\n  # this is a comment\n---\n\nbody\n"
-        )
-        cmds = _parse_downstream(p)
-        assert cmds == ["echo hi"]
-
-    def test_non_list_line_ends_block(self, tmp_path: Path):
-        p = tmp_path / "sig.md"
-        p.write_text(
-            "---\ndownstream:\n  - echo one\nother_key: val\n  - echo two\n---\n\nbody\n"
-        )
-        cmds = _parse_downstream(p)
-        # "  - echo two" comes after a non-list line, so block ended
-        assert cmds == ["echo one"]
+    def test_comment_after_downstream_ignored(self, tmp_path):
+        p = tmp_path / "s.md"
+        p.write_text("---\nname: test\ndownstream:\n  # this is a comment\n  - echo hi\n---\n")
+        assert _parse_downstream(p) == ["echo hi"]
 
 
-# ---------------------------------------------------------------------------
+# ===================================================================
 # _infer_durability
-# ---------------------------------------------------------------------------
-
+# ===================================================================
 
 class TestInferDurability:
-    def test_explicit_in_fm(self):
-        assert _infer_durability({"durability": "acetyl"}, Path("x.md")) == "acetyl"
 
-    def test_checkpoint_inferred_acetyl(self):
-        assert _infer_durability({}, Path("/marks/checkpoint_abc.md")) == "acetyl"
+    def test_from_frontmatter(self, tmp_path):
+        p = tmp_path / "mymark.md"
+        assert _infer_durability({"durability": "acetyl"}, p) == "acetyl"
 
-    def test_resolved_inferred_acetyl(self):
-        assert _infer_durability({}, Path("/marks/resolved_issue.md")) == "acetyl"
+    def test_checkpoint_is_acetyl(self, tmp_path):
+        p = tmp_path / "checkpoint_123.md"
+        assert _infer_durability({}, p) == "acetyl"
 
-    def test_default_methyl(self):
-        assert _infer_durability({}, Path("/marks/feedback_foo.md")) == "methyl"
+    def test_resolved_is_acetyl(self, tmp_path):
+        p = tmp_path / "resolved_bug.md"
+        assert _infer_durability({}, p) == "acetyl"
+
+    def test_default_is_methyl(self, tmp_path):
+        p = tmp_path / "feedback_keep.md"
+        assert _infer_durability({}, p) == "methyl"
 
 
-# ---------------------------------------------------------------------------
+# ===================================================================
 # _infer_source
-# ---------------------------------------------------------------------------
-
+# ===================================================================
 
 class TestInferSource:
-    def test_explicit_source(self):
+
+    def test_from_frontmatter(self):
         assert _infer_source({"source": "gemini"}) == "gemini"
 
     def test_unknown_default(self):
         assert _infer_source({}) == "unknown"
 
 
-# ---------------------------------------------------------------------------
+# ===================================================================
 # _infer_protected
-# ---------------------------------------------------------------------------
-
+# ===================================================================
 
 class TestInferProtected:
-    @pytest.mark.parametrize(
-        "fm_val", ["true", "True", "yes", "Yes", "TRUE", "YES"]
-    )
-    def test_frontmatter_true(self, fm_val):
-        assert _infer_protected({"protected": fm_val}, Path("x.md")) is True
 
-    def test_frontmatter_false(self):
-        assert _infer_protected({"protected": "false"}, Path("x.md")) is False
+    def test_frontmatter_true(self, tmp_path):
+        p = tmp_path / "custom.md"
+        assert _infer_protected({"protected": "true"}, p) is True
 
-    def test_no_frontmatter_not_core(self):
-        assert _infer_protected({}, Path("x.md")) is False
+    def test_frontmatter_yes(self, tmp_path):
+        p = tmp_path / "custom.md"
+        assert _infer_protected({"protected": "yes"}, p) is True
 
-    @pytest.mark.parametrize(
-        "stem",
-        [
-            "feedback_keep_digging",
-            "feedback_hold_position",
-            "feedback_pull_the_thread",
-            "feedback_more_autonomous",
+    def test_frontmatter_false(self, tmp_path):
+        p = tmp_path / "custom.md"
+        assert _infer_protected({"protected": "false"}, p) is False
+
+    def test_core_pattern_protected(self, tmp_path):
+        for name in [
+            "feedback_keep_digging", "feedback_hold_position",
+            "feedback_pull_the_thread", "feedback_more_autonomous",
             "feedback_stop_asking_obvious",
-        ],
-    )
-    def test_core_behavioral_patterns(self, stem: str):
-        assert _infer_protected({}, Path(f"/marks/{stem}.md")) is True
+        ]:
+            p = tmp_path / f"{name}.md"
+            assert _infer_protected({}, p) is True, f"{name} should be protected"
 
+    def test_non_core_not_protected(self, tmp_path):
+        p = tmp_path / "feedback_other.md"
+        assert _infer_protected({}, p) is False
 
-# ---------------------------------------------------------------------------
-# _detect_staleness
-# ---------------------------------------------------------------------------
 
-
-class TestDetectStaleness:
-    def test_protected_never_stale(self):
-        mark = _make_mark(protected=True, age_days=9999, durability="methyl")
-        result = _detect_staleness(mark, threshold_days=90)
-        assert result.stale is False
-
-    def test_acetyl_stale_beyond_14_days(self):
-        mark = _make_mark(durability="acetyl", age_days=15, access_count=0)
-        result = _detect_staleness(mark)
-        assert result.stale is True
-        assert "acetyl" in result.reason
-
-    def test_acetyl_not_stale_within_14_days(self):
-        mark = _make_mark(durability="acetyl", age_days=10, access_count=0)
-        result = _detect_staleness(mark)
-        assert result.stale is False
-
-    def test_acetyl_with_access_extends_life(self):
-        """One access doubles the threshold: 14 * 2 = 28 days."""
-        mark = _make_mark(durability="acetyl", age_days=20, access_count=1)
-        result = _detect_staleness(mark)
-        assert result.stale is False
-
-        mark2 = _make_mark(durability="acetyl", age_days=29, access_count=1)
-        result2 = _detect_staleness(mark2)
-        assert result2.stale is True
-
-    def test_methyl_stale_beyond_threshold(self):
-        mark = _make_mark(durability="methyl", age_days=91, access_count=0)
-        result = _detect_staleness(mark, threshold_days=90)
-        assert result.stale is True
-        assert "methyl" in result.reason
-
-    def test_methyl_not_stale_within_threshold(self):
-        mark = _make_mark(durability="methyl", age_days=89, access_count=0)
-        result = _detect_staleness(mark, threshold_days=90)
-        assert result.stale is False
-
-    def test_methyl_access_count_extends_life(self):
-        """2 accesses → 90 * 4 = 360 day threshold."""
-        mark = _make_mark(durability="methyl", age_days=200, access_count=2)
-        result = _detect_staleness(mark, threshold_days=90)
-        assert result.stale is False
-
-        mark2 = _make_mark(durability="methyl", age_days=361, access_count=2)
-        result2 = _detect_staleness(mark2, threshold_days=90)
-        assert result2.stale is True
-
-    def test_project_type_extra_decay(self):
-        """Project marks use base 30 days instead of general threshold."""
-        mark = _make_mark(mark_type="project", durability="methyl", age_days=31, access_count=0)
-        result = _detect_staleness(mark, threshold_days=90)
-        assert result.stale is True
-        assert "project" in result.reason
-
-    def test_project_not_stale_young(self):
-        mark = _make_mark(mark_type="project", durability="methyl", age_days=29, access_count=0)
-        result = _detect_staleness(mark, threshold_days=90)
-        assert result.stale is False
-
-    def test_custom_threshold(self):
-        # Must use separate mark objects: _detect_staleness mutates in-place
-        mark_stale = _make_mark(durability="methyl", age_days=50, access_count=0)
-        assert _detect_staleness(mark_stale, threshold_days=30).stale is True
-
-        mark_fresh = _make_mark(durability="methyl", age_days=50, access_count=0)
-        assert _detect_staleness(mark_fresh, threshold_days=60).stale is False
-
-
-# ---------------------------------------------------------------------------
-# _cluster_marks
-# ---------------------------------------------------------------------------
-
-
-class TestClusterMarks:
-    def test_cluster_groups_by_topic(self):
-        marks = [
-            _make_mark(path=Path("/marks/feedback_tone_formal.md")),
-            _make_mark(path=Path("/marks/feedback_tone_casual.md")),
-        ]
-        clusters = _cluster_marks(marks)
-        assert len(clusters) == 1
-        assert clusters[0]["topic"] == "tone"
-        assert clusters[0]["count"] == 2
-
-    def test_single_mark_no_cluster(self):
-        marks = [_make_mark(path=Path("/marks/feedback_unique.md"))]
-        assert _cluster_marks(marks) == []
-
-    def test_sorted_by_count_descending(self):
-        marks = [
-            _make_mark(path=Path("/marks/feedback_alpha_one.md")),
-            _make_mark(path=Path("/marks/feedback_alpha_two.md")),
-            _make_mark(path=Path("/marks/feedback_alpha_three.md")),
-            _make_mark(path=Path("/marks/feedback_beta_one.md")),
-            _make_mark(path=Path("/marks/feedback_beta_two.md")),
-        ]
-        clusters = _cluster_marks(marks)
-        assert len(clusters) == 2
-        assert clusters[0]["topic"] == "alpha"
-        assert clusters[0]["count"] == 3
-        assert clusters[1]["topic"] == "beta"
-        assert clusters[1]["count"] == 2
-
-    def test_no_prefix_ignored(self):
-        """Files with no underscore (single word stem) don't form clusters."""
-        marks = [
-            _make_mark(path=Path("/marks/standalone.md")),
-        ]
-        assert _cluster_marks(marks) == []
-
-
-# ---------------------------------------------------------------------------
-# _update_frontmatter_field
-# ---------------------------------------------------------------------------
-
-
-class TestUpdateFrontmatterField:
-    def test_update_existing_key(self, tmp_path: Path):
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: old\n---\n\nbody\n")
-        _update_frontmatter_field(p, "name", "new")
-        assert "name: new" in p.read_text()
-
-    def test_insert_new_key(self, tmp_path: Path):
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: test\n---\n\nbody\n")
-        _update_frontmatter_field(p, "fire_count", "3")
-        content = p.read_text()
-        assert "fire_count: 3" in content
-        assert "name: test" in content
-        assert "body" in content
-
-    def test_no_frontmatter_is_noop(self, tmp_path: Path):
-        p = tmp_path / "plain.md"
-        original = "Just text.\n"
-        p.write_text(original)
-        _update_frontmatter_field(p, "key", "val")
-        assert p.read_text() == original
-
-    def test_preserves_body(self, tmp_path: Path):
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: test\n---\n\nImportant body.\n")
-        _update_frontmatter_field(p, "extra", "data")
-        assert "Important body." in p.read_text()
-
-
-# ---------------------------------------------------------------------------
-# _find_existing_signal
-# ---------------------------------------------------------------------------
-
-
-class TestFindExistingSignal:
-    def test_finds_matching_signal(self, tmp_path: Path, monkeypatch):
-        sig_dir = _patch_signals(monkeypatch, tmp_path)
-        emit_signal("my-signal", "content", source="cc")
-        result = _find_existing_signal("my-signal")
-        assert result is not None
-        assert result.parent == sig_dir
-
-    def test_skips_desensitized(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        # Fire 5 times to desensitize
-        for _ in range(5):
-            emit_signal("desens-sig", "content", source="cc")
-        # Mark as desensitized in frontmatter
-        from metabolon.organelles.demethylase import _parse_frontmatter
-        sig_path = _find_existing_signal.__wrapped__ if hasattr(_find_existing_signal, '__wrapped__') else None
-        # Actually, _find_existing_signal checks desensitized flag, so we need
-        # to emit enough that it gets desensitized (5 fires → desensitized=True via read_signals)
-        # But _find_existing_signal itself checks fm desensitized, which is set by read_signals
-        # Let's set it manually
-        sig_dir = tmp_path / "signals"
-        sig_files = list(sig_dir.glob("signal_*.md"))
-        assert len(sig_files) == 1
-        _update_frontmatter_field(sig_files[0], "desensitized", "true")
-
-        result = _find_existing_signal("desens-sig")
-        assert result is None
-
-    def test_no_signals_dir(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNALS_DIR", tmp_path / "nonexistent"
-        )
-        assert _find_existing_signal("anything") is None
-
-    def test_wrong_name_returns_none(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("signal-a", "content", source="cc")
-        assert _find_existing_signal("signal-b") is None
-
-
-# ---------------------------------------------------------------------------
-# format_report
-# ---------------------------------------------------------------------------
-
-
-class TestFormatReport:
-    def test_basic_formatting(self):
-        from metabolon.organelles.demethylase import DemethylaseReport
-
-        report = DemethylaseReport(
-            total_marks=10,
-            methyl_marks=6,
-            acetyl_marks=4,
-            protected_marks=2,
-            stale_candidates=[],
-            source_distribution={"cc": 5, "gemini": 5},
-            type_distribution={"feedback": 7, "finding": 3},
-            mark_clusters=[],
-        )
-        text = format_report(report)
-        assert "Demethylase sweep: 10 marks" in text
-        assert "Methyl (durable): 6" in text
-        assert "Acetyl (volatile): 4" in text
-        assert "Protected (CpG): 2" in text
-        assert "cc: 5" in text
-        assert "feedback: 7" in text
-
-    def test_with_stale_candidates(self):
-        from metabolon.organelles.demethylase import DemethylaseReport
-
-        stale = [
-            _make_mark(
-                path=Path("/marks/old_thing.md"),
-                age_days=200,
-                durability="methyl",
-                protected=False,
-                stale=True,
-                reason="methyl mark older than 180d",
-            )
-        ]
-        report = DemethylaseReport(
-            total_marks=1,
-            stale_candidates=stale,
-            source_distribution={},
-            type_distribution={},
-            mark_clusters=[],
-        )
-        text = format_report(report)
-        assert "Stale candidates:" in text
-        assert "old_thing.md" in text
-        assert "200d" in text
-
-    def test_with_clusters(self):
-        from metabolon.organelles.demethylase import DemethylaseReport
-
-        report = DemethylaseReport(
-            total_marks=4,
-            mark_clusters=[
-                {"topic": "tone", "marks": ["feedback_tone_formal", "feedback_tone_casual"], "count": 2}
-            ],
-            source_distribution={},
-            type_distribution={},
-        )
-        text = format_report(report)
-        assert "Mark clusters" in text
-        assert "tone (2 marks)" in text
-
-
-# ---------------------------------------------------------------------------
-# record_access edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestRecordAccess:
-    def test_no_frontmatter_is_noop(self, tmp_path: Path):
-        p = tmp_path / "plain.md"
-        p.write_text("No frontmatter at all.\n")
-        record_access(p)
-        # File should be unchanged
-        assert p.read_text() == "No frontmatter at all.\n"
-
-    def test_unclosed_frontmatter_is_noop(self, tmp_path: Path):
-        p = tmp_path / "unclosed.md"
-        original = "---\nname: test\n"
-        p.write_text(original)
-        record_access(p)
-        assert p.read_text() == original
-
-    def test_adds_missing_access_count(self, tmp_path: Path):
-        """If frontmatter has no access_count, record_access adds it as 1."""
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: test\n---\n\nBody.\n")
-        record_access(p)
-        content = p.read_text()
-        assert "access_count: 1" in content
-        assert "Body." in content
-
-    def test_increments_existing_count(self, tmp_path: Path):
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: test\naccess_count: 4\n---\n\nBody.\n")
-        record_access(p)
-        content = p.read_text()
-        assert "access_count: 5" in content
-
-
-# ---------------------------------------------------------------------------
-# sweep edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestSweepEdgeCases:
-    def test_sweep_skips_index_files(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr("metabolon.organelles.demethylase.MARKS_DIR", tmp_path)
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        # Create index files that should be skipped
-        (tmp_path / "MEMORY.md").write_text("---\nname: mem\n---\n")
-        (tmp_path / "methylome.md").write_text("---\nname: meta\n---\n")
-        (tmp_path / "decay-tracker.md").write_text("---\nname: decay\n---\n")
-        _write_mark(tmp_path / "feedback_real.md", "Real mark", "feedback")
-
-        report = sweep(tmp_path, dry_run=True)
-        assert report.total_marks == 1
-
-    def test_sweep_dry_run_false_deletes_stale(self, tmp_path: Path, monkeypatch):
-        """With dry_run=False, stale acetyl marks (>14d old) get deleted."""
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        # Create an acetyl mark and artificially age it
-        mark_path = tmp_path / "checkpoint_old.md"
-        mark_path.write_text("---\nname: old\ntype: project\n---\n\nOld content.\n")
-        # Set mtime to 15 days ago
-        import os
-        import time
-        old_time = time.time() - 15 * 86400
-        os.utime(mark_path, (old_time, old_time))
-
-        assert mark_path.exists()
-        report = sweep(tmp_path, threshold_days=90, dry_run=False)
-        # checkpoint → acetyl → base threshold 14d → 15 days old → stale
-        assert not mark_path.exists()
-        assert any(m.stale for m in report.stale_candidates)
-
-    def test_sweep_cleans_stale_signals(self, tmp_path: Path, monkeypatch):
-        """Sweep cleans signal files older than 14 days from SIGNALS_DIR."""
-        import os
-        import time
-
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        sig_dir = _patch_signals(monkeypatch, tmp_path)
-
-        # Create a signal and age it
-        sig_path = sig_dir / "signal_old_20250101-000000_abc123.md"
-        sig_path.parent.mkdir(parents=True, exist_ok=True)
-        sig_path.write_text("---\nname: old-sig\n---\n\ncontent\n")
-        old_time = time.time() - 15 * 86400
-        os.utime(sig_path, (old_time, old_time))
-
-        report = sweep(tmp_path, dry_run=True)
-        # Signal should appear in stale_candidates but not be deleted (dry_run)
-        assert sig_path.exists()
-        assert any(s.path == sig_path for s in report.stale_candidates)
-
-    def test_sweep_dry_run_false_deletes_stale_mark(self, tmp_path: Path, monkeypatch):
-        """With dry_run=False, stale acetyl marks (aged beyond threshold) are deleted.
-        Note: stale signal double-unlink is a known issue; this test covers mark deletion."""
-        import os
-        import time
-
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNALS_DIR", tmp_path / "no_signals"
-        )
-        # Create an old acetyl mark (checkpoint → acetyl, base threshold 14d)
-        mark_path = tmp_path / "checkpoint_old.md"
-        mark_path.write_text("---\nname: old\ntype: project\n---\n\nOld content.\n")
-        old_time = time.time() - 15 * 86400
-        os.utime(mark_path, (old_time, old_time))
-
-        report = sweep(tmp_path, threshold_days=90, dry_run=False)
-        assert not mark_path.exists()
-        assert len(report.stale_candidates) >= 1
-
-    def test_sweep_source_distribution_includes_all(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        _write_mark(tmp_path / "feedback_a.md", "A", "feedback", source="cc")
-        _write_mark(tmp_path / "feedback_b.md", "B", "feedback", source="gemini")
-        _write_mark(tmp_path / "feedback_c.md", "C", "feedback")  # no source → unknown
-
-        report = sweep(tmp_path, dry_run=True)
-        assert report.source_distribution["cc"] == 1
-        assert report.source_distribution["gemini"] == 1
-        assert report.source_distribution["unknown"] == 1
-
-
-# ---------------------------------------------------------------------------
-# consolidate edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestConsolidateEdgeCases:
-    def test_consolidate_empty_dir(self, tmp_path: Path, monkeypatch):
-        """Consolidation on empty marks dir produces empty report."""
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        empty = tmp_path / "empty_marks"
-        empty.mkdir()
-        report = consolidate(empty)
-        assert report.today_marks == []
-        assert report.clusters_found == []
-        assert report.strengthened == []
-        assert report.methylome_updated is True
-
-    def test_consolidate_strengthens_accessed_marks(self, tmp_path: Path, monkeypatch):
-        """Marks modified today with access_count > 0 are strengthened."""
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        d = tmp_path / "marks"
-        d.mkdir()
-        _write_mark(d / "feedback_one.md", "One", "feedback", access_count="3")
-        _write_mark(d / "feedback_two.md", "Two", "feedback", access_count="0")
-
-        report = consolidate(d)
-        assert any(m.access_count > 0 for m in report.strengthened)
-
-    def test_consolidate_skips_index_files(self, tmp_path: Path, monkeypatch):
-        """MEMORY.md, methylome.md, decay-tracker.md are skipped."""
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        d = tmp_path / "marks"
-        d.mkdir()
-        (d / "MEMORY.md").write_text("---\nname: mem\n---\n")
-        _write_mark(d / "feedback_real.md", "Real", "feedback")
-
-        report = consolidate(d)
-        assert len(report.today_marks) == 1
-        assert report.today_marks[0].name == "Real"
-
-
-# ---------------------------------------------------------------------------
-# signal_history edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestSignalHistoryEdgeCases:
-    def test_limit_zero_returns_empty(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("sig", "content", source="cc")
-        assert signal_history(limit=0) == []
-
-    def test_negative_limit_returns_empty(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("sig", "content", source="cc")
-        assert signal_history(limit=-1) == []
-
-    def test_no_history_file(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
-            tmp_path / "nonexistent" / "history.jsonl",
-        )
-        assert signal_history() == []
-
-    def test_malformed_jsonl_line_skipped(self, tmp_path: Path, monkeypatch):
-        hist = tmp_path / "state" / "signal-history.jsonl"
-        hist.parent.mkdir(parents=True)
-        hist.write_text("not json\n")
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
-        )
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNALS_DIR", tmp_path / "signals"
-        )
-        assert signal_history() == []
-
-
-# ---------------------------------------------------------------------------
-# read_signals edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestReadSignalsEdgeCases:
-    def test_skips_transduced_signals(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("trans-sig", "content", source="cc")
-        # Manually mark as transduced
-        sig_dir = tmp_path / "signals"
-        sig_file = list(sig_dir.glob("signal_*.md"))[0]
-        _update_frontmatter_field(sig_file, "transduced", "true")
-
-        results = read_signals()
-        assert len(results) == 0
-
-    def test_rejected_downstream_command(self, tmp_path: Path, monkeypatch):
-        """Shell metacharacters in downstream command → REJECTED."""
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal(
-            "bad-cascade",
-            "trigger",
-            source="cc",
-            downstream=["echo hack; rm -rf /"],
-        )
-        results = read_signals(execute_cascade=True)
-        assert len(results) == 1
-        assert any("REJECTED" in c for c in results[0]["cascades_fired"])
-
-    def test_failed_downstream_command(self, tmp_path: Path, monkeypatch):
-        """Non-zero exit code → FAILED."""
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal(
-            "fail-cascade",
-            "trigger",
-            source="cc",
-            downstream=["false"],  # command that always exits 1
-        )
-        results = read_signals(execute_cascade=True)
-        assert len(results) == 1
-        assert any("FAILED" in c for c in results[0]["cascades_fired"])
-
-    def test_no_signals_dir(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNALS_DIR",
-            tmp_path / "nonexistent",
-        )
-        assert read_signals() == []
-
-
-# ---------------------------------------------------------------------------
-# resensitize edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestResensitizeEdgeCases:
-    def test_no_signals_dir(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNALS_DIR",
-            tmp_path / "nonexistent",
-        )
-        assert resensitize("anything") is False
-
-    def test_non_desensitized_signal(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("active-sig", "content", source="cc")
-        # Signal exists but is not desensitized → False
-        assert resensitize("active-sig") is False
-
-    def test_no_matching_name(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("signal-a", "content", source="cc")
-        assert resensitize("signal-b") is False
-
-
-# ---------------------------------------------------------------------------
-# emit_signal edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestEmitSignalEdgeCases:
-    def test_emit_without_downstream(self, tmp_path: Path, monkeypatch):
-        """No downstream block in file when downstream=None."""
-        _patch_signals(monkeypatch, tmp_path)
-        path = emit_signal("bare-signal", "content", source="cc")
-        content = path.read_text()
-        assert "downstream:" not in content
-
-    def test_emit_creates_signals_dir(self, tmp_path: Path, monkeypatch):
-        sig_dir = tmp_path / "new_signals"
-        hist = tmp_path / "state" / "signal-history.jsonl"
-        monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
-        )
-        assert not sig_dir.exists()
-        emit_signal("fresh", "content", source="cc")
-        assert sig_dir.exists()
-
-    def test_emit_writes_history_jsonl(self, tmp_path: Path, monkeypatch):
-        hist = _patch_signals(monkeypatch, tmp_path) / ".." / "state" / "signal-history.jsonl"
-        hist = tmp_path / "state" / "signal-history.jsonl"
-        emit_signal("hist-test", "content", source="cc")
-        assert hist.exists()
-        lines = hist.read_text().strip().splitlines()
-        assert len(lines) == 1
-        import json
-        entry = json.loads(lines[0])
-        assert entry["name"] == "hist-test"
-        assert entry["deduplicated"] is False
-        assert entry["fire_count"] == 1
-
-
-# ---------------------------------------------------------------------------
-# transduce edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestTransduceEdgeCases:
-    def test_transduce_no_downstream_returns_empty(self, tmp_path: Path, monkeypatch):
-        """Signal with no downstream commands → filtered out by transduce."""
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("no-downstream", "content", source="cc")
-        results = transduce()
-        assert results == []
-
-    def test_transduce_with_name_filter(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("alpha-signal", "a", source="cc", downstream=["echo a"])
-        emit_signal("beta-signal", "b", source="cc", downstream=["echo b"])
-
-        results = transduce(name_filter="alpha")
-        assert len(results) == 1
-        assert results[0]["name"] == "alpha-signal"
-
-
-# ---------------------------------------------------------------------------
-# analyze_mark integration
-# ---------------------------------------------------------------------------
-
-
-class TestAnalyzeMark:
-    def test_unknown_source_when_missing(self, tmp_path: Path):
-        p = tmp_path / "mark.md"
-        p.write_text("---\nname: test\ntype: feedback\n---\n\nBody.\n")
-        mark = analyze_mark(p)
-        assert mark.source == "unknown"
-
-    def test_resolved_durability(self, tmp_path: Path):
-        p = tmp_path / "resolved_bug.md"
-        p.write_text("---\nname: fixed\ntype: finding\n---\n\nBody.\n")
-        mark = analyze_mark(p)
-        assert mark.durability == "acetyl"
-
-    def test_core_protected_pattern(self, tmp_path: Path):
-        p = tmp_path / "feedback_keep_digging.md"
-        p.write_text("---\nname: dig\ntype: feedback\n---\n\nBody.\n")
-        mark = analyze_mark(p)
-        assert mark.protected is True
-
-
-# ---------------------------------------------------------------------------
-# _effective_threshold direct tests
-# ---------------------------------------------------------------------------
-
+# ===================================================================
+# _effective_threshold
+# ===================================================================
 
 class TestEffectiveThreshold:
+
     def test_zero_accesses(self):
         assert _effective_threshold(90, 0) == 90
 
     def test_one_access_doubles(self):
         assert _effective_threshold(90, 1) == 180
 
-    def test_three_accesses_eight_times(self):
+    def test_three_accesses_octuples(self):
         assert _effective_threshold(14, 3) == 14 * 8
 
-    def test_cap_at_eight_accesses(self):
-        """Access count > 8 is capped: 2^8 = 256x multiplier."""
-        assert _effective_threshold(90, 8) == 90 * 256
-        assert _effective_threshold(90, 10) == 90 * 256
+    def test_cap_at_eight(self):
+        # 2^8 = 256, 2^9 = 512 but capped at 8
+        assert _effective_threshold(90, 9) == 90 * 256
         assert _effective_threshold(90, 100) == 90 * 256
 
     def test_acetyl_base(self):
         assert _effective_threshold(14, 0) == 14
+        assert _effective_threshold(14, 2) == 56
 
 
-# ---------------------------------------------------------------------------
-# _append_signal_history direct tests
-# ---------------------------------------------------------------------------
+# ===================================================================
+# _detect_staleness
+# ===================================================================
 
+class TestDetectStaleness:
 
-class TestAppendSignalHistory:
-    def test_creates_parent_dirs_and_appends(self, tmp_path: Path, monkeypatch):
-        hist = tmp_path / "deep" / "state" / "signal-history.jsonl"
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
-        )
-        from metabolon.organelles.demethylase import _append_signal_history
-
-        _append_signal_history(
-            name="sig1",
-            content="hello",
-            source="cc",
-            downstream=["echo hi"],
-            signal_path=Path("/fake/signal.md"),
-            fire_count=1,
-            deduplicated=False,
-        )
-        assert hist.exists()
-        import json
-
-        entry = json.loads(hist.read_text().strip())
-        assert entry["name"] == "sig1"
-        assert entry["deduplicated"] is False
-        assert entry["fire_count"] == 1
-        assert entry["downstream"] == ["echo hi"]
-
-    def test_appends_multiple_entries(self, tmp_path: Path, monkeypatch):
-        hist = tmp_path / "state" / "signal-history.jsonl"
-        hist.parent.mkdir(parents=True)
-        monkeypatch.setattr(
-            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
-        )
-        from metabolon.organelles.demethylase import _append_signal_history
-
-        _append_signal_history(
-            name="a", content="c", source="s", downstream=None,
-            signal_path=Path("/a"), fire_count=1, deduplicated=False,
-        )
-        _append_signal_history(
-            name="b", content="d", source="s", downstream=None,
-            signal_path=Path("/b"), fire_count=2, deduplicated=True,
-        )
-        lines = hist.read_text().strip().splitlines()
-        assert len(lines) == 2
-        import json
-
-        assert json.loads(lines[0])["name"] == "a"
-        assert json.loads(lines[1])["name"] == "b"
-
-
-# ---------------------------------------------------------------------------
-# signal_history — name_filter and limit ordering
-# ---------------------------------------------------------------------------
-
-
-class TestSignalHistoryFiltering:
-    def test_name_filter_matches_prefix(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("alpha-one", "a", source="cc")
-        emit_signal("beta-one", "b", source="cc")
-        emit_signal("alpha-two", "c", source="cc")
-        results = signal_history(limit=10, name_filter="alpha")
-        assert len(results) == 2
-        assert all(r["name"].startswith("alpha") for r in results)
-
-    def test_most_recent_first(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("first", "a", source="cc")
-        emit_signal("second", "b", source="cc")
-        results = signal_history(limit=10)
-        assert results[0]["name"] == "second"
-        assert results[1]["name"] == "first"
-
-    def test_limit_truncates(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        for i in range(5):
-            emit_signal(f"sig-{i}", f"content-{i}", source="cc")
-        results = signal_history(limit=2)
-        assert len(results) == 2
-
-
-# ---------------------------------------------------------------------------
-# read_signals — name_filter and include_desensitized
-# ---------------------------------------------------------------------------
-
-
-class TestReadSignalsFiltering:
-    def test_name_filter(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("alpha-sig", "a", source="cc")
-        emit_signal("beta-sig", "b", source="cc")
-        results = read_signals(name_filter="alpha")
-        assert len(results) == 1
-        assert results[0]["name"] == "alpha-sig"
-
-    def test_include_desensitized(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        sig_path = emit_signal("overfire", "c", source="cc")
-        # Manually set fire_count high and desensitized
-        _update_frontmatter_field(sig_path, "fire_count", "10")
-        _update_frontmatter_field(sig_path, "desensitized", "true")
-
-        # Default: excluded
-        assert read_signals() == []
-
-        # With include_desensitized: included
-        results = read_signals(include_desensitized=True)
-        assert len(results) == 1
-        assert results[0]["desensitized"] is True
-
-    def test_successful_cascade_execution(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("ok-cascade", "go", source="cc", downstream=["true"])
-        results = read_signals(execute_cascade=True)
-        assert len(results) == 1
-        assert "true" in results[0]["cascades_fired"]
-        # Signal should now be marked transduced
-        fm = _parse_frontmatter(Path(results[0]["path"]))
-        assert fm.get("transduced", "").lower() == "true"
-
-    def test_signal_age_days(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        emit_signal("age-check", "content", source="cc")
-        results = read_signals()
-        assert len(results) == 1
-        assert results[0]["age_days"] == 0  # just created
-
-
-# ---------------------------------------------------------------------------
-# resensitize — successful path
-# ---------------------------------------------------------------------------
-
-
-class TestResensitizeSuccess:
-    def test_resensitize_resets_desensitized_signal(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        sig_path = emit_signal("tired-signal", "content", source="cc")
-        # Mark as desensitized
-        _update_frontmatter_field(sig_path, "desensitized", "true")
-        _update_frontmatter_field(sig_path, "fire_count", "7")
-
-        result = resensitize("tired-signal")
-        assert result is True
-
-        # Verify frontmatter was reset
-        fm = _parse_frontmatter(sig_path)
-        assert fm["desensitized"] == "false"
-        assert fm["fire_count"] == "1"
-
-
-# ---------------------------------------------------------------------------
-# consolidate — writes daily summary
-# ---------------------------------------------------------------------------
-
-
-class TestConsolidateSummary:
-    def test_writes_daily_summary_file(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        d = tmp_path / "marks"
-        d.mkdir()
-        _write_mark(d / "feedback_one.md", "One", "feedback")
-        report = consolidate(d)
-        assert report.methylome_updated is True
-
-        # Check summary file exists
-        daily_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
-        summaries = list(daily_dir.glob("*.md"))
-        assert len(summaries) == 1
-        content = summaries[0].read_text()
-        assert "Chromatin Remodeling" in content
-
-    def test_no_today_marks_shows_placeholder(self, tmp_path: Path, monkeypatch):
-        """When no marks were modified today, summary shows placeholder text."""
-        import os
-        import time
-
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        d = tmp_path / "marks"
-        d.mkdir()
-        p = d / "feedback_old.md"
-        _write_mark(p, "Old", "feedback")
-        # Age it beyond today
-        old_time = time.time() - 2 * 86400
-        os.utime(p, (old_time, old_time))
-
-        report = consolidate(d)
-        assert report.today_marks == []
-
-        daily_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
-        summaries = list(daily_dir.glob("*.md"))
-        assert len(summaries) == 1
-        content = summaries[0].read_text()
-        assert "No marks modified today" in content
-
-
-# ---------------------------------------------------------------------------
-# emit_signal — deduplication path
-# ---------------------------------------------------------------------------
-
-
-class TestEmitSignalDeduplication:
-    def test_duplicate_name_increments_fire_count(self, tmp_path: Path, monkeypatch):
-        _patch_signals(monkeypatch, tmp_path)
-        p1 = emit_signal("dup", "content", source="cc")
-        p2 = emit_signal("dup", "content2", source="cc")
-        # Same path returned (deduplication)
-        assert p1 == p2
-
-        fm = _parse_frontmatter(p1)
-        assert fm["fire_count"] == "2"
-
-    def test_deduplicated_emission_writes_history(self, tmp_path: Path, monkeypatch):
-        hist = _patch_signals(monkeypatch, tmp_path)
-        hist = tmp_path / "state" / "signal-history.jsonl"
-        emit_signal("dedup-hist", "first", source="cc")
-        emit_signal("dedup-hist", "second", source="cc")
-
-        import json
-
-        lines = hist.read_text().strip().splitlines()
-        assert len(lines) == 2
-        assert json.loads(lines[0])["deduplicated"] is False
-        assert json.loads(lines[1])["deduplicated"] is True
-        assert json.loads(lines[1])["fire_count"] == 2
-
-
-# ---------------------------------------------------------------------------
-# _cluster_marks — empty list
-# ---------------------------------------------------------------------------
-
-
-class TestClusterMarksEdge:
-    def test_empty_marks(self):
-        assert _cluster_marks([]) == []
-
-    def test_single_word_stem_no_underscore(self):
-        """Stems without underscore are ignored (no topic extracted)."""
-        marks = [_make_mark(path=Path("/marks/readme.md"))]
-        assert _cluster_marks(marks) == []
-
-
-# ---------------------------------------------------------------------------
-# format_report — protected stale candidate
-# ---------------------------------------------------------------------------
-
-
-class TestFormatReportEdge:
-    def test_protected_stale_candidate_shows_cpg(self):
-        from metabolon.organelles.demethylase import DemethylaseReport
-
-        stale = [
-            _make_mark(
-                path=Path("/marks/feedback_keep_digging.md"),
-                age_days=9999,
-                durability="methyl",
-                protected=True,
-                stale=True,
-                reason="should not happen but testing display",
-            )
-        ]
-        report = DemethylaseReport(
-            total_marks=1,
-            stale_candidates=stale,
-            source_distribution={},
-            type_distribution={},
-        )
-        text = format_report(report)
-        assert "[CpG]" in text
-
-
-# ---------------------------------------------------------------------------
-# sweep — dry_run=False deletes stale signals
-# ---------------------------------------------------------------------------
-
-
-class TestSweepSignalDeletion:
-    def test_sweep_deletes_stale_signals_when_not_dry(self, tmp_path: Path, monkeypatch):
-        import os
-        import time
-
-        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        sig_dir = _patch_signals(monkeypatch, tmp_path)
-
-        sig_path = sig_dir / "signal_old_20250101-000000_abc123.md"
-        sig_path.parent.mkdir(parents=True, exist_ok=True)
-        sig_path.write_text("---\nname: old-sig\n---\n\ncontent\n")
-        old_time = time.time() - 20 * 86400
-        os.utime(sig_path, (old_time, old_time))
-
-        assert sig_path.exists()
-        report = sweep(tmp_path, dry_run=False)
-        assert not sig_path.exists()
-        assert any(m.path == sig_path for m in report.stale_candidates)
-
-
-# ---------------------------------------------------------------------------
-# _detect_staleness — project with access count
-# ---------------------------------------------------------------------------
-
-
-class TestDetectStalenessProjectAccess:
-    def test_project_with_access_not_stale(self):
-        """Project mark with 1 access: 30 * 2 = 60 day threshold."""
-        mark = _make_mark(mark_type="project", durability="methyl", age_days=50, access_count=1)
-        result = _detect_staleness(mark, threshold_days=90)
+    def test_protected_never_stale(self):
+        m = _make_mark(Path("/dummy"), age_days=999, protected=True)
+        result = _detect_staleness(m)
         assert result.stale is False
 
-    def test_project_with_access_stale(self):
-        """Project mark with 1 access: 30 * 2 = 60; age 61 → stale."""
-        mark = _make_mark(mark_type="project", durability="methyl", age_days=61, access_count=1)
-        result = _detect_staleness(mark, threshold_days=90)
+    def test_acetyl_stale_over_threshold(self):
+        m = _make_mark(Path("/dummy"), age_days=20, durability="acetyl", access_count=0)
+        result = _detect_staleness(m)
+        assert result.stale is True
+        assert "acetyl" in result.reason
+
+    def test_acetyl_fresh_under_threshold(self):
+        m = _make_mark(Path("/dummy"), age_days=10, durability="acetyl", access_count=0)
+        result = _detect_staleness(m)
+        assert result.stale is False
+
+    def test_methyl_stale_over_90_days(self):
+        m = _make_mark(Path("/dummy"), age_days=100, durability="methyl", access_count=0)
+        result = _detect_staleness(m)
+        assert result.stale is True
+        assert "methyl" in result.reason
+
+    def test_methyl_fresh_under_90(self):
+        m = _make_mark(Path("/dummy"), age_days=50, durability="methyl", access_count=0)
+        result = _detect_staleness(m)
+        assert result.stale is False
+
+    def test_access_extends_life(self):
+        # 90 * 2^1 = 180 days; age 100 should NOT be stale
+        m = _make_mark(Path("/dummy"), age_days=100, durability="methyl", access_count=1)
+        result = _detect_staleness(m)
+        assert result.stale is False
+
+    def test_project_type_faster_decay(self):
+        # project marks decay at base 30 days
+        m = _make_mark(Path("/dummy"), age_days=50, mark_type="project", durability="methyl", access_count=0)
+        result = _detect_staleness(m)
         assert result.stale is True
         assert "project" in result.reason
 
-    def test_acetyl_zero_days_not_stale(self):
-        mark = _make_mark(durability="acetyl", age_days=0)
-        assert _detect_staleness(mark).stale is False
+    def test_project_not_stale_when_young(self):
+        m = _make_mark(Path("/dummy"), age_days=20, mark_type="project", durability="methyl", access_count=0)
+        result = _detect_staleness(m)
+        assert result.stale is False
 
-    def test_methyl_zero_days_not_stale(self):
-        mark = _make_mark(durability="methyl", age_days=0)
-        assert _detect_staleness(mark, threshold_days=90).stale is False
+    def test_custom_threshold(self):
+        m = _make_mark(Path("/dummy"), age_days=50, durability="methyl", access_count=0)
+        result = _detect_staleness(m, threshold_days=30)
+        assert result.stale is True
+
+
+# ===================================================================
+# _cluster_marks
+# ===================================================================
+
+class TestClusterMarks:
+
+    def test_clusters_by_prefix(self, tmp_path):
+        marks = [
+            _make_mark(tmp_path / "feedback_keep_digging.md"),
+            _make_mark(tmp_path / "feedback_hold_position.md"),
+            _make_mark(tmp_path / "feedback_more_autonomous.md"),
+        ]
+        clusters = _cluster_marks(marks)
+        # All three have different topic words (keep, hold, more) — no cluster ≥ 2
+        assert clusters == []
+
+    def test_two_same_topic_cluster(self, tmp_path):
+        marks = [
+            _make_mark(tmp_path / "feedback_keep_digging.md"),
+            _make_mark(tmp_path / "feedback_keep_going.md"),
+        ]
+        clusters = _cluster_marks(marks)
+        assert any(c["topic"] == "keep" and c["count"] == 2 for c in clusters)
+
+    def test_single_mark_no_cluster(self, tmp_path):
+        marks = [_make_mark(tmp_path / "feedback_unique.md")]
+        clusters = _cluster_marks(marks)
+        assert clusters == []
+
+    def test_empty_marks(self):
+        assert _cluster_marks([]) == []
+
+    def test_no_underscore_no_cluster(self, tmp_path):
+        marks = [_make_mark(tmp_path / "simple.md"), _make_mark(tmp_path / "plain.md")]
+        clusters = _cluster_marks(marks)
+        assert clusters == []
+
+
+# ===================================================================
+# analyze_mark
+# ===================================================================
+
+class TestAnalyzeMark:
+
+    def test_basic_analysis(self, marks_dir):
+        p = _write_mark(marks_dir, "feedback_test.md", {
+            "name": "test_mark", "type": "feedback",
+            "source": "cc", "durability": "methyl",
+        })
+        m = analyze_mark(p)
+        assert m.name == "test_mark"
+        assert m.mark_type == "feedback"
+        assert m.source == "cc"
+        assert m.durability == "methyl"
+        assert m.age_days == 0
+        assert m.stale is False
+
+    def test_fallback_to_stem(self, marks_dir):
+        p = _write_mark(marks_dir, "my_special_mark.md")
+        m = analyze_mark(p)
+        assert m.name == "my_special_mark"
+
+    def test_access_count_parsed(self, marks_dir):
+        p = _write_mark(marks_dir, "counted.md", {
+            "name": "counted", "type": "feedback",
+            "source": "cc", "access_count": "3",
+        })
+        m = analyze_mark(p)
+        assert m.access_count == 3
+
+
+# ===================================================================
+# consolidate
+# ===================================================================
+
+class TestConsolidate:
+
+    def test_empty_directory(self, marks_dir):
+        report = consolidate(marks_dir)
+        assert isinstance(report, ConsolidationReport)
+        assert report.today_marks == []
+        assert report.methylome_updated is True
+
+    def test_today_marks_detected(self, marks_dir):
+        _write_mark(marks_dir, "today_mark.md")
+        report = consolidate(marks_dir)
+        assert len(report.today_marks) == 1
+
+    def test_skips_index_files(self, marks_dir):
+        for name in ["MEMORY.md", "methylome.md", "decay-tracker.md"]:
+            (marks_dir / name).write_text("---\n---\nbody\n")
+        _write_mark(marks_dir, "real_mark.md")
+        report = consolidate(marks_dir)
+        assert len(report.today_marks) == 1
+
+    def test_strengthens_accessed_marks(self, marks_dir):
+        _write_mark(marks_dir, "accessed.md", {
+            "name": "accessed", "type": "feedback",
+            "source": "cc", "access_count": "2",
+        })
+        report = consolidate(marks_dir)
+        assert len(report.strengthened) == 1
+        assert report.strengthened[0].access_count == 2
+
+    def test_no_strengthen_without_access(self, marks_dir):
+        _write_mark(marks_dir, "unaccessed.md", {
+            "name": "unaccessed", "type": "feedback", "source": "cc",
+        })
+        report = consolidate(marks_dir)
+        assert report.strengthened == []
+
+    def test_writes_daily_summary(self, marks_dir, tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path):
+            report = consolidate(marks_dir)
+        assert report.methylome_updated is True
+
+
+# ===================================================================
+# sweep
+# ===================================================================
+
+class TestSweep:
+
+    def test_empty_directory(self, marks_dir):
+        report = sweep(marks_dir)
+        assert report.total_marks == 0
+        assert report.stale_candidates == []
+
+    def test_counts_marks(self, marks_dir):
+        _write_mark(marks_dir, "m1.md", {"name": "m1", "type": "feedback", "source": "cc", "durability": "methyl"})
+        _write_mark(marks_dir, "a1.md", {"name": "a1", "type": "feedback", "source": "cc", "durability": "acetyl"})
+        report = sweep(marks_dir)
+        assert report.total_marks == 2
+        assert report.methyl_marks == 1
+        assert report.acetyl_marks == 1
+
+    def test_stale_detected(self, marks_dir):
+        p = _write_mark_with_age(marks_dir, "old_mark.md", age_days=100,
+                                 frontmatter={"name": "old_mark", "type": "feedback", "source": "cc", "durability": "methyl"})
+        report = sweep(marks_dir, threshold_days=90)
+        assert len(report.stale_candidates) >= 1
+
+    def test_dry_run_does_not_delete(self, marks_dir):
+        p = _write_mark_with_age(marks_dir, "stale.md", age_days=200,
+                                 frontmatter={"name": "stale", "type": "feedback", "source": "cc", "durability": "acetyl"})
+        sweep(marks_dir, dry_run=True)
+        assert p.exists()
+
+    def test_non_dry_run_deletes_stale(self, marks_dir):
+        p = _write_mark_with_age(marks_dir, "stale.md", age_days=200,
+                                 frontmatter={"name": "stale", "type": "feedback", "source": "cc", "durability": "acetyl"})
+        sweep(marks_dir, dry_run=False)
+        assert not p.exists()
+
+    def test_protected_not_deleted(self, marks_dir):
+        p = _write_mark_with_age(marks_dir, "feedback_keep_digging.md", age_days=500)
+        sweep(marks_dir, dry_run=False)
+        assert p.exists()
+
+    def test_source_distribution(self, marks_dir):
+        _write_mark(marks_dir, "s1.md", {"name": "s1", "type": "feedback", "source": "cc"})
+        _write_mark(marks_dir, "s2.md", {"name": "s2", "type": "feedback", "source": "gemini"})
+        report = sweep(marks_dir)
+        assert report.source_distribution["cc"] == 1
+        assert report.source_distribution["gemini"] == 1
+
+    def test_type_distribution(self, marks_dir):
+        _write_mark(marks_dir, "t1.md", {"name": "t1", "type": "feedback", "source": "cc"})
+        _write_mark(marks_dir, "t2.md", {"name": "t2", "type": "finding", "source": "cc"})
+        report = sweep(marks_dir)
+        assert report.type_distribution["feedback"] == 1
+        assert report.type_distribution["finding"] == 1
+
+    def test_skips_index_files(self, marks_dir):
+        for name in ["MEMORY.md", "methylome.md", "decay-tracker.md"]:
+            (marks_dir / name).write_text("---\n---\nbody\n")
+        report = sweep(marks_dir)
+        assert report.total_marks == 0
+
+    def test_stale_signals_counted(self, marks_dir, signals_dir):
+        # Create a stale signal file (>14 days old)
+        sig = signals_dir / "signal_test.md"
+        sig.write_text("---\nname: test\n---\nbody\n")
+        old = (datetime.now() - timedelta(days=20)).timestamp()
+        os.utime(sig, (old, old))
+        report = sweep(marks_dir)
+        assert report.total_marks >= 1
+        assert any(s.mark_type == "signal" for s in report.stale_candidates)
+
+
+# ===================================================================
+# format_report
+# ===================================================================
+
+class TestFormatReport:
+
+    def test_basic_report(self):
+        report = DemethylaseReport(
+            total_marks=10, methyl_marks=7, acetyl_marks=3,
+            protected_marks=2, stale_candidates=[],
+            source_distribution={"cc": 5, "gemini": 5},
+            type_distribution={"feedback": 8, "finding": 2},
+        )
+        text = format_report(report)
+        assert "10 marks" in text
+        assert "Methyl (durable): 7" in text
+        assert "Acetyl (volatile): 3" in text
+        assert "Protected (CpG): 2" in text
+        assert "cc: 5" in text
+        assert "feedback: 8" in text
+
+    def test_with_clusters(self):
+        report = DemethylaseReport(
+            mark_clusters=[{"topic": "keep", "count": 3, "marks": ["a", "b", "c"]}],
+        )
+        text = format_report(report)
+        assert "keep" in text
+
+    def test_with_stale_candidates(self):
+        m = MarkAnalysis(
+            path=Path("/dummy/old.md"), name="old", mark_type="feedback",
+            durability="acetyl", protected=False, source="cc",
+            age_days=100, last_modified_days=100,
+            stale=True, reason="too old",
+        )
+        report = DemethylaseReport(stale_candidates=[m])
+        text = format_report(report)
+        assert "old.md" in text
+        assert "too old" in text
+
+
+# ===================================================================
+# record_access
+# ===================================================================
+
+class TestRecordAccess:
+
+    def test_increments_existing(self, tmp_path):
+        p = tmp_path / "mark.md"
+        p.write_text("---\nname: test\naccess_count: 3\n---\nbody\n")
+        record_access(p)
+        text = p.read_text()
+        assert "access_count: 4" in text
+
+    def test_adds_when_missing(self, tmp_path):
+        p = tmp_path / "mark.md"
+        p.write_text("---\nname: test\n---\nbody\n")
+        record_access(p)
+        text = p.read_text()
+        assert "access_count: 1" in text
+
+    def test_no_frontmatter_noop(self, tmp_path):
+        p = tmp_path / "plain.md"
+        p.write_text("no frontmatter here\n")
+        original = p.read_text()
+        record_access(p)
+        assert p.read_text() == original
+
+    def test_unclosed_frontmatter_noop(self, tmp_path):
+        p = tmp_path / "unclosed.md"
+        p.write_text("---\nname: test\n")
+        original = p.read_text()
+        record_access(p)
+        assert p.read_text() == original
+
+
+# ===================================================================
+# emit_signal
+# ===================================================================
+
+class TestEmitSignal:
+
+    def test_creates_signal_file(self, signals_dir):
+        path = emit_signal("test_sig", "hello world", source="cc")
+        assert path.exists()
+        assert "test_sig" in path.name
+        content = path.read_text()
+        assert "hello world" in content
+        assert "source: cc" in content
+
+    def test_signal_has_frontmatter(self, signals_dir):
+        path = emit_signal("sig1", "body text")
+        text = path.read_text()
+        assert text.startswith("---")
+        fm = _parse_frontmatter(path)
+        assert fm["name"] == "sig1"
+        assert fm["type"] == "signal"
+        assert fm["durability"] == "acetyl"
+        assert fm["fire_count"] == "1"
+
+    def test_deduplication_increments_fire_count(self, signals_dir):
+        first = emit_signal("dup", "first")
+        second = emit_signal("dup", "second call")
+        assert second == first  # same path
+        fm = _parse_frontmatter(first)
+        assert fm["fire_count"] == "2"
+
+    def test_downstream_commands_written(self, signals_dir):
+        path = emit_signal("cascade_sig", "body", downstream=["echo hi", "ls /tmp"])
+        text = path.read_text()
+        assert "downstream:" in text
+        assert "- echo hi" in text
+        assert "- ls /tmp" in text
+
+    def test_signal_history_appended(self, tmp_path, signals_dir):
+        emit_signal("hist_test", "body", source="cc")
+        history_path = dm.SIGNAL_HISTORY_PATH
+        assert history_path.exists()
+        lines = history_path.read_text().strip().splitlines()
+        assert len(lines) == 1
+        entry = json.loads(lines[0])
+        assert entry["name"] == "hist_test"
+        assert entry["source"] == "cc"
+        assert entry["deduplicated"] is False
+
+    def test_signal_history_dedup_entry(self, signals_dir):
+        emit_signal("dedup_hist", "first")
+        emit_signal("dedup_hist", "second")
+        lines = dm.SIGNAL_HISTORY_PATH.read_text().strip().splitlines()
+        assert len(lines) == 2
+        entry2 = json.loads(lines[1])
+        assert entry2["deduplicated"] is True
+        assert entry2["fire_count"] == 2
+
+
+# ===================================================================
+# read_signals
+# ===================================================================
+
+class TestReadSignals:
+
+    def test_empty_directory(self, signals_dir):
+        assert read_signals() == []
+
+    def test_reads_signals(self, signals_dir):
+        emit_signal("sig_a", "content a")
+        emit_signal("sig_b", "content b")
+        result = read_signals()
+        assert len(result) == 2
+        names = {s["name"] for s in result}
+        assert "sig_a" in names
+        assert "sig_b" in names
+
+    def test_name_filter(self, signals_dir):
+        emit_signal("alpha_one", "a1")
+        emit_signal("alpha_two", "a2")
+        emit_signal("beta_one", "b1")
+        result = read_signals(name_filter="alpha")
+        assert len(result) == 2
+
+    def test_skips_transduced(self, signals_dir):
+        path = emit_signal("trans", "body")
+        _update_frontmatter_field(path, "transduced", "true")
+        result = read_signals()
+        assert len(result) == 0
+
+    def test_desensitization_threshold(self, signals_dir):
+        # Fire signal 5 times to hit default threshold
+        for _ in range(5):
+            emit_signal("noisy", "repeated")
+        result = read_signals()  # default threshold=5
+        assert len(result) == 0
+
+    def test_include_desensitized(self, signals_dir):
+        for _ in range(5):
+            emit_signal("noisy2", "repeated")
+        result = read_signals(include_desensitized=True)
+        assert len(result) == 1
+        assert result[0]["desensitized"] is True
+
+    def test_execute_cascade(self, signals_dir):
+        emit_signal("cascade", "body", downstream=["echo hello"])
+        result = read_signals(execute_cascade=True)
+        assert len(result) == 1
+        assert "echo hello" in result[0]["cascades_fired"]
+        # Should now be marked transduced
+        result2 = read_signals()
+        assert len(result2) == 0
+
+    def test_execute_cascade_rejects_shell_injection(self, signals_dir):
+        emit_signal("inject", "body", downstream=["echo foo | wc"])
+        result = read_signals(execute_cascade=True)
+        assert len(result) == 1
+        assert result[0]["cascades_fired"][0].startswith("REJECTED")
+
+    def test_execute_cascade_handles_failure(self, signals_dir):
+        emit_signal("bad_cmd", "body", downstream=["false"])
+        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "false")):
+            result = read_signals(execute_cascade=True)
+        assert len(result) == 1
+        assert result[0]["cascades_fired"][0].startswith("FAILED")
+
+
+# ===================================================================
+# resensitize
+# ===================================================================
+
+class TestResensitize:
+
+    def test_resensitize_desensitized_signal(self, signals_dir):
+        for _ in range(6):
+            emit_signal("recoverable", "body")
+        # read_signals marks it as desensitized when fire_count >= threshold
+        read_signals()
+        result = resensitize("recoverable")
+        assert result is True
+        # Should now be readable again
+        signals = read_signals()
+        assert len(signals) == 1
+
+    def test_no_match_returns_false(self, signals_dir):
+        emit_signal("other", "body")
+        assert resensitize("nonexistent") is False
+
+    def test_not_desensitized_returns_false(self, signals_dir):
+        emit_signal("fresh", "body")
+        assert resensitize("fresh") is False
+
+    def test_no_signals_dir(self, tmp_path):
+        dm.SIGNALS_DIR = tmp_path / "nonexistent"
+        assert resensitize("anything") is False
+
+
+# ===================================================================
+# transduce
+# ===================================================================
+
+class TestTransduce:
+
+    def test_transduce_with_downstream(self, signals_dir):
+        emit_signal("trans_test", "body", downstream=["echo trans"])
+        result = transduce()
+        assert len(result) == 1
+        assert result[0]["name"] == "trans_test"
+        assert "echo trans" in result[0]["cascades_fired"]
+
+    def test_transduce_no_downstream(self, signals_dir):
+        emit_signal("no_downstream", "body")
+        result = transduce()
+        assert len(result) == 0
+
+    def test_transduce_with_filter(self, signals_dir):
+        emit_signal("target_alpha", "body", downstream=["echo a"])
+        emit_signal("other_beta", "body", downstream=["echo b"])
+        result = transduce(name_filter="target")
+        assert len(result) == 1
+        assert result[0]["name"] == "target_alpha"
+
+
+# ===================================================================
+# signal_history
+# ===================================================================
+
+class TestSignalHistory:
+
+    def test_empty_history(self):
+        assert signal_history() == []
+
+    def test_returns_recent(self, signals_dir):
+        emit_signal("h1", "body")
+        emit_signal("h2", "body")
+        result = signal_history(limit=10)
+        assert len(result) == 2
+
+    def test_limit_respected(self, signals_dir):
+        for i in range(5):
+            emit_signal(f"lim_{i}", "body")
+        result = signal_history(limit=2)
+        assert len(result) == 2
+
+    def test_name_filter(self, signals_dir):
+        emit_signal("alpha_one", "body")
+        emit_signal("beta_two", "body")
+        result = signal_history(name_filter="alpha")
+        assert len(result) == 1
+        assert result[0]["name"] == "alpha_one"
+
+    def test_zero_limit_returns_empty(self, signals_dir):
+        emit_signal("x", "body")
+        assert signal_history(limit=0) == []
+
+    def test_malformed_line_skipped(self, signals_dir):
+        dm.SIGNAL_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with dm.SIGNAL_HISTORY_PATH.open("a") as f:
+            f.write("not json\n")
+        emit_signal("good", "body")
+        result = signal_history()
+        assert len(result) == 1
+        assert result[0]["name"] == "good"
+
+
+# ===================================================================
+# _update_frontmatter_field
+# ===================================================================
+
+class TestUpdateFrontmatterField:
+
+    def test_updates_existing_field(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\nname: old\n---\nbody\n")
+        _update_frontmatter_field(p, "name", "new")
+        assert _parse_frontmatter(p)["name"] == "new"
+
+    def test_adds_new_field(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\nname: test\n---\nbody\n")
+        _update_frontmatter_field(p, "extra", "value")
+        fm = _parse_frontmatter(p)
+        assert fm["name"] == "test"
+        assert fm["extra"] == "value"
+
+    def test_no_frontmatter_noop(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("plain text\n")
+        _update_frontmatter_field(p, "key", "val")
+        assert p.read_text() == "plain text\n"
+
+    def test_body_preserved(self, tmp_path):
+        p = tmp_path / "test.md"
+        p.write_text("---\nname: test\n---\n\nBody line 1\nBody line 2\n")
+        _update_frontmatter_field(p, "name", "updated")
+        text = p.read_text()
+        assert "Body line 1" in text
+        assert "Body line 2" in text
