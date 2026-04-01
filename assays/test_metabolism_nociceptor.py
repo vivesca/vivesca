@@ -367,3 +367,171 @@ class TestConstants:
 
     def test_hkt_is_utc8(self):
         assert HKT.utcoffset(None) == timedelta(hours=8)
+
+
+# ---------------------------------------------------------------------------
+# Additional edge-case coverage
+# ---------------------------------------------------------------------------
+
+class TestClassifyErrorEdgeCases:
+    def test_empty_string(self):
+        assert classify_error("") == "unknown"
+
+    def test_mixed_case_network(self):
+        assert classify_error("Connection Timed Out") == "network"
+
+    def test_partial_word_no_false_positive(self):
+        """'authentication' contains 'auth' — should classify as auth."""
+        assert classify_error("authentication failed") == "auth"
+
+    def test_dns_short(self):
+        assert classify_error("DNS error") == "network"
+
+    def test_401_in_sentence(self):
+        assert classify_error("Server returned 401 for user X") == "auth"
+
+
+class TestReadJsonlEdgeCases:
+    def test_entry_without_timestamp_key(self, tmp_path):
+        """Entry missing both 'ts' and 'timestamp' should still be included."""
+        f = tmp_path / "log.jsonl"
+        f.write_text(json.dumps({"val": 42}) + "\n")
+        result = _read_jsonl(f, 1)
+        assert len(result) == 1
+        assert result[0]["val"] == 42
+
+    def test_all_entries_old(self, tmp_path):
+        f = tmp_path / "log.jsonl"
+        f.write_text(json.dumps({"ts": _ts(100)}) + "\n")
+        assert _read_jsonl(f, max_age_hours=1) == []
+
+    def test_mixed_recent_and_old(self, tmp_path):
+        f = tmp_path / "log.jsonl"
+        f.write_text(
+            json.dumps({"ts": _ts(100), "id": 1}) + "\n"
+            + json.dumps({"ts": _ts(0), "id": 2}) + "\n"
+        )
+        result = _read_jsonl(f, 1)
+        assert len(result) == 1
+        assert result[0]["id"] == 2
+
+    def test_blank_file(self, tmp_path):
+        f = tmp_path / "log.jsonl"
+        f.write_text("")
+        assert _read_jsonl(f, 1) == []
+
+    def test_multiple_valid_entries(self, tmp_path):
+        f = tmp_path / "log.jsonl"
+        entries = [{"ts": _ts(i * 0.1), "idx": i} for i in range(5)]
+        f.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
+        result = _read_jsonl(f, 1)
+        assert len(result) == 5
+
+
+class TestScanEdgeCases:
+    def test_mixed_sources(self, tmp_path):
+        """All three log sources produce events simultaneously."""
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "tool": "a", "fingerprint": "fp1"},
+        ])
+        _write_jsonl(tmp_path / "sig.jsonl", [
+            {"ts": _ts(0), "outcome": "error", "error": "403", "tool": "b"},
+        ])
+        _write_jsonl(tmp_path / "hook.jsonl", [
+            {"ts": _ts(0), "rule": "deny-x", "hook": "h1"},
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
+        assert len(events) == 3
+        sources = {e.source for e in events}
+        assert sources == {"infection", "signal", "hook"}
+
+    def test_infection_missing_tool_defaults_unknown(self, tmp_path):
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "fingerprint": "fp1"},
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
+        assert events[0].site == "unknown"
+
+    def test_infection_missing_fingerprint(self, tmp_path):
+        """Missing fingerprint key → empty string used as counter key."""
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "tool": "x"},
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
+        assert len(events) == 1
+        assert events[0].count == 1
+
+    def test_multiple_different_fingerprints(self, tmp_path):
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "tool": "a", "fingerprint": "fp1"},
+            {"ts": _ts(0), "error": "401", "tool": "b", "fingerprint": "fp2"},
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
+        assert len(events) == 2
+        assert events[0].pain_type == "network"
+        assert events[1].pain_type == "auth"
+
+    def test_chronic_escalation_action(self, tmp_path):
+        """Chronic events should recommend escalation."""
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "tool": "x", "fingerprint": "fpC"}
+            for _ in range(CHRONIC_THRESHOLD)
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            events = scan(1)
+        assert "escalate" in events[-1].recommended_action
+
+
+class TestReportEdgeCases:
+    def test_report_shows_event_count(self, tmp_path):
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
+        assert "1 events" in r
+
+    def test_report_hours_in_header(self, tmp_path):
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=12)
+        assert "12h" in r
+
+    def test_report_more_than_5_per_type(self, tmp_path):
+        """Report shows at most 5 unique site:error pairs per type."""
+        _write_jsonl(tmp_path / "sig.jsonl", [
+            {"ts": _ts(0), "outcome": "error", "error": f"timeout {i}", "tool": f"t{i}"}
+            for i in range(8)
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
+        # 8 events but only 5 should show in the report detail lines
+        detail_lines = [l for l in r.splitlines() if "[signal]" in l]
+        assert len(detail_lines) == 5
+
+    def test_report_sorted_by_count_descending(self, tmp_path):
+        """Type with more events appears first."""
+        _write_jsonl(tmp_path / "inf.jsonl", [
+            {"ts": _ts(0), "error": "timeout", "tool": f"a{i}", "fingerprint": f"fp{i}"}
+            for i in range(3)
+        ])
+        _write_jsonl(tmp_path / "sig.jsonl", [
+            {"ts": _ts(0), "outcome": "error", "error": "403", "tool": "b"},
+        ])
+        pi, ps, ph = _patched_logs(tmp_path)
+        with pi, ps, ph:
+            r = report(hours=1)
+        network_pos = r.index("NETWORK")
+        auth_pos = r.index("AUTH")
+        assert network_pos < auth_pos

@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import shutil
 import signal
+import subprocess
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -30,461 +32,606 @@ kill_runaway_golems = _mod["kill_runaway_golems"]
 check_cycle = _mod["check_cycle"]
 main = _mod["main"]
 
-# Constants
+POLL = _mod["POLL"]
 HOME = _mod["HOME"]
 LOG = _mod["LOG"]
-POLL = _mod["POLL"]
+GERMLINE = _mod["GERMLINE"]
 DISK_WARN_GB = _mod["DISK_WARN_GB"]
 DISK_CRIT_GB = _mod["DISK_CRIT_GB"]
 ROOT_WARN_MB = _mod["ROOT_WARN_MB"]
 LOG_MAX_MB = _mod["LOG_MAX_MB"]
 GOLEM_MAX_SECONDS = _mod["GOLEM_MAX_SECONDS"]
 GOLEM_MAX_RSS_MB = _mod["GOLEM_MAX_RSS_MB"]
-GERMLINE = _mod["GERMLINE"]
 
 
-# ── Constants ─────────────────────────────────────────────────────────
+class _PatchMod:
+    """Context manager to temporarily replace a name in the exec'd module dict."""
+
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+        self.orig = None
+
+    def __enter__(self):
+        self.orig = _mod[self.name]
+        _mod[self.name] = self.value
+        return self.value
+
+    def __exit__(self, *exc):
+        _mod[self.name] = self.orig
 
 
-class TestConstants:
-    def test_poll_interval(self):
-        assert POLL == 60
-
-    def test_disk_warn_gb(self):
-        assert DISK_WARN_GB == 2.0
-
-    def test_disk_crit_gb(self):
-        assert DISK_CRIT_GB == 1.0
-
-    def test_root_warn_mb(self):
-        assert ROOT_WARN_MB == 500
-
-    def test_log_max_mb(self):
-        assert LOG_MAX_MB == 10
-
-    def test_golem_max_seconds(self):
-        assert GOLEM_MAX_SECONDS == 2400
-
-    def test_golem_max_rss_mb(self):
-        assert GOLEM_MAX_RSS_MB == 2048
-
-    def test_home_is_path(self):
-        assert isinstance(HOME, Path)
-
-    def test_log_path_under_home(self):
-        assert LOG == HOME / "tmp" / "gemmule-watchdog.log"
-
-    def test_germline_under_home(self):
-        assert GERMLINE == HOME / "germline"
+# ── Constant verification ──────────────────────────────────────────────
 
 
-# ── log() ─────────────────────────────────────────────────────────────
+def test_constants_have_expected_values():
+    """All threshold constants have expected values."""
+    assert POLL == 60
+    assert DISK_WARN_GB == 2.0
+    assert DISK_CRIT_GB == 1.0
+    assert ROOT_WARN_MB == 500
+    assert LOG_MAX_MB == 10
+    assert GOLEM_MAX_SECONDS == 2400
+    assert GOLEM_MAX_RSS_MB == 2048
 
 
-class TestLog:
-    def test_log_creates_dir_and_appends(self, tmp_path):
-        logpath = tmp_path / "sub" / "test.log"
-        with patch.object(_mod, "LOG", logpath):
-            _mod["log"]("hello world")
-            _mod["log"]("second line")
+def test_home_is_path_home():
+    """HOME is Path.home()."""
+    assert HOME == Path.home()
+
+
+def test_germline_is_home_germline():
+    """GERMLINE is HOME / 'germline'."""
+    assert GERMLINE == HOME / "germline"
+
+
+def test_log_path_under_home_tmp():
+    """LOG path is ~/tmp/gemmule-watchdog.log."""
+    assert LOG == HOME / "tmp" / "gemmule-watchdog.log"
+
+
+# ── log() tests ────────────────────────────────────────────────────────
+
+
+def test_log_writes_with_timestamp(tmp_path):
+    """log() writes [timestamp] msg to LOG file."""
+    logpath = tmp_path / "test.log"
+    with _PatchMod("LOG", logpath):
+        log("hello world")
         content = logpath.read_text()
-        assert "hello world" in content
-        assert "second line" in content
-        lines = content.strip().splitlines()
+        assert content.startswith("[")
+        assert "] hello world\n" in content
+
+
+def test_log_appends_multiple_messages(tmp_path):
+    """log() appends messages rather than overwriting."""
+    logpath = tmp_path / "test.log"
+    with _PatchMod("LOG", logpath):
+        log("first")
+        log("second")
+        lines = logpath.read_text().strip().splitlines()
         assert len(lines) == 2
-        # Each line starts with [timestamp]
-        for line in lines:
-            assert line.startswith("[")
-            assert "] " in line
+        assert "first" in lines[0]
+        assert "second" in lines[1]
 
-    def test_log_format_includes_timestamp(self, tmp_path):
-        logpath = tmp_path / "t.log"
-        with patch.object(_mod, "LOG", logpath):
-            _mod["log"]("test msg")
-        line = logpath.read_text().strip()
-        # Format: [YYYY-MM-DD HH:MM:SS] test msg
-        assert line.startswith("[202")  # covers 2024-2030
-        assert "] test msg" in line
 
-    def test_log_creates_parent_directory(self, tmp_path):
-        logpath = tmp_path / "deep" / "nested" / "dir" / "out.log"
-        assert not logpath.parent.exists()
-        with patch.object(_mod, "LOG", logpath):
-            _mod["log"]("created dirs")
-        assert logpath.parent.exists()
+def test_log_creates_parent_directory(tmp_path):
+    """log() creates parent directory if it does not exist."""
+    logpath = tmp_path / "deep" / "nested" / "test.log"
+    with _PatchMod("LOG", logpath):
+        log("created dirs")
+        assert logpath.exists()
         assert "created dirs" in logpath.read_text()
 
 
-# ── free_gb() / free_mb() ────────────────────────────────────────────
+def test_log_timestamp_format(tmp_path):
+    """log() timestamp matches YYYY-MM-DD HH:MM:SS format."""
+    logpath = tmp_path / "test.log"
+    with _PatchMod("LOG", logpath):
+        log("check format")
+        line = logpath.read_text().strip()
+        ts = line.split("] ")[0].lstrip("[")
+        datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
 
 
-class TestFreeSpace:
-    def test_free_gb_returns_float(self):
-        result = free_gb(HOME)
-        assert isinstance(result, float)
-        assert result > 0
-
-    def test_free_mb_returns_float(self):
-        result = free_mb(Path("/tmp"))
-        assert isinstance(result, float)
-        assert result > 0
-
-    def test_free_mb_is_1024_times_gb(self):
-        gb = free_gb(HOME)
-        mb = free_mb(HOME)
-        assert abs(mb - gb * 1024) < 1.0  # within 1 MB
-
-    def test_free_gb_nonexistent_path_returns_999(self):
-        result = free_gb(Path("/nonexistent/path/that/does/not/exist"))
-        assert result == 999.0
-
-    def test_free_mb_nonexistent_path_returns_999_times_1024(self):
-        result = free_mb(Path("/nonexistent/path/that/does/not/exist"))
-        assert result == 999.0 * 1024
-
-    def test_free_gb_handles_permission_error(self):
-        with patch("shutil.disk_usage", side_effect=PermissionError("denied")):
-            result = free_gb(HOME)
-            assert result == 999.0
+# ── free_gb() / free_mb() tests ───────────────────────────────────────
 
 
-# ── clean_temps() ─────────────────────────────────────────────────────
+def test_free_gb_returns_positive_float():
+    """free_gb returns a positive float for a valid path."""
+    result = free_gb(Path("/"))
+    assert isinstance(result, float)
+    assert result > 0
 
 
-class TestCleanTemps:
-    def test_clean_temps_returns_count(self, tmp_path):
-        # Patch GERMLINE to tmp_path so it doesn't try to delete real dirs
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            # Create one temp dir that matches a pattern
-            pytest_dir = tmp_path / "pytest-of-terry"
-            pytest_dir.mkdir()
-            (pytest_dir / "test_foo.py").write_text("# test")
-            count = clean_temps()
-        assert isinstance(count, int)
-
-    def test_clean_temps_removes_pytest_of_terry(self, tmp_path):
-        pytest_dir = tmp_path / "pytest-of-terry"
-        pytest_dir.mkdir()
-        (pytest_dir / "sub" / "file.py").mkdir(parents=True)
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            count = clean_temps()
-        assert not pytest_dir.exists()
-
-    def test_clean_temps_no_dirs_returns_zero_removed(self, tmp_path):
-        # No matching dirs exist under tmp_path as GERMLINE
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            # Also patch /tmp glob to return nothing
-            with patch("pathlib.Path.glob", return_value=[]):
-                with patch.object(_mod, "subprocess") as mock_sub:
-                    mock_sub.run = MagicMock()
-                    count = clean_temps()
-        # cleaned counts only dirs that existed and were removed
-        assert isinstance(count, int)
-
-    def test_clean_temps_calls_find_for_pycache(self, tmp_path):
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "subprocess") as mock_sub:
-                mock_sub.run = MagicMock()
-                with patch("pathlib.Path.glob", return_value=[]):
-                    clean_temps()
-                mock_sub.run.assert_called_once()
-                cmd_args = mock_sub.run.call_args[0][0]
-                assert "find" in cmd_args
-                assert "__pycache__" in cmd_args
+def test_free_gb_returns_999_on_error():
+    """free_gb returns 999.0 when disk_usage raises."""
+    with patch("shutil.disk_usage", side_effect=OSError("nope")):
+        assert free_gb(Path("/nonexistent")) == 999.0
 
 
-# ── rotate_log() ──────────────────────────────────────────────────────
+def test_free_mb_converts_gb_to_mb():
+    """free_mb returns free_gb * 1024."""
+    with patch("shutil.disk_usage") as mock_du:
+        usage = MagicMock()
+        usage.free = 2 * 1024**3  # 2 GB in bytes
+        mock_du.return_value = usage
+        result = free_mb(Path("/"))
+    assert result == pytest.approx(2048.0)
 
 
-class TestRotateLog:
-    def test_rotate_log_no_file_is_noop(self, tmp_path):
-        p = tmp_path / "nonexistent.log"
-        rotate_log(p)
-        assert not p.exists()
-        assert not p.with_suffix(p.suffix + ".1").exists()
-
-    def test_rotate_log_small_file_not_rotated(self, tmp_path):
-        p = tmp_path / "small.log"
-        p.write_text("tiny")
-        rotate_log(p, max_mb=10.0)
-        assert p.exists()
-        assert not p.with_suffix(p.suffix + ".1").exists()
-
-    def test_rotate_log_large_file_gets_rotated(self, tmp_path):
-        p = tmp_path / "big.log"
-        # Write > 1 MB content
-        p.write_text("x" * (2 * 1024 * 1024))
-        rotate_log(p, max_mb=1.0)
-        assert not p.exists()
-        rotated = tmp_path / "big.log.1"
-        assert rotated.exists()
-        assert rotated.stat().st_size > 1024 * 1024
-
-    def test_rotate_log_replaces_existing_rotated(self, tmp_path):
-        p = tmp_path / "app.log"
-        p.write_text("x" * (2 * 1024 * 1024))
-        rotated = tmp_path / "app.log.1"
-        rotated.write_text("old rotated content")
-        rotate_log(p, max_mb=1.0)
-        assert not p.exists()
-        assert rotated.exists()
-        # Content should be from the new rotation, not the old one
-        assert rotated.stat().st_size > 1024 * 1024
-
-    def test_rotate_log_logs_message(self, tmp_path):
-        p = tmp_path / "big.log"
-        logpath = tmp_path / "wd.log"
-        p.write_text("y" * (2 * 1024 * 1024))
-        with patch.object(_mod, "LOG", logpath):
-            rotate_log(p, max_mb=1.0)
-        log_content = logpath.read_text()
-        assert "Rotated" in log_content
-        assert "big.log" in log_content
-
-    def test_rotate_log_default_max_mb(self, tmp_path):
-        p = tmp_path / "default.log"
-        # Write exactly 11 MB (> 10 MB default threshold)
-        p.write_text("z" * (11 * 1024 * 1024))
-        rotate_log(p)
-        assert not p.exists()
-        assert (tmp_path / "default.log.1").exists()
+def test_free_mb_nonexistent_returns_large():
+    """free_mb returns 999.0*1024 for nonexistent path."""
+    with patch("shutil.disk_usage", side_effect=FileNotFoundError):
+        result = free_mb(Path("/no/such/mount"))
+    assert result == pytest.approx(999.0 * 1024)
 
 
-# ── kill_runaway_golems() ────────────────────────────────────────────
+# ── rotate_log() tests ────────────────────────────────────────────────
 
 
-class TestKillRunawayGolems:
-    def _make_ps_output(self, procs):
-        """Build fake ps output. Each proc: (pid, elapsed_s, rss_kb)."""
-        lines = []
-        for pid, elapsed, rss in procs:
-            lines.append(f"{pid} {elapsed} {rss} claude")
-        return "\n".join(lines)
+def test_rotate_log_skips_nonexistent(tmp_path):
+    """rotate_log does nothing when file does not exist."""
+    f = tmp_path / "nope.log"
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f)
+    assert not f.exists()
+    assert not (tmp_path / "nope.log.1").exists()
 
-    def test_no_processes_returns_zero(self):
-        result_mock = MagicMock()
-        result_mock.stdout = ""
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
+
+def test_rotate_log_small_file_not_rotated(tmp_path):
+    """rotate_log does not rotate file under max_mb."""
+    f = tmp_path / "small.log"
+    f.write_bytes(b"x" * 100)
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f, max_mb=10)
+    assert f.exists()
+    assert not (tmp_path / "small.log.1").exists()
+
+
+def test_rotate_log_large_file_rotated(tmp_path):
+    """rotate_log renames file to .1 when over threshold."""
+    f = tmp_path / "big.log"
+    f.write_bytes(b"x" * (11 * 1024 * 1024))  # 11 MB
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f, max_mb=10)
+    assert not f.exists()
+    assert (tmp_path / "big.log.1").exists()
+
+
+def test_rotate_log_overwrites_existing_dot1(tmp_path):
+    """rotate_log removes existing .1 file before renaming."""
+    f = tmp_path / "big.log"
+    old_dot1 = tmp_path / "big.log.1"
+    old_dot1.write_text("old content\n")
+    f.write_bytes(b"x" * (11 * 1024 * 1024))
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f, max_mb=10)
+    assert not f.exists()
+    assert old_dot1.exists()
+    assert old_dot1.stat().st_size == 11 * 1024 * 1024
+
+
+def test_rotate_log_exact_threshold_not_rotated(tmp_path):
+    """rotate_log does not rotate file exactly at threshold (must exceed)."""
+    f = tmp_path / "exact.log"
+    f.write_bytes(b"x" * (10 * 1024 * 1024))  # exactly 10 MB
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f, max_mb=10)
+    assert f.exists()
+    assert not (tmp_path / "exact.log.1").exists()
+
+
+def test_rotate_log_custom_max_mb(tmp_path):
+    """rotate_log respects custom max_mb parameter."""
+    f = tmp_path / "tiny.log"
+    f.write_bytes(b"x" * 100)
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f, max_mb=0.00001)  # ~10 bytes threshold
+    assert not f.exists()
+    assert (tmp_path / "tiny.log.1").exists()
+
+
+def test_rotate_log_writes_log_message(tmp_path):
+    """rotate_log writes a log message when rotating."""
+    f = tmp_path / "big.log"
+    logpath = tmp_path / "watchdog.log"
+    f.write_bytes(b"x" * (11 * 1024 * 1024))
+    with _PatchMod("LOG", logpath):
+        rotate_log(f, max_mb=10)
+    content = logpath.read_text()
+    assert "Rotated big.log" in content
+
+
+def test_rotate_log_empty_file_not_rotated(tmp_path):
+    """rotate_log does not rotate an empty file."""
+    f = tmp_path / "empty.log"
+    f.write_bytes(b"")
+    with _PatchMod("LOG", tmp_path / "other.log"):
+        rotate_log(f, max_mb=10)
+    assert f.exists()
+    assert not (tmp_path / "empty.log.1").exists()
+
+
+# ── clean_temps() tests ───────────────────────────────────────────────
+
+
+def test_clean_temps_removes_pytest_of_terry(tmp_path):
+    """clean_temps removes pytest-of-terry directories."""
+    pytest_dir = tmp_path / "pytest-of-terry"
+    pytest_dir.mkdir()
+    (pytest_dir / "test_foo.py").write_text("# test")
+    with _PatchMod("GERMLINE", tmp_path):
+        with patch("subprocess.run"):
+            with patch.object(Path, "glob", return_value=iter([])):
+                cleaned = clean_temps()
+    assert not pytest_dir.exists()
+    assert cleaned >= 1
+
+
+def test_clean_temps_no_dirs_returns_zero(tmp_path):
+    """clean_temps returns 0 when no temp dirs exist."""
+    with _PatchMod("GERMLINE", tmp_path):
+        with patch("subprocess.run"):
+            with patch.object(Path, "glob", return_value=iter([])):
+                cleaned = clean_temps()
+    assert cleaned == 0
+
+
+def test_clean_temps_runs_find_pycache(tmp_path):
+    """clean_temps runs find command to remove __pycache__ dirs."""
+    with _PatchMod("GERMLINE", tmp_path):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            with patch.object(Path, "glob", return_value=iter([])):
+                clean_temps()
+            calls = mock_run.call_args_list
+            assert any("find" in str(c) and "__pycache__" in str(c) for c in calls)
+
+
+def test_clean_temps_removes_claude_tmp(tmp_path):
+    """clean_temps removes /tmp/claude-* directories."""
+    claude_dir = tmp_path / "claude-session-abc"
+    claude_dir.mkdir()
+    (claude_dir / "data.json").write_text("{}")
+
+    with _PatchMod("GERMLINE", tmp_path):
+        with patch("subprocess.run"):
+            with patch.object(Path, "glob", return_value=iter([claude_dir])):
+                cleaned = clean_temps()
+    assert cleaned >= 1
+
+
+# ── kill_runaway_golems() tests ───────────────────────────────────────
+
+
+def _ps_output(procs):
+    """Build fake ps output. Each proc: (pid, elapsed_s, rss_kb)."""
+    return "\n".join(f"{p} {e} {r} claude" for p, e, r in procs)
+
+
+def test_kill_runaway_no_processes():
+    """kill_runaway_golems returns 0 when no processes found."""
+    mr = MagicMock(stdout="", returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        assert kill_runaway_golems() == 0
+
+
+def test_kill_runaway_healthy_process_not_killed():
+    """kill_runaway_golems does not kill processes within limits."""
+    mr = MagicMock(stdout=_ps_output([(12345, 100, 512000)]), returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            assert kill_runaway_golems() == 0
+    mock_kill.assert_not_called()
+
+
+def test_kill_runaway_time_violation():
+    """kill_runaway_golems kills processes exceeding time limit."""
+    elapsed = GOLEM_MAX_SECONDS + 100
+    mr = MagicMock(stdout=_ps_output([(12345, elapsed, 512000)]), returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            assert kill_runaway_golems() == 1
+    mock_kill.assert_called_once_with(12345, signal.SIGTERM)
+
+
+def test_kill_runaway_memory_violation():
+    """kill_runaway_golems kills processes exceeding RSS limit."""
+    rss_kb = (GOLEM_MAX_RSS_MB + 100) * 1024
+    mr = MagicMock(stdout=_ps_output([(12346, 100, rss_kb)]), returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            assert kill_runaway_golems() == 1
+    mock_kill.assert_called_once_with(12346, signal.SIGTERM)
+
+
+def test_kill_runaway_time_priority_over_memory():
+    """If both thresholds exceeded, time branch fires first (if/elif)."""
+    elapsed = GOLEM_MAX_SECONDS + 100
+    rss_kb = (GOLEM_MAX_RSS_MB + 100) * 1024
+    mr = MagicMock(stdout=_ps_output([(12345, elapsed, rss_kb)]), returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            assert kill_runaway_golems() == 1
+    mock_kill.assert_called_once_with(12345, signal.SIGTERM)
+
+
+def test_kill_runaway_multiple_processes():
+    """kill_runaway_golems processes multiple lines, kills only violators."""
+    procs = [
+        (111, GOLEM_MAX_SECONDS + 10, 512000),         # time violation
+        (222, 100, (GOLEM_MAX_RSS_MB + 100) * 1024),   # memory violation
+        (333, 50, 256000),                               # healthy
+        (444, GOLEM_MAX_SECONDS + 500, 256000),         # time violation
+    ]
+    mr = MagicMock(stdout=_ps_output(procs), returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
             killed = kill_runaway_golems()
-        assert killed == 0
+    assert killed == 3
+    killed_pids = [c.args[0] for c in mock_kill.call_args_list]
+    assert 111 in killed_pids
+    assert 222 in killed_pids
+    assert 444 in killed_pids
+    assert 333 not in killed_pids
 
-    def test_normal_process_not_killed(self):
-        result_mock = MagicMock()
-        result_mock.stdout = self._make_ps_output([(12345, 100, 512 * 1024)])
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 0
 
-    def test_runaway_time_killed(self):
-        result_mock = MagicMock()
+def test_kill_runaway_skips_malformed_lines():
+    """kill_runaway_golems skips lines with fewer than 4 parts."""
+    mr = MagicMock(stdout="123 45\n\n  \n12345 99999 999999 claude", returncode=0)
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            killed = kill_runaway_golems()
+    assert killed == 1
+
+
+def test_kill_runaway_handles_subprocess_exception():
+    """kill_runaway_golems handles subprocess exception gracefully."""
+    with _PatchMod("LOG", Path("/dev/null")):
+        with patch("subprocess.run", side_effect=OSError("boom")):
+            assert kill_runaway_golems() == 0
+
+
+def test_kill_runaway_exact_threshold_not_killed():
+    """At exactly the threshold, process is NOT killed (> not >=)."""
+    rss_kb = GOLEM_MAX_RSS_MB * 1024
+    mr = MagicMock(
+        stdout=_ps_output([(12345, GOLEM_MAX_SECONDS, rss_kb)]),
+        returncode=0,
+    )
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            assert kill_runaway_golems() == 0
+    mock_kill.assert_not_called()
+
+
+def test_kill_runaway_one_over_threshold_killed():
+    """Just 1 second over the threshold triggers kill."""
+    mr = MagicMock(
+        stdout=_ps_output([(12345, GOLEM_MAX_SECONDS + 1, 512000)]),
+        returncode=0,
+    )
+    with patch("subprocess.run", return_value=mr):
+        with patch("os.kill") as mock_kill:
+            assert kill_runaway_golems() == 1
+
+
+def test_kill_runaway_logs_messages(tmp_path):
+    """kill_runaway_golems writes log messages for killed processes."""
+    logpath = tmp_path / "test.log"
+    with _PatchMod("LOG", logpath):
         elapsed = GOLEM_MAX_SECONDS + 100
-        result_mock.stdout = self._make_ps_output([(12345, elapsed, 512 * 1024)])
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 1
-        mock_os.kill.assert_called_once_with(12345, signal.SIGTERM)
+        mr = MagicMock(stdout=_ps_output([(12348, elapsed, 512000)]), returncode=0)
+        with patch("subprocess.run", return_value=mr):
+            with patch("os.kill"):
+                kill_runaway_golems()
+        content = logpath.read_text()
+        assert "KILLED runaway PID 12348" in content
 
-    def test_memory_hog_killed(self):
-        result_mock = MagicMock()
-        rss_mb = GOLEM_MAX_RSS_MB + 100
-        rss_kb = int(rss_mb * 1024)
-        result_mock.stdout = self._make_ps_output([(12345, 100, rss_kb)])
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 1
-        mock_os.kill.assert_called_once_with(12345, signal.SIGTERM)
 
-    def test_time_takes_priority_over_memory(self):
-        """If both thresholds exceeded, time is the reason (if/elif)."""
-        result_mock = MagicMock()
-        elapsed = GOLEM_MAX_SECONDS + 100
+def test_kill_runaway_logs_memory_hog(tmp_path):
+    """kill_runaway_golems writes 'memory hog' log for RSS violation."""
+    logpath = tmp_path / "test.log"
+    with _PatchMod("LOG", logpath):
         rss_kb = (GOLEM_MAX_RSS_MB + 100) * 1024
-        result_mock.stdout = self._make_ps_output([(12345, elapsed, rss_kb)])
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 1
-        mock_os.kill.assert_called_once_with(12345, signal.SIGTERM)
-
-    def test_multiple_runaways_all_killed(self):
-        result_mock = MagicMock()
-        procs = [
-            (111, GOLEM_MAX_SECONDS + 10, 512 * 1024),
-            (222, 100, (GOLEM_MAX_RSS_MB + 100) * 1024),
-            (333, 50, 256 * 1024),  # normal — should NOT be killed
-            (444, GOLEM_MAX_SECONDS + 500, 256 * 1024),
-        ]
-        result_mock.stdout = self._make_ps_output(procs)
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 3
-        killed_pids = [c.args[0] for c in mock_os.kill.call_args_list]
-        assert 111 in killed_pids
-        assert 222 in killed_pids
-        assert 444 in killed_pids
-        assert 333 not in killed_pids
-
-    def test_short_lines_skipped(self):
-        result_mock = MagicMock()
-        # Lines with fewer than 4 fields should be skipped
-        result_mock.stdout = "123 45\n\n   \n12345 99999 999999 claude"
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        # Only the valid 4-field line should be processed
-        assert killed == 1
-
-    def test_exception_returns_zero(self):
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(side_effect=OSError("boom"))
-            with patch.object(_mod, "LOG", Path("/dev/null")):
-                killed = kill_runaway_golems()
-        assert killed == 0
-
-    def test_exact_threshold_not_killed(self):
-        """At exactly the threshold, process should NOT be killed (> not >=)."""
-        result_mock = MagicMock()
-        rss_kb = GOLEM_MAX_RSS_MB * 1024  # exactly at threshold
-        result_mock.stdout = self._make_ps_output([(12345, GOLEM_MAX_SECONDS, rss_kb)])
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 0
-
-    def test_one_over_threshold_killed(self):
-        """Just 1 second over the threshold should trigger kill."""
-        result_mock = MagicMock()
-        result_mock.stdout = self._make_ps_output([
-            (12345, GOLEM_MAX_SECONDS + 1, 512 * 1024)
-        ])
-        with patch.object(_mod, "subprocess") as mock_sub:
-            mock_sub.run = MagicMock(return_value=result_mock)
-            with patch.object(_mod, "os") as mock_os:
-                killed = kill_runaway_golems()
-        assert killed == 1
+        mr = MagicMock(stdout=_ps_output([(12349, 100, rss_kb)]), returncode=0)
+        with patch("subprocess.run", return_value=mr):
+            with patch("os.kill"):
+                kill_runaway_golems()
+        content = logpath.read_text()
+        assert "KILLED memory hog PID 12349" in content
 
 
-# ── check_cycle() ─────────────────────────────────────────────────────
+# ── check_cycle() tests ───────────────────────────────────────────────
 
 
-class TestCheckCycle:
-    def test_check_cycle_runs_without_error(self):
-        """Sanity: check_cycle completes without exception."""
-        with patch.object(_mod, "free_gb", return_value=50.0):
-            with patch.object(_mod, "free_mb", return_value=2000.0):
-                with patch.object(_mod, "kill_runaway_golems", return_value=0):
-                    with patch.object(_mod, "subprocess") as mock_sub:
-                        check_cycle()
-        # No exception means success
-
-    def test_disk_warn_triggers_clean_temps(self):
-        with patch.object(_mod, "free_gb", side_effect=[1.5, 1.5]):
-            with patch.object(_mod, "free_mb", return_value=2000.0):
-                with patch.object(_mod, "clean_temps", return_value=3) as mock_clean:
-                    with patch.object(_mod, "kill_runaway_golems", return_value=0):
-                        with patch.object(_mod, "subprocess") as mock_sub:
-                            with patch.object(_mod, "LOG", Path("/dev/null")):
-                                check_cycle()
-        mock_clean.assert_called_once()
-
-    def test_disk_critical_triggers_pkill(self):
-        with patch.object(_mod, "free_gb", side_effect=[0.5, 0.5]):
-            with patch.object(_mod, "free_mb", return_value=2000.0):
-                with patch.object(_mod, "clean_temps", return_value=0):
-                    with patch.object(_mod, "kill_runaway_golems", return_value=0):
-                        with patch.object(_mod, "subprocess") as mock_sub:
-                            with patch.object(_mod, "LOG", Path("/dev/null")):
-                                check_cycle()
-        # pkill should have been called (critical disk)
-        calls = [str(c) for c in mock_sub.run.call_args_list]
-        assert any("pkill" in c for c in calls)
-
-    def test_root_warn_triggers_clean_temps(self):
-        call_count = {"n": 0}
-
-        def free_gb_side_effect(p):
-            return 50.0  # plenty of disk, skip disk warn
-
-        with patch.object(_mod, "free_gb", side_effect=free_gb_side_effect):
-            with patch.object(_mod, "free_mb", side_effect=[400.0, 600.0]):
-                with patch.object(_mod, "clean_temps", return_value=1) as mock_clean:
-                    with patch.object(_mod, "kill_runaway_golems", return_value=0):
-                        with patch.object(_mod, "subprocess") as mock_sub:
-                            with patch.object(_mod, "LOG", Path("/dev/null")):
-                                check_cycle()
-        mock_clean.assert_called_once()
-
-    def test_check_cycle_calls_rotate_log(self):
-        with patch.object(_mod, "free_gb", return_value=50.0):
-            with patch.object(_mod, "free_mb", return_value=2000.0):
-                with patch.object(_mod, "kill_runaway_golems", return_value=0):
-                    with patch.object(_mod, "rotate_log") as mock_rotate:
-                        with patch.object(_mod, "subprocess") as mock_sub:
-                            check_cycle()
-        # rotate_log should be called once per log file in the list
-        assert mock_rotate.call_count == 8  # 8 log files in check_cycle
-
-    def test_check_cycle_calls_kill_runaway(self):
-        with patch.object(_mod, "free_gb", return_value=50.0):
-            with patch.object(_mod, "free_mb", return_value=2000.0):
-                with patch.object(_mod, "kill_runaway_golems", return_value=0) as mock_kill:
-                    with patch.object(_mod, "subprocess") as mock_sub:
-                        check_cycle()
-        mock_kill.assert_called_once()
+def test_check_cycle_healthy_no_action(tmp_path):
+    """check_cycle does not clean when disk is healthy."""
+    logpath = tmp_path / "wd.log"
+    mock_clean = MagicMock(return_value=0)
+    mock_kill = MagicMock(return_value=0)
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(return_value=50.0)), \
+         _PatchMod("free_mb", MagicMock(return_value=10000.0)), \
+         _PatchMod("clean_temps", mock_clean), \
+         _PatchMod("kill_runaway_golems", mock_kill):
+        with patch("subprocess.run"):
+            check_cycle()
+    mock_clean.assert_not_called()
 
 
-# ── main() ────────────────────────────────────────────────────────────
+def test_check_cycle_disk_warn_triggers_clean(tmp_path):
+    """check_cycle calls clean_temps when volume free < DISK_WARN_GB."""
+    logpath = tmp_path / "wd.log"
+    mock_clean = MagicMock(return_value=3)
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(side_effect=[1.5, 1.5])), \
+         _PatchMod("free_mb", MagicMock(return_value=10000.0)), \
+         _PatchMod("clean_temps", mock_clean), \
+         _PatchMod("kill_runaway_golems", MagicMock(return_value=0)):
+        with patch("subprocess.run"):
+            check_cycle()
+    mock_clean.assert_called()
 
 
-class TestMain:
-    def test_help_returns_zero(self):
-        with patch("sys.argv", ["gemmule-watchdog", "--help"]):
-            result = main()
-        assert result == 0
+def test_check_cycle_disk_critical_triggers_pkill(tmp_path):
+    """check_cycle kills golems when volume < DISK_CRIT_GB after cleaning."""
+    logpath = tmp_path / "wd.log"
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(side_effect=[0.5, 0.5])), \
+         _PatchMod("free_mb", MagicMock(return_value=10000.0)), \
+         _PatchMod("clean_temps", MagicMock(return_value=0)), \
+         _PatchMod("kill_runaway_golems", MagicMock(return_value=0)):
+        with patch("subprocess.run") as mock_run:
+            check_cycle()
+    pkill_calls = [c for c in mock_run.call_args_list if "pkill" in str(c)]
+    assert len(pkill_calls) >= 1
 
-    def test_help_h_returns_zero(self):
-        with patch("sys.argv", ["gemmule-watchdog", "-h"]):
-            result = main()
-        assert result == 0
 
-    def test_help_prints_docstring(self, capsys):
-        with patch("sys.argv", ["gemmule-watchdog", "--help"]):
+def test_check_cycle_root_warn_triggers_clean(tmp_path):
+    """check_cycle cleans temps when root free < ROOT_WARN_MB."""
+    logpath = tmp_path / "wd.log"
+    mock_clean = MagicMock(return_value=0)
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(return_value=50.0)), \
+         _PatchMod("free_mb", MagicMock(return_value=300.0)), \
+         _PatchMod("clean_temps", mock_clean), \
+         _PatchMod("kill_runaway_golems", MagicMock(return_value=0)):
+        with patch("subprocess.run"):
+            check_cycle()
+    mock_clean.assert_called()
+
+
+def test_check_cycle_rotates_all_logs(tmp_path):
+    """check_cycle calls rotate_log for every configured log file."""
+    logpath = tmp_path / "wd.log"
+    mock_rotate = MagicMock()
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(return_value=50.0)), \
+         _PatchMod("free_mb", MagicMock(return_value=10000.0)), \
+         _PatchMod("rotate_log", mock_rotate), \
+         _PatchMod("kill_runaway_golems", MagicMock(return_value=0)):
+        with patch("subprocess.run"):
+            check_cycle()
+    assert mock_rotate.call_count == 8
+
+
+def test_check_cycle_calls_kill_runaway(tmp_path):
+    """check_cycle calls kill_runaway_golems."""
+    logpath = tmp_path / "wd.log"
+    mock_kill = MagicMock(return_value=0)
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(return_value=50.0)), \
+         _PatchMod("free_mb", MagicMock(return_value=10000.0)), \
+         _PatchMod("kill_runaway_golems", mock_kill):
+        with patch("subprocess.run"):
+            check_cycle()
+    mock_kill.assert_called_once()
+
+
+def test_check_cycle_logs_disk_warning(tmp_path):
+    """check_cycle logs a warning when disk is below DISK_WARN_GB."""
+    logpath = tmp_path / "wd.log"
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(side_effect=[1.5, 1.5])), \
+         _PatchMod("free_mb", MagicMock(return_value=10000.0)), \
+         _PatchMod("clean_temps", MagicMock(return_value=3)), \
+         _PatchMod("kill_runaway_golems", MagicMock(return_value=0)):
+        with patch("subprocess.run"):
+            check_cycle()
+    content = logpath.read_text()
+    assert "DISK WARN" in content
+    assert "cleaned 3" in content
+
+
+def test_check_cycle_logs_root_warning(tmp_path):
+    """check_cycle logs a warning when /tmp free is below ROOT_WARN_MB."""
+    logpath = tmp_path / "wd.log"
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("free_gb", MagicMock(return_value=50.0)), \
+         _PatchMod("free_mb", MagicMock(return_value=200.0)), \
+         _PatchMod("clean_temps", MagicMock(return_value=0)), \
+         _PatchMod("kill_runaway_golems", MagicMock(return_value=0)):
+        with patch("subprocess.run"):
+            check_cycle()
+    content = logpath.read_text()
+    assert "ROOT WARN" in content
+
+
+# ── main() tests ──────────────────────────────────────────────────────
+
+
+def test_main_help_flag(capsys):
+    """main() with --help prints docstring and returns 0."""
+    with patch.object(_mod["sys"], "argv", ["watchdog", "--help"]):
+        rc = main()
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "system health monitor" in out.lower() or "gemmule-watchdog" in out
+
+
+def test_main_h_flag(capsys):
+    """main() with -h prints docstring and returns 0."""
+    with patch.object(_mod["sys"], "argv", ["watchdog", "-h"]):
+        rc = main()
+    assert rc == 0
+    assert len(capsys.readouterr().out) > 0
+
+
+def test_main_loop_interrupts_cleanly():
+    """KeyboardInterrupt stops the loop and returns 0."""
+    mock_sleep = MagicMock(side_effect=KeyboardInterrupt())
+    with _PatchMod("LOG", Path("/dev/null")), \
+         _PatchMod("check_cycle", MagicMock()):
+        with patch.object(_mod["sys"], "argv", ["watchdog"]):
+            with patch.object(_mod["time"], "sleep", mock_sleep):
+                rc = main()
+    assert rc == 0
+
+
+def test_main_runs_check_cycle_then_sleeps():
+    """check_cycle called at least once before sleep."""
+    calls = []
+
+    def fake_cycle():
+        calls.append(1)
+        raise KeyboardInterrupt
+
+    with _PatchMod("LOG", Path("/dev/null")), \
+         _PatchMod("check_cycle", fake_cycle):
+        with patch.object(_mod["sys"], "argv", ["watchdog"]):
             main()
-        output = capsys.readouterr().out
-        assert "system health monitor" in output.lower() or "watchdog" in output.lower()
+    assert len(calls) >= 1
 
-    def test_main_loop_interrupts_cleanly(self):
-        """KeyboardInterrupt should stop the loop and return 0."""
-        with patch("sys.argv", ["gemmule-watchdog"]):
-            with patch.object(_mod, "check_cycle"):
-                with patch.object(_mod, "time") as mock_time:
-                    mock_time.sleep.side_effect = KeyboardInterrupt()
-                    with patch.object(_mod, "LOG", Path("/dev/null")):
-                        result = main()
-        assert result == 0
 
-    def test_main_runs_check_cycle_before_sleep(self):
-        """check_cycle should be called at least once before sleep."""
-        cycle_calls = []
+def test_main_logs_start_and_stop(tmp_path):
+    """main() logs 'Watchdog started' and 'Watchdog stopped'."""
+    logpath = tmp_path / "wd.log"
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("check_cycle", MagicMock(side_effect=KeyboardInterrupt)):
+        with patch.object(_mod["sys"], "argv", ["watchdog"]):
+            with patch.object(_mod["time"], "sleep", MagicMock()):
+                main()
+    content = logpath.read_text()
+    assert "Watchdog started" in content
+    assert "Watchdog stopped" in content
 
-        def fake_cycle():
-            cycle_calls.append(1)
-            raise KeyboardInterrupt()
 
-        with patch("sys.argv", ["gemmule-watchdog"]):
-            with patch.object(_mod, "check_cycle", side_effect=fake_cycle):
-                with patch.object(_mod, "LOG", Path("/dev/null")):
-                    result = main()
-        assert len(cycle_calls) >= 1
+def test_main_multiple_cycles(tmp_path):
+    """main() runs multiple cycles before KeyboardInterrupt."""
+    logpath = tmp_path / "wd.log"
+    count = 0
+
+    def count_cycle():
+        nonlocal count
+        count += 1
+        if count >= 3:
+            raise KeyboardInterrupt
+
+    with _PatchMod("LOG", logpath), \
+         _PatchMod("check_cycle", count_cycle):
+        with patch.object(_mod["sys"], "argv", ["watchdog"]):
+            with patch.object(_mod["time"], "sleep", MagicMock()):
+                main()
+    assert count == 3

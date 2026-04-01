@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Shared data models for temporal-golem.
 
 Extracted to avoid circular imports between worker.py and workflow.py.

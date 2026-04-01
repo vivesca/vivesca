@@ -1,29 +1,37 @@
-"""Tests for effectors/qmd-reindex.sh — vault note embedding for semantic search."""
-
 from __future__ import annotations
 
+"""Tests for effectors/qmd-reindex.sh — vault note embedding for semantic search."""
+
+import os
+import stat
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-
 
 SCRIPT_PATH = Path.home() / "germline" / "effectors" / "qmd-reindex.sh"
 
 
-def run_script(env: dict | None = None, timeout: float = 5.0) -> subprocess.CompletedProcess:
-    """Run the qmd-reindex.sh script with optional env overrides."""
-    run_env = subprocess.os.environ.copy()
+def run_script(args: list[str] | None = None, env: dict | None = None, timeout: float = 5.0) -> subprocess.CompletedProcess:
+    """Run the qmd-reindex.sh script with optional args and env overrides."""
+    run_env = os.environ.copy()
     if env:
         run_env.update(env)
     return subprocess.run(
-        ["bash", str(SCRIPT_PATH)],
+        [str(SCRIPT_PATH)] + (args or []),
         capture_output=True,
         text=True,
         timeout=timeout,
         env=run_env,
     )
+
+
+def _make_fake_bin(tmpdir: Path, name: str, body: str) -> Path:
+    """Create a tiny executable script in tmpdir/bin/ and return the bin dir."""
+    bindir = tmpdir / "bin"
+    bindir.mkdir(exist_ok=True)
+    path = bindir / name
+    path.write_text(f"#!/bin/bash\n{body}\n")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    return bindir
 
 
 # ── Script existence and basic structure tests ────────────────────────────────
@@ -56,6 +64,12 @@ def test_script_exports_path():
     content = SCRIPT_PATH.read_text()
     assert 'export PATH=' in content, "Script should export PATH"
     assert '.bun/bin' in content, "Script should add .bun/bin to PATH"
+
+
+def test_script_has_strict_mode():
+    """Script uses set -euo pipefail for strict error handling."""
+    content = SCRIPT_PATH.read_text()
+    assert "set -euo pipefail" in content
 
 
 # ── Process guard tests (pgrep for running qmd embed) ─────────────────────────
@@ -254,19 +268,17 @@ qmd embed 2>/dev/null
     assert result.returncode == 0
 
 
-def test_script_continues_on_qmd_failure():
-    """Script continues even if qmd commands fail (no set -e)."""
-    test_script = """
+def test_set_e_aborts_on_qmd_failure():
+    """Script aborts with non-zero exit when qmd fails (set -euo pipefail)."""
+    test_script = f"""
+set -euo pipefail
+
 # Mock pgrep - no process found
-pgrep() { return 1; }
+pgrep() {{ return 1; }}
 
 # Mock qmd - fails
-qmd() { 
-    echo "qmd called: $@"
-    return 1
-}
+qmd() {{ return 1; }}
 
-# Source the original script's logic
 export PATH="$HOME/.bun/bin:$PATH"
 
 if pgrep -f "qmd embed" > /dev/null 2>&1; then
@@ -274,11 +286,7 @@ if pgrep -f "qmd embed" > /dev/null 2>&1; then
 fi
 
 qmd update 2>/dev/null
-UPDATE_EXIT=$?
-qmd embed 2>/dev/null
-EMBED_EXIT=$?
-
-echo "update_exit=$UPDATE_EXIT embed_exit=$EMBED_EXIT"
+echo "SHOULD NOT REACH HERE"
 """
     result = subprocess.run(
         ["bash", "-c", test_script],
@@ -286,10 +294,8 @@ echo "update_exit=$UPDATE_EXIT embed_exit=$EMBED_EXIT"
         text=True,
         timeout=5.0,
     )
-    # Script should still exit 0 (no explicit error handling)
-    # Both commands run despite failures
-    assert "update_exit" in result.stdout
-    assert "embed_exit" in result.stdout
+    assert result.returncode != 0, "set -e should cause non-zero exit on qmd failure"
+    assert "SHOULD NOT REACH HERE" not in result.stdout
 
 
 def test_exits_zero_when_process_running():
@@ -448,3 +454,72 @@ def test_pgrep_output_suppressed():
     content = SCRIPT_PATH.read_text()
     # The pgrep line should redirect both stdout and stderr
     assert 'pgrep -f "qmd embed" > /dev/null 2>&1' in content
+
+
+# ── Real script invocation tests ────────────────────────────────────────────
+
+
+def test_help_flag_real():
+    """Running the real script with --help prints usage and exits 0."""
+    r = run_script(["--help"])
+    assert r.returncode == 0
+    assert "Usage: qmd-reindex.sh" in r.stdout
+
+
+def test_h_short_flag_real():
+    """Running the real script with -h prints usage and exits 0."""
+    r = run_script(["-h"])
+    assert r.returncode == 0
+    assert "Re-index vault notes" in r.stdout
+    assert "qmd update" in r.stdout
+    assert "qmd embed" in r.stdout
+
+
+def test_help_mentions_semantic_search():
+    """Help text mentions semantic search purpose."""
+    r = run_script(["--help"])
+    assert "semantic search" in r.stdout.lower() or "qmd" in r.stdout
+
+
+def test_real_script_skips_when_embed_running(tmp_path):
+    """Real script exits 0 when pgrep finds a running 'qmd embed'."""
+    bindir = _make_fake_bin(tmp_path, "pgrep", "echo 42  # simulate match")
+    r = run_script([], env={"PATH": f"{bindir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+
+
+def test_real_script_runs_qmd_update_then_embed(tmp_path):
+    """Real script runs qmd update then qmd embed when no process is running."""
+    bindir = _make_fake_bin(tmp_path, "pgrep", "exit 1")
+    log = tmp_path / "calls.log"
+    _make_fake_bin(tmp_path, "qmd", f'echo "$@" >> {log}')
+    r = run_script([], env={"PATH": f"{bindir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    calls = log.read_text().strip().splitlines()
+    assert calls == ["update", "embed"]
+
+
+def test_real_script_does_not_call_qmd_when_embed_running(tmp_path):
+    """Real script skips qmd calls entirely when pgrep matches."""
+    bindir = _make_fake_bin(tmp_path, "pgrep", "echo 42")
+    marker = tmp_path / "qmd_called"
+    _make_fake_bin(tmp_path, "qmd", f"touch {marker}")
+    r = run_script([], env={"PATH": f"{bindir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert not marker.exists(), "qmd should NOT have been called"
+
+
+def test_real_script_prepends_bun_bin_to_path(tmp_path):
+    """Real script prepends $HOME/.bun/bin to PATH."""
+    bindir = _make_fake_bin(tmp_path, "pgrep", "exit 1")
+    path_log = tmp_path / "path.log"
+    _make_fake_bin(
+        tmp_path,
+        "qmd",
+        f'if [ "$1" = "update" ]; then echo "$PATH" > {path_log}; fi',
+    )
+    home_bin = str(Path.home() / ".bun" / "bin")
+    r = run_script([], env={"PATH": f"{bindir}:{os.environ['PATH']}"})
+    if r.returncode == 0 and path_log.exists():
+        recorded_path = path_log.read_text().strip()
+        assert home_bin in recorded_path

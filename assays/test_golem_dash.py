@@ -35,6 +35,8 @@ throughput_rate = _mod["throughput_rate"]
 progress_bar = _mod["progress_bar"]
 eta_wall_clock = _mod["eta_wall_clock"]
 completion_burst = _mod["completion_burst"]
+throughput_sparkline = _mod["throughput_sparkline"]
+enrich_running_progress = _mod["enrich_running_progress"]
 main = _mod["main"]
 print_dashboard = _mod["print_dashboard"]
 JSONL_PATH = _mod["JSONL_PATH"]
@@ -324,6 +326,7 @@ class TestMain:
         assert "running" in data
         assert "queue" in data
         assert "eta" in data
+        assert "throughput_sparkline" in data
 
 
 # ── fmt_duration ──────────────────────────────────────────────────────────
@@ -396,14 +399,15 @@ class TestExtractTaskSnippet:
         assert "…" in result
 
 
-# ── calculate_eta ────────────────────────────────────────────────────────
+# ── calculate_eta (enhanced) ─────────────────────────────────────────────
 
 
 class TestCalculateEta:
-    def test_no_pending(self):
+    def test_no_pending_no_running(self):
         eta = calculate_eta([], pending=0, running_count=0)
         assert eta["eta_seconds"] == 0
         assert eta["eta_str"] == "—"
+        assert eta["drain_milestones"] == []
 
     def test_with_duration_data(self):
         recs = [
@@ -412,7 +416,8 @@ class TestCalculateEta:
             {"duration": 300},
         ]
         eta = calculate_eta(recs, pending=6, running_count=2)
-        # median duration = 200, workers=2, tasks=6 → 6*200/2 = 600s
+        # median duration = 200, workers=2, tasks=6 → batch_time = 6*200/2 = 600
+        # max_running_remaining = 0 (no running_tasks), so eta = 600
         assert eta["eta_seconds"] == 600
         assert eta["avg_duration"] == 200
 
@@ -424,6 +429,45 @@ class TestCalculateEta:
     def test_workers_at_least_one(self):
         eta = calculate_eta([{"duration": 60}], pending=3, running_count=0)
         assert eta["workers"] == 1
+
+    def test_with_running_tasks_accounts_for_progress(self):
+        recs = [{"duration": 100}, {"duration": 200}, {"duration": 300}]
+        running_tasks = [
+            {"provider": "zhipu", "duration_secs": 100, "estimated_remaining": 100},
+            {"provider": "infini", "duration_secs": 50, "estimated_remaining": 150},
+        ]
+        eta = calculate_eta(recs, pending=4, running_count=2, running_tasks=running_tasks)
+        # avg_duration=200, workers=2, batch_time=4*200/2=400
+        # max_running_remaining=150, eta=max(150, 400)=400
+        assert eta["eta_seconds"] == 400
+        assert eta["running_remaining_secs"] == 250  # 100 + 150
+
+    def test_pending_zero_running_left(self):
+        running_tasks = [
+            {"provider": "zhipu", "duration_secs": 100, "estimated_remaining": 50},
+        ]
+        eta = calculate_eta([], pending=0, running_count=1, running_tasks=running_tasks)
+        assert eta["eta_seconds"] == 50
+        assert "drain_milestones" not in eta or eta["drain_milestones"] == []
+
+    def test_drain_milestones_present(self):
+        eta = calculate_eta([{"duration": 60}], pending=10, running_count=1)
+        # avg_duration=60, workers=1, eta=10*60=600
+        assert len(eta["drain_milestones"]) == 4
+        # 25%@150s, 50%@300s, 75%@450s, 100%@600s
+        assert eta["drain_milestones"][0] == (25, 150)
+        assert eta["drain_milestones"][3] == (100, 600)
+
+    def test_fewer_pending_than_running(self):
+        running_tasks = [
+            {"provider": "zhipu", "duration_secs": 200, "estimated_remaining": 100},
+            {"provider": "infini", "duration_secs": 150, "estimated_remaining": 200},
+        ]
+        eta = calculate_eta(
+            [{"duration": 200}], pending=1, running_count=2, running_tasks=running_tasks
+        )
+        # pending <= running → eta = max_running_remaining = 200
+        assert eta["eta_seconds"] == 200
 
 
 # ── throughput_rate ──────────────────────────────────────────────────────
@@ -511,8 +555,8 @@ class TestEtaWallClock:
         # Should contain a time in HH:MM format
         assert ":" in result
 
-    def test_format_contains_now_marker(self):
-        result = eta_wall_clock(0)
+    def test_negative_eta(self):
+        result = eta_wall_clock(-10)
         assert result == "—"
 
 
@@ -542,6 +586,194 @@ class TestCompletionBurst:
         m15, m60 = completion_burst(recs)
         assert m15 == 0
         assert m60 == 0
+
+
+# ── throughput_sparkline ────────────────────────────────────────────────
+
+
+class TestThroughputSparkline:
+    def test_no_records(self):
+        result = throughput_sparkline([])
+        assert "▁" in result
+        assert "0 max" in result
+
+    def test_recent_records_produce_non_flat(self):
+        now = datetime.now()
+        recs = []
+        for i in range(10):
+            recs.append({"ts": (now - timedelta(minutes=10 * i)).isoformat()})
+        result = throughput_sparkline(recs, hours=3, bucket_minutes=30)
+        assert "max" in result
+        # Should have at least one non-flat character
+        assert any(c in result for c in "▂▃▄▅▆▇█")
+
+    def test_all_old_records_flat(self):
+        now = datetime.now()
+        recs = [{"ts": (now - timedelta(hours=12)).isoformat()}]
+        result = throughput_sparkline(recs, hours=6)
+        assert "0 max" in result
+
+    def test_bucket_count_matches_hours(self):
+        result = throughput_sparkline([], hours=6, bucket_minutes=15)
+        # 6 hours * 4 buckets/hr = 24 buckets
+        spark_part = result.split(" ")[0]
+        assert len(spark_part) == 24
+
+    def test_single_bucket_peak(self):
+        now = datetime.now()
+        # 5 records all in the most recent bucket
+        recs = [{"ts": now.isoformat()}] * 5
+        result = throughput_sparkline(recs, hours=1, bucket_minutes=15)
+        assert "max 5/bucket" in result
+        assert "█" in result
+
+
+# ── enrich_running_progress ────────────────────────────────────────────
+
+
+class TestEnrichRunningProgress:
+    def test_empty_running(self):
+        result = enrich_running_progress([], [])
+        assert result == []
+
+    def test_enriches_with_progress(self):
+        recs = [
+            {"provider": "zhipu", "duration": 100},
+            {"provider": "zhipu", "duration": 200},
+            {"provider": "zhipu", "duration": 300},
+        ]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 100, "task": "test"},
+        ]
+        result = enrich_running_progress(running, recs)
+        assert len(result) == 1
+        assert result[0]["estimated_pct"] == 50  # 100/200 (median)
+        assert result[0]["estimated_remaining"] == 100
+        assert result[0]["is_stale"] is False
+
+    def test_stale_detection(self):
+        recs = [{"provider": "infini", "duration": 60}]
+        running = [
+            {"pid": 2, "provider": "infini", "duration_secs": 200, "task": "slow"},
+        ]
+        result = enrich_running_progress(running, recs)
+        assert result[0]["is_stale"] is True  # 200 > 60 * 2
+
+    def test_unknown_provider_uses_overall_median(self):
+        recs = [{"provider": "zhipu", "duration": 100}]
+        running = [
+            {"pid": 3, "provider": "unknown", "duration_secs": 50, "task": "new"},
+        ]
+        result = enrich_running_progress(running, recs)
+        # unknown provider not in records, uses overall_median = 100
+        assert result[0]["estimated_pct"] == 50  # 50/100
+
+    def test_no_records_uses_default_120(self):
+        running = [
+            {"pid": 4, "provider": "new", "duration_secs": 60, "task": "first"},
+        ]
+        result = enrich_running_progress(running, [])
+        assert result[0]["estimated_pct"] == 50  # 60/120
+
+    def test_progress_capped_at_100(self):
+        recs = [{"provider": "zhipu", "duration": 100}]
+        running = [
+            {"pid": 5, "provider": "zhipu", "duration_secs": 500, "task": "overdue"},
+        ]
+        result = enrich_running_progress(running, recs)
+        assert result[0]["estimated_pct"] == 100
+        assert result[0]["estimated_remaining"] == 0
+
+
+# ── running_tasks_table (with progress bars) ───────────────────────────
+
+
+class TestRunningTasksTable:
+    def test_no_running(self):
+        result = _mod["running_tasks_table"]([], use_color=False)
+        assert "No golem processes running" in result
+
+    def test_single_task_with_progress(self):
+        tasks = [{
+            "pid": 1234,
+            "provider": "zhipu",
+            "duration_secs": 100,
+            "task": "my task",
+            "estimated_pct": 50,
+            "estimated_remaining": 100,
+            "is_stale": False,
+        }]
+        result = _mod["running_tasks_table"](tasks, use_color=False)
+        assert "1234" in result
+        assert "zhipu" in result
+        assert "50%" in result
+        assert "█" in result
+
+    def test_stale_task_shown(self):
+        tasks = [{
+            "pid": 5678,
+            "provider": "infini",
+            "duration_secs": 300,
+            "task": "stale task",
+            "estimated_pct": 100,
+            "estimated_remaining": 0,
+            "is_stale": True,
+        }]
+        result = _mod["running_tasks_table"](tasks, use_color=True)
+        assert "STALE" in result
+        assert "stale" in result.lower()
+
+    def test_multiple_tasks_summary(self):
+        tasks = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 10, "task": "a",
+             "estimated_pct": 20, "estimated_remaining": 40, "is_stale": False},
+            {"pid": 2, "provider": "zhipu", "duration_secs": 20, "task": "b",
+             "estimated_pct": 40, "estimated_remaining": 30, "is_stale": False},
+            {"pid": 3, "provider": "infini", "duration_secs": 5, "task": "c",
+             "estimated_pct": 10, "estimated_remaining": 50, "is_stale": False},
+        ]
+        result = _mod["running_tasks_table"](tasks, use_color=False)
+        assert "3 running" in result
+        assert "zhipu:2" in result
+        assert "infini:1" in result
+
+
+# ── eta_section (with milestones) ──────────────────────────────────────
+
+
+class TestEtaSection:
+    def test_queue_empty(self):
+        eta = {"pending": 0, "running": 0, "eta_seconds": 0, "eta_str": "—",
+               "workers": 1, "avg_duration": 0, "drain_milestones": [],
+               "running_remaining_secs": 0}
+        result = _mod["eta_section"](eta, 0.0, use_color=False)
+        assert "Queue empty" in result
+
+    def test_only_running_tasks(self):
+        eta = {"pending": 0, "running": 2, "eta_seconds": 60, "eta_str": "1m 0s",
+               "workers": 2, "avg_duration": 60, "drain_milestones": [],
+               "running_remaining_secs": 120}
+        result = _mod["eta_section"](eta, 5.0, use_color=False)
+        assert "Finishing 2 running tasks" in result
+
+    def test_with_milestones(self):
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [(25, 150), (50, 300), (75, 450), (100, 600)],
+               "running_remaining_secs": 200}
+        result = _mod["eta_section"](eta, 6.0, use_color=False)
+        assert "Milestones:" in result
+        assert "25%" in result
+        assert "100%" in result
+        assert "6.0/hr" in result
+
+    def test_no_milestones_when_zero(self):
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [],
+               "running_remaining_secs": 200}
+        result = _mod["eta_section"](eta, 3.0, use_color=False)
+        assert "Milestones:" not in result
 
 
 # ── print_dashboard includes new sections ───────────────────────────────
@@ -590,9 +822,28 @@ class TestDashboardNewSections:
             _mod["QUEUE_PATH"] = orig_queue
         assert rc == 0
         captured = capsys.readouterr()
-        assert "Throughput" in captured.out or "Rate" in captured.out or "/hr" in captured.out
+        assert "Throughput" in captured.out or "/hr" in captured.out
 
-    def test_includes_eta_wall_clock(self, tmp_path, capsys):
+    def test_includes_sparkline_section(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Throughput Trend" in captured.out
+        assert "▁" in captured.out
+
+    def test_includes_eta_section(self, tmp_path, capsys):
         orig_jsonl = _mod["JSONL_PATH"]
         orig_queue = _mod["QUEUE_PATH"]
         try:
@@ -612,6 +863,44 @@ class TestDashboardNewSections:
         assert rc == 0
         captured = capsys.readouterr()
         assert "ETA" in captured.out
+        assert "Milestones:" in captured.out
+
+    def test_includes_running_tasks_with_progress(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":60,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Running Tasks" in captured.out
+
+    def test_json_output_includes_sparkline(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--json"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert "throughput_sparkline" in data
+        assert "drain_milestones" in data["eta"]
 
 
 # ── watch mode argument parsing ─────────────────────────────────────────

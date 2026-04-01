@@ -285,7 +285,7 @@ def _generate_task_id() -> str:
 
 
 def _write_jsonl_record(task_id: str, provider: str, exit_code: int,
-                        duration: int, cmd: str):
+                        duration: int, cmd: str, tail: str = ""):
     """Append a JSONL record for a completed task."""
     record = {
         "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -294,6 +294,7 @@ def _write_jsonl_record(task_id: str, provider: str, exit_code: int,
         "exit": exit_code,
         "duration": duration,
         "cmd": cmd[:120],
+        "tail": tail[:300],
     }
     try:
         JSONLFILE.parent.mkdir(parents=True, exist_ok=True)
@@ -954,7 +955,7 @@ def daemon_loop():
                     provider_running[provider] = max(0, provider_running.get(provider, 0) - 1)
                     try:
                         _, exit_code, tail, duration = future.result()
-                        _write_jsonl_record(task_id, provider, exit_code, duration, cmd)
+                        _write_jsonl_record(task_id, provider, exit_code, duration, cmd, tail=tail)
                         if exit_code == 0:
                             # Golem succeeded — run advisory checks (don't block on them)
                             passed, errors = validate_golem_output()
@@ -999,9 +1000,14 @@ def daemon_loop():
                                 provider_failure_times[provider] = [t for t in times if t >= window_start]
                                 recent_fails = len(provider_failure_times[provider])
                                 if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
-                                    cooldown_end = now + PROVIDER_COOLDOWN_SECONDS
+                                    # If failures include exit=2 with empty output (silent
+                                    # rate-limit), use the longer RATE_LIMIT cooldown.
+                                    # Otherwise use the shorter PROVIDER cooldown.
+                                    silent_ratelimit = (exit_code == 2 and not tail.strip())
+                                    cooldown_dur = RATE_LIMIT_COOLDOWN_SECONDS if silent_ratelimit else PROVIDER_COOLDOWN_SECONDS
+                                    cooldown_end = now + cooldown_dur
                                     provider_cooldown_until[provider] = cooldown_end
-                                    log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
+                                    log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{' (silent rate-limit suspected)' if silent_ratelimit else ''}")
                     except Exception as e:
                         log(f"Future error: {e}")
                         _write_jsonl_record(task_id, provider, 1, 0, cmd)

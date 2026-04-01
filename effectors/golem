@@ -385,7 +385,7 @@ _run_golem() {
   local task_id="${GOLEM_TASK_ID:-}"
   printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$duration" "$exit_code" "$MAX_TURNS" \
-    "$(echo "$short_prompt" | tr '"' "'")" \
+    "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$GOLEM_LOG"
   if $JSON_OUTPUT; then

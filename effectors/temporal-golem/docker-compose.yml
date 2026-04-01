@@ -43,7 +43,7 @@ services:
     environment:
       - TEMPORAL_ADDRESS=temporal-server:7233
     ports:
-      - "${TEMPORAL_WEB_PORT:-8080}:8080"
+      - "${TEMPORAL_WEB_PORT:-8080}:8088"
 
   temporal-admin-tools:
     image: temporalio/admin-tools:latest
