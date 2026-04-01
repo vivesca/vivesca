@@ -576,6 +576,30 @@ def main(argv: list[str] | None = None) -> int:
     use_color = "--no-color" not in args
     json_output = "--json" in args
 
+    # Parse --watch N
+    watch_seconds = 0
+    if "--watch" in args:
+        idx = args.index("--watch")
+        if idx + 1 < len(args):
+            try:
+                watch_seconds = max(int(args[idx + 1]), 1)
+            except (ValueError, IndexError):
+                watch_seconds = 5  # Default to 5s
+        else:
+            watch_seconds = 5
+
+    if watch_seconds > 0:
+        try:
+            while True:
+                # Clear screen and print dashboard
+                print("\033[2J\033[H", end="")
+                print_dashboard(use_color, json_output)
+                print(f"  Refreshing every {watch_seconds}s  (Ctrl+C to stop)")
+                time.sleep(watch_seconds)
+        except KeyboardInterrupt:
+            print("\n  Stopped.")
+            return 0
+
     return print_dashboard(use_color, json_output)
 
 

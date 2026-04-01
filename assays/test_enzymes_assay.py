@@ -1,126 +1,113 @@
 from __future__ import annotations
 
-"""Tests for metabolon/enzymes/assay.py — mock run_cli, cover all branches."""
+"""Tests for metabolon.enzymes.assay — life experiment tracker."""
 
-from unittest.mock import patch
+from unittest.mock import patch, call
 
-from metabolon.enzymes.assay import assay, BINARY
-
-
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
-def _run_cli_path():
-    """Return the dotted import path used for patching."""
-    return "metabolon.enzymes.assay.run_cli"
+import pytest
 
 
-# ---------------------------------------------------------------------------
-# list action
-# ---------------------------------------------------------------------------
+class TestAssayTool:
+    """Tests for the assay() MCP tool function."""
 
-def test_list_action():
-    with patch(_run_cli_path(), return_value="exp1\nexp2") as mock:
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_list_action(self, mock_run):
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "ExpA (active)\nExpB (closed)"
         result = assay(action="list")
-    mock.assert_called_once_with(BINARY, ["list"], timeout=60)
-    assert result == "exp1\nexp2"
+        mock_run.assert_called_once_with(BINARY, ["list"], timeout=60)
+        assert "ExpA" in result
+        assert "ExpB" in result
 
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_check_action_with_name(self, mock_run):
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "Sleep: 7.2h, HRV: 45ms"
+        result = assay(action="check", name="melatonin")
+        mock_run.assert_called_once_with(BINARY, ["check", "melatonin"], timeout=120)
+        assert "Sleep" in result
 
-def test_list_action_empty():
-    with patch(_run_cli_path(), return_value="No experiments found.") as mock:
-        result = assay(action="list")
-    mock.assert_called_once_with(BINARY, ["list"], timeout=60)
-    assert "No experiments" in result
-
-
-def test_list_raises():
-    with patch(_run_cli_path(), side_effect=ValueError("Binary not found")):
-        try:
-            assay(action="list")
-            assert False, "Should have raised"
-        except ValueError as e:
-            assert "Binary not found" in str(e)
-
-
-# ---------------------------------------------------------------------------
-# check action
-# ---------------------------------------------------------------------------
-
-def test_check_with_name():
-    with patch(_run_cli_path(), return_value="ok") as mock:
-        result = assay(action="check", name="cold-plunge")
-    mock.assert_called_once_with(BINARY, ["check", "cold-plunge"], timeout=120)
-    assert result == "ok"
-
-
-def test_check_without_name():
-    with patch(_run_cli_path(), return_value="Done.") as mock:
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_check_action_without_name(self, mock_run):
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "All experiments checked."
         result = assay(action="check")
-    mock.assert_called_once_with(BINARY, ["check"], timeout=120)
-    assert result == "Done."
+        mock_run.assert_called_once_with(BINARY, ["check"], timeout=120)
 
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_close_action_with_name(self, mock_run):
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "Closed: melatonin (14 days)"
+        result = assay(action="close", name="melatonin")
+        mock_run.assert_called_once_with(BINARY, ["close", "melatonin"], timeout=120)
+        assert "Closed" in result
 
-def test_check_timeout():
-    with patch(_run_cli_path(), side_effect=ValueError("assay timed out (120s)")):
-        try:
-            assay(action="check", name="x")
-            assert False, "Should have raised"
-        except ValueError as e:
-            assert "timed out" in str(e)
-
-
-# ---------------------------------------------------------------------------
-# close action
-# ---------------------------------------------------------------------------
-
-def test_close_with_name():
-    with patch(_run_cli_path(), return_value="Closed exp.") as mock:
-        result = assay(action="close", name="cold-plunge")
-    mock.assert_called_once_with(BINARY, ["close", "cold-plunge"], timeout=120)
-    assert result == "Closed exp."
-
-
-def test_close_without_name():
-    with patch(_run_cli_path(), return_value="Done.") as mock:
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_close_action_without_name(self, mock_run):
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "Done."
         result = assay(action="close")
-    mock.assert_called_once_with(BINARY, ["close"], timeout=120)
-    assert result == "Done."
+        mock_run.assert_called_once_with(BINARY, ["close"], timeout=120)
 
+    def test_unknown_action_returns_error(self):
+        from metabolon.enzymes.assay import assay
+        result = assay(action="delete")
+        assert "Error" in result
+        assert "delete" in result
+        assert "'delete'" in result
 
-def test_close_error_propagates():
-    with patch(_run_cli_path(), side_effect=ValueError("assay error: boom")):
-        try:
-            assay(action="close", name="x")
-            assert False, "Should have raised"
-        except ValueError as e:
-            assert "boom" in str(e)
+    def test_unknown_action_suggests_valid(self):
+        from metabolon.enzymes.assay import assay
+        result = assay(action="foobar")
+        assert "list" in result
+        assert "check" in result
+        assert "close" in result
 
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_list_propagates_error(self, mock_run):
+        from metabolon.enzymes.assay import assay
+        mock_run.side_effect = ValueError("assay error: no experiments found")
+        with pytest.raises(ValueError, match="no experiments"):
+            assay(action="list")
 
-# ---------------------------------------------------------------------------
-# unknown action
-# ---------------------------------------------------------------------------
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_check_propagates_timeout(self, mock_run):
+        from metabolon.enzymes.assay import assay
+        mock_run.side_effect = ValueError("assay timed out (120s)")
+        with pytest.raises(ValueError, match="timed out"):
+            assay(action="check", name="slow-exp")
 
-def test_unknown_action():
-    result = assay(action="explode")
-    assert "Error" in result
-    assert "explode" in result
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_close_propagates_binary_missing(self, mock_run):
+        from metabolon.enzymes.assay import assay
+        mock_run.side_effect = ValueError("Binary not found")
+        with pytest.raises(ValueError, match="Binary not found"):
+            assay(action="close", name="anything")
 
+    def test_binary_path(self):
+        from metabolon.enzymes.assay import BINARY
+        assert "effectors" in BINARY
+        assert BINARY.endswith("assay")
 
-def test_unknown_action_case_sensitive():
-    result = assay(action="LIST")
-    assert "Error" in result
-    assert "LIST" in result
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_name_empty_string_not_appended(self, mock_run):
+        """Empty string name should not be appended to args."""
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "ok"
+        assay(action="check", name="")
+        # name="" is falsy, so args should be ["check"] not ["check", ""]
+        assert mock_run.call_args == call(BINARY, ["check"], timeout=120)
 
+    @patch("metabolon.enzymes.assay.run_cli")
+    def test_name_with_spaces(self, mock_run):
+        """Names with spaces are passed as a single argument."""
+        from metabolon.enzymes.assay import assay, BINARY
+        mock_run.return_value = "ok"
+        assay(action="close", name="cold exposure winter")
+        mock_run.assert_called_once_with(BINARY, ["close", "cold exposure winter"], timeout=120)
 
-# ---------------------------------------------------------------------------
-# return type is always str
-# ---------------------------------------------------------------------------
-
-def test_return_type_list():
-    with patch(_run_cli_path(), return_value="ok"):
-        assert isinstance(assay(action="list"), str)
-
-
-def test_return_type_unknown():
-    assert isinstance(assay(action="nope"), str)
+    def test_action_case_sensitive(self):
+        """Uppercase action is treated as unknown."""
+        from metabolon.enzymes.assay import assay
+        result = assay(action="LIST")
+        assert "Error" in result

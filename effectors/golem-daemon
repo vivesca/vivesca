@@ -171,6 +171,8 @@ PROVIDER_LIMITS = {
     "zhipu": 8,
     "infini": 8,
     "volcano": 16,
+    "gemini": 4,
+    "codex": 4,
 }
 DEFAULT_LIMIT = 4  # Fallback for unknown providers
 
@@ -968,22 +970,35 @@ def daemon_loop():
                                 log(f"auto-commit ({_mark_done_count} tasks): {commit_hash}")
                                 _mark_done_count = 0
                         else:
-                            mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id)
+                            failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id)
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
-                            # Track failures in sliding window per provider
-                            now = time.time()
-                            if provider not in provider_failure_times:
-                                provider_failure_times[provider] = []
-                            times = provider_failure_times[provider]
-                            times.append(now)
-                            # Prune entries outside the window
-                            window_start = now - PROVIDER_FAILURE_WINDOW
-                            provider_failure_times[provider] = [t for t in times if t >= window_start]
-                            recent_fails = len(provider_failure_times[provider])
-                            if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
-                                cooldown_end = now + PROVIDER_COOLDOWN_SECONDS
-                                provider_cooldown_until[provider] = cooldown_end
-                                log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
+                            # Detect rate-limiting from task output
+                            if failed_result.get("rate_limited") or is_rate_limited(tail):
+                                # Rate-limited: apply proportional cooldown immediately
+                                window = parse_rate_limit_window(tail)
+                                cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
+                                cooldown_end = time.time() + cooldown
+                                # Only extend, never shorten existing cooldown
+                                if provider_cooldown_until.get(provider, 0) < cooldown_end:
+                                    provider_cooldown_until[provider] = cooldown_end
+                                cd_min = int(cooldown // 60)
+                                log(f"RATE-LIMITED [{provider}] [{task_id}]: cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
+                                # Don't count rate-limit failures toward failure threshold
+                            else:
+                                # Track non-rate-limit failures in sliding window per provider
+                                now = time.time()
+                                if provider not in provider_failure_times:
+                                    provider_failure_times[provider] = []
+                                times = provider_failure_times[provider]
+                                times.append(now)
+                                # Prune entries outside the window
+                                window_start = now - PROVIDER_FAILURE_WINDOW
+                                provider_failure_times[provider] = [t for t in times if t >= window_start]
+                                recent_fails = len(provider_failure_times[provider])
+                                if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
+                                    cooldown_end = now + PROVIDER_COOLDOWN_SECONDS
+                                    provider_cooldown_until[provider] = cooldown_end
+                                    log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
                     except Exception as e:
                         log(f"Future error: {e}")
                         _write_jsonl_record(task_id, provider, 1, 0, cmd)

@@ -247,6 +247,10 @@ _run_golem() {
 
   while [[ $_attempt -lt $_max_retries ]]; do
     # Pre-flight health check: detect rate-limit before wasting time on claude
+    # Skip preflight for non-CC providers (gemini, codex have their own error handling)
+    if [[ -n "${_CLI:-}" ]]; then
+      : # non-CC provider, skip preflight
+    else
     local _preflight_result
     _preflight_result=$(_preflight_check)
     local _pf_rc=$?
@@ -278,19 +282,20 @@ _run_golem() {
       $QUIET || echo "[preflight] $PROVIDER auth/connection error, skipping health check" >&2
       # Don't retry on auth errors — just try claude directly (maybe endpoint behaves differently)
     fi
+    fi  # end non-CC preflight
 
     if [[ "${_CLI:-claude}" == "gemini" ]]; then
       output=$(
       timeout "$_claude_timeout" \
-      env GOOGLE_API_KEY="$_KEY" \
-      gemini -p "$prompt" --sandbox < /dev/null 2>&1
+      env GOOGLE_API_KEY="$_KEY" GEMINI_SANDBOX=false \
+      gemini -p "$prompt" < /dev/null 2>&1
       )
       exit_code=$?
     elif [[ "${_CLI:-claude}" == "codex" ]]; then
       output=$(
       timeout "$_claude_timeout" \
       env OPENAI_API_KEY="$_KEY" \
-      codex --approval-mode full-auto --quiet "$prompt" < /dev/null 2>&1
+      codex --full-auto --quiet "$prompt" < /dev/null 2>&1
       )
       exit_code=$?
     else
