@@ -546,3 +546,367 @@ def test_main_output_file_per_backend(tmp_path):
     assert "gemini.log" in log_names
     assert "codex.log" in log_names
     assert "opencode.log" in log_names
+
+
+# ── Additional coverage tests ─────────────────────────────────────────
+
+
+class TestBuildPromptEdgeCases:
+    """Edge cases for _build_prompt: empty file, special chars, structure."""
+
+    def test_build_prompt_empty_plan_file(self, tmp_path):
+        """_build_prompt works with an empty plan file."""
+        plan = tmp_path / "empty.md"
+        plan.write_text("")
+        prompt = _build_prompt("/project", str(plan))
+        assert "RULES:" in prompt
+        assert "PLAN:" in prompt
+
+    def test_build_prompt_multiline_plan(self, tmp_path):
+        """_build_prompt preserves multiline content."""
+        plan = tmp_path / "multi.md"
+        plan.write_text("## Task 1\nDo A\n## Task 2\nDo B\n## Task 3\nDo C")
+        prompt = _build_prompt("/project", str(plan))
+        assert "Task 1" in prompt
+        assert "Task 2" in prompt
+        assert "Task 3" in prompt
+
+    def test_build_prompt_special_chars(self, tmp_path):
+        """_build_prompt handles special characters in plan content."""
+        plan = tmp_path / "special.md"
+        plan.write_text('Run `echo "hello"` && cat $FOO\n%s\n{"key": "val"}')
+        prompt = _build_prompt("/project", str(plan))
+        assert 'echo "hello"' in prompt
+        assert "%s" in prompt
+        assert '{"key": "val"}' in prompt
+
+    def test_build_prompt_contains_all_rules(self, tmp_path):
+        """_build_prompt includes all 5 execution rules."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        prompt = _build_prompt("/project", str(plan))
+        assert "Do NOT modify pyproject.toml" in prompt
+        assert "Read existing code files before writing" in prompt
+        assert "no stubs" in prompt
+        assert "Run tests after implementation" in prompt
+        assert "Commit your work" in prompt
+
+    def test_build_prompt_contains_success_marker(self, tmp_path):
+        """_build_prompt includes PLAN-EXEC-DONE marker and file/test lists."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        prompt = _build_prompt("/project", str(plan))
+        assert "PLAN-EXEC-DONE" in prompt
+        assert "Files touched:" in prompt
+        assert "Tests run:" in prompt
+
+
+class TestBackendCmdContents:
+    """Verify actual command tokens for each backend."""
+
+    def test_gemini_cmd_structure(self, tmp_path):
+        """Gemini backend uses correct model and flags."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        gemini = BACKENDS[0]
+        assert gemini["name"] == "gemini"
+        cmd = gemini["cmd"]("/project", str(plan))
+        assert cmd[0] == "gemini"
+        assert "-m" in cmd
+        idx_m = cmd.index("-m")
+        assert cmd[idx_m + 1] == "gemini-3.1-pro-preview"
+        assert "--yolo" in cmd
+
+    def test_codex_cmd_structure(self, tmp_path):
+        """Codex backend uses exec subcommand with sandbox and full-auto."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        codex = BACKENDS[1]
+        assert codex["name"] == "codex"
+        cmd = codex["cmd"]("/project", str(plan))
+        assert cmd[0] == "codex"
+        assert "exec" in cmd
+        assert "--skip-git-repo-check" in cmd
+        assert "--sandbox" in cmd
+        idx_sandbox = cmd.index("--sandbox")
+        assert cmd[idx_sandbox + 1] == "danger-full-access"
+        assert "--full-auto" in cmd
+
+    def test_opencode_cmd_structure(self, tmp_path):
+        """OpenCode backend uses run subcommand with model flag."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        oc = BACKENDS[2]
+        assert oc["name"] == "opencode"
+        cmd = oc["cmd"]("/project", str(plan))
+        assert cmd[0] == "opencode"
+        assert "run" in cmd
+        assert "-m" in cmd
+        assert "--title" in cmd
+
+    def test_opencode_model_from_env(self, tmp_path):
+        """OpenCode backend reads model from OPENCODE_MODEL env var."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        oc = BACKENDS[2]
+        with patch.dict(os.environ, {"OPENCODE_MODEL": "custom-model"}):
+            cmd = oc["cmd"]("/project", str(plan))
+            idx_m = cmd.index("-m")
+            assert cmd[idx_m + 1] == "custom-model"
+
+    def test_opencode_model_default(self, tmp_path):
+        """OpenCode backend defaults to opencode/glm-5 when env var unset."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        oc = BACKENDS[2]
+        env = os.environ.copy()
+        env.pop("OPENCODE_MODEL", None)
+        with patch.dict(os.environ, env, clear=True):
+            cmd = oc["cmd"]("/project", str(plan))
+            idx_m = cmd.index("-m")
+            assert cmd[idx_m + 1] == "opencode/glm-5"
+
+    def test_opencode_title_format(self, tmp_path):
+        """OpenCode backend title starts with plan-exec-."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        oc = BACKENDS[2]
+        cmd = oc["cmd"]("/project", str(plan))
+        idx_title = cmd.index("--title")
+        title = cmd[idx_title + 1]
+        assert title.startswith("plan-exec-")
+
+    def test_gemini_and_codex_no_env_extra(self, tmp_path):
+        """Gemini and Codex backends do not define env_extra."""
+        for b in BACKENDS[:2]:
+            assert b.get("env_extra") is None
+
+
+class TestRunBackendEdgeCases:
+    """Additional edge cases for run_backend."""
+
+    def test_run_backend_exit0_error_in_tail(self, tmp_path, capsys):
+        """run_backend returns False when exit 0 but 'error' in last 200 chars."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        output_file = tmp_path / "output.log"
+
+        # Create output with "error" word within last 200 chars, no PLAN-EXEC-DONE
+        tail = "x" * 100 + "error occurred here"
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write(tail + "\n")
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            result = run_backend(BACKENDS[0], str(tmp_path), str(plan), output_file)
+
+        assert result is False
+        out = capsys.readouterr().out
+        assert "suggests errors" in out.lower()
+
+    def test_run_backend_exit0_error_before_tail(self, tmp_path):
+        """run_backend returns True when 'error' is NOT in last 200 chars."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        output_file = tmp_path / "output.log"
+
+        # "error" appears but is >200 chars from the end
+        long_output = "error at the start " + "x" * 300 + "clean ending\n"
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write(long_output)
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            result = run_backend(BACKENDS[0], str(tmp_path), str(plan), output_file)
+
+        assert result is True
+
+    def test_run_backend_chinese_auth_error(self, tmp_path, capsys):
+        """run_backend detects Chinese auth error (身份验证) and falls back."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        output_file = tmp_path / "output.log"
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write("身份验证失败\n")
+            stdout.flush()
+            return MagicMock(returncode=1)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            result = run_backend(BACKENDS[0], str(tmp_path), str(plan), output_file)
+
+        assert result is False
+        out = capsys.readouterr().out
+        assert "falling back" in out.lower()
+
+    def test_run_backend_stderr_routed_to_stdout(self, tmp_path):
+        """run_backend passes stderr=subprocess.STDOUT to subprocess.run."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        output_file = tmp_path / "output.log"
+
+        captured_kwargs = {}
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            captured_kwargs["stderr"] = stderr
+            stdout.write("PLAN-EXEC-DONE\n")
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            run_backend(BACKENDS[0], str(tmp_path), str(plan), output_file)
+
+        assert captured_kwargs["stderr"] == subprocess.STDOUT
+
+    def test_run_backend_gemini_and_codex_no_env_extra(self, tmp_path):
+        """run_backend does not inject env_extra for backends without it."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        output_file = tmp_path / "output.log"
+
+        captured_env = {}
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            captured_env.update(env)
+            stdout.write("PLAN-EXEC-DONE\n")
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            run_backend(BACKENDS[0], str(tmp_path), str(plan), output_file)
+
+        # Gemini has no env_extra, so OPENCODE_HOME should not be present
+        assert "OPENCODE_HOME" not in captured_env
+
+
+class TestMainEdgeCases:
+    """Additional edge cases for main()."""
+
+    def test_main_second_backend_succeeds_third_not_tried(self, tmp_path, capsys):
+        """main stops after second backend succeeds; third is never tried."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+
+        call_count = 0
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                stdout.write("Error 429\n")
+                stdout.flush()
+                return MagicMock(returncode=1)
+            stdout.write("PLAN-EXEC-DONE\n")
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            with pytest.raises(SystemExit) as exc_info:
+                with patch("sys.argv", ["plan-exec", str(plan)]):
+                    main()
+
+        assert exc_info.value.code == 0
+        assert call_count == 2  # Only 2 of 3 backends tried
+
+    def test_main_results_dir_timestamp_format(self, tmp_path):
+        """main creates results dir with YYYY-MM-DD-HHMM format."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        results = tmp_path / "cache_results"
+        original_results = _mod["RESULTS_DIR"]
+        _mod["RESULTS_DIR"] = results
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write("PLAN-EXEC-DONE\n")
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        try:
+            with patch("subprocess.run", side_effect=fake_run):
+                with pytest.raises(SystemExit):
+                    with patch("sys.argv", ["plan-exec", str(plan)]):
+                        main()
+        finally:
+            _mod["RESULTS_DIR"] = original_results
+
+        subdirs = list(results.iterdir())
+        assert len(subdirs) == 1
+        dirname = subdirs[0].name
+        # Should match YYYY-MM-DD-HHMM (e.g., 2026-04-01-1430)
+        import re
+        assert re.match(r"\d{4}-\d{2}-\d{2}-\d{4}", dirname), f"Dir name {dirname} doesn't match timestamp format"
+
+    def test_main_prints_plan_and_project_paths(self, tmp_path, capsys):
+        """main prints plan file path and project directory on startup."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write("PLAN-EXEC-DONE\n")
+            stdout.flush()
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            with pytest.raises(SystemExit):
+                with patch("sys.argv", ["plan-exec", str(plan)]):
+                    main()
+
+        out = capsys.readouterr().out
+        assert str(plan.resolve()) in out
+        assert "project:" in out
+
+    def test_main_backend_flag_case_sensitive(self, tmp_path, capsys):
+        """main --backend is case-sensitive (Gemini != gemini)."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["plan-exec", str(plan), "--backend", "Gemini"]):
+                main()
+
+        assert exc_info.value.code == 1
+
+    def test_main_single_backend_fails_exits_1(self, tmp_path, capsys):
+        """main with --backend for one specific backend exits 1 when it fails."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write("crashed\n")
+            stdout.flush()
+            return MagicMock(returncode=1)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            with pytest.raises(SystemExit) as exc_info:
+                with patch("sys.argv", ["plan-exec", str(plan), "--backend", "codex"]):
+                    main()
+
+        assert exc_info.value.code == 1
+        out = capsys.readouterr().out
+        assert "escalate" in out.lower()
+
+    def test_main_all_fail_prints_log_dir(self, tmp_path, capsys):
+        """main prints log directory when all backends fail."""
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan")
+        results = tmp_path / "fail_results"
+        original_results = _mod["RESULTS_DIR"]
+        _mod["RESULTS_DIR"] = results
+
+        def fake_run(cmd, cwd, env, stdout, stderr, timeout):
+            stdout.write("Error 429\n")
+            stdout.flush()
+            return MagicMock(returncode=1)
+
+        try:
+            with patch("subprocess.run", side_effect=fake_run):
+                with pytest.raises(SystemExit):
+                    with patch("sys.argv", ["plan-exec", str(plan)]):
+                        main()
+        finally:
+            _mod["RESULTS_DIR"] = original_results
+
+        out = capsys.readouterr().out
+        assert str(results) in out
