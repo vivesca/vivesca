@@ -345,7 +345,7 @@ def get_provider_limit(provider: str) -> int:
     """Get concurrency limit for a provider."""
     return PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
 
-def mark_done(line_num: int, result: str = ""):
+def mark_done(line_num: int, result: str = "", task_id: str = ""):
     """Mark task as done in queue file, move to Done section."""
     with QueueLock():
         if not QUEUE_FILE.exists():
@@ -370,7 +370,8 @@ def mark_done(line_num: int, result: str = ""):
         lines[line_num] = done_line
         for i, line in enumerate(lines):
             if line.strip() == "## Done":
-                result_line = f"{done_line} \u2192 {result[:80]}" if result else done_line
+                prefix = f"[{task_id}] " if task_id else ""
+                result_line = f"{done_line} \u2192 {prefix}{result[:80]}" if result else done_line
                 lines.insert(i + 2, result_line)
                 break
         try:
@@ -379,7 +380,7 @@ def mark_done(line_num: int, result: str = ""):
             return
 
 
-def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
+def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: str = "") -> dict:
     """Mark task as failed. Retry once unless exit_code=2 (command error).
 
     High-priority [!!] tasks keep their priority on retry; they become [!] on
@@ -429,7 +430,7 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
             return {"retried": False}
 
         if retried:
-            log(f"Re-queued (retry): {cmd_match.group(1)[:60]}...")
+            log(f"Re-queued [{task_id}] (retry): {cmd_match.group(1)[:60]}...")
         return {"retried": retried}
 
 
@@ -460,7 +461,11 @@ def _golem_env() -> dict:
 
 def run_golem(cmd: str) -> tuple[str, int, str]:
     """Run a golem command, return (cmd, exit_code, output_tail)."""
-    log(f"Starting: {cmd[:80]}...")
+    task_id = _extract_task_id(cmd)
+    env = _golem_env()
+    env["GOLEM_TASK_ID"] = task_id
+
+    log(f"Starting [{task_id}]: {cmd[:80]}...")
     start = time.time()
 
     try:
@@ -471,18 +476,18 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
             text=True,
             timeout=GOLEM_TIMEOUT,
             cwd=str(Path.home() / "germline"),
-            env=_golem_env(),
+            env=env,
         )
         duration = int(time.time() - start)
         tail = (result.stdout + result.stderr)[-200:].replace("\n", " ")
-        log(f"Finished ({duration}s, exit={result.returncode}): {cmd[:50]}...")
+        log(f"Finished [{task_id}] ({duration}s, exit={result.returncode}): {cmd[:50]}...")
         return (cmd, result.returncode, tail)
     except subprocess.TimeoutExpired:
         duration = int(time.time() - start)
-        log(f"TIMEOUT ({duration}s): {cmd[:50]}...")
+        log(f"TIMEOUT [{task_id}] ({duration}s): {cmd[:50]}...")
         return (cmd, 124, f"timeout after {GOLEM_TIMEOUT}s")
     except Exception as e:
-        log(f"ERROR: {cmd[:50]}... - {e}")
+        log(f"ERROR [{task_id}]: {cmd[:50]}... - {e}")
         return (cmd, 1, str(e))
 
 
@@ -810,6 +815,18 @@ def auto_requeue(min_pending: int = 50) -> int:
     return len(tasks)
 
 
+def _update_running_file(running: dict):
+    """Write current running tasks to state file for cmd_status."""
+    tasks = []
+    for _, (_, cmd, provider, task_id) in running.items():
+        tasks.append({"task_id": task_id, "provider": provider, "cmd": cmd[:80]})
+    try:
+        RUNNING_FILE.parent.mkdir(parents=True, exist_ok=True)
+        RUNNING_FILE.write_text(json.dumps(tasks))
+    except OSError:
+        pass
+
+
 def daemon_loop():
     """Main daemon loop: poll queue, run tasks, mark done."""
     rotate_logs()
@@ -818,7 +835,7 @@ def daemon_loop():
 
     # Max workers = max provider limit (volcano=16)
     max_workers = max(PROVIDER_LIMITS.values())
-    running = {}  # future -> (line_num, cmd, provider)
+    running = {}  # future -> (line_num, cmd, provider, task_id)
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
     poll_cycle = 0
     disk_space_paused = False
@@ -942,23 +959,24 @@ def daemon_loop():
                     time.sleep(POLL_INTERVAL)
                     continue
 
-                    for line_num, cmd in pending:
-                        provider = parse_provider(cmd)
-                        current = provider_running.get(provider, 0)
-                        limit = get_provider_limit(provider)
+                for item in pending:
+                    line_num, cmd = item[0], item[1]
+                    provider = parse_provider(cmd)
+                    current = provider_running.get(provider, 0)
+                    limit = get_provider_limit(provider)
 
-                        if current < limit:
-                            # Check if already running (avoid duplicate dispatch)
-                            already_running = any(
-                                c == cmd for (_, c, _) in running.values()
-                            )
-                            if already_running:
-                                continue
+                    if current < limit:
+                        # Check if already running (avoid duplicate dispatch)
+                        already_running = any(
+                            c == cmd for (_, c, _) in running.values()
+                        )
+                        if already_running:
+                            continue
 
-                            future = executor.submit(run_golem, cmd)
-                            running[future] = (line_num, cmd, provider)
-                            provider_running[provider] = current + 1
-                            log(f"Queued [{provider}]: {cmd[:60]}...")
+                        future = executor.submit(run_golem, cmd)
+                        running[future] = (line_num, cmd, provider)
+                        provider_running[provider] = current + 1
+                        log(f"Queued [{provider}]: {cmd[:60]}...")
 
                 # Status check
                 if running:
@@ -1041,7 +1059,8 @@ def cmd_status():
         # Count pending tasks by provider
         pending = parse_queue()
         by_provider: dict[str, int] = {}
-        for _, cmd in pending:
+        for item in pending:
+            cmd = item[1]
             p = parse_provider(cmd)
             by_provider[p] = by_provider.get(p, 0) + 1
 
