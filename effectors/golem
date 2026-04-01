@@ -74,7 +74,7 @@ if not log_file:
 stats = defaultdict(lambda: {'runs': 0, 'pass': 0, 'fail': 0, 'total_duration': 0, 'tests_created': 0})
 
 try:
-    with open(log_file, 'r') as f:
+    with open(log_file, 'r', errors='replace') as f:
         lines = f.readlines()
 
     if recent > 0:
@@ -379,7 +379,7 @@ _run_golem() {
       ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
       API_TIMEOUT_MS=3000000 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-0}" \
+      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-2}" \
       claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
@@ -388,7 +388,7 @@ _run_golem() {
     [[ $exit_code -eq 124 ]] && exit_code=1
 
     # Claude exits 0 even on 429 API errors — detect this and treat as rate-limit
-    if [[ $exit_code -eq 0 ]] && echo "$output" | grep -qiE 'API Error.*429|429.*quota|code.*20013'; then
+    if [[ $exit_code -eq 0 ]] && echo "$output" | grep -qiE 'API Error.*429|429.*quota|code.*20013|usage.limit|hit your.*limit'; then
       exit_code=1
       $QUIET || echo "[golem] claude reported 429 despite exit=0, treating as rate-limit" >&2
     fi
@@ -415,7 +415,7 @@ _run_golem() {
       if [[ $_attempt -lt $_max_retries ]]; then
         # Try to extract reset time from error message
         local _reset_time
-        _reset_time=$(echo "$output" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+        _reset_time=$(echo "$output" | grep -oiE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}|try again at [0-9]{1,2}:[0-9]{2} [AP]M' | head -1)
         $QUIET || echo "[retry] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), backoff ${_backoff}s${_reset_time:+, $_reset_time}" >&2
         sleep "$_backoff"
         _backoff=$(( _backoff * 2 ))  # exponential: 30 → 60 → 120
@@ -469,7 +469,7 @@ _run_golem() {
   local _rl_window=""
   local _emit_rl_marker=false
   # Case 1: output contains explicit rate-limit text
-  if [[ $exit_code -ne 0 ]] && echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|request.?limit.?exceeded'; then
+  if [[ $exit_code -ne 0 ]] && echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|request.?limit.?exceeded|usage.?limit|hit your.*limit'; then
     _emit_rl_marker=true
     _rl_window=$(echo "$output" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1 || true)
   fi
@@ -485,19 +485,22 @@ _run_golem() {
     # If window unknown, fill in per-provider defaults so daemon can parse it
     if [[ -z "$_rl_window" ]]; then
       case "$PROVIDER" in
-        infini) _rl_window=5 ;;   # Infini: 1000 req / 5 hours
+        infini) _rl_window=5 ;;    # Infini: 1000 req / 5 hours
+        volcano) _rl_window=5 ;;   # Volcano: 5-hour quota window
+        codex) _rl_window=1 ;;     # Codex: ~hourly resets
       esac
     fi
     echo "GOLEM_RATE_LIMIT: provider=$PROVIDER exit=$exit_code window=${_rl_window:-?}h duration=${duration}s" >&2
   fi
 
-  if $JSON_OUTPUT; then
+    if $JSON_OUTPUT; then
     local _json_tmp
     _json_tmp="$(mktemp)"
     printf '%s' "$output" > "$_json_tmp"
     python3 -c "
 import json, sys
-output_text = open(sys.argv[1]).read()
+with open(sys.argv[1], 'r', errors='replace') as f:
+    output_text = f.read()
 result = {
     'output': output_text,
     'exit_code': int(sys.argv[2]),
