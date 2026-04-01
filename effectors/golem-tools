@@ -5,26 +5,33 @@ Subcommands: dash, health, report, review, reviewer, top, validate.
 """
 from __future__ import annotations
 
-from __future__ import annotations
+import argparse
 import ast
+import json
+import os
 import re
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
-import argparse
-import json
-import os
 import time
+from collections import Counter, OrderedDict, defaultdict
 from dataclasses import dataclass
-from pathlib import Path
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path, PurePosixPath
 from typing import Optional
-from collections import defaultdict
-from datetime import datetime, timezone
-from collections import OrderedDict
-from datetime import datetime
-from datetime import UTC, datetime, timedelta
-from collections import Counter
-from datetime import datetime, timedelta, timezone
+
+# ── Shared constants (used by multiple subcommands) ────────────────────
+
+GERMLINE = Path.home() / "germline"
+EPIGENOME = Path.home() / "epigenome"
+QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
+VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
+RATE_LIMIT_PATTERNS = re.compile(
+    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
+    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
+    r'usage.?limit|hit your.*limit|quota will reset|try again at',
+    re.IGNORECASE,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -33,7 +40,6 @@ from datetime import datetime, timedelta, timezone
 
 
 
-MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 BAD_PATH_RE = re.compile(re.escape(MAC_HOME_PREFIX))
 TODO_RE = re.compile(r'\b(TODO|FIXME|stub)\b', re.IGNORECASE)
 
@@ -86,7 +92,7 @@ def validate_file(path: Path) -> tuple[str, list[str]]:
     return status, issues
 
 
-def cmd_validate(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
 
     if not args or "--help" in args or "-h" in args:
@@ -286,7 +292,7 @@ def print_json(results: list[HealthResult]) -> None:
     print(json.dumps(data, indent=2))
 
 
-def cmd_health(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Health check for golem providers."
     )
@@ -347,15 +353,8 @@ def cmd_health(argv: list[str] | None = None) -> int:
 
 # Paths
 JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
-QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
 
 # Rate-limit detection patterns
-RATE_LIMIT_PATTERNS = re.compile(
-    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit|quota will reset|try again at',
-    re.IGNORECASE,
-)
 
 
 def parse_args() -> argparse.Namespace:
@@ -386,7 +385,7 @@ def parse_timestamp(ts_str: str) -> datetime | None:
     return None
 
 
-def load_jsonl(date_filter: str | None) -> list[dict]:
+def report_report_load_jsonl(date_filter: str | None) -> list[dict]:
     """Load JSONL records, optionally filtering by date."""
     if not JSONL_FILE.exists():
         return []
@@ -431,17 +430,6 @@ def get_task_id(rec: dict) -> str:
         return f"[{tid}]" if not tid.startswith("[") else tid
     # Then try to extract from prompt
     return extract_task_id(rec.get("prompt", ""))
-
-
-def is_rate_limited(rec: dict) -> bool:
-    """Check if a record indicates rate limiting."""
-    tail = rec.get("tail", "")
-    if RATE_LIMIT_PATTERNS.search(tail):
-        return True
-    # Also check for exit=1 with empty tail (often rate limit)
-    if rec.get("exit") == 1 and not tail.strip() and rec.get("duration", 0) < 10:
-        return True
-    return False
 
 
 def truncate_prompt(prompt: str, max_len: int = 60) -> str:
@@ -543,7 +531,7 @@ def generate_report(records: list[dict], date_str: str) -> str:
     return "\n".join(lines)
 
 
-def cmd_report() -> None:
+def main() -> None:
     args = parse_args()
     
     # Determine date filter
@@ -552,7 +540,7 @@ def cmd_report() -> None:
     else:
         date_str = datetime.now().strftime("%Y-%m-%d")
     
-    records = load_jsonl(date_str)
+    records = report_load_jsonl(date_str)
     
     if args.json:
         # Output as JSON
@@ -822,7 +810,7 @@ def render_table(tasks: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def run(json_output: bool = False) -> str:
+def top_run(json_output: bool = False) -> str:
     """Main entry: gather ps data, parse, group, render."""
     raw = get_ps_output()
     entries = parse_ps_lines(raw)
@@ -834,7 +822,7 @@ def run(json_output: bool = False) -> str:
     return render_table(tasks)
 
 
-def cmd_top():
+def main():
     parser = argparse.ArgumentParser(
         description="Show currently running golem processes.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -847,7 +835,7 @@ def cmd_top():
     if args.watch:
         try:
             while True:
-                output = run(json_output=args.json)
+                output = top_run(json_output=args.json)
                 # Clear screen
                 print("\033[2J\033[H", end="")
                 print(f"golem-top — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -857,7 +845,7 @@ def cmd_top():
             print()
             sys.exit(0)
     else:
-        print(run(json_output=args.json))
+        print(top_run(json_output=args.json))
 
 
 
@@ -867,13 +855,9 @@ def cmd_top():
 
 
 
-GERMLINE = Path.home() / "germline"
-EPIGENOME = Path.home() / "epigenome"
-QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
 DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 REVIEW_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-reviewer.log"
 POLL_INTERVAL = 300  # 5 minutes
-MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 # Track state between cycles
 last_review_time = None
@@ -890,7 +874,7 @@ def log(msg: str):
     print(line)
 
 
-def run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
+def reviewer_run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
     try:
         r = subprocess.run(
             cmd, shell=True, capture_output=True, text=True,
@@ -905,7 +889,7 @@ def run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
 
 def check_daemon_status() -> dict:
     """Check golem-daemon health."""
-    code, out = run("python3 effectors/golem-daemon status")
+    code, out = reviewer_run("python3 effectors/golem-daemon status")
     # Parse: "Daemon running (PID X), N pending tasks (...)"
     m = re.search(r"(\d+) pending", out)
     pending = int(m.group(1)) if m else 0
@@ -917,11 +901,11 @@ def check_daemon_status() -> dict:
 def check_new_output() -> dict:
     """Check what was produced since last review."""
     since = "30 minutes ago" if last_review_time else "2 hours ago"
-    code, commits = run(f"git log --oneline --since='{since}' 2>/dev/null")
+    code, commits = reviewer_run(f"git log --oneline --since='{since}' 2>/dev/null")
     commit_count = len(commits.strip().splitlines()) if commits.strip() else 0
 
     # Count new files
-    code, new_files = run("git diff --name-only HEAD~10 2>/dev/null")
+    code, new_files = reviewer_run("git diff --name-only HEAD~10 2>/dev/null")
     new_tests = [f for f in new_files.splitlines() if f.startswith("assays/test_")]
     new_effectors = [f for f in new_files.splitlines() if f.startswith("effectors/")]
     new_consulting = []
@@ -942,7 +926,7 @@ def check_new_output() -> dict:
 
 def fix_collection_errors():
     """Find and fix pytest collection errors."""
-    code, out = run("uv run pytest --co -q 2>&1 | grep ERROR")
+    code, out = reviewer_run("uv run pytest --co -q 2>&1 | grep ERROR")
     if code != 0 or not out.strip():
         return 0
 
@@ -986,7 +970,7 @@ def fix_collection_errors():
 
 def run_test_snapshot() -> dict:
     """Quick pytest snapshot."""
-    code, out = run("uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -3")
+    code, out = reviewer_run("uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -3")
     # Parse: "X passed, Y failed, Z skipped..."
     m = re.search(r"(\d+) passed", out)
     passed = int(m.group(1)) if m else 0
@@ -999,7 +983,7 @@ def run_test_snapshot() -> dict:
 
 def check_daemon_failures() -> list[str]:
     """Check recent daemon failures."""
-    code, out = run(f"tail -100 {DAEMON_LOG} 2>/dev/null | grep FAILED")
+    code, out = reviewer_run(f"tail -100 {DAEMON_LOG} 2>/dev/null | grep FAILED")
     return out.strip().splitlines() if out.strip() else []
 
 
@@ -1007,16 +991,16 @@ def auto_commit():
     """Commit any uncommitted golem output."""
     global commit_counter
     # Stage known output directories
-    run("git add assays/ effectors/ metabolon/ 2>/dev/null")
-    code, status = run("git diff --cached --quiet 2>/dev/null")
+    reviewer_run("git add assays/ effectors/ metabolon/ 2>/dev/null")
+    code, status = reviewer_run("git diff --cached --quiet 2>/dev/null")
     if code != 0:  # There are staged changes
-        run('git commit -m "golem-reviewer: auto-commit cycle output"')
+        reviewer_run('git commit -m "golem-reviewer: auto-commit cycle output"')
         commit_counter += 1
         log(f"  Auto-committed (total: {commit_counter})")
-        run("git push 2>/dev/null")
+        reviewer_run("git push 2>/dev/null")
 
     # Also commit epigenome content
-    code, _ = run("git add -A && git diff --cached --quiet || git commit -m 'golem-reviewer: consulting content' && git push",
+    code, _ = reviewer_run("git add -A && git diff --cached --quiet || git commit -m 'golem-reviewer: consulting content' && git push",
                    cwd=str(EPIGENOME))
 
 
@@ -1065,7 +1049,7 @@ def review_cycle():
 
     if not status["running"]:
         log("  ALERT: Daemon not running! Attempting restart...")
-        run("python3 effectors/golem-daemon start")
+        reviewer_run("python3 effectors/golem-daemon start")
         time.sleep(5)
         status = check_daemon_status()
         log(f"  After restart: {'running' if status['running'] else 'STILL STOPPED'}")
@@ -1101,7 +1085,7 @@ def review_cycle():
     log(f"  Cycle {cycle_number} complete. Next in {POLL_INTERVAL}s.")
 
 
-def cmd_reviewer():
+def main():
     if "--help" in sys.argv or "-h" in sys.argv:
         print("Usage: golem-reviewer [--once] [-h|--help]")
         print()
@@ -1139,15 +1123,11 @@ def cmd_reviewer():
 
 
 # Paths
-GERMLINE = Path.home() / "germline"
-EPIGENOME = Path.home() / "epigenome"
-QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
 LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 REVIEW_FILE = GERMLINE / "loci" / "copia" / "golem-review-latest.md"
 COPIA_DIR = GERMLINE / "loci" / "copia"
 EFFECTORS_DIR = GERMLINE / "effectors"
 ASSAYS_DIR = GERMLINE / "assays"
-MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 CONSULTING_SUBDIRS = ["cards", "deep-dives", "case-studies", "prep", "regulatory"]
 
 # Provider rotation
@@ -2095,7 +2075,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
 # ── main CLI ───────────────────────────────────────────────────────────
 
 
-def cmd_review():
+def main():
     """CLI entry point."""
     args = sys.argv[1:]
 
@@ -2146,31 +2126,23 @@ def cmd_review():
 # ══ DASH subcommand
 # ══════════════════════════════════════════════════════════════════════
 
-# Lazy imports for rich (dash subcommand)
-from rich.bar import Bar  # noqa: E402
-from rich.console import Group  # noqa: E402
-from rich.live import Live  # noqa: E402
-from rich.panel import Panel  # noqa: E402
-from rich.table import Table  # noqa: E402
-from rich.text import Text  # noqa: E402
+from rich.bar import Bar
+from rich.console import Group
+from rich.live import Live
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 
 
 
 # Paths
-VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
 JSONL_PATH = VIVESCA_DIR / "golem.jsonl"
 QUEUE_PATH = Path.home() / "germline" / "loci" / "golem-queue.md"
 RUNNING_JSON_PATH = VIVESCA_DIR / "golem-running.json"
 COOLDOWNS_PATH = VIVESCA_DIR / "golem-cooldowns.json"
 
 # Rate-limit detection
-RATE_LIMIT_PATTERNS = re.compile(
-    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit|quota will reset',
-    re.IGNORECASE,
-)
 
 # Thresholds
 SHORT_DURATION_LIMIT = 10  # seconds — fast exits are likely rate-limits
@@ -2212,7 +2184,7 @@ def is_rate_limited(record: dict) -> bool:
     return False
 
 
-def load_jsonl(window_minutes: int = 60) -> list[dict]:
+def dash_dash_load_jsonl(window_minutes: int = 60) -> list[dict]:
     """Load golem.jsonl records within the rolling window."""
     if not JSONL_PATH.exists():
         return []
@@ -3072,7 +3044,7 @@ def build_json_snapshot(window_minutes: int = 60) -> dict:
 
     Used by --json output mode for programmatic consumption.
     """
-    window_records = load_jsonl(window_minutes)
+    window_records = dash_load_jsonl(window_minutes)
     running = load_running()
     pending_by_provider = count_pending_by_provider()
     total_pending = sum(pending_by_provider.values())
@@ -3270,7 +3242,7 @@ def build_dashboard(
     all_records_cache: list[dict] | None = None,
 ) -> Panel:
     """Build the full dashboard as a Rich renderable."""
-    window_records = load_jsonl(window_minutes)
+    window_records = dash_load_jsonl(window_minutes)
     running = load_running()
     cooldowns = load_cooldowns()
     pending_by_provider = count_pending_by_provider()
@@ -3490,7 +3462,7 @@ def tail_jsonl(file_path: Path, from_byte: int = 0):
         return
 
 
-def cmd_dash():
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Golem task queue dashboard")
@@ -3556,10 +3528,9 @@ def cmd_dash():
 
 
 
-# ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 # ══ argparse dispatch
-# ══════════════════════════════════════════════════════════════════
-
+# ══════════════════════════════════════════════════════════════════════
 
 def main():
     parser = argparse.ArgumentParser(
@@ -3622,4 +3593,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
