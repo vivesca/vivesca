@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.metabolism.dependency_check."""
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -68,7 +69,7 @@ class TestCheckEnvVar:
 
 class TestCheckBinary:
     @patch("metabolon.metabolism.dependency_check.subprocess.run")
-    @patch("metabolon.metabolism.dependency_check.shutil.which", return_value=None)
+    @patch("shutil.which", return_value=None)
     def test_not_found(self, mock_which, mock_run):
         result = check_binary("missing_bin")
         assert not result.healthy
@@ -77,7 +78,7 @@ class TestCheckBinary:
         mock_run.assert_not_called()
 
     @patch("metabolon.metabolism.dependency_check.subprocess.run")
-    @patch("metabolon.metabolism.dependency_check.shutil.which", return_value="/usr/bin/goose")
+    @patch("shutil.which", return_value="/usr/bin/goose")
     def test_found_healthy(self, mock_which, mock_run):
         result = check_binary("goose")
         assert result.healthy
@@ -88,7 +89,7 @@ class TestCheckBinary:
         "metabolon.metabolism.dependency_check.subprocess.run",
         side_effect=subprocess.TimeoutExpired(cmd="goose", timeout=5),
     )
-    @patch("metabolon.metabolism.dependency_check.shutil.which", return_value="/usr/bin/goose")
+    @patch("shutil.which", return_value="/usr/bin/goose")
     def test_timeout(self, mock_which, mock_run):
         result = check_binary("goose")
         assert not result.healthy
@@ -98,7 +99,7 @@ class TestCheckBinary:
         "metabolon.metabolism.dependency_check.subprocess.run",
         side_effect=OSError("permission denied"),
     )
-    @patch("metabolon.metabolism.dependency_check.shutil.which", return_value="/usr/bin/goose")
+    @patch("shutil.which", return_value="/usr/bin/goose")
     def test_oserror(self, mock_which, mock_run):
         result = check_binary("goose")
         assert not result.healthy
