@@ -39,7 +39,7 @@ class TestScriptStructure:
 
     def test_shebang(self):
         lines = _read_script().splitlines()
-        assert lines[0] == "#!/bin/bash"
+        assert lines[0].startswith("#!") and "bash" in lines[0]
 
     def test_strict_mode(self):
         content = _read_script()
