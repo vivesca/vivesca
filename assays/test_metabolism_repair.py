@@ -130,8 +130,8 @@ class TestMutate:
             mock_thread.return_value = "some response"
             await _mutate(req)
             call_args = mock_thread.call_args
-            # call_args is (args, kwargs): first positional arg is the function, second is the prompt
-            prompt = call_args[0][1]
+            # to_thread(transduce, "glm", prompt) → args = (transduce, "glm", prompt)
+            prompt = call_args[0][2]
             assert "search_tool" in prompt
             assert "fails validation" in prompt
             assert "edge case" in prompt
@@ -147,7 +147,7 @@ class TestMutate:
         with patch("metabolon.metabolism.repair.asyncio.to_thread") as mock_thread:
             mock_thread.return_value = "response"
             await _mutate(req)
-            prompt = mock_thread.call_args[0][1]
+            prompt = mock_thread.call_args[0][2]
             assert "N/A" in prompt
 
 

@@ -1087,7 +1087,15 @@ def print_compact() -> None:
     status_text, last_done, pending, done, failed = queue_status(QUEUE_PATH, use_color=False)
     running = get_running_golems()
     running = enrich_running_progress(running, records)
-    eta = calculate_eta(records, pending, len(running), running)
+    json_running = load_running_json(RUNNING_JSON_PATH)
+    running = merge_running_sources(running, json_running, records)
+    running = enrich_running_progress(running, records)
+    cooldowns_data = load_cooldowns(COOLDOWNS_PATH)
+    PROVIDER_MAX = {"zhipu": 8, "infini": 8, "volcano": 16, "gemini": 4}
+    eta = calculate_eta(
+        records, pending, len(running), running,
+        cooldowns_data=cooldowns_data, provider_max=PROVIDER_MAX,
+    )
     total = pending + done + failed
 
     parts = []
@@ -1108,6 +1116,12 @@ def print_compact() -> None:
             prov_counts[t.get("provider", "?")] += 1
         prov_str = " ".join(f"{k}:{v}" for k, v in sorted(prov_counts.items()))
         parts.append(f"{len(running)} running [{prov_str}]")
+
+    # Show active cooldowns
+    active_cd = active_cooldowns(cooldowns_data)
+    if active_cd:
+        cd_parts = [f"{p}:{fmt_duration(v['remaining_secs'])}" for p, v in sorted(active_cd.items())]
+        parts.append(f"cd:{' '.join(cd_parts)}")
 
     thr = ewma_throughput(records)
     if thr > 0:
@@ -1466,7 +1480,18 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     status_text, last_done, pending, done, failed = queue_status(QUEUE_PATH, use_color)
     running = get_running_golems()
     running = enrich_running_progress(running, records)
-    eta = calculate_eta(records, pending, len(running), running)
+    json_running = load_running_json(RUNNING_JSON_PATH)
+    cooldowns_data = load_cooldowns(COOLDOWNS_PATH)
+
+    # Merge running sources for richer task data
+    running = merge_running_sources(running, json_running, records)
+    running = enrich_running_progress(running, records)
+
+    PROVIDER_MAX = {"zhipu": 8, "infini": 8, "volcano": 16, "gemini": 4}
+    eta = calculate_eta(
+        records, pending, len(running), running,
+        cooldowns_data=cooldowns_data, provider_max=PROVIDER_MAX,
+    )
     thr = throughput_rate(records, window_minutes=60)
     ewma = ewma_throughput(records)
     conf = eta_confidence(records)
@@ -1482,14 +1507,17 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     prov_etas = per_provider_eta(records, prov_pending, running)
 
     # New: failure-adjusted throughput, worker utilization
-    PROVIDER_MAX = {"zhipu": 8, "infini": 8, "volcano": 16, "gemini": 4}
     fa_throughput = failure_adjusted_throughput(records)
     util = worker_utilization(running, PROVIDER_MAX)
+
+    # New: recent activity timeline
+    timeline = recent_activity_timeline(LOG_PATH, limit=8)
 
     if json_output:
         data = {
             "timestamp": datetime.now().isoformat(),
             "running": running,
+            "json_running": json_running,
             "queue": {
                 "pending": pending,
                 "done": done,
@@ -1513,6 +1541,14 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
                 "failure_pct": fa_throughput[2],
             },
             "utilization": util,
+            "cooldowns": cooldowns_data,
+            "active_cooldowns": {
+                p: {"remaining_secs": v["remaining_secs"], "reason": v["reason"]}
+                for p, v in active_cooldowns(cooldowns_data).items()
+            },
+            "recent_activity": [
+                {"ts": ts, "type": ev, "desc": desc} for ts, ev, desc in timeline
+            ],
         }
         print(json.dumps(data, indent=2))
         return 0
@@ -1532,6 +1568,12 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     # 3. Running tasks (real-time progress with per-task bars)
     print(f"\n{b}Running Tasks{rst}")
     print(running_tasks_table(running, use_color))
+
+    # 3b. Cooldown status
+    cd_display = cooldown_display(cooldowns_data, use_color)
+    if cd_display:
+        print(f"\n{b}Provider Cooldowns{rst}")
+        print(cd_display)
 
     # 4. ETA to drain with milestones + confidence + intervals + stall + trend + utilization
     print(f"\n{b}ETA to Drain{rst}")
@@ -1586,7 +1628,11 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     print(f"\n{b}Last Completed{rst}")
     print(last_completed_table(last_done, use_color))
 
-    # 9. Disk free
+    # 9. Recent activity timeline
+    print(f"\n{b}Recent Activity{rst}")
+    print(timeline_display(timeline, use_color))
+
+    # 10. Disk free
     print(f"\n{b}Disk{rst}")
     print(disk_free(use_color))
     print()
