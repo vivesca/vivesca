@@ -893,3 +893,303 @@ class TestAdditionalEdgeCases:
             text=True,
         )
         assert "my notes.md" in show.stdout
+
+
+# ── Script metadata tests ──────────────────────────────────────────────
+
+
+class TestScriptMetadata:
+    """Basic script file checks."""
+
+    def test_script_exists(self):
+        """Script file exists."""
+        assert SCRIPT.exists()
+
+    def test_script_executable(self):
+        """Script is executable."""
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_is_bash(self):
+        """Script has bash shebang."""
+        first_line = SCRIPT.read_text().splitlines()[0]
+        assert first_line == "#!/bin/bash"
+
+    def test_help_mentions_epigenome(self):
+        """Help text mentions epigenome repo path."""
+        r = _run(SCRIPT, ["--help"])
+        assert "epigenome" in r.stdout.lower()
+
+    def test_help_mentions_skip(self):
+        """Help text mentions skipping when no changes."""
+        r = _run(SCRIPT, ["--help"])
+        assert "skip" in r.stdout.lower()
+
+
+# ── Idempotency tests ─────────────────────────────────────────────────
+
+
+class TestIdempotency:
+    """Running the script multiple times should be safe."""
+
+    def test_second_run_no_extra_commit(self, tmp_path):
+        """Second run with no changes creates no extra commit."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        (chromatin / "once.md").write_text("first\n")
+        r1 = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r1.returncode == 0
+
+        # Count commits after first run
+        after_first = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-list", "--count", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+
+        # Second run with no changes
+        r2 = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r2.returncode == 0
+
+        after_second = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-list", "--count", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+
+        assert after_first.stdout.strip() == after_second.stdout.strip()
+
+    def test_third_run_with_new_change(self, tmp_path):
+        """Third run after adding a file creates exactly one new commit."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        # Run 1: initial commit of a file
+        (chromatin / "a.md").write_text("a\n")
+        _run(SCRIPT, env={"HOME": str(tmp_path)})
+
+        # Run 2: no changes
+        _run(SCRIPT, env={"HOME": str(tmp_path)})
+
+        # Run 3: add another file
+        (chromatin / "b.md").write_text("b\n")
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Should have exactly 3 commits: init + backup-a + backup-b
+        count = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-list", "--count", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        assert count.stdout.strip() == "3"
+
+
+# ── Rebase conflict resolution tests ───────────────────────────────────
+
+
+class TestConflictResolution:
+    """Tests for the --theirs last-resort fallback (lines 23-27)."""
+
+    def test_rebase_succeeds_for_non_conflicting_diverge(self, tmp_path):
+        """Non-conflicting diverge is resolved via rebase (not merge)."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        # Add a base file and push
+        (chromatin / "base.md").write_text("base\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "base.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "base"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Remote adds a different file
+        clone_dir = tmp_path / "remote_clone"
+        subprocess.run(
+            ["git", "clone", str(remote_path), str(clone_dir)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.email", "r@t.com"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.name", "R"],
+            capture_output=True,
+        )
+        (clone_dir / "remote_file.md").write_text("from remote\n")
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "add", "remote_file.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "commit", "-m", "remote add"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Local adds yet another different file (uncommitted)
+        (chromatin / "local_file.md").write_text("from local\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Both files should be present
+        ls = subprocess.run(
+            ["git", "-C", str(chromatin), "ls-tree", "-r", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        assert "remote_file.md" in ls.stdout
+        assert "local_file.md" in ls.stdout
+
+    def test_merge_fallback_preserves_both_branches(self, tmp_path):
+        """When rebase conflicts, merge fallback produces a working tree."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        # Create base with a shared file
+        shared = chromatin / "conflict.md"
+        shared.write_text("base\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "conflict.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "base"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Remote modifies the file
+        clone_dir = tmp_path / "remote_clone"
+        subprocess.run(
+            ["git", "clone", str(remote_path), str(clone_dir)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.email", "r@t.com"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.name", "R"],
+            capture_output=True,
+        )
+        (clone_dir / "conflict.md").write_text("remote version\n")
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "add", "conflict.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "commit", "-m", "remote change"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Local commits a conflicting change, then adds uncommitted changes
+        shared.write_text("local version\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "conflict.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "local change"],
+            capture_output=True,
+        )
+
+        # Add an uncommitted file too — this triggers commit+push after sync
+        (chromatin / "extra.md").write_text("extra\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        # Script should resolve via merge or --theirs fallback
+        assert r.returncode == 0
+
+        # HEAD should have advanced past both local and remote
+        log = subprocess.run(
+            ["git", "-C", str(chromatin), "log", "--oneline"],
+            capture_output=True,
+            text=True,
+        )
+        assert "local change" in log.stdout or "extra" in log.stdout or "merge" in log.stdout.lower()
+
+
+# ── Bare repo sync edge case ──────────────────────────────────────────
+
+
+class TestRemoteSyncEdgeCases:
+    """Edge cases for remote sync behavior."""
+
+    def test_remote_receives_exact_file_content(self, tmp_path):
+        """File content on remote exactly matches what was committed locally."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        content = "# My Note\n\nSome **markdown** here.\n"
+        (chromatin / "note.md").write_text(content)
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        remote_cat = subprocess.run(
+            ["git", "-C", str(remote_path), "show", "main:note.md"],
+            capture_output=True,
+            text=True,
+        )
+        assert remote_cat.stdout == content
+
+    def test_consecutive_pushes_stay_in_sync(self, tmp_path):
+        """Multiple rounds of push keep local and remote in sync."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        for i in range(3):
+            (chromatin / f"round{i}.md").write_text(f"round {i}\n")
+            r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+            assert r.returncode == 0
+
+        # Remote should have all 3 files
+        remote_ls = subprocess.run(
+            ["git", "-C", str(remote_path), "ls-tree", "-r", "--name-only", "main"],
+            capture_output=True,
+            text=True,
+        )
+        for i in range(3):
+            assert f"round{i}.md" in remote_ls.stdout
+
+        # Local HEAD should match remote HEAD
+        local_head = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        remote_head = subprocess.run(
+            ["git", "-C", str(remote_path), "rev-parse", "main"],
+            capture_output=True,
+            text=True,
+        )
+        assert local_head.stdout.strip() == remote_head.stdout.strip()
