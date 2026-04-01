@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Pull all vivesca repos from GitHub. Run on iMac every 15 mins via LaunchAgent.
+
+Repos are pulled quietly. Failures logged but don't block other repos.
+Safe to run concurrently — git pull uses fast-forward only.
+"""
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+REPOS = [
+    Path.home() / "germline",
+    Path.home() / "epigenome",
+    Path.home() / "code" / "gemmule",
+    Path.home() / "code" / "oghma",
+    Path.home() / "code" / "acta",
+    Path.home() / "officina",
+]
+
+LOG = Path.home() / "tmp" / "soma-pull.log"
+
+
+def pull(repo: Path) -> tuple[str, bool]:
+    if not (repo / ".git").exists():
+        return f"{repo.name}: not a git repo", False
+    try:
+        result = subprocess.run(
+            ["git", "pull", "--ff-only", "--quiet"],
+            cwd=repo, capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            changed = "Already up to date" not in result.stdout
+            status = "updated" if changed else "ok"
+            return f"{repo.name}: {status}", True
+        else:
+            return f"{repo.name}: FAIL {result.stderr.strip()[:100]}", False
+    except subprocess.TimeoutExpired:
+        return f"{repo.name}: TIMEOUT", False
+    except Exception as e:
+        return f"{repo.name}: ERROR {e}", False
+
+
+def main():
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    results = [pull(r) for r in REPOS]
+
+    failures = [msg for msg, ok in results if not ok]
+    lines = [f"[{timestamp}] " + " | ".join(msg for msg, _ in results)]
+
+    LOG.parent.mkdir(exist_ok=True)
+    with open(LOG, "a") as f:
+        f.write(lines[0] + "\n")
+
+    # Keep log under 500 lines
+    if LOG.exists():
+        all_lines = LOG.read_text().splitlines()
+        if len(all_lines) > 500:
+            LOG.write_text("\n".join(all_lines[-250:]) + "\n")
+
+    if failures:
+        print(f"WARN: {len(failures)} repos failed", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
