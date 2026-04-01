@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 # src/vivesca/cli.py
 """vivesca CLI — scaffold and validate MCP tool ecosystems."""
 

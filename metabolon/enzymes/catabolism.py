@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """spending -- catabolic metabolism of credit card statements.
 
 Tools:

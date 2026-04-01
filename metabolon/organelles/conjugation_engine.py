@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """conjugation_engine — replicate Claude Code configuration to Gemini CLI format.
 
 Conjugation = lateral gene transfer. CC config is the donor; Gemini CLI is the
