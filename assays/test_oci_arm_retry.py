@@ -33,8 +33,8 @@ def test_parse_args(monkeypatch):
     with open(effector_path) as f:
         source = f.read()
     
-    # Patch sys.argv for testing
-    monkeypatch.setattr(sys, "argv", ["oci-arm-retry", "--loop", "--multi", "--interval", "600", "--max-attempts", "10"])
+    # Patch sys.argv for testing — no loop, it will exit after one attempt
+    monkeypatch.setattr(sys, "argv", ["oci-arm-retry", "--multi", "--interval", "600", "--max-attempts", "10"])
     
     # Mock subprocess.run early to prevent actual OCI calls
     called = []
