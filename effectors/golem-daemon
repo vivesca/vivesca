@@ -232,16 +232,64 @@ def _swap_provider(cmd: str, old_provider: str, new_provider: str) -> str:
     return cmd.replace(f"--provider {old_provider}", f"--provider {new_provider}", 1)
 
 
-def _pick_fallback(provider: str, provider_cooldown_until: dict, provider_running: dict) -> str | None:
-    """Find an available fallback provider. Returns None if all are in cooldown."""
-    for fallback in PROVIDER_FALLBACK.get(provider, []):
-        if fallback in provider_cooldown_until:
+def _dispatch_candidates(provider: str) -> list[str]:
+    """Return providers to try for migrated work, preserving preferred order first."""
+    ordered: list[str] = []
+    seen = {provider}
+    for candidate in PROVIDER_FALLBACK.get(provider, []):
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    for candidate in PROVIDER_LIMITS:
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    return ordered
+
+
+def _pick_dispatch_provider(provider: str, provider_cooldown_until: dict, provider_running: dict) -> str | None:
+    """Pick the runtime provider for a queued task."""
+    if provider not in provider_cooldown_until:
+        return provider
+
+    for candidate in _dispatch_candidates(provider):
+        if candidate in provider_cooldown_until:
             continue
-        current = provider_running.get(fallback, 0)
-        limit = PROVIDER_LIMITS.get(fallback, DEFAULT_LIMIT)
+        current = provider_running.get(candidate, 0)
+        limit = get_provider_limit(candidate)
         if current < limit:
-            return fallback
+            return candidate
     return None
+
+
+def _resolve_dispatch_command(
+    cmd: str,
+    provider_cooldown_until: dict[str, float],
+    provider_running: dict[str, int],
+) -> tuple[str, str, str] | None:
+    """Resolve queued affinity vs runtime dispatch provider for a command."""
+    affinity_provider = parse_provider(cmd)
+    dispatch_provider = _pick_dispatch_provider(
+        affinity_provider, provider_cooldown_until, provider_running,
+    )
+    if dispatch_provider is None:
+        return None
+    if dispatch_provider == affinity_provider:
+        return (cmd, affinity_provider, dispatch_provider)
+    if f"--provider {affinity_provider}" in cmd:
+        runtime_cmd = _swap_provider(cmd, affinity_provider, dispatch_provider)
+    else:
+        runtime_cmd = f"{cmd} --provider {dispatch_provider}"
+    return (runtime_cmd, affinity_provider, dispatch_provider)
+
+
+def _running_entry_details(entry: tuple) -> tuple[int, str, str, str, str]:
+    """Normalize running-task state for backward compatibility in tests/helpers."""
+    if len(entry) == 4:
+        line_num, cmd, provider, task_id = entry
+        return line_num, cmd, provider, provider, task_id
+    line_num, cmd, provider, task_id, dispatch_provider = entry
+    return line_num, cmd, provider, dispatch_provider, task_id
 
 
 # Counter for successful mark_done calls (reset on auto-commit)
@@ -458,7 +506,8 @@ def _generate_task_id() -> str:
 
 
 def _write_jsonl_record(task_id: str, provider: str, exit_code: int,
-                        duration: int, cmd: str, tail: str = ""):
+                        duration: int, cmd: str, tail: str = "",
+                        dispatch_provider: str | None = None):
     """Append a JSONL record for a completed task."""
     record = {
         "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -469,6 +518,8 @@ def _write_jsonl_record(task_id: str, provider: str, exit_code: int,
         "cmd": cmd[:120],
         "tail": tail[:300],
     }
+    if dispatch_provider and dispatch_provider != provider:
+        record["dispatch_provider"] = dispatch_provider
     try:
         JSONLFILE.parent.mkdir(parents=True, exist_ok=True)
         with open(JSONLFILE, "a") as f:
