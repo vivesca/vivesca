@@ -14,6 +14,11 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     exit 0
 fi
 
+if [[ $EUID -ne 0 ]]; then
+   echo "ERROR: This script must be run as root." >&2
+   exit 1
+fi
+
 echo "=== Hetzner Claude Code Bootstrap ==="
 
 # 1. System updates
@@ -91,8 +96,8 @@ sudo -u terry bash -c '
 '
 
 # 10. Harden SSH
-sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
 systemctl restart sshd
 
 echo ""

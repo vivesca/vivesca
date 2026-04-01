@@ -188,11 +188,11 @@ class TestParseIndexBrowser:
         # Restore
         _mod["_ab"] = _ab
 
-    def test_returns_empty_on_failure(self):
+    def test_raises_on_failure(self):
         _mod["_ab"] = MagicMock(side_effect=Exception("browser failed"))
         with patch("subprocess.run"):
-            result = _parse_index_browser()
-        assert result == []
+            with pytest.raises(Exception, match="browser failed"):
+                _parse_index_browser()
         # Restore
         _mod["_ab"] = _ab
 
