@@ -186,6 +186,7 @@ def sortase(
                     "started_at": e.get("started_at", ""),
                 }
                 for e in entries
+                if isinstance(e, dict)
             ],
         )
 

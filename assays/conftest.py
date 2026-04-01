@@ -22,6 +22,7 @@ class _DottedNameModule(pytest.Module):
 
     def _getobj(self):
         safe_name = self.path.name.replace(".", "_").removesuffix("_py")
+        print(f"[DottedNameModule._getobj] {safe_name} from {self.path}", flush=True)
         if safe_name not in sys.modules:
             spec = importlib.util.spec_from_file_location(safe_name, str(self.path))
             if spec is None or spec.loader is None:
