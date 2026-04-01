@@ -233,21 +233,21 @@ class TestMakeLineContext:
     def test_multiline_with_context(self):
         text = "line0\nline1\nline2\nline3\nline4"
         # match_start=10 falls in "line1" (offset 6..11)
-        line, before, after = _make_line_context(text, 10, 11, context_lines=1)
+        line, before, after = _make_line_context(text, 10, context_lines=1)
         assert line == "line1"
         assert before == ["line0"]
         assert after == ["line2"]
 
     def test_zero_context_lines(self):
         text = "line0\nline1\nline2"
-        line, before, after = _make_line_context(text, 6, 7, context_lines=0)
+        line, before, after = _make_line_context(text, 6, context_lines=0)
         assert line == "line1"
         assert before == []
         assert after == []
 
     def test_context_at_start_of_file(self):
         text = "line0\nline1\nline2"
-        line, before, after = _make_line_context(text, 0, 1, context_lines=2)
+        line, before, after = _make_line_context(text, 0, context_lines=2)
         assert line == "line0"
         assert before == []
         assert after == ["line1", "line2"]
