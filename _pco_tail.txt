@@ -1,0 +1,3 @@
+assays/test_x_feed_to_lustro.py::test_record_fields
+
+15118/15124 tests collected (6 deselected) in 31.03s
