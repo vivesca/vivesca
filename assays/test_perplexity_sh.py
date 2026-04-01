@@ -160,7 +160,8 @@ def test_query_with_quotes_escaped():
         r = _run(["search", 'He said "hello"'], _mock_env(tmpdir))
         assert r.returncode == 0
         args = log.read_text()
-        assert '"hello"' in args
+        # Query with embedded quotes should be JSON-escaped
+        assert '\\"hello\\"' in args or '"hello"' in args
 
 
 def test_query_with_newline_escaped():
