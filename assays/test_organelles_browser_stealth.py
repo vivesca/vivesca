@@ -58,6 +58,17 @@ class TestPatchNavigator:
         # Should be called 4 times: webdriver, chrome runtime, plugins, permissions
         assert mock_context.add_init_script.call_count == 4
 
+    @pytest.mark.asyncio
+    async def test_adds_correct_scripts(self, mock_context: MagicMock) -> None:
+        await patch_navigator(mock_context)
+        calls = mock_context.add_init_script.call_args_list
+        assert len(calls) == 4
+        script_contents = [call[0][0] for call in calls]
+        assert _WEBDRIVER_PATCH_JS in script_contents
+        assert _CHROME_RUNTIME_PATCH_JS in script_contents
+        assert _PLUGINS_PATCH_JS in script_contents
+        assert _PERMISSIONS_PATCH_JS in script_contents
+
     def test_script_sets_undefined(self) -> None:
         """The injected JS must override navigator.webdriver."""
         assert "navigator" in _WEBDRIVER_PATCH_JS
