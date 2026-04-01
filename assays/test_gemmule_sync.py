@@ -3,6 +3,8 @@ from __future__ import annotations
 
 """Tests for effectors/gemmule-sync — remote directory sync from gemmule."""
 
+import logging
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -13,15 +15,31 @@ GEMMULE_SYNC_PATH = Path(__file__).resolve().parents[1] / "effectors" / "gemmule
 
 @pytest.fixture()
 def gs():
-    """Load gemmule-sync via exec into an isolated namespace."""
+    """Load gemmule-sync via exec into an isolated namespace.
+
+    Stores the raw namespace dict as ``gs._ns`` so tests can patch
+    module-level names that exec'd functions resolve through __globals__.
+    """
     ns: dict = {"__name__": "gemmule_sync"}
     source = GEMMULE_SYNC_PATH.read_text(encoding="utf-8")
     exec(source, ns)
     mod = type("gs", (), {})()
+    mod._ns = ns
     for k, v in ns.items():
         if not k.startswith("__"):
             setattr(mod, k, v)
     return mod
+
+
+@contextmanager
+def patch_ns(ns: dict, name: str, value):
+    """Patch a name in an exec'd namespace dict and restore on exit."""
+    original = ns[name]
+    ns[name] = value
+    try:
+        yield value
+    finally:
+        ns[name] = original
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -112,8 +130,9 @@ class TestRsyncDir:
 class TestRunSync:
     def test_syncs_all_three_dirs(self, gs):
         """run_sync calls rsync_dir for each SYNC_PAIR."""
-        with patch.object(gs, "rsync_dir", return_value=(0, "")) as mock_rsync, \
-             patch.object(gs, "setup_logging"):
+        mock_rsync = MagicMock(return_value=(0, ""))
+        with patch_ns(gs._ns, "rsync_dir", mock_rsync), \
+             patch_ns(gs._ns, "setup_logging", lambda: logging.getLogger("gemmule-sync")):
             results = gs.run_sync()
 
         assert mock_rsync.call_count == 3
@@ -121,18 +140,21 @@ class TestRunSync:
 
     def test_passes_dry_run(self, gs):
         """run_sync forwards dry_run flag to rsync_dir."""
-        with patch.object(gs, "rsync_dir", return_value=(0, "")) as mock_rsync, \
-             patch.object(gs, "setup_logging"):
+        mock_rsync = MagicMock(return_value=(0, ""))
+        with patch_ns(gs._ns, "rsync_dir", mock_rsync), \
+             patch_ns(gs._ns, "setup_logging", lambda: logging.getLogger("gemmule-sync")):
             gs.run_sync(dry_run=True)
 
         for c in mock_rsync.call_args_list:
-            assert c.kwargs.get("dry_run") is True or c.args[-1] is True or "dry_run" in str(c)
+            assert c.kwargs.get("dry_run") is True or (c.args and c.args[-1] is True)
 
     def test_collects_results(self, gs):
         """run_sync returns (label, rc, output) tuples."""
-        with patch.object(gs, "rsync_dir", side_effect=[
+        mock_rsync = MagicMock(side_effect=[
             (0, "ok1"), (1, "err"), (0, "ok2"),
-        ]), patch.object(gs, "setup_logging"):
+        ])
+        with patch_ns(gs._ns, "rsync_dir", mock_rsync), \
+             patch_ns(gs._ns, "setup_logging", lambda: logging.getLogger("gemmule-sync")):
             results = gs.run_sync()
 
         assert results[0][1] == 0
@@ -146,35 +168,38 @@ class TestRunSync:
 class TestMain:
     def test_returns_zero_on_success(self, gs):
         """main() returns 0 when all rsyncs succeed."""
-        with patch.object(gs, "run_sync", return_value=[
+        mock_sync = MagicMock(return_value=[
             ("chromatin", 0, ""), ("notes", 0, ""), ("acta", 0, ""),
-        ]):
+        ])
+        with patch_ns(gs._ns, "run_sync", mock_sync):
             rc = gs.main(["--dry-run"])
         assert rc == 0
 
     def test_returns_one_on_failure(self, gs):
         """main() returns 1 when any rsync fails."""
-        with patch.object(gs, "run_sync", return_value=[
+        mock_sync = MagicMock(return_value=[
             ("chromatin", 0, ""), ("notes", 23, "error"), ("acta", 0, ""),
-        ]):
+        ])
+        with patch_ns(gs._ns, "run_sync", mock_sync):
             rc = gs.main([])
         assert rc == 1
 
     def test_dry_run_flag_parsed(self, gs):
         """main passes --dry-run through to run_sync."""
-        with patch.object(gs, "run_sync", return_value=[
+        mock_sync = MagicMock(return_value=[
             ("chromatin", 0, ""), ("notes", 0, ""), ("acta", 0, ""),
-        ]) as mock_sync:
+        ])
+        with patch_ns(gs._ns, "run_sync", mock_sync):
             gs.main(["--dry-run"])
 
-        # Verify run_sync was called with dry_run=True
         mock_sync.assert_called_once_with(dry_run=True)
 
     def test_no_args_is_live_run(self, gs):
         """main with no args runs a live (non-dry) sync."""
-        with patch.object(gs, "run_sync", return_value=[
+        mock_sync = MagicMock(return_value=[
             ("chromatin", 0, ""), ("notes", 0, ""), ("acta", 0, ""),
-        ]) as mock_sync:
+        ])
+        with patch_ns(gs._ns, "run_sync", mock_sync):
             gs.main([])
 
         mock_sync.assert_called_once_with(dry_run=False)
