@@ -287,7 +287,7 @@ def _fmt_resets(resets_at: str | None) -> str:
 def budget(as_json: bool = False) -> str:
     """Fetch fresh budget data and return a clean summary."""
     try:
-        from metabolon.respirometry import get_usage
+        from metabolon.respirometry import get_usage  # type: ignore[import-untyped]
 
         usage = get_usage()
     except Exception:

@@ -28,6 +28,7 @@ import operator
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
+from langchain_core.runnables.config import RunnableConfig
 
 from metabolon.metabolism.fitness import sense_affect
 from metabolon.metabolism.infection import chronic_infections, infection_summary
@@ -505,7 +506,7 @@ def run_metabolism(
     interrupt = ["repair"] if interactive else None
     app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}  # type: ignore[typed-dict]  # pyright: ignore[reportArgumentType]
 
     initial_state: MetabolismState = {
         "health_score": 0.5,

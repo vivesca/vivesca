@@ -182,7 +182,8 @@ def recall_todo(
 def recall_todo_today(date_iso: str | None = None) -> dict[str, Any]:
     """Return only overdue and today's TODO items, max 10."""
     if date_iso is None:
-        date_iso = current_date()["iso"]
+        raw = current_date()["iso"]
+        date_iso = raw if isinstance(raw, str) else None
 
     result = recall_todo()
     if not result["available"]:
@@ -359,7 +360,7 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
         d = _parse_date(date)
         base = d if d else datetime.now(HKT).date()
 
-    all_events: list[dict[str, str]] = []
+    all_events: list[dict[str, str | bool]] = []
     all_raw: list[str] = []
     errors: list[str] = []
 
@@ -385,9 +386,9 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
     }
 
 
-def _parse_calendar_output(text: str) -> list[dict[str, str]]:
+def _parse_calendar_output(text: str) -> list[dict[str, str | bool]]:
     """Parse fasti list output into event dicts."""
-    events: list[dict[str, str]] = []
+    events: list[dict[str, str | bool]] = []
     if not text:
         return events
 

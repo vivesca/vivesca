@@ -122,7 +122,7 @@ def edit(
     if not old_uuid:
         raise _m.MoneoError("Reminder is missing UUID")
 
-    changes = _m.build_change_set(
+    changes = _m.build_change_set(  # type: ignore[attr-defined]
         title=title,
         rel=rel,
         at=at,
@@ -172,4 +172,4 @@ def snapshot() -> str:
 
 def _cli(argv: list[str] | None = None) -> int:
     """CLI passthrough to moneo-py."""
-    return _m.main(argv)
+    return _m.main(argv)  # type: ignore[attr-defined]

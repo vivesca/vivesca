@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from typing import Any
 from datetime import datetime
 from pathlib import Path
 
@@ -323,7 +324,7 @@ def _legacy_tombstone(task_name: str) -> str:
     return f"__removed__:{task_name}"
 
 
-def _read_status_entries() -> list[dict]:
+def _read_status_entries() -> list[dict | str]:
     path = _status_path()
     if not path.exists():
         return []
@@ -333,13 +334,13 @@ def _read_status_entries() -> list[dict]:
         return []
 
 
-def _write_status_entries(entries: list[dict]) -> None:
+def _write_status_entries(entries: list[dict | str]) -> None:
     path = _status_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
 
 
-def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
+def _locked_status_update(fn: "Callable[[list[dict | str]], list[dict | str]]") -> None:
     """Atomically read-modify-write status.json with file locking."""
     import fcntl
 
@@ -357,7 +358,7 @@ def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
 
 
 def register_running(task_name: str, tool: str | None = None, project_dir: Path | None = None) -> None:
-    def _add(entries: list[dict]) -> list[dict]:
+    def _add(entries: list[dict | str]) -> list[dict | str]:
         if tool is None or project_dir is None:
             tombstone = _legacy_tombstone(task_name)
             if tombstone in entries:
@@ -380,7 +381,7 @@ def register_running(task_name: str, tool: str | None = None, project_dir: Path 
 
 
 def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
-    def _remove(entries: list[dict]) -> list[dict]:
+    def _remove(entries: list[dict | str]) -> list[dict | str]:
         if project_dir is None:
             remaining = [entry for entry in entries if entry != task_name]
             if len(remaining) == len(entries):
@@ -399,7 +400,7 @@ def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
     _locked_status_update(_remove)
 
 
-def list_running() -> list[dict]:
+def list_running() -> list[dict[str, Any] | str]:
     entries = _read_status_entries()
     for entry in entries:
         if isinstance(entry, dict) and "pid" in entry:

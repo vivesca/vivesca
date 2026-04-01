@@ -63,6 +63,7 @@ def test_resolve_date_keyword_passthrough() -> None:
 def test_parse_time_with_date_defaults_to_0900() -> None:
     now = datetime(2026, 3, 16, 8, 0, tzinfo=moneo.HKT)
     ts = moneo.parse_time(None, None, "2026-03-20", now=now)
+    assert ts is not None
     assert moneo.hkt_from_ts(ts) == datetime(2026, 3, 20, 9, 0, tzinfo=moneo.HKT)
 
 

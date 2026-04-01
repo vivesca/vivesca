@@ -22,7 +22,7 @@ PRAXIS = NOTES / "Praxis.md"
 PRAXIS_ARCHIVE = NOTES / "Praxis Archive.md"
 
 
-def _parse_date(date_str: str | None):
+def _parse_date(date_str: str | bool | None):
     if not date_str or not isinstance(date_str, str):
         return None
     try:
@@ -39,7 +39,8 @@ def _is_overdue(item: dict, today_date) -> bool:
 def _today_date():
     from metabolon.pinocytosis import current_date
 
-    return _parse_date(current_date()["iso"])
+    iso = current_date()["iso"]
+    return _parse_date(str(iso))
 
 
 def _read_all() -> dict:
@@ -186,6 +187,8 @@ def all_items() -> dict:
         {"date": "YYYY-MM-DD", "items": [...], "total_count": N, "overdue_count": N}
     """
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     data = _read_all()
     if not data["available"]:
         return {"error": data["error"]}
@@ -209,6 +212,8 @@ def spare() -> dict:
     from metabolon.pinocytosis import recall_todo
 
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     data = recall_todo(sections=["Spare Capacity"])
     if not data["available"]:
         return {"error": data["error"]}
@@ -302,6 +307,8 @@ def stats() -> dict:
         }
     """
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     week_end = today_date + timedelta(days=7)
     data = _read_all()
     if not data["available"]:

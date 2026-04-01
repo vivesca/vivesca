@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import importlib.util
 import shutil
 import sys
@@ -13,30 +12,32 @@ import yaml
 
 # Allow pytest to collect test files with dots in the name (e.g. test_foo.sh.py).
 # The dot makes Python's importer treat "test_foo" as a package, causing
-# ModuleNotFoundError.  We pre-import under the dotted name so the default
-# collector finds the module already in sys.modules.
+# ModuleNotFoundError.  We use a custom Module subclass that loads via
+# importlib.util.spec_from_file_location, bypassing the broken import path.
+
+
+class _DottedNameModule(pytest.Module):
+    """Module collector that loads .sh.py (and other dotted-name) test files
+    via importlib.util, skipping the broken package-resolution import."""
+
+    def _getobj(self):
+        safe_name = self.path.name.replace(".", "_").removesuffix("_py")
+        if safe_name not in sys.modules:
+            spec = importlib.util.spec_from_file_location(safe_name, str(self.path))
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot create import spec for {self.path}")
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[safe_name] = mod
+            spec.loader.exec_module(mod)
+        return sys.modules[safe_name]
 
 
 def pytest_collect_file(file_path: Path, parent):
     if file_path.suffixes != [".sh", ".py"] or not file_path.name.startswith("test_"):
         return None
-    # Derive the module name that the default collector will look for.
-    rootdir = Path(parent.config.rootdir)
-    try:
-        rel = file_path.relative_to(rootdir)
-    except ValueError:
-        return None
-    module_name = str(rel).replace("/", ".").replace("\\", ".").removesuffix(".py")
-    if module_name not in sys.modules:
-        spec = importlib.util.spec_from_file_location(module_name, str(file_path))
-        if spec is None or spec.loader is None:
-            return None
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = mod
-        spec.loader.exec_module(mod)
-    # Return None to let the default collector create the Module node;
-    # it will find the module already cached in sys.modules.
-    return None
+    node = _DottedNameModule.from_parent(parent, path=file_path)
+    print(f"[conftest] created {type(node).__name__} for {file_path}", flush=True)
+    return node
 
 
 @pytest.fixture

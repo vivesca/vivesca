@@ -612,7 +612,7 @@ def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        state = preflight({
+        state = preflight({  # type: ignore[arg-type]
             "systole_num": 0,
             "budget_status": "green",
             "mode": args.mode,

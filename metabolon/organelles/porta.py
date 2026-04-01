@@ -54,7 +54,7 @@ def inject(domain: str) -> dict:
     url = f"https://{domain}"
 
     try:
-        from pycookiecheat import chrome_cookies
+        from pycookiecheat import chrome_cookies  # type: ignore[import-untyped]
     except ImportError:
         return {
             "success": False,

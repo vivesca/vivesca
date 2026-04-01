@@ -90,7 +90,7 @@ def _read_efferens() -> str:
     try:
         import acta
 
-        messages = acta.read()
+        messages = acta.read()  # type: ignore[attr-defined]  # pyright: ignore[attr-defined]
     except Exception as exc:
         return f"Efferens unavailable: {exc}"
     if not messages:
