@@ -69,7 +69,7 @@ async def _with_client(fn: Callable[[Any], Awaitable[str]]) -> str:
             "uv run python -m metabolon.organelles.telegram_auth"
         )
     try:
-        return await fn(client)
+        return await fn(client)  # type: ignore[misc]
     finally:
         client.disconnect()
 
