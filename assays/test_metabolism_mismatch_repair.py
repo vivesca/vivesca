@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-"""Tests for metabolon/metabolism/mismatch_repair.py — vocabulary, structural,
-orphan gap detection and unified scan/summary."""
+"""Tests for metabolon/metabolism/mismatch_repair.py."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -87,7 +86,7 @@ class TestDetectOrphanGaps:
         self._make_py_file(
             tmp_path,
             "things.py",
-            "from lib import resource\n@resource(\"org://thing\")\ndef thing(): pass\n",
+            'from lib import resource\n@resource("org://thing")\ndef thing(): pass\n',
         )
         consumer = tmp_path / "consumer.md"
         consumer.write_text("Use org://thing for stuff.\n")
@@ -98,7 +97,7 @@ class TestDetectOrphanGaps:
         self._make_py_file(
             tmp_path,
             "things.py",
-            "from lib import resource\n@resource(\"org://orphan\")\ndef orphan(): pass\n",
+            'from lib import resource\n@resource("org://orphan")\ndef orphan(): pass\n',
         )
         consumer = tmp_path / "consumer.md"
         consumer.write_text("Nothing relevant.\n")
@@ -111,7 +110,7 @@ class TestDetectOrphanGaps:
         self._make_py_file(
             tmp_path,
             "__init__.py",
-            "from lib import resource\n@resource(\"org://hidden\")\ndef h(): pass\n",
+            'from lib import resource\n@resource("org://hidden")\ndef h(): pass\n',
         )
         consumer = tmp_path / "c.md"
         consumer.write_text("")
@@ -129,7 +128,7 @@ class TestDetectOrphanGaps:
         self._make_py_file(
             tmp_path,
             "mod.py",
-            "from lib import tool\n@tool(\"org://thing\")\ndef thing(): pass\n",
+            'from lib import tool\n@tool("org://thing")\ndef thing(): pass\n',
         )
         consumer = tmp_path / "c.md"
         consumer.write_text("")
@@ -154,32 +153,38 @@ class TestDetectStructuralGaps:
         self._make_file(
             tmp_path,
             "metabolism/substrates/dummy.py",
-            "from metabolon.llm import query\n\nclass Foo:\n    """Autonomic subsystem."""\n    pass\n",
+            "from metabolon.llm import query\n\nclass Foo:\n"
+            '    """Autonomic subsystem."""\n    pass\n',
         )
         result = _detect_structural_gaps(src=tmp_path)
         assert len(result) >= 1
-        assert any("autonomic" in g.current_layer and "LLM" in g.actual_layer for g in result)
+        assert any(
+            "autonomic" in g.current_layer and "LLM" in g.actual_layer
+            for g in result
+        )
 
-    def test_cortical_labelled_without_llm_flagged(self, tmp_path):
+    def test_cortical_labelled_without_llm_substrate_exempt(self, tmp_path):
         self._make_file(
             tmp_path,
-            "metabolism/substrates/dummy.py",
-            "class Foo:\n    """Cortical subsystem."""\n    pass\n",
+            "metabolism/substrates/my_substrate.py",
+            'class Foo:\n    """Cortical subsystem."""\n    pass\n',
         )
         result = _detect_structural_gaps(src=tmp_path)
-        # Substrate files are exempt from the cortical-without-LLM check
-        assert isinstance(result, list)
+        # Files with "substrate" in name are exempt from cortical-without-LLM check
+        foo_gaps = [g for g in result if g.component == "Foo"]
+        assert foo_gaps == []
 
     def test_cortical_labelled_without_llm_non_substrate_flagged(self, tmp_path):
+        # Need substrates dir to exist so function doesn't return early
         self._make_file(
             tmp_path,
-            "metabolism/substrates/dummy.py",
+            "metabolism/substrates/placeholder.py",
             "# placeholder\n",
         )
         self._make_file(
             tmp_path,
             "metabolism/some_component.py",
-            "class Bar:\n    """Cortical subsystem."""\n    pass\n",
+            'class Bar:\n    """Cortical subsystem."""\n    pass\n',
         )
         result = _detect_structural_gaps(src=tmp_path)
         assert any(g.component == "Bar" for g in result)
@@ -202,7 +207,6 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair._detect_structural_gaps", return_value=[])
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps", return_value=[])
     def test_vocabulary_gap_open(self, mock_orphan, mock_struct, mock_run, tmp_path):
-        """grep returns hits -> vocabulary gap is open."""
         mock_run.return_value = MagicMock(
             stdout="metabolon/foo.py:5:class DnaSubstrate:\n",
             returncode=0,
@@ -217,7 +221,6 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair._detect_structural_gaps", return_value=[])
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps", return_value=[])
     def test_vocabulary_gap_closed(self, mock_orphan, mock_struct, mock_run, tmp_path):
-        """grep returns only hits in excluded files -> gap is closed."""
         mock_run.return_value = MagicMock(
             stdout="metabolon/precision.py:5:class DnaSubstrate:\n",
             returncode=0,
@@ -231,7 +234,6 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair._detect_structural_gaps", return_value=[])
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps", return_value=[])
     def test_vocabulary_grep_exception_reported(self, mock_orphan, mock_struct, mock_run, tmp_path):
-        """grep raises -> gap report still produced (closed=False)."""
         mock_run.side_effect = OSError("boom")
         reports = scan(src=tmp_path)
         vocab = [r for r in reports if r.kind == "vocabulary"]
@@ -276,7 +278,10 @@ class TestScan:
     def test_dormant_operons_included_if_importable(self, mock_orphan, mock_struct, mock_run, tmp_path):
         mock_run.return_value = MagicMock(stdout="", returncode=0)
         fake_operon = MagicMock(reaction="glycolysis")
-        with patch.dict("sys.modules", {"metabolon.operons": MagicMock(dormant=lambda: [fake_operon])}):
+        with patch.dict(
+            "sys.modules",
+            {"metabolon.operons": MagicMock(dormant=lambda: [fake_operon])},
+        ):
             reports = scan(src=tmp_path)
         dormant = [r for r in reports if r.kind == "dormant"]
         assert len(dormant) == 1
@@ -286,7 +291,6 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair._detect_structural_gaps", return_value=[])
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps", return_value=[])
     def test_dormant_import_error_graceful(self, mock_orphan, mock_struct, mock_run, tmp_path):
-        """If dormant import raises ImportError, scan skips dormant section."""
         mock_run.return_value = MagicMock(stdout="", returncode=0)
         import builtins
         real_import = builtins.__import__
@@ -314,7 +318,12 @@ class TestSummary:
     def test_vocabulary_output(self, mock_scan):
         mock_scan.return_value = [
             GapReport(kind="vocabulary", description="Foo -> Bar: rename", closed=True),
-            GapReport(kind="vocabulary", description="Baz -> Qux: rename", closed=False, references=["a.py:1"]),
+            GapReport(
+                kind="vocabulary",
+                description="Baz -> Qux: rename",
+                closed=False,
+                references=["a.py:1"],
+            ),
         ]
         text = summary()
         assert "Vocabulary: 1/2 closed" in text
@@ -333,7 +342,11 @@ class TestSummary:
     @patch("metabolon.metabolism.mismatch_repair.scan")
     def test_orphan_output(self, mock_scan):
         mock_scan.return_value = [
-            GapReport(kind="orphan", description="org://x (y.py): no consumer binding", closed=False),
+            GapReport(
+                kind="orphan",
+                description="org://x (y.py): no consumer binding",
+                closed=False,
+            ),
         ]
         text = summary()
         assert "Orphan: 1 unbound resources" in text
@@ -341,7 +354,11 @@ class TestSummary:
     @patch("metabolon.metabolism.mismatch_repair.scan")
     def test_dormant_output(self, mock_scan):
         mock_scan.return_value = [
-            GapReport(kind="dormant", description="glycolysis: transcribed but not translated", closed=False),
+            GapReport(
+                kind="dormant",
+                description="glycolysis: transcribed but not translated",
+                closed=False,
+            ),
         ]
         text = summary()
         assert "Dormant: 1 inactive operons" in text
@@ -350,7 +367,11 @@ class TestSummary:
     @patch("metabolon.metabolism.mismatch_repair.scan")
     def test_only_dormant_returns_non_clean(self, mock_scan):
         mock_scan.return_value = [
-            GapReport(kind="dormant", description="op: transcribed but not translated", closed=False),
+            GapReport(
+                kind="dormant",
+                description="op: transcribed but not translated",
+                closed=False,
+            ),
         ]
         text = summary()
         assert text != "Precision: clean"
