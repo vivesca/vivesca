@@ -88,6 +88,15 @@ _NEVER_NAME_WORDS = frozenset({
     "four", "low", "medium", "high", "big", "inference", "decision",
     "baringa", "neurons", "alan", "turing", "hawaiian", "morgan",
     "stanley", "delta", "managed", "one", "up", "not",
+    "wells", "fargo", "manager", "hiring", "draft", "pre",
+    "agentic", "tiering", "afternoon", "background",
+    "divergences", "documents", "requirements", "principles",
+    "design",
+    # additional false positives from tables
+    "fwd", "myterm", "plus", "consider", "epa",
+    "follow", "eu", "nist", "oecd", "internal", "tooling",
+    "diffusion", "llms", "states", "mas", "jpmorgan", "chase",
+    "three", "outsourcing",
 })
 
 
@@ -161,10 +170,11 @@ def cmd_stakeholders(_args: argparse.Namespace) -> None:
             ):
                 entries.append((name, role, stem))
 
-    # deduplicate by name (keep first occurrence — richest source)
+    # deduplicate by normalized name (keep first occurrence — richest source)
     seen: dict[str, tuple[str, str, str]] = {}
     for name, role, src in entries:
-        key = name.lower()
+        # normalize: strip commas, suffixes like ", PhD", lowercase
+        key = re.sub(r"[,].*$", "", name).strip().lower()
         if key not in seen:
             seen[key] = (name, role, src)
 
