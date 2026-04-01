@@ -309,3 +309,124 @@ def test_main_no_args_exits(cards_dir, patch_cards_dir, monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert exc_info.value.code == 1
+
+
+# ── additional edge-case tests ────────────────────────────────────────
+
+
+def test_get_card_title_h2_only_returns_stem(cards_dir):
+    """get_card_title returns stem when file has only ## (h2) headings."""
+    _write_card(cards_dir, "sub.md", "## Sub Heading\nSome text\n")
+    title = get_card_title(cards_dir / "sub.md")
+    assert title == "sub"
+
+
+def test_get_card_title_special_chars(cards_dir):
+    """get_card_title handles headings with colons, dashes, and unicode."""
+    _write_card(cards_dir, "spec.md", "# AI/ML: Risk — Stratégie\nContent\n")
+    title = get_card_title(cards_dir / "spec.md")
+    assert title == "AI/ML: Risk — Stratégie"
+
+
+def test_get_card_title_heading_with_inline_formatting(cards_dir):
+    """get_card_title returns raw heading text including markdown formatting."""
+    _write_card(cards_dir, "fmt.md", "# Important **Bold** and `code`\nContent\n")
+    title = get_card_title(cards_dir / "fmt.md")
+    assert title == "Important **Bold** and `code`"
+
+
+def test_list_cards_ignores_non_md(cards_dir, patch_cards_dir, capsys):
+    """list_cards only lists .md files, ignoring other extensions."""
+    _write_card(cards_dir, "card.md", "# Card\n")
+    (cards_dir / "notes.txt").write_text("Not a card\n")
+    (cards_dir / "data.json").write_text("{}\n")
+    list_cards()
+    out = capsys.readouterr().out
+    assert "card: Card" in out
+    assert "notes" not in out
+    assert "data" not in out
+
+
+def test_search_cards_keyword_in_title_only(cards_dir, patch_cards_dir, capsys):
+    """search_cards finds keyword that appears only in the title line."""
+    _write_card(cards_dir, "governance.md", "# Governance Framework\nNo other text\n")
+    search_cards("Governance Framework")
+    out = capsys.readouterr().out
+    assert "1 card(s) found" in out
+    assert "governance" in out
+
+
+def test_search_cards_card_with_fewer_than_three_lines(cards_dir, patch_cards_dir, capsys):
+    """search_cards summary mode handles cards with < 3 non-empty content lines."""
+    _write_card(cards_dir, "short.md", "# Short\nOnly one line of content\n")
+    search_cards("Short")
+    out = capsys.readouterr().out
+    assert "Only one line of content" in out
+    assert "1 card(s) found" in out
+
+
+def test_search_cards_card_with_only_title(cards_dir, patch_cards_dir, capsys):
+    """search_cards summary mode handles card with title and no body lines."""
+    _write_card(cards_dir, "bare.md", "# Bare Title\n")
+    search_cards("Bare")
+    out = capsys.readouterr().out
+    assert "bare" in out
+    assert "1 card(s) found" in out
+
+
+def test_search_cards_output_separators(cards_dir, patch_cards_dir, capsys):
+    """search_cards output contains separator lines around each card."""
+    _write_card(cards_dir, "sep.md", "# Separator Test\nBody text\n")
+    search_cards("Separator")
+    out = capsys.readouterr().out
+    assert "File: sep" in out
+    assert "Title: Separator Test" in out
+    # Two separator lines per card (before File: and after Title:)
+    assert out.count("=" * 60) >= 2
+
+
+def test_search_cards_full_mode_shows_entire_file(cards_dir, patch_cards_dir, capsys):
+    """search_cards full mode shows the entire file content including title."""
+    content = "# Long Card\nLine 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\n"
+    _write_card(cards_dir, "long.md", content)
+    search_cards("Long", full=True)
+    out = capsys.readouterr().out
+    for i in range(1, 7):
+        assert f"Line {i}" in out
+
+
+def test_main_full_without_keyword_exits(cards_dir, patch_cards_dir, monkeypatch):
+    """main() with --full but no keyword shows help and exits 1."""
+    _write_card(cards_dir, "card.md", "# Card\nContent\n")
+    monkeypatch.setattr(sys, "argv", ["card-search", "--full"])
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 1
+
+
+def test_main_list_and_full_together(cards_dir, patch_cards_dir, capsys, monkeypatch):
+    """main() with both --list and --full: --list takes precedence."""
+    _write_card(cards_dir, "alpha.md", "# Alpha\nContent A\n")
+    _write_card(cards_dir, "beta.md", "# Beta\nContent B\n")
+    monkeypatch.setattr(sys, "argv", ["card-search", "--list", "--full"])
+    list_cards()
+    out = capsys.readouterr().out
+    assert "alpha: Alpha" in out
+    assert "beta: Beta" in out
+
+
+def test_get_card_title_with_multiple_blank_lines_before_heading(cards_dir):
+    """get_card_title skips blank lines before finding the first # heading."""
+    _write_card(cards_dir, "blank.md", "\n\n\n# Hidden Title\nContent\n")
+    title = get_card_title(cards_dir / "blank.md")
+    assert title == "Hidden Title"
+
+
+def test_search_cards_empty_card_not_matched(cards_dir, patch_cards_dir, capsys):
+    """search_cards does not match empty .md files (grep -l won't find them)."""
+    _write_card(cards_dir, "empty.md", "")
+    _write_card(cards_dir, "nonempty.md", "# Has Content\nSome text here\n")
+    search_cards("Content")
+    out = capsys.readouterr().out
+    assert "1 card(s) found" in out
+    assert "nonempty" in out
