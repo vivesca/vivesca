@@ -28,4 +28,25 @@
 ........................................................................ [ 90%]
 ........................................................................ [ 93%]
 ........................................................................ [ 97%]
-............................................................
+................................................................         [100%]
+=========================== short test summary info ============================
+FAILED assays/test_bud.py::test_command_constructed_correctly - AssertionErro...
+FAILED assays/test_chromatin_backup.py::TestNoChanges::test_exits_0_when_no_changes
+FAILED assays/test_chromatin_backup.py::TestCommitAndPush::test_commits_modified_file
+FAILED assays/test_chromatin_backup.py::TestStagedChanges::test_commits_pre_staged_files
+FAILED assays/test_chromatin_backup.py::TestEdgeCases::test_git_fetch_fails_gracefully_no_remote
+FAILED assays/test_chromatin_backup.py::TestPushVerification::test_push_multiple_commits
+FAILED assays/test_chromatin_backup.py::TestRebaseSync::test_merge_fallback_on_conflict
+FAILED assays/test_chromatin_backup.py::TestRebaseSync::test_no_rebase_when_up_to_date
+FAILED assays/test_chromatin_backup.py::TestAdditionalEdgeCases::test_binary_file_commit
+FAILED assays/test_chromatin_backup.py::TestIdempotency::test_second_run_no_extra_commit
+FAILED assays/test_chromatin_backup.py::TestIdempotency::test_third_run_with_new_change
+FAILED assays/test_chromatin_backup.py::TestConflictResolution::test_merge_fallback_preserves_both_branches
+FAILED assays/test_chromatin_backup.py::TestTheirsFallback::test_theirs_fallback_commit_is_local_only
+FAILED assays/test_chromatin_backup.py::TestSymlink::test_symlink_committed
+FAILED assays/test_chromatin_backup_effector.py::test_conflict_accept_theirs
+FAILED assays/test_cleanup_stuck.py::TestOutputMessages::test_process_count_line
+FAILED assays/test_client_brief.py::TestCli::test_no_args_exits - assert 0 == 1
+ERROR assays/test_chromatin_backup.py::TestEdgeCases::test_empty_git_dir_exits_gracefully
+ERROR assays/test_cn_route.py::TestRouteCmd::test_root_no_sudo - FileNotFound...
+17 failed, 2204 passed, 1 skipped, 2 errors in 79.49s (0:01:19)
