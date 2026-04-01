@@ -35,7 +35,12 @@ def _init_fake_chromatin(tmp_path: Path, with_remote: bool = False) -> Path:
     chromatin_dir = fake_home / "epigenome" / "chromatin"
     chromatin_dir.mkdir(parents=True)
 
-    subprocess.run(["git", "init"], cwd=chromatin_dir, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=chromatin_dir,
+        capture_output=True,
+        check=True,
+    )
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
         cwd=chromatin_dir,
@@ -376,7 +381,7 @@ def test_rebases_on_remote_changes(tmp_path):
     # Push a commit from a clone of the remote (simulating Obsidian push)
     work = tmp_path / "other_clone"
     subprocess.run(
-        ["git", "clone", str(remote_dir), str(work)],
+        ["git", "clone", "-b", "main", str(remote_dir), str(work)],
         capture_output=True,
         check=True,
     )
@@ -392,13 +397,6 @@ def test_rebases_on_remote_changes(tmp_path):
         capture_output=True,
         check=True,
     )
-    # Ensure the clone uses 'main' branch (git defaults to 'master')
-    subprocess.run(
-        ["git", "checkout", "-b", "main"],
-        cwd=work,
-        capture_output=True,
-        check=True,
-    )
     (work / "from-obsidian.md").write_text("obsidian note")
     subprocess.run(["git", "add", "-A"], cwd=work, capture_output=True, check=True)
     subprocess.run(
@@ -407,12 +405,7 @@ def test_rebases_on_remote_changes(tmp_path):
         capture_output=True,
         check=True,
     )
-    subprocess.run(
-        ["git", "push", "-u", "origin", "main"],
-        cwd=work,
-        capture_output=True,
-        check=True,
-    )
+    subprocess.run(["git", "push"], cwd=work, capture_output=True, check=True)
 
     # Now local adds a file and runs backup (should rebase onto remote change)
     (chromatin_dir / "local.md").write_text("local note")
