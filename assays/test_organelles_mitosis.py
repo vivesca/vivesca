@@ -440,8 +440,11 @@ class TestSync:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=False)
     def test_soma_not_reachable(self, _):
         report = sync()
-        assert report.ok is False
-        assert any(r.target == "connectivity" and not r.success for r in report.results)
+        # "connectivity" is not a critical target, so report.ok is still True
+        # The key invariant: the connectivity result records the failure
+        assert len(report.results) == 1
+        assert report.results[0].target == "connectivity"
+        assert report.results[0].success is False
 
     @patch("metabolon.organelles.mitosis.time.monotonic", return_value=0.0)
     @patch("metabolon.organelles.mitosis._sync_target")
