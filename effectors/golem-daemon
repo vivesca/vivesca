@@ -214,9 +214,9 @@ SSH_REMOTE_EXIT_CONNECT_FAIL = 125  # Exit code signalling SSH connection failur
 PROVIDER_FALLBACK = {
     "codex": ["gemini", "zhipu"],
     "gemini": ["codex", "zhipu"],
-    "zhipu": ["codex", "gemini"],
-    "infini": ["codex", "gemini"],
-    "volcano": ["codex", "gemini"],
+    "zhipu": ["volcano", "infini", "codex", "gemini"],
+    "infini": ["zhipu", "volcano", "codex", "gemini"],
+    "volcano": ["zhipu", "infini", "codex", "gemini"],
 }
 
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
