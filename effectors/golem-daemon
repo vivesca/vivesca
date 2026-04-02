@@ -544,6 +544,37 @@ def _extract_task_id(cmd: str) -> str:
     return f"t-{m.group(1)}" if m else ""
 
 
+def _normalize_prompt(cmd: str) -> str:
+    """Normalize a golem command for dedup comparison.
+
+    Strips task ID, provider, max-turns flags, and (retry) tags,
+    returning just the prompt text with normalized whitespace.
+    """
+    c = TASK_ID_RE.sub('', cmd).strip()
+    if c.startswith('golem '):
+        c = c[6:]
+    c = re.sub(r'--provider\s+\w+\s*', '', c).strip()
+    c = re.sub(r'--max-turns\s+\d+\s*', '', c).strip()
+    c = re.sub(r'\s*\(retry\)\s*$', '', c).strip()
+    c = ' '.join(c.split())
+    return c
+
+
+def _get_pending_prompts() -> set[str]:
+    """Get set of normalized prompts from pending queue entries."""
+    if not QUEUE_FILE.exists():
+        return set()
+    prompts: set[str] = set()
+    try:
+        for line in QUEUE_FILE.read_text().splitlines():
+            m = re.match(r'^- \[( |!!)\] `([^`]+)`', line)
+            if m:
+                prompts.add(_normalize_prompt(m.group(2)))
+    except (PermissionError, OSError, UnicodeDecodeError):
+        pass
+    return prompts
+
+
 def _generate_task_id() -> str:
     """Generate a short task ID: t-xxxxxx (6 hex chars)."""
     return f"t-{secrets.token_hex(3)}"
@@ -1413,15 +1444,12 @@ def auto_requeue(min_pending: int = 20) -> int:
         return 0
 
     # Build set of prompts already in queue (pending OR completed) to avoid duplication
-    _completed_prompts: set[str] = set()
+    _existing_norms: set[str] = _get_pending_prompts()
     if QUEUE_FILE.exists():
         for line in QUEUE_FILE.read_text().splitlines():
             m = re.search(r'`golem\s+(?:\[t-[a-f0-9]+\]\s+)?(.+)`', line)
             if m:
-                # Normalize: strip provider/turns flags, keep just the quoted prompt
-                prompt_match = re.search(r'"(.+)"', m.group(1))
-                if prompt_match:
-                    _completed_prompts.add(prompt_match.group(1)[:80])  # first 80 chars as key
+                _existing_norms.add(_normalize_prompt(m.group(1)))
 
     germline = Path.home() / "germline"
     epigenome = Path.home() / "epigenome"
@@ -1432,12 +1460,15 @@ def auto_requeue(min_pending: int = 20) -> int:
     def add(prompt, turns=25):
         nonlocal pi
         # Skip if a similar prompt was already queued (pending or completed)
-        if prompt[:80] in _completed_prompts:
+        test_cmd = f'golem --provider zhipu --max-turns {turns} "{prompt}"'
+        if _normalize_prompt(test_cmd) in _existing_norms:
             return
         p = providers[pi % 3]
         pi += 1
         prompt = prompt.replace('"', '\\"')
-        tasks.append(f'- [ ] `golem --provider {p} --max-turns {turns} "{prompt}"`')
+        task_line = f'- [ ] `golem --provider {p} --max-turns {turns} "{prompt}"`'
+        tasks.append(task_line)
+        _existing_norms.add(_normalize_prompt(f'golem --provider {p} --max-turns {turns} "{prompt.replace(chr(92) + chr(34), chr(34))}"'))
 
     existing_tests = set()
     assays = germline / "assays"
@@ -1879,11 +1910,14 @@ def daemon_loop(dry_run: bool = False):
                             log(f"DISPATCH SKIP [{task_id}]: {provider}->{dispatch_provider} at capacity ({current}/{limit})")
                         continue
 
-                    # Check if already running (avoid duplicate dispatch)
+                    # Check if already running (avoid duplicate dispatch via normalized prompt)
+                    norm_prompt = _normalize_prompt(cmd)
                     already_running = any(
-                        _running_entry_details(entry)[1] == cmd for entry in running.values()
+                        _normalize_prompt(_running_entry_details(entry)[1]) == norm_prompt
+                        for entry in running.values()
                     )
                     if already_running:
+                        log(f"skipping duplicate: [{task_id}]")
                         continue
 
                     # Routing: local vs remote overflow

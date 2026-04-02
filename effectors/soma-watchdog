@@ -9,6 +9,7 @@ Every 60 seconds:
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import signal
@@ -22,6 +23,10 @@ POLL = 60  # seconds
 HOME = Path.home()
 GERMLINE = HOME / "germline"
 LOG = HOME / "tmp" / "soma-watchdog.log"
+
+# Observability paths
+JSONL_PATH = HOME / "epigenome" / "chromatin" / "telemetry" / "soma-resources.jsonl"
+ALERT_STAMP = HOME / "tmp" / "soma-alert-last.txt"
 
 # Thresholds
 DISK_WARN_GB = 2.0
@@ -120,8 +125,88 @@ def kill_runaway_golems():
     return killed
 
 
+def log_resources():
+    """Append one JSON line per tick to JSONL_PATH with system metrics."""
+    JSONL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().isoformat()
+
+    # cpu_1m from /proc/loadavg field 1
+    try:
+        loadavg = Path("/proc/loadavg").read_text().split()
+        cpu_1m = float(loadavg[0])
+    except Exception:
+        cpu_1m = 0.0
+
+    # mem_pct from /proc/meminfo MemAvailable/MemTotal
+    try:
+        mem_total = mem_avail = 0
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            parts = line.split()
+            if parts and parts[0] == "MemTotal:":
+                mem_total = int(parts[1])
+            elif parts and parts[0] == "MemAvailable:":
+                mem_avail = int(parts[1])
+        mem_pct = (mem_avail / mem_total * 100.0) if mem_total else 0.0
+    except Exception:
+        mem_pct = 0.0
+
+    # disk_pct and disk_free_gb from shutil.disk_usage
+    try:
+        u = shutil.disk_usage(str(HOME))
+        disk_pct = u.used / u.total * 100.0
+        disk_free_gb = u.free / (1024 ** 3)
+    except Exception:
+        disk_pct = 0.0
+        disk_free_gb = 0.0
+
+    # golem_count from pgrep -c -f golem
+    try:
+        r = subprocess.run(
+            ["pgrep", "-c", "-f", "golem"],
+            capture_output=True, text=True, timeout=5,
+        )
+        golem_count = int(r.stdout.strip()) if r.returncode == 0 else 0
+    except Exception:
+        golem_count = 0
+
+    record = {
+        "ts": ts,
+        "cpu_1m": round(cpu_1m, 2),
+        "mem_pct": round(mem_pct, 2),
+        "disk_pct": round(disk_pct, 2),
+        "disk_free_gb": round(disk_free_gb, 2),
+        "golem_count": golem_count,
+    }
+    with open(JSONL_PATH, "a") as f:
+        f.write(json.dumps(record) + "\n")
+
+
+def alert_on_crit(health_json: dict):
+    """If any health check has status==crit, alert via deltos. Dedup 15 min."""
+    crit_names = [
+        name for name, check in health_json.items()
+        if isinstance(check, dict) and check.get("status") == "crit"
+    ]
+    if not crit_names:
+        return
+
+    # Dedup: skip if ALERT_STAMP mtime < 15 min ago
+    if ALERT_STAMP.exists():
+        elapsed = time.time() - ALERT_STAMP.stat().st_mtime
+        if elapsed < 15 * 60:
+            return
+
+    msg = f"soma-watchdog CRIT: {', '.join(crit_names)}"
+    subprocess.run(["deltos", msg], capture_output=True, timeout=10)
+
+    # Write stamp after sending
+    ALERT_STAMP.parent.mkdir(parents=True, exist_ok=True)
+    ALERT_STAMP.write_text(datetime.now().isoformat())
+
+
 def check_cycle():
-    """One watchdog cycle."""
+    """One watchdog cycle. Returns health dict."""
+    health: dict = {}
     vol_free = free_gb(HOME)
     root_free = free_mb(Path("/tmp"))
 
@@ -132,15 +217,23 @@ def check_cycle():
         log(f"DISK WARN: volume {vol_free:.1f}GB → {vol_after:.1f}GB (cleaned {cleaned})")
 
         if vol_after < DISK_CRIT_GB:
+            health["disk_volume"] = {"status": "crit", "free_gb": vol_after}
             # Emergency: kill all golems to stop disk writes
             subprocess.run("pkill -f 'claude.*--print' 2>/dev/null", shell=True, timeout=300)
             log(f"DISK CRITICAL: killed all golems. Volume at {vol_after:.1f}GB")
+        else:
+            health["disk_volume"] = {"status": "warn", "free_gb": vol_after}
+    else:
+        health["disk_volume"] = {"status": "ok", "free_gb": vol_free}
 
     # Disk: root
     if root_free < ROOT_WARN_MB:
+        health["root_fs"] = {"status": "warn", "free_mb": root_free}
         clean_temps()
         root_after = free_mb(Path("/tmp"))
         log(f"ROOT WARN: /tmp {root_free:.0f}MB → {root_after:.0f}MB")
+    else:
+        health["root_fs"] = {"status": "ok", "free_mb": root_free}
 
     # Log rotation
     for logfile in [
@@ -158,6 +251,8 @@ def check_cycle():
     # Runaway processes
     kill_runaway_golems()
 
+    return health
+
 
 def main():
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -166,7 +261,9 @@ def main():
     log("Watchdog started")
     try:
         while True:
-            check_cycle()
+            health = check_cycle()
+            log_resources()
+            alert_on_crit(health)
             time.sleep(POLL)
     except KeyboardInterrupt:
         log("Watchdog stopped")
