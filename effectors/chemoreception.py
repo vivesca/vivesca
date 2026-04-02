@@ -17,7 +17,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-REFERENCE_DIR = Path.home() / "code" / "epigenome" / "chromatin" / "euchromatin"
+REFERENCE_DIR = Path.home() / "epigenome" / "chromatin" / "euchromatin"
 DEBOUNCE_FILE = Path.home() / ".claude" / "retrieval-hook-state.json"
 
 # Signal transduction: read from synapse.conf, fallback to hardcoded defaults
