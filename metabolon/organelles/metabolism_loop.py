@@ -21,14 +21,14 @@ Usage:
 """
 
 
+import operator
 import time
 from typing import Annotated, TypedDict
-import operator
 
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
-from langchain_core.runnables.config import RunnableConfig
 
 from metabolon.metabolism.fitness import sense_affect
 from metabolon.metabolism.infection import chronic_infections, infection_summary
@@ -86,7 +86,7 @@ def measure_fitness(state: MetabolismState) -> dict:
     """
     # recall_all() may raise ValidationError on schema-mismatched legacy records.
     # Parse line-by-line to skip corrupt entries rather than failing the whole loop.
-    from metabolon.metabolism.signals import Stimulus, DEFAULT_LOG
+    from metabolon.metabolism.signals import DEFAULT_LOG, Stimulus
     stimuli = []
     if DEFAULT_LOG.exists():
         for line in DEFAULT_LOG.read_text().splitlines():
@@ -266,7 +266,7 @@ def sweep_for_issues(state: MetabolismState) -> dict:
     analysis of each candidate to the LLM via transduce_safe(). Results are
     stored as sweep_results for the report.
     """
-    from metabolon.metabolism.signals import Stimulus, DEFAULT_LOG
+    from metabolon.metabolism.signals import DEFAULT_LOG, Stimulus
     stimuli = []
     if DEFAULT_LOG.exists():
         for line in DEFAULT_LOG.read_text().splitlines():
@@ -350,11 +350,11 @@ def report(state: MetabolismState) -> dict:
 
     lines = [
         f"# Metabolism Report — {ts}",
-        f"",
-        f"## Health",
+        "",
+        "## Health",
         f"- Score: {health_score:.2f} / 1.00",
         f"- Cycles: {iteration}",
-        f"",
+        "",
     ]
 
     if infections:
@@ -545,7 +545,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.dry_run:
-        from metabolon.metabolism.signals import Stimulus, DEFAULT_LOG
+        from metabolon.metabolism.signals import DEFAULT_LOG, Stimulus
         stimuli = []
         if DEFAULT_LOG.exists():
             for _line in DEFAULT_LOG.read_text().splitlines():

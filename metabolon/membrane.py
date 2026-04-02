@@ -98,7 +98,7 @@ def _format_tool_error(tool_name: str, exc: Exception) -> str:
 class ToolTiming:
     """Single tool-call timing record."""
 
-    __slots__ = ("tool", "latency_ms", "outcome")
+    __slots__ = ("latency_ms", "outcome", "tool")
 
     def __init__(self, tool: str, latency_ms: int, outcome: str) -> None:
         self.tool = tool

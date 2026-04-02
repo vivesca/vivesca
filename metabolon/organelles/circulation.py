@@ -293,11 +293,11 @@ def checkpoint_node(state: CirculationState) -> dict:
     work = state.get("dispatched_work", [])
     lines = [
         f"# Circulation Manifest — Systole {state.get('systole_num', 0)}",
-        f"",
+        "",
         f"Produced: {state.get('total_produced', 0)}",
         f"For review: {state.get('total_for_review', 0)}",
         f"Budget: {state.get('budget_status', 'unknown')}",
-        f"",
+        "",
         "## Completed Work",
     ]
     for w in work:

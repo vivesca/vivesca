@@ -431,8 +431,8 @@ def sync_phenotype(
     Returns:
         SyncResult with full status.
     """
-    from metabolon.locus import PLATFORM_SYMLINKS, phenotype_md
     from metabolon.enzymes.integrin import _check_phenotype_symlinks
+    from metabolon.locus import PLATFORM_SYMLINKS, phenotype_md
 
     # ── step 1: symlinks ─────────────────────────────────────────────
     symlinks_ok: list[str] = []

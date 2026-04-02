@@ -9,7 +9,8 @@ import subprocess
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time as dt_time, timedelta
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
 from pathlib import Path
 from typing import Any, NoReturn
 from zoneinfo import ZoneInfo

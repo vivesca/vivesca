@@ -137,7 +137,7 @@ def generate_talking_points(
         context: Meeting context or agenda (e.g., "AI governance review kickoff").
         max_points: Maximum talking points to generate.
     """
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     HKT = timezone(timedelta(hours=8))
 
     assets = _scan_consulting_assets()

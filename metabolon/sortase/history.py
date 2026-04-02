@@ -5,7 +5,7 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from metabolon.sortase.logger import read_logs, _parse_iso_timestamp
+from metabolon.sortase.logger import _parse_iso_timestamp, read_logs
 
 DEFAULT_LIMIT = 20
 

@@ -170,11 +170,11 @@ def format_compare_report(delta: CompareDelta) -> str:
         "",
         f"**{delta.date_a}** → **{delta.date_b}**",
         "",
-        "| Metric | {} | {} | Delta |".format(delta.date_a, delta.date_b),
+        f"| Metric | {delta.date_a} | {delta.date_b} | Delta |",
         "|--------|------|------|-------|",
-        "| Tasks | {} | {} | {}{} |".format(delta.task_count_a, delta.task_count_b, count_delta_str, count_pct),
-        "| Success rate | {} | {} | {}{} |".format(rate_a_str, rate_b_str, rate_delta_str, rate_pct),
-        "| Avg duration | {:.1f}s | {:.1f}s | {}{} |".format(delta.avg_duration_a, delta.avg_duration_b, dur_delta_str, dur_pct),
+        f"| Tasks | {delta.task_count_a} | {delta.task_count_b} | {count_delta_str}{count_pct} |",
+        f"| Success rate | {rate_a_str} | {rate_b_str} | {rate_delta_str}{rate_pct} |",
+        f"| Avg duration | {delta.avg_duration_a:.1f}s | {delta.avg_duration_b:.1f}s | {dur_delta_str}{dur_pct} |",
         "",
     ]
 

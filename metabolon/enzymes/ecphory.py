@@ -50,7 +50,8 @@ def ecphory(
     if action == "engram":
         if not query:
             return EcphoryResult(results="engram requires: query")
-        from metabolon.organelles.engram import TraceFragment, search as _engram_search
+        from metabolon.organelles.engram import TraceFragment
+        from metabolon.organelles.engram import search as _engram_search
         fragments: list[TraceFragment] = _engram_search(query, days=days, deep=deep, role=role or None)
         if not fragments:
             return EcphoryResult(results=f"No matches for '{query}' in last {days} days.")

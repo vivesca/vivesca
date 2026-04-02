@@ -13,7 +13,7 @@ on first access and auto-refreshed on writes.
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -174,7 +174,7 @@ class _MarkIndex:
         Entries are sorted from oldest to newest.
         """
         self.ensure_loaded()
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         cutoff = now - (days * 86400)
         stale = [
             {
@@ -225,7 +225,7 @@ def inscribe(content: str, category: str = "gotcha", confidence: float = 0.8) ->
     if not MARKS_DIR.is_dir():
         MARKS_DIR.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9-]", "", content[:50].lower().replace(" ", "-"))[:40]
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M")
     filename = f"auto_{slug}_{ts}.md"
     path = MARKS_DIR / filename
     path.write_text(

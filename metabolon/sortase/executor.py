@@ -11,10 +11,10 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
-from typing import Any
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 from metabolon.sortase.decompose import TaskSpec
 
@@ -340,7 +340,7 @@ def _write_status_entries(entries: list[dict | str]) -> None:
     path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
 
 
-def _locked_status_update(fn: "Callable[[list[dict | str]], list[dict | str]]") -> None:
+def _locked_status_update(fn: Callable[[list[dict | str]], list[dict | str]]) -> None:
     """Atomically read-modify-write status.json with file locking."""
     import fcntl
 

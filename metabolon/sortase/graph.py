@@ -29,9 +29,9 @@ from typing import Annotated, TypedDict
 
 logger = logging.getLogger(__name__)
 
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
-from langchain_core.runnables.config import RunnableConfig
 
 from metabolon.sortase.decompose import TaskSpec, decompose_plan
 from metabolon.sortase.executor import execute_tasks, summarize_cost_estimates

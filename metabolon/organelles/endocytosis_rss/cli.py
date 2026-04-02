@@ -120,6 +120,13 @@ def internalize(
 
 def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     state = restore_state(cfg.state_path)
+    from metabolon.organelles.endocytosis_rss.cargo import (
+        append_cargo,
+        rotate_cargo,
+    )
+    from metabolon.organelles.endocytosis_rss.cargo import (
+        recall_title_prefixes as recall_cargo_prefixes,
+    )
     from metabolon.organelles.endocytosis_rss.fetcher import (
         archive_cargo,
         internalize_json_api,
@@ -129,11 +136,6 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         internalize_x_account,
         internalize_x_bookmarks,
         release_bookmarks,
-    )
-    from metabolon.organelles.endocytosis_rss.cargo import (
-        append_cargo,
-        recall_title_prefixes as recall_cargo_prefixes,
-        rotate_cargo,
     )
     from metabolon.organelles.endocytosis_rss.log import (
         _title_prefix,

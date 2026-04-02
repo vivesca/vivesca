@@ -122,8 +122,9 @@ def sortase(
             )
 
             # Log
-            from metabolon.sortase.logger import append_log
             from datetime import datetime
+
+            from metabolon.sortase.logger import append_log
             dur = round(sum(a.duration_s for r in results for a in r.attempts), 3)
             entry = {
                 "timestamp": datetime.now().isoformat(timespec="seconds"),

@@ -9,9 +9,6 @@ from pathlib import Path
 
 from metabolon.locus import efferens, spending
 from metabolon.respirometry.categories import categorise, restore_categories
-from metabolon.respirometry.detect import filename_matches, identify_bank
-from metabolon.respirometry.monitors import activate_monitors
-from metabolon.respirometry.parsers import get_parser
 from metabolon.respirometry.chromatin import (
     archive_pdf,
     file_hash,
@@ -19,6 +16,9 @@ from metabolon.respirometry.chromatin import (
     secrete_statement,
     stamp_processed,
 )
+from metabolon.respirometry.detect import filename_matches, identify_bank
+from metabolon.respirometry.monitors import activate_monitors
+from metabolon.respirometry.parsers import get_parser
 
 SPENDING_DIR = spending
 CATEGORIES_FILE = SPENDING_DIR / "categories.yaml"

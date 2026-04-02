@@ -3,12 +3,12 @@ from __future__ import annotations
 import os
 
 from metabolon.locus import (
-    chromatin,
-    receptors,
-    phenotype_md,
-    PLATFORM_SYMLINKS,
     PLATFORM_MARKERS_CONFIRM,
     PLATFORM_MARKERS_REQUIRED,
+    PLATFORM_SYMLINKS,
+    chromatin,
+    phenotype_md,
+    receptors,
 )
 
 """integrin -- attachment integrity probe.
@@ -34,7 +34,6 @@ Tools:
 """
 
 import filecmp
-import os
 import re
 import shutil
 import subprocess

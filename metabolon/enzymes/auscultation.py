@@ -7,14 +7,13 @@ Exposes the listening surfaces the auscultation skill taps:
 """
 
 
+import platform as _platform
 import re
 from collections import Counter
 from pathlib import Path
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
-
-import platform as _platform
 
 # macOS: ~/Library/Logs/vivesca/   Linux: ~/.local/share/vivesca/
 _LOG_DIR = (

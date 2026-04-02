@@ -310,9 +310,9 @@ def consolidate(marks_dir: Path | None = None) -> ConsolidationReport:
         f"# Chromatin Remodeling — {date_str}\n\n"
         f"## Phase 1: Synaptic (today's experiences)\n\n"
         + (("\n".join(today_lines) + "\n") if today_lines else "_No marks modified today._\n")
-        + f"\n## Phase 2: Systems (clusters)\n\n"
+        + "\n## Phase 2: Systems (clusters)\n\n"
         + (("\n".join(cluster_lines) + "\n") if cluster_lines else "_No clusters found._\n")
-        + f"\n## Strengthened\n\n"
+        + "\n## Strengthened\n\n"
         + (("\n".join(strengthened_lines) + "\n") if strengthened_lines else "_None strengthened today._\n")
     )
     summary_path.write_text(summary, encoding="utf-8")
@@ -747,7 +747,7 @@ def format_report(report: DemethylaseReport) -> str:
 
     if report.mark_clusters:
         lines.append("")
-        lines.append(f"Mark clusters (histone code, top 10):")
+        lines.append("Mark clusters (histone code, top 10):")
         for cluster in report.mark_clusters[:10]:
             lines.append(f"  {cluster['topic']} ({cluster['count']} marks): {', '.join(cluster['marks'][:3])}...")
 

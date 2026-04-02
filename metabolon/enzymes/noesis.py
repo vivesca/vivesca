@@ -12,11 +12,11 @@ Resources:
 
 import subprocess
 
-from metabolon.organelles.effector import run_cli  # noqa: E402
-
-from fastmcp.tools.function_tool import tool  # noqa: E402
 from fastmcp.resources.function_resource import resource  # noqa: E402
+from fastmcp.tools.function_tool import tool  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
+
+from metabolon.organelles.effector import run_cli  # noqa: E402
 
 BINARY = "~/.cargo/bin/noesis"
 

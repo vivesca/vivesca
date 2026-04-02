@@ -14,11 +14,10 @@ reading is compared to recent history to surface trends.
 import filecmp
 import json
 import os
-from collections.abc import Callable
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from collections.abc import Callable
 from typing import Literal
 
 import yaml
@@ -240,7 +239,11 @@ def _sense() -> str:
     """Proprioceptive readiness check against active goals."""
     from metabolon.organelles.receptor_sense import (
         GOALS_DIR as _ORGANELLE_GOALS_DIR,
+    )
+    from metabolon.organelles.receptor_sense import (
         SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
+    )
+    from metabolon.organelles.receptor_sense import (
         ProprioceptiveStore,
         restore_goals,
         synthesize_signal_summary,
@@ -297,6 +300,8 @@ def _drill(
     """Record a proprioceptive drill signal."""
     from metabolon.organelles.receptor_sense import (
         SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
+    )
+    from metabolon.organelles.receptor_sense import (
         ProprioceptiveStore,
     )
 

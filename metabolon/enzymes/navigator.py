@@ -8,8 +8,8 @@ Actions: extract|screenshot|check_auth
 
 import atexit
 import os
-import sys
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any

@@ -8,11 +8,10 @@ Tools:
 
 from pathlib import Path
 
-
-from metabolon.organelles.effector import run_cli  # noqa: E402
-
 from fastmcp.tools.function_tool import tool  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
+
+from metabolon.organelles.effector import run_cli  # noqa: E402
 
 BINARY = str(Path.home() / ".local/bin/judge")
 

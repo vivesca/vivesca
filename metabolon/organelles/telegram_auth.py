@@ -14,6 +14,7 @@ SESSION_NAME = "vivesca"
 
 async def main():
     import sys
+
     from telethon import TelegramClient
 
     api_id = int(os.environ["TELEGRAM_API_ID"])

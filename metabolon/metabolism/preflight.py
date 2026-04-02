@@ -183,8 +183,8 @@ def check_provider_health(provider: str = "zhipu", timeout: float = 5.0) -> Chec
     This is a lightweight check that doesn't make actual LLM calls.
     Returns warning on failure (degraded but usable).
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     config = PROVIDER_CONFIG.get(provider)
     if config is None:
