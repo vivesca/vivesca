@@ -9,8 +9,7 @@ Praxis, Tonus, budget, reminders, email threads tracker, prospective memory.
 
 import concurrent.futures
 import datetime
-from pathlib import Path
-
+from metabolon.morphology import resolve_memory_dir
 from metabolon.pinocytosis import (
     intake_context,
     read_file,
@@ -81,7 +80,7 @@ def intake_email_threads() -> dict:
 
 
 def intake_prospective() -> dict:
-    ok, out = read_file(Path.home() / ".claude/projects/-Users-terry/memory/prospective.md")
+    ok, out = read_file(resolve_memory_dir() / "prospective.md")
     return {"label": "Prospective Memory", "ok": ok, "content": out}
 
 

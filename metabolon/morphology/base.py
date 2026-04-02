@@ -8,7 +8,32 @@ tool outputs pass — typed, structured, forward-compatible.
 """
 
 
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict
+
+
+def resolve_memory_dir() -> Path:
+    """Resolve the CC project memory dir for the current platform.
+
+    CC project dirs encode the working directory with ``-`` replacing ``/``.
+    On macOS (home = /Users/terry) the dir is ``-Users-terry``;
+    on Linux/soma (home = /home/terry) it's ``-home-terry``.
+    """
+    base = Path.home() / ".claude" / "projects"
+    for candidate in ("-home-terry", "-Users-terry", "-home-terry-germline"):
+        d = base / candidate / "memory"
+        if d.exists():
+            return d
+    # Fallback: first project dir that has a memory/ subdir
+    if base.exists():
+        for p in sorted(base.iterdir()):
+            mem = p / "memory"
+            if mem.is_dir():
+                return mem
+    # Last resort: derive from home path
+    home = str(Path.home()).replace("/", "-").lstrip("-")
+    return base / f"-{home}" / "memory"
 
 
 class Secretion(BaseModel):

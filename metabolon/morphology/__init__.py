@@ -6,6 +6,7 @@ from metabolon.morphology.base import (
     Secretion,
     Vesicle,
     Vital,
+    resolve_memory_dir,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "Secretion",
     "Vesicle",
     "Vital",
+    "resolve_memory_dir",
 ]

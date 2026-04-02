@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 
 from metabolon.locus import blog_published
+from metabolon.morphology import resolve_memory_dir
 
 
 @click.group()
@@ -1402,7 +1403,7 @@ def pulse(waves, model, retry, focus, stop_after, overnight, max_waves, dry_run)
     "--memory-dir",
     type=click.Path(exists=False),
     default=None,
-    help="Crystal directory (default: ~/.claude/projects/-Users-terry/memory/).",
+    help="Crystal directory (default: auto-resolved CC project memory dir).",
 )
 @click.option("--days", default=30, help="Stimulus window in days.")
 def metabolism_dissolve(memory_dir: str | None, days: int):
@@ -1415,7 +1416,7 @@ def metabolism_dissolve(memory_dir: str | None, days: int):
     if memory_dir:
         mem_path = Path(memory_dir)
     else:
-        mem_path = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
+        mem_path = resolve_memory_dir()
 
     if not mem_path.exists():
         click.echo(f"Memory directory not found: {mem_path}")

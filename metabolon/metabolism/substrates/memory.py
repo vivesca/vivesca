@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from metabolon.metabolism.signals import SensorySystem
+from metabolon.morphology import resolve_memory_dir
 
 # Type to consolidation pathway — mirrors cli.py CONSOLIDATION_PATHWAYS
 CONSOLIDATION_PATHWAYS: dict[str, tuple[str, str]] = {
@@ -68,7 +69,7 @@ class ConsolidationSubstrate:
         collector: SensorySystem | None = None,
     ):
         self.memory_dir = memory_dir or (
-            Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
+            resolve_memory_dir()
         )
         self.constitution_path = constitution_path or (
             Path.home() / ".local" / "share" / "vivesca" / "genome.md"
