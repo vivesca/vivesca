@@ -20,7 +20,7 @@ def _load_translocon():
     idx = source.index("# ///\n")
     idx = source.index("\n", idx + 1)
     body = source[idx + 1:]
-    ns: dict = {}
+    ns: dict = {"__file__": _TRANSLOCON_PATH}
     exec(body, ns)
     return ns
 
@@ -729,7 +729,7 @@ _TRANSLOCON_MODULE_PATH = os.path.expanduser("~/germline/metabolon/organelles/tr
 def _load_translocon_module():
     """Load translocon.py module for testing dispatch_stats."""
     source = open(_TRANSLOCON_MODULE_PATH).read()
-    ns: dict = {"__name__": "__main__"}
+    ns: dict = {"__name__": "__main__", "__file__": _TRANSLOCON_MODULE_PATH}
     exec(source, ns)
     return ns
 
