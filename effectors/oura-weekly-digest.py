@@ -1,93 +1,36 @@
 #!/usr/bin/env -S uv run --script
-from __future__ import annotations
-
 # /// script
 # requires-python = ">=3.11"
-# dependencies = []
+# dependencies = ["httpx"]
 # ///
 """
-Oura weekly digest — fetches 7-day health data via oura CLI and saves a
-clean markdown note to ~/notes/Daily/Oura Weekly - YYYY-MM-DD.md.
+Oura weekly digest — fetches 7-day health data via chemoreceptor organelle
+and saves a clean markdown note to ~/notes/Daily/Oura Weekly - YYYY-MM-DD.md.
 """
 
-import argparse
-import re
-import subprocess
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+# Ensure we can import metabolon
+sys.path.append(str(Path.home() / "germline"))
 
-def strip_ansi(text: str) -> str:
-    return re.sub(r'\x1b\[[0-9;]*m', '', text)
-
-
-OURA_BIN = Path.home() / "code" / "oura-cli" / "target" / "release" / "oura"
-
-
-def _resolve_oura() -> str:
-    """Return path to oura binary, or raise FileNotFoundError."""
-    if OURA_BIN.exists():
-        return str(OURA_BIN)
-    import shutil
-    on_path = shutil.which("oura")
-    if on_path:
-        return on_path
-    raise FileNotFoundError(
-        f"oura CLI not found at {OURA_BIN} or on PATH. "
-        "Build from ~/code/oura-cli or install via cargo install oura-cli."
-    )
+try:
+    from metabolon.organelles import chemoreceptor
+except ImportError:
+    print("Error: metabolon.organelles.chemoreceptor not found. Ensure germline is in PATH.", file=sys.stderr)
+    sys.exit(1)
 
 
-def run(cmd: list[str]) -> str:
-    # Replace 'oura' with resolved binary path
-    if cmd[0] == "oura":
-        cmd = [_resolve_oura()] + cmd[1:]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    return strip_ansi(result.stdout).strip()
-
-
-def parse_trend_table(raw: str) -> list[dict]:
-    """Parse `oura trend` output into list of row dicts."""
-    rows = []
-    for line in raw.splitlines():
-        line = line.strip()
-        # Skip header and average lines
-        if not line or line.startswith("Date") or line.startswith("Average"):
-            continue
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        # Date is first two tokens (e.g. "Sat Feb 28") or three tokens
-        # Format: "Sat Feb 28  88  88  92" or "Sat Feb 28  88  88  --"
-        # Find where numbers/dashes start
-        try:
-            # Day-of-week + Month + Day = 3 tokens
-            date_str = " ".join(parts[:3])
-            scores = parts[3:]
-            sleep = scores[0] if len(scores) > 0 else "--"
-            readiness = scores[1] if len(scores) > 1 else "--"
-            activity = scores[2] if len(scores) > 2 else "--"
-            rows.append({
-                "date": date_str,
-                "sleep": sleep,
-                "readiness": readiness,
-                "activity": activity,
-            })
-        except (IndexError, ValueError):
-            continue
-    return rows
-
-
-def compute_avg(values: list[str]) -> str:
-    nums = [int(v) for v in values if v not in ("--", "")]
+def compute_avg(values: list[int | None]) -> str:
+    nums = [v for v in values if v is not None]
     if not nums:
         return "--"
     return str(round(sum(nums) / len(nums)))
 
 
-def trend_arrow(values: list[str]) -> str:
-    nums = [int(v) for v in values if v not in ("--", "")]
+def trend_arrow(values: list[int | None]) -> str:
+    nums = [v for v in values if v is not None]
     if len(nums) < 3:
         return ""
     recent = nums[-3:]
@@ -104,60 +47,78 @@ def trend_arrow(values: list[str]) -> str:
     return " (stable)"
 
 
-def format_section(label: str, raw: str) -> str:
-    if not raw:
-        return f"*No data*"
-    lines = [line.strip() for line in raw.splitlines() if line.strip()]
-    return "\n".join(f"- {l}" for l in lines)
+def format_section(label: str, data: dict) -> str:
+    if not data or "error" in data:
+        return f"*No data available*"
+    
+    lines = []
+    for k, v in data.items():
+        if isinstance(v, dict):
+            lines.append(f"- **{k.replace('_', ' ').title()}**: {len(v)} items")
+        else:
+            lines.append(f"- **{k.replace('_', ' ').title()}**: {v}")
+    return "\n".join(lines)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Oura weekly digest — fetches 7-day health data via oura CLI and saves a markdown note."
-    )
-    parser.parse_args()
+    today_dt = date.today()
+    yesterday_dt = today_dt - timedelta(days=1)
+    
+    try:
+        # Fetch 7-day trend
+        week_data = chemoreceptor.week(days=7)
+        # Fetch yesterday's detail
+        detail = chemoreceptor.sense() # sense() defaults to today's data (last night)
+    except Exception as e:
+        print(f"Error fetching Oura data: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-    yesterday_str = yesterday.strftime("%Y-%m-%d")
+    if not week_data:
+        print("No Oura data found for the past 7 days.")
+        sys.exit(0)
 
-    # Fetch data
-    trend_raw = run(["oura", "trend", "--days", "7"])
-    sleep_raw = run(["oura", "sleep", yesterday_str])
-    readiness_raw = run(["oura", "readiness", yesterday_str])
-    activity_raw = run(["oura", "activity", yesterday_str])
-    hrv_raw = run(["oura", "hrv", yesterday_str])
-
-    rows = parse_trend_table(trend_raw)
-
-    sleeps = [r["sleep"] for r in rows]
-    readinesses = [r["readiness"] for r in rows]
-    activities = [r["activity"] for r in rows]
-
-    avg_sleep = compute_avg(sleeps)
-    avg_readiness = compute_avg(readinesses)
-    avg_activity = compute_avg(activities)
-
-    sleep_trend = trend_arrow(sleeps)
-    readiness_trend = trend_arrow(readinesses)
-    activity_trend = trend_arrow(activities)
-
-    # Build markdown table
+    # Build trend table
     table_lines = [
         "| Date | Sleep | Readiness | Activity |",
         "|------|------:|----------:|---------:|",
     ]
-    for r in rows:
-        table_lines.append(
-            f"| {r['date']} | {r['sleep']} | {r['readiness']} | {r['activity']} |"
-        )
-    table_lines.append(
-        f"| **Average** | **{avg_sleep}** | **{avg_readiness}** | **{avg_activity}** |"
-    )
+    
+    sleeps = []
+    readinesses = []
+    # Note: chemoreceptor.week() doesn't currently include activity score, 
+    # but we can add it if needed. For now let's use what's available.
+    
+    for day in week_data:
+        d = day["date"]
+        s = day.get("sleep_score")
+        r = day.get("readiness_score")
+        # Activity score is not in week() yet, but let's assume it might be there or use placeholder
+        a = "--" 
+        
+        sleeps.append(s)
+        readinesses.append(r)
+        
+        s_str = str(s) if s is not None else "--"
+        r_str = str(r) if r is not None else "--"
+        table_lines.append(f"| {d} | {s_str} | {r_str} | {a} |")
+
+    avg_sleep = compute_avg(sleeps)
+    avg_readiness = compute_avg(readinesses)
+    
+    sleep_trend = trend_arrow(sleeps)
+    readiness_trend = trend_arrow(readinesses)
+
+    table_lines.append(f"| **Average** | **{avg_sleep}** | **{avg_readiness}** | **--** |")
     table = "\n".join(table_lines)
 
     # Compose note
-    note_date = today.strftime("%Y-%m-%d")
+    note_date = today_dt.strftime("%Y-%m-%d")
+    
+    # Detail sections
+    sleep_detail = detail.get("sleep_score", "--")
+    readiness_detail = detail.get("readiness_score", "--")
+    activity_detail = detail.get("activity", {}).get("score", "--")
+    
     note = f"""---
 date: {note_date}
 tags: [oura, health, weekly]
@@ -169,46 +130,29 @@ tags: [oura, health, weekly]
 
 {table}
 
-**Trends (last 3 vs prior 4 days):** Sleep{sleep_trend} · Readiness{readiness_trend} · Activity{activity_trend}
+**Trends (last 3 vs prior 4 days):** Sleep{sleep_trend} · Readiness{readiness_trend}
 
-## Yesterday's Detail ({yesterday_str})
+## Yesterday's Detail ({yesterday_dt})
 
 ### Sleep
-{format_section("Sleep", sleep_raw)}
+- **Score**: {sleep_detail}
+{format_section("Sleep Contributors", detail.get("sleep_contributors", {}))}
 
 ### Readiness
-{format_section("Readiness", readiness_raw)}
-
-### HRV & Recovery
-{format_section("HRV", hrv_raw)}
+- **Score**: {readiness_detail}
+{format_section("Readiness Contributors", detail.get("contributors", {}))}
 
 ### Activity
-{format_section("Activity", activity_raw)}
+- **Score**: {activity_detail}
+{format_section("Activity", detail.get("activity", {}))}
 """
 
     # Save note
     output_path = Path.home() / "notes" / "Daily" / f"Oura Weekly - {note_date}.md"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = output_path.with_suffix(".md.tmp")
-    tmp.write_text(note)
-    tmp.replace(output_path)
+    output_path.write_text(note)
 
-    # One-line summary to stdout
-    # Pull yesterday's scores directly from rows if available
-    yesterday_label = yesterday.strftime("%a %b %-d")
-    yesterday_row = next(
-        (r for r in rows if r["date"].strip() == yesterday_label), None
-    )
-    if yesterday_row:
-        s, r2, a = yesterday_row["sleep"], yesterday_row["readiness"], yesterday_row["activity"]
-    else:
-        s, r2, a = avg_sleep, avg_readiness, avg_activity
-
-    print(
-        f"Oura 7d: sleep avg {avg_sleep} · readiness avg {avg_readiness} · "
-        f"activity avg {avg_activity} | yesterday: sleep {s}, readiness {r2}, activity {a} "
-        f"| saved {output_path}"
-    )
+    print(f"Oura 7d: sleep avg {avg_sleep} · readiness avg {avg_readiness} | saved {output_path}")
 
 
 if __name__ == "__main__":

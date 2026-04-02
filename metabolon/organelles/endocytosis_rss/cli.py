@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import importlib.metadata
 import sys
 from datetime import UTC, datetime, timedelta
+from importlib import metadata
 from pathlib import Path
 
 import typer
+from typer import Exit, Option, Typer, echo
 
 from metabolon.organelles.endocytosis_rss.config import (
     EndocytosisConfig,
@@ -14,26 +15,26 @@ from metabolon.organelles.endocytosis_rss.config import (
 )
 from metabolon.organelles.endocytosis_rss.state import lockfile, refractory_elapsed, restore_state
 
-app = typer.Typer(help="endocytosis_rss — receptor-mediated endocytosis (RSS ingestion)")
+app = Typer(help="endocytosis_rss — receptor-mediated endocytosis (RSS ingestion)")
 
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"lustro {_get_version()}")
-        raise typer.Exit()
+        echo(f"lustro {_get_version()}")
+        raise Exit()
 
 
 @app.callback()
 def main_callback(
-    version: bool = typer.Option(False, "--version", callback=version_callback, is_eager=True),
+    version: bool = Option(False, "--version", callback=version_callback, is_eager=True),
 ) -> None:
     pass
 
 
 def _get_version() -> str:
     try:
-        return importlib.metadata.version("metabolon")
-    except importlib.metadata.PackageNotFoundError:
+        return metadata.version("metabolon")
+    except metadata.PackageNotFoundError:
         return "dev"
 
 
@@ -109,7 +110,7 @@ def _source_since_date(
 
 @app.command()
 def internalize(
-    no_archive: bool = typer.Option(
+    no_archive: bool = Option(
         False, "--no-archive", help="Skip archiving full article text"
     ),
 ) -> None:
@@ -176,10 +177,10 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         # cell is not flooded with irrelevant ligands.
         signal_ratio = receptor_signal_ratio(name)
         if not refractory_elapsed(state, name, cadence, now=now, signal_ratio=signal_ratio):
-            typer.echo(f"Skipping: {name} (cadence)", err=True)
+            echo(f"Skipping: {name} (cadence)", err=True)
             continue
 
-        typer.echo(f"Fetching: {name}...", err=True)
+        echo(f"Fetching: {name}...", err=True)
         fetch_failed = False
         since_date = _source_since_date(state, name, global_since_date, cadence=cadence, now=now)
         if source.get("bookmarks"):
@@ -206,7 +207,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             )
             if articles is None:
                 if "url" in source:
-                    typer.echo(f"  RSS dead, falling back to web: {source['url']}", err=True)
+                    echo(f"  RSS dead, falling back to web: {source['url']}", err=True)
                     articles = internalize_web(
                         source["url"],
                         selector=source.get("selector"),
@@ -313,7 +314,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
                 "monthly": 5,
             }.get(cadence, 5)
             if zeros >= _zero_threshold:
-                typer.echo(
+                echo(
                     f"  Warning: {name} has {zeros} consecutive zero-article fetches",
                     err=True,
                 )
@@ -323,10 +324,10 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
 
     persist_state(cfg.state_path, state)
     if failed_sources:
-        typer.echo(f"Fetch errors ({len(failed_sources)}): {', '.join(failed_sources)}", err=True)
+        echo(f"Fetch errors ({len(failed_sources)}): {', '.join(failed_sources)}", err=True)
     if not results:
-        typer.echo("No new articles found.", err=True)
-        raise typer.Exit(code=0)
+        echo("No new articles found.", err=True)
+        raise Exit(code=0)
 
     # Endosome sorting: route each source's cargo to fate compartments.
     # Only store + transcytose cargo survives to the news log; degrade cargo
@@ -343,11 +344,11 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             sorted_results[source_name] = survivors
 
     if degraded_count:
-        typer.echo(f"Endosome: {degraded_count} low-signal items degraded (not logged).", err=True)
+        echo(f"Endosome: {degraded_count} low-signal items degraded (not logged).", err=True)
 
     if not sorted_results:
-        typer.echo("No articles survived endosome sorting.", err=True)
-        raise typer.Exit(code=0)
+        echo("No articles survived endosome sorting.", err=True)
+        raise Exit(code=0)
 
     # Write JSONL canonical cargo store
     flat_cargo = []
@@ -359,10 +360,10 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     rotate_cargo(cfg.cargo_path, cfg.data_dir / "archive", retain_days=14, now=now)
 
     total = sum(len(v) for v in sorted_results.values())
-    typer.echo(f"Logged {total} new articles.", err=True)
+    echo(f"Logged {total} new articles.", err=True)
     if bookmark_ids_to_clear:
         release_bookmarks(bookmark_ids_to_clear, bird_path=cfg.resolve_bird())
-    raise typer.Exit(code=0)
+    raise Exit(code=0)
 
 
 @app.command()
@@ -377,19 +378,19 @@ def probe_receptors() -> None:
     probe_receptors(
         web_sources, x_accounts, state, bird_path=cfg.resolve_bird(), x_bookmarks=x_bookmarks
     )
-    raise typer.Exit(code=0)
+    raise Exit(code=0)
 
 
 @app.command()
 def digest(
-    month: str | None = typer.Option(None, "--month", help="Target month YYYY-MM"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show themes only"),
-    themes: int | None = typer.Option(None, "--themes", help="Max themes"),
-    model: str | None = typer.Option(None, "--model", help="Model ID"),
-    tag: list[str] | None = typer.Option(
+    month: str | None = Option(None, "--month", help="Target month YYYY-MM"),
+    dry_run: bool = Option(False, "--dry-run", help="Show themes only"),
+    themes: int | None = Option(None, "--themes", help="Max themes"),
+    model: str | None = Option(None, "--model", help="Model ID"),
+    tag: list[str] | None = Option(
         None, "--tag", "-t", help="Filter by tag (repeatable)"
     ),
-    weekly: bool = typer.Option(
+    weekly: bool = Option(
         False,
         "--weekly",
         help="Secrete weekly digest (past 7 days, scored list + LLM synthesis)",
@@ -409,13 +410,13 @@ def digest(
                 dry_run=dry_run,
             )
         except Exception as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            raise typer.Exit(code=1) from exc
+            echo(f"Error: {exc}", err=True)
+            raise Exit(code=1) from exc
 
-        typer.echo(f"Weekly digest: {item_count} items above threshold.", err=True)
+        echo(f"Weekly digest: {item_count} items above threshold.", err=True)
         if output_path is not None:
-            typer.echo(f"Written: {output_path}", err=True)
-        raise typer.Exit(code=0)
+            echo(f"Written: {output_path}", err=True)
+        raise Exit(code=0)
 
     # Monthly thematic digest pathway: LLM-powered theme identification.
     from metabolon.organelles.endocytosis_rss.digest import metabolize_digest
@@ -430,69 +431,69 @@ def digest(
             tags=tag or [],
         )
     except RuntimeError as exc:
-        typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+        echo(f"Error: {exc}", err=True)
+        raise Exit(code=1) from exc
 
-    typer.echo(f"Found {len(themes_result)} themes.", err=True)
+    echo(f"Found {len(themes_result)} themes.", err=True)
     for i, theme in enumerate(themes_result, 1):
         name = theme.get("theme", f"Theme {i}")
         count = len(theme.get("article_indices", []))
-        typer.echo(f"{i}. {name} ({count} articles)", err=True)
+        echo(f"{i}. {name} ({count} articles)", err=True)
 
     if dry_run:
         import json
 
-        typer.echo(json.dumps(themes_result, indent=2, ensure_ascii=False))
-        raise typer.Exit(code=0)
+        echo(json.dumps(themes_result, indent=2, ensure_ascii=False))
+        raise Exit(code=0)
 
     if output_path is not None:
-        typer.echo(f"Digest written: {output_path}", err=True)
-    raise typer.Exit(code=0)
+        echo(f"Digest written: {output_path}", err=True)
+    raise Exit(code=0)
 
 
 @app.command()
 def inscribe(
-    lines: int = typer.Option(50, "--lines", "-n", help="Number of lines"),
+    lines: int = Option(50, "--lines", "-n", help="Number of lines"),
 ) -> None:
     cfg = restore_config()
     if not cfg.log_path.exists():
-        typer.echo(f"Not found: {cfg.log_path}")
-        raise typer.Exit(code=1)
+        echo(f"Not found: {cfg.log_path}")
+        raise Exit(code=1)
     log_lines = cfg.log_path.read_text(encoding="utf-8").splitlines()
     while log_lines and not log_lines[-1].strip():
         log_lines.pop()
     n = max(0, lines) if lines else 0
     if n and n < len(log_lines):
         log_lines = log_lines[-n:]
-    typer.echo("\n".join(log_lines))
-    raise typer.Exit(code=0)
+    echo("\n".join(log_lines))
+    raise Exit(code=0)
 
 
 @app.command()
 def breaking(
-    dry_run: bool = typer.Option(False, "--dry-run"),
+    dry_run: bool = Option(False, "--dry-run"),
 ) -> None:
     cfg = restore_config()
     from metabolon.organelles.endocytosis_rss.breaking import scan_breaking
 
     result = scan_breaking(cfg=cfg, dry_run=dry_run)
-    raise typer.Exit(code=result)
+    raise Exit(code=result)
 
 
 @app.command()
 def scout(
-    count: int | None = typer.Option(None, "--count", help="Number of tweets to scan"),
+    count: int | None = Option(None, "--count", help="Number of tweets to scan"),
 ) -> None:
     cfg = restore_config()
     from metabolon.organelles.endocytosis_rss.discover import scout_sources
 
     result = scout_sources(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
-    raise typer.Exit(code=result)
+    raise Exit(code=result)
 
 
 @app.command()
 def sources(
-    tier: int | None = typer.Option(None, "--tier", help="Filter sources by tier"),
+    tier: int | None = Option(None, "--tier", help="Filter sources by tier"),
 ) -> None:
     cfg = restore_config()
     rows: list[tuple[str, str, int, str]] = []
@@ -530,20 +531,20 @@ def sources(
             )
 
     if not rows:
-        typer.echo("No sources configured.")
-        raise typer.Exit(code=0)
+        echo("No sources configured.")
+        raise Exit(code=0)
 
-    typer.echo(f"{'Name':<36} {'Type':<4} {'Tier':>4} {'Cadence':<12}")
-    typer.echo("-" * 64)
+    echo(f"{'Name':<36} {'Type':<4} {'Tier':>4} {'Cadence':<12}")
+    echo("-" * 64)
     for name, source_type, source_tier, cadence in rows:
-        typer.echo(f"{name[:36]:<36} {source_type:<4} {source_tier:>4} {cadence:<12}")
-    typer.echo(f"\nTotal: {len(rows)} sources")
-    raise typer.Exit(code=0)
+        echo(f"{name[:36]:<36} {source_type:<4} {source_tier:>4} {cadence:<12}")
+    echo(f"\nTotal: {len(rows)} sources")
+    raise Exit(code=0)
 
 
 @app.command()
 def relevance(
-    top: int | None = typer.Option(
+    top: int | None = Option(
         None, "--top", help="Show top N highest-scored items from the last 7 days"
     ),
 ) -> None:
@@ -552,8 +553,8 @@ def relevance(
     if top is not None:
         items = top_cargo(limit=top)
         if not items:
-            typer.echo("No recent relevance data found.")
-            raise typer.Exit(code=0)
+            echo("No recent relevance data found.")
+            raise Exit(code=0)
         for index, item in enumerate(items, 1):
             title = item.get("title", "Untitled")
             source = item.get("source", "Unknown")
@@ -562,23 +563,23 @@ def relevance(
             line = f"{index}. [{score}/10] {title} — {source}"
             if angle and angle != "N/A":
                 line = f"{line} ({angle})"
-            typer.echo(line)
-        raise typer.Exit(code=0)
+            echo(line)
+        raise Exit(code=0)
 
     stats = affinity_stats()
     if stats.get("status") == "insufficient_data":
-        typer.echo("Relevance stats unavailable: insufficient_data")
-        raise typer.Exit(code=0)
+        echo("Relevance stats unavailable: insufficient_data")
+        raise Exit(code=0)
 
-    typer.echo("Relevance scoring stats")
-    typer.echo(f"Total scored: {stats['total_scored']}")
-    typer.echo(f"Total engaged: {stats['total_engaged']}")
-    typer.echo(f"Average engaged score: {stats['avg_engaged_score']:.2f}")
-    typer.echo(f"False positives (count): {stats['false_positives_count']}")
-    typer.echo("False negatives:")
+    echo("Relevance scoring stats")
+    echo(f"Total scored: {stats['total_scored']}")
+    echo(f"Total engaged: {stats['total_engaged']}")
+    echo(f"Average engaged score: {stats['avg_engaged_score']:.2f}")
+    echo(f"False positives (count): {stats['false_positives_count']}")
+    echo("False negatives:")
     for title in stats["false_negatives"]:
-        typer.echo(f"- {title}")
-    raise typer.Exit(code=0)
+        echo(f"- {title}")
+    raise Exit(code=0)
 
 
 @app.command()
@@ -586,17 +587,17 @@ def status() -> None:
     cfg = restore_config()
     now = datetime.now().astimezone()
 
-    typer.echo(f"endocytosis_rss Status  ({now.strftime('%Y-%m-%d %H:%M %Z')})")
-    typer.echo("=" * 44)
+    echo(f"endocytosis_rss Status  ({now.strftime('%Y-%m-%d %H:%M %Z')})")
+    echo("=" * 44)
 
-    typer.echo(f"\nConfig dir:    {cfg.config_dir}")
-    typer.echo(f"Sources file:  {_file_age(cfg.sources_path, now)}")
-    typer.echo(f"State file:    {_file_age(cfg.state_path, now)}")
-    typer.echo(f"News log:      {_file_age(cfg.log_path, now)}")
+    echo(f"\nConfig dir:    {cfg.config_dir}")
+    echo(f"Sources file:  {_file_age(cfg.sources_path, now)}")
+    echo(f"State file:    {_file_age(cfg.state_path, now)}")
+    echo(f"News log:      {_file_age(cfg.log_path, now)}")
 
     state = restore_state(cfg.state_path)
     if state:
-        typer.echo(f"Sources:       {len(state)} tracked")
+        echo(f"Sources:       {len(state)} tracked")
         latest = max(
             (
                 dt
@@ -608,19 +609,19 @@ def status() -> None:
             default=None,
         )
         if latest is not None:
-            typer.echo(f"Last fetch:    {latest.strftime('%Y-%m-%d %H:%M')}")
+            echo(f"Last fetch:    {latest.strftime('%Y-%m-%d %H:%M')}")
 
     if cfg.article_cache_dir.exists():
         files = list(cfg.article_cache_dir.glob("*.json"))
         size_kb = sum(f.stat().st_size for f in files) / 1024
-        typer.echo(f"Article cache: {len(files)} files, {size_kb:.0f} KB")
+        echo(f"Article cache: {len(files)} files, {size_kb:.0f} KB")
     else:
-        typer.echo(f"Article cache: missing ({cfg.article_cache_dir})")
+        echo(f"Article cache: missing ({cfg.article_cache_dir})")
 
     if not cfg.sources_path.exists():
-        typer.echo("\nRun 'vivesca endocytosis init' to set up configuration.", err=True)
-        raise typer.Exit(code=1)
-    raise typer.Exit(code=0)
+        echo("\nRun 'vivesca endocytosis init' to set up configuration.", err=True)
+        raise Exit(code=1)
+    raise Exit(code=0)
 
 
 @app.command()
@@ -637,17 +638,17 @@ def init() -> None:
     else:
         created = "exists"
 
-    typer.echo(f"Config directory: {cfg.config_dir}")
-    typer.echo(f"Sources file: {cfg.sources_path} ({created})")
-    typer.echo(f"Cache directory: {cfg.cache_dir}")
-    typer.echo(f"Data directory: {cfg.data_dir}")
-    raise typer.Exit(code=0)
+    echo(f"Config directory: {cfg.config_dir}")
+    echo(f"Sources file: {cfg.sources_path} ({created})")
+    echo(f"Cache directory: {cfg.cache_dir}")
+    echo(f"Data directory: {cfg.data_dir}")
+    raise Exit(code=0)
 
 
 @app.command()
 def summary(
-    date: str | None = typer.Option(None, "--date", help="Date YYYY-MM-DD (default: today)"),
-    output: str | None = typer.Option(None, "--output", "-o", help="Write to file instead of stdout"),
+    date: str | None = Option(None, "--date", help="Date YYYY-MM-DD (default: today)"),
+    output: str | None = Option(None, "--output", "-o", help="Write to file instead of stdout"),
 ) -> None:
     """Generate a daily markdown summary from the JSONL cargo store."""
     cfg = restore_config()
@@ -657,21 +658,21 @@ def summary(
     md = generate_daily_markdown(cfg.cargo_path, target_date)
 
     if not md.strip():
-        typer.echo(f"No cargo for {target_date}.", err=True)
-        raise typer.Exit(code=0)
+        echo(f"No cargo for {target_date}.", err=True)
+        raise Exit(code=0)
 
     if output:
         Path(output).write_text(md, encoding="utf-8")
-        typer.echo(f"Written: {output}", err=True)
+        echo(f"Written: {output}", err=True)
     else:
-        typer.echo(md)
-    raise typer.Exit(code=0)
+        echo(md)
+    raise Exit(code=0)
 
 
 @app.command(name="weekly-summary")
 def weekly_summary(
-    output: str | None = typer.Option(None, "--output", "-o", help="Write to file instead of stdout"),
-    tag: list[str] | None = typer.Option(None, "--tag", "-t", help="Filter by tag (repeatable)"),
+    output: str | None = Option(None, "--output", "-o", help="Write to file instead of stdout"),
+    tag: list[str] | None = Option(None, "--tag", "-t", help="Filter by tag (repeatable)"),
 ) -> None:
     """Scored weekly summary from JSONL cargo — grouped by day, no LLM."""
     cfg = restore_config()
@@ -680,15 +681,15 @@ def weekly_summary(
     md = generate_weekly_markdown(cfg=cfg, tags=tag or [])
 
     if not md.strip():
-        typer.echo("No cargo for the past 7 days.", err=True)
-        raise typer.Exit(code=0)
+        echo("No cargo for the past 7 days.", err=True)
+        raise Exit(code=0)
 
     if output:
         Path(output).write_text(md, encoding="utf-8")
-        typer.echo(f"Written: {output}", err=True)
+        echo(f"Written: {output}", err=True)
     else:
-        typer.echo(md)
-    raise typer.Exit(code=0)
+        echo(md)
+    raise Exit(code=0)
 
 
 @app.command()
@@ -701,12 +702,12 @@ def migrate() -> None:
         from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
         existing = len(recall_cargo(cfg.cargo_path))
         if existing > 0:
-            typer.echo(f"Cargo store already has {existing} entries. Aborting.", err=True)
-            raise typer.Exit(code=1)
+            echo(f"Cargo store already has {existing} entries. Aborting.", err=True)
+            raise Exit(code=1)
 
     count = migrate_markdown_to_jsonl(cfg.log_path, cfg.cargo_path)
-    typer.echo(f"Migrated {count} entries from {cfg.log_path} to {cfg.cargo_path}", err=True)
-    raise typer.Exit(code=0)
+    echo(f"Migrated {count} entries from {cfg.log_path} to {cfg.cargo_path}", err=True)
+    raise Exit(code=0)
 
 
 def main() -> int:
@@ -715,7 +716,7 @@ def main() -> int:
     try:
         app()
         return 0
-    except typer.Exit as e:
+    except Exit as e:
         return e.exit_code if e.exit_code is not None else 0
 
 

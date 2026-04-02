@@ -43,7 +43,7 @@ LOG_DIR = HOME / "logs"
 LOG_FILE = LOG_DIR / "anam-scan.log"
 SIGNALS_FILE = Path("~/.local/share/vivesca/signals.jsonl").expanduser()
 CHANNEL = HOME / "germline" / "effectors" / "channel"
-ACTA = HOME / "germline" / "effectors" / "acta"
+ACTA = HOME / "germline" / ".venv" / "bin" / "acta"
 CONF_FILE = HOME / "germline" / "mismatch-repair.conf"
 
 # HKT = UTC+8

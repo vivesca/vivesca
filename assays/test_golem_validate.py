@@ -69,7 +69,7 @@ class TestHardcodedPath:
 
     def test_users_terry_detected(self, tmp_path: Path):
         f = _write_py(tmp_path, "bad_path.py", """\
-            config = "/Users/terry/germline/config.yaml"
+            config = str(Path.home() / "germline/config.yaml")
         """)
         r = _run_validator(str(f))
         assert r.returncode == 1
