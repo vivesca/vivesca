@@ -385,7 +385,7 @@ def parse_timestamp(ts_str: str) -> datetime | None:
     return None
 
 
-def report_report_load_jsonl(date_filter: str | None) -> list[dict]:
+def report_load_jsonl(date_filter: str | None) -> list[dict]:
     """Load JSONL records, optionally filtering by date."""
     if not JSONL_FILE.exists():
         return []
