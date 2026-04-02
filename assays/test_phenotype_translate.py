@@ -706,7 +706,7 @@ class TestSyncPhenotype:
     @patch('metabolon.locus.receptors', Path('/tmp/fake_receptors'))
     @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
     @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
-    def test_dry_run_does_not_write_gemini_settings(self, tmp_path, mock_check):
+    def test_dry_run_does_not_write_gemini_settings(self, mock_check, tmp_path):
         gemini_settings = tmp_path / "settings.json"
         cc_settings = tmp_path / "cc_settings.json"
         cc_settings.write_text(json.dumps({"hooks": {}}))
@@ -726,7 +726,7 @@ class TestSyncPhenotype:
     @patch('metabolon.locus.receptors', Path('/tmp/fake_receptors'))
     @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
     @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
-    def test_sync_result_has_summary(self, tmp_path, mock_check):
+    def test_sync_result_has_summary(self, mock_check, tmp_path):
         gemini_settings = tmp_path / "settings.json"
         cc_settings = tmp_path / "cc_settings.json"
         cc_settings.write_text(json.dumps({"hooks": {}}))
@@ -748,7 +748,7 @@ class TestSyncPhenotype:
     @patch('metabolon.locus.receptors', Path('/tmp/fake_receptors'))
     @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
     @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
-    def test_sync_result_dry_run_label_in_summary(self, tmp_path, mock_check):
+    def test_sync_result_dry_run_label_in_summary(self, mock_check, tmp_path):
         gemini_settings = tmp_path / "settings.json"
         cc_settings = tmp_path / "cc_settings.json"
         cc_settings.write_text(json.dumps({"hooks": {}}))
@@ -766,7 +766,7 @@ class TestSyncPhenotype:
     @patch('metabolon.locus.receptors', Path('/tmp/fake_receptors'))
     @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
     @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
-    def test_no_cc_settings_hooks_skipped(self, tmp_path, mock_check):
+    def test_no_cc_settings_hooks_skipped(self, mock_check, tmp_path):
         missing_cc = tmp_path / "nonexistent_settings.json"
         gemini_settings = tmp_path / "settings.json"
         result = sync_phenotype(
@@ -964,7 +964,7 @@ class TestSkillSymlinking:
     @patch('metabolon.locus.phenotype_md', Path('/tmp/fake_phenotype.md'))
     @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
     @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
-    def test_live_sync_includes_skills_count(self, tmp_path, mock_check):
+    def test_live_sync_includes_skills_count(self, mock_check, tmp_path):
         """Full sync reports skills_synced count."""
         # Create a mock receptors directory with a skill
         receptors = tmp_path / "receptors"
