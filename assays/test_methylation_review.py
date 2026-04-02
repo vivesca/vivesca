@@ -273,7 +273,7 @@ class TestMain:
             "gather_effector_proposals": mock_gather_effector,
             "gather_jsonl_observations": mock_gather_obs,
             "synthesize_review": mock_synthesize,
-        }):
+        }), patch.object(mr["sys"], "argv", ["methylation-review"]):
             mr["main"]()
 
         out = capsys.readouterr().out
@@ -299,7 +299,7 @@ class TestMain:
             "gather_effector_proposals": mock_gather_effector,
             "gather_jsonl_observations": mock_gather_obs,
             "synthesize_review": mock_synthesize,
-        }):
+        }), patch.object(mr["sys"], "argv", ["methylation-review"]):
             mr["main"]()
 
         out = capsys.readouterr().out
@@ -312,7 +312,7 @@ class TestMain:
             "gather_effector_proposals": lambda: "",
             "gather_jsonl_observations": lambda: "",
             "synthesize_review": lambda p, o: "review body",
-        }):
+        }), patch.object(mr["sys"], "argv", ["methylation-review"]):
             mr["main"]()
 
         date_str = datetime.now().strftime("%Y-%m-%d")
