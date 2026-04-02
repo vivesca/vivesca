@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-"""gog — Gmail CLI via Google Gmail API.
+"""gog — Gmail & Google Calendar CLI via Google APIs.
 
-Subcommands: read, send, reply, archive, search, get, thread, batch, drafts, filters.
+Subcommands: gmail (read, send, reply, archive, search, get, thread, batch, drafts, filters),
+             calendar (list, update, delete).
 OAuth credentials: ~/.config/gog/credentials.json
-Token cache:       ~/.config/gog/token.json
+Token cache:       ~/.config/gog/token.json (gmail), ~/.config/gog/token_calendar.json (calendar)
 """
 
 import argparse
@@ -23,7 +24,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CONFIG_DIR = Path.home() / ".config" / "gog"
 CREDS_FILE = CONFIG_DIR / "credentials.json"
 TOKEN_FILE = CONFIG_DIR / "token.json"
@@ -31,12 +33,15 @@ TOKEN_FILE = CONFIG_DIR / "token.json"
 # ── Auth ──────────────────────────────────────────────────────────────
 
 
-def _get_creds() -> Credentials:
+def _get_creds(scopes: list[str], token_suffix: str = "") -> Credentials:
     """Load cached token or run OAuth flow."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    token_file = TOKEN_FILE if not token_suffix else TOKEN_FILE.with_name(
+        f"token_{token_suffix}.json"
+    )
     creds: Credentials | None = None
-    if TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
+    if token_file.exists():
+        creds = Credentials.from_authorized_user_file(str(token_file), scopes)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -46,15 +51,20 @@ def _get_creds() -> Credentials:
                     f"ERROR: No credentials at {CREDS_FILE}. "
                     "Download from Google Cloud Console → APIs → Credentials."
                 )
-            flow = InstalledAppFlow.from_client_secrets_file(str(CREDS_FILE), SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(str(CREDS_FILE), scopes)
             creds = flow.run_local_server(port=0)
-        TOKEN_FILE.write_text(creds.to_json())
+        token_file.write_text(creds.to_json())
     return creds
 
 
 def _service():
     """Return an authenticated Gmail service object."""
-    return build("gmail", "v1", credentials=_get_creds())
+    return build("gmail", "v1", credentials=_get_creds(GMAIL_SCOPES))
+
+
+def _calendar_service():
+    """Return an authenticated Calendar service object."""
+    return build("calendar", "v3", credentials=_get_creds(CALENDAR_SCOPES, "calendar"))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -393,6 +403,107 @@ def cmd_filters_create(args: argparse.Namespace) -> None:
         sys.exit(f"ERROR: filter create failed: {e}")
 
 
+# ── Calendar subcommands ──────────────────────────────────────────────
+
+
+def _default_calendar_id() -> str:
+    """Return calendar ID from env or default."""
+    return os.environ.get("GOG_CALENDAR_ID", "terry.li.hm@gmail.com")
+
+
+def _event_to_dict(event: dict) -> dict:
+    """Extract the fields fasti expects from a Calendar API event."""
+    start = event.get("start", {})
+    end = event.get("end", {})
+    out: dict = {
+        "id": event["id"],
+        "summary": event.get("summary", ""),
+        "start": {k: v for k, v in start.items() if k in ("dateTime", "date")},
+        "end": {k: v for k, v in end.items() if k in ("dateTime", "date")},
+    }
+    return out
+
+
+def cmd_calendar_list(args: argparse.Namespace) -> None:
+    """List upcoming calendar events as JSON."""
+    from datetime import timedelta
+
+    svc = _calendar_service()
+    cal_id = _default_calendar_id()
+    now = datetime.utcnow()
+    time_min = (now - timedelta(days=30)).isoformat() + "Z"
+    time_max = (now + timedelta(days=90)).isoformat() + "Z"
+
+    all_events: list[dict] = []
+    page_token = None
+
+    while True:
+        params: dict = {
+            "calendarId": cal_id,
+            "timeMin": time_min,
+            "timeMax": time_max,
+            "maxResults": 250,
+            "singleEvents": True,
+            "orderBy": "startTime",
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        try:
+            result = svc.events().list(**params).execute()
+        except HttpError as e:
+            sys.exit(f"ERROR: {e}")
+
+        for ev in result.get("items", []):
+            all_events.append(_event_to_dict(ev))
+
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    response = {"events": all_events, "nextPageToken": None}
+    if args.json:
+        print(json.dumps(response))
+    else:
+        for ev in all_events:
+            start = ev["start"].get("dateTime") or ev["start"].get("date", "")
+            end = ev["end"].get("dateTime") or ev["end"].get("date", "")
+            print(f'{ev["id"]}  {start}–{end}  {ev["summary"]}')
+
+
+def cmd_calendar_update(args: argparse.Namespace) -> None:
+    """Update an event's start/end time."""
+    svc = _calendar_service()
+    cal_id = args.calendar_id
+    event_id = args.event_id
+
+    try:
+        event = svc.events().get(calendarId=cal_id, eventId=event_id).execute()
+    except HttpError as e:
+        sys.exit(f"ERROR: event not found: {e}")
+
+    event["start"] = {"dateTime": args.from_, "timeZone": event.get("start", {}).get("timeZone", "UTC")}
+    event["end"] = {"dateTime": args.to, "timeZone": event.get("end", {}).get("timeZone", "UTC")}
+
+    try:
+        updated = svc.events().update(calendarId=cal_id, eventId=event_id, body=event).execute()
+        print(f"Updated: {updated['id']}")
+    except HttpError as e:
+        sys.exit(f"ERROR: update failed: {e}")
+
+
+def cmd_calendar_delete(args: argparse.Namespace) -> None:
+    """Delete a calendar event."""
+    svc = _calendar_service()
+    cal_id = args.calendar_id
+    event_id = args.event_id
+
+    try:
+        svc.events().delete(calendarId=cal_id, eventId=event_id).execute()
+        print(f"Deleted: {event_id}")
+    except HttpError as e:
+        sys.exit(f"ERROR: delete failed: {e}")
+
+
 # ── CLI ───────────────────────────────────────────────────────────────
 
 
@@ -406,6 +517,10 @@ def build_parser() -> argparse.ArgumentParser:
     # gog gmail ...
     gmail = sub.add_parser("gmail", help="Gmail operations")
     gmail_sub = gmail.add_subparsers(dest="gmail_command")
+
+    # gog calendar ...
+    cal = sub.add_parser("calendar", help="Google Calendar operations")
+    cal_sub = cal.add_subparsers(dest="calendar_command")
 
     # read
     p_read = gmail_sub.add_parser("read", help="List messages (default: inbox)")
@@ -512,6 +627,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_fc.add_argument("--important", action="store_true")
     p_fc.set_defaults(func=cmd_filters_create)
 
+    # calendar list
+    p_cal_list = cal_sub.add_parser("list", help="List calendar events")
+    p_cal_list.add_argument("--json", action="store_true", help="Output as JSON")
+    p_cal_list.set_defaults(func=cmd_calendar_list)
+
+    # calendar update
+    p_cal_update = cal_sub.add_parser("update", help="Update event time")
+    p_cal_update.add_argument("calendar_id", help="Calendar ID")
+    p_cal_update.add_argument("event_id", help="Event ID")
+    p_cal_update.add_argument("--from", dest="from_", required=True, help="New start time (RFC3339)")
+    p_cal_update.add_argument("--to", required=True, help="New end time (RFC3339)")
+    p_cal_update.set_defaults(func=cmd_calendar_update)
+
+    # calendar delete
+    p_cal_delete = cal_sub.add_parser("delete", help="Delete an event")
+    p_cal_delete.add_argument("calendar_id", help="Calendar ID")
+    p_cal_delete.add_argument("event_id", help="Event ID")
+    p_cal_delete.add_argument("--force", action="store_true", help="Skip confirmation")
+    p_cal_delete.set_defaults(func=cmd_calendar_delete)
+
     return parser
 
 
@@ -519,7 +654,7 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    # Default to 'gmail read' if no command given
+    # Default to help if no command given
     if not args.command:
         parser.print_help()
         sys.exit(0)
