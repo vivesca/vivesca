@@ -114,7 +114,7 @@ async def main() -> None:
     # Import workflow here to avoid circular import at module level
     from workflow import GolemDispatchWorkflow
 
-    host = os.getenv("TEMPORAL_HOST", "100.120.158.22:7233")
+    host = os.getenv("TEMPORAL_HOST", "ganglion:7233")
     client = await Client.connect(host)
 
     # Total concurrent activities across all providers
