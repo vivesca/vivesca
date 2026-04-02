@@ -9,6 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _ensure_tmp_path(tmp_path: Path) -> None:
+    """Guarantee tmp_path exists on disk before each test (prevents batch-race FileNotFoundError)."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
+
 def _load_golem_daemon():
     """Load the golem-daemon module by exec-ing its Python body."""
     source = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
