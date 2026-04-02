@@ -17,12 +17,16 @@ REGIONS = ["KIX", "SYD", "ICN"]  # Osaka, Sydney, Seoul
 ENV = {"SUPPRESS_LABEL_WARNING": "True"}
 
 def oci(*args):
-    r = subprocess.run(
-        ["oci"] + list(args),
-        capture_output=True, text=True,
-        env={**os.environ, **ENV},
-        timeout=300,
-    )
+    try:
+        r = subprocess.run(
+            ["oci"] + list(args),
+            capture_output=True, text=True,
+            env={**os.environ, **ENV},
+            timeout=300,
+        )
+    except FileNotFoundError:
+        print("Error: 'oci' CLI not found. Install with: pip install oci-cli", file=sys.stderr)
+        sys.exit(1)
     return r.returncode, r.stdout, r.stderr
 
 def get_subscribed_regions():

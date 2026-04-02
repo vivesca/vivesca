@@ -53,6 +53,9 @@ def main():
     except subprocess.TimeoutExpired:
         print(f"Timed out after {args.timeout}s", file=sys.stderr)
         sys.exit(124)
+    except FileNotFoundError:
+        print("Error: 'golem' CLI not found in PATH.", file=sys.stderr)
+        sys.exit(127)
 
 
 if __name__ == "__main__":
