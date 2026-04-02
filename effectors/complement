@@ -64,9 +64,12 @@ def check_deps() -> dict:
 
 
 def check_docima() -> dict:
+    docima_dir = Path.home() / "code" / "docima"
+    if not docima_dir.is_dir():
+        return {"name": "docima-benchmark", "ok": True, "output": "skipped (~/code/docima not present)"}
     code, output = _run(
         ["uv", "run", "docima", "benchmark", "--daily", "-b", "markdown"],
-        cwd=Path.home() / "code" / "docima",
+        cwd=docima_dir,
         timeout=60,
     )
     return {"name": "docima-benchmark", "ok": code == 0, "output": output[:300] if code != 0 else "ok"}

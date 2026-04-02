@@ -25,10 +25,24 @@ def strip_ansi(text: str) -> str:
 OURA_BIN = Path.home() / "code" / "oura-cli" / "target" / "release" / "oura"
 
 
+def _resolve_oura() -> str:
+    """Return path to oura binary, or raise FileNotFoundError."""
+    if OURA_BIN.exists():
+        return str(OURA_BIN)
+    import shutil
+    on_path = shutil.which("oura")
+    if on_path:
+        return on_path
+    raise FileNotFoundError(
+        f"oura CLI not found at {OURA_BIN} or on PATH. "
+        "Build from ~/code/oura-cli or install via cargo install oura-cli."
+    )
+
+
 def run(cmd: list[str]) -> str:
-    # Replace 'oura' with full path if not on PATH
+    # Replace 'oura' with resolved binary path
     if cmd[0] == "oura":
-        cmd = [str(OURA_BIN)] + cmd[1:]
+        cmd = [_resolve_oura()] + cmd[1:]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     return strip_ansi(result.stdout).strip()
 
