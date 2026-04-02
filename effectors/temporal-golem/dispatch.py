@@ -17,8 +17,8 @@ from __future__ import annotations
 import asyncio
 import fcntl
 import json
-import random
 import re
+import secrets
 import sys
 import time
 import uuid
@@ -78,6 +78,90 @@ PROVIDER_FALLBACK: dict[str, list[str]] = {
 }
 
 # ---------------------------------------------------------------------------
+# Rate-limit detection (mirrors golem-daemon)
+# ---------------------------------------------------------------------------
+
+RATE_LIMIT_PATTERNS = re.compile(
+    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
+    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
+    r'usage.?limit|hit your.*limit|quota will reset',
+    re.IGNORECASE,
+)
+
+# Per-provider rate-limit windows (seconds) — used when provider is known to
+# have strict quotas and fast-exit patterns suggest rate-limiting.
+PROVIDER_RATE_WINDOWS: dict[str, int] = {
+    "infini": 18000,   # 1000 req / 5 hours
+    "volcano": 18000,  # 5-hour quota window
+    "codex": 3600,     # ~hourly resets
+    "gemini": 1200,    # ~20 min resets
+}
+
+
+def parse_rate_limit_window(text: str) -> int | None:
+    """Extract rate-limit window in seconds from error message.
+
+    Priority:
+    1. Exact reset timestamp (e.g. "reset at 2026-04-01 21:09:32")
+    2. "try again at H:MM PM" (Codex format)
+    3. "quota will reset after NmNs" (Gemini format)
+    4. Duration patterns ("5-hour", "30-minute")
+    Returns seconds until reset, or None if not parseable.
+    """
+    from datetime import datetime
+
+    # 1. Exact reset timestamp
+    m = re.search(r'reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', text)
+    if m:
+        try:
+            reset_time = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+            delta = (reset_time - datetime.now()).total_seconds()
+            if delta > 0:
+                return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 2. "try again at H:MM PM"
+    m = re.search(r'try again at (\d{1,2}):(\d{2})\s*([AP]M)', text, re.IGNORECASE)
+    if m:
+        try:
+            hour = int(m.group(1))
+            minute = int(m.group(2))
+            if m.group(3).upper() == "PM" and hour != 12:
+                hour += 12
+            elif m.group(3).upper() == "AM" and hour == 12:
+                hour = 0
+            now = datetime.now()
+            reset_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if reset_time <= now:
+                reset_time = reset_time.replace(day=now.day + 1)
+            delta = (reset_time - now).total_seconds()
+            if 0 < delta < 86400:
+                return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 3. "quota will reset after NmNs"
+    m = re.search(r'quota will reset after (\d+)m(\d+)s', text)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2))
+
+    # 4. Duration patterns
+    m = re.search(r'(\d+)[- ]hour', text)
+    if m:
+        return int(m.group(1)) * 3600
+    m = re.search(r'(\d+)[- ]minute', text)
+    if m:
+        return int(m.group(1)) * 60
+    return None
+
+
+def is_rate_limited(text: str) -> bool:
+    """Check if text contains rate-limit/quota-exhaustion indicators."""
+    return bool(RATE_LIMIT_PATTERNS.search(text))
+
+
+# ---------------------------------------------------------------------------
 # Rate-limit cooldown tracking
 # ---------------------------------------------------------------------------
 
@@ -93,13 +177,13 @@ _provider_cooldown_until: dict[str, float] = {}
 _provider_running: dict[str, int] = {}
 
 
-def _log_cooldown(provider: str, cooldown_until: float, reason: str = "") -> None:
+def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event: str = "burnout") -> None:
     """Append cooldown event to persistent log for visibility."""
     entry = {
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "event": "burnout",
+        "event": event,
         "provider": provider,
-        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)),
+        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)) if event == "burnout" else None,
         "reason": reason[:100],
     }
     try:
@@ -120,7 +204,7 @@ def _log_cooldown(provider: str, cooldown_until: float, reason: str = "") -> Non
 
 def _generate_task_id() -> str:
     """Generate a task ID in t-XXXXXX format (6 hex chars, same as golem-daemon)."""
-    return f"t-{random.randint(0, 0xFFFFFF):06x}"
+    return f"t-{secrets.token_hex(3)}"
 
 
 def _is_on_cooldown(provider: str) -> bool:
@@ -179,6 +263,9 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
     """Parse queue file under QueueLock.
 
     Returns [(line_num, prompt, provider, task_id, max_turns)].
+    Generates a unique task ID (t-xxxxxx) for each task that doesn't have one,
+    and writes it back into the queue file inside the backtick (like golem-daemon).
+    High-priority [!!] tasks are sorted before normal [ ] tasks.
     """
     with QueueLock():
         if not QUEUE_FILE.exists():
@@ -187,6 +274,8 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         lines = QUEUE_FILE.read_text().splitlines()
 
     pending = []
+    modified = False
+    priority_map: dict[int, int] = {}  # line_num -> priority (0=high, 1=normal)
 
     for i, line in enumerate(lines):
         stripped = line.strip()
@@ -203,7 +292,15 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         provider = provider_match.group(1) if provider_match else "zhipu"
 
         tid_match = TASK_ID_RE.search(cmd)
-        task_id = f"t-{tid_match.group(1)}" if tid_match else _generate_task_id()
+        if tid_match:
+            task_id = f"t-{tid_match.group(1)}"
+        else:
+            task_id = _generate_task_id()
+            # Inject task ID after "golem " in the command, matching golem-daemon
+            new_cmd = cmd.replace("golem ", f"golem [{task_id}] ", 1)
+            lines[i] = line.replace(f"`{cmd}`", f"`{new_cmd}`", 1)
+            cmd = new_cmd
+            modified = True
 
         prompt_match = re.search(r'"([^"]+)"', cmd)
         prompt = prompt_match.group(1) if prompt_match else cmd
@@ -211,8 +308,20 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
         max_turns = int(turns_match.group(1)) if turns_match else 50
 
+        is_high = stripped.startswith("- [!!] ")
+        priority_map[i] = 0 if is_high else 1
         pending.append((i, prompt, provider, task_id, max_turns))
 
+    # Write back if any IDs were generated
+    if modified:
+        try:
+            with QueueLock():
+                QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            pass
+
+    # Sort: high priority (0) first, then normal (1); stable sort preserves file order
+    pending.sort(key=lambda x: priority_map.get(x[0], 1))
     return pending
 
 
@@ -322,7 +431,8 @@ async def poll_loop(interval: int = 30) -> None:
 
     On rate-limit errors (HTTP 429 / quota messages), sets a cooldown
     on the offending provider so subsequent poll cycles skip it until
-    the cooldown expires.
+    the cooldown expires.  Uses RATE_LIMIT_PATTERNS for detection and
+    parse_rate_limit_window for proportional cooldown durations.
     """
     log(f"Starting poll loop (interval={interval}s)")
     while True:
@@ -331,20 +441,26 @@ async def poll_loop(interval: int = 30) -> None:
             if count == 0:
                 log("Queue empty, waiting...")
         except Exception as e:
-            err_msg = str(e).lower()
-            # Detect rate-limit / quota errors and set cooldowns
-            if any(kw in err_msg for kw in ("429", "rate limit", "quota", "resource exhausted")):
+            err_msg = str(e)
+            # Detect rate-limit / quota errors using compiled regex
+            if is_rate_limited(err_msg) or "resource exhausted" in err_msg.lower():
+                # Try to extract a precise cooldown window from the error text
+                window = parse_rate_limit_window(err_msg)
                 # Try to identify the provider from the error
+                cooldown_applied = False
                 for prov in PROVIDER_LIMITS:
-                    if prov in err_msg:
-                        _set_cooldown(prov, RATE_LIMIT_COOLDOWN_SECONDS, reason=err_msg[:100])
-                        log(f"RATE-LIMIT detected for {prov}, cooldown {RATE_LIMIT_COOLDOWN_SECONDS}s")
+                    if prov in err_msg.lower():
+                        cooldown = window or PROVIDER_RATE_WINDOWS.get(prov, RATE_LIMIT_COOLDOWN_SECONDS)
+                        _set_cooldown(prov, cooldown, reason=err_msg[:100])
+                        log(f"RATE-LIMIT detected for {prov}, cooldown {cooldown}s")
+                        cooldown_applied = True
                         break
-                else:
+                if not cooldown_applied:
                     # Unknown provider — apply cooldown to all low-limit providers
+                    cooldown = window or RATE_LIMIT_COOLDOWN_SECONDS
                     for prov, lim in PROVIDER_LIMITS.items():
                         if lim <= 2:
-                            _set_cooldown(prov, RATE_LIMIT_COOLDOWN_SECONDS, reason=err_msg[:100])
+                            _set_cooldown(prov, cooldown, reason=err_msg[:100])
                     log(f"RATE-LIMIT detected (unknown provider), cooldown applied to low-limit providers")
             else:
                 log(f"Error in poll loop: {e}")
