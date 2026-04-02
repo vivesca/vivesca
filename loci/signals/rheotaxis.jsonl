@@ -378,3 +378,8 @@
 {"ts": "2026-04-02T00:11:07+00:00", "model": "sonar", "query": "q1"}
 {"ts": "2026-04-02T00:11:07+00:00", "model": "sonar", "query": "test query"}
 {"ts": "2026-04-02T00:11:07+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-02T00:56:23+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-02T00:56:27+00:00", "model": "sonar", "query": "q2"}
+{"ts": "2026-04-02T00:56:27+00:00", "model": "sonar", "query": "q1"}
+{"ts": "2026-04-02T00:56:27+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-02T00:56:27+00:00", "model": "sonar", "query": "test query"}

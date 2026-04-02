@@ -2031,3 +2031,263 @@ Three test files crash at collection because `exec(golem-tools-source, ns)` fail
 ### Auto-requeue (2 tasks @ 08:15)
 - [x] `golem [t-d46c02] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
 - [x] `golem [t-360789] --provider volcano --max-turns 30 "Health check: queue-gen, weekly-gather, update-compound-engineering-skills.sh, cg, queue-balance, soma-pull, update-compound-engineering, golem-daemon, golem-tools, chromatin-decay-report.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:15)
+- [x] `golem [t-9d6b90] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-e66850] --provider volcano --max-turns 30 "Health check: launchagent-health, proteostasis, golem-review, rheotaxis-local, lacuna.py, perplexity.sh, switch-layer, cookie-sync, orphan-scan, git-activity. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:16)
+- [x] `golem [t-d5451e] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-d9c599] --provider volcano --max-turns 30 "Health check: golem-validate, taste-score, plan-exec, tm, assay, phagocytosis.py, grep, fix-symlinks, soma-snapshot, autoimmune.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (3 tasks @ 08:16)
+- [x] `golem [t-f728d0] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-8806f5] --provider zhipu --max-turns 30 "Health check: council, rename-plists, immunosurveillance, card-search, goose-worker, pharos-env.sh, compound-engineering-status, soma-watchdog, replisome, safe_search.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem [t-b2e70e] --provider infini --max-turns 35 "Read /home/terry/germline/assays/test_telegram_auth.py. It's a placeholder with only assert True. Find the source module it should test. Replace the placeholder with 5+ real tests covering actual functionality. Run uv run pytest /home/terry/germline/assays/test_telegram_auth.py -v --tb=short. Commit."`
+
+### Auto-requeue (2 tasks @ 08:17)
+- [x] `golem [t-f17401] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-0307ae] --provider infini --max-turns 30 "Health check: update-compound-engineering-skills.sh, importin, mismatch-repair, chat_history.py, proteostasis, complement, golem-tools, chromatin-backup.py, golem-daemon, assay. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:18)
+- [x] `golem [t-be8002] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-a5ce86] --provider infini --max-turns 30 "Health check: weekly-gather, cytokinesis, test-fixer, autoimmune.py, backup-due.sh, fix-symlinks, oura-weekly-digest.py, mismatch-repair, commensal, regulatory-scrape. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:18)
+- [x] `golem [t-95b285] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-83ed40] --provider infini --max-turns 30 "Health check: rheotaxis, backup-due.sh, centrosome, update-compound-engineering, cibus.py, replisome, receptor-health, capco-prep, poiesis, med-tracker. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:19)
+- [x] `golem [t-fae107] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-1333d9] --provider infini --max-turns 30 "Health check: auto-update-compound-engineering.sh, cn-route, lacuna, secrets-sync, legatum-verify, synthase, safe_search.py, autoimmune.py, phagocytosis.py, pharos-env.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:19)
+- [x] `golem [t-2f16fb] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-ecbb4a] --provider volcano --max-turns 30 "Health check: cookie-sync, generate-solutions-index.py, soma-wake, git-activity, queue-balance, weekly-gather, tm, golem-orchestrator, methylation-review, exocytosis.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (3 tasks @ 08:20)
+- [x] `golem [t-1325d9] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-1f4296] --provider infini --max-turns 30 "Health check: nightly, lacuna, oci-arm-retry, mitosis-checkpoint.py, card-search, telophase, synthase, backfill-marks, exocytosis.py, receptor-health. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem [t-bc83c5] --provider volcano --max-turns 35 "Read /home/terry/germline/assays/test_substrates_operon_monitor.py. It's a placeholder with only assert True. Find the source module it should test. Replace the placeholder with 5+ real tests covering actual functionality. Run uv run pytest /home/terry/germline/assays/test_substrates_operon_monitor.py -v --tb=short. Commit."`
+
+### Auto-requeue (2 tasks @ 08:20)
+- [x] `golem [t-9108a6] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-ae380e] --provider volcano --max-turns 30 "Health check: porta, receptor-scan, golem-tools, hkicpa, goose-worker, safe_search.py, pharos-health.sh, assay, exocytosis.py, telophase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:21)
+- [x] `golem [t-51005a] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-2085e9] --provider volcano --max-turns 30 "Health check: engram, regulatory-capture, test-dashboard, express, gap_junction_sync, backup-due.sh, log-summary, card-search, med-tracker, tm. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:21)
+- [x] `golem [t-8b6ae3] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-2cac04] --provider volcano --max-turns 30 "Health check: golem-daemon-wrapper.sh, browser, demethylase, test-spec-gen, effector-usage, card-search, golem-tools, test-dashboard, oura-weekly-digest.py, grep. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:22)
+- [x] `golem [t-2843e8] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-6f3b77] --provider volcano --max-turns 30 "Health check: effector-usage, legatum, poiesis, goose-worker, lacuna, vesicle, git-activity, gemmule-sync, channel, secrets-sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:22)
+- [x] `golem [t-8082e8] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-74cee7] --provider infini --max-turns 30 "Health check: receptor-scan, pinocytosis, lustro-analyze, golem-top, hkicpa, backup-due.sh, capco-prep, goose-worker, gap_junction_sync, immunosurveillance. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:23)
+- [x] `golem [t-2f8b21] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-f2179a] --provider infini --max-turns 30 "Health check: backfill-marks, health-check, soma-snapshot, golem-orchestrator, linkedin-monitor, golem-dash, soma-bootstrap, lysis, soma-scale, wewe-rss-health.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (3 tasks @ 08:23)
+- [x] `golem [t-f4e84e] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-a57762] --provider volcano --max-turns 30 "Health check: test-spec-gen, soma-bootstrap, client-brief, replisome, regulatory-capture, start-chrome-debug.sh, legatum, rotate-logs.py, pharos-env.sh, skill-sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem [t-7d19a5] --provider zhipu --max-turns 35 "Read /home/terry/germline/assays/test_telegram_receptor.py. It's a placeholder with only assert True. Find the source module it should test. Replace the placeholder with 5+ real tests covering actual functionality. Run uv run pytest /home/terry/germline/assays/test_telegram_receptor.py -v --tb=short. Commit."`
+
+### Auto-requeue (2 tasks @ 08:24)
+- [x] `golem [t-322f2a] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-955c7c] --provider volcano --max-turns 30 "Health check: capco-prep, client-brief, vesicle, channel, lustro-analyze, golem-health, demethylase, commensal, browser, regulatory-scan. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:25)
+- [x] `golem [t-ec31c7] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-86876e] --provider zhipu --max-turns 30 "Health check: golem-health, commensal, autoimmune.py, transduction-daily-run, test-spec-gen, pulse-review, cleanup-stuck, golem-validate, publish, efferens. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:25)
+- [x] `golem [t-49cd2a] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-1ac7ce] --provider zhipu --max-turns 30 "Health check: git-activity, golem-reviewer, translocon, nightly, pulse-review, cn-route, update-coding-tools.sh, auto-update-compound-engineering.sh, cytokinesis, paracrine. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:26)
+- [x] `golem [t-65c5d2] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-e0b3bf] --provider infini --max-turns 30 "Health check: git-activity, photos.py, soma-activate, lysis, oci-region-subscribe, regulatory-scan, weekly-gather, plan-exec, compound-engineering-test, golem-tools. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:26)
+- [x] `golem [t-3c79e2] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-01335b] --provider zhipu --max-turns 30 "Health check: plan-exec, respirometry, search-guard, diapedesis, tmux-url-select.sh, soma-scale, wacli-ro, golem-top, porta, generate-solutions-index.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:27)
+- [x] `golem [t-fef5b8] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-97ccd2] --provider infini --max-turns 30 "Health check: transduction-daily-run, telophase, git-activity, respirometry, fix-symlinks, linkedin-monitor, browser, launchagent-health, generate-solutions-index.py, wacli-ro. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:27)
+- [x] `golem [t-3c01cc] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-df212b] --provider volcano --max-turns 30 "Health check: test-fixer, card-search, soma-scale, immunosurveillance.py, tmux-osc52.sh, update-compound-engineering, regulatory-scrape, secrets-sync, rg, cleanup-stuck. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:28)
+- [x] `golem [t-a4e105] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-9f58ea] --provider infini --max-turns 30 "Health check: receptor-health, golem-tools, pharos-health.sh, efferens, channel, overnight-gather, agent-sync.sh, golem-cost, skill-search, engram. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:28)
+- [x] `golem [t-7434fd] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-905574] --provider infini --max-turns 30 "Health check: diapedesis, phagocytosis.py, golem-review, poiesis, browser, inflammasome-probe, cg, hkicpa, queue-gen, rotate-logs.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:29)
+- [x] `golem [t-706684] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-ac2b37] --provider infini --max-turns 30 "Health check: compound-engineering-test, rename-plists, complement, fix-symlinks, card-search, disk-audit, lacuna.py, gemmation-env, generate-solutions-index.py, lacuna. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:29)
+- [x] `golem [t-e5862a] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [!] `golem [t-6ecd2c] --provider zhipu --max-turns 30 "Health check: client-brief, poiesis, respirometry, methylation, weekly-gather, regulatory-scrape, soma-clean, transduction-daily-run, linkedin-monitor, capco-prep. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:30)
+- [x] `golem [t-7fdf8d] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-5af16e] --provider zhipu --max-turns 30 "Health check: golem-daemon, golem-health, autoimmune.py, exocytosis.py, browser, cleanup-stuck, fix-symlinks, lacuna.py, efferens, queue-stats. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 08:31)
+- [x] `golem [t-959fe7] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-a065b4] --provider volcano --max-turns 30 "Health check: oci-arm-retry, transduction-daily-run, golem-orchestrator, rename-kindle-asins.py, inflammasome-probe, queue-stats, paracrine, soma-health, dr-sync, golem-health. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+
+### Mitogen batch 2 — core module fixes (2026-04-02 08:15)
+
+#### Fix operon — translocon + hemostasis (dispatch pipeline)
+- [x] `golem [t-e428b9] --provider zhipu --max-turns 30 "assays/test_translocon.py has 9 failures / 41 pass. Run uv run pytest assays/test_translocon.py -v --tb=short. Read test + metabolon/organelles/translocon.py. Fix tests to match current source. Iterate until green. Commit."`
+- [x] `golem [t-06e195] --provider volcano --max-turns 30 "assays/test_hemostasis.py has 6 failures / 14 pass. Run uv run pytest assays/test_hemostasis.py -v --tb=short. Read test + source (grep for hemostasis in metabolon/ and effectors/). Fix tests to match current source. Iterate until green. Commit."`
+
+#### Fix operon — monitoring (interoception + phenotype_translate)
+- [x] `golem [t-c3a734] --provider zhipu --max-turns 30 "assays/test_interoception_actions.py has 2 failures / 6 pass. Run uv run pytest assays/test_interoception_actions.py -v --tb=short. Read test + metabolon/enzymes/interoception.py. Fix tests. Iterate until green. Commit."`
+- [x] `golem [t-0ba95d] --provider volcano --max-turns 30 "assays/test_phenotype_translate.py has 5 collection errors out of 73 pass. Run uv run pytest assays/test_phenotype_translate.py -v --tb=short. Read test + metabolon/organelles/phenotype_translate.py. Fix the errors. Iterate until green. Commit."`
+
+#### Fix — methylation_review (3 failures)
+- [x] `golem [t-542072] --provider zhipu --max-turns 30 "assays/test_methylation_review.py has 3 failures / 18 pass. Run uv run pytest assays/test_methylation_review.py -v --tb=short. Read test + effectors/methylation-review. Fix tests to match current source. Iterate until green. Commit."`
+
+#### Fix — pinocytosis + queue_gen + golem_daemon (1 failure each)
+- [x] `golem [t-edf3fe] --provider codex --max-turns 30 "Three test files each have 1 failure. Fix all three: (1) assays/test_pinocytosis.py — 1 fail / 14 pass. (2) assays/test_queue_gen.py — 1 fail / 12 pass. (3) assays/test_golem_daemon.py — 1 fail / 100 pass. For each: run pytest -v --tb=short, read test + source, fix, verify. Commit."`
+
+### Auto-requeue (2 tasks @ 09:04)
+- [x] `golem [t-56e758] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-9d02f3] --provider volcano --max-turns 30 "Health check: capco-prep, golem-orchestrator, oci-region-subscribe, hetzner-bootstrap.sh, taste-score, evident-brief, immunosurveillance.py, golem-review, disk-audit, lacuna. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:05)
+- [x] `golem [t-dca84c] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-bc0d01] --provider zhipu --max-turns 30 "Health check: telophase, fix-symlinks, start-chrome-debug.sh, cn-route, update-coding-tools.sh, golem-review, legatum-verify, lacuna.py, replisome, perplexity.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:05)
+- [x] `golem [t-41c099] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-07e3db] --provider zhipu --max-turns 30 "Health check: dr-sync, assay, cookie-sync, methylation-review, pharos-sync.sh, backup-due.sh, mitosis-checkpoint.py, golem-top, photos.py, porta. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:06)
+- [x] `golem [t-24f926] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-9634c0] --provider zhipu --max-turns 30 "Health check: gog, rheotaxis-local, backfill-marks, golem-orchestrator, golem, legatum-verify, translocon, vesicle, mitosis-checkpoint.py, provider-bench. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:07)
+- [x] `golem [t-24f275] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit. (retry)"`
+- [x] `golem [t-4f636a] --provider volcano --max-turns 30 "Health check: autoimmune.py, telophase, oci-region-subscribe, effector-usage, regulatory-capture, rheotaxis-local, cn-route, council, evident-brief, capco-brief. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:07)
+- [!] `golem [t-80cf5d] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit. (retry)"`
+- [x] `golem [t-cab2f2] --provider volcano --max-turns 30 "Health check: proteostasis, gemmation-env, skill-sync, electroreception, photos.py, gemmule-sync, paracrine, pharos-env.sh, soma-bootstrap, demethylase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:08)
+- [!] `golem [t-35a685] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit. (retry)"`
+- [x] `golem [t-eef5be] --provider volcano --max-turns 30 "Health check: legatum-verify, gog, pinocytosis, golem, skill-sync, goose-worker, gap_junction_sync, chemoreception.py, grep, poiesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:08)
+- [x] `golem [t-a159bf] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-9db98c] --provider infini --max-turns 30 "Health check: golem-daemon-wrapper.sh, compound-engineering-status, tmux-workspace.py, exocytosis.py, chromatin-decay-report.py, tm, translocon, skill-lint, hetzner-bootstrap.sh, capco-brief. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:09)
+- [x] `golem [t-db01c1] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-209bbe] --provider zhipu --max-turns 30 "Health check: golem-top, transduction-daily-run, oura-weekly-digest.py, immunosurveillance.py, efferens, lacuna.py, capco-brief, rheotaxis-local, tmux-url-select.sh, soma-watchdog. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:10)
+- [x] `golem [t-4ae23d] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-85be9b] --provider infini --max-turns 30 "Health check: fasti, porta, chromatin-backup.py, tmux-url-select.sh, orphan-scan, launchagent-health, diapedesis, skill-sync, chromatin-backup.sh, oci-region-subscribe. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:10)
+- [x] `golem [t-a7dfc6] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-0a7ab6] --provider zhipu --max-turns 30 "Health check: x-feed-to-lustro, test-fixer, synthase, coverage-map, agent-sync.sh, demethylase, chromatin-backup.sh, publish, soma-watchdog, launchagent-health. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:11)
+- [x] `golem [t-ce1240] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-7fe0ec] --provider zhipu --max-turns 30 "Health check: x-feed-to-lustro, compound-engineering-test, assay, golem-reviewer, soma-watchdog, conftest-gen, card-search, engram, publish, plan-exec. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:12)
+- [x] `golem [t-0afe90] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-956153] --provider volcano --max-turns 30 "Health check: start-chrome-debug.sh, qmd-reindex.sh, publish, chemoreception.py, respirometry, centrosome, cytokinesis, legatum-verify, chromatin-decay-report.py, pharos-env.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:12)
+- [x] `golem [t-4bab6f] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-663e17] --provider volcano --max-turns 30 "Health check: rheotaxis, taste-score, tm, tmux-workspace.py, pharos-sync.sh, lustro-analyze, lacuna, publish, inflammasome-probe, auto-update-compound-engineering.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:13)
+- [x] `golem [t-38e8de] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-d1a75f] --provider zhipu --max-turns 30 "Health check: search-guard, circadian-probe.py, agent-sync.sh, browser, rename-kindle-asins.py, soma-wake, skill-search, qmd-reindex.sh, golem-health, wewe-rss-health.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:14)
+- [ ] `golem [t-65cf1d] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-b10205] --provider infini --max-turns 30 "Health check: queue-stats, grep, rename-kindle-asins.py, chemoreception.py, compound-engineering-status, electroreception, qmd-reindex.sh, rheotaxis, card-search, rename-plists. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:14)
+- [x] `golem [t-c85412] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-d65478] --provider zhipu --max-turns 30 "Health check: test-dashboard, backfill-marks, cn-route, pulse-review, receptor-health, bud, translocon, nightly, x-feed-to-lustro, golem-cost. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:15)
+- [x] `golem [t-24607b] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-35c8cd] --provider zhipu --max-turns 30 "Health check: soma-pull, efferens, chromatin-backup.py, qmd-reindex.sh, regulatory-scan, cytokinesis, demethylase, golem-cost, pharos-health.sh, replisome. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:16)
+- [x] `golem [t-4c8a7e] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-3fa27c] --provider volcano --max-turns 30 "Health check: soma-watchdog, exocytosis.py, paracrine, tmux-url-select.sh, cytokinesis, effector-usage, orphan-scan, safe_rm.py, lacuna.py, nightly. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:16)
+- [ ] `golem [t-cb40fc] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-380353] --provider volcano --max-turns 30 "Health check: tmux-url-select.sh, orphan-scan, immunosurveillance, receptor-scan, pinocytosis, cookie-sync, x-feed-to-lustro, health-check, diapedesis, lysis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:17)
+- [ ] `golem [t-73ec6f] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [x] `golem [t-7e7b35] --provider infini --max-turns 30 "Health check: tmux-url-select.sh, taste-score, tmux-osc52.sh, express, respirometry, rotate-logs.py, golem-daemon-wrapper.sh, goose-worker, pinocytosis, soma-watchdog. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:18)
+- [ ] `golem [t-2c6ecd] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-1e3aa2] --provider infini --max-turns 30 "Health check: replisome, exocytosis.py, x-feed-to-lustro, launchagent-health, phagocytosis.py, queue-gen, pharos-env.sh, update-compound-engineering, soma-bootstrap, golem-validate. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:18)
+- [ ] `golem [t-d83373] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-7cf566] --provider volcano --max-turns 30 "Health check: demethylase, soma-health, regulatory-scan, conftest-gen, skill-search, perplexity.sh, chat_history.py, immunosurveillance.py, poiesis, launchagent-health. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:19)
+- [ ] `golem [t-b8c908] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-782f6f] --provider volcano --max-turns 30 "Health check: telophase, pharos-health.sh, git-activity, diapedesis, autoimmune.py, pharos-sync.sh, dr-sync, compound-engineering-status, provider-bench, pharos-env.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:19)
+- [ ] `golem [t-a4e671] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-7c5ad7] --provider infini --max-turns 30 "Health check: golem-tools, agent-sync.sh, taste-score, assay, golem-validate, golem, switch-layer, publish, golem-review, cleanup-stuck. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:20)
+- [ ] `golem [t-5480f0] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-4e73bc] --provider infini --max-turns 30 "Health check: golem, goose-worker, soma-clean, tm, skill-sync, dr-sync, importin, photos.py, switch-layer, disk-audit. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:21)
+- [ ] `golem [t-85e192] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-701483] --provider zhipu --max-turns 30 "Health check: golem-daemon, methylation-review, cn-route, dr-sync, taste-score, update-compound-engineering-skills.sh, electroreception, med-tracker, find, search-guard. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:21)
+- [ ] `golem [t-0c4e4a] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-6035fe] --provider zhipu --max-turns 30 "Health check: browse, hetzner-bootstrap.sh, backup-due.sh, chromatin-decay-report.py, health-check, circadian-probe.py, secrets-sync, effector-usage, weekly-gather, efferens. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:22)
+- [ ] `golem [t-fe378c] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-fc550d] --provider volcano --max-turns 30 "Health check: golem-cost, golem-orchestrator, pharos-env.sh, golem-tools, gap_junction_sync, provider-bench, ck, vesicle, agent-sync.sh, exocytosis.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:23)
+- [ ] `golem [t-c9e38d] --provider zhipu --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-01fd1c] --provider infini --max-turns 30 "Health check: judge, cibus.py, soma-pull, respirometry, demethylase, lustro-analyze, golem-health, oci-region-subscribe, test-fixer, soma-scale. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+
+### Auto-requeue (2 tasks @ 09:23)
+- [ ] `golem [t-b2e09a] --provider infini --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
+- [ ] `golem [t-73d06c] --provider volcano --max-turns 30 "Health check: soma-snapshot, rename-plists, circadian-probe.py, search-guard, wewe-rss-health.py, coverage-map, cn-route, immunosurveillance, tmux-url-select.sh, gemmule-sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
