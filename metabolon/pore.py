@@ -1053,7 +1053,7 @@ def metabolism_init():
     store = Genome()
     server = assemble_organism()
 
-    tools = asyncio.run(server.expressed_tools())  # type: ignore
+    tools = asyncio.run(server.expressed_tools())
     count = 0
     for tool in tools:
         if tool.description:
