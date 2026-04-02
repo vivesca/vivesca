@@ -50,7 +50,7 @@ def _make_record(
     }
 
 
-def _run_stats(mod: dict, args: list[str] | None = None) -> tuple[str, int]:
+def _run_stats(mod: dict, args: list[str] | None = None, running_file: Path | None = None) -> tuple[str, int]:
     """Run cmd_stats with captured stdout. Returns (output, returncode)."""
     if args is None:
         args = ["--all"]
@@ -58,7 +58,7 @@ def _run_stats(mod: dict, args: list[str] | None = None) -> tuple[str, int]:
     # Override RUNNING_FILE and PIDFILE to avoid reading real system state
     orig_running = mod["RUNNING_FILE"]
     orig_pid = mod["PIDFILE"]
-    mod["RUNNING_FILE"] = mod["Path"]("/tmp/nonexistent_running_stats.json")
+    mod["RUNNING_FILE"] = running_file if running_file is not None else mod["Path"]("/tmp/nonexistent_running_stats.json")
     mod["PIDFILE"] = mod["Path"]("/tmp/nonexistent_stats.pid")
     try:
         with patch("sys.stdout", buf):
@@ -724,13 +724,7 @@ class TestCurrentlyRunningSection:
             {"task_id": "t-abc123", "provider": "zhipu", "cmd": "golem test", "started_at": 1000.0},
         ]))
         mod = _load_module(jsonl, tmp_path / "queue.md")
-        # Patch RUNNING_FILE in the module namespace
-        orig_running = mod["RUNNING_FILE"]
-        mod["RUNNING_FILE"] = running_file
-        try:
-            out, rc = _run_stats(mod)
-        finally:
-            mod["RUNNING_FILE"] = orig_running
+        out, rc = _run_stats(mod, running_file=running_file)
         assert rc == 0
         assert "Currently running:" in out
         assert "t-abc123" in out
@@ -746,12 +740,7 @@ class TestCurrentlyRunningSection:
             {"task_id": "t-noeta", "provider": "codex", "cmd": "golem test"},
         ]))
         mod = _load_module(jsonl, tmp_path / "queue.md")
-        orig_running = mod["RUNNING_FILE"]
-        mod["RUNNING_FILE"] = running_file
-        try:
-            out, rc = _run_stats(mod)
-        finally:
-            mod["RUNNING_FILE"] = orig_running
+        out, rc = _run_stats(mod, running_file=running_file)
         assert rc == 0
         assert "t-noeta" in out
         assert "elapsed" not in out
