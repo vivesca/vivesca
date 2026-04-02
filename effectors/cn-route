@@ -119,8 +119,10 @@ def _current_cn_routes() -> dict[str, str]:
     routes = {}
     for line in result.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 4 and parts[0].split("/")[0] in all_ips:
-            routes[parts[0]] = parts[3]  # interface
+        if len(parts) >= 4:
+            ip = parts[0].split("/")[0]
+            if ip in all_ips:
+                routes[ip] = parts[3]  # interface
     return routes
 
 

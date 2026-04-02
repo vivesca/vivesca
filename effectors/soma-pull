@@ -54,7 +54,7 @@ def main():
     failures = [msg for msg, ok in results if not ok]
     lines = [f"[{timestamp}] " + " | ".join(msg for msg, _ in results)]
 
-    LOG.parent.mkdir(exist_ok=True)
+    LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG, "a") as f:
         f.write(lines[0] + "\n")
 
@@ -62,7 +62,7 @@ def main():
     if LOG.exists():
         all_lines = LOG.read_text().splitlines()
         if len(all_lines) > 500:
-            LOG.write_text("\n".join(all_lines[-250:]) + "\n")
+            LOG.write_text("\n".join(all_lines[-251:]) + "\n")
 
     if failures:
         print(f"WARN: {len(failures)} repos failed", file=sys.stderr)
