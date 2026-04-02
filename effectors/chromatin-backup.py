@@ -9,14 +9,6 @@ Usage:
 """
 from __future__ import annotations
 
-# /// script
-# requires-python = ">=3.11"
-# ///
-"""Chromatin git backup — auto-commit and push if there are changes.
-
-Replaces Obsidian Git plugin (which only runs when app is open).
-"""
-
 import os
 import subprocess
 import sys
