@@ -1160,7 +1160,10 @@ def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
     return True
 
 def auto_requeue(min_pending: int = 50) -> int:
-    """Generate diverse high-value tasks when queue runs low."""
+    """Generate diverse high-value tasks when queue runs low.
+    DISABLED 2026-04-02: auto-generated tasks are filler, not value.
+    CC writes intentional tasks; daemon executes them."""
+    return 0
     import os, random
     pending = parse_queue()
     if len(pending) >= min_pending:
