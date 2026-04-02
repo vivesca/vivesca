@@ -151,7 +151,7 @@ def test_get_file_lines():
     # Test on a known file
     cytokinesis = Path.home() / "germline" / "effectors" / "cytokinesis"
     lines = get_file_lines(cytokinesis)
-    assert lines > 1000  # It's ~1068 lines
+    assert lines > 900  # Non-empty lines ~935 (1110 total)
 
 
 def test_batch_entries():

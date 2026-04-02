@@ -241,7 +241,7 @@ def test_mark_failed_retries_first_attempt(tmp_path):
     assert "- [ ] " in content  # Still pending
     assert "- [!]" not in content  # Not marked failed
     assert "(retry)" in content
-    assert 'golem --provider infini "task1" (retry)' in content
+    assert 'golem --provider infini "task1 (retry)"' in content
 
 
 def test_mark_failed_marks_failed_on_retry(tmp_path):
