@@ -1,9 +1,10 @@
 """Tests for ExecutiveSubstrate — constitution rule parsing and audit."""
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
 
@@ -11,6 +12,16 @@ from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+_SCAN_PATH = "metabolon.metabolism.substrates.constitution.precision_scan"
+
+
+@pytest.fixture(autouse=True)
+def _suppress_precision_scan():
+    """Prevent real precision_scan from running in every sense() call."""
+    with patch(_SCAN_PATH, return_value=[]):
+        yield
+
 
 def _make_substrate(tmp_path: Path, content: str, signals=None):
     """Build an ExecutiveSubstrate with a temp constitution file and mock collector."""
@@ -21,12 +32,7 @@ def _make_substrate(tmp_path: Path, content: str, signals=None):
     return ExecutiveSubstrate(constitution_path=constitution, collector=mock_collector)
 
 
-_no_scan = patch(
-    "metabolon.metabolism.substrates.constitution.precision_scan", return_value=[]
-)
-
-
-def _make_signal(tool: str, days_ago: int = 0):
+def _make_signal(tool: str):
     """Build a lightweight signal-like object with a .tool attribute."""
     sig = MagicMock()
     sig.tool = tool
@@ -37,7 +43,6 @@ def _make_signal(tool: str, days_ago: int = 0):
 # sense — file handling
 # ---------------------------------------------------------------------------
 
-@_no_scan
 class TestSenseFileHandling:
     def test_missing_file_returns_empty(self, tmp_path):
         s = ExecutiveSubstrate(constitution_path=tmp_path / "nope.md")
@@ -56,7 +61,6 @@ class TestSenseFileHandling:
 # sense — rule parsing
 # ---------------------------------------------------------------------------
 
-@_no_scan
 class TestSenseRuleParsing:
     def test_parses_single_bold_rule(self, tmp_path):
         s = _make_substrate(tmp_path, "**Always verify.** Do thorough checks.\n")
@@ -76,7 +80,7 @@ class TestSenseRuleParsing:
         rules = s.sense()
         assert len(rules) == 2
         titles = {r["title"] for r in rules}
-        assert "Rule one" in titles
+        assert "Rule one:" in titles
         assert "Rule two" in titles
 
     def test_rule_has_line_field(self, tmp_path):
@@ -89,14 +93,13 @@ class TestSenseRuleParsing:
         s = _make_substrate(tmp_path, md)
         rules = s.sense()
         assert len(rules) == 1
-        assert rules[0]["title"] == "Real rule"
+        assert rules[0]["title"] == "Real rule:"
 
 
 # ---------------------------------------------------------------------------
 # sense — enzyme cross-referencing
 # ---------------------------------------------------------------------------
 
-@_no_scan
 class TestSenseEnzymeCrossRef:
     def test_no_signals_marks_no_evidence(self, tmp_path):
         s = _make_substrate(tmp_path, "**deploy_tool:** Use it wisely.\n", signals=[])
@@ -207,11 +210,11 @@ class TestReport:
 
 
 # ---------------------------------------------------------------------------
-# precision scan integration
+# precision scan integration (re-enable the mock per-test)
 # ---------------------------------------------------------------------------
 
 class TestPrecisionScan:
-    @patch("metabolon.metabolism.substrates.constitution.precision_scan")
+    @patch(_SCAN_PATH)
     def test_precision_gaps_appended_to_rules(self, mock_scan, tmp_path):
         gap = MagicMock()
         gap.closed = False
@@ -225,7 +228,7 @@ class TestPrecisionScan:
         titles = [r["title"] for r in rules]
         assert any("Precision gap" in t for t in titles)
 
-    @patch("metabolon.metabolism.substrates.constitution.precision_scan")
+    @patch(_SCAN_PATH)
     def test_precision_scan_exception_swallowed(self, mock_scan, tmp_path):
         mock_scan.side_effect = RuntimeError("boom")
         s = _make_substrate(tmp_path, "**Rule:** Something.\n")
@@ -233,7 +236,7 @@ class TestPrecisionScan:
         # Should still return the parsed rule (precision gap just skipped)
         assert len(rules) >= 1
 
-    @patch("metabolon.metabolism.substrates.constitution.precision_scan")
+    @patch(_SCAN_PATH)
     def test_closed_gaps_not_appended(self, mock_scan, tmp_path):
         gap = MagicMock()
         gap.closed = True
