@@ -82,9 +82,10 @@ def test_cache_dir_under_home():
 def test_bird_failure_exits():
     """main exits 1 when bird CLI returns non-zero."""
     with patch("subprocess.run", return_value=_mock_run("", returncode=1)):
-        with pytest.raises(SystemExit) as exc_info:
-            main()
-        assert exc_info.value.code == 1
+        with patch("sys.argv", ["x-feed-to-lustro"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 1
 
 
 # ── single tweet saved ────────────────────────────────────────────────
@@ -96,7 +97,8 @@ def test_single_tweet_saved(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
@@ -118,7 +120,8 @@ def test_short_tweet_skipped(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     assert list(tmp_path.glob("*.json")) == []
 
@@ -139,7 +142,8 @@ def test_duplicate_not_overwritten(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     record = json.loads(existing.read_text())
     assert record == {"old": True}
@@ -154,7 +158,8 @@ def test_quoted_tweet_appended(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
@@ -171,7 +176,8 @@ def test_date_parsing(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     files = list(tmp_path.glob("2025-03-15_*.json"))
     assert len(files) == 1
@@ -187,7 +193,8 @@ def test_bad_date_uses_today(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     assert len(list(tmp_path.glob(f"{today_str}_*.json"))) == 1
 
@@ -201,7 +208,8 @@ def test_missing_date_uses_today(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     assert len(list(tmp_path.glob(f"{today_str}_*.json"))) == 1
 
@@ -215,7 +223,8 @@ def test_single_object_response(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     assert len(list(tmp_path.glob("*.json"))) == 1
 
@@ -230,7 +239,8 @@ def test_mixed_tweets(tmp_path, capsys):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     assert len(list(tmp_path.glob("*.json"))) == 1
 
@@ -248,7 +258,8 @@ def test_subprocess_called_correctly(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)) as mock_run:
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     mock_run.assert_called_once()
     cmd = mock_run.call_args[0][0]
@@ -267,7 +278,8 @@ def test_cache_dir_created(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(deep_dir):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     assert deep_dir.exists()
     assert len(list(deep_dir.glob("*.json"))) == 1
@@ -282,7 +294,8 @@ def test_record_fields(tmp_path):
 
     with patch("subprocess.run", return_value=_mock_run(tweets_json)):
         with _cache_dir(tmp_path):
-            main()
+            with patch("sys.argv", ["x-feed-to-lustro"]):
+                main()
 
     record = json.loads(list(tmp_path.glob("*.json"))[0].read_text())
     for key in ("title", "date", "source", "tier", "link", "summary", "text", "fetched_at"):

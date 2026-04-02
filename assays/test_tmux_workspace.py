@@ -80,7 +80,7 @@ class TestRun:
     def test_run_calls_subprocess(self):
         with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="", stderr="")) as mock:
             result = run("echo hello")
-            mock.assert_called_once_with("echo hello", shell=True, capture_output=True, text=True, check=True)
+            mock.assert_called_once_with("echo hello", shell=True, capture_output=True, text=True, check=True, timeout=30)
 
     def test_run_no_check(self):
         with patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="", stderr="err")) as mock:

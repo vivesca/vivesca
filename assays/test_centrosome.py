@@ -27,7 +27,7 @@ def test_centrosome_help():
         check=True
     )
     assert result.returncode == 0
-    assert "poiesis" in result.stdout
+    assert "centrosome" in result.stdout
     assert "Usage" in result.stdout
     assert "search Capco vault notes by keyword" in result.stdout
 
