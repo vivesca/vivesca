@@ -96,7 +96,7 @@ def _lan_gateway() -> str | None:
     return None
 
 
-def _current_zhipu_routes() -> dict[str, str]:
+def _current_cn_routes() -> dict[str, str]:
     """Return {ip: interface} for IPs we manage."""
     all_ips = set()
     for host in CN_API_HOSTS:
@@ -152,7 +152,7 @@ def add_routes() -> None:
         all_ips.update(ips)
 
     if not all_ips:
-        print("Could not resolve any ZhiPu IPs")
+        print("Could not resolve any CN API IPs")
         sys.exit(1)
 
     added = 0
@@ -166,7 +166,7 @@ def add_routes() -> None:
         else:
             print(f"  ! {ip} failed: {result.stderr.strip()}")
 
-    print(f"\n{added} route(s) added. ZhiPu traffic bypasses Tailscale exit node.")
+    print(f"\n{added} route(s) added. CN API traffic bypasses Tailscale exit node.")
 
 
 def remove_routes() -> None:
@@ -181,7 +181,7 @@ def remove_routes() -> None:
 
 
 def show_status() -> None:
-    routes = _current_zhipu_routes()
+    routes = _current_cn_routes()
     exit_active = _tailscale_exit_active()
     gateway = _lan_gateway()
 
@@ -198,7 +198,7 @@ def show_status() -> None:
     print()
     if not routes:
         if exit_active:
-            print("No bypass routes set — ZhiPu traffic goes through exit node!")
+            print("No bypass routes set — CN API traffic goes through exit node!")
         else:
             print("No bypass routes needed — no exit node active.")
     else:
