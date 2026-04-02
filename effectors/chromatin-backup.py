@@ -37,7 +37,7 @@ def _git(*args: str, check: bool = True, capture: bool = True, env: dict | None 
     }
     if env is not None:
         run_kwargs["env"] = env
-    return subprocess.run(["git", *args], **run_kwargs, timeout=300, )
+    return subprocess.run(["git", *args], **run_kwargs)
 
 
 def _has_changes() -> bool:
