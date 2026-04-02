@@ -12,9 +12,6 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
-# Use string reference to avoid importing the activity at workflow-parse time.
-# Temporal requires workflow code to be deterministic; importing worker.py
-# (which has side effects) would break replay.
 with workflow.unsafe.imports_passed_through():
     from worker import run_golem_task
 
