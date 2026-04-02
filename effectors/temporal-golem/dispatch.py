@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import fcntl
 import json
+import os
 import re
 import secrets
 import sys
@@ -540,7 +541,8 @@ async def dispatch_all(dry_run: bool = False) -> int:
     # Submit as a single batch workflow
     from workflow import GolemDispatchWorkflow
 
-    client = await Client.connect("localhost:7233")
+    host = os.getenv("TEMPORAL_HOST", "100.120.158.22:7233")
+    client = await Client.connect(host)
     wf_id = f"golem-batch-{uuid.uuid4().hex[:8]}"
 
     handle = await client.start_workflow(
@@ -623,7 +625,8 @@ async def poll_loop(interval: int = 30) -> None:
 
 async def show_status(json_output: bool = False) -> None:
     """Show recent Temporal workflow runs."""
-    client = await Client.connect("localhost:7233")
+    host = os.getenv("TEMPORAL_HOST", "100.120.158.22:7233")
+    client = await Client.connect(host)
     results = []
     async for wf in client.list_workflows(
         query="WorkflowType = 'GolemDispatchWorkflow'",
