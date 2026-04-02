@@ -1,0 +1,143 @@
+Loading pyproject.toml file at /home/terry/germline/pyproject.toml
+Auto-excluding **/node_modules
+Auto-excluding **/__pycache__
+Auto-excluding **/.*
+Execution environment: python
+  Extra paths:
+    (none)
+  Python version: 3.11
+  Python platform: Linux
+  Search paths:
+    /home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib
+    /home/terry/germline
+    /home/terry/germline/typings
+    /home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stubs/...
+    /home/terry/germline/.venv/lib/python3.13/site-packages
+    /home/terry/germline/.venv/lib64/python3.13/site-packages
+    /home/terry/code/oghma/src
+    /home/terry/code/acta
+    /home/terry/germline
+Found 203 source files
+Heap stats: total_memory_size=32097MB, total_free_size=22736MB, total_heap_size=66MB, used_heap_size=43MB, cross_worker_used_heap_size=43MB, total_physical_size=61MB, total_available_size=4100MB, heap_size_limit=4144MB
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/typing_extensions.pyi'
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/typing.pyi'
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/typing.pyi'
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi'
+Heap stats: total_memory_size=32097MB, total_free_size=22640MB, total_heap_size=83MB, used_heap_size=51MB, cross_worker_used_heap_size=51MB, total_physical_size=80MB, total_available_size=4092MB, heap_size_limit=4144MB
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/mixins/lifespan.py'
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/mixins/lifespan.py'
+Could not import 'pathlib.types' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/pathlib/__init__.pyi'
+Heap stats: total_memory_size=32097MB, total_free_size=22511MB, total_heap_size=102MB, used_heap_size=74MB, cross_worker_used_heap_size=74MB, total_physical_size=102MB, total_available_size=4068MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=23186MB, total_heap_size=121MB, used_heap_size=91MB, cross_worker_used_heap_size=91MB, total_physical_size=122MB, total_available_size=4051MB, heap_size_limit=4144MB
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pydantic/_internal/_model_construction.py'
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/inspect.pyi'
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/inspect.pyi'
+Could not import 'annotationlib' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pydantic/_internal/_decorators.py'
+[FG] Long operation: checking: file:///home/terry/germline/metabolon/__main__.py (3551ms)
+[FG] Long operation: analyzing: file:///home/terry/germline/metabolon/__main__.py (3552ms)
+Heap stats: total_memory_size=32097MB, total_free_size=23043MB, total_heap_size=137MB, used_heap_size=114MB, cross_worker_used_heap_size=114MB, total_physical_size=138MB, total_available_size=4027MB, heap_size_limit=4144MB
+Could not import 'prefab_ui.app' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/providers/local_provider/decorators/tools.py'
+Could not import 'prefab_ui.components.base' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/providers/local_provider/decorators/tools.py'
+Could not import 'prefab_ui.renderer' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/providers/local_provider/decorators/tools.py'
+Could not import 'prefab_ui.renderer' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/providers/local_provider/decorators/tools.py'
+Could not import 'prefab_ui.app' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/tools/tool.py'
+Could not import 'prefab_ui.components.base' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/tools/tool.py'
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/tools/tool.py'
+Could not import 'docket.execution' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/tools/tool.py'
+Could not import 'docket.dependencies' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/server/context.py'
+Heap stats: total_memory_size=32097MB, total_free_size=22949MB, total_heap_size=163MB, used_heap_size=130MB, cross_worker_used_heap_size=130MB, total_physical_size=163MB, total_available_size=4011MB, heap_size_limit=4144MB
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/utilities/components.py'
+Could not import 'docket.execution' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/utilities/components.py'
+Heap stats: total_memory_size=32097MB, total_free_size=22822MB, total_heap_size=180MB, used_heap_size=157MB, cross_worker_used_heap_size=157MB, total_physical_size=181MB, total_available_size=3984MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=22665MB, total_heap_size=203MB, used_heap_size=171MB, cross_worker_used_heap_size=171MB, total_physical_size=203MB, total_available_size=3970MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=22496MB, total_heap_size=217MB, used_heap_size=175MB, cross_worker_used_heap_size=175MB, total_physical_size=217MB, total_available_size=3966MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=22324MB, total_heap_size=222MB, used_heap_size=184MB, cross_worker_used_heap_size=184MB, total_physical_size=222MB, total_available_size=3956MB, heap_size_limit=4144MB
+[FG] Long operation: checking: file:///home/terry/germline/metabolon/pore.py (3422ms)
+[FG] Long operation: analyzing: file:///home/terry/germline/metabolon/pore.py (3552ms)
+Heap stats: total_memory_size=32097MB, total_free_size=22137MB, total_heap_size=233MB, used_heap_size=198MB, cross_worker_used_heap_size=198MB, total_physical_size=233MB, total_available_size=3942MB, heap_size_limit=4144MB
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/prompts/function_prompt.py'
+Could not import 'docket.execution' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/prompts/function_prompt.py'
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/tools/function_tool.py'
+Could not import 'docket.execution' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/tools/function_tool.py'
+Heap stats: total_memory_size=32097MB, total_free_size=21987MB, total_heap_size=242MB, used_heap_size=205MB, cross_worker_used_heap_size=205MB, total_physical_size=242MB, total_available_size=3934MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21814MB, total_heap_size=255MB, used_heap_size=233MB, cross_worker_used_heap_size=233MB, total_physical_size=255MB, total_available_size=3907MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21690MB, total_heap_size=262MB, used_heap_size=234MB, cross_worker_used_heap_size=234MB, total_physical_size=262MB, total_available_size=3906MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21544MB, total_heap_size=269MB, used_heap_size=234MB, cross_worker_used_heap_size=234MB, total_physical_size=269MB, total_available_size=3905MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21263MB, total_heap_size=276MB, used_heap_size=240MB, cross_worker_used_heap_size=240MB, total_physical_size=276MB, total_available_size=3899MB, heap_size_limit=4144MB
+Could not import 'docket' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/resources/resource.py'
+Could not import 'docket.execution' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/fastmcp/resources/resource.py'
+Heap stats: total_memory_size=32097MB, total_free_size=21087MB, total_heap_size=283MB, used_heap_size=254MB, cross_worker_used_heap_size=254MB, total_physical_size=283MB, total_available_size=3885MB, heap_size_limit=4144MB
+Could not import 'pycookiecheat' in file '/home/terry/germline/metabolon/organelles/porta.py'
+Heap stats: total_memory_size=32097MB, total_free_size=20968MB, total_heap_size=293MB, used_heap_size=270MB, cross_worker_used_heap_size=270MB, total_physical_size=293MB, total_available_size=3869MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20830MB, total_heap_size=320MB, used_heap_size=286MB, cross_worker_used_heap_size=286MB, total_physical_size=320MB, total_available_size=3853MB, heap_size_limit=4144MB
+Could not import 'h2' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_client.py'
+Could not import 'h2' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_client.py'
+Could not import 'trio' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_transports/asgi.py'
+Could not import 'trio' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_transports/asgi.py'
+Could not import 'socksio' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_transports/default.py'
+Could not import 'socksio' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_transports/default.py'
+Could not import 'brotli' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_decoders.py'
+Could not import 'brotlicffi' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/httpx/_decoders.py'
+Heap stats: total_memory_size=32097MB, total_free_size=21544MB, total_heap_size=342MB, used_heap_size=317MB, cross_worker_used_heap_size=317MB, total_physical_size=342MB, total_available_size=3821MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21457MB, total_heap_size=352MB, used_heap_size=317MB, cross_worker_used_heap_size=317MB, total_physical_size=352MB, total_available_size=3821MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21370MB, total_heap_size=358MB, used_heap_size=324MB, cross_worker_used_heap_size=324MB, total_physical_size=358MB, total_available_size=3814MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21231MB, total_heap_size=383MB, used_heap_size=348MB, cross_worker_used_heap_size=348MB, total_physical_size=383MB, total_available_size=3789MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21002MB, total_heap_size=413MB, used_heap_size=378MB, cross_worker_used_heap_size=378MB, total_physical_size=413MB, total_available_size=3758MB, heap_size_limit=4144MB
+Could not import 'langchain_text_splitters' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/langchain_core/messages/utils.py'
+Heap stats: total_memory_size=32097MB, total_free_size=20857MB, total_heap_size=428MB, used_heap_size=394MB, cross_worker_used_heap_size=394MB, total_physical_size=428MB, total_available_size=3743MB, heap_size_limit=4144MB
+[FG] Long operation: checking: file:///home/terry/germline/metabolon/organelles/engram.py (2645ms)
+[FG] Long operation: analyzing: file:///home/terry/germline/metabolon/organelles/engram.py (2645ms)
+Heap stats: total_memory_size=32097MB, total_free_size=20625MB, total_heap_size=430MB, used_heap_size=366MB, cross_worker_used_heap_size=366MB, total_physical_size=430MB, total_available_size=3770MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20578MB, total_heap_size=430MB, used_heap_size=379MB, cross_worker_used_heap_size=379MB, total_physical_size=430MB, total_available_size=3757MB, heap_size_limit=4144MB
+Could not import 'compression._common._streams' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pyright/dist/dist/typeshed-fallback/stdlib/gzip.pyi'
+Heap stats: total_memory_size=32097MB, total_free_size=20392MB, total_heap_size=430MB, used_heap_size=379MB, cross_worker_used_heap_size=379MB, total_physical_size=430MB, total_available_size=3757MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20282MB, total_heap_size=432MB, used_heap_size=383MB, cross_worker_used_heap_size=383MB, total_physical_size=432MB, total_available_size=3753MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20980MB, total_heap_size=445MB, used_heap_size=400MB, cross_worker_used_heap_size=400MB, total_physical_size=445MB, total_available_size=3735MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20848MB, total_heap_size=443MB, used_heap_size=375MB, cross_worker_used_heap_size=375MB, total_physical_size=443MB, total_available_size=3729MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20618MB, total_heap_size=444MB, used_heap_size=400MB, cross_worker_used_heap_size=400MB, total_physical_size=444MB, total_available_size=3736MB, heap_size_limit=4144MB
+Could not import 'PIL' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/client/uploads.py'
+Could not import 'PIL' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/client/uploads.py'
+Could not import 'PIL.Image' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/client/uploads.py'
+Could not import 'python_socks' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/network/connection/connection.py'
+Could not import 'python_socks' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/network/connection/connection.py'
+Could not resolve source for 'socks' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/network/connection/connection.py'
+Could not import 'python_socks.async_.asyncio' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/network/connection/connection.py'
+Could not resolve source for 'socks' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/network/connection/connection.py'
+[FG] Long operation: binding: file:///home/terry/germline/.venv/lib/python3.13/site-packages/telethon/tl/types/__init__.py (2071ms)
+Heap stats: total_memory_size=32097MB, total_free_size=20890MB, total_heap_size=536MB, used_heap_size=495MB, cross_worker_used_heap_size=495MB, total_physical_size=537MB, total_available_size=3639MB, heap_size_limit=4144MB
+Could not import 'hachoir' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/utils.py'
+Could not import 'hachoir' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/utils.py'
+Could not import 'hachoir.metadata' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/utils.py'
+Could not import 'hachoir' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/utils.py'
+Could not import 'hachoir.parser' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/utils.py'
+Could not import 'cryptg' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/crypto/aes.py'
+Heap stats: total_memory_size=32097MB, total_free_size=20741MB, total_heap_size=559MB, used_heap_size=521MB, cross_worker_used_heap_size=521MB, total_physical_size=559MB, total_available_size=3613MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20609MB, total_heap_size=625MB, used_heap_size=581MB, cross_worker_used_heap_size=581MB, total_physical_size=625MB, total_available_size=3551MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=20456MB, total_heap_size=652MB, used_heap_size=617MB, cross_worker_used_heap_size=617MB, total_physical_size=652MB, total_available_size=3515MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21025MB, total_heap_size=656MB, used_heap_size=623MB, cross_worker_used_heap_size=623MB, total_physical_size=656MB, total_available_size=3509MB, heap_size_limit=4144MB
+Could not import 'isal' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/telethon/tl/core/gzippacked.py'
+[FG] Long operation: checking: file:///home/terry/germline/metabolon/organelles/telegram_auth.py (10840ms)
+[FG] Long operation: analyzing: file:///home/terry/germline/metabolon/organelles/telegram_auth.py (10851ms)
+Heap stats: total_memory_size=32097MB, total_free_size=20867MB, total_heap_size=677MB, used_heap_size=635MB, cross_worker_used_heap_size=635MB, total_physical_size=677MB, total_available_size=3497MB, heap_size_limit=4144MB
+Could not import 'nodriver' in file '/home/terry/germline/metabolon/organelles/endocytosis_rss/fetcher.py'
+Could not import 'nodriver' in file '/home/terry/germline/metabolon/organelles/endocytosis_rss/fetcher.py'
+Heap stats: total_memory_size=32097MB, total_free_size=21167MB, total_heap_size=687MB, used_heap_size=652MB, cross_worker_used_heap_size=652MB, total_physical_size=687MB, total_available_size=3479MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21450MB, total_heap_size=699MB, used_heap_size=653MB, cross_worker_used_heap_size=653MB, total_physical_size=699MB, total_available_size=3478MB, heap_size_limit=4144MB
+Could not import 'cchardet' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/feedparser/encodings.py'
+Could not import 'chardet' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/feedparser/encodings.py'
+Heap stats: total_memory_size=32097MB, total_free_size=21304MB, total_heap_size=732MB, used_heap_size=689MB, cross_worker_used_heap_size=689MB, total_physical_size=732MB, total_available_size=3441MB, heap_size_limit=4144MB
+Could not resolve source for 'pycurl' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/trafilatura/downloads.py'
+[FG] Long operation: checking: file:///home/terry/germline/metabolon/organelles/endocytosis_rss/fetcher.py (2382ms)
+[FG] Long operation: analyzing: file:///home/terry/germline/metabolon/organelles/endocytosis_rss/fetcher.py (2383ms)
+Heap stats: total_memory_size=32097MB, total_free_size=21200MB, total_heap_size=743MB, used_heap_size=699MB, cross_worker_used_heap_size=699MB, total_physical_size=743MB, total_available_size=3432MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21029MB, total_heap_size=751MB, used_heap_size=717MB, cross_worker_used_heap_size=717MB, total_physical_size=751MB, total_available_size=3414MB, heap_size_limit=4144MB
+Could not import 'PIL' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pypdf/__init__.py'
+Could not import 'PIL.Image' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/pypdf/_page.py'
+Heap stats: total_memory_size=32097MB, total_free_size=20881MB, total_heap_size=771MB, used_heap_size=737MB, cross_worker_used_heap_size=737MB, total_physical_size=771MB, total_available_size=3393MB, heap_size_limit=4144MB
+Could not import 'IPython.display' in file '/home/terry/germline/.venv/lib/python3.13/site-packages/rich/jupyter.py'
+Heap stats: total_memory_size=32097MB, total_free_size=21448MB, total_heap_size=789MB, used_heap_size=746MB, cross_worker_used_heap_size=746MB, total_physical_size=789MB, total_available_size=3383MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21421MB, total_heap_size=806MB, used_heap_size=756MB, cross_worker_used_heap_size=756MB, total_physical_size=806MB, total_available_size=3373MB, heap_size_limit=4144MB
+Heap stats: total_memory_size=32097MB, total_free_size=21341MB, total_heap_size=814MB, used_heap_size=771MB, cross_worker_used_heap_size=771MB, total_physical_size=814MB, total_available_size=3358MB, heap_size_limit=4144MB
+pyright 1.1.408
+0 errors, 0 warnings, 0 informations
+Completed in 60.693sec
