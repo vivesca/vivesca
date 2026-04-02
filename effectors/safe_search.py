@@ -51,7 +51,6 @@ def main():
         print("Action: Narrow the search scope further.")
         sys.exit(1)
     except FileNotFoundError:
-
         print("ERROR: ripgrep (rg) is not installed. Falling back to grep...")
         subprocess.run(["grep", "-r", args.pattern, search_path], timeout=60)
 
