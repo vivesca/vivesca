@@ -20,6 +20,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -28,19 +29,19 @@ DEFAULT_OUTPUT_DIR = Path.home() / "epigenome/chromatin/euchromatin/regulatory/c
 REGULATOR_CONFIGS = {
     "hkma": {
         "name": "Hong Kong Monetary Authority",
-        "url": "https://www.hkma.gov.hk/eng/key-functions/banking/regulatory-regime/banking-regulatory-and-supervisory-regime/circulars/",
-        "list_selector": "table tbody tr, .view-content .views-row",
-        "title_selector": "a",
-        "date_selector": "td:nth-child(2), .date-display-single, time",
-        "summary_selector": "td:nth-child(3), .field-content",
+        "url": "https://www.hkma.gov.hk/eng/regulatory-resources/regulatory-guides/circulars/",
+        "list_selector": "table tbody tr",
+        "title_selector": "td:nth-child(1) a",
+        "date_selector": "td:nth-child(2)",
+        "summary_selector": "td:nth-child(1)",
     },
     "sfc": {
         "name": "Securities and Futures Commission",
-        "url": "https://www.sfc.hk/en/Rules-and-Forms/Circulars",
-        "list_selector": ".circular-list-item, .search-result-item, table tbody tr",
-        "title_selector": "a",
-        "date_selector": ".date, time, td:nth-child(2)",
-        "summary_selector": ".summary, .description, td:nth-child(3)",
+        "url": "https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/",
+        "list_selector": ".circulars-table tbody:nth-of-type(n+2) tr",
+        "title_selector": "td:nth-child(2) a div",
+        "date_selector": "td:nth-child(1)",
+        "summary_selector": "td:nth-child(3)",
     },
 }
 
@@ -64,9 +65,11 @@ def extract_publications_from_page(
     page: Page,
     config: dict,
     since: datetime | None,
+    regulator: str = "",
 ) -> list[dict]:
     """Extract publication entries from a loaded page using CSS selectors."""
     results: list[dict] = []
+    import re
 
     rows = page.query_selector_all(config["list_selector"])
     for row in rows:
@@ -75,10 +78,14 @@ def extract_publications_from_page(
             continue
 
         title = (title_el.inner_text() or "").strip()
+        if regulator == "hkma":
+            title = re.sub(r'\(PDF File, .*\)', '', title).strip()
+
         href = title_el.get_attribute("href") or ""
         if href and not href.startswith("http"):
             # Resolve relative URLs against the base
-            base = config["url"].rsplit("/", 1)[0]
+            parsed = urlparse(config["url"])
+            base = f"{parsed.scheme}://{parsed.netloc}"
             href = base + "/" + href.lstrip("/")
 
         date_text = ""
@@ -98,7 +105,7 @@ def extract_publications_from_page(
 
         results.append({
             "title": title,
-            "date": date_text,
+            "date": pub_date.strftime("%Y-%m-%d") if pub_date else date_text,
             "url": href,
             "summary": summary,
             "source": config["name"],
@@ -113,6 +120,7 @@ def scrape_regulator(
     output_path: Path | None = None,
 ) -> list[dict]:
     """Scrape publications for a given regulator using Playwright."""
+    import time
     config = REGULATOR_CONFIGS.get(regulator)
     if not config:
         print(f"Unknown regulator: {regulator}", file=sys.stderr)
@@ -122,10 +130,13 @@ def scrape_regulator(
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(config["url"], timeout=30_000)
-        page.wait_for_load_state("networkidle", timeout=15_000)
+        page.goto(config["url"], timeout=60_000)
+        
+        # Wait for SPA rendering
+        page.wait_for_load_state("networkidle", timeout=30_000)
+        time.sleep(10) # Safety buffer for React components
 
-        results = extract_publications_from_page(page, config, since)
+        results = extract_publications_from_page(page, config, since, regulator)
 
         browser.close()
 

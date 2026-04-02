@@ -36,12 +36,23 @@ FILES = {
 }
 
 
+# Fallback paths in epigenome if notes/ is missing
+FALLBACK_FILES = {
+    "cases":       HOME / "epigenome/chromatin/Capco/FS AI Use Case Library.md",
+    "objections":  HOME / "epigenome/chromatin/Capco/AI Objection Handlers.md",
+    "questions":   HOME / "epigenome/chromatin/Capco/AI Engagement Qualifying Questions.md",
+}
+
+
 def warn_missing(path: Path) -> None:
     print(f"{YELLOW}Warning: file not found — {path}{RESET}", file=sys.stderr)
 
 
-def read_file(path: Path) -> str | None:
+def read_file(path: Path, key: str = "") -> str | None:
     if not path.exists():
+        fallback = FALLBACK_FILES.get(key)
+        if fallback and fallback.exists():
+            return fallback.read_text(encoding="utf-8")
         warn_missing(path)
         return None
     return path.read_text(encoding="utf-8")
@@ -90,7 +101,7 @@ def search(query: str) -> None:
     results = []
 
     for key, path in FILES.items():
-        text = read_file(path)
+        text = read_file(path, key)
         if text is None:
             continue
         sections = split_sections(text)
@@ -121,8 +132,9 @@ def search(query: str) -> None:
 
 # ── Listing commands ──────────────────────────────────────────────────────────
 def list_cases() -> None:
-    path = FILES["cases"]
-    text = read_file(path)
+    key = "cases"
+    path = FILES[key]
+    text = read_file(path, key)
     if text is None:
         return
     # ## headings that contain "Case Study" (or any ## heading — spec says
@@ -142,8 +154,9 @@ def list_cases() -> None:
 
 
 def list_objections() -> None:
-    path = FILES["objections"]
-    text = read_file(path)
+    key = "objections"
+    path = FILES[key]
+    text = read_file(path, key)
     if text is None:
         return
     pattern = re.compile(r'^##\s+(Objection.+)$', re.MULTILINE)
@@ -157,8 +170,9 @@ def list_objections() -> None:
 
 
 def list_questions() -> None:
-    path = FILES["questions"]
-    text = read_file(path)
+    key = "questions"
+    path = FILES[key]
+    text = read_file(path, key)
     if text is None:
         return
     pattern = re.compile(r'^##\s+(.+)$', re.MULTILINE)
