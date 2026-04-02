@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 """demethylase — signal + mark management (active memory erasure tools).
 
 Actions: emit|read|history|transduce|resensitize|sweep|record_access
 """
 
+from __future__ import annotations
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
@@ -17,9 +16,12 @@ class DemethylaseResult(Secretion):
 
 
 _ACTIONS = (
-    "emit — emit ephemeral paracrine signal. Requires: name, content. Optional: source, downstream. "
-    "read — read pending inter-agent signals. Optional: name_filter, desensitization_threshold, include_desensitized, execute_cascade. "
-    "history — read the last N emitted signals from append-only history. Optional: limit, name_filter. "
+    "emit — emit ephemeral paracrine signal. "
+    "Requires: name, content. Optional: source, downstream. "
+    "read — read pending inter-agent signals. Optional: name_filter, "
+    "desensitization_threshold, include_desensitized, execute_cascade. "
+    "history — read the last N emitted signals from append-only history. "
+    "Optional: limit, name_filter. "
     "transduce — execute downstream cascades for pending signals. Optional: name_filter. "
     "resensitize — re-sensitize a desensitized signal. Requires: name. "
     "sweep — scan histone marks for staleness. Optional: threshold_days, dry_run. "
@@ -132,7 +134,9 @@ def demethylase(
         report = sweep(threshold_days=threshold_days, dry_run=dry_run)
         header = (
             f"Marks: {report.total_marks} total "
-            f"({report.methyl_marks} methyl, {report.acetyl_marks} acetyl, {report.protected_marks} protected). "
+            f"({report.methyl_marks} methyl, "
+            f"{report.acetyl_marks} acetyl, "
+            f"{report.protected_marks} protected). "
             f"Stale: {len(report.stale_candidates)}."
         )
         lines = [header, format_report(report)]
@@ -148,7 +152,8 @@ def demethylase(
             )
         if report.mark_clusters:
             lines.append(
-                f"Top clusters: {len(report.mark_clusters[:10])} shown of {len(report.mark_clusters)}."
+                f"Top clusters: {len(report.mark_clusters[:10])} shown "
+                f"of {len(report.mark_clusters)}."
             )
         if report.stale_candidates:
             lines.append("Stale marks: " + ", ".join(m.path.name for m in report.stale_candidates))
@@ -168,5 +173,8 @@ def demethylase(
 
     else:
         return DemethylaseResult(
-            results=f"Unknown action '{action}'. Valid: emit, read, history, transduce, resensitize, sweep, record_access"
+            results=(
+                f"Unknown action '{action}'. Valid: "
+                "emit, read, history, transduce, resensitize, sweep, record_access"
+            )
         )
