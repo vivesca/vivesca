@@ -2,7 +2,8 @@
 """golem-daemon — Task queue processor for golem commands.
 
 Reads ~/germline/loci/golem-queue.md for pending tasks, runs up to 4
-concurrent golem subprocesses. Marks completed tasks and starts next.
+concurrent golem subprocesses locally. Overflows to remote workers (ganglion)
+via SSH when local slots are full.
 
 Usage:
     golem-daemon start              # Start daemon (nohup, backgrounds itself)
@@ -14,6 +15,7 @@ Usage:
     golem-daemon --export-stats     # Output per-provider stats as JSON to stdout
     golem-daemon clear-cooldown     # Clear all provider cooldowns
     golem-daemon clear-cooldown X   # Clear cooldown for provider X only
+    golem-daemon --dry-run          # Show routing decisions without executing tasks
 """
 from __future__ import annotations
 
@@ -192,6 +194,12 @@ PROVIDER_LIMITS = {
 DEFAULT_LIMIT = 4  # Fallback for unknown providers
 MAX_TOTAL_CONCURRENT = 24  # Global cap across all providers (memory safety on 32GB)
 
+# Remote overflow workers (SSH via Tailscale)
+REMOTE_WORKERS = [{'host': 'ganglion', 'user': 'ubuntu', 'max_concurrent': 2}]
+MAX_LOCAL = 4  # Max concurrent golem subprocesses running locally
+SSH_CONNECT_TIMEOUT = 5
+SSH_REMOTE_EXIT_CONNECT_FAIL = 125  # Exit code signalling SSH connection failure
+
 # Provider fallback chain — ordered by pass rate. When a provider is in cooldown,
 # its tasks route to the next available provider in this chain.
 PROVIDER_FALLBACK = {
@@ -290,7 +298,7 @@ def _running_entry_details(entry: tuple) -> tuple[int, str, str, str, str]:
         line_num, cmd, provider, task_id = entry
         return line_num, cmd, provider, provider, task_id
     if len(entry) >= 6:
-        line_num, cmd, provider, task_id, dispatch_provider, _started_at = entry
+        line_num, cmd, provider, task_id, dispatch_provider, _started_at = entry[:6]
         return line_num, cmd, provider, dispatch_provider, task_id
     line_num, cmd, provider, task_id, dispatch_provider = entry
     return line_num, cmd, provider, dispatch_provider, task_id
@@ -324,15 +332,21 @@ def _drain_running(running: dict, timeout: int = 60) -> int:
     while running and time.time() < deadline:
         done_futures = [f for f in running if f.done()]
         for future in done_futures:
-            line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(running.pop(future))
+            entry = running.pop(future)
+            line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+            node = _running_entry_node(entry)
             try:
                 _, exit_code, tail, duration = future.result()
                 _write_jsonl_record(
                     task_id, provider, exit_code, duration, cmd, tail=tail,
                     dispatch_provider=dispatch_provider,
                 )
+                # SSH failure: don't mark queue, let task be re-dispatched locally
+                if node != 'soma' and exit_code == SSH_REMOTE_EXIT_CONNECT_FAIL:
+                    log(f"SHUTDOWN DRAIN: [{task_id}] remote SSH fail on {node}, stays pending")
+                    continue
                 if exit_code == 0:
-                    mark_done(line_num, f"exit={exit_code}", task_id=task_id)
+                    mark_done(line_num, f"exit={exit_code}", task_id=task_id, node=node)
                 else:
                     mark_failed(
                         line_num, f"exit={exit_code} {tail[:60]}",
@@ -722,7 +736,7 @@ def _find_task_line(lines: list[str], line_num: int, task_id: str) -> int:
     return -1
 
 
-def mark_done(line_num: int, result: str = "", task_id: str = ""):
+def mark_done(line_num: int, result: str = "", task_id: str = "", node: str = "soma"):
     """Mark task as done in queue file, move to Done section."""
     with QueueLock():
         if not QUEUE_FILE.exists():
@@ -748,7 +762,8 @@ def mark_done(line_num: int, result: str = "", task_id: str = ""):
         for i, line in enumerate(lines):
             if line.strip() == "## Done":
                 prefix = f"[{task_id}] " if task_id else ""
-                result_line = f"{done_line} \u2192 {prefix}{result[:80]}" if result else done_line
+                node_tag = f" [{node}]"
+                result_line = f"{done_line} \u2192 {prefix}{result[:80]}{node_tag}" if result else done_line
                 lines.insert(i + 2, result_line)
                 break
         try:
@@ -923,6 +938,25 @@ def _golem_env() -> dict:
     env["PATH"] = f"{effectors}:{venv_bin}:{local_bin}:{env.get('PATH', '/usr/bin:/bin')}"
     return env
 
+def _ssh_health_check(worker: dict) -> bool:
+    """Quick SSH ping to check if remote worker is reachable."""
+    host = worker['host']
+    user = worker['user']
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', f'ConnectTimeout={SSH_CONNECT_TIMEOUT}',
+             '-o', 'BatchMode=yes',
+             '-o', 'StrictHostKeyChecking=accept-new',
+             f'{user}@{host}', 'true'],
+            capture_output=True,
+            text=True,
+            timeout=SSH_CONNECT_TIMEOUT + 2,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, Exception):
+        return False
+
+
 def run_golem(cmd: str) -> tuple[str, int, str, int]:
     """Run a golem command, return (cmd, exit_code, output_tail, duration)."""
     task_id = _extract_task_id(cmd)
@@ -953,6 +987,59 @@ def run_golem(cmd: str) -> tuple[str, int, str, int]:
     except Exception as e:
         log(f"ERROR [{task_id}]: {cmd[:50]}... - {e}")
         return (cmd, 1, str(e), 0)
+
+
+def remote_exec(cmd: str, worker: dict) -> tuple[str, int, str, int]:
+    """Run a golem command on a remote worker via SSH + Docker.
+
+    Returns (cmd, exit_code, output_tail, duration) — same shape as run_golem.
+    On SSH connection failure returns exit_code=125 so the caller can re-mark
+    the task as pending for local fallback.
+    """
+    task_id = _extract_task_id(cmd)
+    host = worker['host']
+    user = worker['user']
+
+    # Build the command to run inside Docker on the remote host.
+    # Escape single quotes for the nested bash -c '...' layer.
+    inner_cmd = cmd.replace("'", "'\\''")
+    docker_cmd = f"docker run --rm gemmule:latest bash -c 'cd /root/germline && {inner_cmd}'"
+
+    ssh_cmd = [
+        'ssh',
+        '-o', f'ConnectTimeout={SSH_CONNECT_TIMEOUT}',
+        '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new',
+        f'{user}@{host}',
+        docker_cmd,
+    ]
+
+    log(f"REMOTE [{task_id}] -> {host}: {cmd[:60]}...")
+    start = time.time()
+
+    try:
+        result = subprocess.run(
+            ssh_cmd,
+            capture_output=True,
+            text=True,
+            timeout=GOLEM_TIMEOUT + 60,  # extra 60s for SSH overhead
+        )
+        duration = int(time.time() - start)
+        tail = (result.stdout + result.stderr)[-200:].replace("\n", " ")
+        # SSH itself failed to connect (exit 255 = SSH error)
+        if result.returncode == 255:
+            log(f"REMOTE SSH FAIL [{task_id}]: {host} — {tail[:60]}")
+            return (cmd, SSH_REMOTE_EXIT_CONNECT_FAIL, tail, duration)
+        log(f"REMOTE DONE [{task_id}] ({duration}s, exit={result.returncode}): {host}")
+        return (cmd, result.returncode, tail, duration)
+    except subprocess.TimeoutExpired:
+        duration = int(time.time() - start)
+        log(f"REMOTE TIMEOUT [{task_id}] ({duration}s): {host}")
+        return (cmd, 124, f"remote timeout after {GOLEM_TIMEOUT}s on {host}", duration)
+    except Exception as e:
+        duration = int(time.time() - start)
+        log(f"REMOTE ERROR [{task_id}] {host}: {e}")
+        return (cmd, SSH_REMOTE_EXIT_CONNECT_FAIL, str(e), duration)
 
 
 
@@ -1287,6 +1374,11 @@ def _running_entry_details_full(entry: tuple) -> tuple[int, str, str, str, str, 
     return line_num, cmd, provider, task_id, dispatch_provider, 0.0
 
 
+def _running_entry_node(entry: tuple) -> str:
+    """Extract node name from running entry ('soma', 'ganglion', etc.)."""
+    return entry[6] if len(entry) >= 7 else 'soma'
+
+
 def _update_running_file(running: dict):
     """Write current running tasks to state file for cmd_status."""
     tasks = []
@@ -1299,6 +1391,8 @@ def _update_running_file(running: dict):
         started_at = entry[5] if len(entry) >= 6 else 0.0
         if started_at > 0:
             task["started_at"] = started_at
+        node = _running_entry_node(entry)
+        task["node"] = node
         tasks.append(task)
     try:
         RUNNING_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -1307,8 +1401,12 @@ def _update_running_file(running: dict):
         pass
 
 
-def daemon_loop():
-    """Main daemon loop: poll queue, run tasks, mark done."""
+def daemon_loop(dry_run: bool = False):
+    """Main daemon loop: poll queue, run tasks, mark done.
+
+    When dry_run is True, shows routing decisions without executing tasks,
+    then exits after one poll cycle.
+    """
     rotate_logs()
     startup_pull()
     log("Daemon started")
@@ -1374,7 +1472,9 @@ def daemon_loop():
                 # Check for completed tasks
                 done_futures = [f for f in running if f.done()]
                 for future in done_futures:
-                    line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(running.pop(future))
+                    entry = running.pop(future)
+                    line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+                    node = _running_entry_node(entry)
                     provider_running[dispatch_provider] = max(0, provider_running.get(dispatch_provider, 0) - 1)
                     try:
                         _, exit_code, tail, duration = future.result()
@@ -1382,6 +1482,10 @@ def daemon_loop():
                             task_id, provider, exit_code, duration, cmd, tail=tail,
                             dispatch_provider=dispatch_provider,
                         )
+                        # SSH connection failure: leave task pending for local pickup
+                        if node != 'soma' and exit_code == SSH_REMOTE_EXIT_CONNECT_FAIL:
+                            log(f"REMOTE SSH FAIL [{task_id}]: {node} unreachable, task stays pending for local pickup")
+                            continue
                         if exit_code == 0:
                             # Golem succeeded — run advisory checks (don't block on them)
                             passed, errors = validate_golem_output()
@@ -1390,7 +1494,7 @@ def daemon_loop():
                             test_passed, test_result = check_new_test_files_and_run_pytest()
                             if not test_passed:
                                 log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
-                            mark_done(line_num, f"exit={exit_code}", task_id=task_id)
+                            mark_done(line_num, f"exit={exit_code}", task_id=task_id, node=node)
                             _unthrottle_provider(dispatch_provider)  # adaptive: restore concurrency on success
                             # Auto-commit every 5 successful completions
                             global _mark_done_count
@@ -1554,6 +1658,11 @@ def daemon_loop():
                 _preflight_checked: set[str] = set()
                 _golem_env_cache = _golem_env()
 
+                # Health-check remote workers once per dispatch cycle
+                _ssh_health_cache: dict[str, bool] = {}
+                for w in REMOTE_WORKERS:
+                    _ssh_health_cache[w['host']] = _ssh_health_check(w)
+
                 for line_num, cmd, task_id in pending:
                     dispatch = _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running)
                     if dispatch is None:
@@ -1593,13 +1702,46 @@ def daemon_loop():
                         if already_running:
                             continue
 
-                        future = executor.submit(run_golem, cmd)
-                        running[future] = (line_num, cmd, provider, task_id, dispatch_provider)
-                        provider_running[dispatch_provider] = current + 1
-                        if dispatch_provider == provider:
-                            log(f"Queued [{provider}] [{task_id}]: {cmd[:60]}...")
+                        # Routing: local vs remote overflow
+                        local_count = sum(1 for e in running.values() if _running_entry_node(e) == 'soma')
+                        started_at = time.time()
+
+                        if local_count < MAX_LOCAL:
+                            # Local execution
+                            if dry_run:
+                                log(f"DRY-RUN: would run locally [{task_id}]: {cmd[:60]}...")
+                                continue
+                            future = executor.submit(run_golem, cmd)
+                            running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, 'soma')
+                            provider_running[dispatch_provider] = current + 1
+                            if dispatch_provider == provider:
+                                log(f"Queued [soma] [{provider}] [{task_id}]: {cmd[:60]}...")
+                            else:
+                                log(f"Queued [soma] [{provider}->{dispatch_provider}] [{task_id}]: {cmd[:60]}...")
                         else:
-                            log(f"Queued [{provider}->{dispatch_provider}] [{task_id}]: {cmd[:60]}...")
+                            # Local slots full — try remote overflow
+                            dispatched_remote = False
+                            for w in REMOTE_WORKERS:
+                                wkey = w['host']
+                                remote_count = sum(1 for e in running.values() if _running_entry_node(e) == wkey)
+                                if remote_count >= w['max_concurrent']:
+                                    log(f"REMOTE SKIP [{wkey}]: {remote_count}/{w['max_concurrent']} slots full")
+                                    continue
+                                if not _ssh_health_cache.get(wkey, False):
+                                    log(f"REMOTE SKIP [{wkey}]: health check failed")
+                                    continue
+                                if dry_run:
+                                    log(f"DRY-RUN: would run remotely on {wkey} [{task_id}]: {cmd[:60]}...")
+                                    dispatched_remote = True
+                                    break
+                                future = executor.submit(remote_exec, cmd, w)
+                                running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, wkey)
+                                provider_running[dispatch_provider] = current + 1
+                                log(f"Queued [{wkey}] [{provider}] [{task_id}]: {cmd[:60]}...")
+                                dispatched_remote = True
+                                break
+                            if not dispatched_remote and not dry_run:
+                                log(f"OVERFLOW FULL [{task_id}]: all local+remote slots occupied, skipping")
                 if pending:
                     _update_running_file(running)
 
@@ -1608,9 +1750,19 @@ def daemon_loop():
                     running_by_provider = ", ".join(
                         f"{p}:{n}" for p, n in sorted(provider_running.items()) if n > 0
                     )
-                    log(f"Running: {len(running)} tasks ({running_by_provider}), {len(pending)} pending")
+                    local_count = sum(1 for e in running.values() if _running_entry_node(e) == 'soma')
+                    remote_counts = " ".join(
+                        f"{w['host']}:{sum(1 for e in running.values() if _running_entry_node(e) == w['host'])}/{w['max_concurrent']}"
+                        for w in REMOTE_WORKERS
+                    )
+                    log(f"Running: {len(running)} tasks ({running_by_provider}) local={local_count}/{MAX_LOCAL} remote=[{remote_counts}], {len(pending)} pending")
                 else:
                     log(f"Idle: {len(pending)} pending")
+
+                # In dry-run mode, exit after one poll cycle
+                if dry_run:
+                    log("DRY-RUN: exiting after one poll cycle")
+                    break
 
                 time.sleep(POLL_INTERVAL)
 
@@ -1733,7 +1885,8 @@ def cmd_status():
                     for t in running_tasks:
                         tid = t.get("task_id", "?")
                         prov = t.get("provider", "?")
-                        print(f"  [{tid}] {prov} — {t.get('cmd', '')[:60]}")
+                        node = t.get("node", "soma")
+                        print(f"  [{tid}] {prov} [{node}] — {t.get('cmd', '')[:60]}")
             except (json.JSONDecodeError, OSError):
                 pass
 
@@ -2001,6 +2154,12 @@ def main():
         print(__doc__)
         return 0
 
+    if cmd == "--dry-run":
+        # Run one poll cycle, show routing decisions without executing
+        print("DRY-RUN: showing routing decisions without task execution")
+        daemon_loop(dry_run=True)
+        return 0
+
     if cmd == "start":
         fg = "--foreground" in sys.argv or "-f" in sys.argv
         return cmd_start(foreground=fg)
@@ -2021,7 +2180,7 @@ def main():
         return cmd_clear_cooldown(provider)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, stats, clean, retry-all, clear-cooldown [provider]")
+        print("Commands: start, stop, status, stats, clean, retry-all, clear-cooldown [provider], --dry-run")
         return 1
 
 if __name__ == "__main__":
