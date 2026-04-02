@@ -57,7 +57,7 @@ industry benchmarks that support the insight.
 One sentence: the actionable takeaway a decision-maker should remember.
 """
 
-MODEL = "gpt-4.1-mini"
+MODEL = "gpt-4o-mini"
 
 
 def slugify(text: str) -> str:
