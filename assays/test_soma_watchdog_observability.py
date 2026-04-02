@@ -168,6 +168,7 @@ def test_alert_crit_sends_deltos(tmp_path):
     stamp = tmp_path / "alert-stamp.txt"
     health = {"disk_volume": {"status": "crit", "free_gb": 0.5}}
     with _P("ALERT_STAMP", stamp), \
+         patch("shutil.which", return_value="deltos"), \
          patch("subprocess.run") as mr:
         alert_on_crit(health)
     mr.assert_called_once()
@@ -180,6 +181,7 @@ def test_alert_writes_stamp(tmp_path):
     stamp = tmp_path / "alert-stamp.txt"
     health = {"disk_volume": {"status": "crit", "free_gb": 0.5}}
     with _P("ALERT_STAMP", stamp), \
+         patch("shutil.which", return_value="deltos"), \
          patch("subprocess.run"):
         alert_on_crit(health)
     assert stamp.exists()
@@ -209,6 +211,7 @@ def test_alert_dedup_sends_after_15min(tmp_path):
     os.utime(str(stamp), (old, old))
     health = {"disk_volume": {"status": "crit", "free_gb": 0.5}}
     with _P("ALERT_STAMP", stamp), \
+         patch("shutil.which", return_value="deltos"), \
          patch("subprocess.run") as mr:
         alert_on_crit(health)
     mr.assert_called_once()
@@ -222,6 +225,7 @@ def test_alert_multiple_crit_names(tmp_path):
         "mem": {"status": "crit", "pct": 99},
     }
     with _P("ALERT_STAMP", stamp), \
+         patch("shutil.which", return_value="deltos"), \
          patch("subprocess.run") as mr:
         alert_on_crit(health)
     msg = mr.call_args[0][0][1]
