@@ -14,36 +14,45 @@ LAUNCH_DIR = (
 )
 SOURCE_DIR = Path.home() / "epigenome" / "oscillators"
 LOG = Path.home() / "logs" / "launchagent-health.log"
+PLIST_PATTERNS = ("com.terry.*.plist", "com.vivesca.*.plist")
+
+
+def iter_plists():
+    if not LAUNCH_DIR.exists():
+        return []
+
+    matched = []
+    for pattern in PLIST_PATTERNS:
+        matched.extend(LAUNCH_DIR.glob(pattern))
+    return sorted(matched)
 
 
 def check():
     issues = []
 
-    if IS_MACOS:
-        # Check all com.terry.* plists in LaunchAgents (macOS only)
-        for plist in sorted([*LAUNCH_DIR.glob("com.terry.*.plist"), *LAUNCH_DIR.glob("com.vivesca.*.plist")]):
-            # Skip symlinks (those are fine — they auto-update)
-            if plist.is_symlink():
+    for plist in iter_plists():
+        # Skip symlinks (those are fine — they auto-update)
+        if plist.is_symlink():
+            continue
+
+        # Check if it's valid XML plist (not corrupted JSON)
+        content = plist.read_text(errors="replace")
+        if not content.strip().startswith("<?xml") and not content.strip().startswith("<!DOCTYPE"):
+            # Could be binary plist — check with plutil
+            result = subprocess.run(
+                ["plutil", "-lint", str(plist)], capture_output=True, text=True, timeout=30
+            )
+            if result.returncode != 0:
+                issues.append(f"INVALID: {plist.name} — not a valid plist")
                 continue
 
-            # Check if it's valid XML plist (not corrupted JSON)
-            content = plist.read_text(errors="replace")
-            if not content.strip().startswith("<?xml") and not content.strip().startswith("<!DOCTYPE"):
-                # Could be binary plist — check with plutil
-                result = subprocess.run(
-                    ["plutil", "-lint", str(plist)], capture_output=True, text=True, timeout=30
-                )
-                if result.returncode != 0:
-                    issues.append(f"INVALID: {plist.name} — not a valid plist")
-                    continue
+        # Check if source exists and matches
+        source = SOURCE_DIR / plist.name
+        if source.exists():
+            import filecmp
 
-            # Check if source exists and matches
-            source = SOURCE_DIR / plist.name
-            if source.exists():
-                import filecmp
-
-                if not filecmp.cmp(str(plist), str(source), shallow=False):
-                    issues.append(f"DRIFT: {plist.name} — differs from source in officina/launchd/")
+            if not filecmp.cmp(str(plist), str(source), shallow=False):
+                issues.append(f"DRIFT: {plist.name} — differs from source in {SOURCE_DIR}/")
 
     # Check for hardcoded secrets in text scripts (skip binaries)
     import re
