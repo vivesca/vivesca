@@ -21,10 +21,10 @@ def parse_schedule() -> list[dict]:
     """Parse the medication schedule markdown table."""
     if not SCHEDULE_PATH.exists():
         return []
-    
+
     medications = []
     in_table = False
-    
+
     for line in SCHEDULE_PATH.read_text().splitlines():
         line = line.strip()
         if line.startswith("| drug |"):
@@ -35,13 +35,10 @@ def parse_schedule() -> list[dict]:
         if in_table and line.startswith("|") and not line.startswith("| drug"):
             parts = [p.strip() for p in line.split("|")[1:-1]]
             if len(parts) >= 4:
-                medications.append({
-                    "drug": parts[0],
-                    "start": parts[1],
-                    "end": parts[2],
-                    "notes": parts[3]
-                })
-    
+                medications.append(
+                    {"drug": parts[0], "start": parts[1], "end": parts[2], "notes": parts[3]}
+                )
+
     return medications
 
 
@@ -55,7 +52,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     meds = parse_schedule()
     today = date.today()
     active = []
-    
+
     for med in meds:
         try:
             start = format_date(med["start"])
@@ -65,37 +62,39 @@ def cmd_status(args: argparse.Namespace) -> None:
                 active.append({**med, "days_remaining": days_remaining})
         except ValueError:
             continue
-    
+
     print("# Medication Status\n")
     print(f"**Today:** {today.isoformat()}\n")
-    
+
     if not active:
         print("*No active medications.*\n")
         return
-    
+
     print("| Drug | Start | End | Days Left | Notes |")
     print("|------|-------|-----|-----------|-------|")
     for med in sorted(active, key=lambda m: m["days_remaining"]):
-        print(f"| {med['drug']} | {med['start']} | {med['end']} | {med['days_remaining']} | {med['notes']} |")
+        print(
+            f"| {med['drug']} | {med['start']} | {med['end']} | {med['days_remaining']} | {med['notes']} |"
+        )
 
 
 def cmd_add(args: argparse.Namespace) -> None:
     """Add a new medication to the schedule."""
     meds = parse_schedule()
-    
+
     # Check for duplicate
     for med in meds:
         if med["drug"].lower() == args.drug.lower():
             print(f"Error: '{args.drug}' already exists in schedule.", file=sys.stderr)
             sys.exit(1)
-    
+
     # Append to file
     notes = args.notes or ""
     new_line = f"| {args.drug} | {args.start} | {args.end} | {notes} |\n"
-    
+
     with open(SCHEDULE_PATH, "a") as f:
         f.write(new_line)
-    
+
     print(f"Added {args.drug} ({args.start} to {args.end})")
 
 
@@ -103,11 +102,11 @@ def cmd_interactions(args: argparse.Namespace) -> None:
     """Flag overlapping drugs with CYP3A4 notes."""
     meds = parse_schedule()
     today = date.today()
-    
+
     # Filter to active medications with CYP3A4 involvement
     cyp3a4_keywords = ["CYP3A4", "cyp3a4", "3A4", "inhibitor", "substrate"]
     cyp_meds = []
-    
+
     for med in meds:
         try:
             start = format_date(med["start"])
@@ -118,10 +117,10 @@ def cmd_interactions(args: argparse.Namespace) -> None:
                     cyp_meds.append(med)
         except ValueError:
             continue
-    
+
     print("# Medication Interactions\n")
     print(f"**Today:** {today.isoformat()}\n")
-    
+
     if len(cyp_meds) < 2:
         print("*No CYP3A4 interaction concerns detected.*\n")
         if cyp_meds:
@@ -129,14 +128,14 @@ def cmd_interactions(args: argparse.Namespace) -> None:
             for med in cyp_meds:
                 print(f"- {med['drug']}: {med['notes']}")
         return
-    
+
     print("## ⚠️ CYP3A4 Interaction Warning\n")
     print("**Multiple CYP3A4-related medications active:**\n")
-    
+
     for med in cyp_meds:
         print(f"- **{med['drug']}** ({med['start']} to {med['end']})")
         print(f"  - {med['notes']}")
-    
+
     print("\n---\n")
     print("*Consult your pharmacist or physician about potential interactions.*")
 
@@ -144,25 +143,25 @@ def cmd_interactions(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Medication schedule CLI tool",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
+
     # status
     subparsers.add_parser("status", help="Show active medications + days remaining")
-    
+
     # add
     add_parser = subparsers.add_parser("add", help="Add a new medication")
     add_parser.add_argument("drug", help="Drug name")
     add_parser.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
     add_parser.add_argument("--end", required=True, help="End date (YYYY-MM-DD)")
     add_parser.add_argument("--notes", default="", help="Additional notes")
-    
+
     # interactions
     subparsers.add_parser("interactions", help="Flag overlapping drugs with CYP3A4 notes")
-    
+
     args = parser.parse_args()
-    
+
     if args.command == "status":
         cmd_status(args)
     elif args.command == "add":

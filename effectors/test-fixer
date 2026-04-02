@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """test-fixer — run pytest, parse failures, group by file, report likely causes.
 
 Usage:
@@ -9,6 +7,8 @@ Usage:
     test-fixer --dir PATH   # run pytest in a different directory
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -16,7 +16,6 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
-
 
 # ---------------------------------------------------------------------------
 # Failure classification
@@ -75,19 +74,21 @@ def parse_failures(stdout: str) -> dict[str, list[dict]]:
             filepath, test_name = m.group(1), m.group(2)
             error = m.group(3).strip() if m.lastindex and m.lastindex >= 3 else ""
             cause = classify_error(error)
-            groups[filepath].append({
-                "test": test_name,
-                "line": "",
-                "error": error,
-                "cause": cause,
-            })
+            groups[filepath].append(
+                {
+                    "test": test_name,
+                    "line": "",
+                    "error": error,
+                    "cause": cause,
+                }
+            )
             continue
 
         # Try traceback line format: file.py:42: ErrorType: message
         m2 = _RE_TB_LINE.match(line)
         if m2 and "FAILED" not in line:
             filepath, lineno, msg = m2.group(1), m2.group(2), m2.group(3)
-            if filepath in groups and groups[filepath]:
+            if groups.get(filepath):
                 # Attach line number to the last failure for this file
                 groups[filepath][-1]["line"] = lineno
                 if not groups[filepath][-1]["error"]:
@@ -100,6 +101,7 @@ def parse_failures(stdout: str) -> dict[str, list[dict]]:
 # ---------------------------------------------------------------------------
 # Report formatting
 # ---------------------------------------------------------------------------
+
 
 def format_markdown(groups: dict[str, list[dict]], total_failed: int) -> str:
     """Format parsed failures as a markdown report."""
@@ -132,18 +134,20 @@ def format_markdown(groups: dict[str, list[dict]], total_failed: int) -> str:
 
 def format_json(groups: dict[str, list[dict]], total_failed: int) -> str:
     """Format parsed failures as JSON."""
-    return json.dumps({
-        "total_failed": total_failed,
-        "files_affected": len(groups),
-        "failures": {
-            fp: entries for fp, entries in sorted(groups.items())
+    return json.dumps(
+        {
+            "total_failed": total_failed,
+            "files_affected": len(groups),
+            "failures": {fp: entries for fp, entries in sorted(groups.items())},
         },
-    }, indent=2)
+        indent=2,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
+
 
 def run_pytest(directory: Path) -> tuple[str, int]:
     """Run pytest -q --tb=line and return (stdout, returncode)."""
@@ -161,16 +165,21 @@ def run_pytest(directory: Path) -> tuple[str, int]:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Run pytest, parse failures, and report likely causes."
     )
     parser.add_argument(
-        "--json", action="store_true", dest="json_output",
+        "--json",
+        action="store_true",
+        dest="json_output",
         help="Output JSON instead of markdown",
     )
     parser.add_argument(
-        "--dir", type=Path, default=Path.home() / "germline",
+        "--dir",
+        type=Path,
+        default=Path.home() / "germline",
         help="Project directory to run pytest in (default: ~/germline)",
     )
     args = parser.parse_args(argv)

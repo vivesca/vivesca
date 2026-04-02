@@ -15,17 +15,18 @@ Export converts HEIC to JPEG for Claude Code's Read tool.
 
 Zero external dependencies — queries Photos.sqlite directly.
 """
+
 from __future__ import annotations
 
 import shutil
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 # Core Data epoch: 2001-01-01T00:00:00Z
-_CD_EPOCH = datetime(2001, 1, 1, tzinfo=timezone.utc)
+_CD_EPOCH = datetime(2001, 1, 1, tzinfo=UTC)
 _CD_OFFSET = _CD_EPOCH.timestamp()  # seconds from unix epoch to Core Data epoch
 
 PHOTOS_LIB = Path.home() / "Pictures" / "Photos Library.photoslibrary"
@@ -147,7 +148,9 @@ class PhotosDB:
             ORDER BY a.ZDATECREATED DESC
             LIMIT ?
         """
-        rows = self.conn.execute(sql, (pattern, pattern, pattern, pattern, pattern, limit)).fetchall()
+        rows = self.conn.execute(
+            sql, (pattern, pattern, pattern, pattern, pattern, limit)
+        ).fetchall()
         return [dict(r) for r in rows]
 
     def resolve_uuid(self, prefix: str) -> str | None:
@@ -259,16 +262,30 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
         original = _find_original(full_uuid, directory, filename)
         if original and "heic" in uti.lower():
             result = subprocess.run(
-                ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "92",
-                 str(original), "--out", str(out_path)],
-                capture_output=True, text=True, timeout=60,
+                [
+                    "sips",
+                    "-s",
+                    "format",
+                    "jpeg",
+                    "-s",
+                    "formatOptions",
+                    "92",
+                    str(original),
+                    "--out",
+                    str(out_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 size_kb = out_path.stat().st_size / 1024
                 print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [converted from HEIC]")
                 continue
             else:
-                print(f"  [!] sips failed for {orig_fname}: {result.stderr.strip()}", file=sys.stderr)
+                print(
+                    f"  [!] sips failed for {orig_fname}: {result.stderr.strip()}", file=sys.stderr
+                )
                 # Fall through to derivative
 
         # Tier 2: Original JPEG -> copy
@@ -283,7 +300,7 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
         if derivative:
             shutil.copy2(derivative, out_path)
             size_kb = out_path.stat().st_size / 1024
-            suffix = derivative.name.split("_")[-1]  # e.g. "102_o.jpeg" or "105_c.jpeg"
+            derivative.name.split("_")[-1]  # e.g. "102_o.jpeg" or "105_c.jpeg"
             print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [derivative, reduced resolution]")
             continue
 

@@ -9,10 +9,10 @@ Runs alongside golem-daemon. Every 5 minutes:
 5. Commits output periodically
 6. Writes progress reports
 """
+
 from __future__ import annotations
 
 import ast
-import os
 import re
 import subprocess
 import sys
@@ -46,8 +46,7 @@ def log(msg: str):
 def run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
     try:
         r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-            timeout=120, cwd=cwd or str(GERMLINE)
+            cmd, shell=True, capture_output=True, text=True, timeout=120, cwd=cwd or str(GERMLINE)
         )
         return r.returncode, (r.stdout + r.stderr).strip()
     except subprocess.TimeoutExpired:
@@ -58,7 +57,7 @@ def run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
 
 def check_daemon_status() -> dict:
     """Check golem-daemon health."""
-    code, out = run("python3 effectors/golem-daemon status")
+    _code, out = run("python3 effectors/golem-daemon status")
     # Parse: "Daemon running (PID X), N pending tasks (...)"
     m = re.search(r"(\d+) pending", out)
     pending = int(m.group(1)) if m else 0
@@ -70,11 +69,11 @@ def check_daemon_status() -> dict:
 def check_new_output() -> dict:
     """Check what was produced since last review."""
     since = "30 minutes ago" if last_review_time else "2 hours ago"
-    code, commits = run(f"git log --oneline --since='{since}' 2>/dev/null")
+    _code, commits = run(f"git log --oneline --since='{since}' 2>/dev/null")
     commit_count = len(commits.strip().splitlines()) if commits.strip() else 0
 
     # Count new files
-    code, new_files = run("git diff --name-only HEAD~10 2>/dev/null")
+    _code, new_files = run("git diff --name-only HEAD~10 2>/dev/null")
     new_tests = [f for f in new_files.splitlines() if f.startswith("assays/test_")]
     new_effectors = [f for f in new_files.splitlines() if f.startswith("effectors/")]
     new_consulting = []
@@ -139,7 +138,7 @@ def fix_collection_errors():
 
 def run_test_snapshot() -> dict:
     """Quick pytest snapshot."""
-    code, out = run("uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -3")
+    _code, out = run("uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -3")
     # Parse: "X passed, Y failed, Z skipped..."
     m = re.search(r"(\d+) passed", out)
     passed = int(m.group(1)) if m else 0
@@ -152,7 +151,7 @@ def run_test_snapshot() -> dict:
 
 def check_daemon_failures() -> list[str]:
     """Check recent daemon failures."""
-    code, out = run(f"tail -100 {DAEMON_LOG} 2>/dev/null | grep FAILED")
+    _code, out = run(f"tail -100 {DAEMON_LOG} 2>/dev/null | grep FAILED")
     return out.strip().splitlines() if out.strip() else []
 
 
@@ -161,7 +160,7 @@ def auto_commit():
     global commit_counter
     # Stage known output directories
     run("git add assays/ effectors/ metabolon/ 2>/dev/null")
-    code, status = run("git diff --cached --quiet 2>/dev/null")
+    code, _status = run("git diff --cached --quiet 2>/dev/null")
     if code != 0:  # There are staged changes
         run('git commit -m "golem-reviewer: auto-commit cycle output"')
         commit_counter += 1
@@ -169,8 +168,10 @@ def auto_commit():
         run("git push 2>/dev/null")
 
     # Also commit epigenome content
-    code, _ = run("git add -A && git diff --cached --quiet || git commit -m 'golem-reviewer: consulting content' && git push",
-                   cwd=str(EPIGENOME))
+    code, _ = run(
+        "git add -A && git diff --cached --quiet || git commit -m 'golem-reviewer: consulting content' && git push",
+        cwd=str(EPIGENOME),
+    )
 
 
 def write_progress_report(status: dict, output: dict, tests: dict, failures: list):
@@ -182,18 +183,18 @@ def write_progress_report(status: dict, output: dict, tests: dict, failures: lis
     report = f"""# Golem Reviewer — Cycle {cycle_number} ({ts})
 
 ## Daemon Status
-- Queue: {status['pending']} pending
-- Running: {'yes' if status['running'] else 'NO — INVESTIGATE'}
+- Queue: {status["pending"]} pending
+- Running: {"yes" if status["running"] else "NO — INVESTIGATE"}
 
 ## Output Since Last Review
-- New test files: {output['new_tests']}
-- New effectors: {output['new_effectors']}
-- Consulting pieces: {output['consulting_pieces']}
+- New test files: {output["new_tests"]}
+- New effectors: {output["new_effectors"]}
+- Consulting pieces: {output["consulting_pieces"]}
 
 ## Test Health
-- Passed: {tests['passed']}
-- Failed: {tests['failed']}
-- Collection errors: {tests['errors']}
+- Passed: {tests["passed"]}
+- Failed: {tests["failed"]}
+- Collection errors: {tests["errors"]}
 
 ## Recent Failures
 {len(failures)} failures in last 100 log lines.
@@ -225,7 +226,9 @@ def review_cycle():
 
     # 2. Check output
     output = check_new_output()
-    log(f"  Output: {output['new_tests']} tests, {output['new_effectors']} effectors, {output['consulting_pieces']} consulting")
+    log(
+        f"  Output: {output['new_tests']} tests, {output['new_effectors']} effectors, {output['consulting_pieces']} consulting"
+    )
 
     # 3. Fix collection errors
     fixed = fix_collection_errors()
@@ -237,7 +240,9 @@ def review_cycle():
     if cycle_number % 3 == 1:
         log("  Running pytest snapshot...")
         tests = run_test_snapshot()
-        log(f"  Tests: {tests['passed']} passed, {tests['failed']} failed, {tests['errors']} errors")
+        log(
+            f"  Tests: {tests['passed']} passed, {tests['failed']} failed, {tests['errors']} errors"
+        )
 
     # 5. Check failures
     failures = check_daemon_failures()

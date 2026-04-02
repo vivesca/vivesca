@@ -15,17 +15,18 @@ Usage:
     golem-dash --once       # Single snapshot, no live refresh
     golem-dash --window 60  # Rolling window in minutes (default 60)
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
+import re
 import sys
 import time
-import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from rich.bar import Bar
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
@@ -41,9 +42,9 @@ COOLDOWNS_PATH = VIVESCA_DIR / "golem-cooldowns.json"
 
 # Rate-limit detection
 RATE_LIMIT_PATTERNS = re.compile(
-    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit|quota will reset',
+    r"429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|"
+    r"request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|"
+    r"usage.?limit|hit your.*limit|quota will reset",
     re.IGNORECASE,
 )
 
@@ -57,19 +58,19 @@ _task_first_seen: dict[str, float] = {}
 def parse_ts(ts_str: str) -> datetime:
     """Parse a timestamp string (flexible formats)."""
     # Strip trailing timezone offset like +00:00 so strptime can handle it
-    ts_str = re.sub(r'[+-]\d{2}:\d{2}$', '', ts_str)
+    ts_str = re.sub(r"[+-]\d{2}:\d{2}$", "", ts_str)
     # Strip fractional seconds like .123456
-    ts_str = re.sub(r'\.\d+', '', ts_str)
+    ts_str = re.sub(r"\.\d+", "", ts_str)
     for fmt in (
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%d %H:%M:%S",
     ):
         try:
-            return datetime.strptime(ts_str, fmt).replace(tzinfo=timezone.utc)
+            return datetime.strptime(ts_str, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
-    return datetime.min.replace(tzinfo=timezone.utc)
+    return datetime.min.replace(tzinfo=UTC)
 
 
 def is_rate_limited(record: dict) -> bool:
@@ -82,16 +83,14 @@ def is_rate_limited(record: dict) -> bool:
     if RATE_LIMIT_PATTERNS.search(tail):
         return True
     # Fast exit with no output is a rate-limit signal
-    if exit_code == 1 and duration <= SHORT_DURATION_LIMIT and tail.strip() in ("", " "):
-        return True
-    return False
+    return bool(exit_code == 1 and duration <= SHORT_DURATION_LIMIT and tail.strip() in ("", " "))
 
 
 def load_jsonl(window_minutes: int = 60) -> list[dict]:
     """Load golem.jsonl records within the rolling window."""
     if not JSONL_PATH.exists():
         return []
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+    cutoff = datetime.now(UTC) - timedelta(minutes=window_minutes)
     records = []
     try:
         with open(JSONL_PATH, errors="replace") as f:
@@ -148,7 +147,11 @@ def load_cooldowns() -> dict[str, str]:
     try:
         entries = json.loads(COOLDOWNS_PATH.read_text())
         if isinstance(entries, list):
-            return {e.get("provider", ""): e.get("expires_at", "") for e in entries if isinstance(e, dict)}
+            return {
+                e.get("provider", ""): e.get("expires_at", "")
+                for e in entries
+                if isinstance(e, dict)
+            }
         return {}
     except (json.JSONDecodeError, OSError):
         return {}
@@ -242,10 +245,9 @@ def compute_ema_duration(records: list[dict], provider: str, alpha: float = 0.3)
     Returns 0.0 if no successful completions found.
     """
     successful = [
-        rec for rec in records
-        if rec.get("exit") == 0
-        and rec.get("duration", 0) > 0
-        and rec.get("provider") == provider
+        rec
+        for rec in records
+        if rec.get("exit") == 0 and rec.get("duration", 0) > 0 and rec.get("provider") == provider
     ]
     if not successful:
         return 0.0
@@ -291,7 +293,7 @@ def compute_completions_per_minute(records: list[dict], window_minutes: int = 30
     """Compute completions per minute over the given window."""
     if not records:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     count = 0
     for rec in records:
@@ -302,12 +304,14 @@ def compute_completions_per_minute(records: list[dict], window_minutes: int = 30
 
 
 def compute_throughput_per_hour(
-    records: list[dict], provider: str | None = None, window_minutes: int = 60,
+    records: list[dict],
+    provider: str | None = None,
+    window_minutes: int = 60,
 ) -> float:
     """Compute completions per hour, optionally filtered by provider."""
     if not records:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     count = 0
     for rec in records:
@@ -322,7 +326,8 @@ def compute_throughput_per_hour(
 
 
 def detect_stale_tasks(
-    running: list[dict], avg_duration_by_provider: dict[str, float],
+    running: list[dict],
+    avg_duration_by_provider: dict[str, float],
 ) -> list[dict]:
     """Return list of stale running tasks (elapsed > 2× avg duration)."""
     stale = []
@@ -368,7 +373,7 @@ def compute_eta_confidence(records: list[dict], window_minutes: int = 60) -> str
     medium: >=2 completions.
     low: <2 completions or >50% rate-limited.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     success = 0
     rl = 0
@@ -403,7 +408,8 @@ DEFAULT_PROVIDER_LIMIT = 4
 
 
 def compute_drain_velocity(
-    all_records: list[dict], pending_by_provider: dict[str, int],
+    all_records: list[dict],
+    pending_by_provider: dict[str, int],
     window_minutes: int = 60,
 ) -> str:
     """Assess whether queue is growing, draining, stable, or done.
@@ -419,11 +425,10 @@ def compute_drain_velocity(
         return "↑ ? pending"
 
     # Count completions in window
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     completions = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
     )
     completion_rate = completions / window_minutes  # per minute
 
@@ -456,7 +461,7 @@ def compute_throughput_acceleration(
     """
     if not all_records:
         return "—" if window_minutes is not None else 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # When window_minutes is given, use it as baseline; scale recent proportionally
     effective_recent = recent_minutes
@@ -469,11 +474,11 @@ def compute_throughput_acceleration(
     baseline_cutoff = now - timedelta(minutes=effective_baseline)
 
     recent_count = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
     )
     baseline_count = sum(
-        1 for r in all_records
+        1
+        for r in all_records
         if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
     )
 
@@ -497,21 +502,21 @@ def compute_throughput_acceleration(
 
 
 def compute_time_since_last_event(
-    all_records: list[dict], exit_code: int = 0,
+    all_records: list[dict],
+    exit_code: int = 0,
 ) -> float:
     """Seconds since the most recent record with the given exit code.
 
     Returns -1.0 if no matching record found.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     latest_ts = None
     for rec in all_records:
         if rec.get("exit") != exit_code:
             continue
         ts = parse_ts(rec.get("ts", ""))
-        if ts != datetime.min.replace(tzinfo=timezone.utc):
-            if latest_ts is None or ts > latest_ts:
-                latest_ts = ts
+        if ts != datetime.min.replace(tzinfo=UTC) and (latest_ts is None or ts > latest_ts):
+            latest_ts = ts
     if latest_ts is None:
         return -1.0
     delta = (now - latest_ts).total_seconds()
@@ -543,16 +548,16 @@ def compute_task_health(
 
 
 def compute_drain_rate(
-    all_records: list[dict], window_minutes: int = 10,
+    all_records: list[dict],
+    window_minutes: int = 10,
 ) -> float:
     """Compute current drain rate in tasks/min over the given window."""
     if not all_records:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     count = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
     )
     return count / window_minutes if window_minutes > 0 else 0.0
 
@@ -573,19 +578,19 @@ def compute_drain_eta_bounds(
     if total_pending == 0:
         return (0.0, 0.0, 0.0)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Recent (10min) throughput for optimistic
     recent_cutoff = now - timedelta(minutes=10)
     recent_count = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
     )
 
     # Baseline (60min) throughput for median
     baseline_cutoff = now - timedelta(hours=1)
     baseline_count = sum(
-        1 for r in all_records
+        1
+        for r in all_records
         if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
     )
 
@@ -602,7 +607,8 @@ def compute_drain_eta_bounds(
     else:
         # Fallback to avg duration
         durations = [
-            r.get("duration", 0) for r in all_records
+            r.get("duration", 0)
+            for r in all_records
             if r.get("exit") == 0 and r.get("duration", 0) > 0
         ]
         if durations:
@@ -616,16 +622,14 @@ def compute_drain_eta_bounds(
             median = float("inf")
 
     # Pessimistic: half the baseline rate
-    if baseline_count > 0:
-        pessimistic = median * 2.0
-    else:
-        pessimistic = float("inf")
+    pessimistic = median * 2.0 if baseline_count > 0 else float("inf")
 
     return (optimistic, median, pessimistic)
 
 
 def compute_provider_utilization(
-    stats: dict[str, dict], limits: dict[str, int],
+    stats: dict[str, dict],
+    limits: dict[str, int],
 ) -> dict[str, float]:
     """Compute active/limit ratio per provider."""
     result: dict[str, float] = {}
@@ -680,9 +684,14 @@ def compute_provider_stats(
         prov = task.get("provider", "unknown")
         if prov not in stats:
             stats[prov] = {
-                "active": 0, "completed": 0, "failed": 0,
-                "rate_limited": 0, "killed": 0,
-                "total_duration": 0.0, "success_count": 0, "total_count": 0,
+                "active": 0,
+                "completed": 0,
+                "failed": 0,
+                "rate_limited": 0,
+                "killed": 0,
+                "total_duration": 0.0,
+                "success_count": 0,
+                "total_count": 0,
             }
         stats[prov]["active"] += 1
 
@@ -691,9 +700,14 @@ def compute_provider_stats(
         prov = rec.get("provider", "unknown")
         if prov not in stats:
             stats[prov] = {
-                "active": 0, "completed": 0, "failed": 0,
-                "rate_limited": 0, "killed": 0,
-                "total_duration": 0.0, "success_count": 0, "total_count": 0,
+                "active": 0,
+                "completed": 0,
+                "failed": 0,
+                "rate_limited": 0,
+                "killed": 0,
+                "total_duration": 0.0,
+                "success_count": 0,
+                "total_count": 0,
             }
         exit_code = rec.get("exit", -1)
         duration = rec.get("duration", 0)
@@ -719,7 +733,7 @@ def compute_per_provider_eta(
     all_records: list[dict],
 ) -> dict[str, float]:
     """Estimate time to drain per-provider queue."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     one_hour_ago = now - timedelta(hours=1)
     result: dict[str, float] = {}
 
@@ -731,7 +745,8 @@ def compute_per_provider_eta(
 
         # Count completions for this provider in last hour
         recent = sum(
-            1 for r in all_records
+            1
+            for r in all_records
             if parse_ts(r.get("ts", "")) >= one_hour_ago
             and r.get("exit") == 0
             and r.get("provider") == prov
@@ -765,7 +780,7 @@ def compute_eta(
         return 0.0
 
     # Count completions in the last hour across all providers
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     one_hour_ago = now - timedelta(hours=1)
     recent_completed = 0
     for rec in all_records:
@@ -775,7 +790,11 @@ def compute_eta(
 
     if recent_completed == 0:
         # No completions in the last hour; use avg duration from all records
-        durations = [r.get("duration", 0) for r in all_records if r.get("exit") == 0 and r.get("duration", 0) > 0]
+        durations = [
+            r.get("duration", 0)
+            for r in all_records
+            if r.get("exit") == 0 and r.get("duration", 0) > 0
+        ]
         if durations:
             avg_duration = sum(durations) / len(durations)
             total_active = sum(s["active"] for s in stats.values())
@@ -789,15 +808,15 @@ def compute_eta(
 
 def compute_throughput_trend(all_records: list[dict], bucket_minutes: int = 10) -> list[int]:
     """Compute completions per time bucket for sparkline."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     buckets: list[int] = []
     for i in range(6):
         bucket_end = now - timedelta(minutes=bucket_minutes * i)
         bucket_start = bucket_end - timedelta(minutes=bucket_minutes)
         count = sum(
-            1 for r in all_records
-            if bucket_start <= parse_ts(r.get("ts", "")) < bucket_end
-            and r.get("exit") == 0
+            1
+            for r in all_records
+            if bucket_start <= parse_ts(r.get("ts", "")) < bucket_end and r.get("exit") == 0
         )
         buckets.append(count)
     buckets.reverse()
@@ -831,11 +850,11 @@ def compute_recent_events(records: list[dict], n: int = 5) -> list[dict]:
     """
     if not records:
         return []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     events: list[dict] = []
     for rec in records:
         ts = parse_ts(rec.get("ts", ""))
-        if ts == datetime.min.replace(tzinfo=timezone.utc):
+        if ts == datetime.min.replace(tzinfo=UTC):
             age = 0.0
         else:
             age = max(0.0, (now - ts).total_seconds())
@@ -860,7 +879,8 @@ def compute_recent_events(records: list[dict], n: int = 5) -> list[dict]:
 
 
 def sort_running_by_completion(
-    running: list[dict], avg_durs: dict[str, float],
+    running: list[dict],
+    avg_durs: dict[str, float],
 ) -> list[dict]:
     """Sort running tasks by estimated remaining time (soonest first).
 
@@ -868,6 +888,7 @@ def sort_running_by_completion(
     """
     if not running:
         return []
+
     def _remaining(task: dict) -> float:
         tid = task.get("task_id", "")
         prov = task.get("provider", "")
@@ -876,6 +897,7 @@ def sort_running_by_completion(
             return float("inf")
         elapsed = compute_elapsed(tid)
         return max(0.0, avg - elapsed)
+
     return sorted(running, key=_remaining)
 
 
@@ -970,13 +992,15 @@ def build_json_snapshot(window_minutes: int = 60) -> dict:
         elapsed = compute_elapsed(tid)
         avg = avg_durs.get(prov, 0)
         remaining = estimate_task_completion(elapsed, avg)
-        running_tasks.append({
-            "task_id": tid,
-            "provider": prov,
-            "elapsed": elapsed,
-            "progress": estimate_task_progress(elapsed, avg),
-            "eta_remaining": remaining,
-        })
+        running_tasks.append(
+            {
+                "task_id": tid,
+                "provider": prov,
+                "elapsed": elapsed,
+                "progress": estimate_task_progress(elapsed, avg),
+                "eta_remaining": remaining,
+            }
+        )
 
     return {
         "pending": total_pending,
@@ -1073,7 +1097,17 @@ def build_running_tasks_table(
         }
         health_str = health_styles.get(health, health)
 
-        table.add_row(tid, prov, health_str, progress_str, eta_str, finishes_str, elapsed_str, through_str, prompt)
+        table.add_row(
+            tid,
+            prov,
+            health_str,
+            progress_str,
+            eta_str,
+            finishes_str,
+            elapsed_str,
+            through_str,
+            prompt,
+        )
 
     return table
 
@@ -1097,7 +1131,7 @@ def build_drain_progress(
     bar_str = "█" * filled + "░" * (bar_width - filled)
 
     line = Text()
-    line.append(f"  Drain: ", style="bold")
+    line.append("  Drain: ", style="bold")
     line.append(f"[{bar_str}] ", style="cyan")
     line.append(f"{pct:.0%} ", style="bold cyan")
     line.append(f"({total_completed}/{total}) ", style="dim")
@@ -1166,7 +1200,7 @@ def build_dashboard(
     drain_velocity = compute_drain_velocity(all_records, pending_by_provider)
     utilization = compute_provider_utilization(stats, PROVIDER_LIMITS)
     drain_rate = compute_drain_rate(all_records, window_minutes=10)
-    acceleration_raw = compute_throughput_acceleration(all_records)
+    compute_throughput_acceleration(all_records)
     acceleration = compute_throughput_acceleration(all_records, window_minutes=60)
     time_since_last = compute_time_since_last_event(all_records, exit_code=0)
     eta_bounds = compute_drain_eta_bounds(stats, pending_by_provider, all_records)
@@ -1177,7 +1211,9 @@ def build_dashboard(
     header.append("⬡ Golem Dashboard", style="bold cyan")
     header.append(f"  {now_str}", style="dim")
     header.append(f"  window={window_minutes}m", style="dim")
-    header.append(f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow")
+    header.append(
+        f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow"
+    )
     header.append(f"  drain: {drain_rate:.1f}/min", style="green" if drain_rate > 0 else "dim")
     if time_since_last >= 0:
         header.append(f"  last✓: {fmt_duration(time_since_last)}", style="dim")
@@ -1207,13 +1243,12 @@ def build_dashboard(
     table.add_column("Status", min_width=10)
 
     provider_order = ["zhipu", "infini", "volcano", "codex", "gemini"]
-    for prov in sorted(stats.keys(), key=lambda p: provider_order.index(p) if p in provider_order else 99):
+    for prov in sorted(
+        stats.keys(), key=lambda p: provider_order.index(p) if p in provider_order else 99
+    ):
         s = stats[prov]
         total = s["completed"] + s["failed"] + s["rate_limited"] + s["killed"]
-        if total > 0:
-            rate = s["success_count"] / total * 100
-        else:
-            rate = 0.0
+        rate = s["success_count"] / total * 100 if total > 0 else 0.0
 
         avg_dur = s["total_duration"] / s["total_count"] if s["total_count"] > 0 else 0
         queue = pending_by_provider.get(prov, 0)
@@ -1276,7 +1311,10 @@ def build_dashboard(
     summary.append(f"Done(window): {total_completed_window}  ", style="green")
     summary.append(f"Failed: {total_failed_window}  ", style="red")
     summary.append(f"RateLimited: {total_rl_window}  ", style="yellow")
-    summary.append(f"Success: {window_rate:.0f}%  ", style="bold green" if window_rate >= 80 else "bold yellow")
+    summary.append(
+        f"Success: {window_rate:.0f}%  ",
+        style="bold green" if window_rate >= 80 else "bold yellow",
+    )
 
     # ETA with wall-clock time and confidence
     confidence = compute_eta_confidence(all_records)
@@ -1288,7 +1326,9 @@ def build_dashboard(
 
     # === Drain progress ===
     drain_progress = build_drain_progress(
-        total_pending, total_completed_queue, eta_seconds,
+        total_pending,
+        total_completed_queue,
+        eta_seconds,
         drain_rate=drain_rate,
         eta_bounds=eta_bounds,
         acceleration=acceleration,
@@ -1327,7 +1367,7 @@ def build_dashboard(
 
     # === Cooldown info ===
     cooldown_lines = []
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     for prov, expires_str in cooldowns.items():
         if expires_str:
             exp = parse_ts(expires_str)
@@ -1370,7 +1410,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="Golem task queue dashboard")
     parser.add_argument("--once", action="store_true", help="Single snapshot, no live refresh")
-    parser.add_argument("--window", type=int, default=60, help="Rolling window in minutes (default: 60)")
+    parser.add_argument(
+        "--window", type=int, default=60, help="Rolling window in minutes (default: 60)"
+    )
     args = parser.parse_args()
 
     if not JSONL_PATH.exists():
@@ -1381,6 +1423,7 @@ def main():
     if args.once:
         panel = build_dashboard(window_minutes=args.window)
         from rich.console import Console
+
         Console().print(panel)
         return
 
@@ -1412,19 +1455,19 @@ def main():
                         for line in new_lines:
                             line = line.strip()
                             if line:
-                                try:
+                                with contextlib.suppress(json.JSONDecodeError, ValueError):
                                     all_records_cache.append(json.loads(line))
-                                except (json.JSONDecodeError, ValueError):
-                                    pass
                         current_byte = new_size
                         # Periodically trim cache to prevent unbounded growth (keep last 10k)
                         if len(all_records_cache) > 10000:
                             all_records_cache = all_records_cache[-5000:]
 
-                live.update(build_dashboard(
-                    window_minutes=args.window,
-                    all_records_cache=all_records_cache,
-                ))
+                live.update(
+                    build_dashboard(
+                        window_minutes=args.window,
+                        all_records_cache=all_records_cache,
+                    )
+                )
                 time.sleep(2)
             except KeyboardInterrupt:
                 break
@@ -1432,3 +1475,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+   main()
+)
+

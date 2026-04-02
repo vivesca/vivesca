@@ -15,8 +15,7 @@ Gathers:
 import argparse
 import json
 import subprocess
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 HOME = Path.home()
@@ -30,8 +29,10 @@ CHANNEL = GERMLINE / "effectors" / "channel"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def log(msg: str):
     print(f"[*] {msg}", flush=True)
+
 
 def run_cmd(cmd: list[str], timeout: int = 180) -> tuple[int, str, str]:
     try:
@@ -40,39 +41,43 @@ def run_cmd(cmd: list[str], timeout: int = 180) -> tuple[int, str, str]:
     except Exception as e:
         return -1, "", str(e)
 
+
 # ---------------------------------------------------------------------------
 # Data Gathering
 # ---------------------------------------------------------------------------
 
+
 def gather_effector_proposals() -> str:
     log("Running methylation effector...")
-    code, out, err = run_cmd([str(METHYLATION_EFFECTOR)])
+    code, _out, err = run_cmd([str(METHYLATION_EFFECTOR)])
     if code != 0:
         log(f"WARN: methylation effector failed: {err}")
-    
+
     date_str = datetime.now().strftime("%Y-%m-%d")
     prop_path = PROPOSAL_DIR / f"methylation-proposal-{date_str}.md"
     hyb_path = PROPOSAL_DIR / f"hybridization-proposals-{date_str}.md"
-    
+
     content = []
     if prop_path.exists():
         content.append(prop_path.read_text())
     if hyb_path.exists():
         content.append(hyb_path.read_text())
-        
+
     return "\n\n".join(content)
+
 
 def gather_jsonl_observations(days: int = 7) -> str:
     if not METHYLATION_JSONL.exists():
         return "(no methylation.jsonl found)"
-    
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     observations = []
-    
+
     try:
         lines = METHYLATION_JSONL.read_text().splitlines()
         for line in lines:
-            if not line.strip(): continue
+            if not line.strip():
+                continue
             try:
                 ev = json.loads(line)
                 ts_str = ev.get("ts", "")
@@ -81,18 +86,19 @@ def gather_jsonl_observations(days: int = 7) -> str:
                     ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                 else:
                     ts = datetime.fromisoformat(ts_str)
-                
+
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
-                
+                    ts = ts.replace(tzinfo=UTC)
+
                 if ts >= cutoff:
                     observations.append(line)
             except Exception:
                 continue
     except Exception as e:
         return f"(error reading jsonl: {e})"
-        
+
     return "\n".join(observations) if observations else "(no recent observations)"
+
 
 # ---------------------------------------------------------------------------
 # Synthesis
@@ -116,20 +122,23 @@ Format: markdown.
 {observations}
 """
 
+
 def synthesize_review(proposals: str, observations: str) -> str:
     log("Synthesizing review via Opus...")
     prompt = REVIEW_PROMPT.format(proposals=proposals, observations=observations)
-    
+
     code, out, err = run_cmd([str(CHANNEL), "opus", "-p", prompt])
     if code != 0:
         log(f"ERROR: synthesis failed: {err}")
         return f"Error: Synthesis failed.\n\nRaw Proposals:\n{proposals}\n\nRaw Observations:\n{observations}"
-    
+
     return out.strip()
+
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -152,6 +161,7 @@ def main():
     print("\n--- Summary ---\n")
     # Print the first part of the review for immediate feedback
     print("\n".join(review_content.splitlines()[:20]))
+
 
 if __name__ == "__main__":
     main()

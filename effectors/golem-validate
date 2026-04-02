@@ -10,6 +10,7 @@ Checks each .py file for:
 Usage:
     golem-validate file1.py file2.py ...
 """
+
 from __future__ import annotations
 
 import ast
@@ -20,7 +21,7 @@ from pathlib import Path, PurePosixPath
 
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 BAD_PATH_RE = re.compile(re.escape(MAC_HOME_PREFIX))
-TODO_RE = re.compile(r'\b(TODO|FIXME|stub)\b', re.IGNORECASE)
+TODO_RE = re.compile(r"\b(TODO|FIXME|stub)\b", re.IGNORECASE)
 
 
 def validate_file(path: Path) -> tuple[str, list[str]]:
