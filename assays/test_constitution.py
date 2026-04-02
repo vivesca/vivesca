@@ -21,6 +21,11 @@ def _make_substrate(tmp_path: Path, content: str, signals=None):
     return ExecutiveSubstrate(constitution_path=constitution, collector=mock_collector)
 
 
+_no_scan = patch(
+    "metabolon.metabolism.substrates.constitution.precision_scan", return_value=[]
+)
+
+
 def _make_signal(tool: str, days_ago: int = 0):
     """Build a lightweight signal-like object with a .tool attribute."""
     sig = MagicMock()
@@ -32,6 +37,7 @@ def _make_signal(tool: str, days_ago: int = 0):
 # sense — file handling
 # ---------------------------------------------------------------------------
 
+@_no_scan
 class TestSenseFileHandling:
     def test_missing_file_returns_empty(self, tmp_path):
         s = ExecutiveSubstrate(constitution_path=tmp_path / "nope.md")
@@ -50,6 +56,7 @@ class TestSenseFileHandling:
 # sense — rule parsing
 # ---------------------------------------------------------------------------
 
+@_no_scan
 class TestSenseRuleParsing:
     def test_parses_single_bold_rule(self, tmp_path):
         s = _make_substrate(tmp_path, "**Always verify.** Do thorough checks.\n")
@@ -89,6 +96,7 @@ class TestSenseRuleParsing:
 # sense — enzyme cross-referencing
 # ---------------------------------------------------------------------------
 
+@_no_scan
 class TestSenseEnzymeCrossRef:
     def test_no_signals_marks_no_evidence(self, tmp_path):
         s = _make_substrate(tmp_path, "**deploy_tool:** Use it wisely.\n", signals=[])
