@@ -127,58 +127,61 @@ def kill_runaway_golems():
 
 def log_resources():
     """Append one JSON line per tick to JSONL_PATH with system metrics."""
-    JSONL_PATH.parent.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().isoformat()
-
-    # cpu_1m from /proc/loadavg field 1
     try:
-        loadavg = Path("/proc/loadavg").read_text().split()
-        cpu_1m = float(loadavg[0])
-    except Exception:
-        cpu_1m = 0.0
+        JSONL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().isoformat()
 
-    # mem_pct from /proc/meminfo MemAvailable/MemTotal
-    try:
-        mem_total = mem_avail = 0
-        for line in Path("/proc/meminfo").read_text().splitlines():
-            parts = line.split()
-            if parts and parts[0] == "MemTotal:":
-                mem_total = int(parts[1])
-            elif parts and parts[0] == "MemAvailable:":
-                mem_avail = int(parts[1])
-        mem_pct = (mem_avail / mem_total * 100.0) if mem_total else 0.0
-    except Exception:
-        mem_pct = 0.0
+        # cpu_1m from /proc/loadavg field 1
+        try:
+            loadavg = Path("/proc/loadavg").read_text().split()
+            cpu_1m = float(loadavg[0])
+        except Exception:
+            cpu_1m = 0.0
 
-    # disk_pct and disk_free_gb from shutil.disk_usage
-    try:
-        u = shutil.disk_usage(str(HOME))
-        disk_pct = u.used / u.total * 100.0
-        disk_free_gb = u.free / (1024 ** 3)
-    except Exception:
-        disk_pct = 0.0
-        disk_free_gb = 0.0
+        # mem_pct from /proc/meminfo MemAvailable/MemTotal
+        try:
+            mem_total = mem_avail = 0.0
+            for line in Path("/proc/meminfo").read_text().splitlines():
+                parts = line.split()
+                if parts and parts[0] == "MemTotal:":
+                    mem_total = float(parts[1])
+                elif parts and parts[0] == "MemAvailable:":
+                    mem_avail = float(parts[1])
+            mem_pct = (mem_avail / mem_total * 100.0) if mem_total else 0.0
+        except Exception:
+            mem_pct = 0.0
 
-    # golem_count from pgrep -c -f golem
-    try:
-        r = subprocess.run(
-            ["pgrep", "-c", "-f", "golem"],
-            capture_output=True, text=True, timeout=5,
-        )
-        golem_count = int(r.stdout.strip()) if r.returncode == 0 else 0
-    except Exception:
-        golem_count = 0
+        # disk_pct and disk_free_gb from shutil.disk_usage
+        try:
+            u = shutil.disk_usage(str(HOME))
+            disk_pct = u.used / u.total * 100.0
+            disk_free_gb = u.free / (1024 ** 3)
+        except Exception:
+            disk_pct = 0.0
+            disk_free_gb = 0.0
 
-    record = {
-        "ts": ts,
-        "cpu_1m": round(cpu_1m, 2),
-        "mem_pct": round(mem_pct, 2),
-        "disk_pct": round(disk_pct, 2),
-        "disk_free_gb": round(disk_free_gb, 2),
-        "golem_count": golem_count,
-    }
-    with open(JSONL_PATH, "a") as f:
-        f.write(json.dumps(record) + "\n")
+        # golem_count from pgrep -c -f golem
+        try:
+            r = subprocess.run(
+                ["pgrep", "-c", "-f", "golem"],
+                capture_output=True, text=True, timeout=5,
+            )
+            golem_count = int(r.stdout.strip()) if r.returncode == 0 else 0
+        except Exception:
+            golem_count = 0
+
+        record = {
+            "ts": ts,
+            "cpu_1m": round(cpu_1m, 2),
+            "mem_pct": round(mem_pct, 2),
+            "disk_pct": round(disk_pct, 2),
+            "disk_free_gb": round(disk_free_gb, 2),
+            "golem_count": golem_count,
+        }
+        with open(JSONL_PATH, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception as e:
+        log(f"log_resources error: {e}")
 
 
 def alert_on_crit(health_json: dict):
