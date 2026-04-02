@@ -123,7 +123,7 @@ def test_run_remote_executes():
         mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
         run_remote(["ssh", "host", "echo hi"], dry_run=False)
         mock_run.assert_called_once_with(
-            ["ssh", "host", "echo hi"], capture_output=True, text=True
+            ["ssh", "host", "echo hi"], capture_output=True, text=True, timeout=300
         )
 
 

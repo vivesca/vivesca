@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # QMD re-index — embed new/changed vault notes for semantic search
 # Runs separately from vault backup (embedding is slow)
 
@@ -19,5 +19,5 @@ if pgrep -f "qmd embed" > /dev/null 2>&1; then
     exit 0
 fi
 
-qmd update 2>/dev/null || true
-qmd embed 2>/dev/null || true
+qmd update 2>/dev/null
+qmd embed 2>/dev/null
