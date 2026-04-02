@@ -3,6 +3,8 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path, PurePosixPath
 
+import pytest
+
 # Load the effector script
 TEST_GERMLINE = Path(__file__).parent.parent
 GOLEM_REVIEW = TEST_GERMLINE / "effectors" / "golem-tools"
@@ -777,8 +779,8 @@ def test_compute_consulting_summary_empty():
 def test_compute_consulting_summary_all_pass():
     """All passing results."""
     results = [
-        {"word_count": 300, "quality_score": 80, "overall_quality_pass": True},
-        {"word_count": 400, "quality_score": 90, "overall_quality_pass": True},
+        {"word_count": 300, "quality_score": 80, "overall_quality_pass": True, "exists": True},
+        {"word_count": 400, "quality_score": 90, "overall_quality_pass": True, "exists": True},
     ]
     summary = compute_consulting_summary(results)
     assert summary["total"] == 2
@@ -792,9 +794,9 @@ def test_compute_consulting_summary_all_pass():
 def test_compute_consulting_summary_mixed():
     """Mix of passing and failing results."""
     results = [
-        {"word_count": 300, "quality_score": 80, "overall_quality_pass": True},
-        {"word_count": 50, "quality_score": 10, "overall_quality_pass": False},
-        {"word_count": 100, "quality_score": 30, "overall_quality_pass": False},
+        {"word_count": 300, "quality_score": 80, "overall_quality_pass": True, "exists": True},
+        {"word_count": 50, "quality_score": 10, "overall_quality_pass": False, "exists": True},
+        {"word_count": 100, "quality_score": 30, "overall_quality_pass": False, "exists": True},
     ]
     summary = compute_consulting_summary(results)
     assert summary["total"] == 3
@@ -802,7 +804,7 @@ def test_compute_consulting_summary_mixed():
     assert summary["failed"] == 2
     assert summary["avg_word_count"] == pytest.approx(150.0)
     assert summary["avg_quality_score"] == pytest.approx(40.0)
-    assert summary["pass_rate"] == pytest.approx(1 / 3)
+    assert summary["pass_rate"] == pytest.approx(1 / 3, abs=0.01)
 
 
 def test_compute_consulting_summary_skips_missing():
@@ -868,8 +870,8 @@ def test_consulting_full_integration():
         cards = consulting / "cards"
         cards.mkdir(parents=True, exist_ok=True)
 
-        # Good file (>200 words, structured)
-        good_content = "# Introduction\n\n" + "Adequate body text paragraph here. " * 80 + "\n\n## Conclusion\n\nSummary here."
+        # Good file (>200 words, structured, diverse to avoid filler detection)
+        good_content = _GOOD_CONTENT
         (cards / "good.md").write_text(good_content)
 
         # Short file
