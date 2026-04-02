@@ -443,10 +443,7 @@ def test_validate_stub_detection(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        try:
-            passed, errors = validate_golem_output()
-        finally:
-            pass
+        passed, errors = validate_golem_output()
 
     assert not passed
     assert any("stub" in e.lower() for e in errors)
@@ -473,10 +470,7 @@ def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        try:
-            passed, errors = validate_golem_output()
-        finally:
-            pass
+        passed, errors = validate_golem_output()
 
     assert not passed
     assert any("not flat" in e for e in errors)
@@ -529,10 +523,7 @@ def test_validate_passes_clean_files(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        try:
-            passed, errors = validate_golem_output()
-        finally:
-            pass
+        passed, errors = validate_golem_output()
 
     assert passed
     assert errors == []
@@ -607,10 +598,7 @@ def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        try:
-            passed, errors = validate_golem_output()
-        finally:
-            pass
+        passed, errors = validate_golem_output()
 
     assert passed
     assert errors == []
