@@ -240,13 +240,14 @@ def _count_pending(queue_file: Path = QUEUE_FILE) -> int:
 
 
 def _auto_requeue(
-    min_pending: int = REQUEUE_THRESHOLD,
+    min_pending: int = 10,
     queue_file: Path = QUEUE_FILE,
 ) -> int:
     """Generate diverse high-value tasks when queue runs low.
 
     Ported from golem-daemon auto_requeue. Returns count of tasks added.
     """
+    # Only build tasks — maintenance (pyright/ruff/health) handled by cron
     pending = _count_pending(queue_file)
     if pending >= min_pending:
         return 0
@@ -268,14 +269,7 @@ def _auto_requeue(
         for f in assays_dir.glob("test_*.py"):
             existing_tests.add(f.stem)
 
-    # === 1. Fix collection errors ===
-    _add(
-        "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. "
-        "Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit.",
-        turns=40,
-    )
-
-    # === 2. Fix failing tests ===
+    # === Fix failing tests ===
     _add(
         "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 "
         "| grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. "
@@ -283,30 +277,11 @@ def _auto_requeue(
         turns=50,
     )
 
-    # === 3. Effector health checks ===
-    effectors_dir = GOLEM_SCRIPT.parent
-    if effectors_dir.exists():
-        effectors = sorted([
-            f.name for f in effectors_dir.iterdir()
-            if f.is_file() and not f.name.startswith(".")
-            and f.suffix not in (".conf", ".plist", ".json", ".md")
-        ])
-        if effectors:
-            batch = random.sample(effectors, min(5, len(effectors)))
-            names = ", ".join(batch)
-            _add(
-                f"Health check: {names}. For each: run --help, ast.parse if Python, "
-                "check shebang. Fix broken ones. Commit.",
-                turns=30,
-            )
-
-    # === 4. System hardening ===
+    # === System hardening ===
     hardening = [
         "Scan assays/ for hardcoded paths. Replace with Path.home(). Commit.",
         "Find test files with SyntaxError. Fix syntax. Commit.",
-        "Check all effectors respond to --help without crashing. Fix crashers. Commit.",
         "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit.",
-        "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit.",
     ]
     for h in random.sample(hardening, min(2, len(hardening))):
         _add(h, turns=25)
