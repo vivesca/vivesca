@@ -2615,6 +2615,35 @@ class TestAlwaysOnBackoff:
 
         assert 300 in sleep_calls
 
+    def test_backoff_repolls_after_wake(self, tmp_path):
+        """After waking from backoff sleep, daemon re-reads the queue."""
+        parse_count = [0]
+        task = (0, 'golem --provider zhipu "test task"', 't-abc123')
+
+        def counting_parse_queue():
+            parse_count[0] += 1
+            if parse_count[0] >= 2:
+                _shutdown_event.set()
+            return [task]
+
+        def no_op_sleep(seconds):
+            pass
+
+        saved = _setup_daemon_test(tmp_path, {
+            "_interruptible_sleep": no_op_sleep,
+            "parse_queue": counting_parse_queue,
+            "_resolve_dispatch_command": lambda *args: None,
+            "_golem_env": lambda: {},
+            "_ssh_health_check": lambda w: False,
+            "disk_guard": lambda: True,
+        })
+        try:
+            daemon_loop()
+        finally:
+            _restore_daemon_test(saved)
+
+        assert parse_count[0] >= 2, f"Expected >= 2 parse_queue calls, got {parse_count[0]}"
+
 
 class TestSigtermGracefulShutdown:
     """SIGTERM handler sets shutdown flag for graceful exit."""
