@@ -125,7 +125,10 @@ def cmd_extend_vol(size_gb: int) -> None:
         sys.exit(1)
     v = vols[0]
     vid = v["id"]
-    old_size = v.get("size_gb", "?")
+    old_size = v.get("size_gb")
+    if old_size is None:
+        print(f"warning: volume {v.get('id', '?')} has no size_gb field", file=sys.stderr)
+        old_size = 0
     if old_size >= size_gb:
         print(f"volume already {old_size}GB (requested {size_gb}GB), nothing to do")
         return
