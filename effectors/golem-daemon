@@ -1840,6 +1840,26 @@ def daemon_loop(dry_run: bool = False):
                 for w in REMOTE_WORKERS:
                     _ssh_health_cache[w['host']] = _ssh_health_check(w)
 
+                # Build cache of prompts that already passed (for dedup)
+                _completed_prompts_cache: set[str] = set()
+                try:
+                    for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
+                        if path.exists():
+                            for line in path.read_text(errors="replace").splitlines():
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                try:
+                                    rec = json.loads(line)
+                                    if rec.get("exit") == 0:
+                                        c = rec.get("cmd", "") or rec.get("prompt", "")
+                                        if c:
+                                            _completed_prompts_cache.add(_normalize_prompt(c))
+                                except (json.JSONDecodeError, ValueError):
+                                    pass
+                except (PermissionError, OSError):
+                    pass
+
                 dispatched_this_cycle = 0
                 # Sort pending tasks so that fallback tasks (affinity provider
                 # in cooldown) are dispatched first, AND within each group
@@ -1918,6 +1938,12 @@ def daemon_loop(dry_run: bool = False):
                     )
                     if already_running:
                         log(f"skipping duplicate: [{task_id}]")
+                        continue
+
+                    # Check if same prompt already succeeded — skip without re-running
+                    if norm_prompt in _completed_prompts_cache:
+                        log(f"already passed: [{task_id}] — auto-marking done")
+                        mark_done(line_num, result="auto-dedup (already passed)", task_id=task_id)
                         continue
 
                     # Routing: local vs remote overflow

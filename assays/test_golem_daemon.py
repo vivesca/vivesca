@@ -36,6 +36,8 @@ DEFAULT_LIMIT = _mod["DEFAULT_LIMIT"]
 QUEUE_FILE = _mod["QUEUE_FILE"]
 mark_failed = _mod["mark_failed"]
 check_new_test_files_and_run_pytest = _mod["check_new_test_files_and_run_pytest"]
+_normalize_prompt = _mod["_normalize_prompt"]
+_get_pending_prompts = _mod["_get_pending_prompts"]
 
 
 # ── parse_provider tests ─────────────────────────────────────────────
@@ -2936,3 +2938,144 @@ class TestSigtermGracefulShutdown:
             _restore_daemon_test(saved)
 
         assert drain_calls[0] >= 1, "Expected _drain_running to be called on shutdown"
+
+
+# ── dedup guard tests ───────────────────────────────────────────────
+
+
+def test_normalize_prompt_strips_task_id():
+    """_normalize_prompt strips [t-xxxxxx] task IDs."""
+    a = _normalize_prompt('golem [t-abc123] --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('golem [t-def456] --provider zhipu --max-turns 30 "Fix tests"')
+    assert a == b
+
+
+def test_normalize_prompt_strips_provider():
+    """_normalize_prompt strips --provider flag so different providers match."""
+    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('golem --provider infini --max-turns 30 "Fix tests"')
+    assert a == b
+
+
+def test_normalize_prompt_strips_max_turns():
+    """_normalize_prompt strips --max-turns N flag."""
+    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('golem --provider zhipu --max-turns 50 "Fix tests"')
+    assert a == b
+
+
+def test_normalize_prompt_strips_retry_tag():
+    """_normalize_prompt strips trailing (retry) tag."""
+    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests" (retry)')
+    b = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
+    assert a == b
+
+
+def test_normalize_prompt_different_prompts_differ():
+    """_normalize_prompt produces different keys for different prompts."""
+    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('golem --provider zhipu --max-turns 30 "Build feature X"')
+    assert a != b
+
+
+def test_get_pending_prompts_reads_queue(tmp_path):
+    """_get_pending_prompts returns normalized prompts from pending entries."""
+    qf = tmp_path / "golem-queue.md"
+    _mod["QUEUE_FILE"] = qf
+    try:
+        qf.write_text(
+            '- [ ] `golem [t-aa0001] --provider zhipu --max-turns 30 "Fix tests"`\n'
+            '- [x] `golem [t-aa0002] --provider infini --max-turns 30 "Done task"`\n'
+            '- [!!] `golem [t-aa0003] --provider volcano --max-turns 40 "Build X"`\n'
+        )
+        prompts = _get_pending_prompts()
+        norm_fix = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
+        norm_build = _normalize_prompt('golem --provider volcano --max-turns 40 "Build X"')
+        assert norm_fix in prompts
+        assert norm_build in prompts
+        # [x] done entry should NOT be included
+        norm_done = _normalize_prompt('golem --provider infini --max-turns 30 "Done task"')
+        assert norm_done not in prompts
+    finally:
+        _mod["QUEUE_FILE"] = QUEUE_FILE
+
+
+def test_enqueue_dedup_rejects_duplicate(tmp_path):
+    """Writing the same prompt twice to the queue — second should be rejected."""
+    qf = tmp_path / "golem-queue.md"
+    _mod["QUEUE_FILE"] = qf
+    QueueLock = _mod["QueueLock"]
+    _existing = _mod["_get_pending_prompts"]()
+    _normalize = _mod["_normalize_prompt"]
+    try:
+        # Enqueue first task
+        prompt = 'golem --provider zhipu --max-turns 30 "Fix pyright errors"'
+        line1 = f'- [ ] `{prompt}`'
+        qf.write_text(line1 + "\n")
+        _existing.add(_normalize(prompt))
+
+        # Attempt to enqueue duplicate
+        prompt2 = 'golem [t-dead01] --provider infini --max-turns 40 "Fix pyright errors" (retry)'
+        norm2 = _normalize(prompt2)
+        assert norm2 in _existing, "Second prompt should normalize to same key as first"
+    finally:
+        _mod["QUEUE_FILE"] = QUEUE_FILE
+
+
+def test_dispatch_dedup_skips_running_duplicate(tmp_path):
+    """Dispatch loop should skip tasks whose normalized prompt matches a running task."""
+    _setup = _mod.get("_setup_daemon_test")
+    if not _setup:
+        pytest.skip("no _setup_daemon_test helper")
+
+    daemon_loop = _mod["daemon_loop"]
+    _shutdown_event = _mod["_shutdown_event"]
+    log_msgs: list[str] = []
+
+    def mock_log(msg):
+        log_msgs.append(msg)
+
+    task_ran: list[str] = []
+
+    def mock_run_golem(cmd):
+        task_ran.append(cmd)
+        return (cmd, 0, "ok", 10)
+
+    def mock_parse_queue():
+        return [
+            (0, 'golem [t-aaa111] --provider zhipu --max-turns 30 "Fix tests"', "t-aaa111"),
+            (1, 'golem [t-bbb222] --provider infini --max-turns 40 "Fix tests"', "t-bbb222"),
+        ]
+
+    def mock_sleep(s):
+        _shutdown_event.set()
+
+    saved = _setup(tmp_path, {
+        "log": mock_log,
+        "parse_queue": mock_parse_queue,
+        "run_golem": mock_run_golem,
+        "_interruptible_sleep": mock_sleep,
+        "_update_running_file": lambda r: None,
+        "_golem_env": lambda: {},
+        "_ssh_health_check": lambda w: True,
+        "startup_pull": lambda: "ok",
+        "rotate_logs": lambda: None,
+        "write_pid": lambda: None,
+        "remove_pid": lambda: None,
+        "disk_guard": lambda *a, **kw: True,
+        "auto_requeue": lambda *a, **kw: 0,
+        "auto_commit": lambda: "nothing",
+        "validate_golem_output": lambda: (True, []),
+        "check_new_test_files_and_run_pytest": lambda: (True, ""),
+        "_provider_preflight": lambda p, e: (True, None),
+    })
+    try:
+        daemon_loop()
+    finally:
+        _mod["_restore_daemon_test"](saved)
+
+    # Only one of the two duplicate-prompt tasks should have been dispatched
+    assert len(task_ran) == 1, f"Expected 1 dispatched task, got {len(task_ran)}: {task_ran}"
+    # Should have logged skipping duplicate
+    skip_msgs = [m for m in log_msgs if "skipping duplicate" in m]
+    assert len(skip_msgs) >= 1, f"Expected 'skipping duplicate' log, got: {log_msgs[-10:]}"
