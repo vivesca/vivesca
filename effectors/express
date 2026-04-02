@@ -89,10 +89,12 @@ def integrate(dry_run: bool = False) -> None:
                 current = os.readlink(link)
                 if current == str(item):
                     continue
+                print(f"  UPDATE {platform_dir}/{item.name} → {org_rel}/{item.name} (was {current})")
                 if not dry_run:
                     link.unlink()
                     link.symlink_to(item)
             elif not link.exists():
+                print(f"  LINK   {platform_dir}/{item.name} → {org_rel}/{item.name}")
                 if not dry_run:
                     link.symlink_to(item)
             # Skip conflicts (real files/dirs)
