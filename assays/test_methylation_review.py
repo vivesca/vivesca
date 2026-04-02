@@ -281,7 +281,7 @@ class TestMain:
 
         # Check file was created
         date_str = datetime.now().strftime("%Y-%m-%d")
-        review_path = mr["TMP_DIR"] / f"methylation-review-{date_str}.md"
+        review_path = mr["PROPOSAL_DIR"] / f"methylation-review-{date_str}.md"
         assert review_path.exists()
         assert "Final Review" in review_path.read_text()
 
@@ -316,5 +316,5 @@ class TestMain:
             mr["main"]()
 
         date_str = datetime.now().strftime("%Y-%m-%d")
-        review_path = mr["TMP_DIR"] / f"methylation-review-{date_str}.md"
+        review_path = mr["PROPOSAL_DIR"] / f"methylation-review-{date_str}.md"
         assert review_path.exists()

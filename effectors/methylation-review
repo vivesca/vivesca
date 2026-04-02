@@ -23,7 +23,6 @@ HOME = Path.home()
 GERMLINE = HOME / "germline"
 METHYLATION_JSONL = GERMLINE / "methylation.jsonl"
 METHYLATION_EFFECTOR = GERMLINE / "effectors" / "methylation"
-TMP_DIR = HOME / "tmp"
 PROPOSAL_DIR = HOME / "epigenome" / "chromatin" / "immunity" / "methylation"
 CHANNEL = GERMLINE / "effectors" / "channel"
 
