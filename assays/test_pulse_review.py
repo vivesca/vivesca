@@ -83,7 +83,7 @@ class TestMainArgs:
 
 class TestOutputFormatting:
     def test_creates_output_file(self, pr, tmp_path, capsys):
-        """Should create a review markdown file in ~/tmp/."""
+        """Should create a review markdown file in ~/germline/loci/pulse/."""
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
@@ -95,7 +95,7 @@ class TestOutputFormatting:
              patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
         assert out_dir.exists()
         review_files = list(out_dir.glob("pulse-review-*.md"))
         assert len(review_files) == 1
@@ -116,7 +116,7 @@ class TestOutputFormatting:
              patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
         review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert "# Pulse Review" in content
@@ -136,7 +136,7 @@ class TestOutputFormatting:
              patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
         review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert str(manifest) in content
@@ -155,7 +155,7 @@ class TestOutputFormatting:
              patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
         review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert "(no response)" in content

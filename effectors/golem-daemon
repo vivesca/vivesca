@@ -372,6 +372,17 @@ def _drain_running(running: dict, timeout: int = 60) -> int:
         log("Graceful shutdown: all tasks completed")
     return remaining
 
+
+def _interruptible_sleep(seconds: int):
+    """Sleep that wakes early if shutdown is requested."""
+    end = time.time() + seconds
+    while time.time() < end and not _shutdown_event.is_set():
+        left = end - time.time()
+        if left <= 0:
+            break
+        time.sleep(min(1, left))
+
+
 def rotate_logs():
     """Rotate log/jsonl files if they exceed 5MB.
 
@@ -1406,7 +1417,6 @@ def daemon_loop(dry_run: bool = False):
     _cooldown_probe_times: dict[str, float] = {}  # provider -> last probe timestamp
     poll_cycle = 0
     disk_space_paused = False
-    idle_since: float | None = None  # timestamp when we became idle
 
     executor = ThreadPoolExecutor(max_workers=max_workers)
     try:
@@ -1559,29 +1569,11 @@ def daemon_loop(dry_run: bool = False):
                 else:
                     pending = parse_queue()
 
-                # Auto-stop check: if no pending AND no running → idle timer
-                # Must check BEFORE auto_requeue to avoid infinite refill loop
+                # Always-on: when queue empty and nothing running, sleep 60s then re-poll
                 if not pending and not running:
-                    if idle_since is None:
-                        idle_since = time.time()
-                        log("Queue empty, no tasks running — idle timer started")
-                    else:
-                        idle_min = (time.time() - idle_since) / 60
-                        log(f"Idle for {idle_min:.1f} min (stop at {IDLE_STOP_MINUTES})")
-                        if idle_min >= IDLE_STOP_MINUTES:
-                            log(f"Idle for {IDLE_STOP_MINUTES}+ min — committing and stopping machine")
-                            auto_commit()
-                            if fly_stop_self():
-                                log("Fly machine stop requested — goodbye")
-                                break
-                            else:
-                                log("FLY_API_TOKEN not set or stop failed — continuing with auto-requeue")
-                                idle_since = None  # Reset, fall through to auto-requeue
-                    # Skip auto-requeue and dispatch while idle timer is ticking
-                    time.sleep(POLL_INTERVAL)
+                    log("Idle: queue empty, sleeping 60s")
+                    _interruptible_sleep(60)
                     continue
-
-                idle_since = None  # We have work — reset idle timer
 
                 # Auto-requeue when queue runs low
                 if len(pending) < 50:
@@ -1634,6 +1626,17 @@ def daemon_loop(dry_run: bool = False):
                                 del provider_cooldown_until[p]
                                 provider_failure_times.pop(p, None)
                                 _provider_throttle.pop(p, None)
+
+                # Always-on backoff: all providers in cooldown, tasks pending but undeliverable
+                if pending and not running:
+                    any_dispatchable = any(
+                        _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running) is not None
+                        for _, cmd, _ in pending
+                    )
+                    if not any_dispatchable:
+                        log("Backoff: all providers cooled, sleeping 300s")
+                        _shutdown_event.wait(timeout=300)
+                        continue
 
                 # Per-provider preflight health check: ping each provider once per
                 # dispatch cycle before submitting tasks. Detects rate-limits proactively
