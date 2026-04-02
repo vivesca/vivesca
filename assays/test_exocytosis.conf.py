@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-"""Tests for exocytosis.conf — signal transduction parameters for garden post pipeline."""
+"""Tests for effectors/exocytosis.conf — garden post pipeline signal parameters."""
 
 import configparser
 from pathlib import Path
 
 import pytest
-
 
 CONF_PATH = Path.home() / "germline" / "effectors" / "exocytosis.conf"
 
@@ -19,12 +18,10 @@ def conf():
     return cp
 
 
-# ── File-level tests ────────────────────────────────────────────────────
+# ── File-level ──────────────────────────────────────────────────────────
 
 
-class TestFileExists:
-    """Verify the config file is present and non-empty."""
-
+class TestFileBasics:
     def test_file_exists(self):
         assert CONF_PATH.exists(), f"{CONF_PATH} not found"
 
@@ -32,16 +29,13 @@ class TestFileExists:
         assert CONF_PATH.stat().st_size > 0, "exocytosis.conf is empty"
 
     def test_file_valid_ini(self, conf):
-        """File parses without error (checked implicitly by fixture) and has sections."""
-        assert len(conf.sections()) > 0
+        assert len(conf.sections()) > 0, "No sections parsed"
 
 
-# ── Section existence tests ─────────────────────────────────────────────
+# ── Sections ────────────────────────────────────────────────────────────
 
 
 class TestSections:
-    """Verify all expected sections are present."""
-
     EXPECTED = {"generate", "judge", "judge_criteria"}
 
     def test_all_sections_present(self, conf):
@@ -53,62 +47,53 @@ class TestSections:
         assert not extra, f"Unexpected sections: {extra}"
 
 
-# ── [generate] section tests ────────────────────────────────────────────
+# ── [generate] ──────────────────────────────────────────────────────────
 
 
 class TestGenerateSection:
-    """Validate [generate] section keys and value bounds."""
-
     def test_max_tokens_generate_exists(self, conf):
         assert conf.has_option("generate", "max_tokens_generate")
 
     def test_max_tokens_generate_is_int(self, conf):
-        val = conf.getint("generate", "max_tokens_generate")
-        assert isinstance(val, int)
+        assert isinstance(conf.getint("generate", "max_tokens_generate"), int)
 
     @pytest.mark.parametrize("lo,hi", [(200, 4000)])
-    def test_max_tokens_generate_within_bounds(self, conf, lo, hi):
+    def test_max_tokens_generate_in_bounds(self, conf, lo, hi):
         val = conf.getint("generate", "max_tokens_generate")
-        assert lo <= val <= hi, f"max_tokens_generate={val} not in [{lo}, {hi}]"
+        assert lo <= val <= hi, f"max_tokens_generate={val} outside [{lo},{hi}]"
 
 
-# ── [judge] section tests ───────────────────────────────────────────────
+# ── [judge] ─────────────────────────────────────────────────────────────
 
 
 class TestJudgeSection:
-    """Validate [judge] section keys and value bounds."""
-
     def test_max_tokens_judge_exists(self, conf):
         assert conf.has_option("judge", "max_tokens_judge")
 
     def test_max_tokens_judge_is_int(self, conf):
-        val = conf.getint("judge", "max_tokens_judge")
-        assert isinstance(val, int)
+        assert isinstance(conf.getint("judge", "max_tokens_judge"), int)
 
     @pytest.mark.parametrize("lo,hi", [(50, 500)])
-    def test_max_tokens_judge_within_bounds(self, conf, lo, hi):
+    def test_max_tokens_judge_in_bounds(self, conf, lo, hi):
         val = conf.getint("judge", "max_tokens_judge")
-        assert lo <= val <= hi, f"max_tokens_judge={val} not in [{lo}, {hi}]"
+        assert lo <= val <= hi, f"max_tokens_judge={val} outside [{lo},{hi}]"
 
     def test_judge_retry_count_exists(self, conf):
         assert conf.has_option("judge", "judge_retry_count")
 
     def test_judge_retry_count_is_int(self, conf):
-        val = conf.getint("judge", "judge_retry_count")
-        assert isinstance(val, int)
+        assert isinstance(conf.getint("judge", "judge_retry_count"), int)
 
     @pytest.mark.parametrize("lo,hi", [(0, 5)])
-    def test_judge_retry_count_within_bounds(self, conf, lo, hi):
+    def test_judge_retry_count_in_bounds(self, conf, lo, hi):
         val = conf.getint("judge", "judge_retry_count")
-        assert lo <= val <= hi, f"judge_retry_count={val} not in [{lo}, {hi}]"
+        assert lo <= val <= hi, f"judge_retry_count={val} outside [{lo},{hi}]"
 
 
-# ── [judge_criteria] section tests ──────────────────────────────────────
+# ── [judge_criteria] ────────────────────────────────────────────────────
 
 
 class TestJudgeCriteriaSection:
-    """Validate [judge_criteria] weight values (HIGH/MED/LOW)."""
-
     EXPECTED_KEYS = {"clear_thesis", "evidence", "hook", "conclusion", "concise"}
     VALID_WEIGHTS = {"HIGH", "MED", "LOW"}
 
@@ -131,30 +116,24 @@ class TestJudgeCriteriaSection:
 
     @pytest.mark.parametrize("key", ["clear_thesis", "evidence"])
     def test_core_criteria_are_high(self, conf, key):
-        """Core criteria (clear_thesis, evidence) should be weighted HIGH."""
         val = conf.get("judge_criteria", key).strip()
         assert val == "HIGH", f"Expected {key}=HIGH, got {val}"
 
-    def test_concise_is_lowest_weight(self, conf):
-        """'concise' should have the lowest weight (LOW)."""
+    def test_concise_is_low(self, conf):
         val = conf.get("judge_criteria", "concise").strip()
         assert val == "LOW", f"Expected concise=LOW, got {val}"
 
 
-# ── Structural / whitespace tests ───────────────────────────────────────
+# ── Structural ──────────────────────────────────────────────────────────
 
 
 class TestStructure:
-    """Verify config file structure: comments, no trailing whitespace issues."""
-
     def test_file_starts_with_comment(self):
-        """First non-blank line should be a comment describing the file."""
         lines = CONF_PATH.read_text().splitlines()
         first = next((l for l in lines if l.strip()), "")
         assert first.startswith("#"), "File should start with a comment"
 
-    def test_bounds_documented_as_comments(self):
-        """Each numeric bound should appear as a comment near its key."""
+    def test_bounds_documented(self):
         text = CONF_PATH.read_text()
         assert "bounds:" in text or "bounds :" in text, (
             "Numeric values should document their bounds in comments"

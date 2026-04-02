@@ -912,7 +912,7 @@ class TestScriptMetadata:
     def test_script_is_bash(self):
         """Script has bash shebang."""
         first_line = SCRIPT.read_text().splitlines()[0]
-        assert first_line == "#!/bin/bash"
+        assert first_line == "#!/usr/bin/env bash"
 
     def test_help_mentions_epigenome(self):
         """Help text mentions epigenome repo path."""

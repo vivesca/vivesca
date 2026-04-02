@@ -4,14 +4,14 @@
 # dependencies = []
 # ///
 """
-poiesis — search Capco vault notes by keyword.
+centrosome — search Capco vault notes by keyword.
 
 Usage:
-  poiesis <query>        fuzzy search across all 3 files
-  poiesis --cases        list use case titles from FS AI Use Case Library.md
-  poiesis --objections   list objection headers from AI Objection Handlers.md
-  poiesis --questions    list question sections from AI Engagement Qualifying Questions.md
-  poiesis --help         show this help
+  centrosome <query>        fuzzy search across all 3 files
+  centrosome --cases        list use case titles from FS AI Use Case Library.md
+  centrosome --objections   list objection headers from AI Objection Handlers.md
+  centrosome --questions    list question sections from AI Engagement Qualifying Questions.md
+  centrosome --help         show this help
 """
 
 import sys

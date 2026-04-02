@@ -2638,9 +2638,15 @@ def cmd_review(args: list[str]) -> int:
         files = r.get("files_created", 0) or 0
         tests_p = r.get("tests_passed", 0) or 0
 
-        cmd = (r.get("cmd") or r.get("prompt") or "").lower()
-        is_maintenance = ("pyright" in cmd or "health check:" in cmd
-                          or "ruff check" in cmd or "ruff format" in cmd)
+        full_text = (r.get("cmd") or r.get("prompt") or "").lower()
+        is_maintenance = (_classify_task(r) == "maintenance"
+                          or "health check:" in full_text
+                          or ("pyright" in full_text and "metabolon" in full_text)
+                          or "ruff check" in full_text
+                          or "no fixes needed" in tail
+                          or "all shebangs" in tail
+                          or "no broken" in tail
+                          or "not a code bug" in tail)
 
         if exit_code != 0:
             failed.append(r)

@@ -162,7 +162,7 @@ class TestFileBasics:
         assert SCRIPT.exists()
 
     def test_is_bash_script(self):
-        assert SCRIPT.read_text().split("\n")[0].startswith("#!/bin/bash")
+        assert SCRIPT.read_text().split("\n")[0].startswith("#!/usr/bin/env bash")
 
     def test_script_is_executable(self):
         assert os.access(SCRIPT, os.X_OK)
