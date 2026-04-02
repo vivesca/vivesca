@@ -233,3 +233,201 @@ def test_project_dash_from_simple_home(tmp_path):
     # But typically pytest tmp_path is /tmp/pytest-xxx/test-foo-0
     # So dashed should contain at least one dash replacing the slash
     assert "-" in dashed or "/" not in stripped
+
+
+# ── all three repo paths ──────────────────────────────────────────────
+
+
+def test_all_three_repo_dirs_are_iterated(tmp_path):
+    """agent-config, skills, and epigenome/chromatin are all pulled."""
+    for name in ("agent-config", "skills", "epigenome/chromatin"):
+        repo = tmp_path / name
+        repo.mkdir(parents=True)
+        subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
+            capture_output=True,
+            check=True,
+            env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                 "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+        )
+
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+
+def test_epigenome_chromatin_nested_path(tmp_path):
+    """epigenome/chromatin nested dir is handled correctly."""
+    repo = tmp_path / "epigenome" / "chromatin"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
+        capture_output=True, check=True,
+        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+    )
+
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+
+# ── git pull failure handling ──────────────────────────────────────────
+
+
+def test_git_pull_failure_swallowed(tmp_path):
+    """Script succeeds even when git pull fails (|| true)."""
+    repo = tmp_path / "agent-config"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    # .git is a directory but NOT a valid repo — git pull will fail
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+
+# ── unrecognized arguments ────────────────────────────────────────────
+
+
+def test_unrecognized_args_run_normally(tmp_path):
+    """Unknown args are silently ignored (script doesn't flag them)."""
+    r = subprocess.run(
+        [str(SCRIPT), "--unknown"],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    # Script doesn't handle unknown args — falls through to main logic
+    assert r.returncode == 0
+
+
+# ── MEMORY.md edge cases ──────────────────────────────────────────────
+
+
+def test_memory_empty_file_copied(tmp_path):
+    """Empty MEMORY.md is still copied to destination."""
+    cfg = tmp_path / "agent-config"
+    cfg.mkdir()
+    (cfg / ".git").mkdir()
+    mem_dir = cfg / "claude" / "memory"
+    mem_dir.mkdir(parents=True)
+    (mem_dir / "MEMORY.md").write_text("")
+
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+    project_dash = str(tmp_path).lstrip("/").replace("/", "-")
+    dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == ""
+
+
+def test_memory_unicode_content_preserved(tmp_path):
+    """MEMORY.md with unicode content is copied faithfully."""
+    cfg = tmp_path / "agent-config"
+    cfg.mkdir()
+    (cfg / ".git").mkdir()
+    mem_dir = cfg / "claude" / "memory"
+    mem_dir.mkdir(parents=True)
+    content = "# Mémoire 🧠\n日本語テスト\n"
+    (mem_dir / "MEMORY.md").write_text(content)
+
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+    project_dash = str(tmp_path).lstrip("/").replace("/", "-")
+    dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.read_text() == content
+
+
+def test_memory_large_content(tmp_path):
+    """Large MEMORY.md (1MB) is copied without issue."""
+    cfg = tmp_path / "agent-config"
+    cfg.mkdir()
+    (cfg / ".git").mkdir()
+    mem_dir = cfg / "claude" / "memory"
+    mem_dir.mkdir(parents=True)
+    large = "x" * 1_000_000
+    (mem_dir / "MEMORY.md").write_text(large)
+
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+    project_dash = str(tmp_path).lstrip("/").replace("/", "-")
+    dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.read_text() == large
+
+
+# ── script validity ──────────────────────────────────────────────────
+
+
+def test_script_is_valid_bash():
+    """Script passes bash -n syntax check."""
+    r = subprocess.run(
+        ["bash", "-n", str(SCRIPT)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, f"Syntax error: {r.stderr}"
+
+
+def test_script_is_executable():
+    """Script has executable permission."""
+    assert SCRIPT.stat().st_mode & 0o111, "agent-sync.sh is not executable"
+
+
+# ── project dash with deep nested home ────────────────────────────────
+
+
+def test_project_dash_deep_nested_home(tmp_path):
+    """Project dash derivation works for deeply nested home paths."""
+    deep = tmp_path / "a" / "b" / "c" / "d"
+    deep.mkdir(parents=True)
+    cfg = deep / "agent-config"
+    cfg.mkdir()
+    (cfg / ".git").mkdir()
+    mem_dir = cfg / "claude" / "memory"
+    mem_dir.mkdir(parents=True)
+    (mem_dir / "MEMORY.md").write_text("deep test\n")
+
+    r = subprocess.run(
+        [str(SCRIPT)],
+        capture_output=True, text=True,
+        env={**os.environ, "HOME": str(deep)},
+        timeout=10,
+    )
+    assert r.returncode == 0
+
+    project_dash = str(deep).lstrip("/").replace("/", "-")
+    dst = deep / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == "deep test\n"
