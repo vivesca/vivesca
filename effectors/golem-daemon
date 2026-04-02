@@ -275,7 +275,7 @@ def _pick_dispatch_provider(provider: str, provider_cooldown_until: dict, provid
             return candidate
         skipped.append(f"{candidate}:{current}/{limit}")
     if skipped:
-        log(f"FALLBACK EXHAUSTED [{provider}]: {', '.join(skipped)}")
+        log(f"FALLBACK SKIP [{provider}]: {', '.join(skipped)}")
     return None
 
 
