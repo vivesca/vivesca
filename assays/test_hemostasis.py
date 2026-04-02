@@ -155,8 +155,9 @@ class TestKillAction:
 # ===========================================================================
 
 class TestLaunchAgentAction:
+    @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
     @patch("metabolon.enzymes.hemostasis.subprocess.run")
-    def test_unload_success(self, mock_run, tmp_path):
+    def test_unload_success(self, mock_run, _mock_platform, tmp_path):
         plist = tmp_path / "com.example.agent.plist"
         plist.write_text("<plist/>")
 
@@ -177,8 +178,9 @@ class TestLaunchAgentAction:
             timeout=15,
         )
 
+    @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
     @patch("metabolon.enzymes.hemostasis.subprocess.run")
-    def test_load_success(self, mock_run, tmp_path):
+    def test_load_success(self, mock_run, _mock_platform, tmp_path):
         plist = tmp_path / "com.example.agent.plist"
         plist.write_text("<plist/>")
 
@@ -193,7 +195,8 @@ class TestLaunchAgentAction:
         assert result.success is True
         assert "Loaded" in result.message
 
-    def test_launchagent_invalid_action(self, tmp_path):
+    @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
+    def test_launchagent_invalid_action(self, _mock_platform, tmp_path):
         plist = tmp_path / "x.plist"
         plist.write_text("x")
         result = hemostasis(
@@ -206,7 +209,8 @@ class TestLaunchAgentAction:
         assert result.success is False
         assert "Invalid action" in result.message
 
-    def test_launchagent_missing_plist(self):
+    @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
+    def test_launchagent_missing_plist(self, _mock_platform):
         result = hemostasis(
             action="launchagent",
             plist_path="/nonexistent/path.plist",
@@ -217,8 +221,9 @@ class TestLaunchAgentAction:
         assert result.success is False
         assert "Plist not found" in result.message
 
+    @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
     @patch("metabolon.enzymes.hemostasis.subprocess.run")
-    def test_launchctl_failure(self, mock_run, tmp_path):
+    def test_launchctl_failure(self, mock_run, _mock_platform, tmp_path):
         plist = tmp_path / "com.example.agent.plist"
         plist.write_text("<plist/>")
 
@@ -233,8 +238,9 @@ class TestLaunchAgentAction:
         assert result.success is False
         assert "launchctl unload failed" in result.message
 
+    @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
     @patch("metabolon.enzymes.hemostasis.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="launchctl", timeout=15))
-    def test_launchagent_timeout(self, mock_run, tmp_path):
+    def test_launchagent_timeout(self, mock_run, _mock_platform, tmp_path):
         plist = tmp_path / "com.example.agent.plist"
         plist.write_text("<plist/>")
 
@@ -247,6 +253,19 @@ class TestLaunchAgentAction:
         assert isinstance(result, EffectorResult)
         assert result.success is False
         assert "timed out" in result.message
+
+    def test_launchagent_linux_unavailable(self):
+        """launchagent action returns an error on non-Darwin platforms."""
+        with patch("metabolon.enzymes.hemostasis.platform.system", return_value="Linux"):
+            result = hemostasis(
+                action="launchagent",
+                plist_path="/tmp/irrelevant.plist",
+                launchagent_action="unload",
+            )
+
+        assert isinstance(result, EffectorResult)
+        assert result.success is False
+        assert "not available on Linux" in result.message
 
 
 # ===========================================================================
