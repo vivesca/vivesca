@@ -244,7 +244,7 @@ def main() -> int:
     parser.add_argument(
         "--model",
         default=None,
-        help=f"Model registry key (default: {DEFAULT_MODEL})",
+        help="Model to pass to claude CLI (default: sonnet)",
     )
     parser.add_argument(
         "--list-rubrics",
@@ -284,9 +284,6 @@ def main() -> int:
     # Evaluate
     try:
         result = evaluate(content, args.rubric, context=args.context, model=args.model)
-    except anthropic.APIError as e:
-        print(f"Error: API call failed — {e}", file=sys.stderr)
-        return 3
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 3
