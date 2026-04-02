@@ -2607,7 +2607,7 @@ def cmd_review(args: list[str]) -> int:
 
     cutoff = time.time() - (window_hours * 3600)
     records = []
-    for line in JSONLFILE.read_text().splitlines():
+    for line in JSONLFILE.read_text(errors="replace").splitlines():
         try:
             d = json.loads(line.strip())
             ts_epoch = _parse_ts_epoch(d.get("ts", ""))
