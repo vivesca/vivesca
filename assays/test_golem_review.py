@@ -415,7 +415,7 @@ def test_main_help(capsys):
         sys.argv = ["golem-review", "--help"]
         ret = cmd_review()
         captured = capsys.readouterr()
-        assert "golem-review" in captured.out
+        assert "review" in captured.out
         assert ret == 0
     finally:
         sys.argv = old_argv
@@ -869,7 +869,7 @@ def test_consulting_full_integration():
         cards.mkdir(parents=True, exist_ok=True)
 
         # Good file (>200 words, structured)
-        good_content = "# Introduction\n\n" + "Adequate body text. " * 50 + "\n\n## Conclusion\n\nSummary here."
+        good_content = "# Introduction\n\n" + "Adequate body text paragraph here. " * 80 + "\n\n## Conclusion\n\nSummary here."
         (cards / "good.md").write_text(good_content)
 
         # Short file

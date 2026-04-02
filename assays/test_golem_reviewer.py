@@ -49,7 +49,7 @@ def test_golem_functions_loadable_via_exec():
     
     # Check key functions exist
     assert "log" in ns
-    assert "run" in ns
+    assert "reviewer_run" in ns
     assert "check_daemon_status" in ns
     assert "check_new_output" in ns
     assert "fix_collection_errors" in ns
@@ -117,7 +117,7 @@ def test_all_expected_functions_present():
 
     expected_functions = [
         "log",
-        "run",
+        "reviewer_run",
         "check_daemon_status",
         "check_new_output",
         "fix_collection_errors",
