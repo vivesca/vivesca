@@ -1,7 +1,6 @@
 """Tests for metabolon.metabolism.substrates.spending."""
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -72,19 +71,15 @@ class TestSense:
 
     def test_comma_separated_amounts(self, tmp_path):
         """Amounts with commas (e.g. -1,234.56) must parse correctly."""
-        p = tmp_path / "2025-05-test.md"
-        p.write_text(textwrap.dedent("""\
-            ---
-            bank: test
-            ---
-
-            ## Summary
-
-            | Category | Count | Total (HKD) |
-            |----------|-------|-------------|
-            | Education | 1 | -1,234.56 |
-            | **Total** | **1** | **-1,234.56** |
-        """))
+        content = (
+            "---\nbank: test\n---\n\n"
+            "## Summary\n\n"
+            "| Category | Count | Total (HKD) |\n"
+            "|----------|-------|-------------|\n"
+            "| Education | 1 | -1,234.56 |\n"
+            "| **Total** | **1** | **-1,234.56** |\n"
+        )
+        (tmp_path / "2025-05-test.md").write_text(content)
         sub = SpendingSubstrate(spending_dir=tmp_path)
         results = sub.sense()
         assert results[0]["categories"]["Education"] == -1234.56
