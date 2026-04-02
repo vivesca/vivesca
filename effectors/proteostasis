@@ -121,7 +121,7 @@ def save_state(state: dict) -> None:
 
 
 def should_run(state: dict) -> bool:
-    if FORCE:
+    if FORCE or DRY_RUN:
         return True
     last = state.get("last_run")
     if not last:
