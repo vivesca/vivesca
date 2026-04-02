@@ -20,7 +20,6 @@ Acceptance: pytest tests/test_soma_watchdog_observability.py
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import time
 from pathlib import Path
@@ -32,13 +31,10 @@ ALERT_STAMP = Path.home() / "tmp" / "soma-alert-last.txt"
 
 
 def _import_watchdog():
-    spec = importlib.util.spec_from_file_location(
-        "soma_watchdog", Path.home() / "germline" / "effectors" / "soma-watchdog"
-    )
-    mod = importlib.util.module_from_spec(spec)
-    with patch.object(mod, "__name__", "not_main"):
-        spec.loader.exec_module(mod)
-    return mod
+    src = open(Path.home() / "germline" / "effectors" / "soma-watchdog").read()
+    ns: dict = {"__name__": "soma_watchdog_test"}
+    exec(src, ns)
+    return type("mod", (), ns)
 
 
 # --- JSONL logging tests ---

@@ -183,25 +183,36 @@ def log_resources():
 
 def alert_on_crit(health_json: dict):
     """If any health check has status==crit, alert via deltos. Dedup 15 min."""
-    crit_names = [
-        name for name, check in health_json.items()
-        if isinstance(check, dict) and check.get("status") == "crit"
-    ]
-    if not crit_names:
-        return
-
-    # Dedup: skip if ALERT_STAMP mtime < 15 min ago
-    if ALERT_STAMP.exists():
-        elapsed = time.time() - ALERT_STAMP.stat().st_mtime
-        if elapsed < 15 * 60:
+    try:
+        checks = health_json.get("checks", [])
+        crit_names = [c.get("name", "?") for c in checks if c.get("status") == "crit"]
+        if not crit_names:
             return
 
-    msg = f"soma-watchdog CRIT: {', '.join(crit_names)}"
-    subprocess.run(["deltos", msg], capture_output=True, timeout=10)
+        # Dedup: skip if alert was sent less than 15 min ago
+        if ALERT_STAMP.exists():
+            try:
+                last_ts = ALERT_STAMP.read_text().strip()
+                elapsed = time.time() - float(last_ts)
+                if elapsed < 900:
+                    return
+            except (ValueError, OSError):
+                pass
 
-    # Write stamp after sending
-    ALERT_STAMP.parent.mkdir(parents=True, exist_ok=True)
-    ALERT_STAMP.write_text(datetime.now().isoformat())
+        deltos = shutil.which("deltos")
+        if not deltos:
+            log("alert_on_crit: deltos not found on PATH")
+            return
+
+        message = f"[soma-watchdog] CRIT: {', '.join(crit_names)}"
+        subprocess.run([deltos, message], timeout=30)
+
+        # Write stamp after sending
+        ALERT_STAMP.parent.mkdir(parents=True, exist_ok=True)
+        ALERT_STAMP.write_text(str(time.time()))
+        log(f"alert_on_crit sent: {message}")
+    except Exception as e:
+        log(f"alert_on_crit error: {e}")
 
 
 def check_cycle():
