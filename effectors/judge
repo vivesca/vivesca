@@ -156,7 +156,7 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     msg = client.messages.create(
         model=model_id,
         max_tokens=500,
-        system=SYSTEM_PROMPT,
+        system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user_prompt}],
     )
 
