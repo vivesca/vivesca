@@ -209,11 +209,13 @@ def show_status() -> None:
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "add"
-    if cmd == "remove":
+    if cmd in ("--help", "-h"):
+        print(__doc__ or "Bypass Tailscale exit node for Chinese AI API traffic.")
+    elif cmd == "remove":
         remove_routes()
     elif cmd == "status":
         show_status()
     elif cmd in ("add", ""):
         add_routes()
     else:
-        print(__doc__)
+        print(__doc__ or "Bypass Tailscale exit node for Chinese AI API traffic.")
