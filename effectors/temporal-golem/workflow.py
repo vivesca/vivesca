@@ -39,7 +39,7 @@ class GolemDispatchWorkflow:
                 run_golem_task,
                 args=[task, provider, max_turns],
                 start_to_close_timeout=timedelta(minutes=35),
-                heartbeat_timeout=timedelta(seconds=90),
+                heartbeat_timeout=timedelta(minutes=5),
                 retry_policy=_RETRY_POLICY,
             )
             return result

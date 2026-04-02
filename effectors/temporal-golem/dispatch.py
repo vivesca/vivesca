@@ -332,7 +332,7 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
 
         cmd = cmd_match.group(1)
 
-        provider_match = re.search(r"--provider\s+(\w+)", cmd)
+        provider_match = re.search(r"(?:--provider|-b)\s+(\w+)", cmd)
         provider = provider_match.group(1) if provider_match else "zhipu"
 
         tid_match = TASK_ID_RE.search(cmd)
@@ -347,7 +347,14 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
             modified = True
 
         prompt_match = re.search(r'"([^"]+)"', cmd)
-        prompt = prompt_match.group(1) if prompt_match else cmd
+        if prompt_match:
+            prompt = prompt_match.group(1)
+        else:
+            # Strip golem prefix, task ID, flags to extract bare prompt
+            prompt = re.sub(r'^golem\s+', '', cmd)
+            prompt = re.sub(r'\[t-[0-9a-fA-F]+\]\s*', '', prompt)
+            prompt = re.sub(r'(?:--?\w+)\s+\S+\s*', '', prompt, count=5)
+            prompt = prompt.strip() or cmd
 
         turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
         max_turns = int(turns_match.group(1)) if turns_match else 50

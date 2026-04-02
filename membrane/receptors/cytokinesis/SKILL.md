@@ -96,7 +96,17 @@ For each match: **edit the skill now** (add gotcha, update anti-pattern, fix ins
 
 **The test:** "If a fresh CC follows this skill tomorrow, will it repeat the mistake?" If yes, the skill needs updating, not just the memory.
 
-### 1c. Audit signal
+### 1c. Directory context crystallization (2 min max)
+
+Scan directories where this session did 3+ file reads or edits. For each, check: does a `CLAUDE.md` exist? If not, and the directory has non-obvious structure (multiple files, config, architecture worth explaining), write one.
+
+**What to include:** what the system does, key files, infrastructure/config, decision rationale. Not obvious things derivable from `ls` or reading one file.
+
+**Skip:** single-script directories, test directories, directories with <3 files, anything already documented by a parent CLAUDE.md.
+
+**The test:** "If a fresh CC session `cd`'d here tomorrow, would it need an Explore agent or 5+ reads to understand this directory?" If yes, write the CLAUDE.md now — you already paid the context cost.
+
+### 1d. Audit signal
 
 After consolidation, count findings routed in this pass. This is the "cytokinesis residual" — findings that should have been captured mid-session but were not.
 
@@ -108,7 +118,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 **Capture displacement check:** "If I deleted all memories filed this session, would my behavior change next session?" If yes, the memories are load-bearing. If no, they're theater — the real learning happened in the code/skill edits, and the memories are redundant narration.
 
-### 1d. Publish (don't defer)
+### 1e. Publish (don't defer)
 
 If the session produced a publishable insight — pattern, framework, lesson — draft and publish NOW. The insight is hottest in the session that produced it. Deferring to "tomorrow" kills 80% of posts.
 
