@@ -167,6 +167,8 @@ def is_rate_limited(text: str) -> bool:
 
 RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion
 PROVIDER_COOLDOWN_SECONDS = 600      # 10 min cooldown after excessive failures
+PROVIDER_FAILURE_WINDOW = 600   # 10 min sliding window for failure counting
+PROVIDER_FAILURE_THRESHOLD = 3  # cooldown after N failures within the window
 
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
 
@@ -175,6 +177,10 @@ _provider_cooldown_until: dict[str, float] = {}
 
 # Runtime state: provider -> count of currently dispatched (in-flight) tasks
 _provider_running: dict[str, int] = {}
+# Runtime state: provider -> temporary concurrency reduction (adaptive throttle)
+_provider_throttle: dict[str, int] = {}
+# Runtime state: provider -> list of failure timestamps (sliding window)
+_provider_failure_times: dict[str, list[float]] = {}
 
 
 def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event: str = "burnout") -> None:
@@ -225,23 +231,60 @@ def _set_cooldown(provider: str, seconds: float, reason: str = "") -> None:
         _log_cooldown(provider, cooldown_end, reason)
 
 
+def _dispatch_candidates(provider: str) -> list[str]:
+    """Return providers to try for migrated work, preserving preferred order first."""
+    ordered: list[str] = []
+    seen = {provider}
+    for candidate in PROVIDER_FALLBACK.get(provider, []):
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    for candidate in PROVIDER_LIMITS:
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    return ordered
+
+
+def _swap_provider(cmd: str, old_provider: str, new_provider: str) -> str:
+    """Swap --provider in a command string for runtime fallback."""
+    return cmd.replace(f"--provider {old_provider}", f"--provider {new_provider}", 1)
+
+
 def _pick_dispatch_provider(provider: str) -> str | None:
     """Pick the runtime provider, falling back if the preferred one is on cooldown."""
     if not _is_on_cooldown(provider):
         return provider
-    for candidate in PROVIDER_FALLBACK.get(provider, []):
+    for candidate in _dispatch_candidates(provider):
         if _is_on_cooldown(candidate):
             continue
         current = _provider_running.get(candidate, 0)
-        limit = PROVIDER_LIMITS.get(candidate, DEFAULT_LIMIT)
+        limit = get_provider_limit(candidate)
         if current < limit:
             return candidate
     return None
 
 
 def get_provider_limit(provider: str) -> int:
-    """Return concurrency limit for a provider."""
-    return PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    """Return concurrency limit for a provider, reduced by adaptive throttle."""
+    base = PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    throttle = _provider_throttle.get(provider, 0)
+    return max(1, base - throttle)
+
+
+def _throttle_provider(provider: str) -> None:
+    """Reduce provider concurrency by 1 after a failure (adaptive back-pressure)."""
+    base = PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    current = _provider_throttle.get(provider, 0)
+    if current < base - 1:
+        _provider_throttle[provider] = current + 1
+
+
+def _unthrottle_provider(provider: str) -> None:
+    """Restore 1 slot of provider concurrency after a success."""
+    current = _provider_throttle.get(provider, 0)
+    if current > 0:
+        _provider_throttle[provider] = current - 1
 
 _json_mode = False
 
@@ -325,32 +368,116 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
     return pending
 
 
-def mark_done(line_num: int) -> None:
+_PENDING_PREFIXES = ("- [ ] ", "- [!!] ", "- [!] ")
+
+
+def _find_task_line(lines: list[str], line_num: int, task_id: str) -> int:
+    """Find task line by task_id, falling back to line_num.
+
+    External edits to the queue file can shift line numbers. When the line at
+    line_num doesn't match, scan for the task_id to find the correct line.
+    Returns -1 if not found.
+    """
+    def _is_task(s: str) -> bool:
+        return any(s.startswith(p) for p in _PENDING_PREFIXES)
+
+    # Fast path: line_num is still correct
+    if 0 <= line_num < len(lines):
+        line = lines[line_num].strip()
+        if task_id and f"[{task_id}]" in line and _is_task(line):
+            return line_num
+    # Slow path: scan by task_id
+    if task_id:
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if f"[{task_id}]" in stripped and _is_task(stripped):
+                return i
+    # Final fallback: original line_num if it's a pending task
+    if 0 <= line_num < len(lines):
+        stripped = lines[line_num].strip()
+        if _is_task(stripped):
+            return line_num
+    return -1
+
+
+def mark_done(line_num: int, task_id: str = "") -> None:
     """Mark a task as done in the queue file (under QueueLock)."""
     with QueueLock():
-        lines = QUEUE_FILE.read_text().splitlines()
-        if line_num >= len(lines):
+        if not QUEUE_FILE.exists():
             return
-        line = lines[line_num]
-        if "- [!!] " in line:
-            lines[line_num] = line.replace("- [!!] ", "- [x] ", 1)
-        elif "- [ ] " in line:
-            lines[line_num] = line.replace("- [ ] ", "- [x] ", 1)
-        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            return
+        actual_line = _find_task_line(lines, line_num, task_id)
+        if actual_line < 0:
+            return
+        original = lines[actual_line]
+        stripped = original.strip()
+        if stripped.startswith("- [!!] "):
+            lines[actual_line] = original.replace("- [!!] ", "- [x] ", 1)
+        elif stripped.startswith("- [ ] "):
+            lines[actual_line] = original.replace("- [ ] ", "- [x] ", 1)
+        else:
+            return
+        try:
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            return
 
 
-def mark_failed(line_num: int) -> None:
-    """Mark a task as failed in the queue file (under QueueLock)."""
+def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
+    """Mark a task as failed in the queue file (under QueueLock).
+
+    Supports retry: if the command hasn't been retried yet, re-queue it
+    with a (retry) tag.  Otherwise mark as permanently failed [!].
+
+    Returns {"retried": bool, "rate_limited": bool}.
+    """
+    rate_limited = is_rate_limited(reason) if reason else False
     with QueueLock():
-        lines = QUEUE_FILE.read_text().splitlines()
-        if line_num >= len(lines):
-            return
-        line = lines[line_num]
-        if "- [!!] " in line:
-            lines[line_num] = line.replace("- [!!] ", "- [!] ", 1)
-        elif "- [ ] " in line:
-            lines[line_num] = line.replace("- [ ] ", "- [!] ", 1)
-        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        if not QUEUE_FILE.exists():
+            return {"retried": False, "rate_limited": rate_limited}
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            return {"retried": False, "rate_limited": rate_limited}
+        actual_line = _find_task_line(lines, line_num, task_id)
+        if actual_line < 0:
+            return {"retried": False, "rate_limited": rate_limited}
+        original = lines[actual_line]
+        stripped = original.strip()
+        is_high = stripped.startswith("- [!!] ")
+        if not is_high and not stripped.startswith("- [ ] "):
+            return {"retried": False, "rate_limited": rate_limited}
+
+        cmd_match = re.search(r'`([^`]+)`', original)
+        retried = False
+
+        def _to_failed(line: str) -> str:
+            if "- [!!] " in line:
+                return line.replace("- [!!] ", "- [!] ", 1)
+            return line.replace("- [ ] ", "- [!] ", 1)
+
+        if not cmd_match:
+            lines[actual_line] = _to_failed(original)
+        elif '(retry)' not in cmd_match.group(1):
+            old_cmd = cmd_match.group(1)
+            if old_cmd.rstrip().endswith('"'):
+                new_cmd = old_cmd.rstrip()[:-1] + ' (retry)"'
+            else:
+                new_cmd = old_cmd + ' (retry)'
+            lines[actual_line] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
+            retried = True
+        else:
+            lines[actual_line] = _to_failed(original)
+
+        try:
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            return {"retried": False, "rate_limited": rate_limited}
+
+        return {"retried": retried, "rate_limited": rate_limited}
 
 
 async def dispatch_all(dry_run: bool = False) -> int:
@@ -374,7 +501,7 @@ async def dispatch_all(dry_run: bool = False) -> int:
 
     # Build specs for Temporal workflow, respecting cooldowns & limits
     specs = []
-    line_nums = []
+    dispatched = []  # list of (line_num, task_id) for mark_done
     skipped = 0
     for line_num, prompt, provider, task_id, max_turns in pending:
         dispatch_provider = _pick_dispatch_provider(provider)
@@ -397,7 +524,7 @@ async def dispatch_all(dry_run: bool = False) -> int:
             "provider": dispatch_provider,
             "max_turns": max_turns,
         })
-        line_nums.append(line_num)
+        dispatched.append((line_num, task_id))
         _provider_running[dispatch_provider] = current_running + 1
         label = provider if dispatch_provider == provider else f"{provider}->{dispatch_provider}"
         log(f"[QUEUE] [{task_id}] {label}: {prompt[:60]}...")
@@ -407,8 +534,8 @@ async def dispatch_all(dry_run: bool = False) -> int:
         return 0
 
     # Mark all as dispatched (done) in queue - Temporal handles retries
-    for ln in line_nums:
-        mark_done(ln)
+    for ln, tid in dispatched:
+        mark_done(ln, task_id=tid)
 
     # Submit as a single batch workflow
     from workflow import GolemDispatchWorkflow
@@ -431,8 +558,9 @@ async def poll_loop(interval: int = 30) -> None:
 
     On rate-limit errors (HTTP 429 / quota messages), sets a cooldown
     on the offending provider so subsequent poll cycles skip it until
-    the cooldown expires.  Uses RATE_LIMIT_PATTERNS for detection and
-    parse_rate_limit_window for proportional cooldown durations.
+    the cooldown expires.  Tracks non-rate-limit failures in a sliding
+    window and triggers cooldown when PROVIDER_FAILURE_THRESHOLD is hit.
+    Uses adaptive throttle to reduce per-provider concurrency on failure.
     """
     log(f"Starting poll loop (interval={interval}s)")
     while True:
@@ -440,6 +568,10 @@ async def poll_loop(interval: int = 30) -> None:
             count = await dispatch_all()
             if count == 0:
                 log("Queue empty, waiting...")
+            else:
+                # Success — unthrottle all providers
+                for prov in list(_provider_throttle):
+                    _unthrottle_provider(prov)
         except Exception as e:
             err_msg = str(e)
             # Detect rate-limit / quota errors using compiled regex
@@ -452,6 +584,7 @@ async def poll_loop(interval: int = 30) -> None:
                     if prov in err_msg.lower():
                         cooldown = window or PROVIDER_RATE_WINDOWS.get(prov, RATE_LIMIT_COOLDOWN_SECONDS)
                         _set_cooldown(prov, cooldown, reason=err_msg[:100])
+                        _throttle_provider(prov)
                         log(f"RATE-LIMIT detected for {prov}, cooldown {cooldown}s")
                         cooldown_applied = True
                         break
@@ -464,6 +597,27 @@ async def poll_loop(interval: int = 30) -> None:
                     log(f"RATE-LIMIT detected (unknown provider), cooldown applied to low-limit providers")
             else:
                 log(f"Error in poll loop: {e}")
+                # Track non-rate-limit failures in sliding window per provider
+                failed_prov = None
+                for prov in PROVIDER_LIMITS:
+                    if prov in err_msg.lower():
+                        failed_prov = prov
+                        break
+                if failed_prov:
+                    _throttle_provider(failed_prov)
+                    now = time.time()
+                    if failed_prov not in _provider_failure_times:
+                        _provider_failure_times[failed_prov] = []
+                    times = _provider_failure_times[failed_prov]
+                    times.append(now)
+                    window_start = now - PROVIDER_FAILURE_WINDOW
+                    _provider_failure_times[failed_prov] = [t for t in times if t >= window_start]
+                    recent_fails = len(_provider_failure_times[failed_prov])
+                    if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
+                        cooldown_end = now + PROVIDER_COOLDOWN_SECONDS
+                        _provider_cooldown_until[failed_prov] = cooldown_end
+                        _log_cooldown(failed_prov, cooldown_end, f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW//60}min")
+                        log(f"COOLDOWN: {failed_prov} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window")
         await asyncio.sleep(interval)
 
 
