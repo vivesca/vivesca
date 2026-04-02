@@ -1,6 +1,6 @@
 {
     "version": "1.1.408",
-    "time": "1775134761385",
+    "time": "1775133716914",
     "generalDiagnostics": [
         {
             "file": "/home/terry/germline/assays/create_synthetic_fixtures.py",
@@ -48216,7 +48216,7 @@
         "errorCount": 2799,
         "warningCount": 214,
         "informationCount": 0,
-        "timeInSec": 107.332
+        "timeInSec": 63.996
     }
 }
 
