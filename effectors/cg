@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # GLM-5.1 Claude Code wrapper via ZhipuAI/BigModel Anthropic-compatible API
 # Key in 1Password: op://Agents/Agent Environment/zhipu_api_key → $ZHIPU_API_KEY
 # Injected via ~/.zshenv.tpl → ~/.zshenv
