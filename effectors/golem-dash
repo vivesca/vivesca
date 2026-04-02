@@ -1169,7 +1169,7 @@ def build_drain_progress(
         if optimistic != float("inf") and pessimistic != float("inf"):
             opt_wc = fmt_wallclock_eta(optimistic)
             pess_wc = fmt_wallclock_eta(pessimistic)
-            line.append(f" [{opt_wc}–{pess_wc}]", style="dim")
+            line.append(f" [{opt_wc}-{pess_wc}]", style="dim")
 
     return line
 
@@ -1475,6 +1475,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-   main()
-)
+
 
