@@ -147,10 +147,11 @@ class TestForeignCurrencyIntegration:
     @patch("metabolon.respirometry.parsers.mox.PdfReader")
     def test_usd_transaction_with_fx(self, mock_pdf_reader):
         """USD transaction preserves both foreign and HKD amounts."""
+        # In real PDFs: foreign amount + currency code line, then HKD amount
         page_text = _make_statement_page(
             balance="-779.22",
             transactions=(
-                "12 Nov 12 NovAMAZON.COM\n-779.22\n99.99 USD\n"
+                "12 Nov 12 NovAMAZON.COM\n99.99 USD\n-779.22\n"
             ),
         )
         mock_page = MagicMock()
@@ -173,7 +174,7 @@ class TestForeignCurrencyIntegration:
             balance="-1,600.00",
             transactions=(
                 "01 Nov 01 NovLOCAL SHOP\n-100.00\n"
-                "15 Nov 15 NovJAPAN RAIL\n-1,500.00\n15,000 JPY\n"
+                "15 Nov 15 NovJAPAN RAIL\n15,000.00 JPY\n-1,500.00\n"
             ),
         )
         mock_page = MagicMock()
@@ -205,7 +206,7 @@ class TestBalanceValidation:
         mock_reader.pages = [mock_page]
         mock_pdf_reader.return_value = mock_reader
 
-        with pytest.raises(ValueError, match=r"Balance mismatch.*-50\.00.*-5,000\.00"):
+        with pytest.raises(ValueError, match=r"Balance mismatch.*-50\.00.*-5000\.00"):
             extract_mox(Path("/fake/mox.pdf"))
 
     @patch("metabolon.respirometry.parsers.mox.PdfReader")

@@ -13,7 +13,7 @@ Usage (in shell):
 
 Usage (in Python):
     import importlib.util, os
-    spec = importlib.util.spec_from_file_location("importin", os.path.expanduser("~/code/vivesca/bin/importin"))
+    spec = importlib.util.spec_from_file_location("importin", os.path.expanduser("~/germline/effectors/importin"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     mod.load_env()
