@@ -10,14 +10,15 @@ from unittest import mock
 
 import pytest
 
-GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-tools"
+GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-health"
 
 
 def _load_module():
     """Load golem-health effector into a module object via exec()."""
-    ns: dict = {"__name__": "golem_health", "__file__": str(GOLEM_HEALTH_PATH)}
-    exec(GOLEM_HEALTH_PATH.read_text(), ns)
-    mod = types.SimpleNamespace(**ns)
+    mod = types.ModuleType("golem_health")
+    mod.__file__ = str(GOLEM_HEALTH_PATH)
+    sys.modules["golem_health"] = mod
+    exec(GOLEM_HEALTH_PATH.read_text(), mod.__dict__)
     return mod
 
 
@@ -46,7 +47,7 @@ class TestArgumentParsing:
     def test_help_runs(self):
         """Test --help runs without error."""
         result = subprocess.run(
-            [sys.executable, str(GOLEM_HEALTH_PATH), "health", "--help"],
+            [sys.executable, str(GOLEM_HEALTH_PATH), "--help"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -57,7 +58,7 @@ class TestArgumentParsing:
     def test_invalid_provider_fails(self):
         """Test invalid provider name is rejected."""
         result = subprocess.run(
-            [sys.executable, str(GOLEM_HEALTH_PATH), "health", "--provider", "invalid"],
+            [sys.executable, str(GOLEM_HEALTH_PATH), "--provider", "invalid"],
             capture_output=True,
             text=True,
             timeout=10,
