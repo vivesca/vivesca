@@ -1,0 +1,264 @@
+#!/usr/bin/env -S uv run --script
+from __future__ import annotations
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml"]
+# ///
+"""consulting-card — generate consulting card skeletons from topics.
+
+Creates a markdown card with structured sections (problem, why-it-matters,
+approach, considerations, Capco angle) using TODO placeholders. Optionally
+reads a YAML template from stdin to override section prompts.
+
+Usage:
+    consulting-card --topic 'AI incident response' --output card.md
+    echo 'sections: {problem: Describe X}' | consulting-card --topic Y -o out.md
+    consulting-card --list keyword
+    consulting-card --list
+"""
+
+import argparse
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import yaml
+
+CARDS_DIR = Path.home() / "epigenome/chromatin/euchromatin/consulting/cards"
+
+DEFAULT_TEMPLATE: dict[str, str | list[str]] = {
+    "problem": "Describe the client problem in 2 sentences.",
+    "why-it-matters": [
+        "Why this matters now (regulatory, market, competitive).",
+        "Consequence of inaction.",
+        "Quantifiable impact or risk exposure.",
+    ],
+    "approach": [
+        "Step 1: Discovery and assessment.",
+        "Step 2: Design the target state.",
+        "Step 3: Implementation roadmap.",
+        "Step 4: Governance and controls.",
+        "Step 5: Measure and iterate.",
+    ],
+    "considerations": "Key risks, dependencies, and trade-offs.",
+    "capco-angle": "How Capco differentiates: relevant experience, accelerators, and point of view.",
+}
+
+
+def _slugify(topic: str) -> str:
+    """Convert topic to a filesystem-safe slug."""
+    slug = topic.lower().strip()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+    return slug
+
+
+def _read_template() -> dict | None:
+    """Read YAML template from stdin if available."""
+    if sys.stdin.isatty():
+        return None
+    raw = sys.stdin.read()
+    if not raw.strip():
+        return None
+    try:
+        return yaml.safe_load(raw)
+    except yaml.YAMLError:
+        print("Warning: stdin is not valid YAML, using default template.", file=sys.stderr)
+        return None
+
+
+def _merge_template(custom: dict | None) -> dict[str, str | list[str]]:
+    """Merge custom template over defaults, keeping defaults for missing keys."""
+    if custom is None:
+        return dict(DEFAULT_TEMPLATE)
+    merged = dict(DEFAULT_TEMPLATE)
+    if isinstance(custom, dict):
+        sections = custom.get("sections", custom)
+        for key, value in sections.items():
+            if key in merged:
+                merged[key] = value
+    return merged
+
+
+def _build_card(topic: str, template: dict[str, str | list[str]]) -> str:
+    """Build the markdown card skeleton."""
+    slug = _slugify(topic)
+    title = topic.strip()
+    date = datetime.now().strftime("%Y-%m-%d")
+
+    lines: list[str] = []
+    lines.append(f"# {title}")
+    lines.append("")
+    lines.append(f"<!-- slug: {slug} | generated: {date} -->")
+    lines.append("")
+
+    # Problem section
+    lines.append("## Problem")
+    lines.append("")
+    prompt = template["problem"]
+    if isinstance(prompt, list):
+        prompt = " ".join(str(p) for p in prompt)
+    lines.append(f"<!-- {prompt} -->")
+    lines.append("")
+    lines.append("[TODO: Describe the problem in 2 sentences.]")
+    lines.append("")
+
+    # Why it matters section
+    lines.append("## Why It Matters")
+    lines.append("")
+    bullets = template["why-it-matters"]
+    if isinstance(bullets, str):
+        bullets = [bullets]
+    for bullet in bullets:
+        lines.append(f"- <!-- {bullet} -->")
+        lines.append(f"  [TODO: {bullet}]")
+    lines.append("")
+
+    # Approach section
+    lines.append("## Approach")
+    lines.append("")
+    steps = template["approach"]
+    if isinstance(steps, str):
+        steps = [steps]
+    for i, step in enumerate(steps, 1):
+        lines.append(f"{i}. <!-- {step} -->")
+        lines.append(f"   [TODO: {step}]")
+    lines.append("")
+
+    # Considerations section
+    lines.append("## Considerations")
+    lines.append("")
+    consider = template["considerations"]
+    if isinstance(consider, list):
+        consider = " ".join(str(c) for c in consider)
+    lines.append(f"<!-- {consider} -->")
+    lines.append("")
+    lines.append("[TODO: Key risks, dependencies, and trade-offs.]")
+    lines.append("")
+
+    # Capco angle section
+    lines.append("## Capco Angle")
+    lines.append("")
+    angle = template["capco-angle"]
+    if isinstance(angle, list):
+        angle = " ".join(str(a) for a in angle)
+    lines.append(f"<!-- {angle} -->")
+    lines.append("")
+    lines.append("[TODO: How Capco differentiates on this topic.]")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def cmd_generate(args: argparse.Namespace) -> None:
+    """Generate a card skeleton and write to --output path."""
+    template_data = _read_template()
+    merged = _merge_template(template_data)
+    card = _build_card(args.topic, merged)
+
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(card, encoding="utf-8")
+    print(f"Card written to {output}")
+
+
+def cmd_list(args: argparse.Namespace) -> None:
+    """Search or list existing cards in the cards directory."""
+    if not CARDS_DIR.exists():
+        print(f"Cards directory not found: {CARDS_DIR}", file=sys.stderr)
+        sys.exit(1)
+
+    keyword = args.keyword
+    cards = sorted(CARDS_DIR.glob("*.md"))
+    # Filter out files with trailing dots (macOS artifacts)
+    cards = [c for c in cards if not c.name.endswith(".md.")]
+
+    if keyword:
+        result = subprocess.run(
+            ["grep", "-l", "-i", keyword] + [str(p) for p in cards],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            print(f"No cards found matching: {keyword}")
+            return
+        matching = [Path(f) for f in result.stdout.strip().split("\n") if f]
+    else:
+        matching = cards
+
+    if not matching:
+        print("No cards found.")
+        return
+
+    for card in matching:
+        title = _get_card_title(card)
+        print(f"  {card.stem}: {title}")
+
+    print(f"\n{len(matching)} card(s) found.")
+
+
+def _get_card_title(card_path: Path) -> str:
+    """Extract title from first # heading in card."""
+    try:
+        with open(card_path, "r") as f:
+            for line in f:
+                if line.startswith("# "):
+                    return line[2:].strip()
+    except Exception:
+        pass
+    return card_path.stem
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="consulting-card",
+        description="Generate consulting card skeletons or search existing cards.",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # generate (default when --topic is given)
+    gen = sub.add_parser("generate", help="Generate a card skeleton")
+    gen.add_argument("--topic", "-t", required=True, help="Card topic")
+    gen.add_argument("--output", "-o", required=True, help="Output file path")
+
+    # list / search
+    lst = sub.add_parser("list", help="List or search existing cards")
+    lst.add_argument("keyword", nargs="?", default=None, help="Search keyword")
+
+    # top-level convenience flags
+    parser.add_argument("--topic", "-t", dest="topic_flag", help="Card topic (implies generate)")
+    parser.add_argument("--output", "-o", dest="output_flag", help="Output path (with --topic)")
+    parser.add_argument("--list", "-l", dest="list_flag", nargs="?", const=True, default=None, help="List or search cards")
+
+    args = parser.parse_args()
+
+    # Dispatch: --list flag (no keyword or with keyword)
+    if args.list_flag is not None:
+        args.command = "list"
+        args.keyword = args.list_flag if isinstance(args.list_flag, str) else None
+        cmd_list(args)
+        return
+
+    # Dispatch: top-level --topic/--output flags
+    if args.topic_flag:
+        args.command = "generate"
+        args.topic = args.topic_flag
+        args.output = args.output_flag or f"{_slugify(args.topic_flag)}.md"
+        cmd_generate(args)
+        return
+
+    # Dispatch: subcommands
+    if args.command == "generate":
+        cmd_generate(args)
+    elif args.command == "list":
+        cmd_list(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
