@@ -1726,7 +1726,7 @@ Test: run golem-daemon stats and verify the new fields appear. The numbers shoul
 
 ### Auto-requeue (2 tasks @ 20:29)
 - [ ] `golem [t-91632f] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`
-- [ ] `golem [t-f15d39] --provider zhipu --max-turns 30 "Health check: browse, rename-kindle-asins.py, regulatory-scan, methylation-review, soma-status, card-search, golem-tools, gap_junction_sync, immunosurveillance, queue-stats. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem [t-f15d39] --provider zhipu --max-turns 30 "Health check: browse, rename-kindle-asins.py, regulatory-scan, methylation-review, soma-status, card-search, golem-tools, gap_junction_sync, immunosurveillance, queue-stats. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 
 ### Auto-requeue (2 tasks @ 20:30)
 - [ ] `golem [t-98150d] --provider volcano --max-turns 30 "Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\"file\\"]}:{x[\\"range\\"][\\"start\\"][\\"line\\"]} {x[\\"message\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit."`

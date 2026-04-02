@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["pyyaml"]
@@ -21,8 +21,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections import defaultdict
 
-CHROMATIN_PATH = Path.home() / "notes"
-DAILY_NOTES_PATH = CHROMATIN_PATH / "memory"
+CHROMATIN_PATH = Path.home() / "epigenome" / "chromatin"
+DAILY_NOTES_PATH = CHROMATIN_PATH / "Daily"
 EXCLUDE_PATTERNS = ["Archive/", "templates/", ".obsidian/"]
 
 def parse_frontmatter(content: str) -> dict:
