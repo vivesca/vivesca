@@ -1656,14 +1656,40 @@ def daemon_loop(dry_run: bool = False):
                     _ssh_health_cache[w['host']] = _ssh_health_check(w)
 
                 dispatched_this_cycle = 0
-                # Dispatch fallback tasks first (affinity provider in cooldown)
-                # so they fill fallback targets (codex, gemini) before normal
-                # tasks consume all execution slots.  Without this, zhipu-
-                # affinity tasks at the front of the queue grab all local
-                # slots and infini/volcano fallback tasks are skipped.
-                _fb = [(n, c, t) for n, c, t in pending if parse_provider(c) in provider_cooldown_until]
-                _nm = [(n, c, t) for n, c, t in pending if parse_provider(c) not in provider_cooldown_until]
-                for line_num, cmd, task_id in [*_fb, *_nm]:
+                # Sort pending tasks so that fallback tasks (affinity provider
+                # in cooldown) are dispatched first, AND within each group
+                # tasks are sorted so under-capacity providers get served
+                # before over-capacity ones.  This prevents a queue full of
+                # zhipu-affinity tasks from consuming all local/remote slots
+                # before infini/volcano fallback tasks can reach codex.
+                def _dispatch_sort_key(item):
+                    """Sort key: fallback tasks first, then by provider capacity headroom."""
+                    _, cmd, _ = item
+                    affinity = parse_provider(cmd)
+                    is_fallback = affinity in provider_cooldown_until
+                    # Resolve where this task would dispatch to (without logging)
+                    if is_fallback:
+                        dp = None
+                        for candidate in _dispatch_candidates(affinity):
+                            if candidate not in provider_cooldown_until:
+                                lim = get_provider_limit(candidate)
+                                cur = provider_running.get(candidate, 0)
+                                if cur < lim:
+                                    dp = candidate
+                                    break
+                    else:
+                        dp = affinity
+                    if dp is None:
+                        headroom = -1  # undeliverable, sort last
+                    else:
+                        limit = get_provider_limit(dp)
+                        current = provider_running.get(dp, 0)
+                        headroom = limit - current
+                    # (is_fallback: False=1 sorts after True=0, headroom descending)
+                    return (0 if is_fallback else 1, -headroom)
+
+                sorted_pending = sorted(pending, key=_dispatch_sort_key)
+                for line_num, cmd, task_id in sorted_pending:
                     dispatch = _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running)
                     if dispatch is None:
                         continue  # all providers burnt
@@ -1694,56 +1720,60 @@ def daemon_loop(dry_run: bool = False):
                     current = provider_running.get(dispatch_provider, 0)
                     limit = get_provider_limit(dispatch_provider)
 
-                    if current < limit:
-                        # Check if already running (avoid duplicate dispatch)
-                        already_running = any(
-                            _running_entry_details(entry)[1] == cmd for entry in running.values()
-                        )
-                        if already_running:
+                    if current >= limit:
+                        if provider != dispatch_provider:
+                            log(f"DISPATCH SKIP [{task_id}]: {provider}->{dispatch_provider} at capacity ({current}/{limit})")
+                        continue
+
+                    # Check if already running (avoid duplicate dispatch)
+                    already_running = any(
+                        _running_entry_details(entry)[1] == cmd for entry in running.values()
+                    )
+                    if already_running:
+                        continue
+
+                    # Routing: local vs remote overflow
+                    local_count = sum(1 for e in running.values() if _running_entry_node(e) == 'soma')
+                    started_at = time.time()
+
+                    if local_count < MAX_LOCAL:
+                        # Local execution
+                        if dry_run:
+                            log(f"DRY-RUN: would run locally [{task_id}]: {cmd[:60]}...")
                             continue
-
-                        # Routing: local vs remote overflow
-                        local_count = sum(1 for e in running.values() if _running_entry_node(e) == 'soma')
-                        started_at = time.time()
-
-                        if local_count < MAX_LOCAL:
-                            # Local execution
-                            if dry_run:
-                                log(f"DRY-RUN: would run locally [{task_id}]: {cmd[:60]}...")
-                                continue
-                            future = executor.submit(run_golem, cmd)
-                            running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, 'soma')
-                            provider_running[dispatch_provider] = current + 1
-                            dispatched_this_cycle += 1
-                            if dispatch_provider == provider:
-                                log(f"Queued [soma] [{provider}] [{task_id}]: {cmd[:60]}...")
-                            else:
-                                log(f"Queued [soma] [{provider}->{dispatch_provider}] [{task_id}]: {cmd[:60]}...")
+                        future = executor.submit(run_golem, cmd)
+                        running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, 'soma')
+                        provider_running[dispatch_provider] = current + 1
+                        dispatched_this_cycle += 1
+                        if dispatch_provider == provider:
+                            log(f"Queued [soma] [{provider}] [{task_id}]: {cmd[:60]}...")
                         else:
-                            # Local slots full — try remote overflow
-                            dispatched_remote = False
-                            for w in REMOTE_WORKERS:
-                                wkey = w['host']
-                                remote_count = sum(1 for e in running.values() if _running_entry_node(e) == wkey)
-                                if remote_count >= w['max_concurrent']:
-                                    log(f"REMOTE SKIP [{wkey}]: {remote_count}/{w['max_concurrent']} slots full")
-                                    continue
-                                if not _ssh_health_cache.get(wkey, False):
-                                    log(f"REMOTE SKIP [{wkey}]: health check failed")
-                                    continue
-                                if dry_run:
-                                    log(f"DRY-RUN: would run remotely on {wkey} [{task_id}]: {cmd[:60]}...")
-                                    dispatched_remote = True
-                                    break
-                                future = executor.submit(remote_exec, cmd, w)
-                                running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, wkey)
-                                provider_running[dispatch_provider] = current + 1
-                                dispatched_this_cycle += 1
-                                log(f"Queued [{wkey}] [{provider}] [{task_id}]: {cmd[:60]}...")
+                            log(f"Queued [soma] [{provider}->{dispatch_provider}] [{task_id}]: {cmd[:60]}...")
+                    else:
+                        # Local slots full — try remote overflow
+                        dispatched_remote = False
+                        for w in REMOTE_WORKERS:
+                            wkey = w['host']
+                            remote_count = sum(1 for e in running.values() if _running_entry_node(e) == wkey)
+                            if remote_count >= w['max_concurrent']:
+                                log(f"REMOTE SKIP [{wkey}]: {remote_count}/{w['max_concurrent']} slots full")
+                                continue
+                            if not _ssh_health_cache.get(wkey, False):
+                                log(f"REMOTE SKIP [{wkey}]: health check failed")
+                                continue
+                            if dry_run:
+                                log(f"DRY-RUN: would run remotely on {wkey} [{task_id}]: {cmd[:60]}...")
                                 dispatched_remote = True
                                 break
-                            if not dispatched_remote and not dry_run:
-                                log(f"OVERFLOW FULL [{task_id}]: all local+remote slots occupied, skipping")
+                            future = executor.submit(remote_exec, cmd, w)
+                            running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, wkey)
+                            provider_running[dispatch_provider] = current + 1
+                            dispatched_this_cycle += 1
+                            log(f"Queued [{wkey}] [{provider}] [{task_id}]: {cmd[:60]}...")
+                            dispatched_remote = True
+                            break
+                        if not dispatched_remote and not dry_run:
+                            log(f"OVERFLOW FULL [{task_id}]: all local+remote slots occupied, skipping")
                 if pending:
                     _update_running_file(running)
 
