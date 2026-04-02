@@ -3,6 +3,8 @@ from __future__ import annotations
 """Tests for golem-daemon — provider-aware task queue processor."""
 
 import json
+import signal
+import time
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -2265,3 +2267,168 @@ def test_export_stats_capability_pct_calculation(tmp_path, capsys):
     assert entry["real_fail"] == 1
     # capability = passed / (passed + real_fail) = 10/11 ≈ 90.9
     assert entry["capability_pct"] == round(100 * 10 / 11, 1)
+
+
+# ── Always-on daemon behavior tests ────────────────────────────────────────
+
+
+daemon_loop = _mod["daemon_loop"]
+_interruptible_sleep = _mod["_interruptible_sleep"]
+_shutdown_event = _mod["_shutdown_event"]
+
+
+def _setup_daemon_test(tmp_path, extra_mocks=None):
+    """Set up common mocks and path redirects for daemon_loop tests.
+
+    Returns dict of saved originals for restoration via _restore_daemon_test.
+    """
+    saved = {}
+
+    # Redirect file paths to tmp
+    for key in ("LOGFILE", "PIDFILE", "JSONLFILE", "RUNNING_FILE",
+                "COOLDOWN_LOG", "CLEAR_COOLDOWN_FILE", "QUEUE_FILE"):
+        saved[key] = _mod[key]
+        _mod[key] = tmp_path / key.lower()
+
+    # Ensure tmp dirs exist for log/pid writes
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
+    # Common no-op mocks
+    common = {
+        "startup_pull": lambda: "ok",
+        "auto_commit": lambda: "ok",
+    }
+    all_mocks = {**common, **(extra_mocks or {})}
+    for key, val in all_mocks.items():
+        saved[key] = _mod[key]
+        _mod[key] = val
+
+    _shutdown_event.clear()
+    return saved
+
+
+def _restore_daemon_test(saved):
+    """Restore original module values after daemon_loop tests."""
+    for key, val in saved.items():
+        _mod[key] = val
+
+
+class TestAlwaysOnIdleSleep:
+    """When queue empty and nothing running, daemon sleeps 60s then re-polls."""
+
+    def test_idle_sleep_60s(self, tmp_path):
+        """Daemon calls _interruptible_sleep(60) when queue is empty."""
+        sleep_calls = []
+
+        def mock_sleep(seconds):
+            sleep_calls.append(seconds)
+            _shutdown_event.set()
+
+        saved = _setup_daemon_test(tmp_path, {
+            "_interruptible_sleep": mock_sleep,
+            "parse_queue": lambda: [],
+        })
+        try:
+            daemon_loop()
+        finally:
+            _restore_daemon_test(saved)
+
+        assert 60 in sleep_calls
+
+    def test_idle_repollls_after_wake(self, tmp_path):
+        """After waking from idle sleep, daemon re-reads the queue."""
+        parse_count = [0]
+
+        def counting_parse_queue():
+            parse_count[0] += 1
+            if parse_count[0] >= 2:
+                _shutdown_event.set()
+            return []
+
+        def no_op_sleep(seconds):
+            pass
+
+        saved = _setup_daemon_test(tmp_path, {
+            "_interruptible_sleep": no_op_sleep,
+            "parse_queue": counting_parse_queue,
+        })
+        try:
+            daemon_loop()
+        finally:
+            _restore_daemon_test(saved)
+
+        assert parse_count[0] >= 2, f"Expected >= 2 parse_queue calls, got {parse_count[0]}"
+
+
+class TestAlwaysOnBackoff:
+    """When all providers cooled and tasks pending, daemon sleeps 300s."""
+
+    def test_backoff_sleep_300s(self, tmp_path):
+        """Daemon sleeps 300s when tasks pending but all providers cooled."""
+        sleep_calls = []
+
+        def mock_sleep(seconds):
+            sleep_calls.append(seconds)
+            _shutdown_event.set()
+
+        task = (0, 'golem --provider zhipu "test task"', 't-abc123')
+
+        saved = _setup_daemon_test(tmp_path, {
+            "_interruptible_sleep": mock_sleep,
+            "parse_queue": lambda: [task],
+            "_resolve_dispatch_command": lambda *args: None,
+            "_golem_env": lambda: {},
+            "_ssh_health_check": lambda w: False,
+            "disk_guard": lambda: True,
+        })
+        try:
+            daemon_loop()
+        finally:
+            _restore_daemon_test(saved)
+
+        assert 300 in sleep_calls
+
+
+class TestSigtermGracefulShutdown:
+    """SIGTERM handler sets shutdown flag for graceful exit."""
+
+    def test_sigterm_sets_shutdown_event(self):
+        """_handle_sigterm sets _shutdown_event."""
+        _shutdown_event.clear()
+        handler = _mod["_handle_sigterm"]
+        handler(signal.SIGTERM, None)
+        assert _shutdown_event.is_set()
+        _shutdown_event.clear()
+
+    def test_interruptible_sleep_respects_shutdown(self):
+        """_interruptible_sleep returns immediately when shutdown is set."""
+        _shutdown_event.set()
+        start = time.time()
+        _interruptible_sleep(60)
+        elapsed = time.time() - start
+        _shutdown_event.clear()
+        assert elapsed < 2, f"Sleep should return immediately on shutdown, took {elapsed:.1f}s"
+
+    def test_drain_called_on_shutdown(self, tmp_path):
+        """Running tasks are drained when shutdown event is set during idle."""
+        drain_calls = [0]
+        original_drain = _mod["_drain_running"]
+
+        def counting_drain(running, timeout=60):
+            drain_calls[0] += 1
+            return original_drain(running, timeout)
+
+        def mock_sleep(seconds):
+            _shutdown_event.set()
+
+        saved = _setup_daemon_test(tmp_path, {
+            "_interruptible_sleep": mock_sleep,
+            "parse_queue": lambda: [],
+            "_drain_running": counting_drain,
+        })
+        try:
+            daemon_loop()
+        finally:
+            _restore_daemon_test(saved)
+
+        assert drain_calls[0] >= 1, "Expected _drain_running to be called on shutdown"
