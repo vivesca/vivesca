@@ -15,7 +15,7 @@ import subprocess
 from metabolon.organelles.effector import run_cli  # noqa: E402
 
 from fastmcp.tools.function_tool import tool  # noqa: E402
-from fastmcp.resources import resource  # noqa: E402
+from fastmcp.resources.function_resource import resource  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 
 BINARY = "~/.cargo/bin/noesis"
@@ -49,7 +49,7 @@ def noesis(action: str, query: str = "") -> str:
         return f"Unknown action '{action}'. Use one of: search, ask, research."
 
 
-@resource("vivesca://noesis/search-log")  # type: ignore
+@resource("vivesca://noesis/search-log")
 def noesis_search_log() -> str:
     """Returns the last 10 noesis queries from the usage log."""
     import os

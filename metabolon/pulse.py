@@ -714,7 +714,7 @@ def post_efferens_summary(total_systoles: int, stop_reason: str):
     try:
         import acta
 
-        acta.post(  # type: ignore
+        acta.post(  # pyright: ignore[reportAttributeAccessIssue]  # type: ignore[attr-defined]
             f"Pulse completed {total_systoles} systole(s). Stop reason: {stop_reason}. "
             f"Check ~/epigenome/chromatin/Pulse Reports/ for details.",
             sender="pulse",
