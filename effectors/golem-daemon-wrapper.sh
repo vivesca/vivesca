@@ -19,4 +19,4 @@ if [ -f "$HOME/.env.fly" ]; then
     set +a
 fi
 
-exec python3 "$HOME/germline/effectors/golem-daemon" start --foreground
+exec uv run "$HOME/germline/effectors/golem-daemon" start --foreground

@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """golem-daemon — Task queue processor for golem commands.
 
 Reads ~/germline/loci/golem-queue.md for pending tasks, runs up to 4
