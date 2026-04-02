@@ -183,7 +183,7 @@ def test_path_includes_go_bin():
     """PATH includes $HOME/go/bin."""
     r = _run(["/bin/bash", "-c", "echo $PATH"])
     parts = r.stdout.strip().split(":")
-    assert str(Path.home() / ".go/bin") in parts
+    assert str(Path.home() / "go/bin") in parts
 
 
 def test_path_includes_nix_default_profile():
