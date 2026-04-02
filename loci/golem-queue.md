@@ -518,7 +518,7 @@ Previous golems attempted fixes but tests still fail. Giving more turns and clea
 - [x] `golem [t-a2d61c] --provider zhipu --max-turns 20 "In effectors/golem-tools, line 388 has a function named report_report_load_jsonl (doubled prefix). Rename it to report_load_jsonl. Also check line 543 for the internal call. Fix both. Run uv run pytest assays/test_golem_report.py. Commit."`
 
 #### Fix — delete duplicate test file
-- [!] `golem [t-cc9b32] --provider zhipu --max-turns 10 "Delete ~/germline/assays/test_backup_due.sh.py (keep test_backup_due_sh.py). Run uv run pytest --co -q 2>&1 | grep ERROR | head -5 to verify no collection errors from this. Commit. (retry)"`
+- [x] `golem [t-cc9b32] --provider zhipu --max-turns 10 "Delete ~/germline/assays/test_backup_due.sh.py (keep test_backup_due_sh.py). Run uv run pytest --co -q 2>&1 | grep ERROR | head -5 to verify no collection errors from this. Commit. (retry)"`
 
 #### Fix — integrin PermissionError on docker-data
 - [x] `golem [t-c38f8c] --provider zhipu --max-turns 30 "Read effectors/integrin. It crashes with PermissionError on /home/terry/.docker-data/settings.json during MCP dispatch. The _KNOWN_PLATFORM_DIRS skip at line 125 should catch .docker-data but the error surfaces through membrane.py MCP layer before that guard. Add a broader try/except PermissionError around the scan path. Test by running: python3 effectors/integrin --help. Commit."`
