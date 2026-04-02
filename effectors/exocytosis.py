@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import sys
 from pathlib import Path
+
+if str(Path(__file__).resolve().parent.parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 _CONF_PATH = Path(__file__).parent / "exocytosis.conf"
 _conf = configparser.ConfigParser()
