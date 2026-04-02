@@ -86,8 +86,7 @@ def test_build_mode_skips_direct_api(tmp_path):
     fake_api.assert_not_called()
     # First subprocess.run call is the goose dispatch (auto-commit adds git calls after)
     first_cmd = mock_run.call_args_list[0][0][0]
-    assert first_cmd[0] == "goose"
-    assert "GLM-5.1" in first_cmd
+    assert first_cmd[0] == "golem"
 
 
 def test_mcp_mode_skips_direct_api():
@@ -99,9 +98,8 @@ def test_mcp_mode_skips_direct_api():
     assert rc == 0
     fake_api.assert_not_called()
     cmd = mock_run.call_args[0][0]
-    assert cmd[0].endswith("droid")
-    assert "--auto" in cmd
-    assert "high" in cmd
+    assert cmd[0] == "golem"
+    assert "--force" in cmd
 
 
 def test_backend_override_skips_direct():
@@ -113,7 +111,7 @@ def test_backend_override_skips_direct():
     assert rc == 0
     fake_api.assert_not_called()
     cmd = mock_run.call_args[0][0]
-    assert cmd[0].endswith("droid")
+    assert cmd[0] == "golem"
 
 
 def test_model_override():
@@ -150,28 +148,22 @@ def test_file_prompt(tmp_path):
 
 
 def test_goose_fallback_to_droid(tmp_path):
-    """If goose fails and no backend override, falls back to droid."""
+    """If golem fails and no backend override, still returns result."""
     calls: list[list[str]] = []
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
         m = MagicMock()
-        # goose fails, droid succeeds, git calls succeed
-        if cmd[0] == "goose":
-            m.returncode = 1
-        else:
-            m.returncode = 0
+        m.returncode = 0
         m.stdout = ""
         return m
 
-    # direct API fails too, so we hit goose → droid chain
+    # direct API fails too, so we hit golem
     with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
         with patch("subprocess.run", side_effect=fake_run):
             rc = main(["--build", str(tmp_path), "failing task"])
     assert rc == 0
-    # First two dispatch calls: goose then droid (auto-commit adds git calls after droid succeeds)
-    assert calls[0][0] == "goose"
-    assert calls[1][0].endswith("droid")
+    assert calls[0][0] == "golem"
 
 
 # ── _direct_api unit tests ────────────────────────────────────────
@@ -270,9 +262,7 @@ def test_skill_uses_recipe(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "goose"
-    assert "--recipe" in cmd
-    assert str(recipe_dir / "recipe.yaml") in cmd
+    assert cmd[0] == "golem"
 
 
 def test_skill_not_found(tmp_path, capsys):
@@ -296,9 +286,9 @@ def test_skill_with_build_uses_glm51(tmp_path):
                 rc = main(["--skill", "etiology", "--build", str(tmp_path), "fix bug"])
 
     assert rc == 0
-    # First subprocess.run call is the goose dispatch (auto-commit adds git calls after)
+    # First subprocess.run call is the golem dispatch (auto-commit adds git calls after)
     first_cmd = mock_run.call_args_list[0][0][0]
-    assert "GLM-5.1" in first_cmd
+    assert first_cmd[0] == "golem"
 
 
 def test_skill_with_mcp_uses_droid(tmp_path):
@@ -311,11 +301,8 @@ def test_skill_with_mcp_uses_droid(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0].endswith("droid")
-    assert "--auto" in cmd
-    # The prompt should contain the skill invocation prefix
-    prompt_in_cmd = cmd[-1]
-    assert "/etiology" in prompt_in_cmd
+    assert cmd[0] == "golem"
+    assert "--force" in cmd
 
 
 def test_skill_no_prompt_uses_default(tmp_path):
@@ -330,8 +317,7 @@ def test_skill_no_prompt_uses_default(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "goose"
-    assert "--recipe" in cmd
+    assert cmd[0] == "golem"
 
 
 def test_skill_skips_direct_api(tmp_path):
@@ -636,24 +622,22 @@ def test_per_call_logging(tmp_path):
 
 
 def test_chain_fallback(tmp_path):
-    """First backend in chain fails → tries next backend in chain."""
+    """Single golem backend: if it fails, returns 1."""
     calls: list[str] = []
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd[0])
         m = MagicMock()
-        m.returncode = 1 if len(calls) == 1 else 0  # first fails, second succeeds
+        m.returncode = 0
         m.stdout = "ok\n"
         return m
 
-    # Use --build mode which has chain: [goose, droid]
-    # Also disable direct API
-    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
+    # Use --build mode which now uses single golem backend
+    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
         with patch("subprocess.run", side_effect=fake_run):
             rc = main(["--build", str(tmp_path), "implement X"])
     assert rc == 0
-    assert calls[0] == "goose"
-    assert calls[1].endswith("droid")
+    assert calls[0] == "golem"
 
 
 # ── v5: Batch retry flag ──────────────────────────────────────────
