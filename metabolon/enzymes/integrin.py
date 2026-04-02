@@ -146,23 +146,26 @@ def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
 
     # Detect unknown CLI platform dirs
     unknown: list[str] = []
-    for entry in sorted(Path.home().iterdir()):
-        if not entry.name.startswith(".") or not entry.is_dir():
-            continue
-        if entry.name in _KNOWN_PLATFORM_DIRS:
-            continue
-        try:
-            has_marker = (entry / PLATFORM_MARKERS_REQUIRED).exists()
-        except PermissionError:
-            continue
-        if not has_marker:
-            continue
-        try:
-            has_confirm = any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM)
-        except PermissionError:
-            continue
-        if has_confirm:
-            unknown.append(entry.name)
+    try:
+        for entry in sorted(Path.home().iterdir()):
+            if not entry.name.startswith(".") or not entry.is_dir():
+                continue
+            if entry.name in _KNOWN_PLATFORM_DIRS:
+                continue
+            try:
+                has_marker = (entry / PLATFORM_MARKERS_REQUIRED).exists()
+            except PermissionError:
+                continue
+            if not has_marker:
+                continue
+            try:
+                has_confirm = any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM)
+            except PermissionError:
+                continue
+            if has_confirm:
+                unknown.append(entry.name)
+    except PermissionError:
+        pass  # unreadable home-dir entry during scan
 
     return issues, unknown
 
