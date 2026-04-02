@@ -137,7 +137,7 @@ class TestOutputFormatting:
             pr["main"]()
 
         out_dir = tmp_path / "tmp"
-        review_file = list(out_dir.glob("copia-review-*.md"))[0]
+        review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert str(manifest) in content
 
@@ -156,7 +156,7 @@ class TestOutputFormatting:
             pr["main"]()
 
         out_dir = tmp_path / "tmp"
-        review_file = list(out_dir.glob("copia-review-*.md"))[0]
+        review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert "(no response)" in content
 

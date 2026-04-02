@@ -500,6 +500,93 @@ class TestMain:
         assert "Running skill flywheel" in out
 
 
+# ── health_to_json ─────────────────────────────────────────────────────────────
+
+
+class TestHealthToJson:
+    def test_produces_valid_json(self):
+        rows = [("MEMORY.md lines", "50/150", "ok")]
+        result = nightly.health_to_json(rows)
+        parsed = json.loads(result)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+
+    def test_json_fields(self):
+        rows = [("MCP server", "running", "ok")]
+        result = nightly.health_to_json(rows)
+        parsed = json.loads(result)
+        entry = parsed[0]
+        assert entry["component"] == "MCP server"
+        assert entry["status"] == "ok"
+        assert entry["details"] == "running"
+
+    def test_json_multiple_rows(self):
+        rows = [
+            ("MEMORY.md lines", "50/150", "ok"),
+            ("MCP server", "DOWN", "red"),
+            ("Agent-browser profile", "missing", "warn"),
+        ]
+        result = nightly.health_to_json(rows)
+        parsed = json.loads(result)
+        assert len(parsed) == 3
+        assert parsed[0]["component"] == "MEMORY.md lines"
+        assert parsed[1]["status"] == "red"
+        assert parsed[2]["details"] == "missing"
+
+    def test_json_empty_rows(self):
+        result = nightly.health_to_json([])
+        parsed = json.loads(result)
+        assert parsed == []
+
+    def test_json_is_pretty_printed(self):
+        rows = [("Test", "val", "ok")]
+        result = nightly.health_to_json(rows)
+        assert "\n" in result  # indent=2 produces newlines
+
+
+# ── main --json ────────────────────────────────────────────────────────────────
+
+
+class TestMainJson:
+    def test_json_flag_outputs_json(self, tmp_path, capsys):
+        _setup_home(tmp_path)
+
+        test_rows = [("MEMORY.md lines", "50/150", "ok")]
+        with _patch_attr("sys", MagicMock(argv=["nightly", "--json"])), \
+             _patch_attr("check_health", MagicMock(return_value=test_rows)):
+            nightly.main()
+
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+        assert parsed[0]["component"] == "MEMORY.md lines"
+        assert parsed[0]["status"] == "ok"
+        assert parsed[0]["details"] == "50/150"
+
+    def test_json_flag_skips_file_writes(self, tmp_path, capsys):
+        health_out, flywheel_out = _setup_home(tmp_path)
+
+        with _patch_attr("sys", MagicMock(argv=["nightly", "--json"])), \
+             _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
+            nightly.main()
+
+        assert not health_out.exists()
+        assert not flywheel_out.exists()
+
+    def test_json_flag_no_banner(self, tmp_path, capsys):
+        _setup_home(tmp_path)
+
+        with _patch_attr("sys", MagicMock(argv=["nightly", "--json"])), \
+             _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
+            nightly.main()
+
+        out = capsys.readouterr().out
+        # The only output should be valid JSON (plus the "[nightly] Running health checks..." line)
+        # JSON array should not contain "Nightly run" banner text
+        assert "Nightly run" not in out
+
+
 # ── Integration: subprocess execution ─────────────────────────────────────────
 
 
@@ -513,3 +600,23 @@ class TestSubprocessExecution:
         )
         assert result.returncode == 0
         assert "Nightly run" in result.stdout
+
+    def test_json_flag_subprocess(self):
+        result = subprocess.run(
+            [sys.executable, str(_NIGHTLY_PATH), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        # Find the JSON output (after the "[nightly] Running health checks..." line)
+        lines = result.stdout.strip().splitlines()
+        # Skip the "[nightly] Running health checks..." line, parse the rest as JSON
+        json_lines = [l for l in lines if not l.startswith("[nightly]")]
+        json_text = "\n".join(json_lines)
+        parsed = json.loads(json_text)
+        assert isinstance(parsed, list)
+        for entry in parsed:
+            assert "component" in entry
+            assert "status" in entry
+            assert "details" in entry
