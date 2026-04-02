@@ -264,13 +264,18 @@ def _pick_dispatch_provider(provider: str, provider_cooldown_until: dict, provid
     if provider not in provider_cooldown_until:
         return provider
 
+    skipped: list[str] = []
     for candidate in _dispatch_candidates(provider):
         if candidate in provider_cooldown_until:
+            skipped.append(f"{candidate}:cooldown")
             continue
         current = provider_running.get(candidate, 0)
         limit = get_provider_limit(candidate)
         if current < limit:
             return candidate
+        skipped.append(f"{candidate}:{current}/{limit}")
+    if skipped:
+        log(f"FALLBACK EXHAUSTED [{provider}]: {', '.join(skipped)}")
     return None
 
 
@@ -1651,7 +1656,14 @@ def daemon_loop(dry_run: bool = False):
                     _ssh_health_cache[w['host']] = _ssh_health_check(w)
 
                 dispatched_this_cycle = 0
-                for line_num, cmd, task_id in pending:
+                # Dispatch fallback tasks first (affinity provider in cooldown)
+                # so they fill fallback targets (codex, gemini) before normal
+                # tasks consume all execution slots.  Without this, zhipu-
+                # affinity tasks at the front of the queue grab all local
+                # slots and infini/volcano fallback tasks are skipped.
+                _fb = [(n, c, t) for n, c, t in pending if parse_provider(c) in provider_cooldown_until]
+                _nm = [(n, c, t) for n, c, t in pending if parse_provider(c) not in provider_cooldown_until]
+                for line_num, cmd, task_id in [*_fb, *_nm]:
                     dispatch = _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running)
                     if dispatch is None:
                         continue  # all providers burnt
