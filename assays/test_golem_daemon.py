@@ -2269,6 +2269,254 @@ def test_export_stats_capability_pct_calculation(tmp_path, capsys):
     assert entry["capability_pct"] == round(100 * 10 / 11, 1)
 
 
+# ── Fallback routing tests ────────────────────────────────────────────────
+
+
+_pick_dispatch_provider = _mod["_pick_dispatch_provider"]
+_dispatch_candidates = _mod["_dispatch_candidates"]
+_resolve_dispatch_command = _mod["_resolve_dispatch_command"]
+PROVIDER_FALLBACK = _mod["PROVIDER_FALLBACK"]
+
+
+class TestFallbackRouting:
+    """Tests for fallback routing: when providers are in cooldown, tasks
+    should reroute to fallback targets (codex, gemini) per PROVIDER_FALLBACK
+    chains, not default to zhipu."""
+
+    def test_infini_fallback_prefers_codex_over_zhipu(self):
+        """When infini is cooled down, its tasks route to codex first (not zhipu)."""
+        cooldowns = {"infini": time.time() + 3600}
+        running = {"zhipu": 0, "codex": 0, "gemini": 0}
+        result = _pick_dispatch_provider("infini", cooldowns, running)
+        assert result == "codex", f"Expected codex, got {result}"
+
+    def test_volcano_fallback_prefers_codex_over_zhipu(self):
+        """When volcano is cooled down, its tasks route to codex first (not zhipu)."""
+        cooldowns = {"volcano": time.time() + 3600}
+        running = {"zhipu": 0, "codex": 0, "gemini": 0}
+        result = _pick_dispatch_provider("volcano", cooldowns, running)
+        assert result == "codex", f"Expected codex, got {result}"
+
+    def test_infini_fallback_to_gemini_when_codex_full(self):
+        """When infini is cooled and codex is at capacity, fallback to gemini."""
+        cooldowns = {"infini": time.time() + 3600}
+        running = {"codex": 4, "zhipu": 0, "gemini": 0}
+        result = _pick_dispatch_provider("infini", cooldowns, running)
+        assert result == "gemini", f"Expected gemini, got {result}"
+
+    def test_infini_fallback_to_zhipu_when_codex_and_gemini_full(self):
+        """When infini is cooled and codex+gemini are full, fallback to zhipu."""
+        cooldowns = {"infini": time.time() + 3600}
+        running = {"codex": 4, "gemini": 4, "zhipu": 0}
+        result = _pick_dispatch_provider("infini", cooldowns, running)
+        assert result == "zhipu", f"Expected zhipu, got {result}"
+
+    def test_infini_returns_none_when_all_full(self):
+        """When infini is cooled and all fallback providers are full, return None."""
+        cooldowns = {"infini": time.time() + 3600}
+        running = {"codex": 4, "gemini": 4, "zhipu": 8, "volcano": 16}
+        result = _pick_dispatch_provider("infini", cooldowns, running)
+        assert result is None
+
+    def test_no_fallback_when_provider_not_cooled(self):
+        """When provider is not in cooldown, return it directly."""
+        cooldowns = {}
+        running = {}
+        assert _pick_dispatch_provider("infini", cooldowns, running) == "infini"
+        assert _pick_dispatch_provider("zhipu", cooldowns, running) == "zhipu"
+        assert _pick_dispatch_provider("codex", cooldowns, running) == "codex"
+
+    def test_fallback_skips_cooled_fallback_targets(self):
+        """When infini is cooled AND codex is also cooled, skip to gemini."""
+        cooldowns = {"infini": time.time() + 3600, "codex": time.time() + 3600}
+        running = {"gemini": 0, "zhipu": 0}
+        result = _pick_dispatch_provider("infini", cooldowns, running)
+        assert result == "gemini", f"Expected gemini, got {result}"
+
+    def test_resolve_dispatch_command_swaps_provider(self):
+        """_resolve_dispatch_command swaps --provider in the command string."""
+        cooldowns = {"infini": time.time() + 3600}
+        running = {"codex": 0, "gemini": 0, "zhipu": 0}
+        cmd = 'golem --provider infini --max-turns 50 "task"'
+        result = _resolve_dispatch_command(cmd, cooldowns, running)
+        assert result is not None
+        new_cmd, affinity, dispatch = result
+        assert affinity == "infini"
+        assert dispatch == "codex"
+        assert "--provider codex" in new_cmd
+        assert "--provider infini" not in new_cmd
+
+    def test_resolve_dispatch_command_no_swap_when_not_cooled(self):
+        """_resolve_dispatch_command returns original when provider not cooled."""
+        cooldowns = {}
+        running = {}
+        cmd = 'golem --provider infini --max-turns 50 "task"'
+        result = _resolve_dispatch_command(cmd, cooldowns, running)
+        assert result is not None
+        new_cmd, affinity, dispatch = result
+        assert affinity == "infini"
+        assert dispatch == "infini"
+        assert new_cmd == cmd
+
+    def test_fallback_fills_codex_to_cap_before_zhipu(self):
+        """Simulate a dispatch cycle: infini/volcano cooled, codex fills to
+        cap before any overflow to zhipu."""
+        cooldowns = {"infini": time.time() + 3600, "volcano": time.time() + 3600}
+        running = {}
+        codex_cap = _mod["PROVIDER_LIMITS"]["codex"]  # 4
+
+        # Simulate dispatching 6 fallback tasks (3 infini + 3 volcano)
+        dispatched = []
+        for affinity in ["infini", "volcano", "infini", "volcano", "infini", "volcano"]:
+            dp = _pick_dispatch_provider(affinity, cooldowns, running)
+            if dp:
+                running[dp] = running.get(dp, 0) + 1
+                dispatched.append(dp)
+
+        # All should go to codex (cap=4), then overflow to gemini (cap=4)
+        codex_count = running.get("codex", 0)
+        assert codex_count == codex_cap, (
+            f"Expected codex to fill to {codex_cap}, got {codex_count}. "
+            f"Dispatch order: {dispatched}"
+        )
+        # Remaining 2 should go to gemini
+        gemini_count = running.get("gemini", 0)
+        assert gemini_count == 2, f"Expected gemini=2, got {gemini_count}. Dispatch: {dispatched}"
+
+    def test_three_providers_cooled_routes_to_two_healthy_proportionally(self):
+        """When 3 providers are cooled (infini, volcano, zhipu), tasks
+        route to the 2 healthy ones (codex, gemini) proportionally."""
+        cooldowns = {
+            "infini": time.time() + 3600,
+            "volcano": time.time() + 3600,
+            "zhipu": time.time() + 3600,
+        }
+        running = {}
+        codex_cap = _mod["PROVIDER_LIMITS"]["codex"]   # 4
+        gemini_cap = _mod["PROVIDER_LIMITS"]["gemini"]  # 4
+
+        # Dispatch 10 fallback tasks: 4 infini + 3 volcano + 3 zhipu
+        affinities = ["infini"] * 4 + ["volcano"] * 3 + ["zhipu"] * 3
+        dispatched = []
+        for affinity in affinities:
+            dp = _pick_dispatch_provider(affinity, cooldowns, running)
+            if dp:
+                running[dp] = running.get(dp, 0) + 1
+                dispatched.append((affinity, dp))
+
+        # codex should fill to 4 (cap), gemini should fill to 4 (cap)
+        # zhipu's fallback chain: codex -> gemini -> (none remaining)
+        codex_count = running.get("codex", 0)
+        gemini_count = running.get("gemini", 0)
+        assert codex_count == codex_cap, (
+            f"Expected codex={codex_cap}, got {codex_count}. Dispatches: {dispatched}"
+        )
+        assert gemini_count == gemini_cap, (
+            f"Expected gemini={gemini_cap}, got {gemini_count}. Dispatches: {dispatched}"
+        )
+
+    def test_dispatch_candidates_order(self):
+        """Verify _dispatch_candidates returns providers in correct fallback order."""
+        # infini: codex -> gemini -> (remaining: zhipu, volcano)
+        c = _dispatch_candidates("infini")
+        assert c[0] == "codex", f"Expected codex first for infini, got {c}"
+        assert c[1] == "gemini", f"Expected gemini second for infini, got {c}"
+
+        # volcano: codex -> gemini -> (remaining: zhipu, infini)
+        c = _dispatch_candidates("volcano")
+        assert c[0] == "codex", f"Expected codex first for volcano, got {c}"
+        assert c[1] == "gemini", f"Expected gemini second for volcano, got {c}"
+
+        # zhipu: codex -> gemini -> (remaining: infini, volcano)
+        c = _dispatch_candidates("zhipu")
+        assert c[0] == "codex", f"Expected codex first for zhipu, got {c}"
+        assert c[1] == "gemini", f"Expected gemini second for zhipu, got {c}"
+
+    def test_fallback_with_throttled_codex(self):
+        """When codex is throttled (effective limit reduced), fallback
+        fills codex to its throttled limit, then overflows to gemini."""
+        cooldowns = {"infini": time.time() + 3600, "volcano": time.time() + 3600}
+        # Simulate codex throttled to 2 slots
+        _mod["_provider_throttle"]["codex"] = 2
+        running = {}
+        try:
+            effective_cap = get_provider_limit("codex")  # should be 4-2=2
+            assert effective_cap == 2
+
+            for affinity in ["infini"] * 3 + ["volcano"] * 3:
+                dp = _pick_dispatch_provider(affinity, cooldowns, running)
+                if dp:
+                    running[dp] = running.get(dp, 0) + 1
+
+            codex_count = running.get("codex", 0)
+            gemini_count = running.get("gemini", 0)
+            # codex should fill to 2 (throttled cap), rest to gemini
+            assert codex_count == effective_cap, (
+                f"Expected codex={effective_cap} (throttled), got {codex_count}"
+            )
+            assert gemini_count == 4, f"Expected gemini=4, got {gemini_count}"
+        finally:
+            _mod["_provider_throttle"].pop("codex", None)
+
+    def test_dispatch_loop_fallback_before_normal(self):
+        """Integration: verify the dispatch sort key puts fallback tasks first
+        and fills under-capacity providers before over-capacity ones."""
+        import uuid
+        _dispatch_candidates_fn = _mod["_dispatch_candidates"]
+        parse_provider_fn = _mod["parse_provider"]
+        get_provider_limit_fn = _mod["get_provider_limit"]
+
+        cooldowns = {"infini": time.time() + 3600, "volcano": time.time() + 3600}
+        running = {"codex": 0, "zhipu": 0, "gemini": 0}
+
+        # Build pending tasks: 2 infini, 2 volcano, 8 zhipu
+        pending = []
+        for i in range(2):
+            pending.append((i, f'golem --provider infini "infini task {i}"', f"t-{uuid.uuid4().hex[:6]}"))
+        for i in range(2):
+            pending.append((10 + i, f'golem --provider volcano "volcano task {i}"', f"t-{uuid.uuid4().hex[:6]}"))
+        for i in range(8):
+            pending.append((20 + i, f'golem --provider zhipu "zhipu task {i}"', f"t-{uuid.uuid4().hex[:6]}"))
+
+        # Define the sort key (mirrors the daemon_loop version)
+        def _sort_key(item):
+            _, cmd, _ = item
+            affinity = parse_provider_fn(cmd)
+            is_fallback = affinity in cooldowns
+            if is_fallback:
+                dp = None
+                for candidate in _dispatch_candidates_fn(affinity):
+                    if candidate not in cooldowns:
+                        lim = get_provider_limit_fn(candidate)
+                        cur = running.get(candidate, 0)
+                        if cur < lim:
+                            dp = candidate
+                            break
+            else:
+                dp = affinity
+            if dp is None:
+                headroom = -1
+            else:
+                limit = get_provider_limit_fn(dp)
+                current = running.get(dp, 0)
+                headroom = limit - current
+            return (0 if is_fallback else 1, -headroom)
+
+        sorted_tasks = sorted(pending, key=_sort_key)
+
+        # All 4 fallback tasks (infini+volcano) should come first
+        first_4 = [parse_provider_fn(cmd) for _, cmd, _ in sorted_tasks[:4]]
+        assert all(p in ("infini", "volcano") for p in first_4), (
+            f"Expected fallback tasks first, got providers: {first_4}"
+        )
+
+        # All 8 zhipu tasks should come after
+        last_8 = [parse_provider_fn(cmd) for _, cmd, _ in sorted_tasks[4:]]
+        assert all(p == "zhipu" for p in last_8), (
+            f"Expected zhipu tasks after fallbacks, got providers: {last_8}"
+        )
+
+
 # ── Fallback routing tests ──────────────────────────────────────────────────
 
 
