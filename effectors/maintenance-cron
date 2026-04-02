@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import random
 import subprocess
 import sys
@@ -86,13 +85,12 @@ def check_pyright(dry_run: bool, verbose: bool) -> tuple[bool, int]:
     error_count = 0
     try:
         data = json.loads(stdout)
-        error_count = data.get("generalDiagnostics", data.get("summary", {})).get("errorCount", 0) if isinstance(data.get("generalDiagnostics"), list) else 0
-        # Try summary first, then fall back to counting diagnostics
+        # Try summary.errorCount first
         summary = data.get("summary", {})
         if isinstance(summary, dict):
             error_count = summary.get("errorCount", 0)
+        # Fallback: count errors from generalDiagnostics array
         if error_count == 0:
-            # Count from generalDiagnostics array
             diags = data.get("generalDiagnostics", [])
             if isinstance(diags, list):
                 error_count = sum(
@@ -100,11 +98,10 @@ def check_pyright(dry_run: bool, verbose: bool) -> tuple[bool, int]:
                     if d.get("severity") == "error"
                 )
     except (json.JSONDecodeError, AttributeError, TypeError):
-        # Fallback: count lines that look like errors if JSON parse fails
         if verbose:
-            print(f"  Could not parse pyright JSON output")
+            print("  Could not parse pyright JSON output")
         # Non-zero rc without parseable output means failure
-        error_count = rc  # treat any rc != 0 as potential issue
+        error_count = rc
 
     passed = rc == 0 and error_count == 0
     status = "PASS" if passed else "FAIL"
