@@ -134,9 +134,8 @@ class TestSystemActionPlatformGuard:
 
         with patch("metabolon.enzymes.interoception.platform.system", return_value="Linux"), \
              patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result), \
-             patch("metabolon.metabolism.mismatch_repair") as mock_mr, \
+             patch("metabolon.metabolism.mismatch_repair.summary", return_value=""), \
              patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold:
-            mock_mr.summary.return_value = ""
             mock_threshold_inst = MagicMock()
             mock_threshold_inst.read.return_value = 15
             mock_threshold.return_value = mock_threshold_inst
@@ -156,9 +155,8 @@ class TestSystemActionPlatformGuard:
 
         with patch("metabolon.enzymes.interoception.platform.system", return_value="Darwin"), \
              patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result), \
-             patch("metabolon.metabolism.mismatch_repair") as mock_mr, \
+             patch("metabolon.metabolism.mismatch_repair.summary", return_value=""), \
              patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold:
-            mock_mr.summary.return_value = ""
             mock_threshold_inst = MagicMock()
             mock_threshold_inst.read.return_value = 15
             mock_threshold.return_value = mock_threshold_inst
