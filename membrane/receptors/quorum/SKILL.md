@@ -11,7 +11,7 @@ organelle: metabolon.organelles.quorum
 
 5 frontier models deliberate on a question, then Gemini judges and Claude critiques. Auto-routes by difficulty.
 
-> Source: `~/code/quorum/`. Extended reference: `~/germline/membrane/receptors/quorum/REFERENCE.md`.
+> Source: `~/germline/effectors/quorum`. Extended reference: `~/germline/membrane/receptors/quorum/REFERENCE.md`.
 
 ---
 

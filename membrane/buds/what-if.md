@@ -7,7 +7,7 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 
 Adversarial design probe. Challenge one architectural decision in vivesca.
 
-1. Read ~/germline/genotype.md and ~/germline/DESIGN.md (if exists)
+1. Read ~/germline/genome.md and ~/germline/anatomy.md (if exists)
 2. Inventory key architectural decisions by reading:
    - ~/germline/membrane/buds/ — agent approach
    - ~/germline/membrane/cytoskeleton/ — hook consolidation

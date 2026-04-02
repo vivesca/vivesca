@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""burn -- toggle burn mode for Claude Code budget.
+
+When active, allostasis hook overrides delegation guidance to 'anabolic'
+(use Opus directly) regardless of budget tier. Use before weekly reset
+to avoid wasting unspent tokens.
+
+Auto-detect also activates burn mode when utilization >70% and reset <6h away.
+
+Usage:
+    burn on       Enable burn mode (manual)
+    burn off      Disable burn mode
+    burn status   Show current state
+    burn          Toggle (on/off)
+"""
+
+import subprocess
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+FLAG = Path.home() / ".claude" / "burn-mode"
+
+
+def _reset_info():
+    """Get weekly reset info from respirometry. Returns (resets_at_iso, hours_left, util)."""
+    try:
+        r = subprocess.run(
+            ["respirometry", "--json"], capture_output=True, text=True, timeout=5
+        )
+        d = json.loads(r.stdout)
+        w = d.get("seven_day", {})
+        util = w.get("utilization", 0)
+        resets_at = w.get("resets_at", "")
+        if resets_at:
+            reset_time = datetime.fromisoformat(resets_at)
+            hours_left = (reset_time - datetime.now(timezone.utc)).total_seconds() / 3600
+            return resets_at, max(0, hours_left), util
+    except Exception:
+        pass
+    return None, None, None
+
+
+def _manual_active():
+    """Check if manual burn flag exists and hasn't expired past its target reset."""
+    if not FLAG.exists():
+        return False
+    try:
+        content = FLAG.read_text().strip()
+        if content:
+            expires = datetime.fromisoformat(content)
+            if datetime.now(timezone.utc) > expires:
+                FLAG.unlink(missing_ok=True)
+                return False
+    except (ValueError, OSError):
+        pass
+    return True
+
+
+def status():
+    manual = _manual_active()
+    resets_at, hours_left, util = _reset_info()
+    auto = hours_left is not None and util is not None and util >= 70 and 0 < hours_left < 6
+
+    if manual:
+        print("BURN MODE: ON (manual)")
+    elif auto:
+        print("BURN MODE: ON (auto-detected)")
+    else:
+        print("BURN MODE: off")
+
+    if hours_left is not None:
+        h = int(hours_left)
+        m = int((hours_left - h) * 60)
+        print(f"  Weekly reset in {h}h{m:02d}m, {util:.0f}% used")
+    else:
+        print("  (could not fetch reset info)")
+
+
+def on():
+    FLAG.parent.mkdir(parents=True, exist_ok=True)
+    resets_at, _, _ = _reset_info()
+    # Write the reset timestamp so the flag auto-expires after this reset
+    FLAG.write_text(resets_at or "")
+    print("Burn mode ON (expires at next budget reset)")
+    status()
+
+
+def off():
+    FLAG.unlink(missing_ok=True)
+    print("Burn mode OFF")
+    status()
+
+
+def toggle():
+    if FLAG.exists():
+        off()
+    else:
+        on()
+
+
+def main():
+    args = sys.argv[1:]
+    cmd = args[0] if args else ""
+
+    if cmd == "on":
+        on()
+    elif cmd == "off":
+        off()
+    elif cmd == "status":
+        status()
+    else:
+        toggle()
+
+
+if __name__ == "__main__":
+    main()

@@ -57,18 +57,20 @@ sys.path.insert(0, str(HOOKS_DIR))
 
 # Lazy hebbian_nudge
 _hebbian = None
+_hebbian_loaded = False
 
 
 def get_hebbian():
-    global _hebbian
-    if _hebbian is None:
+    global _hebbian, _hebbian_loaded
+    if not _hebbian_loaded:
+        _hebbian_loaded = True
         try:
             import hebbian_nudge
 
             _hebbian = hebbian_nudge
         except ImportError:
-            _hebbian = False
-    return _hebbian if _hebbian else None
+            pass
+    return _hebbian
 
 
 # ── anamnesis: session-start context loading ───────────────
@@ -125,13 +127,13 @@ def _anam_score(prompt_lower):
 
 def _anam_load(key):
     if key == "anatomy":
-        from metabolon.resources.anatomy import generate_anatomy
+        from metabolon.resources.anatomy import express_anatomy
 
-        return "Anatomy (auto-generated)", generate_anatomy()
+        return "Anatomy (auto-generated)", express_anatomy()
     elif key == "effectors":
-        from metabolon.resources.proteome import generate_effector_index
+        from metabolon.resources.proteome import express_effector_index
 
-        return "Effectors (tool routing)", generate_effector_index()
+        return "Effectors (tool routing)", express_effector_index()
     elif key == "circadian":
         from metabolon.organelles.circadian_clock import scheduled_events
 
@@ -141,9 +143,9 @@ def _anam_load(key):
             events = ""
         return "Circadian (today's schedule)", events
     elif key == "vitals":
-        from metabolon.resources.vitals import generate_vitals
+        from metabolon.resources.vitals import express_vitals
 
-        return "Vitals", generate_vitals()
+        return "Vitals", express_vitals()
     elif key == "budget":
         r = subprocess.run(["respirometry"], capture_output=True, text=True, timeout=10)
         return "Budget", r.stdout.strip() if r.returncode == 0 else ""
@@ -220,15 +222,64 @@ ALLO_CIRCADIAN = {
     "day": "",
 }
 
+# ── burn mode: use-it-or-lose-it budget override ─────────
+BURN_FLAG = HOME / ".claude" / "burn-mode"
+BURN_HOURS = _sconf_float("burn", "hours_threshold", 6.0)
+BURN_UTIL = _sconf_float("burn", "util_threshold", 70.0)
 
-def _allo_budget():
+
+def _allo_respirometry():
+    """Fetch respirometry JSON once, return (budget_tier, util, hours_left).
+
+    Single subprocess call replaces the previous two (--json + --budget).
+    """
     try:
         r = subprocess.run(
-            ["respirometry", "--budget"], capture_output=True, text=True, timeout=2
+            ["respirometry", "--json"], capture_output=True, text=True, timeout=5
         )
-        return r.stdout.strip() or "unknown"
+        d = json.loads(r.stdout)
+        w = d.get("seven_day", {})
+        util = w.get("utilization", 0)
+        resets_at = w.get("resets_at", "")
+        if resets_at:
+            reset_time = datetime.fromisoformat(resets_at)
+            hours_left = max(0, (reset_time - datetime.now(timezone.utc)).total_seconds() / 3600)
+        else:
+            hours_left = -1
+        # Derive budget tier from utilization (matches respirometry --budget logic)
+        if util >= 90:
+            budget = "red"
+        elif util >= 70:
+            budget = "yellow"
+        else:
+            budget = "green"
+        return budget, util, hours_left
     except Exception:
-        return "unknown"
+        return "unknown", 0, -1
+
+
+def _burn_mode(util, hours_left):
+    """Check if burn mode is active. Returns (reason, hours_left, util) or None."""
+    # Manual: flag file with expiry timestamp
+    if BURN_FLAG.exists():
+        try:
+            content = BURN_FLAG.read_text().strip()
+            if content:
+                expires = datetime.fromisoformat(content)
+                if datetime.now(timezone.utc) > expires:
+                    BURN_FLAG.unlink(missing_ok=True)
+                else:
+                    return "manual", hours_left, util
+            else:
+                return "manual", hours_left, util
+        except (ValueError, OSError):
+            return "manual", hours_left, util
+
+    # Auto: high utilization + imminent reset
+    if util >= BURN_UTIL and 0 < hours_left < BURN_HOURS:
+        return "auto", hours_left, util
+
+    return None
 
 
 def _allo_phase():
@@ -267,8 +318,47 @@ def mod_allostasis(data):
     prev_session = state.get("session_id", "")
     depth = 1 if session_id != prev_session else state.get("depth", 0) + 1
 
-    budget = _allo_budget()
+    # Single respirometry call for both burn-mode and normal budget logic
+    budget, util, hours_left = _allo_respirometry()
     phase = _allo_phase()
+
+    # Check burn mode before normal budget logic
+    burn = _burn_mode(util, hours_left)
+    if burn:
+        reason, hours_left, util = burn
+        tier = "anabolic"
+
+        ALLO_STATE.parent.mkdir(parents=True, exist_ok=True)
+        ALLO_STATE.write_text(
+            json.dumps(
+                {
+                    "tier": tier,
+                    "budget": budget,
+                    "phase": phase,
+                    "depth": depth,
+                    "session_id": session_id,
+                    "burn_mode": reason,
+                }
+            )
+        )
+
+        if hours_left >= 0:
+            h = int(hours_left)
+            m = int((hours_left - h) * 60)
+            msg = f"BURN MODE ({reason}) -- {h}h{m:02d}m until reset, {util:.0f}% used. Opus direct, skip delegation."
+        else:
+            msg = f"BURN MODE ({reason}) -- Opus direct, skip delegation."
+
+        heb = get_hebbian()
+        if heb:
+            with contextlib.suppress(Exception):
+                heb.log_nudge(
+                    "allostasis",
+                    "burn-mode",
+                    metadata={"reason": reason, "hours_left": hours_left, "util": util},
+                )
+        return [msg]
+
     tier = _allo_effective(budget, phase, depth)
 
     ALLO_STATE.parent.mkdir(parents=True, exist_ok=True)
@@ -551,7 +641,7 @@ CIRC_WEEKLY = CHROMATIN_DIR / "Weekly"
 CIRC_MARKER = HOME / ".claude" / ".weekly-reminded"
 
 
-def mod_circaseptan(data):
+def mod_circaseptan(_):  # noqa: data unused — uniform dispatch signature
     now = datetime.now()
     if now.weekday() not in (5, 6):
         return []
@@ -570,7 +660,7 @@ CAL_STATE = HOME / ".local/share/respirometry/autolog-state.json"
 CAL_INTERVAL = _sconf_int("calorimetry", "cal_interval", 1800)
 
 
-def mod_calorimetry(data):
+def mod_calorimetry(_):  # noqa: data unused — uniform dispatch signature
     now = time.time()
     state = {}
     if CAL_STATE.exists():
@@ -954,6 +1044,7 @@ def main():
         mod_calorimetry,
         mod_phenotype,
         mod_association,
+        mod_context,
     ]
 
     output = []
@@ -962,8 +1053,8 @@ def main():
             lines = mod(data)
             if lines:
                 output.extend(lines)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[synapse] {mod.__name__} failed: {e}", file=sys.stderr)
 
     if output:
         print("\n".join(output))

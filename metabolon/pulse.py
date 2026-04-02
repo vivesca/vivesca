@@ -391,9 +391,10 @@ def sense_disk_pressure() -> bool:
     record_event("disk_pressure", free_gb=round(free_gb, 1), action="lysosome")
 
     try:
-        from metabolon.enzymes.interoception import lysosome_digest  # type: ignore
+        from metabolon.enzymes.interoception import LysosomeResult, interoception
 
-        result = lysosome_digest()
+        result = interoception(action="disk_clean")
+        assert isinstance(result, LysosomeResult)
         log(f"Lysosome: freed {result.freed_gb}GB ({result.before_gb}→{result.after_gb}GB)")
         record_event(
             "disk_lysosome_complete",
