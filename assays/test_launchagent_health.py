@@ -110,7 +110,7 @@ def test_non_xml_plist_valid_binary_passes(tmp_path):
         launch_dir,
         tmp_path / "nope",
         tmp_path / "test.log",
-        subprocess_mock=MagicMock(),
+        mock_subprocess=True,
     )
     ns["subprocess"].run.return_value = mock_result
     issues = ns["check"]()
@@ -321,7 +321,7 @@ def test_vivesca_plists_checked(tmp_path):
         launch_dir,
         source_dir,
         tmp_path / "test.log",
-        subprocess_mock=MagicMock(),
+        mock_subprocess=True,
     )
     ns["subprocess"].run.return_value = mock_result
     issues = ns["check"]()
@@ -339,19 +339,17 @@ def test_main_exits_0_on_clean(capsys, tmp_path):
     eff_dir.mkdir(parents=True)
     log = tmp_path / "logs" / "test.log"
 
-    sys_mock = MagicMock()
     ns = _load_ns(
         launch_dir,
         tmp_path / "nope",
         log,
         eff_dir=eff_dir,
-        sys_mock=sys_mock,
-        as_main=True,
+        mock_sys=True,
     )
+    # Make the mocked sys.exit raise SystemExit so pytest.raises catches it
+    ns["sys"].exit = MagicMock(side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code)))
+
     with pytest.raises(SystemExit) as exc_info:
-        # Re-run __main__ block by calling the exec'd code path
-        # Since as_main=True already set __name__ = "__main__", exec already ran it.
-        # But we overrode constants AFTER exec. Call check + main logic manually.
         issues = ns["check"]()
         if issues:
             output = "LaunchAgent health issues:\n" + "\n".join(f"  - {i}" for i in issues)
@@ -360,12 +358,12 @@ def test_main_exits_0_on_clean(capsys, tmp_path):
             with open(log, "a") as f:
                 from datetime import datetime
                 f.write(f"\n[{datetime.now().isoformat()}]\n{output}\n")
-            sys_mock.exit(1)
+            ns["sys"].exit(1)
         else:
             print("All clear.")
-            sys_mock.exit(0)
+            ns["sys"].exit(0)
 
-    assert sys_mock.exit.call_args[0][0] == 0
+    assert exc_info.value.code == 0
     assert "All clear" in capsys.readouterr().out
 
 
@@ -390,9 +388,12 @@ def test_main_exits_1_on_issues(capsys, tmp_path):
         tmp_path / "nope",
         log,
         eff_dir=eff_dir,
-        subprocess_mock=sub_mock,
-        sys_mock=sys_mock,
+        mock_subprocess=True,
+        mock_sys=True,
     )
+    # Wire up the mocked subprocess to return our failure result
+    ns["subprocess"].run.return_value = mock_result
+    sys_mock = ns["sys"]
     # Run main logic
     issues = ns["check"]()
     assert len(issues) > 0, f"Expected issues but got none"
