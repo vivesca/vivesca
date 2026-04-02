@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 """assay — life experiment tracker (N=1 self-experiments with Oura Ring).
 
 Tools:
   assay — track life experiments: list, check, close
 """
 
+from __future__ import annotations
 
 from pathlib import Path
 

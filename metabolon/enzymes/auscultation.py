@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 """auscultation — deterministic log reading for system diagnostics.
 
 Exposes the listening surfaces the auscultation skill taps:
   auscultation    — System log diagnostics. Actions: logs|errors
 """
 
+from __future__ import annotations
 
 import platform as _platform
 import re
