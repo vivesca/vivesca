@@ -17,6 +17,8 @@ Usage:
     golem-daemon stats --all        # Show lifetime stats (no time filter)
     golem-daemon stats --today      # Show stats for today only
     golem-daemon stats --since=2h   # Show stats for custom window (e.g. 30m, 2h, 1d)
+    golem-daemon review             # Review recent outputs — flag no-ops, surface real work
+    golem-daemon review --since=4h  # Custom time window (default: 2h)
     golem-daemon clean              # Remove completed/failed entries from queue
     golem-daemon retry-all          # Re-queue all [!] failed tasks as [ ]
     golem-daemon --export-stats     # Output per-provider stats as JSON (accepts same time filters)
@@ -2587,6 +2589,114 @@ def cmd_clear_cooldown(provider: str = "all") -> int:
     return 0
 
 
+def cmd_review(args: list[str]) -> int:
+    """Review recent golem outputs — flag no-ops, surface real work."""
+    # Parse time filter (default: last 2h)
+    window_hours = 2
+    for a in args:
+        if a.startswith("--since="):
+            val = a[8:]
+            if val.endswith("h"):
+                window_hours = int(val[:-1])
+            elif val.endswith("m"):
+                window_hours = int(val[:-1]) / 60
+
+    if not JSONLFILE.exists():
+        print("No JSONL log found")
+        return 1
+
+    cutoff = time.time() - (window_hours * 3600)
+    records = []
+    for line in JSONLFILE.read_text().splitlines():
+        try:
+            d = json.loads(line.strip())
+            ts_epoch = _parse_ts_epoch(d.get("ts", ""))
+            if ts_epoch and ts_epoch >= cutoff:
+                records.append(d)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    if not records:
+        print(f"No completions in last {window_hours}h")
+        return 0
+
+    # Classify each record
+    productive = []  # changed something
+    no_ops = []      # passed but did nothing
+    failed = []      # exit != 0
+
+    NO_OP_SIGNALS = [
+        "no fixes needed", "nothing to fix", "no changes needed",
+        "no errors", "no issues", "no broken", "0 errors",
+        "already clean", "clean —", "no type errors",
+        "no diagnostics", "nothing to commit", "pyright clean",
+    ]
+
+    for r in records:
+        exit_code = r.get("exit", 1)
+        tail = (r.get("tail") or "").lower()
+        files = r.get("files_created", 0) or 0
+        tests_p = r.get("tests_passed", 0) or 0
+
+        if exit_code != 0:
+            failed.append(r)
+        elif any(sig in tail for sig in NO_OP_SIGNALS) and files == 0:
+            no_ops.append(r)
+        else:
+            productive.append(r)
+
+    # Print summary
+    total = len(records)
+    print(f"=== Golem Review (last {window_hours}h) ===")
+    print(f"Total: {total}  Productive: {len(productive)}  No-op: {len(no_ops)}  Failed: {len(failed)}")
+    waste_pct = (len(no_ops) / total * 100) if total else 0
+    print(f"Waste: {waste_pct:.0f}%")
+    print()
+
+    if productive:
+        print(f"--- Productive ({len(productive)}) ---")
+        for r in productive:
+            tid = r.get("task_id", "?")
+            prov = r.get("provider", "?")
+            dur = r.get("duration", 0)
+            tail = (r.get("tail") or "")[:120].replace("\n", " ")
+            files = r.get("files_created", 0) or 0
+            tests = r.get("tests_passed", 0) or 0
+            print(f"  {tid} {prov:8} {dur:>4}s  files={files} tests={tests} | {tail}")
+        print()
+
+    if no_ops:
+        print(f"--- No-op ({len(no_ops)}) ---")
+        # Group by prompt type
+        noop_types: dict[str, int] = {}
+        for r in no_ops:
+            cmd = r.get("cmd") or r.get("prompt") or ""
+            if "pyright" in cmd.lower():
+                key = "pyright"
+            elif "health check" in cmd.lower():
+                key = "health-check"
+            elif "ruff" in cmd.lower():
+                key = "ruff"
+            else:
+                key = "other"
+            noop_types[key] = noop_types.get(key, 0) + 1
+        for k, v in sorted(noop_types.items(), key=lambda x: -x[1]):
+            print(f"  {k}: {v}")
+        print()
+
+    if failed:
+        print(f"--- Failed ({len(failed)}) ---")
+        for r in failed[:5]:
+            tid = r.get("task_id", "?")
+            prov = r.get("provider", "?")
+            tail = (r.get("tail") or "")[:100].replace("\n", " ")
+            print(f"  {tid} {prov:8} | {tail}")
+        if len(failed) > 5:
+            print(f"  ... and {len(failed) - 5} more")
+
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -2622,9 +2732,11 @@ def main():
     elif cmd == "clear-cooldown":
         provider = sys.argv[2] if len(sys.argv) > 2 else "all"
         return cmd_clear_cooldown(provider)
+    elif cmd == "review":
+        return cmd_review(sys.argv[2:])
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, stats, clean, retry-all, clear-cooldown [provider], --dry-run")
+        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], --dry-run")
         return 1
 
 if __name__ == "__main__":
