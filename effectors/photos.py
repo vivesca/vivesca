@@ -300,7 +300,6 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
         if derivative:
             shutil.copy2(derivative, out_path)
             size_kb = out_path.stat().st_size / 1024
-            derivative.name.split("_")[-1]  # e.g. "102_o.jpeg" or "105_c.jpeg"
             print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [derivative, reduced resolution]")
             continue
 

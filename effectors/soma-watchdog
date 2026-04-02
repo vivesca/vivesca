@@ -203,8 +203,13 @@ def alert_on_crit(health_json: dict):
             except OSError:
                 pass
 
+        deltos = shutil.which("deltos")
+        if not deltos:
+            log("alert_on_crit: deltos not found on PATH")
+            return
+
         message = f"[soma-watchdog] CRIT: {', '.join(crit_names)}"
-        subprocess.run(["deltos", message], timeout=30)
+        subprocess.run([deltos, message], timeout=30)
 
         # Write stamp after sending
         ALERT_STAMP.parent.mkdir(parents=True, exist_ok=True)

@@ -1200,7 +1200,6 @@ def build_dashboard(
     drain_velocity = compute_drain_velocity(all_records, pending_by_provider)
     utilization = compute_provider_utilization(stats, PROVIDER_LIMITS)
     drain_rate = compute_drain_rate(all_records, window_minutes=10)
-    compute_throughput_acceleration(all_records)
     acceleration = compute_throughput_acceleration(all_records, window_minutes=60)
     time_since_last = compute_time_since_last_event(all_records, exit_code=0)
     eta_bounds = compute_drain_eta_bounds(stats, pending_by_provider, all_records)
