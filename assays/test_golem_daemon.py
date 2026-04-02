@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for golem-daemon — provider-aware task queue processor."""
 
 import json
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -1916,7 +1917,7 @@ def test_cmd_stats_no_history(tmp_path, capsys):
     try:
         _mod["JSONLFILE"] = jsonl_path
         _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
-        rc = cmd_stats()
+        rc = cmd_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
         _mod["QUEUE_FILE"] = original_queue
@@ -1953,7 +1954,7 @@ def test_cmd_stats_with_records(tmp_path, capsys):
     try:
         _mod["JSONLFILE"] = jsonl_path
         _mod["QUEUE_FILE"] = queue_path
-        rc = cmd_stats()
+        rc = cmd_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
         _mod["QUEUE_FILE"] = original_queue
@@ -2009,7 +2010,7 @@ def test_cmd_stats_with_rotated_file(tmp_path, capsys):
     try:
         _mod["JSONLFILE"] = jsonl_path
         _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
-        rc = cmd_stats()
+        rc = cmd_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
         _mod["QUEUE_FILE"] = original_queue
@@ -2038,7 +2039,7 @@ def test_cmd_stats_skips_bad_lines(tmp_path, capsys):
     try:
         _mod["JSONLFILE"] = jsonl_path
         _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
-        rc = cmd_stats()
+        rc = cmd_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
         _mod["QUEUE_FILE"] = original_queue
@@ -2062,7 +2063,7 @@ def test_cmd_stats_handles_unreadable_jsonl(tmp_path, capsys):
     try:
         _mod["JSONLFILE"] = jsonl_path
         _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
-        rc = cmd_stats()
+        rc = cmd_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
         _mod["QUEUE_FILE"] = original_queue
@@ -2087,7 +2088,7 @@ def test_export_stats_no_history(tmp_path, capsys):
     original_jsonl = _mod["JSONLFILE"]
     try:
         _mod["JSONLFILE"] = jsonl_path
-        rc = cmd_export_stats()
+        rc = cmd_export_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
 
@@ -2112,7 +2113,7 @@ def test_export_stats_with_records(tmp_path, capsys):
     original_jsonl = _mod["JSONLFILE"]
     try:
         _mod["JSONLFILE"] = jsonl_path
-        rc = cmd_export_stats()
+        rc = cmd_export_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
 
@@ -2161,7 +2162,7 @@ def test_export_stats_output_is_valid_json(tmp_path, capsys):
     original_jsonl = _mod["JSONLFILE"]
     try:
         _mod["JSONLFILE"] = jsonl_path
-        rc = cmd_export_stats()
+        rc = cmd_export_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
 
@@ -2171,7 +2172,7 @@ def test_export_stats_output_is_valid_json(tmp_path, capsys):
     assert isinstance(data, list)
     assert len(data) == 1  # only zhipu
     entry = data[0]
-    required_keys = {"provider", "total", "passed", "failed", "rate_limited", "real_fail", "capability_pct"}
+    required_keys = {"provider", "total", "passed", "failed", "rate_limited", "real_fail", "capability_pct", "build_count", "maint_count"}
     assert set(entry.keys()) == required_keys
 
 
@@ -2192,7 +2193,7 @@ def test_export_stats_reads_rotated_file(tmp_path, capsys):
     original_jsonl = _mod["JSONLFILE"]
     try:
         _mod["JSONLFILE"] = jsonl_path
-        rc = cmd_export_stats()
+        rc = cmd_export_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
 
@@ -2219,7 +2220,7 @@ def test_export_stats_skips_bad_lines(tmp_path, capsys):
     original_jsonl = _mod["JSONLFILE"]
     try:
         _mod["JSONLFILE"] = jsonl_path
-        rc = cmd_export_stats()
+        rc = cmd_export_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
 
@@ -2248,7 +2249,7 @@ def test_export_stats_capability_pct_calculation(tmp_path, capsys):
     original_jsonl = _mod["JSONLFILE"]
     try:
         _mod["JSONLFILE"] = jsonl_path
-        rc = cmd_export_stats()
+        rc = cmd_export_stats(["--all"])
     finally:
         _mod["JSONLFILE"] = original_jsonl
 

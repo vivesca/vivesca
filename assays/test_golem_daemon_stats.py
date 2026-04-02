@@ -50,11 +50,22 @@ def _make_record(
     }
 
 
-def _run_stats(mod: dict) -> tuple[str, int]:
+def _run_stats(mod: dict, args: list[str] | None = None) -> tuple[str, int]:
     """Run cmd_stats with captured stdout. Returns (output, returncode)."""
+    if args is None:
+        args = ["--all"]
     buf = StringIO()
-    with patch("sys.stdout", buf):
-        rc = mod["cmd_stats"]()
+    # Override RUNNING_FILE and PIDFILE to avoid reading real system state
+    orig_running = mod["RUNNING_FILE"]
+    orig_pid = mod["PIDFILE"]
+    mod["RUNNING_FILE"] = mod["Path"]("/tmp/nonexistent_running_stats.json")
+    mod["PIDFILE"] = mod["Path"]("/tmp/nonexistent_stats.pid")
+    try:
+        with patch("sys.stdout", buf):
+            rc = mod["cmd_stats"](args)
+    finally:
+        mod["RUNNING_FILE"] = orig_running
+        mod["PIDFILE"] = orig_pid
     return buf.getvalue(), rc
 
 
@@ -483,7 +494,7 @@ class TestMainDispatch:
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         buf = StringIO()
-        with patch("sys.argv", ["golem-daemon", "stats"]), patch("sys.stdout", buf):
+        with patch("sys.argv", ["golem-daemon", "stats", "--all"]), patch("sys.stdout", buf):
             rc = mod["main"]()
         assert rc == 0
         assert "Total tasks: 1" in buf.getvalue()

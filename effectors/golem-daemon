@@ -1750,7 +1750,7 @@ def daemon_loop(dry_run: bool = False):
                     log(f"Idle: {len(pending)} pending")
 
                 # Backoff: all providers cooled, nothing dispatched, nothing running
-                if pending and dispatched_this_cycle == 00 and not running:
+                if pending and dispatched_this_cycle == 0 and not running:
                     log("Backoff: all providers cooled, sleeping 300s")
                     _interruptible_sleep(300)
                     continue
@@ -2343,9 +2343,9 @@ def main():
     elif cmd == "status":
         return cmd_status()
     elif cmd == "stats":
-        return cmd_stats()
+        return cmd_stats(sys.argv[2:])
     elif cmd == "--export-stats":
-        return cmd_export_stats()
+        return cmd_export_stats(sys.argv[2:])
     elif cmd == "clean":
         return cmd_clean()
     elif cmd == "retry-all":
