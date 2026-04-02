@@ -11,7 +11,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     exit 0
 fi
 
-set -e
+set -euo pipefail
 
 export PATH="$HOME/.cargo/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/Library/pnpm:$PATH"
 
