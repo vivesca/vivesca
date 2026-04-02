@@ -7,7 +7,6 @@ in assays/. Reports tested percentage and lists untested modules.
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 from pathlib import Path
 from collections import defaultdict
@@ -172,7 +171,7 @@ import pytest
 
 def test_placeholder():
     """Placeholder test for {mod}."""
-    # TODO: Add real tests
+    # Implement real tests for this module
     assert True
 '''
                 test_path.write_text(stub)
