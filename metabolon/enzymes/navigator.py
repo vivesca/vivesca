@@ -8,6 +8,7 @@ Actions: extract|screenshot|check_auth
 
 import atexit
 import os
+import sys
 import subprocess
 import time
 from pathlib import Path
@@ -93,8 +94,9 @@ def navigator(
         if not url:
             return NavigatorResult(success=False, data={}, error="screenshot requires: url")
         
-        # caffeinate to wake display if sleeping
-        subprocess.run(["caffeinate", "-u", "-t", "2"], capture_output=True, timeout=300)
+        # caffeinate to wake display if sleeping (macOS only)
+        if sys.platform == "darwin":
+            subprocess.run(["caffeinate", "-u", "-t", "2"], capture_output=True, timeout=300)
 
         ok, out = _run_ab(["open", url])
         if not ok:
