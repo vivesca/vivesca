@@ -208,18 +208,37 @@ def test_concurrency_respects_provider_limits():
 check_new_test_files_and_run_pytest = _mod["check_new_test_files_and_run_pytest"]
 
 
-def test_check_new_test_files_filters_correctly():
-    """Check that new test files filtering works."""
-    # Test filtering logic with sample file list
-    # This test just verifies the function is loaded and callable
-    # The actual git call is mocked when needed
-    assert callable(check_new_test_files_and_run_pytest)
+def test_check_new_test_files_no_new_tests(tmp_path, monkeypatch):
+    """check_new_test_files_and_run_pytest returns pass when no new test files."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
+        passed, summary = check_new_test_files_and_run_pytest()
+    assert passed is True
+    assert "git diff failed" in summary
 
 
-def test_mark_failed_exists():
-    """Verify that mark_failed function exists."""
-    assert "mark_failed" in _mod
-    assert callable(_mod["mark_failed"])
+def test_check_new_test_files_with_new_files(tmp_path, monkeypatch):
+    """check_new_test_files_and_run_pytest detects and runs new test files."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=A" in cmd:
+            result.returncode = 0
+            result.stdout = "assays/test_example.py\nassays/other.txt\n"
+        elif "pytest" in cmd:
+            result.returncode = 0
+            result.stdout = "3 passed in 1.0s\n"
+        else:
+            result.returncode = 0
+            result.stdout = ""
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        passed, summary = check_new_test_files_and_run_pytest()
+    assert passed is True
+    assert "pytest passed" in summary
 
 
 # ── mark_failed retry tests ─────────────────────────────────────────────
@@ -343,11 +362,6 @@ def test_mark_failed_handles_multiple_tasks(tmp_path):
 validate_golem_output = _mod["validate_golem_output"]
 
 
-def test_validate_golem_output_exists():
-    """Verify that validate_golem_output function exists."""
-    assert "validate_golem_output" in _mod
-    assert callable(_mod["validate_golem_output"])
-
 
 def test_validate_syntax_error_detection(tmp_path, monkeypatch):
     """validate_golem_output detects SyntaxError in .py files."""
@@ -403,10 +417,7 @@ def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        try:
-            passed, errors = validate_golem_output()
-        finally:
-            monkeypatch.setattr(_mod["Path"], "home", original_home if 'original_home' in dir() else _mod["Path"].home)
+        passed, errors = validate_golem_output()
 
     assert not passed
     assert any("TODO" in e or "FIXME" in e for e in errors)
