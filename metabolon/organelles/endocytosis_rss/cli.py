@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta
 from importlib import metadata
 from pathlib import Path
 
-import typer
 from typer import Exit, Option, Typer, echo
 
 from metabolon.organelles.endocytosis_rss.config import (
