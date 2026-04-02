@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # gap_junction_sync — one-shot WhatsApp sync (replaces Rust keryx sync catchup)
 # Called by com.terry.wacli-catchup LaunchAgent every 2 hours.
 # Sets PYTHONPATH so metabolon is importable without venv activation.
