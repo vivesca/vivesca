@@ -147,9 +147,9 @@ class TestCandidates:
         daily_actions = [c for c in result if c["action"] == "daily_scan"]
         assert len(daily_actions) == 0
 
-    @patch("metabolon.metabolism.substrates.mismatch_repair.date")
-    def test_weekly_synthesis_on_sunday(self, mock_date):
-        mock_date.today.return_value.weekday.return_value = 6  # Sunday
+    @patch("datetime.date")
+    def test_weekly_synthesis_on_sunday(self, mock_date_cls):
+        mock_date_cls.today.return_value.weekday.return_value = 6  # Sunday
         sensed = [{"kind": "sessions", "count": 2}]
         result = self.sub.candidates(sensed)
         weekly = [c for c in result if c["action"] == "weekly_synthesis"]
