@@ -1635,7 +1635,7 @@ def daemon_loop(dry_run: bool = False):
                     )
                     if not any_dispatchable:
                         log("Backoff: all providers cooled, sleeping 300s")
-                        _shutdown_event.wait(timeout=300)
+                        _interruptible_sleep(300)
                         continue
 
                 # Per-provider preflight health check: ping each provider once per
@@ -1650,6 +1650,7 @@ def daemon_loop(dry_run: bool = False):
                 for w in REMOTE_WORKERS:
                     _ssh_health_cache[w['host']] = _ssh_health_check(w)
 
+                dispatched_this_cycle = 0
                 for line_num, cmd, task_id in pending:
                     dispatch = _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running)
                     if dispatch is None:
@@ -1701,6 +1702,7 @@ def daemon_loop(dry_run: bool = False):
                             future = executor.submit(run_golem, cmd)
                             running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, 'soma')
                             provider_running[dispatch_provider] = current + 1
+                            dispatched_this_cycle += 1
                             if dispatch_provider == provider:
                                 log(f"Queued [soma] [{provider}] [{task_id}]: {cmd[:60]}...")
                             else:
@@ -1724,6 +1726,7 @@ def daemon_loop(dry_run: bool = False):
                                 future = executor.submit(remote_exec, cmd, w)
                                 running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, wkey)
                                 provider_running[dispatch_provider] = current + 1
+                                dispatched_this_cycle += 1
                                 log(f"Queued [{wkey}] [{provider}] [{task_id}]: {cmd[:60]}...")
                                 dispatched_remote = True
                                 break
@@ -1745,6 +1748,12 @@ def daemon_loop(dry_run: bool = False):
                     log(f"Running: {len(running)} tasks ({running_by_provider}) local={local_count}/{MAX_LOCAL} remote=[{remote_counts}], {len(pending)} pending")
                 else:
                     log(f"Idle: {len(pending)} pending")
+
+                # Backoff: all providers cooled, nothing dispatched, nothing running
+                if pending and dispatched_this_cycle == 00 and not running:
+                    log("Backoff: all providers cooled, sleeping 300s")
+                    _interruptible_sleep(300)
+                    continue
 
                 # In dry-run mode, exit after one poll cycle
                 if dry_run:
@@ -1971,8 +1980,108 @@ def _classify_task(record: dict) -> str:
     return 'build'
 
 
-def cmd_stats() -> int:
+def _parse_ts_epoch(ts_str: str) -> float | None:
+    """Parse ts string to epoch seconds. Supports 'YYYY-MM-DD HH:MM:SS' and ISO 'YYYY-MM-DDTHH:MM:SSZ'."""
+    if not ts_str:
+        return None
+    for fmt, is_utc in (("%Y-%m-%dT%H:%M:%SZ", True), ("%Y-%m-%d %H:%M:%S", False)):
+        try:
+            dt = datetime.strptime(ts_str, fmt)
+            if is_utc:
+                return dt.replace(tzinfo=timezone.utc).timestamp()
+            return dt.timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_since_duration(s: str) -> int | None:
+    """Parse --since duration string (e.g. '2h', '30m', '1d') to seconds."""
+    m = re.match(r'^(\d+)([smhd])$', s)
+    if not m:
+        return None
+    val = int(m.group(1))
+    unit = m.group(2)
+    multipliers = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
+    return val * multipliers[unit]
+
+
+def _resolve_stats_filter(args: list[str]) -> tuple[float | None, str]:
+    """Resolve time filter from stats command arguments.
+
+    Returns (cutoff_epoch | None, window_description).
+    None cutoff means no filter (--all behavior).
+    """
+    for arg in args:
+        if arg == "--all":
+            return None, "all time"
+        if arg == "--today":
+            midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            return midnight.timestamp(), "today"
+        if arg.startswith("--since="):
+            dur_str = arg.split("=", 1)[1]
+            secs = _parse_since_duration(dur_str)
+            if secs is not None:
+                cutoff = time.time() - secs
+                return cutoff, f"last {dur_str}"
+    # Default: last 8 hours
+    return time.time() - 8 * 3600, "last 8h"
+
+
+def _count_pending_tasks() -> int:
+    """Count pending tasks ([ ] and [!!]) from queue file."""
+    if not QUEUE_FILE.exists():
+        return 0
+    try:
+        count = 0
+        for line in QUEUE_FILE.read_text().splitlines():
+            if re.match(r'^- \[( |!!)\] ', line):
+                count += 1
+        return count
+    except (PermissionError, OSError, UnicodeDecodeError):
+        return 0
+
+
+def _get_running_tasks() -> list[dict]:
+    """Read running tasks from RUNNING_FILE."""
+    if not RUNNING_FILE.exists():
+        return []
+    try:
+        return json.loads(RUNNING_FILE.read_text())
+    except (json.JSONDecodeError, OSError):
+        return []
+
+def cmd_stats(args: list[str] | None = None) -> int:
     """Show pass/fail/retry counts, avg duration by provider, tasks completed today."""
+    if args is None:
+        args = sys.argv[2:]
+
+    cutoff, window_desc = _resolve_stats_filter(args)
+
+    # Daemon status header
+    pid = read_pid()
+    running_tasks = _get_running_tasks()
+    pending_count = _count_pending_tasks()
+    daemon_status = "running" if pid else "stopped"
+    print(f"Daemon: {daemon_status} — {pending_count} tasks pending, {len(running_tasks)} running")
+
+    # Currently running section
+    if running_tasks:
+        print("\nCurrently running:")
+        now = time.time()
+        for t in running_tasks:
+            tid = t.get("task_id", "?")
+            prov = t.get("provider", "?")
+            cmd_short = t.get("cmd", "")[:50]
+            started_at = t.get("started_at", 0)
+            if started_at > 0:
+                elapsed = int(now - started_at)
+                em, es = divmod(elapsed, 60)
+                print(f"  [{tid}] {prov} — {em}m{es:02d}s elapsed — {cmd_short}")
+            else:
+                print(f"  [{tid}] {prov} — {cmd_short}")
+
+    # Load records
     records: list[dict] = []
     for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
         if path.exists():
@@ -1989,7 +2098,20 @@ def cmd_stats() -> int:
                 pass
 
     if not records:
-        print("No task history found")
+        print("\nNo task history found")
+        return 0
+
+    # Filter by time window
+    if cutoff is not None:
+        filtered = []
+        for r in records:
+            ts_epoch = _parse_ts_epoch(r.get("ts", ""))
+            if ts_epoch is not None and ts_epoch >= cutoff:
+                filtered.append(r)
+        records = filtered
+
+    if not records:
+        print(f"\nNo tasks in window ({window_desc})")
         return 0
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -2001,11 +2123,19 @@ def cmd_stats() -> int:
 
     # Retries exhausted (permanently failed in queue)
     retries = 0
+    perma_failed_ids: list[str] = []
     if QUEUE_FILE.exists():
         try:
             for line in QUEUE_FILE.read_text().splitlines():
-                if re.match(r'^- \[!\]', line):
+                m = re.match(r'^- \[!\] `([^`]+)`', line)
+                if m:
                     retries += 1
+                    cmd = m.group(1)
+                    tid_match = TASK_ID_RE.search(cmd)
+                    if tid_match:
+                        perma_failed_ids.append(f"t-{tid_match.group(1)}")
+                    else:
+                        perma_failed_ids.append(f"#{retries}")
         except (PermissionError, OSError, UnicodeDecodeError):
             pass
 
@@ -2048,8 +2178,12 @@ def cmd_stats() -> int:
     maint_passed = sum(1 for r in maint_records if r.get('exit') == 0)
 
     # Print stats
+    print(f"\nWindow: {window_desc}")
     print(f"Total tasks: {total} (passed: {passed}, failed: {failed})")
     print(f"Permanently failed (retries exhausted): {retries}")
+    if perma_failed_ids:
+        for tid in perma_failed_ids:
+            print(f"  [{tid}]")
     print(f"Build tasks: {len(build_records)} (passed: {build_passed}, failed: {len(build_records) - build_passed})")
     print(f"Maintenance tasks: {len(maint_records)} (passed: {maint_passed}, failed: {len(maint_records) - maint_passed})")
     print(f"Tasks today ({today}): {today_total} (passed: {today_passed}, failed: {today_total - today_passed})")
@@ -2076,12 +2210,16 @@ def cmd_stats() -> int:
     return 0
 
 
-def cmd_export_stats() -> int:
+def cmd_export_stats(args: list[str] | None = None) -> int:
     """Output per-provider stats as JSON to stdout.
 
     Each entry contains: provider, total, passed, failed, rate_limited,
-    real_fail, capability_pct.
+    real_fail, capability_pct. Accepts same time filters as stats.
     """
+    if args is None:
+        args = sys.argv[2:]
+    cutoff, _ = _resolve_stats_filter(args)
+
     records: list[dict] = []
     for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
         if path.exists():
@@ -2096,6 +2234,19 @@ def cmd_export_stats() -> int:
                         pass
             except (PermissionError, OSError, UnicodeDecodeError):
                 pass
+
+    if not records:
+        print(json.dumps([]))
+        return 0
+
+    # Filter by time window
+    if cutoff is not None:
+        filtered = []
+        for r in records:
+            ts_epoch = _parse_ts_epoch(r.get("ts", ""))
+            if ts_epoch is not None and ts_epoch >= cutoff:
+                filtered.append(r)
+        records = filtered
 
     if not records:
         print(json.dumps([]))
