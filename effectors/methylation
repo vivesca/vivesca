@@ -13,7 +13,7 @@ synthesis call that proposes either:
   b. A new _REPAIR_PATTERNS entry
   c. A systemic architectural observation
 
-Writes proposal to ~/tmp/methylation-proposal-YYYY-MM-DD.md.
+Writes proposal to ~/epigenome/chromatin/immunity/methylation/methylation-proposal-YYYY-MM-DD.md.
 Logs to ~/logs/methylation.log.
 Always exits 0.
 """
@@ -38,7 +38,7 @@ INFLAMMASOME_LOG = Path.home() / "logs" / "inflammasome.log"
 INFLAMMASOME_PY = Path.home() / "germline" / "metabolon" / "organelles" / "inflammasome.py"
 CHANNEL = Path.home() / "germline" / "effectors" / "channel"
 LOG_FILE = Path.home() / "logs" / "methylation.log"
-TMP_DIR = Path.home() / "tmp"
+PROPOSAL_DIR = Path.home() / "epigenome" / "chromatin" / "immunity" / "methylation"
 
 MAX_ENTRIES = 100
 MIN_PATTERN_COUNT = 2
@@ -397,9 +397,9 @@ def dispatch_sonnet(prompt: str, task_type: str = "methylation") -> str | None:
 # ---------------------------------------------------------------------------
 
 def write_proposal(response: str, patterns: dict, date_str: str) -> Path:
-    """Write methylation proposal to ~/tmp/methylation-proposal-YYYY-MM-DD.md."""
-    TMP_DIR.mkdir(parents=True, exist_ok=True)
-    proposal_path = TMP_DIR / f"methylation-proposal-{date_str}.md"
+    """Write methylation proposal to chromatin/immunity/methylation/."""
+    PROPOSAL_DIR.mkdir(parents=True, exist_ok=True)
+    proposal_path = PROPOSAL_DIR / f"methylation-proposal-{date_str}.md"
 
     crystallizable = []
     for k, v in patterns["repair_candidates"].items():
@@ -532,13 +532,13 @@ def hybridization_pass(
 
 
 def write_hybridization_proposal(response: str, gap_description: str, date_str: str) -> Path:
-    """Write hybridization proposal to ~/tmp/hybridization-proposals-YYYY-MM-DD.md.
+    """Write hybridization proposal to chromatin/immunity/methylation/.
 
     Appends if the file already exists (multiple gaps possible across runs,
     though max 1 dispatch per methylation cycle).
     """
-    TMP_DIR.mkdir(parents=True, exist_ok=True)
-    proposal_path = TMP_DIR / f"hybridization-proposals-{date_str}.md"
+    PROPOSAL_DIR.mkdir(parents=True, exist_ok=True)
+    proposal_path = PROPOSAL_DIR / f"hybridization-proposals-{date_str}.md"
 
     header = f"# Hybridization Proposals — {date_str}\n\n" if not proposal_path.exists() else ""
     entry = f"""{header}## Gap observed

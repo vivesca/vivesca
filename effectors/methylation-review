@@ -24,6 +24,7 @@ GERMLINE = HOME / "germline"
 METHYLATION_JSONL = GERMLINE / "methylation.jsonl"
 METHYLATION_EFFECTOR = GERMLINE / "effectors" / "methylation"
 TMP_DIR = HOME / "tmp"
+PROPOSAL_DIR = HOME / "epigenome" / "chromatin" / "immunity" / "methylation"
 CHANNEL = GERMLINE / "effectors" / "channel"
 
 # ---------------------------------------------------------------------------
@@ -51,8 +52,8 @@ def gather_effector_proposals() -> str:
         log(f"WARN: methylation effector failed: {err}")
     
     date_str = datetime.now().strftime("%Y-%m-%d")
-    prop_path = TMP_DIR / f"methylation-proposal-{date_str}.md"
-    hyb_path = TMP_DIR / f"hybridization-proposals-{date_str}.md"
+    prop_path = PROPOSAL_DIR / f"methylation-proposal-{date_str}.md"
+    hyb_path = PROPOSAL_DIR / f"hybridization-proposals-{date_str}.md"
     
     content = []
     if prop_path.exists():
@@ -138,7 +139,8 @@ def main():
     parser.parse_args()
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-    review_path = TMP_DIR / f"methylation-review-{date_str}.md"
+    PROPOSAL_DIR.mkdir(parents=True, exist_ok=True)
+    review_path = PROPOSAL_DIR / f"methylation-review-{date_str}.md"
 
     proposals = gather_effector_proposals()
     observations = gather_jsonl_observations()

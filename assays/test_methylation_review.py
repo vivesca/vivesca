@@ -29,13 +29,13 @@ def mr(tmp_path):
     # Redirect paths to tmp_path so no real filesystem access happens
     germline_dir = tmp_path / "germline"
     germline_dir.mkdir()
-    tmp_dir = tmp_path / "tmp"
-    tmp_dir.mkdir()
+    proposal_dir = tmp_path / "epigenome" / "chromatin" / "immunity" / "methylation"
+    proposal_dir.mkdir(parents=True)
 
     ns["GERMLINE"] = germline_dir
     ns["METHYLATION_JSONL"] = germline_dir / "methylation.jsonl"
     ns["METHYLATION_EFFECTOR"] = germline_dir / "effectors" / "methylation"
-    ns["TMP_DIR"] = tmp_dir
+    ns["PROPOSAL_DIR"] = proposal_dir
     ns["CHANNEL"] = germline_dir / "effectors" / "channel"
 
     return ns
@@ -159,13 +159,13 @@ class TestGatherEffectorProposals:
         assert result == ""
 
     def test_combines_proposal_and_hybridization_files(self, mr):
-        tmp_dir = mr["TMP_DIR"]
+        proposal_dir = mr["PROPOSAL_DIR"]
         today = datetime.now().strftime("%Y-%m-%d")
 
-        prop_path = tmp_dir / f"methylation-proposal-{today}.md"
+        prop_path = proposal_dir / f"methylation-proposal-{today}.md"
         prop_path.write_text("# Methylation Proposals\n\n- Fix labeling", encoding="utf-8")
 
-        hyb_path = tmp_dir / f"hybridization-proposals-{today}.md"
+        hyb_path = proposal_dir / f"hybridization-proposals-{today}.md"
         hyb_path.write_text("# Hybridization\n\n- Add new receptor", encoding="utf-8")
 
         mr["METHYLATION_EFFECTOR"].parent.mkdir(parents=True, exist_ok=True)
@@ -195,9 +195,9 @@ class TestGatherEffectorProposals:
         assert "WARN: methylation effector failed" in out
 
     def test_only_proposal_file_exists(self, mr):
-        tmp_dir = mr["TMP_DIR"]
+        proposal_dir = mr["PROPOSAL_DIR"]
         today = datetime.now().strftime("%Y-%m-%d")
-        prop_path = tmp_dir / f"methylation-proposal-{today}.md"
+        prop_path = proposal_dir / f"methylation-proposal-{today}.md"
         prop_path.write_text("- Item A\n- Item B", encoding="utf-8")
 
         mr["METHYLATION_EFFECTOR"].parent.mkdir(parents=True, exist_ok=True)
