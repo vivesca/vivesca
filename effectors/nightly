@@ -4,7 +4,7 @@
 Runs at 02:00 via com.terry.nightly LaunchAgent.
 Writes:
   ~/.claude/nightly-health.md   — system health dashboard
-  ~/.claude/skill-flywheel-daily.md — skill routing report (stub)
+  ~/.claude/skill-flywheel-daily.md — skill routing report
 """
 
 import platform
