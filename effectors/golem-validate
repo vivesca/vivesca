@@ -56,10 +56,11 @@ def validate_file(path: Path) -> tuple[str, list[str]]:
     # --- 4. Test collectability ---
     if path.name.startswith("test_") and path.suffix == ".py":
         result = subprocess.run(
-            ["pytest", "--co", "-q", str(path)],
+            ["uv", "run", "pytest", "--co", "-q", str(path)],
             capture_output=True,
             text=True,
             timeout=30,
+            cwd=str(Path.home() / "germline"),
         )
         if result.returncode != 0:
             # Collect only first few lines of error to keep output tidy
