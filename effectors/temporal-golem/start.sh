@@ -21,4 +21,4 @@ for i in $(seq 1 30); do
 done
 
 echo "==> Starting golem worker..."
-exec /home/terry/germline/.venv/bin/python3 "$SCRIPT_DIR/worker.py"
+exec "$HOME/germline/.venv/bin/python3" "$SCRIPT_DIR/worker.py"
