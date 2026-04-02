@@ -69,6 +69,7 @@ PROVIDER_RATE_WINDOWS: dict[str, int] = {
     "codex": 3600,    # ~hourly resets (parse_rate_limit_window extracts exact "try again at" time)
     "gemini": 1200,   # ~20 min resets (parse_rate_limit_window extracts exact "Xm Ys" duration)
 }
+BILLING_EXHAUSTED_THRESHOLD = 86400  # 24h — cooldowns longer indicate billing-cycle exhaustion
 
 # Rate-limit detection patterns (checked against task output/tail)
 RATE_LIMIT_PATTERNS = re.compile(
@@ -222,7 +223,7 @@ def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event:
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
         "event": event,
         "provider": provider,
-        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)) if event == "burnout" else None,
+        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)) if event in ("burnout", "billing-exhausted") else None,
         "reason": reason[:100],
     }
     try:
@@ -230,8 +231,8 @@ def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event:
     except (json.JSONDecodeError, OSError):
         entries = []
     # Dedupe: don't log burnout if the last entry for this provider is the same reset time
-    if event == "burnout" and entries:
-        last_for_provider = [e for e in entries if e.get("provider") == provider and e.get("event") == "burnout"]
+    if event in ("burnout", "billing-exhausted") and entries:
+        last_for_provider = [e for e in entries if e.get("provider") == provider and e.get("event") in ("burnout", "billing-exhausted")]
         if last_for_provider and last_for_provider[-1].get("resets_at") == entry.get("resets_at"):
             return  # already logged this cooldown window
     entries.append(entry)
@@ -645,6 +646,38 @@ def is_rate_limited(tail: str) -> bool:
     return bool(RATE_LIMIT_PATTERNS.search(tail))
 
 
+_BILLING_LIMIT_PATTERNS = re.compile(
+    r'usage.?limit|hit your.*limit|billing.?limit|monthly.?limit|'
+    r'plan.?limit|subscription.?limit',
+    re.IGNORECASE,
+)
+
+
+def is_billing_exhausted(tail: str) -> bool:
+    """Check if error output indicates billing-cycle exhaustion (not transient rate-limit)."""
+    return bool(_BILLING_LIMIT_PATTERNS.search(tail))
+
+
+def parse_reset_date_str(tail: str) -> str | None:
+    """Extract human-readable reset date string from error message.
+
+    Returns date like 'Apr 8, 2026 4:01 PM' or None if not parseable.
+    """
+    # Codex billing format: "try again at Apr 8th, 2026 4:01 PM"
+    _month = r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+    m = re.search(
+        rf'try again at {_month}\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
+        tail, re.IGNORECASE,
+    )
+    if m:
+        return f"{m.group(1)} {m.group(2)}, {m.group(3)} {m.group(4)}:{m.group(5)} {m.group(6)}"
+    # ISO format: "reset at 2026-04-01 21:09:32"
+    m = re.search(r'reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', tail)
+    if m:
+        return m.group(1)
+    return None
+
+
 def parse_rate_limit_window(tail: str) -> int | None:
     """Try to extract rate-limit window in seconds from error message.
 
@@ -664,7 +697,37 @@ def parse_rate_limit_window(tail: str) -> int | None:
         except (ValueError, OverflowError):
             pass
 
-    # 2. Codex format: "try again at 9:01 PM"
+    # 2. Codex billing-cycle format: "try again at Apr 8th, 2026 4:01 PM"
+    _month = r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+    m = re.search(
+        rf'try again at {_month}\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
+        tail, re.IGNORECASE,
+    )
+    if m:
+        try:
+            month_str = m.group(1)
+            day = int(m.group(2))
+            year = int(m.group(3))
+            hour = int(m.group(4))
+            minute = int(m.group(5))
+            if m.group(6).upper() == "PM" and hour != 12:
+                hour += 12
+            elif m.group(6).upper() == "AM" and hour == 12:
+                hour = 0
+            for fmt in ("%B %d", "%b %d"):
+                try:
+                    md = datetime.strptime(f"{month_str} {day}", fmt)
+                    reset_time = datetime(year, md.month, md.day, hour, minute)
+                    delta = (reset_time - datetime.now()).total_seconds()
+                    if delta > 0:
+                        return int(delta)
+                    break
+                except ValueError:
+                    continue
+        except (ValueError, OverflowError):
+            pass
+
+    # 3. Codex short format: "try again at 9:01 PM"
     m = re.search(r'try again at (\d{1,2}):(\d{2})\s*([AP]M)', tail, re.IGNORECASE)
     if m:
         try:
@@ -684,12 +747,12 @@ def parse_rate_limit_window(tail: str) -> int | None:
         except (ValueError, OverflowError):
             pass
 
-    # 3. Gemini format: "quota will reset after 18m38s"
+    # 4. Gemini format: "quota will reset after 18m38s"
     m = re.search(r'quota will reset after (\d+)m(\d+)s', tail)
     if m:
         return int(m.group(1)) * 60 + int(m.group(2))
 
-    # 4. Duration patterns
+    # 5. Duration patterns
     m = re.search(r'(\d+)[- ]hour', tail)
     if m:
         return int(m.group(1)) * 3600
@@ -700,6 +763,7 @@ def parse_rate_limit_window(tail: str) -> int | None:
 
 
 _provider_throttle: dict[str, int] = {}  # provider -> temporary reduction in concurrency
+PROVIDER_DISABLED: dict[str, dict] = {}  # provider -> {"resets_at": float, "resets_str": str} for billing-cycle exhaustion
 
 def get_provider_limit(provider: str) -> int:
     """Get concurrency limit for a provider, reduced by adaptive throttle."""
@@ -1520,10 +1584,24 @@ def daemon_loop(dry_run: bool = False):
                                 # Only extend, never shorten existing cooldown
                                 if provider_cooldown_until.get(dispatch_provider, 0) < cooldown_end:
                                     provider_cooldown_until[dispatch_provider] = cooldown_end
-                                    _log_cooldown(dispatch_provider, cooldown_end, f"task {task_id} exit={exit_code}")
+                                    if cooldown > BILLING_EXHAUSTED_THRESHOLD:
+                                        # Billing-cycle exhaustion: long cooldown, no early-recovery probing
+                                        reset_tm = time.localtime(cooldown_end)
+                                        reset_str = time.strftime("%b %d", reset_tm).replace(" 0", " ")
+                                        PROVIDER_DISABLED[dispatch_provider] = {
+                                            "resets_at": cooldown_end,
+                                            "resets_str": reset_str,
+                                        }
+                                        _log_cooldown(dispatch_provider, cooldown_end, f"billing exhausted: task {task_id} exit={exit_code}", event="billing-exhausted")
+                                    else:
+                                        _log_cooldown(dispatch_provider, cooldown_end, f"task {task_id} exit={exit_code}")
                                 cd_min = int(cooldown // 60)
+                                cd_hrs = int(cooldown // 3600)
                                 reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "empty-output" if is_empty_output and not is_explicit_ratelimit else "output-match"
-                                log(f"RATE-LIMITED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
+                                if cooldown > BILLING_EXHAUSTED_THRESHOLD:
+                                    log(f"BILLING-EXHAUSTED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_hrs}h (exit={exit_code}, dur={duration}s)")
+                                else:
+                                    log(f"RATE-LIMITED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
                                 # Don't count rate-limit failures toward failure threshold
                             else:
                                 # Track non-rate-limit failures in sliding window per provider
@@ -1605,6 +1683,7 @@ def daemon_loop(dry_run: bool = False):
                                 provider_failure_times.pop(p, None)
                                 _provider_throttle.pop(p, None)
                                 _cooldown_probe_times.pop(p, None)
+                                PROVIDER_DISABLED.pop(p, None)
                                 cleared.append(p)
                         if cleared:
                             log(f"MANUAL COOLDOWN CLEAR: {', '.join(cleared)}")
@@ -1619,7 +1698,8 @@ def daemon_loop(dry_run: bool = False):
                         log(f"COOLDOWN LIFTED: {p} — resuming dispatch")
                         del provider_cooldown_until[p]
                         provider_failure_times.pop(p, None)
-                    elif p not in ("gemini", "codex"):
+                        PROVIDER_DISABLED.pop(p, None)
+                    elif p not in PROVIDER_DISABLED and p not in ("gemini", "codex"):
                         # Probe every 5 min: provider may have recovered before cooldown expires
                         last_probe = _cooldown_probe_times.get(p, 0)
                         if now - last_probe >= 300:
