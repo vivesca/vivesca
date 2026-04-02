@@ -1582,6 +1582,15 @@ def daemon_loop(dry_run: bool = False):
     """
     rotate_logs()
     startup_pull()
+    # Kill stale daemon if one exists (prevents dual-daemon auto-requeue spam)
+    old_pid = read_pid()
+    if old_pid and old_pid != os.getpid():
+        log(f"Killing stale daemon PID {old_pid} before starting")
+        try:
+            os.kill(old_pid, signal.SIGTERM)
+            import time as _t; _t.sleep(2)
+        except ProcessLookupError:
+            pass
     log("Daemon started")
     write_pid()
     signal.signal(signal.SIGTERM, _handle_sigterm)
