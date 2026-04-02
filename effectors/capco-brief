@@ -43,7 +43,8 @@ def _capco_files() -> list[Path]:
     capco_dir = CHROMATIN / "Capco"
     if capco_dir.is_dir():
         for p in sorted(capco_dir.glob("*.md")):
-            files.append(p)
+            if not p.name.startswith("."):
+                files.append(p)
     return files
 
 

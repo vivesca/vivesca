@@ -6,8 +6,10 @@ Capco-brief is a script — loaded via exec(), never imported.
 """
 
 import argparse
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -19,13 +21,14 @@ CAPCO_BRIEF_PATH = Path(__file__).resolve().parents[1] / "effectors" / "capco-br
 
 
 @pytest.fixture()
-def cb(tmp_path):
-    """Load capco-brief via exec, redirecting CHROMATIN/PULSE/FASTI to tmp_path."""
-    chromatin = tmp_path / "chromatin"
+def cb():
+    """Load capco-brief via exec, redirecting CHROMATIN/PULSE/FASTI to a temp dir."""
+    tmp = Path(tempfile.mkdtemp())
+    chromatin = tmp / "chromatin"
     chromatin.mkdir()
-    pulse = tmp_path / "pulse"
+    pulse = tmp / "pulse"
     pulse.mkdir()
-    fasti = tmp_path / "fasti_mock"
+    fasti = tmp / "fasti_mock"
     fasti.write_text("#!/bin/sh\nexit 0\n")
 
     ns: dict = {
@@ -38,7 +41,8 @@ def cb(tmp_path):
     ns["CHROMATIN"] = chromatin
     ns["PULSE"] = pulse
     ns["FASTI"] = fasti
-    return ns
+    yield ns
+    shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _chromatin_file(cb: dict, name: str, content: str) -> Path:

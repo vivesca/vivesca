@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 from pathlib import Path
 
@@ -34,26 +33,26 @@ def list_cards() -> None:
         print(f"{card.stem}: {title}")
 
 
-def search_cards(keyword: str, full: bool = False) -> None:
-    """Search cards for keyword and display results."""
+def search_cards(keyword: str, full: bool = False) -> int:
+    """Search cards for keyword and display results. Returns match count."""
     if not CARDS_DIR.exists():
         print(f"Cards directory not found: {CARDS_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    # Use grep to find matching files
-    result = subprocess.run(
-        ["grep", "-l", "-i", keyword] + [str(p) for p in CARDS_DIR.glob("*.md")],
-        capture_output=True,
-        text=True,
-    )
+    matching_files: list[Path] = []
+    for card_path in sorted(CARDS_DIR.glob("*.md")):
+        try:
+            content = card_path.read_text()
+            if keyword.lower() in content.lower():
+                matching_files.append(card_path)
+        except Exception as e:
+            print(f"Error reading {card_path.name}: {e}", file=sys.stderr)
 
-    if result.returncode != 0 or not result.stdout.strip():
+    if not matching_files:
         print(f"No cards found matching: {keyword}")
-        sys.exit(0)
+        return 0
 
-    matching_files = [Path(f) for f in result.stdout.strip().split("\n") if f]
-
-    for card_path in sorted(matching_files):
+    for card_path in matching_files:
         title = get_card_title(card_path)
         print(f"\n{'='*60}")
         print(f"File: {card_path.stem}")
@@ -63,27 +62,26 @@ def search_cards(keyword: str, full: bool = False) -> None:
         if full:
             # Show full content
             try:
-                with open(card_path, "r") as f:
-                    print(f.read())
+                print(card_path.read_text())
             except Exception as e:
                 print(f"Error reading file: {e}", file=sys.stderr)
         else:
             # Show first 3 lines after title
             try:
-                with open(card_path, "r") as f:
-                    lines = f.readlines()
-                    # Skip title line, show next 3 non-empty lines
-                    shown = 0
-                    for line in lines[1:]:
-                        if line.strip():
-                            print(line.rstrip())
-                            shown += 1
-                            if shown >= 3:
-                                break
+                lines = card_path.read_text().splitlines()
+                # Skip title line, show next 3 non-empty lines
+                shown = 0
+                for line in lines[1:]:
+                    if line.strip():
+                        print(line.rstrip())
+                        shown += 1
+                        if shown >= 3:
+                            break
             except Exception as e:
                 print(f"Error reading file: {e}", file=sys.stderr)
 
     print(f"\n{len(matching_files)} card(s) found.")
+    return len(matching_files)
 
 
 def main() -> None:
@@ -106,7 +104,9 @@ def main() -> None:
     if args.list:
         list_cards()
     elif args.keyword:
-        search_cards(args.keyword, full=args.full)
+        count = search_cards(args.keyword, full=args.full)
+        if count == 0:
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

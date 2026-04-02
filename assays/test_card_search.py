@@ -156,11 +156,10 @@ def test_search_cards_case_insensitive(cards_dir, patch_cards_dir, capsys):
 
 
 def test_search_cards_no_match_exits_0(cards_dir, patch_cards_dir, capsys):
-    """search_cards exits with 0 when no matches (not an error)."""
+    """search_cards returns 0 and prints message when no matches."""
     _write_card(cards_dir, "other.md", "# Other\nSome content\n")
-    with pytest.raises(SystemExit) as exc_info:
-        search_cards("nonexistent_keyword_xyz")
-    assert exc_info.value.code == 0
+    count = search_cards("nonexistent_keyword_xyz")
+    assert count == 0
     out = capsys.readouterr().out
     assert "No cards found matching" in out
 
