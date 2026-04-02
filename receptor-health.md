@@ -1,17 +1,17 @@
-# Receptor Health — 2026-04-02 05:42
+# Receptor Health — 2026-04-02 12:48
 
 
 ## Attachment Integrity
 
 - Total receptors: 101
 - Total references: 210
-- Attached: 76
-- Detached: 134
-- Mechanically silent: 36
+- Attached: 79
+- Detached: 131
+- Mechanically silent: 0
 - Focal adhesion risks: 37
 
 ## Activation State
-0 open | 0 extended | 183 bent (47 anoikis candidates)
+0 open | 0 extended | 183 bent (45 anoikis candidates)
 Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement.md
 
 ## Anoikis Candidates (retirement flagged)
@@ -20,9 +20,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - auscultation
 - comes
 - cron
-- defuddle
 - deleo
-- deltos
 - docima
 - elencho
 - evolvo
@@ -92,6 +90,8 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - cytometry
 - daily
 - debridement
+- defuddle
+- deltos
 - diagnosis
 - dialexis
 - differentiation
@@ -210,9 +210,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - auscultation: `log`
 - comes: `launchctl`
 - cron: `launchctl`
-- defuddle: `defuddle`
 - deleo: `deleo`
-- deltos: `deltos`
 - deltos: `security`
 - docima: `docima`
 - elencho: `elencho`
@@ -234,7 +232,6 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - iris: `item`
 - iter: `iter`
 - judex: `lucus`
-- keryx: `defuddle`
 - keryx: `launchctl`
 - keryx: `wacli`
 - kindle: `kindle-extract`
@@ -340,3 +337,4 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 ## Verdict: NEEDS_ATTENTION
 
 Anoikis candidates logged to ~/epigenome/chromatin/receptor-retirement.md
+2026-04-02T12:55:49.486191 OK centrosome,client-brief,circadian-probe.py,compound-engineering-status,legatum-verify,linkedin-monitor,cn-route,exocytosis.py,agent-sync.sh,orphan-scan — all pass --help, ast.parse, shebang, exec-bit, runtime
