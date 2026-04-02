@@ -1246,10 +1246,9 @@ def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
 
     return True
 
-def auto_requeue(min_pending: int = 50) -> int:
+def auto_requeue(min_pending: int = 20) -> int:
     """Generate diverse high-value tasks when queue runs low.
-    DISABLED 2026-04-02: auto-generated tasks are filler, not value.
-    CC writes intentional tasks; daemon executes them."""
+    Only build tasks — maintenance (pyright/ruff/health) handled by cron."""
     return 0
     import os, random
     pending = parse_queue()
@@ -1289,28 +1288,13 @@ def auto_requeue(min_pending: int = 50) -> int:
         for f in assays.glob("test_*.py"):
             existing_tests.add(f.stem)
 
-    # === 1. Fix collection errors (highest priority — always fresh) ===
-    add("Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit.", turns=40)
-
-    # === 2. Fix failing tests (top 5 by failure count — always fresh) ===
+    # === 1. Fix failing tests (top 5 by failure count — always fresh) ===
     add("Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit.", turns=50)
 
-    # === 3. Review recent golem commits for quality ===
+    # === 2. Review recent golem commits for quality ===
     add("Run git log --oneline --since='24 hours ago' --author=golem | head -10. For each commit: git show <hash> --stat. Pick the 3 largest diffs. For each: read the changed file, check for assert True stubs, empty functions, broken logic, missing error handling. Fix issues. Run uv run pytest on affected files. Commit.", turns=40)
 
-    # === 4. Lint and type-check fixes (ruff + pyright on recent changes) ===
-    add("Run uv run ruff check metabolon/ --select E,W,F --output-format=concise 2>&1 | head -30. Fix the first 15 issues. Run ruff check again to verify. Commit.", turns=30)
-    add("Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\\"file\\\"]}:{x[\\\"range\\\"][\\\"start\\\"][\\\"line\\\"]} {x[\\\"message\\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit.", turns=30)
-
-    # === 5. Effector health checks (random batch of 10) ===
-    effectors = sorted([f.name for f in (germline / "effectors").iterdir()
-        if f.is_file() and not f.name.startswith(".")
-        and f.suffix not in (".conf", ".plist", ".json", ".md")])
-    batch = random.sample(effectors, min(10, len(effectors)))
-    names = ", ".join(batch)
-    add(f"Health check: {names}. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit.", turns=30)
-
-    # === 6. Replace stub tests with real ones ===
+    # === 4. Replace stub tests with real ones ===
     # Find test files that only contain assert True placeholders
     stub_tests = []
     for f in assays.glob("test_*.py"):
@@ -1324,7 +1308,7 @@ def auto_requeue(min_pending: int = 50) -> int:
         name = Path(stub).stem
         add(f"Read {stub}. It's a placeholder with only assert True. Find the source module it should test. Replace the placeholder with 5+ real tests covering actual functionality. Run uv run pytest {stub} -v --tb=short. Commit.", turns=35)
 
-    # === 7. Untested modules (random 3 — targeted, not bulk) ===
+    # === 5. Untested modules (random 3 — targeted, not bulk) ===
     untested_mods = []
     for root, dirs, files in os.walk(str(germline / "metabolon")):
         dirs[:] = [d for d in dirs if d != "__pycache__"]
@@ -1340,9 +1324,6 @@ def auto_requeue(min_pending: int = 50) -> int:
         parent = Path(mod).parent.name
         tn = f"test_{parent}_{name}" if parent != "metabolon" else f"test_{name}"
         add(f"Read {mod} carefully first. Write assays/{tn}.py with tests for every public function. No assert True placeholders — test real behavior. Run uv run pytest assays/{tn}.py -v --tb=short. Commit.", turns=35)
-
-    # === 8. Dead code cleanup ===
-    add("Run uv run ruff check metabolon/ --select F401,F841 --output-format=concise 2>&1 | head -20. These are unused imports (F401) and unused variables (F841). Fix all of them. Run ruff check again. Commit.", turns=25)
 
     if not tasks:
         return 0
