@@ -219,3 +219,4 @@ Provider quotas recover naturally — Infini resets every 5hr, Volcano resets on
 - Don't dedicate CC time to diagnosing test failures — queue a golem with "run pytest, grep errors, fix" and let it do the work
 - **Don't send prose to golem** — consulting cards, case studies, briefings, playbooks are single-turn generation. Generate inline in CC when needed, with live context. Golem = multi-turn tool loops only.
 - Don't pad the queue with filler to "utilize capacity" — 20 high-value tasks beat 100 generic ones. Idle providers are fine; wasted output is not.
+- **Don't duplicate tasks across providers** — sending the same command (e.g., "pyright metabolon/") to 15 providers produces 15 conflicting edits that can't all merge. One task per unique job. Spread *different* tasks across providers, not the same task.
