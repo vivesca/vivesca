@@ -9,10 +9,13 @@ Usage:
     golem-daemon start              # Start daemon (nohup, backgrounds itself)
     golem-daemon stop               # Stop daemon via pidfile
     golem-daemon status             # Check if running
-    golem-daemon stats              # Show pass/fail/retry counts, avg duration by provider
+    golem-daemon stats              # Show stats for last 8h (default window)
+    golem-daemon stats --all        # Show lifetime stats (no time filter)
+    golem-daemon stats --today      # Show stats for today only
+    golem-daemon stats --since=2h   # Show stats for custom window (e.g. 30m, 2h, 1d)
     golem-daemon clean              # Remove completed/failed entries from queue
     golem-daemon retry-all          # Re-queue all [!] failed tasks as [ ]
-    golem-daemon --export-stats     # Output per-provider stats as JSON to stdout
+    golem-daemon --export-stats     # Output per-provider stats as JSON (accepts same time filters)
     golem-daemon clear-cooldown     # Clear all provider cooldowns
     golem-daemon clear-cooldown X   # Clear cooldown for provider X only
     golem-daemon --dry-run          # Show routing decisions without executing tasks
@@ -29,7 +32,7 @@ import signal
 import subprocess
 import shutil
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import threading
