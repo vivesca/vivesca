@@ -19,5 +19,5 @@ if pgrep -f "qmd embed" > /dev/null 2>&1; then
     exit 0
 fi
 
-qmd update 2>/dev/null
-qmd embed 2>/dev/null
+qmd update 2>/dev/null || true
+qmd embed 2>/dev/null || true
