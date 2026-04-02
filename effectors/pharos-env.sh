@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Environment wrapper for systemd services on pharos (Ubuntu).
 # systemd user services have minimal PATH and no .zshenv.
 # Usage: pharos-env.sh <command> [args...]
