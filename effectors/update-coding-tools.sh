@@ -65,7 +65,7 @@ if command -v uv &>/dev/null; then
 fi
 
 # ── Cargo tools ──
-if command -v cargo &>/dev/null; then
+if command -v cargo-binstall &>/dev/null; then
     echo "Updating cargo tools..." | tee -a "$LOG_FILE"
     cargo binstall -y compound-perplexity typos-cli 2>&1 | tee -a "$LOG_FILE" || true
 fi
