@@ -1968,6 +1968,22 @@ def cmd_retry_all() -> int:
     return 0
 
 
+def _classify_task(record: dict) -> str:
+    prompt = record.get('prompt', '') or record.get('cmd', '') or ''
+    prompt_lower = prompt.lower()
+    if 'pyright' in prompt_lower and ('metabolon/' in prompt or '--outputjson' in prompt_lower):
+        return 'maintenance'
+    if prompt_lower.startswith('health check:') or '"health check:' in prompt_lower:
+        return 'maintenance'
+    if 'ruff check' in prompt_lower or 'ruff format' in prompt_lower:
+        return 'maintenance'
+    if prompt.startswith('Run uv run pytest --co'):
+        return 'maintenance'
+    if 'git log --oneline' in prompt_lower:
+        return 'maintenance'
+    return 'build'
+
+
 def cmd_stats() -> int:
     """Show pass/fail/retry counts, avg duration by provider, tasks completed today."""
     records: list[dict] = []
@@ -2038,10 +2054,25 @@ def cmd_stats() -> int:
                     or "golem_rate_limit" in tail):
                 provider_stats[p]["rate_limited"] += 1
 
+    # Build vs maintenance breakdown
+    build_records = [r for r in records if _classify_task(r) == 'build']
+    maint_records = [r for r in records if _classify_task(r) == 'maintenance']
+    build_passed = sum(1 for r in build_records if r.get('exit') == 0)
+    maint_passed = sum(1 for r in maint_records if r.get('exit') == 0)
+
     # Print stats
     print(f"Total tasks: {total} (passed: {passed}, failed: {failed})")
     print(f"Permanently failed (retries exhausted): {retries}")
+    print(f"Build tasks: {len(build_records)} (passed: {build_passed}, failed: {len(build_records) - build_passed})")
+    print(f"Maintenance tasks: {len(maint_records)} (passed: {maint_passed}, failed: {len(maint_records) - maint_passed})")
     print(f"Tasks today ({today}): {today_total} (passed: {today_passed}, failed: {today_total - today_passed})")
+
+    # Today breakdown by type
+    today_build = [r for r in today_records if _classify_task(r) == 'build']
+    today_maint = [r for r in today_records if _classify_task(r) == 'maintenance']
+    today_bp = sum(1 for r in today_build if r.get('exit') == 0)
+    today_mp = sum(1 for r in today_maint if r.get('exit') == 0)
+    print(f"  Today build: {len(today_build)} (passed: {today_bp})  maintenance: {len(today_maint)} (passed: {today_mp})")
     print()
     print("By provider:                                                          capability")
     for provider in sorted(provider_stats):
@@ -2087,8 +2118,12 @@ def cmd_export_stats() -> int:
     for r in records:
         p = r.get("provider", "unknown")
         if p not in provider_stats:
-            provider_stats[p] = {"count": 0, "passed": 0, "failed": 0, "rate_limited": 0}
+            provider_stats[p] = {"count": 0, "passed": 0, "failed": 0, "rate_limited": 0, "build_count": 0, "maint_count": 0}
         provider_stats[p]["count"] += 1
+        if _classify_task(r) == 'build':
+            provider_stats[p]["build_count"] += 1
+        else:
+            provider_stats[p]["maint_count"] += 1
         if r.get("exit") == 0:
             provider_stats[p]["passed"] += 1
         else:
@@ -2121,6 +2156,8 @@ def cmd_export_stats() -> int:
             "rate_limited": rl,
             "real_fail": real_fail,
             "capability_pct": cap_pct,
+            "build_count": s["build_count"],
+            "maint_count": s["maint_count"],
         })
 
     print(json.dumps(result, indent=2))
