@@ -19,7 +19,7 @@ LINKS = [
     ("~/.claude/hooks", "membrane/cytoskeleton"),
     ("~/.claude/CLAUDE.md", "membrane/phenotype.md"),
     ("~/.claude/settings.json", "membrane/expression.json"),
-    ("~/.claude/agent-memory", "engrams"),
+    ("~/.claude/agent-memory", "epigenome/marks"),
     # Codex membrane receptor
     ("~/.codex/AGENTS.md", "membrane/phenotype.md"),
 ]
@@ -28,7 +28,7 @@ LINKS = [
 PER_ITEM = [
     ("~/.claude/skills", "membrane/receptors"),
     ("~/.claude/agents", "membrane/buds"),
-    ("~/.claude/rules", "membrane/regulatory"),
+    ("~/.claude/rules", "regulon"),
 ]
 
 

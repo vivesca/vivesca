@@ -212,11 +212,11 @@ SSH_REMOTE_EXIT_CONNECT_FAIL = 125  # Exit code signalling SSH connection failur
 # Provider fallback chain — ordered by pass rate. When a provider is in cooldown,
 # its tasks route to the next available provider in this chain.
 PROVIDER_FALLBACK = {
-    "codex": ["gemini", "zhipu"],
-    "gemini": ["codex", "zhipu"],
-    "zhipu": ["volcano", "infini", "codex", "gemini"],
-    "infini": ["zhipu", "volcano", "codex", "gemini"],
-    "volcano": ["zhipu", "infini", "codex", "gemini"],
+    "codex": ["gemini"],
+    "gemini": ["codex"],
+    "zhipu": [],
+    "infini": [],
+    "volcano": [],
 }
 
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
