@@ -12,17 +12,16 @@ Credentials: TELEGRAM_API_ID, TELEGRAM_API_HASH from env (set in .zshenv.local).
 """
 
 import asyncio
+import inspect
 import os
-from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
 
 SESSION_DIR = Path.home() / ".config" / "telethon"
 SESSION_NAME = "vivesca"
 
 
 def _get_client():
-    """Create a Telethon bot client (no interactive auth needed)."""
+    """Create a Telethon user client."""
     from telethon import TelegramClient
 
     api_id = int(os.environ.get("TELEGRAM_API_ID", "0"))
@@ -33,14 +32,6 @@ def _get_client():
     SESSION_DIR.mkdir(parents=True, exist_ok=True)
     session_path = str(SESSION_DIR / SESSION_NAME)
     return TelegramClient(session_path, api_id, api_hash)
-
-
-def _bot_token() -> str:
-    """Get bot token from env."""
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not token:
-        raise ValueError("TELEGRAM_BOT_TOKEN must be set")
-    return token
 
 
 def _chat_id() -> int:
@@ -59,7 +50,7 @@ def _format_message(msg) -> str:
     return f"{ts}  {sender}: {text}"
 
 
-async def _with_client(fn: Callable[[Any], Awaitable[str]]) -> str:
+async def _with_client(fn) -> str:
     """Connect as user (session must exist), run fn(client), disconnect."""
     client = _get_client()
     await client.connect()
@@ -69,9 +60,11 @@ async def _with_client(fn: Callable[[Any], Awaitable[str]]) -> str:
             "uv run python -m metabolon.organelles.telegram_auth"
         )
     try:
-        return await fn(client)  # type: ignore[misc]
+        return await fn(client)
     finally:
-        client.disconnect()
+        result = client.disconnect()
+        if inspect.isawaitable(result):
+            await result
 
 
 async def _read_chat_async(chat_id: str, limit: int = 30) -> str:
@@ -117,12 +110,13 @@ async def _list_chats_async(limit: int = 20) -> str:
 
 
 async def _auth_check_async() -> str:
-    """Check bot authentication."""
+    """Check user authentication."""
     async def _do(client):
         me = await client.get_me()
         if me:
             name = getattr(me, "first_name", None) or str(getattr(me, "id", "unknown"))
-            return f"Authenticated as bot: {name}"
+            phone = getattr(me, "phone", "?")
+            return f"Authenticated as: {name} ({phone})"
         return "Not authenticated"
     return await _with_client(_do)
 
