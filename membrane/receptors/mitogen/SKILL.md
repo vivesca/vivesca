@@ -124,16 +124,27 @@ python3 effectors/golem-daemon retry-all   # re-queue all [!] as [ ]
 python3 effectors/golem-daemon clean       # remove old [x]/[!] entries
 ```
 
-**From iMac/Blink — write queue remotely, daemon picks up automatically:**
-```bash
-ssh soma 'cat >> ~/germline/loci/golem-queue.md << "EOF"
-- [ ] `golem --provider zhipu --max-turns 40 "task..."`
-EOF'
+**Queue writes MUST use QueueLock** — bare `cat >>` races with daemon file writes and entries get silently marked `[x]` without execution:
+```python
+import fcntl
+from pathlib import Path
+
+lock_path = Path.home() / '.local' / 'share' / 'vivesca' / 'golem-queue.lock'
+queue_path = Path.home() / 'germline' / 'loci' / 'golem-queue.md'
+
+with open(lock_path, 'w') as fd:
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        content = queue_path.read_text()
+        content += new_tasks
+        queue_path.write_text(content)
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
 ```
 
 No need to trigger dispatch — daemon polls continuously. CC writes judgment into the queue from anywhere; golem-daemon executes even when CC is offline.
 
-> **Experimental backends:** Hatchet (`effectors/hatchet-golem/`) and Temporal (`effectors/temporal-golem/`) exist as reference implementations. They add distributed coordination (useful if OCI becomes a second worker node) but have setup friction. See `finding_hatchet_self_hosted_issues.md` for known bugs. Don't use in production until the action listener subprocess issue is resolved.
+> **Backend switching:** `golem-orchestrator switch <daemon|temporal>` stops all backends and starts one. Temporal (`effectors/temporal-golem/`) has Docker infra (server, postgres, UI on :8233) but dispatch.py needs QueueLock and rate-limit cooldowns for feature parity with golem-daemon. Currently disabled in supervisor (`autostart=false`).
 
 ### Phase 4: Verify + commit (on soma)
 
