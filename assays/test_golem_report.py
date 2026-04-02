@@ -11,9 +11,14 @@ import pytest
 
 def _load_golem_report():
     """Load the golem-tools module by exec-ing its Python body."""
+    import types, sys as _sys
     source = open(str(Path.home() / "germline/effectors/golem-tools")).read()
-    ns: dict = {"__name__": "golem_report"}
+    mod_name = "golem_report"
+    _mod = types.ModuleType(mod_name)
+    _sys.modules[mod_name] = _mod
+    ns: dict = {"__name__": mod_name, "__builtins__": __builtins__}
     exec(source, ns)
+    _mod.__dict__.update(ns)
     return ns
 
 

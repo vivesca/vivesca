@@ -13,9 +13,14 @@ import pytest
 
 def _load_golem_dash():
     """Load golem-tools by exec-ing its source (effector, not importable)."""
+    import types, sys as _sys
     source = open(str(Path.home() / "germline/effectors/golem-tools")).read()
-    ns: dict = {"__name__": "golem_dash_test"}
+    mod_name = "golem_dash_test"
+    _mod = types.ModuleType(mod_name)
+    _sys.modules[mod_name] = _mod
+    ns: dict = {"__name__": mod_name, "__builtins__": __builtins__}
     exec(source, ns)
+    _mod.__dict__.update(ns)
     return ns
 
 

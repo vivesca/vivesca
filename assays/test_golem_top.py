@@ -17,8 +17,12 @@ import pytest
 EFFECTOR = Path.home() / "germline" / "effectors" / "golem-tools"
 
 # Load the effector into a namespace
-NS = {"__name__": "golem_top", "__file__": str(EFFECTOR)}
+import types, sys as _sys
+_top_mod = types.ModuleType("golem_top")
+_sys.modules["golem_top"] = _top_mod
+NS = {"__name__": "golem_top", "__file__": str(EFFECTOR), "__builtins__": __builtins__}
 exec(open(EFFECTOR).read(), NS)
+_top_mod.__dict__.update(NS)
 
 # Pull functions into local scope
 parse_ps_lines = NS["parse_ps_lines"]
