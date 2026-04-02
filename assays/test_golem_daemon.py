@@ -2074,3 +2074,194 @@ def test_cmd_stats_handles_unreadable_jsonl(tmp_path, capsys):
     # Should still run, just showing no records found (since we can't read the unreadable one)
     # If perms work and it can't read, still no crash
     assert "No task history found" in out or "Total tasks:" in out
+
+
+# ── cmd_export_stats tests ─────────────────────────────────────────────────
+
+
+cmd_export_stats = _mod["cmd_export_stats"]
+
+
+def test_export_stats_no_history(tmp_path, capsys):
+    """cmd_export_stats outputs empty JSON array when no JSONL files exist."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        rc = cmd_export_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rc == 0
+    out = capsys.readouterr().out.strip()
+    data = json.loads(out)
+    assert data == []
+
+
+def test_export_stats_with_records(tmp_path, capsys):
+    """cmd_export_stats outputs correct per-provider JSON with all required fields."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    records = [
+        {"ts": f"{today} 10:00:00", "provider": "zhipu", "exit": 0, "duration": 120, "cmd": "test"},
+        {"ts": f"{today} 10:05:00", "provider": "zhipu", "exit": 0, "duration": 180, "cmd": "test"},
+        {"ts": f"{today} 10:10:00", "provider": "infini", "exit": 1, "duration": 5, "cmd": "test"},
+        {"ts": "2026-03-30 12:00:00", "provider": "volcano", "exit": 0, "duration": 90, "cmd": "test"},
+    ]
+    jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
+
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        rc = cmd_export_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rc == 0
+    out = capsys.readouterr().out.strip()
+    data = json.loads(out)
+    assert len(data) == 3  # zhipu, infini, volcano
+
+    by_provider = {d["provider"]: d for d in data}
+
+    # zhipu: 2 tasks, 2 passed, 0 failed
+    z = by_provider["zhipu"]
+    assert z["total"] == 2
+    assert z["passed"] == 2
+    assert z["failed"] == 0
+    assert z["rate_limited"] == 0
+    assert z["real_fail"] == 0
+    assert z["capability_pct"] == 100.0
+
+    # infini: 1 task, 0 passed, 1 failed, duration=5 <= 10 so rate_limited
+    i = by_provider["infini"]
+    assert i["total"] == 1
+    assert i["passed"] == 0
+    assert i["failed"] == 1
+    assert i["rate_limited"] == 1
+    assert i["real_fail"] == 0
+    assert i["capability_pct"] == 0
+
+    # volcano: 1 task, 1 passed
+    v = by_provider["volcano"]
+    assert v["total"] == 1
+    assert v["passed"] == 1
+    assert v["capability_pct"] == 100.0
+
+
+def test_export_stats_output_is_valid_json(tmp_path, capsys):
+    """cmd_export_stats output is parseable JSON containing all required keys."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    records = [
+        {"ts": f"{today} 10:00:00", "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
+        {"ts": f"{today} 10:05:00", "provider": "zhipu", "exit": 1, "duration": 300, "tail": "some error", "cmd": "test"},
+    ]
+    jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
+
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        rc = cmd_export_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rc == 0
+    out = capsys.readouterr().out.strip()
+    data = json.loads(out)
+    assert isinstance(data, list)
+    assert len(data) == 1  # only zhipu
+    entry = data[0]
+    required_keys = {"provider", "total", "passed", "failed", "rate_limited", "real_fail", "capability_pct"}
+    assert set(entry.keys()) == required_keys
+
+
+def test_export_stats_reads_rotated_file(tmp_path, capsys):
+    """cmd_export_stats reads from both main JSONL and rotated .1 file."""
+    vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
+    vivesca_dir.mkdir(parents=True)
+    jsonl_path = vivesca_dir / "golem.jsonl"
+    jsonl1_path = vivesca_dir / "golem.jsonl.1"
+
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    record1 = {"ts": f"{today} 09:00:00", "provider": "zhipu", "exit": 0, "duration": 100, "cmd": "test"}
+    record2 = {"ts": f"{today} 09:30:00", "provider": "volcano", "exit": 1, "duration": 50, "cmd": "test"}
+
+    jsonl_path.write_text(_mod["json"].dumps(record1) + "\n")
+    jsonl1_path.write_text(_mod["json"].dumps(record2) + "\n")
+
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        rc = cmd_export_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rc == 0
+    out = capsys.readouterr().out.strip()
+    data = json.loads(out)
+    providers = {d["provider"] for d in data}
+    assert "zhipu" in providers
+    assert "volcano" in providers
+
+
+def test_export_stats_skips_bad_lines(tmp_path, capsys):
+    """cmd_export_stats skips malformed JSON lines without crashing."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    content = (
+        f'{_mod["json"].dumps({"ts": f"{today} 10:00", "provider": "zhipu", "exit": 0, "duration": 120})}\n'
+        "this is not valid json\n"
+        "{broken json syntax\n"
+        f'{_mod["json"].dumps({"ts": f"{today} 10:30", "provider": "infini", "exit": 1, "duration": 30})}\n'
+    )
+    jsonl_path.write_text(content)
+
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        rc = cmd_export_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rc == 0
+    out = capsys.readouterr().out.strip()
+    data = json.loads(out)
+    assert len(data) == 2
+    providers = {d["provider"] for d in data}
+    assert providers == {"zhipu", "infini"}
+
+
+def test_export_stats_capability_pct_calculation(tmp_path, capsys):
+    """cmd_export_stats correctly computes capability_pct excluding rate-limited failures."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    # provider: 10 passed, 2 failed (1 rate-limited, 1 real)
+    records = []
+    for i in range(10):
+        records.append({"ts": f"{today} 10:{i:02d}", "provider": "testprov", "exit": 0, "duration": 60, "cmd": "test"})
+    # rate-limited failure: duration <= 10
+    records.append({"ts": f"{today} 11:00", "provider": "testprov", "exit": 1, "duration": 5, "cmd": "test"})
+    # real failure: duration > 10 with non-rate-limit tail
+    records.append({"ts": f"{today} 11:05", "provider": "testprov", "exit": 1, "duration": 300, "tail": "syntax error in output", "cmd": "test"})
+    jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
+
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        rc = cmd_export_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rc == 0
+    out = capsys.readouterr().out.strip()
+    data = json.loads(out)
+    assert len(data) == 1
+    entry = data[0]
+    assert entry["total"] == 12
+    assert entry["passed"] == 10
+    assert entry["failed"] == 2
+    assert entry["rate_limited"] == 1
+    assert entry["real_fail"] == 1
+    # capability = passed / (passed + real_fail) = 10/11 ≈ 90.9
+    assert entry["capability_pct"] == round(100 * 10 / 11, 1)

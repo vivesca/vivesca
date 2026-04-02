@@ -221,19 +221,36 @@ def write_flywheel() -> None:
     print(f"Flywheel report written to {FLYWHEEL_OUT}")
 
 
+def health_to_json(rows: list[tuple[str, str, str]]) -> str:
+    """Convert health check rows to a JSON array of objects."""
+    import json
+    entries = [
+        {"component": metric, "status": status, "details": value}
+        for metric, value, status in rows
+    ]
+    return json.dumps(entries, indent=2)
+
+
 def main() -> None:
     import sys
     if "--help" in sys.argv or "-h" in sys.argv:
         print("nightly — system health dashboard + flywheel report.\n")
-        print("Usage: nightly [--help]")
-        print("\nWrites:")
+        print("Usage: nightly [--help] [--json]")
+        print("\nFlags:")
+        print("  --json   Output health check results as JSON array")
+        print("\nWrites (unless --json):")
         print("  ~/.claude/nightly-health.md       — system health dashboard")
         print("  ~/.claude/skill-flywheel-daily.md  — skill routing report")
         sys.exit(0)
 
-    print(f"=== Nightly run: {datetime.now().strftime('%a %b %d %H:%M:%S %Z %Y')} ===")
     print("[nightly] Running health checks...")
     rows = check_health()
+
+    if "--json" in sys.argv:
+        print(health_to_json(rows))
+        return
+
+    print(f"=== Nightly run: {datetime.now().strftime('%a %b %d %H:%M:%S %Z %Y')} ===")
     write_health(rows)
     print("[nightly] Running skill flywheel...")
     write_flywheel()

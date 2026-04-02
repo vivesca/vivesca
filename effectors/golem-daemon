@@ -11,6 +11,7 @@ Usage:
     golem-daemon stats              # Show pass/fail/retry counts, avg duration by provider
     golem-daemon clean              # Remove completed/failed entries from queue
     golem-daemon retry-all          # Re-queue all [!] failed tasks as [ ]
+    golem-daemon --export-stats     # Output per-provider stats as JSON to stdout
     golem-daemon clear-cooldown     # Clear all provider cooldowns
     golem-daemon clear-cooldown X   # Clear cooldown for provider X only
 """
@@ -1901,6 +1902,75 @@ def cmd_stats() -> int:
     return 0
 
 
+def cmd_export_stats() -> int:
+    """Output per-provider stats as JSON to stdout.
+
+    Each entry contains: provider, total, passed, failed, rate_limited,
+    real_fail, capability_pct.
+    """
+    records: list[dict] = []
+    for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
+        if path.exists():
+            try:
+                for line in path.read_text(errors="replace").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        records.append(json.loads(line))
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+            except (PermissionError, OSError, UnicodeDecodeError):
+                pass
+
+    if not records:
+        print(json.dumps([]))
+        return 0
+
+    provider_stats: dict[str, dict] = {}
+    for r in records:
+        p = r.get("provider", "unknown")
+        if p not in provider_stats:
+            provider_stats[p] = {"count": 0, "passed": 0, "failed": 0, "rate_limited": 0}
+        provider_stats[p]["count"] += 1
+        if r.get("exit") == 0:
+            provider_stats[p]["passed"] += 1
+        else:
+            provider_stats[p]["failed"] += 1
+            tail = r.get("tail", "")
+            tail_lower = tail.lower()
+            if (r.get("duration", 999) <= 10
+                    or r.get("exit") == 137
+                    or not tail.strip()
+                    or "accountquota" in tail_lower
+                    or "429" in tail
+                    or ("rate" in tail_lower and "limit" in tail_lower)
+                    or ("usage" in tail_lower and "limit" in tail_lower)
+                    or "quota will reset" in tail_lower
+                    or "golem_rate_limit" in tail):
+                provider_stats[p]["rate_limited"] += 1
+
+    result = []
+    for provider in sorted(provider_stats):
+        s = provider_stats[provider]
+        rl = s["rate_limited"]
+        real_fail = s["failed"] - rl
+        real_total = s["passed"] + real_fail
+        cap_pct = round(100 * s["passed"] / real_total, 1) if real_total else 0
+        result.append({
+            "provider": provider,
+            "total": s["count"],
+            "passed": s["passed"],
+            "failed": s["failed"],
+            "rate_limited": rl,
+            "real_fail": real_fail,
+            "capability_pct": cap_pct,
+        })
+
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def cmd_clear_cooldown(provider: str = "all") -> int:
     """Signal the daemon to clear provider cooldowns.
 
@@ -1937,6 +2007,8 @@ def main():
         return cmd_status()
     elif cmd == "stats":
         return cmd_stats()
+    elif cmd == "--export-stats":
+        return cmd_export_stats()
     elif cmd == "clean":
         return cmd_clean()
     elif cmd == "retry-all":
