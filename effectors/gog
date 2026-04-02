@@ -14,7 +14,7 @@ import base64
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
 
@@ -426,11 +426,9 @@ def _event_to_dict(event: dict) -> dict:
 
 def cmd_calendar_list(args: argparse.Namespace) -> None:
     """List upcoming calendar events as JSON."""
-    from datetime import timedelta
-
     svc = _calendar_service()
     cal_id = _default_calendar_id()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     time_min = (now - timedelta(days=30)).isoformat() + "Z"
     time_max = (now + timedelta(days=90)).isoformat() + "Z"
 
