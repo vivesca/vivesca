@@ -31,10 +31,22 @@ ALERT_STAMP = Path.home() / "tmp" / "soma-alert-last.txt"
 
 
 def _import_watchdog():
+    """Load soma-watchdog by exec-ing its source.
+
+    Returns a module-like object whose __dict__ IS the exec namespace,
+    so patch.object(mod, 'CONSTANT', ...) affects the functions' globals.
+    """
     src = open(Path.home() / "germline" / "effectors" / "soma-watchdog").read()
     ns: dict = {"__name__": "soma_watchdog_test"}
     exec(src, ns)
-    return type("mod", (), ns)
+
+    class _Module:
+        """Module proxy whose __dict__ is the exec namespace itself."""
+        pass
+
+    mod = _Module()
+    mod.__dict__ = ns  # identity — patch.object modifies ns directly
+    return mod
 
 
 # --- JSONL logging tests ---
