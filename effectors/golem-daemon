@@ -2638,9 +2638,15 @@ def cmd_review(args: list[str]) -> int:
         files = r.get("files_created", 0) or 0
         tests_p = r.get("tests_passed", 0) or 0
 
+        cmd = (r.get("cmd") or r.get("prompt") or "").lower()
+        is_maintenance = ("pyright" in cmd or "health check:" in cmd
+                          or "ruff check" in cmd or "ruff format" in cmd)
+
         if exit_code != 0:
             failed.append(r)
         elif any(sig in tail for sig in NO_OP_SIGNALS) and files == 0:
+            no_ops.append(r)
+        elif is_maintenance and files == 0:
             no_ops.append(r)
         else:
             productive.append(r)
