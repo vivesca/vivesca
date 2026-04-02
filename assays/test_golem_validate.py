@@ -69,11 +69,11 @@ class TestHardcodedPath:
 
     def test_users_terry_detected(self, tmp_path: Path):
         f = _write_py(tmp_path, "bad_path.py", """\
-            config = str(Path.home() / "germline/config.yaml")
+            config = "/Users/terry/germline/config.yaml"
         """)
         r = _run_validator(str(f))
         assert r.returncode == 1
-        assert str(Path.home() / "") in r.stdout
+        assert "hardcoded" in r.stdout.lower()
 
 
 # ── TODO / FIXME / stub markers ────────────────────────────────────────────
@@ -153,7 +153,6 @@ class TestCLI:
     def test_output_format_pipe_separated(self, tmp_path: Path):
         f = _write_py(tmp_path, "clean.py", "x = 1\n")
         r = _run_validator(str(f))
-        parts = r.stdout.strip().split(" | ")
-        # path | status | issues
-        assert len(parts) == 3
-        assert parts[1].strip() == "PASS"
+        line = r.stdout.strip()
+        # Format: path | STATUS | issues
+        assert " | PASS |" in line

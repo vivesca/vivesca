@@ -41,7 +41,7 @@ RATE_LIMIT_PATTERNS = re.compile(
 
 
 BAD_PATH_RE = re.compile(re.escape(MAC_HOME_PREFIX))
-TODO_RE = re.compile(r'\b(TODO|FIXME|stub)\b', re.IGNORECASE)
+TODO_RE = re.compile(r'\b(?:TODO|FIXME)\b|\bstub', re.IGNORECASE)
 
 
 def validate_file(path: Path) -> tuple[str, list[str]]:
@@ -71,7 +71,7 @@ def validate_file(path: Path) -> tuple[str, list[str]]:
     # --- 3. TODO / FIXME / stub ---
     for lineno, line in enumerate(source.splitlines(), start=1):
         if TODO_RE.search(line):
-            issues.append(f"marker '{TODO_RE.search(line).group(1)}' at line {lineno}")
+            issues.append(f"marker '{TODO_RE.search(line).group(0)}' at line {lineno}")
             break  # one report is enough
 
     # --- 4. Test collectability ---
@@ -3652,4 +3652,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
