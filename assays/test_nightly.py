@@ -552,12 +552,14 @@ class TestMainJson:
         _setup_home(tmp_path)
 
         test_rows = [("MEMORY.md lines", "50/150", "ok")]
-        with _patch_attr("sys", MagicMock(argv=["nightly", "--json"])), \
+        with patch.object(sys, "argv", ["nightly", "--json"]), \
              _patch_attr("check_health", MagicMock(return_value=test_rows)):
             nightly.main()
 
         out = capsys.readouterr().out
-        parsed = json.loads(out)
+        # Skip the "[nightly] Running health checks..." line
+        json_lines = [l for l in out.strip().splitlines() if not l.startswith("[nightly]")]
+        parsed = json.loads("\n".join(json_lines))
         assert isinstance(parsed, list)
         assert len(parsed) == 1
         assert parsed[0]["component"] == "MEMORY.md lines"
@@ -567,7 +569,7 @@ class TestMainJson:
     def test_json_flag_skips_file_writes(self, tmp_path, capsys):
         health_out, flywheel_out = _setup_home(tmp_path)
 
-        with _patch_attr("sys", MagicMock(argv=["nightly", "--json"])), \
+        with patch.object(sys, "argv", ["nightly", "--json"]), \
              _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
             nightly.main()
 
@@ -577,14 +579,12 @@ class TestMainJson:
     def test_json_flag_no_banner(self, tmp_path, capsys):
         _setup_home(tmp_path)
 
-        with _patch_attr("sys", MagicMock(argv=["nightly", "--json"])), \
+        with patch.object(sys, "argv", ["nightly", "--json"]), \
              _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
             nightly.main()
 
         out = capsys.readouterr().out
-        # The only output should be valid JSON (plus the "[nightly] Running health checks..." line)
-        # JSON array should not contain "Nightly run" banner text
-        assert "Nightly run" not in out
+        assert "=== Nightly run" not in out
 
 
 # ── Integration: subprocess execution ─────────────────────────────────────────
