@@ -88,17 +88,19 @@ def _date_str(msg: dict) -> str:
 
 
 def _decode_body(payload: dict) -> str:
-    """Decode message body from base64url, preferring text/plain."""
-    body_data = payload.get("body", {}).get("data", "")
-    if not body_data:
-        for part in payload.get("parts", []):
-            if part.get("mimeType") == "text/plain":
-                body_data = part.get("body", {}).get("data", "")
-                break
-        if not body_data:
-            parts = payload.get("parts", [])
-            if parts:
-                body_data = parts[0].get("body", {}).get("data", "")
+    """Decode message body from base64url, preferring text/plain. Recurses into nested multipart."""
+    def _find_part(node: dict, mime: str) -> str:
+        if node.get("mimeType") == mime:
+            data = node.get("body", {}).get("data", "")
+            if data:
+                return data
+        for part in node.get("parts", []):
+            found = _find_part(part, mime)
+            if found:
+                return found
+        return ""
+
+    body_data = _find_part(payload, "text/plain") or _find_part(payload, "text/html")
     if not body_data:
         return ""
     return base64.urlsafe_b64decode(body_data).decode("utf-8", errors="replace")
