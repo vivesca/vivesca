@@ -383,7 +383,7 @@ def _report(query: str, results: list[ToolResult]) -> str:
     # Raising makes this a tool error that CC cannot silently ignore.
     health_file = Path.home() / ".cache" / "vivesca" / "rheotaxis-health"
     health_file.parent.mkdir(parents=True, exist_ok=True)
-    if total > 0 and failed > total / 2:
+    if failed > 0:
         backend_names = ", ".join(r.tool for r in errored)
         ok_names = ", ".join(r.tool for r in ok) or "none"
         health_file.write_text(f"degraded {failed}/{total} {backend_names}")
