@@ -132,7 +132,7 @@ def select_goals(state: CirculationState) -> dict:
 North stars:
 {state['north_stars'][:2000]}
 
-Current Praxis (TODO):
+Current Praxis:
 {state['praxis_items'][:2000]}
 
 Systole #{state['systole_num']}. Budget: {state['budget_status']}.
