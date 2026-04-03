@@ -121,13 +121,14 @@ def test_parse_queue_default_max_turns(tmp_path):
 
 
 def test_parse_queue_auto_task_id(tmp_path):
-    """Tasks without [t-XXXX] get auto-generated task IDs from line number."""
+    """Tasks without [t-XXXX] get auto-generated hash-based task IDs."""
     qf = tmp_path / "golem-queue.md"
     _write_queue(qf, '- [ ] `golem --provider zhipu "auto id task"`\n')
     tasks = parse_queue()
     assert len(tasks) == 1
-    # Line 0, so task_id should be "t-0000"
-    assert tasks[0][3] == "t-0000"
+    # Auto-generated IDs are hash-based: t-XXXXXX
+    assert tasks[0][3].startswith("t-")
+    assert len(tasks[0][3]) == 8  # "t-" + 6 hex chars
 
 
 def test_parse_queue_ignores_completed_tasks(tmp_path):
@@ -295,11 +296,11 @@ def test_dispatch_all_dry_run(tmp_path, capsys):
     assert "[DRY]" in captured.out
 
 
-def test_dispatch_all_marks_done(tmp_path):
-    """dispatch_all marks tasks as done in the queue after dispatching."""
+def test_dispatch_all_starts_workflow(tmp_path):
+    """dispatch_all starts a Temporal workflow and returns count of started tasks."""
     qf = tmp_path / "golem-queue.md"
     _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-abc] --provider zhipu --max-turns 30 "test task"`
+        - [ ] `golem [t-abc] --provider zhipu --max-turns 30 "Fix X. Test: uv run pytest assays/test_foo.py -x"`
     """))
 
     mock_client = AsyncMock()
@@ -313,16 +314,16 @@ def test_dispatch_all_marks_done(tmp_path):
             result = asyncio.run(_mod["dispatch_all"]())
 
     assert result == 1
-    assert "- [x] " in qf.read_text()
+    # dispatch_all starts workflows but does NOT mark done — that happens in collect_results
     mock_client.start_workflow.assert_called_once()
 
 
 def test_dispatch_all_multiple_tasks(tmp_path):
-    """dispatch_all handles multiple pending tasks."""
+    """dispatch_all starts multiple workflows for multiple pending tasks."""
     qf = tmp_path / "golem-queue.md"
     _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-a1] --provider zhipu --max-turns 20 "task one"`
-        - [ ] `golem [t-b2] --provider volcano --max-turns 40 "task two"`
+        - [ ] `golem [t-a1] --provider zhipu --max-turns 20 "Fix one. Test: uv run pytest assays/test_one.py -x"`
+        - [ ] `golem [t-b2] --provider volcano --max-turns 40 "Fix two. Test: uv run pytest assays/test_two.py -x"`
     """))
 
     mock_client = AsyncMock()
@@ -335,8 +336,43 @@ def test_dispatch_all_multiple_tasks(tmp_path):
             result = asyncio.run(_mod["dispatch_all"]())
 
     assert result == 2
-    lines = qf.read_text().splitlines()
-    assert all("- [x] " in l for l in lines if "golem" in l)
+    assert mock_client.start_workflow.call_count == 2
+
+
+# ── test gate tests ──────────────────────────────────────────────────
+
+
+def test_dispatch_all_skips_no_test_ref(tmp_path, capsys):
+    """Tasks without test file or spec reference are skipped by test gate."""
+    qf = tmp_path / "golem-queue.md"
+    _write_queue(qf, textwrap.dedent("""\
+        - [ ] `golem [t-notest] --provider zhipu "Do something without tests"`
+    """))
+    result = asyncio.run(_mod["dispatch_all"]())
+    assert result == 0
+    captured = capsys.readouterr()
+    assert "[SKIP]" in captured.out
+    assert "no test file or spec" in captured.out
+
+
+def test_dispatch_all_spec_bypasses_test_gate(tmp_path):
+    """Tasks referencing a spec file in loci/plans/ bypass the test gate."""
+    qf = tmp_path / "golem-queue.md"
+    _write_queue(qf, textwrap.dedent("""\
+        - [ ] `golem [t-spec] --provider zhipu --max-turns 15 "Execute the spec at ~/germline/loci/plans/my-spec.md"`
+    """))
+
+    mock_client = AsyncMock()
+    mock_handle = MagicMock()
+    mock_client.start_workflow = AsyncMock(return_value=mock_handle)
+    mock_workflow_mod = MagicMock()
+
+    with patch.dict("sys.modules", {"workflow": mock_workflow_mod}):
+        with patch("temporalio.client.Client.connect", return_value=mock_client):
+            result = asyncio.run(_mod["dispatch_all"]())
+
+    assert result == 1
+    mock_client.start_workflow.assert_called_once()
 
 
 # ── log tests ─────────────────────────────────────────────────────────

@@ -513,10 +513,13 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     skipped = 0
     for line_num, prompt, provider, task_id, max_turns in pending:
         # Enforce test-file gate: prompt must reference a test file
+        # Exception: tasks referencing a spec file (loci/plans/) have their own
+        # verification section and don't need test file references.
         has_test_ref = bool(re.search(r'(?:assays/test_\w+\.py|pytest\s+assays/|test_\w+\.py)', prompt))
-        if not has_test_ref:
+        has_spec_ref = bool(re.search(r'loci/plans/\S+\.md', prompt))
+        if not has_test_ref and not has_spec_ref:
             skipped += 1
-            log(f"[SKIP] [{task_id}] no test file referenced in prompt — CC must write tests first")
+            log(f"[SKIP] [{task_id}] no test file or spec referenced in prompt — CC must write tests first")
             continue
 
         dispatch_provider = _pick_dispatch_provider(provider)

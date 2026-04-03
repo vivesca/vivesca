@@ -89,21 +89,24 @@
   },
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": false,
-    "frontend-design@claude-plugins-official": false,
+    "frontend-design@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "evals-skills@hamelsmu-evals-skills": true,
-    "compound-engineering@every-marketplace": false,
-    "obsidian@obsidian-skills": true,
-    "claude-api@anthropic-agent-skills": true,
-    "superpowers@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
-    "vercel-plugin@vercel-vercel-plugin": true
+    "compound-engineering@compound-engineering-plugin": false,
+    "evals-skills@hamelsmu-evals-skills": true
   },
   "extraKnownMarketplaces": {
-    "vercel-vercel-plugin": {
+    "compound-engineering-plugin": {
       "source": {
-        "source": "directory",
-        "path": "/Users/terry/.cache/plugins/github.com-vercel-vercel-plugin"
+        "source": "git",
+        "url": "https://github.com/EveryInc/compound-engineering-plugin.git"
+      }
+    },
+    "hamelsmu-evals-skills": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/hamelsmu/evals-skills.git"
       }
     }
   },
