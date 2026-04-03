@@ -320,7 +320,8 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         if not (stripped.startswith("- [ ] ") or stripped.startswith("- [!!] ")):
             continue
 
-        cmd_match = re.search(r"`([^`]+)`", line)
+        # Match outermost backtick pair (greedy — handles backticks inside prompts)
+        cmd_match = re.search(r"`(.+)`", line)
         if not cmd_match:
             continue
 
@@ -340,16 +341,12 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
             cmd = new_cmd
             modified = True
 
-        prompt_match = re.search(r'"([^"]+)"', cmd)
-        if prompt_match:
-            prompt = prompt_match.group(1)
-        else:
-            # Strip golem prefix, task IDs, and known flags only
-            prompt = re.sub(r'^golem\s+', '', cmd)
-            prompt = re.sub(r'\[t-[0-9a-fA-F]+\]\s*', '', prompt)
-            prompt = re.sub(r'(?:--provider|-b)\s+\S+\s*', '', prompt)
-            prompt = re.sub(r'--max-turns\s+\d+\s*', '', prompt)
-            prompt = prompt.strip() or cmd
+        # Strip golem prefix, task IDs, and known flags to extract bare prompt
+        prompt = re.sub(r'^golem\s+', '', cmd)
+        prompt = re.sub(r'\[t-[0-9a-fA-F]+\]\s*', '', prompt)
+        prompt = re.sub(r'(?:--provider|-b)\s+\S+\s*', '', prompt)
+        prompt = re.sub(r'--max-turns\s+\d+\s*', '', prompt)
+        prompt = prompt.strip() or cmd
 
         turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
         max_turns = int(turns_match.group(1)) if turns_match else 50

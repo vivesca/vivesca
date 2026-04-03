@@ -98,27 +98,36 @@ def rotate_log(path: Path, max_mb: float = LOG_MAX_MB):
 
 
 def kill_runaway_golems():
-    """Kill golem/claude processes that exceed time or memory limits."""
+    """Kill golem/claude processes that exceed time or memory limits.
+
+    Skip interactive CC sessions (those attached to a TTY) — only target
+    headless golems (tty == '?').
+    """
     killed = 0
     try:
         result = subprocess.run(
-            "ps -eo pid,etimes,rss,comm --no-headers | grep claude",
+            "ps -eo pid,etimes,rss,tty,comm --no-headers | grep claude",
             shell=True, capture_output=True, text=True, timeout=10
         )
         for line in result.stdout.strip().splitlines():
             parts = line.split()
-            if len(parts) < 4:
+            if len(parts) < 5:
                 continue
             pid, elapsed_s, rss_kb = int(parts[0]), int(parts[1]), int(parts[2])
+            tty = parts[3]
             rss_mb = rss_kb / 1024
+
+            # Interactive CC sessions have a TTY (pts/N) — never kill those
+            if tty != "?":
+                continue
 
             if elapsed_s > GOLEM_MAX_SECONDS:
                 os.kill(pid, signal.SIGTERM)
-                log(f"KILLED runaway PID {pid}: {elapsed_s}s elapsed (max {GOLEM_MAX_SECONDS})")
+                log(f"KILLED runaway PID {pid}: {elapsed_s}s elapsed (max {GOLEM_MAX_SECONDS}), tty={tty}")
                 killed += 1
             elif rss_mb > GOLEM_MAX_RSS_MB:
                 os.kill(pid, signal.SIGTERM)
-                log(f"KILLED memory hog PID {pid}: {rss_mb:.0f}MB RSS (max {GOLEM_MAX_RSS_MB})")
+                log(f"KILLED memory hog PID {pid}: {rss_mb:.0f}MB RSS (max {GOLEM_MAX_RSS_MB}), tty={tty}")
                 killed += 1
     except Exception as e:
         log(f"kill_runaway error: {e}")
