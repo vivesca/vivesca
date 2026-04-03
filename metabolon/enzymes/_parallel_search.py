@@ -414,5 +414,5 @@ async def _run_all(query: str) -> list[ToolResult]:
 # --- MCP Tool ---
 
 # No @tool decorator — elencho is internal plumbing, not a client-facing tool.
-# Called by rheotaxis_search(depth="parallel").
+# Called by rheotaxis() default mode.
 # Public API: _run_all() and _report().

@@ -54,7 +54,7 @@ OPERONS: list[Operon] = [
         reaction="scan",
         product="Transferable patterns surfaced from landscape and peers",
         substrates=["infradian/monthly cycle", "entering new domain", "feeling behind"],
-        enzymes=["dialexis", "rheotaxis_search"],
+        enzymes=["dialexis", "rheotaxis"],
     ),
     Operon(
         reaction="evaluate",
@@ -97,7 +97,7 @@ OPERONS: list[Operon] = [
         reaction="log",
         product="Symptom recorded and matched against known patterns",
         substrates=["symptom reported"],
-        enzymes=["nociception_log", "sopor", "histone_search"],
+        enzymes=["nociception_log", "sopor", "histone"],
     ),
     # ── Secretion (output to environment) ─────────────────────
     Operon(
@@ -113,7 +113,7 @@ OPERONS: list[Operon] = [
         precipitation="crystallised",
         substrates=["question requiring external knowledge", "unfamiliar domain"],
         enzymes=[
-            "rheotaxis_search",
+            "rheotaxis",
             "endocytosis_extract",
         ],
     ),
@@ -136,14 +136,14 @@ OPERONS: list[Operon] = [
         reaction="plan",
         product="Family activity organised considering everyone's needs",
         substrates=["weekend approaching", "holiday", "explicit request"],
-        enzymes=["circadian_list", "cibus", "histone_search"],
+        enzymes=["circadian", "cibus", "histone"],
         expressed=False,
     ),
     Operon(
         reaction="gift",
         product="Gift chosen that delights this specific person",
         substrates=["birthday approaching", "holiday", "milestone"],
-        enzymes=["histone_search", "circadian_list", "rheotaxis_search"],
+        enzymes=["histone", "circadian", "rheotaxis"],
         expressed=False,
     ),
 ]

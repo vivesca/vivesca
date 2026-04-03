@@ -15,7 +15,7 @@ Prompts:
     name="research",
     description=(
         "Generate a structured research brief. "
-        "Calls rheotaxis_search as appropriate and formats findings "
+        "Calls rheotaxis as appropriate and formats findings "
         "with executive summary, key points, sources, and recommended actions."
     ),
 )
@@ -27,13 +27,13 @@ def research(
     """Structured research brief prompt."""
     context_block = f"\nBackground context: {context}\n" if context else ""
     depth_instruction = {
-        "quick": "Use rheotaxis_search with depth=quick for a quick factual lookup.",
-        "standard": "Use rheotaxis_search with depth=thorough for a thorough survey.",
+        "quick": "Use rheotaxis with depth=quick for a quick factual lookup.",
+        "standard": "Use rheotaxis with depth=thorough for a thorough survey.",
         "deep": (
-            "Use rheotaxis_search with depth=deep for deep investigation "
+            "Use rheotaxis with depth=deep for deep investigation "
             "(expensive — confirm before running)."
         ),
-    }.get(depth, "Use rheotaxis_search with depth=thorough for a thorough survey.")
+    }.get(depth, "Use rheotaxis with depth=thorough for a thorough survey.")
 
     return (
         f"Research the following topic and produce a structured brief.\n\n"

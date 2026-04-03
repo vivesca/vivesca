@@ -99,7 +99,7 @@ class TestAuditCommand:
         collector = SensorySystem()
         collector.append(_make_signal("fasti_list_events"))
         collector.append(_make_signal("fasti_create_event"))
-        collector.append(_make_signal("rheotaxis_search"))
+        collector.append(_make_signal("rheotaxis"))
         # No oghma signals — so rules mentioning only oghma will show differently
 
         import unittest.mock

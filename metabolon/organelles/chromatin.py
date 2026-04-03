@@ -252,7 +252,7 @@ def search(
     mode: str = "hybrid",
     chromatin: str = "open",
 ) -> list[dict]:
-    """Alias for recall() — histone_search tool calls this name."""
+    """Alias for recall() — histone tool calls this name."""
     return recall(query, category=category, source_enzyme=source_enzyme, limit=limit, mode=mode, chromatin=chromatin)
 
 
