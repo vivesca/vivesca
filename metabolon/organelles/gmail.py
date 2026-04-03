@@ -198,9 +198,13 @@ def _search_messages(svc, query: str, max_results: int) -> str:
     # --- batch fetch in chunks of 100 ---
     collected: list[tuple[int, str]] = []
 
+    errors: list[str] = []
+
     def _callback(request_id: str, response: dict, exception: Exception | None) -> None:
-        if exception is None:
-            collected.append((int(request_id), _format_message(response)))
+        if exception is not None:
+            errors.append(f"batch fetch {request_id}: {exception}")
+            return
+        collected.append((int(request_id), _format_message(response)))
 
     for offset in range(0, len(all_stubs), 100):
         batch = BatchHttpRequest(callback=_callback)
@@ -210,6 +214,10 @@ def _search_messages(svc, query: str, max_results: int) -> str:
             )
             batch.add(req, request_id=str(offset + j))
         batch.execute()
+
+    if errors:
+        import logging
+        logging.getLogger(__name__).warning("gmail batch: %d/%d failed: %s", len(errors), len(all_stubs), errors[0])
 
     collected.sort(key=lambda pair: pair[0])
     return "\n".join(line for _, line in collected)
@@ -242,11 +250,15 @@ def _search_threads(svc, query: str, max_results: int) -> str:
     # --- batch fetch in chunks of 100 ---
     collected: list[tuple[int, str]] = []
 
+    errors: list[str] = []
+
     def _callback(request_id: str, response: dict, exception: Exception | None) -> None:
-        if exception is None:
-            msgs = response.get("messages", [])
-            thread_lines = [_format_message(m) for m in msgs]
-            collected.append((int(request_id), "\n".join(thread_lines)))
+        if exception is not None:
+            errors.append(f"batch fetch {request_id}: {exception}")
+            return
+        msgs = response.get("messages", [])
+        thread_lines = [_format_message(m) for m in msgs]
+        collected.append((int(request_id), "\n".join(thread_lines)))
 
     for offset in range(0, len(all_stubs), 100):
         batch = BatchHttpRequest(callback=_callback)
@@ -256,6 +268,10 @@ def _search_threads(svc, query: str, max_results: int) -> str:
             )
             batch.add(req, request_id=str(offset + j))
         batch.execute()
+
+    if errors:
+        import logging
+        logging.getLogger(__name__).warning("gmail thread batch: %d/%d failed: %s", len(errors), len(all_stubs), errors[0])
 
     collected.sort(key=lambda pair: pair[0])
     return "\n\n".join(block for _, block in collected)

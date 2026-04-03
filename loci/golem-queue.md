@@ -1,8 +1,8 @@
 ### Pending
 
-- [ ] `golem [t-f4fb0d] [t-gmail01] [t-batchfetch] --provider zhipu --max-turns 15 "Optimize search() in ~/germline/metabolon/organelles/gmail.py to use batch API instead of N+1 individual get() calls. READ the file first. Currently search() calls messages().list() then loops over results calling messages().get() one at a time. Use googleapiclient.http.BatchHttpRequest to fetch all messages in parallel (batch of up to 100). Keep the same return format — one line per message from _format_message(). Also add pagination support: if the list response contains 'nextPageToken', keep fetching until max_results is reached or no more pages. Same for threads=True mode — batch the threads().get() calls. Test: cd ~/germline && uv run pytest assays/test_gmail_organelle.py -x -q. All 13 existing tests must still pass. Commit with message 'gmail: batch fetch and pagination for search'. (retry)"`
-- [ ] `golem [t-63011d] [t-gmail02] [t-htmlstrip] --provider zhipu --max-turns 10 "Improve HTML stripping in _decode_body() in ~/germline/metabolon/organelles/gmail.py. READ the file first. Current approach uses re.sub(r'<[^>]+>', ' ', html) which leaves <style> and <script> content visible. Fix: (1) Remove <style>...</style> and <script>...</script> blocks entirely (re.sub with re.DOTALL). (2) Replace <br>, <br/>, </p>, </div>, </tr> with newlines before stripping other tags. (3) Collapse multiple newlines to max 2. Keep html_mod.unescape() call. Test: cd ~/germline && uv run pytest assays/test_gmail_organelle.py -x -q. The test_html_only_strips_tags test must still pass, plus add a new test test_html_strips_style_script that verifies <style> and <script> content is removed. Commit with message 'gmail: improve HTML tag stripping'. (retry)"`
-- [ ] `golem [t-6bbe50] [t-gmail03] [t-attachsend] --provider zhipu --max-turns 15 "Fix attachment support in send_email() in ~/germline/metabolon/organelles/gmail.py. READ the file first. Currently when attachments is provided, it creates MIMEMultipart and attaches MIMEText(body) but never attaches the actual files. Fix: for each path in attachments, read the file, guess MIME type with mimetypes.guess_type(), create the appropriate MIMEBase part, base64-encode the payload, add Content-Disposition header, and attach to msg_mime. Add a new test in assays/test_gmail_organelle.py: test_send_with_attachment — create a temp .txt file, call send_email with it as attachment, verify the MIME message contains the file content. Test: cd ~/germline && uv run pytest assays/test_gmail_organelle.py -x -q. Commit with message 'gmail: implement file attachment in send_email'. (retry)"`
+- [ ] `golem [t-f4fb0d] [t-gmail01] [t-batchfetch] --provider zhipu --max-turns 15 "Optimize search() in ~/germline/metabolon/organelles/gmail.py to use batch API instead of N+1 individual get() calls. READ the file first. Currently search() calls messages().list() then loops over results calling messages().get() one at a time. Use googleapiclient.http.BatchHttpRequest to fetch all messages in parallel (batch of up to 100). Keep the same return format — one line per message from _format_message(). Also add pagination support: if the list response contains 'nextPageToken', keep fetching until max_results is reached or no more pages. Same for threads=True mode — batch the threads().get() calls. Test: cd ~/germline && uv run pytest assays/test_gmail_organelle.py -x -q. All 13 existing tests must still pass. Commit with message 'gmail: batch fetch and pagination for search'."`
+- [!] `golem [t-63011d] [t-gmail02] [t-htmlstrip] --provider zhipu --max-turns 10 "Improve HTML stripping in _decode_body() in ~/germline/metabolon/organelles/gmail.py. READ the file first. Current approach uses re.sub(r'<[^>]+>', ' ', html) which leaves <style> and <script> content visible. Fix: (1) Remove <style>...</style> and <script>...</script> blocks entirely (re.sub with re.DOTALL). (2) Replace <br>, <br/>, </p>, </div>, </tr> with newlines before stripping other tags. (3) Collapse multiple newlines to max 2. Keep html_mod.unescape() call. Test: cd ~/germline && uv run pytest assays/test_gmail_organelle.py -x -q. The test_html_only_strips_tags test must still pass, plus add a new test test_html_strips_style_script that verifies <style> and <script> content is removed. Commit with message 'gmail: improve HTML tag stripping'. (retry)"`
+- [!] `golem [t-6bbe50] [t-gmail03] [t-attachsend] --provider zhipu --max-turns 15 "Fix attachment support in send_email() in ~/germline/metabolon/organelles/gmail.py. READ the file first. Currently when attachments is provided, it creates MIMEMultipart and attaches MIMEText(body) but never attaches the actual files. Fix: for each path in attachments, read the file, guess MIME type with mimetypes.guess_type(), create the appropriate MIMEBase part, base64-encode the payload, add Content-Disposition header, and attach to msg_mime. Add a new test in assays/test_gmail_organelle.py: test_send_with_attachment — create a temp .txt file, call send_email with it as attachment, verify the MIME message contains the file content. Test: cd ~/germline && uv run pytest assays/test_gmail_organelle.py -x -q. Commit with message 'gmail: implement file attachment in send_email'. (retry)"`
 - [ ] `golem [t-533251] [t-endofix] --provider zhipu --max-turns 25 "Fix remaining invoke_organelle references in two test files. READ metabolon/enzymes/endosomal.py first — it now calls gmail.search(), gmail.get_thread(), gmail.archive(), gmail.mark_read(), gmail.create_label(), gmail.send_email(), and endosomal_organelle.classify() directly instead of the old invoke_organelle(gog, args) wrapper. The tests still mock invoke_organelle which no longer exists. Files to fix: (1) assays/test_enzymes_endosomal.py — 19 remaining monkeypatch.setattr(mod, 'invoke_organelle', ...) calls in TestSearch, TestThread, TestArchive, TestMarkRead, TestLabel, TestSend, TestFilter classes. Replace each with the appropriate mod.gmail.X mock. Tests that assert CLI arg lists like ['gmail', 'search', 'is:unread', '--plain'] must change to assert the mock was called with the right Python args (e.g. mock_search.assert_called_with('is:unread')). (2) assays/test_endosomal_enzyme.py — tests use mock_invoke_organelle fixture (now aliased to mock_gmail). Update test assertions from mock_invoke_organelle.assert_called_once() to mock_gmail.search.assert_called_once() etc. The autouse fixture in test_enzymes_endosomal.py already mocks the new API correctly — use it as reference. Run: cd ~/germline && uv run pytest assays/test_enzymes_endosomal.py assays/test_endosomal_enzyme.py -x -q. Target: 0 failures. Commit with message 'fix: update endosomal tests to mock gmail API instead of invoke_organelle'. (retry)"`
 
 - [ ] `golem [t-e04a28] --provider zhipu --max-turns 10 "Add Telegram alert on repeated Temporal connection failures in ~/germline/effectors/temporal-golem/dispatch.py. READ the file first. In poll_loop(), after the line that logs CRITICAL for 5+ consecutive connection failures, call the efferens MCP tool or shell out to send a Telegram message. Use subprocess.Popen(['python3', '-c', 'from metabolon.organelles.telegram import send_message; send_message(\"[soma] temporal-dispatch: Temporal server unreachable after 5+ poll cycles\")'], cwd=os.path.expanduser('~/germline')) with a 10s timeout, fire-and-forget (don't block the poll loop). Only send once per failure streak — add a boolean _conn_alert_sent that resets when consecutive_conn_failures resets to 0. Test: add test_conn_failure_telegram_alert to assays/test_temporal_dispatch.py — mock subprocess.Popen and verify it's called after 5 OSError exceptions in the poll loop, and NOT called again until failures reset. Run: cd ~/germline && uv run pytest assays/test_temporal_dispatch.py -x -q. Commit with message 'temporal: telegram alert on connection failure streak'."`
@@ -21,3 +21,45 @@
 - [x] t-ca2248 (cachfix) — temporal stale failure cache fix
 - [x] t-ff66cc (gitsync) — temporal auto git sync
 - [x] t-2e1979, t-39661e, t-b08088, t-246f7e, t-2fea4f, t-5c27ea — DROPPED/superseded
+
+## Extract shared Google auth module
+
+**Context:** `gmail.py` and `circadian_clock.py` both have near-identical `_get_credentials()`, `service()`, `GOG_TOKEN_FILE`, thread lock patterns. Same OAuth client, same token.json, different scopes. Inelegant duplication.
+
+**Task:** Create `metabolon/organelles/google_auth.py`:
+- Single `_get_credentials(scopes)` function — env vars (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`) or fallback to `~/.config/vivesca/token.json` (rename from gog)
+- `get_service(api, version, scopes)` — cached per (api, version) tuple, thread-safe, auto-refresh
+- Copy token.json from `~/.config/gog/token.json` to `~/.config/vivesca/token.json`, symlink old path for backwards compat
+
+Then refactor both organelles:
+- `gmail.py`: replace `_get_credentials`, `service()`, imports with `from .google_auth import get_service; svc = get_service("gmail", "v1", GMAIL_SCOPES)`
+- `circadian_clock.py`: same pattern with `("calendar", "v3", CALENDAR_SCOPES)`
+- Remove `GOG_TOKEN_FILE`, `_service_lock`, `_cached_service` from both — all in google_auth now
+
+**Test:** `python3 -c "from metabolon.organelles.gmail import service; print(service())"` and `python3 -c "from metabolon.organelles.circadian_clock import service; print(service())"` both work. Then restart vivesca and verify `circadian list` MCP tool still works.
+
+**Files:** `metabolon/organelles/google_auth.py` (new), `metabolon/organelles/gmail.py` (edit), `metabolon/organelles/circadian_clock.py` (edit)
+
+## Add description/location support to circadian_clock.schedule_event
+
+**Context:** `schedule_event()` only takes title, date, time, duration. The MCP enzyme (`circadian.py`) passes description and location but logs "description ignored by circadian_clock". Had to use manual API call to add description to GARP exam event.
+
+**Task:** Add optional `description` and `location` params to `schedule_event()` in `metabolon/organelles/circadian_clock.py`. Add them to the `body` dict if provided. Update the MCP enzyme in `metabolon/enzymes/circadian.py` to pass them through instead of logging "ignored".
+
+**Test:** `python3 -c "from metabolon.organelles.circadian_clock import schedule_event; eid = schedule_event('Test', '2026-04-20', '10:00', description='test desc', location='Home'); print(eid)"` — then verify event has description via `scheduled_events_json('2026-04-20')`. Delete the test event after.
+
+**Files:** `metabolon/organelles/circadian_clock.py` (edit), `metabolon/enzymes/circadian.py` (edit)
+
+## Retire fasti Rust binary
+
+**Context:** fasti is a Rust binary (`~/.cargo/bin/fasti`) that wraps gog CLI for calendar operations. Now that `circadian_clock.py` uses direct Google Calendar API and the MCP `circadian` tool works, fasti is redundant. The `fasti` skill still references it.
+
+**Task:**
+1. Update `membrane/receptors/fasti/SKILL.md` to route through MCP `circadian` tool instead of the fasti binary
+2. Remove the symlink `~/germline/effectors/fasti -> ~/.cargo/bin/fasti`
+3. `cargo uninstall fasti` if installed
+4. Check if any other skills/hooks reference `fasti` CLI and update them to use MCP circadian
+
+**Test:** Run `/fasti list` or equivalent — should work via MCP, not the binary.
+
+**Files:** `membrane/receptors/fasti/SKILL.md` (edit), `effectors/fasti` (delete symlink)
