@@ -63,6 +63,38 @@ def _git_snapshot() -> dict:
         return {"stat": "", "numstat": ""}
 
 
+def _git_pull_ff_only(repo_root: str) -> None:
+    """Pull latest changes before golem runs to pick up CC-written test files."""
+    try:
+        result = _subprocess.run(
+            ["git", "pull", "--ff-only"],
+            capture_output=True, text=True, timeout=15,
+            cwd=repo_root,
+        )
+        if result.returncode != 0:
+            print(f"WARNING: git pull --ff-only failed: {result.stderr.strip()}", file=sys.stderr)
+    except _subprocess.TimeoutExpired:
+        print("WARNING: git pull --ff-only timed out", file=sys.stderr)
+    except Exception as exc:
+        print(f"WARNING: git pull --ff-only error: {exc}", file=sys.stderr)
+
+
+def _git_push(repo_root: str) -> None:
+    """Push golem commits to origin so soma can pull without manual intervention."""
+    try:
+        result = _subprocess.run(
+            ["git", "push"],
+            capture_output=True, text=True, timeout=30,
+            cwd=repo_root,
+        )
+        if result.returncode != 0:
+            print(f"WARNING: git push failed: {result.stderr.strip()}", file=sys.stderr)
+    except _subprocess.TimeoutExpired:
+        print("WARNING: git push timed out", file=sys.stderr)
+    except Exception as exc:
+        print(f"WARNING: git push error: {exc}", file=sys.stderr)
+
+
 def _detect_prior_commits(
     repo_root: str, time_window_minutes: int = 40, author: str = "golem"
 ) -> list[str]:
@@ -211,6 +243,9 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         )
         effective_task = prefix + task
 
+    # Pull latest changes (e.g. CC-written test files) before running golem
+    await asyncio.to_thread(_git_pull_ff_only, repo_root)
+
     # Snapshot before golem runs
     pre_diff = await asyncio.to_thread(_git_snapshot)
 
@@ -270,6 +305,10 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
 
     # Snapshot after golem runs
     post_diff = await asyncio.to_thread(_git_snapshot)
+
+    # Push golem commits to origin so soma can pull without manual intervention
+    if rc == 0 and post_diff.get("stat", "").strip():
+        await asyncio.to_thread(_git_push, repo_root)
 
     # #5: Extract token/cost info from golem output
     cost_info = ""
