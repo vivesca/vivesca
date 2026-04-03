@@ -350,6 +350,13 @@ _run_golem() {
       fi
       [[ $_wait_secs -gt 600 ]] && _wait_secs=600  # cap at 10 min
       if [[ $_attempt -lt $_max_retries ]]; then
+        # Wall-limit check: skip retry if remaining time < per-attempt timeout
+        local _elapsed=$(( $(date +%s) - _wall_start ))
+        local _remaining=$(( _wall_limit - _elapsed ))
+        if [[ $_remaining -lt $_claude_timeout ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+          break
+        fi
         $QUIET || echo "[preflight] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), waiting ${_wait_secs}s — $_preflight_result" >&2
         sleep "$_wait_secs"
         _backoff=$(( _backoff * 2 ))
