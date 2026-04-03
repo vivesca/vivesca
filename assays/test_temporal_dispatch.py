@@ -227,24 +227,35 @@ def test_mark_done_preserves_other_lines(tmp_path):
 # ── mark_failed tests ─────────────────────────────────────────────────
 
 
-def test_mark_failed_pending_task(tmp_path):
-    """Marking a pending - [ ] task changes it to - [!]."""
+def test_mark_failed_pending_task_retries_first(tmp_path):
+    """First failure on a pending task adds (retry), keeps as [ ]."""
     qf = tmp_path / "golem-queue.md"
     _write_queue(qf, '- [ ] `golem [t-abc] --provider zhipu "task"`\n')
-    mark_failed(0)
+    result = mark_failed(0)
     content = qf.read_text()
+    assert result["retried"] is True
+    assert "(retry)" in content
+    assert "- [ ] " in content  # stays pending for retry
+
+
+def test_mark_failed_pending_task_permanent_on_second(tmp_path):
+    """Second failure (already has retry) marks as permanently failed [!]."""
+    qf = tmp_path / "golem-queue.md"
+    _write_queue(qf, '- [ ] `golem [t-abc] --provider zhipu "task (retry)"`\n')
+    result = mark_failed(0)
+    content = qf.read_text()
+    assert result["retried"] is False
     assert "- [!] " in content
-    assert "- [ ] " not in content
 
 
-def test_mark_failed_urgent_task(tmp_path):
-    """Marking an urgent - [!!] task changes it to - [!]."""
+def test_mark_failed_urgent_task_retries_first(tmp_path):
+    """First failure on an urgent task adds (retry), keeps as [!!]."""
     qf = tmp_path / "golem-queue.md"
     _write_queue(qf, '- [!!] `golem [t-abc] --provider zhipu "urgent"`\n')
-    mark_failed(0)
+    result = mark_failed(0)
     content = qf.read_text()
-    assert "- [!] " in content
-    assert "- [!!] " not in content
+    assert result["retried"] is True
+    assert "(retry)" in content
 
 
 def test_mark_failed_out_of_range(tmp_path):
