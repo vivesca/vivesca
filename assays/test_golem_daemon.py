@@ -3410,3 +3410,223 @@ class TestStatusBillingExhausted:
         out = capsys.readouterr().out.lower()
         assert "billing limit" not in out
         assert "cooldowns" not in out
+
+
+# ── Billing exhaustion + short window override tests ────────────────────
+
+
+class TestBillingExhaustedOverridesShortWindow:
+    """When is_billing_exhausted matches, the cooldown must be >= BILLING_EXHAUSTED_THRESHOLD
+    even if parse_rate_limit_window returns a short value."""
+
+    def test_billing_with_short_format_time_enforces_24h(self):
+        """Billing-exhausted message with short-format 'try again at HH:MM PM'
+        must produce at least 24h cooldown, not the short window."""
+        tail = "You've hit your usage limit. try again at 11:59 PM"
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        # The short-format time gives a window < 24h
+        assert window is not None
+        assert window < BILLING_EXHAUSTED_THRESHOLD
+        # But billing exhaustion should override: max(window, 24h) = 24h
+        enforced = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        assert enforced >= BILLING_EXHAUSTED_THRESHOLD
+
+    def test_billing_with_no_date_enforces_24h(self):
+        """Billing-exhausted message with no parseable date must produce 24h."""
+        tail = "You've hit your usage limit for this billing cycle"
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window is None
+        enforced = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        assert enforced == BILLING_EXHAUSTED_THRESHOLD
+
+    def test_billing_with_long_date_uses_long_window(self):
+        """Billing-exhausted message with far-future date uses that date."""
+        tail = "You've hit your usage limit. Please try again at Dec 25th, 2030 4:01 PM"
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+        enforced = max(window, BILLING_EXHAUSTED_THRESHOLD)
+        assert enforced == window  # long window wins
+
+    def test_non_billing_short_window_stays_short(self):
+        """Regular rate-limit (not billing) with short window stays short."""
+        tail = "429 Too Many Requests"
+        assert not is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window is None
+        # No billing override — would use RATE_LIMIT_COOLDOWN_SECONDS
+        assert RATE_LIMIT_COOLDOWN_SECONDS < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_realistic_codex_billing_message(self):
+        """Realistic Codex billing message with full date is correctly parsed."""
+        tail = "You've hit your usage limit. Please try again at Apr 8th, 2026 4:01 PM"
+        assert is_billing_exhausted(tail)
+        assert is_rate_limited(tail)
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        # Apr 8, 2026 is >24h from now (it's Apr 3, 2026)
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+        date_str = parse_reset_date_str(tail)
+        assert date_str is not None
+        assert "Apr" in date_str
+
+
+class TestPickDispatchProviderWithDisabled:
+    """Tests that _pick_dispatch_provider respects PROVIDER_DISABLED."""
+
+    def test_disabled_provider_skipped_even_without_cooldown(self):
+        """Provider in PROVIDER_DISABLED is skipped even if not in cooldown."""
+        disabled = {"codex": {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}}
+        result = _pick_dispatch_provider("infini", {"infini": time.time() + 600}, {}, provider_disabled=disabled)
+        # Should skip codex (disabled) and fall through to gemini
+        assert result is not None
+        assert result != "codex"
+
+    def test_disabled_provider_alone_blocks_dispatch(self):
+        """When affinity provider is disabled, fallback is used."""
+        disabled = {"codex": {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}}
+        result = _pick_dispatch_provider("codex", {}, {}, provider_disabled=disabled)
+        assert result is not None
+        assert result != "codex"
+        # Should fall through to gemini (first in codex fallback chain)
+        assert result == "gemini"
+
+    def test_disabled_and_cooldown_both_skipped(self):
+        """Providers in both cooldown and PROVIDER_DISABLED are skipped."""
+        disabled = {"codex": {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}}
+        cooldowns = {"infini": time.time() + 600}
+        result = _pick_dispatch_provider("infini", cooldowns, {}, provider_disabled=disabled)
+        assert result is not None
+        assert result != "codex"
+        assert result != "infini"
+
+    def test_no_disabled_dict_works_as_before(self):
+        """Without provider_disabled, behaviour is unchanged."""
+        cooldowns = {"infini": time.time() + 600}
+        result = _pick_dispatch_provider("infini", cooldowns, {}, provider_disabled=None)
+        assert result == "codex"
+
+    def test_all_providers_disabled_returns_none(self):
+        """When all providers are disabled or in cooldown, returns None."""
+        disabled = {p: {"resets_at": time.time() + 86400, "resets_str": "Apr 8"} for p in PROVIDER_LIMITS}
+        assert _pick_dispatch_provider("infini", {}, {}, provider_disabled=disabled) is None
+
+    def test_disabled_provider_not_probed_for_fallback(self):
+        """When infini is cooled and codex is disabled, fallback goes to gemini."""
+        disabled = {"codex": {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}}
+        cooldowns = {"infini": time.time() + 600}
+        running = {}
+        result = _pick_dispatch_provider("infini", cooldowns, running, provider_disabled=disabled)
+        assert result == "gemini"
+
+
+class TestDateParsingEdgeCases:
+    """Additional edge-case tests for date parsing from stderr."""
+
+    def test_midnight_am(self):
+        """12:00 AM is midnight (hour=0), not noon."""
+        tail = "try again at 12:00 AM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+
+    def test_noon_pm(self):
+        """12:00 PM is noon (hour=12), not midnight."""
+        tail = "try again at 12:00 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+
+    def test_month_full_name(self):
+        """Full month name (e.g. 'January') is parsed correctly."""
+        tail = "try again at January 15th, 2030 10:00 AM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_iso_format_close_future(self):
+        """ISO format with date <24h away returns short window."""
+        from datetime import datetime, timedelta
+        soon = (datetime.now() + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+        tail = f"reset at {soon}"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_gemini_duration_under_24h(self):
+        """Gemini 'quota will reset after Xm Ys' with <24h duration."""
+        tail = "quota will reset after 5m30s"
+        window = parse_rate_limit_window(tail)
+        assert window == 5 * 60 + 30
+        assert window < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_billing_with_nd_suffix(self):
+        """Date with 'nd' suffix (e.g. '2nd') is parsed."""
+        tail = "try again at Apr 2nd, 2030 3:00 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_billing_with_rd_suffix(self):
+        """Date with 'rd' suffix (e.g. '3rd') is parsed."""
+        tail = "try again at Apr 3rd, 2030 3:00 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_reset_date_str_codex_with_comma(self):
+        """parse_reset_date_str handles 'Apr 8th, 2026 4:01 PM'."""
+        result = parse_reset_date_str("try again at Apr 8th, 2026 4:01 PM")
+        assert result is not None
+        assert "Apr" in result
+        assert "8" in result
+
+    def test_reset_date_str_iso(self):
+        """parse_reset_date_str handles ISO format."""
+        result = parse_reset_date_str("reset at 2026-04-08 16:01:00")
+        assert result == "2026-04-08 16:01:00"
+
+    def test_past_date_returns_none_or_zero(self):
+        """Dates in the past return None (delta <= 0)."""
+        tail = "try again at Jan 1st, 2020 12:00 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is None
+
+
+class TestBillingVsShortCooldownExtended:
+    """Extended tests for long vs short cooldown classification."""
+
+    def test_billing_threshold_boundary(self):
+        """Exactly 86400 seconds (24h) IS billing-exhausted threshold."""
+        assert BILLING_EXHAUSTED_THRESHOLD == 86400
+
+    def test_rate_limit_cooldown_much_shorter(self):
+        """RATE_LIMIT_COOLDOWN_SECONDS (5h) is well under billing threshold."""
+        assert RATE_LIMIT_COOLDOWN_SECONDS == 18000  # 5 hours
+        assert RATE_LIMIT_COOLDOWN_SECONDS < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_provider_window_shorter_than_threshold(self):
+        """Codex per-provider window (1h) is shorter than billing threshold."""
+        PROVIDER_RATE_WINDOWS = _mod["PROVIDER_RATE_WINDOWS"]
+        assert PROVIDER_RATE_WINDOWS["codex"] < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_billing_message_with_hour_duration(self):
+        """'usage limit' + '5-hour' pattern should use billing threshold."""
+        tail = "You've hit your usage limit. Please wait 5-hour cooldown."
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window == 5 * 3600  # 18000 seconds
+        # But billing override should enforce 24h
+        enforced = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        assert enforced == BILLING_EXHAUSTED_THRESHOLD
+
+    def test_billing_message_with_minute_duration(self):
+        """'billing limit' + '30-minute' pattern should use billing threshold."""
+        tail = "billing limit exceeded. retry after 30-minute window"
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window == 30 * 60  # 1800 seconds
+        # Billing override should enforce 24h
+        enforced = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        assert enforced == BILLING_EXHAUSTED_THRESHOLD
