@@ -310,6 +310,7 @@ def _resolve_dispatch_command(
     affinity_provider = parse_provider(cmd)
     dispatch_provider = _pick_dispatch_provider(
         affinity_provider, provider_cooldown_until, provider_running,
+        provider_disabled=PROVIDER_DISABLED,
     )
     if dispatch_provider is None:
         return None
