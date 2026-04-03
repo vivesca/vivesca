@@ -52,7 +52,7 @@ Short narrative, not a table. Two paragraphs max. Lead with the headline ("produ
 ### Steps
 
 1. **Calendar lookahead** — call `circadian_list` for next 7 days. Surface fixed commitments.
-2. **Prospective check** — read `~/epigenome/marks/prospective.md`. Flag any items whose trigger has arrived or is imminent. Flag any expired items for cleanup.
+2. **Priming check** — read `~/epigenome/marks/priming.md`. Flag any items whose trigger has arrived or is imminent. Flag any expired items for cleanup.
 3. **Big rocks** — given tonus in-progress items + calendar constraints, what are the 1-3 things that matter most next week? Name them.
 4. **Week's character** — one sentence describing what kind of week this should be. ("Closing out CNCBI, protect Wednesday for farewell." or "First Capco week — absorb, don't produce.")
 5. **Propose tonus updates** — suggest additions, removals, or status changes. Don't apply without confirmation.
@@ -65,7 +65,7 @@ Calendar summary as a short list. Then big rocks. Then the character sentence. K
 
 ## Phase 3: Maintain (optional, if time)
 
-1. **Prospective cleanup** — delete actioned or expired items from prospective.md
+1. **Priming cleanup** — delete actioned or expired items from priming.md
 2. **Tonus cleanup** — remove done items that have been acknowledged
 3. **Memory check** — any corrections or findings from this week that should be saved?
 
@@ -79,4 +79,4 @@ Only run Phase 3 if the user has energy for it. Don't force it.
 - Skip the "what surprised" step — it's where the real signal lives
 - Auto-update tonus without confirmation
 - Run methylation or expression from here — they're independent skills with their own cadence
-- Add items to prospective.md without the user's input
+- Add items to priming.md without the user's input

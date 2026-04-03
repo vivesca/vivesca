@@ -488,7 +488,7 @@ def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
         return {"retried": retried, "rate_limited": rate_limited}
 
 
-async def dispatch_all(dry_run: bool = False) -> int:
+async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     """Dispatch all pending tasks as a single Temporal workflow.
 
     Skips providers currently on cooldown, falling back through
@@ -508,11 +508,23 @@ async def dispatch_all(dry_run: bool = False) -> int:
         return len(pending)
 
     # Build specs for Temporal workflow, respecting cooldowns & limits
+    # #6: Round-robin across available providers for batch distribution
+    available_providers = [
+        p for p in PROVIDER_LIMITS if not _is_on_cooldown(p)
+    ]
     specs = []
     dispatched = []  # list of (line_num, task_id) for mark_done
     skipped = 0
+    rr_idx = 0
     for line_num, prompt, provider, task_id, max_turns in pending:
-        dispatch_provider = _pick_dispatch_provider(provider)
+        # If task specifies a provider via -b, respect it; otherwise round-robin
+        if provider == "zhipu" and len(available_providers) > 1 and len(pending) > 1:
+            # No explicit provider preference — distribute across available
+            dispatch_provider = available_providers[rr_idx % len(available_providers)]
+            rr_idx += 1
+        else:
+            dispatch_provider = _pick_dispatch_provider(provider)
+
         if dispatch_provider is None:
             skipped += 1
             log(f"[SKIP] [{task_id}] {provider} on cooldown, no fallback available")
@@ -531,6 +543,7 @@ async def dispatch_all(dry_run: bool = False) -> int:
             "task": prompt,
             "provider": dispatch_provider,
             "max_turns": max_turns,
+            "mode": mode,
         })
         dispatched.append((line_num, task_id))
         _provider_running[dispatch_provider] = current_running + 1
@@ -541,25 +554,107 @@ async def dispatch_all(dry_run: bool = False) -> int:
         log(f"All {len(pending)} tasks skipped (cooldowns/limits)")
         return 0
 
-    # Mark all as dispatched (done) in queue - Temporal handles retries
-    for ln, tid in dispatched:
-        mark_done(ln, task_id=tid)
-
-    # Submit as a single batch workflow
+    # #2: One workflow per task — independent completion, no batch blocking
     from workflow import GolemDispatchWorkflow
 
     host = os.getenv("TEMPORAL_HOST", "ganglion:7233")
     client = await Client.connect(host)
-    wf_id = f"golem-batch-{uuid.uuid4().hex[:8]}"
 
-    handle = await client.start_workflow(
-        GolemDispatchWorkflow.run,
-        args=[specs],
-        id=wf_id,
-        task_queue="golem-tasks",
-    )
-    log(f"Dispatched {len(specs)} tasks as workflow {wf_id}" + (f", skipped {skipped}" if skipped else ""))
+    # Start all workflows
+    handles = []
+    for spec, (ln, tid) in zip(specs, dispatched):
+        wf_id = f"golem-{tid}-{uuid.uuid4().hex[:4]}"
+        handle = await client.start_workflow(
+            GolemDispatchWorkflow.run,
+            args=[[spec]],  # single-element list (workflow expects list)
+            id=wf_id,
+            task_queue="golem-tasks",
+        )
+        handles.append((handle, ln, tid, spec))
+        log(f"Dispatched [{tid}] as workflow {wf_id}")
+
+    # Await all results independently
+    approved_count = 0
+    flagged_count = 0
+    rejected_count = 0
+    for handle, ln, tid, spec in handles:
+        try:
+            result = await handle.result()
+            task_results = result.get("results", [])
+            tr = task_results[0] if task_results else {}
+            review = tr.get("review", {})
+            verdict = review.get("verdict", "unknown")
+            flags = review.get("flags", [])
+
+            if verdict == "approved":
+                mark_done(ln, task_id=tid)
+                log(f"[DONE] [{tid}] {tr.get('provider', '?')}")
+                approved_count += 1
+            elif verdict == "approved_with_flags":
+                log(f"[HOLD] [{tid}] {tr.get('provider', '?')} — flags: {', '.join(flags)}")
+                flagged_count += 1
+            else:
+                requeue_prompt = tr.get("requeue_prompt", "")
+                if requeue_prompt:
+                    _auto_requeue(requeue_prompt, tr.get("provider", "zhipu"))
+                    log(f"[REQUEUE] [{tid}] {tr.get('provider', '?')} — auto-requeued with coaching")
+                elif tr.get("exit_code", 0) != 0:
+                    orig_provider = tr.get("provider", "zhipu")
+                    fallback_list = PROVIDER_FALLBACK.get(orig_provider, [])
+                    fallback = next((f for f in fallback_list if not _is_on_cooldown(f)), None)
+                    if fallback:
+                        _auto_requeue(tr.get("task", ""), fallback)
+                        log(f"[FALLBACK] [{tid}] {orig_provider}->{fallback} — requeued on fallback")
+                reason = f"review rejected: {', '.join(flags)}" if flags else "review rejected"
+                mark_failed(ln, task_id=tid, reason=reason)
+                log(f"[FAIL] [{tid}] {tr.get('provider', '?')} — {reason}")
+                rejected_count += 1
+        except Exception as e:
+            log(f"[FAIL] [{tid}] workflow error: {e}")
+            mark_failed(ln, task_id=tid, reason=f"workflow error: {str(e)[:100]}")
+            rejected_count += 1
+
+    log(f"Complete: {approved_count} approved, {flagged_count} flagged, {rejected_count} rejected")
+    _sync_reviews()
     return len(specs)
+
+
+def _auto_requeue(prompt: str, provider: str) -> None:
+    """#9: Append a coached retry task to the queue."""
+    import secrets as _secrets
+    tid = f"t-{_secrets.token_hex(3)}"
+    entry = f'- [ ] `golem --provider {provider} [{tid}] {prompt}`\n'
+    with QueueLock():
+        lines = QUEUE_FILE.read_text().splitlines() if QUEUE_FILE.exists() else ["### Pending"]
+        # Insert after "### Pending" line
+        for i, line in enumerate(lines):
+            if line.strip().startswith("### Pending"):
+                lines.insert(i + 1, entry.rstrip())
+                break
+        else:
+            lines.append(entry.rstrip())
+        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+
+
+def _sync_reviews() -> None:
+    """Pull golem-reviews.jsonl from ganglion; sync germline via git."""
+    import subprocess
+    # Pull review log (not in git — ephemeral)
+    review_src = "ganglion:~/germline/loci/golem-reviews.jsonl"
+    review_dst = str(Path.home() / "germline" / "loci" / "golem-reviews.jsonl")
+    try:
+        subprocess.run(["rsync", "-az", review_src, review_dst], timeout=30, capture_output=True)
+    except Exception:
+        pass
+    # Git pull on ganglion to sync skills + temporal-golem code
+    try:
+        subprocess.run(
+            ["ssh", "ganglion", "cd ~/germline && git pull --ff-only 2>&1"],
+            timeout=30, capture_output=True,
+        )
+        log("[SYNC] reviews pulled, ganglion git pulled")
+    except Exception as e:
+        log(f"[SYNC] failed: {e}")
 
 
 async def poll_loop(interval: int = 30) -> None:
@@ -672,6 +767,7 @@ def main() -> None:
 
     dry_run = "--dry-run" in args
     poll = "--poll" in args
+    mode = "graph" if "--graph" in args else "raw"
 
     interval = 30
     if "--interval" in args:
@@ -682,7 +778,7 @@ def main() -> None:
     if poll:
         asyncio.run(poll_loop(interval))
     else:
-        asyncio.run(dispatch_all(dry_run=dry_run))
+        asyncio.run(dispatch_all(dry_run=dry_run, mode=mode))
 
 
 if __name__ == "__main__":

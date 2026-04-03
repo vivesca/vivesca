@@ -30,6 +30,8 @@
 
 Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
+**Marks library:** `~/epigenome/marks/`. Each file has `description:` frontmatter. **When starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding.** Example: before working on golem, `grep -l "golem" ~/epigenome/marks/*.md`. Same pattern as epistemics — not by remembering, but by looking.
+
 **Meta-rules:** Evidence > opinions. One correction = full sweep. When in doubt, test it. Work generates work — follow it. Origin is recoverable, spark is perishable. Fix what breaks before testing what doesn't — triage by blast radius. All dispatch orients toward north star goals — read `North Star.md` before selecting work.
 
 ## Facts
