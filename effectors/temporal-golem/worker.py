@@ -176,19 +176,20 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         cached = OUTPUT_DIR / f"{_time.strftime('%Y%m%d')}-{tid_str}.txt"
         if cached.exists():
             content = cached.read_text()
-            rc = 0 if "Exit: 0" in content[:200] else 1
-            return {
-                "success": rc == 0,
-                "exit_code": rc,
-                "provider": provider,
-                "task": task[:200],
-                "stdout": "(cached from prior attempt)",
-                "stderr": "",
-                "pre_diff": {"stat": "", "numstat": ""},
-                "post_diff": {"stat": "", "numstat": ""},
-                "cost_info": "",
-                "output_path": str(cached),
-            }
+            if "Exit: 0" in content[:200]:
+                return {
+                    "success": True,
+                    "exit_code": 0,
+                    "provider": provider,
+                    "task": task[:200],
+                    "stdout": "(cached from prior attempt)",
+                    "stderr": "",
+                    "pre_diff": {"stat": "", "numstat": ""},
+                    "post_diff": {"stat": "", "numstat": ""},
+                    "cost_info": "",
+                    "output_path": str(cached),
+                }
+            print(f"cache: stale failure for {tid_str}, re-executing")
 
     # Run golem from repo root, not temporal-golem subdir
     repo_root = str(Path.home() / "germline")

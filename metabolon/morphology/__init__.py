@@ -8,6 +8,7 @@ from metabolon.morphology.base import (
     Vital,
     resolve_memory_dir,
 )
+from metabolon.morphology.env import clean_env
 
 __all__ = [
     "EffectorResult",
@@ -15,5 +16,9 @@ __all__ = [
     "Secretion",
     "Vesicle",
     "Vital",
+<<<<<<< Updated upstream
     "resolve_memory_dir",
+=======
+    "clean_env",
+>>>>>>> Stashed changes
 ]

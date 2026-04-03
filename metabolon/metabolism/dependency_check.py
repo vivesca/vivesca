@@ -12,9 +12,8 @@ Runs monthly or on-demand. Checks:
 import os
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path
 
-HOME = Path.home()
+from metabolon.locus import germline, epigenome
 
 
 @dataclass
@@ -80,8 +79,8 @@ def run_dependency_check() -> list[DependencyStatus]:
         results.append(check_binary(binary))
 
     # Git repos
-    results.append(check_git_repo(HOME / "germline", "germline"))
-    results.append(check_git_repo(HOME / "epigenome", "epigenome"))
+    results.append(check_git_repo(germline, "germline"))
+    results.append(check_git_repo(epigenome, "epigenome"))
 
     return results
 

@@ -672,13 +672,15 @@ async def poll_loop(interval: int = 30) -> None:
     log(f"Starting poll loop (interval={interval}s)")
     while True:
         try:
-            count = await dispatch_all()
+            count = await asyncio.wait_for(dispatch_all(), timeout=120)
             if count == 0:
                 log("Queue empty, waiting...")
             else:
                 # Success — unthrottle all providers
                 for prov in list(_provider_throttle):
                     _unthrottle_provider(prov)
+        except asyncio.TimeoutError:
+            log("[POLL] dispatch timed out, will retry next cycle")
         except Exception as e:
             err_msg = str(e)
             # Detect rate-limit / quota errors using compiled regex

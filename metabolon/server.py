@@ -8,9 +8,11 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
+from metabolon.locus import requests_log
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_REQUEST_LOG = Path.home() / ".local" / "share" / "vivesca" / "requests.jsonl"
+DEFAULT_REQUEST_LOG = requests_log
 
 
 class RequestLogger:

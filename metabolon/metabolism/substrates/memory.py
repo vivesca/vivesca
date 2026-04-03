@@ -12,6 +12,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from metabolon.locus import claude_memory, genome_md
 from metabolon.metabolism.signals import SensorySystem
 from metabolon.morphology import resolve_memory_dir
 
@@ -68,12 +69,17 @@ class ConsolidationSubstrate:
         constitution_path: Path | None = None,
         collector: SensorySystem | None = None,
     ):
+<<<<<<< Updated upstream
         self.memory_dir = memory_dir or (
             resolve_memory_dir()
         )
         self.constitution_path = constitution_path or (
             Path.home() / ".local" / "share" / "vivesca" / "genome.md"
         )
+=======
+        self.memory_dir = memory_dir or claude_memory
+        self.constitution_path = constitution_path or genome_md
+>>>>>>> Stashed changes
         self.collector = collector or SensorySystem()
 
     def sense(self, days: int = 30) -> list[dict]:

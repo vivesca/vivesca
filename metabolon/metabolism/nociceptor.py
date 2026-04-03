@@ -18,14 +18,15 @@ import json
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Literal
+
+from metabolon.locus import infections_log, signals_log, logs_dir
 
 HKT = timezone(timedelta(hours=8))
 
-INFECTION_LOG = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
-SIGNAL_LOG = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
-HOOK_LOG = Path.home() / "logs" / "hook-fire-log.jsonl"
+INFECTION_LOG = infections_log
+SIGNAL_LOG = signals_log
+HOOK_LOG = logs_dir / "hook-fire-log.jsonl"
 
 CHRONIC_THRESHOLD = 3
 PainType = Literal["network", "auth", "resource", "logic", "chronic", "unknown"]

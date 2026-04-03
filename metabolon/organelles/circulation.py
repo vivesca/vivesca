@@ -38,19 +38,27 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
-from metabolon.locus import chromatin, praxis
+from metabolon.locus import (
+    chromatin,
+    checkpoints_db,
+    north_star,
+    now,
+    poiesis_reports,
+    praxis,
+    tmp,
+)
 from metabolon.symbiont import transduce, transduce_safe
 
 # ── paths ────────────────────────────────────────────────────
 
-CHECKPOINT_DB = Path.home() / ".local" / "share" / "vivesca" / "checkpoints.db"
+CHECKPOINT_DB = checkpoints_db
 
-NORTH_STAR_PATH = chromatin / "North Star.md"
+NORTH_STAR_PATH = north_star
 SHAPES_PATH = chromatin / "euchromatin" / "epistemics" / "north-star-shapes.md"
 DIVISION_PATH = chromatin / "euchromatin" / "epistemics" / "division-of-labour.md"
-NOW_PATH = chromatin / "NOW.md"
-MANIFEST_PATH = Path.home() / "tmp" / "circulation-manifest.md"
-REPORT_DIR = chromatin / "Poiesis Reports"
+NOW_PATH = now
+MANIFEST_PATH = tmp / "circulation-manifest.md"
+REPORT_DIR = poiesis_reports
 
 # ── models ───────────────────────────────────────────────────
 

@@ -24,6 +24,10 @@ praxis = chromatin / "Praxis.md"
 praxis_archive = chromatin / "Praxis Archive.md"
 tonus = chromatin / "Tonus.md"
 daily = chromatin / "Daily"
+north_star = chromatin / "North Star.md"
+now = chromatin / "NOW.md"
+consulting = chromatin / "Consulting"
+poiesis_reports = chromatin / "Poiesis Reports"
 
 # Engrams (memory)
 marks = epigenome / "marks"
@@ -72,6 +76,8 @@ assays = germline / "assays"
 loci = germline / "loci"
 poiesis = loci / "poiesis"
 pulse = loci / "pulse"
+signals_dir = loci / "signals"
+rheotaxis_log = signals_dir / "rheotaxis.jsonl"
 
 # Endocytosis (RSS content intake)
 endocytosis_cache = home / ".cache" / "endocytosis"
@@ -80,10 +86,45 @@ endocytosis_affinity = endocytosis_cache / "relevance.jsonl"
 endocytosis_recycling = endocytosis_cache / "engagement.jsonl"
 endocytosis_alerts = endocytosis_cache / "alert-signals.jsonl"
 
+# Vivesca data directory (~/.local/share/vivesca)
+vivesca_data = home / ".local" / "share" / "vivesca"
+infections_log = vivesca_data / "infections.jsonl"
+signals_log = vivesca_data / "signals.jsonl"
+checkpoints_db = vivesca_data / "checkpoints.db"
+genome_md = vivesca_data / "genome.md"
+phantoms_db = vivesca_data / "phantoms.json"
+requests_log = vivesca_data / "requests.jsonl"
+skill_registry = vivesca_data / "skill-forks.yaml"
+signal_history = vivesca_data / "signal-history.jsonl"
+golem_log = vivesca_data / "golem.jsonl"
+complement_state = vivesca_data / "complement.json"
+variants_root = vivesca_data / "variants"
+setpoints_dir = vivesca_data / "setpoints"
+goals_dir = vivesca_data / "goals"
+
 # CC integration
 claude_dir = home / ".claude"
 claude_hooks = claude_dir / "hooks"
 claude_skills = claude_dir / "skills"
+claude_settings = claude_dir / "settings.json"
+claude_nightly_health = claude_dir / "nightly-health.md"
+claude_skill_usage = claude_dir / "skill-usage.tsv"
+claude_skill_flywheel = claude_dir / "skill-flywheel-daily.md"
+claude_stats_cache = claude_dir / "stats-cache.json"
+claude_credentials = claude_dir / ".credentials.json"
+claude_allostasis_state = claude_dir / "allostasis-state.json"
+claude_plugins_cache = claude_dir / "plugins" / "cache"
+claude_memory = claude_dir / "projects" / "-Users-terry" / "memory"
+
+# CRISPR cache
+crispr_cache = home / ".cache" / "crispr"
+
+# Temp and logs
+tmp = home / "tmp"
+logs_dir = home / "logs"
+
+# Platform-dependent directories (macOS)
+launch_agents = home / "Library" / "LaunchAgents"
 
 # Phenotype — single source of truth for all platform entry points
 phenotype_md = membrane / "phenotype.md"

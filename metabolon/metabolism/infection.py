@@ -17,12 +17,13 @@ import hashlib
 import json
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TypedDict
+
+from metabolon.locus import infections_log
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LOG = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
+DEFAULT_LOG = infections_log
 
 _CONF_PATH = Path(__file__).parent / "infection.conf"
 _conf = configparser.ConfigParser()

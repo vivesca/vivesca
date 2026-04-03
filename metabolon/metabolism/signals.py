@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
+from metabolon.locus import signals_log
 from pydantic import BaseModel, Field
 
 
@@ -31,7 +32,7 @@ class Stimulus(BaseModel):
     context: str | None = None
 
 
-DEFAULT_LOG = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
+DEFAULT_LOG = signals_log
 
 
 class SensorySystem:

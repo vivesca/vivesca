@@ -3,7 +3,8 @@ from __future__ import annotations
 import datetime
 import json
 import re
-from pathlib import Path
+
+from metabolon.locus import phantoms_db
 
 """checkpoint — immune checkpoint filter for task dispatch.
 
@@ -35,7 +36,7 @@ Also enforce: max 3 agent:terry items per systole.
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-PHANTOM_TRACKER = Path.home() / ".local" / "share" / "vivesca" / "phantoms.json"
+PHANTOM_TRACKER = phantoms_db
 
 # ---------------------------------------------------------------------------
 # Phantom obligation patterns

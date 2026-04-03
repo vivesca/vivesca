@@ -12,6 +12,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from metabolon.locus import genome_md
 from metabolon.metabolism.mismatch_repair import scan as precision_scan
 from metabolon.metabolism.signals import SensorySystem
 
@@ -26,9 +27,7 @@ class ExecutiveSubstrate:
         constitution_path: Path | None = None,
         collector: SensorySystem | None = None,
     ):
-        self.constitution_path = constitution_path or (
-            Path.home() / ".local" / "share" / "vivesca" / "genome.md"
-        )
+        self.constitution_path = constitution_path or genome_md
         self.collector = collector or SensorySystem()
 
     def sense(self, days: int = 30) -> list[dict]:
