@@ -312,6 +312,14 @@ _run_golem() {
   local _claude_ran=false  # track whether claude was actually invoked
 
   while [[ $_attempt -lt $_max_retries ]]; do
+    # Wall-limit check: skip attempt if remaining time < per-attempt timeout
+    local _elapsed=$(( $(date +%s) - _wall_start ))
+    local _remaining=$(( _wall_limit - _elapsed ))
+    if [[ $_remaining -lt $_claude_timeout ]]; then
+      $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+      break
+    fi
+
     # Pre-flight health check: detect rate-limit before wasting time on claude
     # Skip preflight for non-CC providers (gemini, codex have their own error handling)
     if [[ -n "${_CLI:-}" && "${_CLI}" != "claude" ]]; then
@@ -447,6 +455,13 @@ _run_golem() {
     if $_is_ratelimit; then
       _attempt=$(( _attempt + 1 ))
       if [[ $_attempt -lt $_max_retries ]]; then
+        # Wall-limit check: skip retry if remaining time < per-attempt timeout
+        local _elapsed=$(( $(date +%s) - _wall_start ))
+        local _remaining=$(( _wall_limit - _elapsed ))
+        if [[ $_remaining -lt $_claude_timeout ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+          break
+        fi
         # Try to extract reset time from error message
         local _reset_time
         _reset_time=$(echo "$output" | grep -oiE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}|try again at [0-9]{1,2}:[0-9]{2} [AP]M' | head -1 || true)
