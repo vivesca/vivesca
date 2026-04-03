@@ -96,10 +96,13 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         "--max-turns", str(max_turns),
         task,
     ]
+    # Run golem from repo root, not temporal-golem subdir
+    repo_root = str(Path.home() / "germline")
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        cwd=repo_root,
         env={**os.environ, "GOLEM_PROVIDER": provider},
     )
 
