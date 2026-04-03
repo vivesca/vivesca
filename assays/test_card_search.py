@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Tests for card-search effector — search consulting cards by keyword."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
