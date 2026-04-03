@@ -1198,8 +1198,15 @@ def remote_exec(cmd: str, worker: dict) -> tuple[str, int, str, int]:
 
     # Build the command to run inside Docker on the remote host.
     # Escape single quotes for the nested bash -c '...' layer.
+    # NOTE: The gemmule image has empty dirs — we must volume-mount the
+    # host's germline clone.  If the host has no clone yet, the container
+    # falls back to whatever is baked into the image (likely stale/empty).
     inner_cmd = cmd.replace("'", "'\\''")
-    docker_cmd = f"docker run --rm gemmule:latest bash -c 'cd /root/germline && {inner_cmd}'"
+    docker_cmd = (
+        f"docker run --rm"
+        f" -v /home/{user}/germline:/home/terry/germline"
+        f" gemmule:latest bash -c 'cd /home/terry/germline && {inner_cmd}'"
+    )
 
     ssh_cmd = [
         'ssh',
