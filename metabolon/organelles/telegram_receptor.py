@@ -42,6 +42,11 @@ def _chat_id() -> int:
     return int(cid)
 
 
+def _is_system_message(msg) -> bool:
+    """True for service messages (joins, pins, title changes, etc.)."""
+    return getattr(msg, "action", None) is not None
+
+
 def _format_message(msg) -> str:
     """Format a single Telethon message for display."""
     ts = msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "?"
@@ -75,8 +80,9 @@ async def _read_chat_async(chat_id: str, limit: int = 30) -> str:
         if not messages:
             return "No messages found"
         msgs = messages if isinstance(messages, list) else [messages]
+        msgs = [m for m in msgs if not _is_system_message(m)]
         lines = [_format_message(m) for m in reversed(msgs)]
-        return "\n".join(lines)
+        return "\n".join(lines) if lines else "No messages found"
     return await _with_client(_do)
 
 
@@ -92,8 +98,9 @@ async def _search_async(query: str, chat_id: str = "", limit: int = 20) -> str:
         if not messages:
             return f"No messages matching '{query}'"
         msgs = messages if isinstance(messages, list) else [messages]
+        msgs = [m for m in msgs if not _is_system_message(m)]
         lines = [_format_message(m) for m in reversed(msgs)]
-        return "\n".join(lines)
+        return "\n".join(lines) if lines else f"No messages matching '{query}'"
     return await _with_client(_do)
 
 
