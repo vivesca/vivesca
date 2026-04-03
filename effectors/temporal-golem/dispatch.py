@@ -22,13 +22,15 @@ import re
 import secrets
 import sys
 import time
-import uuid
 from pathlib import Path
 
 from temporalio.client import Client
 
 QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
 LOG_FILE = Path.home() / ".local" / "share" / "vivesca" / "temporal-dispatch.log"
+
+# Runtime state: task_id -> workflow handle (tracks in-flight dispatches)
+_inflight: dict[str, object] = {}
 
 # ---------------------------------------------------------------------------
 # QueueLock — file-based mutex shared with golem-daemon
@@ -548,86 +550,133 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     host = os.getenv("TEMPORAL_HOST", "ganglion:7233")
     client = await Client.connect(host)
 
-    # Start all workflows
-    handles = []
+    # Fire-and-forget: start workflows, store handles for async collection
+    started = 0
     for spec, (ln, tid) in zip(specs, dispatched):
-        wf_id = f"golem-{tid}-{uuid.uuid4().hex[:4]}"
-        handle = await client.start_workflow(
-            GolemDispatchWorkflow.run,
-            args=[[spec]],  # single-element list (workflow expects list)
-            id=wf_id,
-            task_queue="golem-tasks",
-        )
-        handles.append((handle, ln, tid, spec))
+        if tid in _inflight:
+            log(f"[SKIP] [{tid}] already in-flight")
+            continue
+        # Deterministic workflow ID — Temporal rejects duplicates
+        wf_id = f"golem-{tid}"
+        try:
+            handle = await client.start_workflow(
+                GolemDispatchWorkflow.run,
+                args=[[spec]],  # single-element list (workflow expects list)
+                id=wf_id,
+                task_queue="golem-tasks",
+            )
+        except Exception as exc:
+            if "already started" in str(exc).lower() or "already exists" in str(exc).lower():
+                log(f"[SKIP] [{tid}] workflow {wf_id} already running")
+                continue
+            raise
+        _inflight[tid] = {
+            "handle": handle,
+            "line_num": ln,
+            "spec": spec,
+            "wf_id": wf_id,
+        }
+        started += 1
         log(f"Dispatched [{tid}] as workflow {wf_id}")
 
-    # Await all results independently
+    return started
+
+
+async def collect_results() -> None:
+    """Check in-flight workflows for completion and process results.
+
+    Non-blocking: only collects workflows that have already finished.
+    Called each poll cycle after dispatch_all().
+    """
+    if not _inflight:
+        return
+
+    completed_tids = []
     approved_count = 0
     flagged_count = 0
     rejected_count = 0
-    for handle, ln, tid, spec in handles:
+
+    for tid, info in list(_inflight.items()):
+        handle = info["handle"]
+        ln = info["line_num"]
+        spec = info["spec"]
         dispatch_prov = spec.get("provider", "zhipu")
+
+        # Non-blocking check: try to get result with a very short timeout
         try:
-            result = await handle.result()
-            task_results = result.get("results", [])
-            tr = task_results[0] if task_results else {}
-            review = tr.get("review", {})
-            verdict = review.get("verdict", "unknown")
-            flags = review.get("flags", [])
-
-            if verdict == "approved":
-                mark_done(ln, task_id=tid)
-                output_path = review.get("output_path", "")
-                extra = f" → {output_path}" if output_path else ""
-                log(f"[DONE] [{tid}] {tr.get('provider', '?')}{extra}")
-                approved_count += 1
-                _unthrottle_provider(dispatch_prov)
-            elif verdict == "approved_with_flags":
-                log(f"[HOLD] [{tid}] {tr.get('provider', '?')} — flags: {', '.join(flags)}")
-                flagged_count += 1
-            else:
-                requeue_prompt = tr.get("requeue_prompt", "")
-                if requeue_prompt:
-                    _auto_requeue(requeue_prompt, tr.get("provider", "zhipu"))
-                    log(f"[REQUEUE] [{tid}] {tr.get('provider', '?')} — auto-requeued with coaching")
-                elif tr.get("exit_code", 0) != 0:
-                    orig_provider = tr.get("provider", "zhipu")
-                    fallback_list = PROVIDER_FALLBACK.get(orig_provider, [])
-                    fallback = next((f for f in fallback_list if not _is_on_cooldown(f)), None)
-                    if fallback:
-                        _auto_requeue(spec.get("task", ""), fallback)
-                        log(f"[FALLBACK] [{tid}] {orig_provider}->{fallback} — requeued on fallback")
-                exit_code = tr.get("exit_code", 0)
-                has_commits = bool(review.get("diff", "").strip())
-                if exit_code == -15:
-                    reason = f"exit_code={exit_code}"
-                elif flags:
-                    reason = f"review rejected: {', '.join(flags)}"
-                else:
-                    reason = "review rejected"
-
-                if has_commits and exit_code != 0:
-                    # Code landed but task failed (max turns, test gate, quota).
-                    # Mark done with note — the work is recoverable.
-                    mark_done(ln, task_id=tid)
-                    log(f"[PARTIAL] [{tid}] {tr.get('provider', '?')} — {reason} but commits landed, marking done")
-                    flagged_count += 1
-                else:
-                    mark_failed(ln, task_id=tid, reason=reason)
-                    log(f"[FAIL] [{tid}] {tr.get('provider', '?')} — {reason}")
-                    rejected_count += 1
-        except Exception as e:
-            log(f"[FAIL] [{tid}] workflow error: {e}")
-            mark_failed(ln, task_id=tid, reason=f"workflow error: {str(e)[:100]}")
+            result = await asyncio.wait_for(handle.result(), timeout=1.0)
+        except asyncio.TimeoutError:
+            # Still running — skip
+            continue
+        except Exception as exc:
+            log(f"[FAIL] [{tid}] workflow error: {exc}")
+            mark_failed(ln, task_id=tid, reason=f"workflow error: {str(exc)[:100]}")
             rejected_count += 1
-        finally:
+            completed_tids.append(tid)
             running = _provider_running.get(dispatch_prov, 0)
             if running > 0:
                 _provider_running[dispatch_prov] = running - 1
+            continue
 
-    log(f"Complete: {approved_count} approved, {flagged_count} flagged, {rejected_count} rejected")
-    _sync_reviews()
-    return len(specs)
+        # Workflow completed — process result
+        task_results = result.get("results", [])
+        tr = task_results[0] if task_results else {}
+        review = tr.get("review", {})
+        verdict = review.get("verdict", "unknown")
+        flags = review.get("flags", [])
+
+        if verdict == "approved":
+            mark_done(ln, task_id=tid)
+            output_path = review.get("output_path", "")
+            extra = f" -> {output_path}" if output_path else ""
+            log(f"[DONE] [{tid}] {tr.get('provider', '?')}{extra}")
+            approved_count += 1
+            _unthrottle_provider(dispatch_prov)
+        elif verdict == "approved_with_flags":
+            log(f"[HOLD] [{tid}] {tr.get('provider', '?')} -- flags: {', '.join(flags)}")
+            flagged_count += 1
+        else:
+            requeue_prompt = tr.get("requeue_prompt", "")
+            if requeue_prompt:
+                _auto_requeue(requeue_prompt, tr.get("provider", "zhipu"))
+                log(f"[REQUEUE] [{tid}] {tr.get('provider', '?')} -- auto-requeued with coaching")
+            elif tr.get("exit_code", 0) != 0:
+                orig_provider = tr.get("provider", "zhipu")
+                fallback_list = PROVIDER_FALLBACK.get(orig_provider, [])
+                fallback = next((f for f in fallback_list if not _is_on_cooldown(f)), None)
+                if fallback:
+                    _auto_requeue(spec.get("task", ""), fallback)
+                    log(f"[FALLBACK] [{tid}] {orig_provider}->{fallback} -- requeued on fallback")
+            exit_code = tr.get("exit_code", 0)
+            has_commits = bool(review.get("diff", "").strip())
+            if exit_code == -15:
+                reason = f"exit_code={exit_code}"
+            elif flags:
+                reason = f"review rejected: {', '.join(flags)}"
+            else:
+                reason = "review rejected"
+
+            if has_commits and exit_code != 0:
+                mark_done(ln, task_id=tid)
+                log(f"[PARTIAL] [{tid}] {tr.get('provider', '?')} -- {reason} but commits landed, marking done")
+                flagged_count += 1
+            else:
+                mark_failed(ln, task_id=tid, reason=reason)
+                log(f"[FAIL] [{tid}] {tr.get('provider', '?')} -- {reason}")
+                rejected_count += 1
+
+        completed_tids.append(tid)
+        running = _provider_running.get(dispatch_prov, 0)
+        if running > 0:
+            _provider_running[dispatch_prov] = running - 1
+
+    # Remove completed from in-flight tracking
+    for tid in completed_tids:
+        _inflight.pop(tid, None)
+
+    if completed_tids:
+        log(f"Collected {len(completed_tids)} results: {approved_count} approved, {flagged_count} flagged, {rejected_count} rejected")
+        _sync_reviews()
 
 
 def _auto_requeue(prompt: str, provider: str) -> None:
@@ -671,6 +720,10 @@ def _sync_reviews() -> None:
 async def poll_loop(interval: int = 30) -> None:
     """Continuously poll the queue and dispatch tasks.
 
+    Two-phase cycle:
+    1. dispatch_all() — fire-and-forget: starts new workflows, returns immediately
+    2. collect_results() — non-blocking: checks completed workflows, processes results
+
     On rate-limit errors (HTTP 429 / quota messages), sets a cooldown
     on the offending provider so subsequent poll cycles skip it until
     the cooldown expires.  Tracks non-rate-limit failures in a sliding
@@ -681,28 +734,27 @@ async def poll_loop(interval: int = 30) -> None:
     consecutive_conn_failures = 0
     while True:
         try:
-            count = await asyncio.wait_for(dispatch_all(), timeout=120)
-            if count == 0:
+            # Phase 1: collect results from previously dispatched workflows
+            await collect_results()
+
+            # Phase 2: dispatch new tasks (fire-and-forget, returns quickly)
+            count = await dispatch_all()
+            inflight_count = len(_inflight)
+            if count == 0 and inflight_count == 0:
                 log("Queue empty, waiting...")
-            else:
-                # Success — unthrottle all providers
-                for prov in list(_provider_throttle):
-                    _unthrottle_provider(prov)
+            elif count > 0:
+                log(f"Dispatched {count} new tasks ({inflight_count} total in-flight)")
             consecutive_conn_failures = 0
-        except asyncio.TimeoutError:
-            log("[POLL] dispatch timed out, will retry next cycle")
-        except (OSError, ConnectionError) as e:
+        except (OSError, ConnectionError) as exc:
             consecutive_conn_failures += 1
-            log(f"[CONN] connection failure #{consecutive_conn_failures}: {e}")
+            log(f"[CONN] connection failure #{consecutive_conn_failures}: {exc}")
             if consecutive_conn_failures >= 5:
-                log(f"[CONN] CRITICAL: {consecutive_conn_failures} consecutive connection failures — Temporal server unreachable")
-        except Exception as e:
-            err_msg = str(e)
+                log(f"[CONN] CRITICAL: {consecutive_conn_failures} consecutive connection failures -- Temporal server unreachable")
+        except Exception as exc:
+            err_msg = str(exc)
             # Detect rate-limit / quota errors using compiled regex
             if is_rate_limited(err_msg) or "resource exhausted" in err_msg.lower():
-                # Try to extract a precise cooldown window from the error text
                 window = parse_rate_limit_window(err_msg)
-                # Try to identify the provider from the error
                 cooldown_applied = False
                 for prov in PROVIDER_LIMITS:
                     if prov in err_msg.lower():
@@ -713,15 +765,13 @@ async def poll_loop(interval: int = 30) -> None:
                         cooldown_applied = True
                         break
                 if not cooldown_applied:
-                    # Unknown provider — apply cooldown to all low-limit providers
                     cooldown = window or RATE_LIMIT_COOLDOWN_SECONDS
                     for prov, lim in PROVIDER_LIMITS.items():
                         if lim <= 2:
                             _set_cooldown(prov, cooldown, reason=err_msg[:100])
                     log(f"RATE-LIMIT detected (unknown provider), cooldown applied to low-limit providers")
             else:
-                log(f"Error in poll loop: {e}")
-                # Track non-rate-limit failures in sliding window per provider
+                log(f"Error in poll loop: {exc}")
                 failed_prov = None
                 for prov in PROVIDER_LIMITS:
                     if prov in err_msg.lower():
@@ -798,7 +848,19 @@ def main() -> None:
     if poll:
         asyncio.run(poll_loop(interval))
     else:
-        asyncio.run(dispatch_all(dry_run=dry_run, mode=mode))
+        asyncio.run(_oneshot(dry_run=dry_run, mode=mode))
+
+
+async def _oneshot(dry_run: bool = False, mode: str = "raw") -> None:
+    """One-shot dispatch: start workflows then poll until all complete."""
+    count = await dispatch_all(dry_run=dry_run, mode=mode)
+    if count == 0 or dry_run:
+        return
+    # Poll until all in-flight tasks complete
+    while _inflight:
+        await asyncio.sleep(5)
+        await collect_results()
+    log("All tasks completed")
 
 
 if __name__ == "__main__":
