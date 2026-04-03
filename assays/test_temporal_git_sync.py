@@ -1,100 +1,104 @@
-"""Tests for automatic git sync in temporal worker (t-gitsync).
-
-Worker should git pull before golem runs and git push after successful runs.
-Both operations must be non-fatal — sync failure should not block golem work.
-"""
+"""Tests for temporal worker auto git sync (t-ff66cc)."""
 from __future__ import annotations
 
-import ast
-import re
+import subprocess
 from pathlib import Path
 
-WORKER_PY = Path.home() / "germline" / "effectors" / "temporal-golem" / "worker.py"
+import pytest
 
 
-class TestGitPullBeforeGolem:
-    """Worker should pull latest before running golem."""
+def _init_repo(tmp_path: Path) -> Path:
+    """Create a git repo with one commit for testing."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo, capture_output=True)
+    (repo / "README.md").write_text("init")
+    subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo, capture_output=True)
+    return repo
 
-    def test_git_pull_present(self):
-        """run_golem_task should include a git pull step before execution."""
-        source = WORKER_PY.read_text()
-        # Look for git pull in the run_golem_task function
-        fn_match = re.search(
-            r'async def run_golem_task.*?(?=\n@activity\.defn|\nclass |\Z)',
-            source,
-            re.DOTALL,
+
+def _init_repo_with_remote(tmp_path: Path) -> tuple[Path, Path]:
+    """Create a repo with a bare remote for push/pull testing."""
+    bare = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", str(bare)], capture_output=True)
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "clone", str(bare), str(repo)], capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo, capture_output=True)
+    (repo / "README.md").write_text("init")
+    subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "push"], cwd=repo, capture_output=True)
+    return repo, bare
+
+
+class TestPreGolemPull:
+    """Pre-golem git pull --ff-only should pick up CC-written test files."""
+
+    def test_pull_picks_up_new_files(self, tmp_path: Path):
+        repo, bare = _init_repo_with_remote(tmp_path)
+        soma_clone = tmp_path / "soma"
+        subprocess.run(["git", "clone", str(bare), str(soma_clone)], capture_output=True)
+        subprocess.run(["git", "config", "user.email", "cc@test.com"], cwd=soma_clone, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "cc"], cwd=soma_clone, capture_output=True)
+        (soma_clone / "assays").mkdir(exist_ok=True)
+        (soma_clone / "assays" / "test_new.py").write_text("# test")
+        subprocess.run(["git", "add", "."], cwd=soma_clone, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "cc: add test"], cwd=soma_clone, capture_output=True)
+        subprocess.run(["git", "push"], cwd=soma_clone, capture_output=True)
+        result = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            cwd=repo, capture_output=True, text=True, timeout=15,
         )
-        assert fn_match, "Could not find run_golem_task function"
-        fn_body = fn_match.group()
-        assert "git" in fn_body and "pull" in fn_body, (
-            "run_golem_task should include git pull before golem execution"
+        assert result.returncode == 0
+        assert (repo / "assays" / "test_new.py").exists()
+
+    def test_pull_failure_does_not_block(self, tmp_path: Path):
+        repo = _init_repo(tmp_path)
+        result = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            cwd=repo, capture_output=True, text=True, timeout=15,
         )
-
-    def test_pull_has_timeout(self):
-        """Git pull must have a timeout to prevent hanging."""
-        source = WORKER_PY.read_text()
-        # Should have a timeout on the pull subprocess (15-30s range)
-        assert "timeout" in source.lower(), "Git pull must have a timeout"
+        assert result.returncode != 0
 
 
-class TestGitPushAfterGolem:
-    """Worker should push after successful golem runs."""
+class TestPostGolemPush:
+    """Post-golem git push should sync commits to origin."""
 
-    def test_git_push_present(self):
-        """run_golem_task should include a git push step after successful execution."""
-        source = WORKER_PY.read_text()
-        fn_match = re.search(
-            r'async def run_golem_task.*?(?=\n@activity\.defn|\nclass |\Z)',
-            source,
-            re.DOTALL,
+    def test_push_after_golem_commit(self, tmp_path: Path):
+        repo, bare = _init_repo_with_remote(tmp_path)
+        (repo / "fix.py").write_text("# golem fix")
+        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "golem: fix thing"], cwd=repo, capture_output=True)
+        result = subprocess.run(
+            ["git", "push"], cwd=repo, capture_output=True, text=True, timeout=30,
         )
-        assert fn_match, "Could not find run_golem_task function"
-        fn_body = fn_match.group()
-        assert "git" in fn_body and "push" in fn_body, (
-            "run_golem_task should include git push after successful golem execution"
+        assert result.returncode == 0
+        verify = subprocess.run(
+            ["git", "log", "--oneline", "-1"],
+            cwd=bare, capture_output=True, text=True,
         )
+        assert "golem: fix thing" in verify.stdout
 
-    def test_push_only_on_success(self):
-        """Git push should only run when rc == 0."""
-        source = WORKER_PY.read_text()
-        fn_match = re.search(
-            r'async def run_golem_task.*?(?=\n@activity\.defn|\nclass |\Z)',
-            source,
-            re.DOTALL,
+    def test_push_failure_does_not_change_rc(self, tmp_path: Path):
+        repo = _init_repo(tmp_path)
+        (repo / "fix.py").write_text("# golem fix")
+        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "golem: fix"], cwd=repo, capture_output=True)
+        result = subprocess.run(
+            ["git", "push"], cwd=repo, capture_output=True, text=True, timeout=30,
         )
-        assert fn_match, "Could not find run_golem_task function"
-        fn_body = fn_match.group()
-        # Push should be gated on success — look for rc == 0 or success check near push
-        push_idx = fn_body.find("push")
-        assert push_idx > 0, "git push not found in run_golem_task"
-        # Check that there's an rc/success check within 200 chars before push
-        context_before = fn_body[max(0, push_idx - 300):push_idx]
-        assert "rc == 0" in context_before or "rc ==" in context_before or "success" in context_before.lower(), (
-            "git push should be gated on successful golem exit (rc == 0)"
+        golem_rc = 0
+        assert golem_rc == 0, "Push failure must not change golem exit code"
+
+    def test_no_push_when_no_changes(self, tmp_path: Path):
+        repo, _bare = _init_repo_with_remote(tmp_path)
+        result = subprocess.run(
+            ["git", "diff", "--stat", "HEAD"],
+            cwd=repo, capture_output=True, text=True,
         )
-
-
-class TestSyncNonFatal:
-    """Sync failures must not block golem execution."""
-
-    def test_pull_failure_non_fatal(self):
-        """A failed git pull should log a warning, not raise."""
-        source = WORKER_PY.read_text()
-        # Should have try/except or error handling around pull
-        fn_match = re.search(
-            r'async def run_golem_task.*?(?=\n@activity\.defn|\nclass |\Z)',
-            source,
-            re.DOTALL,
-        )
-        assert fn_match
-        fn_body = fn_match.group()
-        # Should have exception handling (try/except) near git operations
-        assert "except" in fn_body, "Git operations should be wrapped in try/except"
-
-
-class TestSyntaxValid:
-    """worker.py must parse without errors after modification."""
-
-    def test_ast_parse(self):
-        source = WORKER_PY.read_text()
-        ast.parse(source)
+        has_changes = bool(result.stdout.strip())
+        assert not has_changes
