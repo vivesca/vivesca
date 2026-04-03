@@ -83,7 +83,27 @@ For each: file as feedback with the preference and why, so future sessions match
 
 **The test:** if this session replayed tomorrow with a fresh context, would CC make the same mistakes AND misjudge the same preferences? If yes, something wasn't methylated.
 
-### 1b. Skill drift check (2 min max)
+### 1b. Knowhow extraction (3 min max)
+
+Scan the session for **technical discoveries** — things that were learned by debugging, experimenting, or hitting walls. These are different from corrections (behavioral) and taste (preference). They're facts about how systems work.
+
+Examples: "asyncio.run() inside an existing event loop silently fails subprocess backends", "Cloudflare blocks urllib without User-Agent", "op run conceals values in stdout".
+
+For each:
+- Would a fresh session hit the same wall without this knowledge? → File as finding
+- Is the knowledge specific to one tool or generalizable? → Generalizable findings are higher priority
+- Did we spend >30 minutes on something that a one-paragraph finding would prevent? → Definitely file
+
+Route: `finding_*.md` in memory, with the pattern, the symptom, the root cause, and the fix.
+
+**The test:** "If a fresh CC hit the same error tomorrow, would it spend 2 hours debugging or 2 minutes reading the finding?" The delta is the value.
+
+**Troubleshooting audit:** Did we spend disproportionate time debugging this session? If >1 hour on a single issue:
+- What was the wrong assumption that led to the long path? File it.
+- Were we testing at the wrong abstraction layer? (curl works but urllib doesn't = layer mismatch)
+- Could a 5-line diagnostic script have found the root cause in 5 minutes? Write that script or add it to integrin.
+
+### 1c. Skill drift check (2 min max)
 
 For each correction or learning filed this session, ask: **does this change how a skill operates?** Skills encode behavior; memories encode context. If the learning says "don't do X" and a skill currently says "do X", the skill is stale.
 

@@ -307,3 +307,81 @@ class TestSecreteImage:
             with patch.object(Path, "expanduser", return_value=img):
                 result = sv.secrete_image("~/photo.png")
         assert result == "photo sent"
+
+
+# ---------------------------------------------------------------------------
+# Transport-level cooldown (_is_cooled_down / secrete_text cooldown_key)
+# ---------------------------------------------------------------------------
+class TestCooldown:
+    def test_first_call_not_cooled(self, tmp_path):
+        fake_cooldown = tmp_path / "cooldowns.json"
+        with patch.object(sv, "_COOLDOWN_FILE", fake_cooldown):
+            assert not sv._is_cooled_down("test-key", 3600)
+
+    def test_second_call_cooled(self, tmp_path):
+        fake_cooldown = tmp_path / "cooldowns.json"
+        with patch.object(sv, "_COOLDOWN_FILE", fake_cooldown):
+            assert not sv._is_cooled_down("test-key", 3600)
+            assert sv._is_cooled_down("test-key", 3600)
+
+    def test_different_keys_independent(self, tmp_path):
+        fake_cooldown = tmp_path / "cooldowns.json"
+        with patch.object(sv, "_COOLDOWN_FILE", fake_cooldown):
+            assert not sv._is_cooled_down("key-a", 3600)
+            assert not sv._is_cooled_down("key-b", 3600)
+            assert sv._is_cooled_down("key-a", 3600)
+
+    def test_expired_cooldown_allows_resend(self, tmp_path):
+        import hashlib
+        import time
+
+        fake_cooldown = tmp_path / "cooldowns.json"
+        key = hashlib.md5(b"expired-key").hexdigest()
+        old_stamp = {key: time.time() - 7200}  # 2h ago
+        fake_cooldown.write_text(json.dumps(old_stamp))
+        with patch.object(sv, "_COOLDOWN_FILE", fake_cooldown):
+            # 1h cooldown, 2h since last send -> not cooled
+            assert not sv._is_cooled_down(key, 3600)
+
+    def test_stale_entries_pruned(self, tmp_path):
+        import time
+
+        fake_cooldown = tmp_path / "cooldowns.json"
+        old_stamps = {"old-key": time.time() - 200000}  # >48h ago
+        fake_cooldown.write_text(json.dumps(old_stamps))
+        with patch.object(sv, "_COOLDOWN_FILE", fake_cooldown):
+            sv._is_cooled_down("new-key", 3600)
+            stamps = json.loads(fake_cooldown.read_text())
+            assert "old-key" not in stamps
+            assert "new-key" in stamps
+
+    @patch("metabolon.organelles.secretory_vesicle.urllib.request.urlopen")
+    @patch("metabolon.organelles.secretory_vesicle._rate_limit")
+    @patch("metabolon.organelles.secretory_vesicle._keychain")
+    def test_secrete_text_returns_throttled(self, mock_kc, mock_rl, mock_urlopen, tmp_path):
+        mock_kc.side_effect = ["TOKEN", "CHATID"]
+        mock_urlopen.return_value = _make_urlopen_ok(ok=True)
+        fake_cooldown = tmp_path / "cooldowns.json"
+        fake_lock = tmp_path / "deltos.lock"
+        with patch.object(sv, "_COOLDOWN_FILE", fake_cooldown):
+            with patch.object(sv, "_LOCK", fake_lock):
+                result1 = sv.secrete_text("test", cooldown_key="ck", cooldown_seconds=3600)
+                result2 = sv.secrete_text("test", cooldown_key="ck", cooldown_seconds=3600)
+        assert result1 == "sent"
+        assert result2 == "throttled"
+        # urlopen should only be called once (second was throttled)
+        assert mock_urlopen.call_count == 1
+
+    @patch("metabolon.organelles.secretory_vesicle.urllib.request.urlopen")
+    @patch("metabolon.organelles.secretory_vesicle._rate_limit")
+    @patch("metabolon.organelles.secretory_vesicle._keychain")
+    def test_no_cooldown_without_key(self, mock_kc, mock_rl, mock_urlopen, tmp_path):
+        mock_kc.side_effect = ["TOKEN", "CHATID", "TOKEN", "CHATID"]
+        mock_urlopen.return_value = _make_urlopen_ok(ok=True)
+        fake_lock = tmp_path / "deltos.lock"
+        with patch.object(sv, "_LOCK", fake_lock):
+            result1 = sv.secrete_text("test")
+            result2 = sv.secrete_text("test")
+        assert result1 == "sent"
+        assert result2 == "sent"
+        assert mock_urlopen.call_count == 2
