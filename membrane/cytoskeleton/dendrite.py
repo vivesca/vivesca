@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 HOME = Path.home()
+HOME_BIN_PATTERN = re.escape(f"{HOME}/bin/")
 HOOKS_DIR = HOME / ".claude" / "hooks"
 
 # Repo root: hooks → claude → vivesca
@@ -506,11 +507,11 @@ def mod_bash_post(data):
     # CLI friction log
     if isinstance(result, str) and ("Exit code" in result or "error:" in result):
         personal = re.search(
-            r"~/bin/|/Users/\w+/bin/|\.cargo/bin/|moneo|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
+            rf"~/bin/|{HOME_BIN_PATTERN}|\.cargo/bin/|moneo|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
             cmd,
         )
         if personal:
-            cli_match = re.search(r"(?:~/bin/|/Users/\w+/bin/|\.cargo/bin/)?(\w[\w-]*)", cmd)
+            cli_match = re.search(rf"(?:~/bin/|{HOME_BIN_PATTERN}|\.cargo/bin/)?(\w[\w-]*)", cmd)
             entry = {
                 "ts": datetime.now().isoformat(timespec="seconds"),
                 "cli": cli_match.group(1) if cli_match else "unknown",
@@ -853,31 +854,9 @@ def mod_docima(data):
             pass
 
 
-# ── attention_refresh: re-inject Tonus.md every N mutations ──
-
-ATTN_MARKER = "/tmp/claude-attention-counter"
-ATTN_INTERVAL = 25
-ATTN_NOW = str(HOME / "epigenome/chromatin/Tonus.md")
-
-
-def mod_attention(_data):
-    count = 0
-    try:
-        with open(ATTN_MARKER) as f:
-            count = int(f.read().strip())
-    except (FileNotFoundError, ValueError):
-        pass
-
-    count += 1
-    with open(ATTN_MARKER, "w") as f:
-        f.write(str(count))
-
-    if count % ATTN_INTERVAL == 0 and os.path.exists(ATTN_NOW):
-        with open(ATTN_NOW) as f:
-            content = f.read()
-        lines = [line for line in content.splitlines() if not line.strip().startswith("<!--")]
-        print(f"[attention-refresh] Re-grounding after {count} tool calls:")
-        print("\n".join(lines))
+# ── attention_refresh: REMOVED ──
+# Tonus.md already injected at session start via synapse anamnesis.
+# Re-injecting every 25 tool calls was duplicate context burn.
 
 
 # ── apoptosis: log tool failures ───────────────────────────
@@ -1481,10 +1460,6 @@ def main():
     # Docima (Edit/Write on MEMORY.md)
     if tool in ("Edit", "Write") and "MEMORY.md" in fp:
         modules.append(mod_docima)
-
-    # Attention refresh (Edit/Write/Bash)
-    if tool in ("Edit", "Write", "Bash"):
-        modules.append(mod_attention)
 
     # Recurrence tracking (Read on memory files)
     if tool == "Read" and "memory/" in fp:

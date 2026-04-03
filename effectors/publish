@@ -12,9 +12,9 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-VAULT_DIR = Path.home() / "notes" / "Writing" / "Blog" / "Published"
+VAULT_DIR = Path.home() / "epigenome" / "chromatin" / "secretome"
+ASTRO_DIR = Path.home() / "code" / "terryli-hm" / "src" / "content" / "post"
 INDEX_PATH = Path.home() / "notes" / "terryli.hm.md"
-SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
 
 
 def now_iso() -> str:
@@ -83,7 +83,7 @@ def cmd_new(args):
         return 1
     content = (
         f'---\ntitle: "{args.title}"\ndescription: ""\n'
-        f"pubDatetime: {now_iso()}\ndraft: true\ntags: []\n---\n\n"
+        f"publishDate: {now_iso()}\ndraft: true\ntags: []\n---\n\n"
     )
     path.write_text(content)
     print(f"Created {path} (draft)")
@@ -103,7 +103,7 @@ def cmd_list(_args):
         body = content[fm.get("_body_offset", 0) :]
         words = len(body.split())
         slug = p.stem
-        date = str(fm.get("pubDatetime", "")).split("T")[0]
+        date = str(fm.get("publishDate", "")).split("T")[0]
         draft = "(draft)" if fm.get("draft") else ""
         title = fm.get("title", slug)
         if len(title) > 40:
@@ -156,7 +156,7 @@ def cmd_revise(args):
         return 1
     lines = content.splitlines()
     now = now_iso()
-    pub_idx = next((i for i, l in enumerate(lines) if l.startswith("pubDatetime:")), 0)
+    pub_idx = next((i for i, l in enumerate(lines) if l.startswith("publishDate:")), 0)
     mod_idx = next((i for i, l in enumerate(lines) if l.startswith("modDatetime:")), None)
     note_idx = next((i for i, l in enumerate(lines) if l.startswith("revisionNote:")), None)
     if note_idx is not None:
@@ -168,7 +168,7 @@ def cmd_revise(args):
     if mod_idx_new is not None:
         lines[mod_idx_new] = f"modDatetime: {now}"
     else:
-        pub_idx_new = next((i for i, l in enumerate(lines) if l.startswith("pubDatetime:")), 0)
+        pub_idx_new = next((i for i, l in enumerate(lines) if l.startswith("publishDate:")), 0)
         lines.insert(pub_idx_new + 1, f"modDatetime: {now}")
     path.write_text("\n".join(lines) + "\n")
     print(f"Revised: {fm.get('title', args.slug)} — {args.note}")
@@ -197,14 +197,14 @@ def cmd_index(_args):
                 continue
             slug = p.stem
             title = fm.get("title", slug)
-            pub = fm.get("pubDatetime", "")
+            pub = fm.get("publishDate", "")
             tags = fm.get("tags", [])
             if isinstance(tags, str):
                 tags = [tags] if tags else []
             date_str = str(pub).split("T")[0] if pub else "—"
             # Validate frontmatter
             if not pub or not fm.get("description"):
-                print(f"[ERROR] {p.name} — missing pubDatetime or description", file=sys.stderr)
+                print(f"[ERROR] {p.name} — missing publishDate or description", file=sys.stderr)
                 continue
             posts.append((slug, title, date_str, tags))
     posts.sort(key=lambda x: x[2], reverse=True)
@@ -225,7 +225,7 @@ def cmd_index(_args):
     ]
     for slug, title, date, tags in posts:
         tag_str = "  " + ", ".join(f"`{t}`" for t in tags[:3]) if tags else ""
-        lines.append(f"- {date} — [[Writing/Blog/Published/{slug}|{title}]]{tag_str}")
+        lines.append(f"- {date} — [[secretome/{slug}|{title}]]{tag_str}")
     lines.append("")
     lines.append("## By topic")
     lines.append("")
@@ -236,7 +236,7 @@ def cmd_index(_args):
     for tag in sorted(groups):
         lines.append(f"### {tag}")
         for slug, title, _ in sorted(groups[tag], key=lambda x: x[2], reverse=True):
-            lines.append(f"- [[Writing/Blog/Published/{slug}|{title}]]")
+            lines.append(f"- [[secretome/{slug}|{title}]]")
         lines.append("")
     INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     INDEX_PATH.write_text("\n".join(lines) + "\n")
@@ -245,15 +245,60 @@ def cmd_index(_args):
 
 
 def cmd_push(_args):
-    if not SYNC_SCRIPT.exists():
-        print(f"Sync script not found: {SYNC_SCRIPT}", file=sys.stderr)
+    """Sync secretome → Astro repo, commit, and push."""
+    import shutil
+
+    if not ASTRO_DIR.exists():
+        print(f"Astro post dir not found: {ASTRO_DIR}", file=sys.stderr)
         return 1
-    print("Syncing...")
-    result = subprocess.run(["bash", str(SYNC_SCRIPT)], timeout=300)
+    if not VAULT_DIR.exists():
+        print(f"Secretome dir not found: {VAULT_DIR}", file=sys.stderr)
+        return 1
+
+    copied = 0
+    for src in VAULT_DIR.glob("*.md"):
+        dst = ASTRO_DIR / src.name
+        # Only copy if source is newer or dest doesn't exist
+        if not dst.exists() or src.stat().st_mtime > dst.stat().st_mtime:
+            shutil.copy2(src, dst)
+            copied += 1
+
+    if copied == 0:
+        print("Nothing to sync")
+        return 0
+
+    print(f"Synced {copied} file(s) to Astro")
+
+    repo = ASTRO_DIR.parents[2]  # ~/code/terryli-hm
+    result = subprocess.run(
+        ["git", "add", "src/content/post/"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
     if result.returncode != 0:
-        print(f"Sync failed (exit {result.returncode})", file=sys.stderr)
+        print(f"git add failed: {result.stderr}", file=sys.stderr)
         return 1
-    print("Live at https://terryli.hm")
+
+    # Check if there's anything to commit
+    status = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=repo,
+    )
+    if status.returncode == 0:
+        print("No changes to commit")
+        return 0
+
+    subprocess.run(
+        ["git", "commit", "-m", f"publish: sync {copied} post(s) from secretome"],
+        cwd=repo,
+    )
+    result = subprocess.run(["git", "push"], cwd=repo, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"git push failed: {result.stderr}", file=sys.stderr)
+        return 1
+
+    print(f"Live at https://terryli.hm")
     return 0
 
 

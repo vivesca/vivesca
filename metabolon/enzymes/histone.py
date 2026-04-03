@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """histone — memory database (FTS5 + vector embeddings)."""
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import EffectorResult, Secretion, Vital

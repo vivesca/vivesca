@@ -82,3 +82,14 @@ membrane/receptors/superpowers/
 .last-sync
 pytest-of-*/
 .claude
+
+# Session debris (pytest redirects, debug scripts)
+_*.txt
+.pytest_*.txt
+pytest_*.txt
+test_output*.txt
+test_results*.txt
+test-output*.txt
+loci/golem-reviews.jsonl
+loci/golem-outputs/
+.worktrees/

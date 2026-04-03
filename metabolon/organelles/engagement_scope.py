@@ -171,7 +171,7 @@ def detect_engagement_type(text: str) -> str:
     for etype, signals in _ENGAGEMENT_TYPE_SIGNALS.items():
         for signal in signals:
             scores[etype] += len(re.findall(r"\b" + re.escape(signal) + r"\b", t))
-    best = max(scores, key=scores.get)
+    best = max(scores, key=lambda k: scores[k])
     if scores[best] == 0:
         return "advisory"  # default
     # Check for hybrid (multiple types scoring high)

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 PHENOTYPE_MANIFEST = (
     "vivesca — unified MCP server. Tools prefixed by domain: "
-    "deltos (Telegram), rheotaxis (search), fasti (calendar, HKT), "
+    "deltos (Telegram send), telegram_receptor (Telegram read), rheotaxis (search), fasti (calendar, HKT), "
     "gap_junction (WhatsApp, NEVER sends), histone (memory DB), "
     "navigator (browser), interoception (health/system)."
 )
@@ -98,7 +98,7 @@ def _format_tool_error(tool_name: str, exc: Exception) -> str:
 class ToolTiming:
     """Single tool-call timing record."""
 
-    __slots__ = ("tool", "latency_ms", "outcome")
+    __slots__ = ("latency_ms", "outcome", "tool")
 
     def __init__(self, tool: str, latency_ms: int, outcome: str) -> None:
         self.tool = tool

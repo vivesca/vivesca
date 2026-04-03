@@ -40,9 +40,15 @@ BUNDLED_MODELS_TOML_PATH = Path.home() / "code" / "pondus" / "models.toml"
 HTTP_TIMEOUT = 30.0
 CACHE_TTL_HOURS = 24
 
-# macOS-only paths
-CACHE_DIR = Path.home() / "Library" / "Caches" / "pondus"
-CONFIG_DIR = Path.home() / "Library" / "Application Support" / "pondus"
+import platform as _platform
+
+# XDG on Linux, ~/Library/ on macOS
+if _platform.system() == "Darwin":
+    CACHE_DIR = Path.home() / "Library" / "Caches" / "pondus"
+    CONFIG_DIR = Path.home() / "Library" / "Application Support" / "pondus"
+else:
+    CACHE_DIR = Path.home() / ".cache" / "pondus"
+    CONFIG_DIR = Path.home() / ".config" / "pondus"
 MONITOR_STATE_PATH = CONFIG_DIR / "monitors.json"
 
 
@@ -1419,10 +1425,18 @@ def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
                     import subprocess as _sp
 
                     with contextlib.suppress(Exception):
-                        chat_id_str = _sp.check_output(
-                            ["security", "find-generic-password", "-a", "TELEGRAM_CHAT_ID", "-w"],
-                            text=True,
-                        ).strip()
+                        if _platform.system() == "Darwin":
+                            chat_id_str = _sp.check_output(
+                                ["security", "find-generic-password", "-a", "TELEGRAM_CHAT_ID", "-w"],
+                                text=True,
+                            ).strip()
+                        else:
+                            import shutil as _sh
+                            op_bin = _sh.which("op") or os.path.expanduser("~/bin/op")
+                            chat_id_str = _sp.check_output(
+                                [op_bin, "read", "op://Agents/Agent Environment/telegram_chat_id"],
+                                text=True, timeout=10,
+                            ).strip()
                 notified = False
                 if token and chat_id_str:
                     try:

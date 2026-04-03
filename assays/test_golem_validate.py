@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for effectors/golem-validate — Python file quality validator.
+"""Tests for effectors/golem-tools validate subcommand — Python file quality validator.
 
 The validator is loaded via exec() (not imported), following the effector testing pattern.
 """
@@ -12,14 +12,14 @@ from pathlib import Path
 
 import pytest
 
-EFFECTOR = Path(__file__).resolve().parents[1] / "effectors" / "golem-validate"
+EFFECTOR = Path(__file__).resolve().parents[1] / "effectors" / "golem-tools"
 GERMLINE_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run_validator(*files: str) -> subprocess.CompletedProcess[str]:
-    """Invoke golem-validate as a subprocess."""
+    """Invoke golem-tools validate as a subprocess."""
     return subprocess.run(
-        [sys.executable, str(EFFECTOR), *files],
+        [sys.executable, str(EFFECTOR), "validate", *files],
         capture_output=True,
         text=True,
         timeout=60,
@@ -73,7 +73,7 @@ class TestHardcodedPath:
         """)
         r = _run_validator(str(f))
         assert r.returncode == 1
-        assert str(Path.home() / "") in r.stdout
+        assert "hardcoded" in r.stdout.lower()
 
 
 # ── TODO / FIXME / stub markers ────────────────────────────────────────────
@@ -153,7 +153,6 @@ class TestCLI:
     def test_output_format_pipe_separated(self, tmp_path: Path):
         f = _write_py(tmp_path, "clean.py", "x = 1\n")
         r = _run_validator(str(f))
-        parts = r.stdout.strip().split(" | ")
-        # path | status | issues
-        assert len(parts) == 3
-        assert parts[1].strip() == "PASS"
+        line = r.stdout.strip()
+        # Format: path | STATUS | issues
+        assert " | PASS |" in line

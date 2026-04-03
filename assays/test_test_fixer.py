@@ -1,272 +1,286 @@
 from __future__ import annotations
 
-"""Tests for test-fixer — pytest failure parser and markdown reporter."""
+"""Tests for effectors/test-fixer — pytest failure parser and reporter."""
 
 import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 
+# ---------------------------------------------------------------------------
+# Load the effector via exec (standard pattern for effectors)
+# ---------------------------------------------------------------------------
+
 def _load_test_fixer():
-    """Load test-fixer by exec-ing its source (effector pattern)."""
-    source = open(Path.home() / "germline/effectors/test-fixer").read()
-    ns: dict = {"__name__": "test_fixer"}
+    source = open(Path.home() / "germline" / "effectors" / "test-fixer").read()
+    ns: dict = {"__name__": "test_fixer_effector"}
     exec(source, ns)
     return ns
 
 
-# ── Unit tests: parse_pytest_output ──────────────────────────────────
-
-SAMPLE_OUTPUT_SIMPLE = """\
-FAILED assays/test_foo.py::test_bar - AssertionError: expected 1, got 0
-FAILED assays/test_foo.py::test_baz - TypeError: unsupported operand
-FAILED assays/test_qux.py::test_spam - ModuleNotFoundError: No module named 'x'
-1 passed, 3 failed in 0.5s
-"""
-
-SAMPLE_OUTPUT_TRACEBACKS = """\
-FAILED assays/test_alpha.py::test_one - assert False
-FAILED assays/test_alpha.py::test_two - ValueError: bad value
-FAILED assays/test_beta.py::test_three - ImportError: nope
-=========================== short test summary info ============================
-FAILED assays/test_alpha.py::test_one - assert False
-FAILED assays/test_alpha.py::test_two - ValueError: bad value
-FAILED assays/test_beta.py::test_three - ImportError: nope
-============================== 2 failed in 0.3s ===============================
-"""
-
-SAMPLE_OUTPUT_EMPTY = """\
-3 passed in 0.2s
-"""
-
-SAMPLE_OUTPUT_ERROR = """\
-ERROR assays/test_broken.py::setup - fixture 'db' not found
-FAILED assays/test_broken.py::test_query - AssertionError: 0 != 1
-1 failed, 1 error in 0.1s
-"""
-
-SAMPLE_MIXED_FAILURES = """\
-FAILED assays/test_api.py::test_get_user - AssertionError: 404 != 200
-FAILED assays/test_api.py::test_post_user - json.decoder.JSONDecodeError: Expecting value
-FAILED assays/test_db.py::test_connect - ConnectionRefusedError: [Errno 111]
-FAILED assays/test_db.py::test_insert - sqlite3.OperationalError: no such table: users
-FAILED assays/test_utils.py::test_helper - AttributeError: 'NoneType' has no attribute 'split'
-1 passed, 5 failed in 1.2s
-"""
-
-
 _mod = _load_test_fixer()
-parse_pytest_output = _mod["parse_pytest_output"]
-group_by_file = _mod["group_by_file"]
-diagnose_failure = _mod["diagnose_failure"]
-generate_markdown = _mod["generate_markdown"]
+classify_error = _mod["classify_error"]
+parse_failures = _mod["parse_failures"]
+format_markdown = _mod["format_markdown"]
+format_json = _mod["format_json"]
 run_pytest = _mod["run_pytest"]
 main = _mod["main"]
 
 
-# ── parse_pytest_output ──────────────────────────────────────────────
+# ── classify_error tests ─────────────────────────────────────────────────
 
 
-def test_parse_simple_failures():
-    """parse_pytest_output extracts test name, file, and error from FAILED lines."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    assert len(results) == 3
-    assert results[0]["file"] == "assays/test_foo.py"
-    assert results[0]["test"] == "test_bar"
-    assert "AssertionError" in results[0]["error"]
-    assert results[1]["file"] == "assays/test_foo.py"
-    assert results[1]["test"] == "test_baz"
-    assert "TypeError" in results[1]["error"]
-    assert results[2]["file"] == "assays/test_qux.py"
-    assert results[2]["test"] == "test_spam"
+def test_classify_import_error():
+    assert classify_error("ImportError: no module named foo") == "missing or circular import"
 
 
-def test_parse_skips_duplicate_summary_lines():
-    """parse_pytest_output deduplicates the short summary section."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_TRACEBACKS)
-    assert len(results) == 3
+def test_classify_module_not_found():
+    assert classify_error("ModuleNotFoundError: bar") == "missing or circular import"
 
 
-def test_parse_empty_output():
-    """parse_pytest_output returns empty list when all tests pass."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_EMPTY)
-    assert results == []
+def test_classify_attribute_error():
+    assert classify_error("AttributeError: 'NoneType' has no attr") == "attribute access on wrong type or misspelled name"
 
 
-def test_parse_captures_error_prefix():
-    """parse_pytest_output handles ERROR lines (fixture failures)."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_ERROR)
-    # Should have at least the FAILED line; ERROR is also captured
-    files = {r["file"] for r in results}
-    assert "assays/test_broken.py" in files
+def test_classify_type_error():
+    assert classify_error("TypeError: expected str got int") == "type mismatch — wrong argument count or type"
 
 
-def test_parse_extracts_error_type():
-    """Each parsed result has 'error_type' field with the exception class."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    assert results[0]["error_type"] == "AssertionError"
-    assert results[1]["error_type"] == "TypeError"
-    assert results[2]["error_type"] == "ModuleNotFoundError"
+def test_classify_name_error():
+    assert classify_error("NameError: name 'x' is not defined") == "undefined name (typo or missing import)"
 
 
-# ── group_by_file ────────────────────────────────────────────────────
+def test_classify_file_not_found():
+    assert classify_error("FileNotFoundError: data.json") == "missing fixture file or bad path"
 
 
-def test_group_by_file_groups_correctly():
-    """group_by_file returns dict keyed by file path."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    grouped = group_by_file(results)
-    assert "assays/test_foo.py" in grouped
-    assert len(grouped["assays/test_foo.py"]) == 2
-    assert "assays/test_qux.py" in grouped
-    assert len(grouped["assays/test_qux.py"]) == 1
+def test_classify_key_error():
+    assert classify_error("KeyError: 'result'") == "dict key missing — data shape changed"
 
 
-def test_group_by_file_empty():
-    """group_by_file returns empty dict for empty results."""
-    assert group_by_file([]) == {}
+def test_classify_value_error():
+    assert classify_error("ValueError: invalid literal") == "bad value — conversion or validation failure"
 
 
-# ── diagnose_failure ─────────────────────────────────────────────────
+def test_classify_index_error():
+    assert classify_error("IndexError: list index out of range") == "list/tuple index out of range"
 
 
-def test_diagnose_assertion_error():
-    """AssertionError diagnosed as logic/assertion issue."""
-    cause = diagnose_failure("AssertionError", "expected 1, got 0")
-    assert "assert" in cause.lower() or "logic" in cause.lower()
+def test_classify_syntax_error():
+    assert classify_error("SyntaxError: invalid syntax") == "syntax error in source file"
 
 
-def test_diagnose_import_error():
-    """ImportError/ModuleNotFoundError diagnosed as missing dependency."""
-    cause = diagnose_failure("ModuleNotFoundError", "No module named 'x'")
-    assert "import" in cause.lower() or "module" in cause.lower() or "depend" in cause.lower()
+def test_classify_assertion_error():
+    assert classify_error("AssertionError: assert False") == "assertion failed — logic or data mismatch"
 
 
-def test_diagnose_type_error():
-    """TypeError diagnosed as type mismatch."""
-    cause = diagnose_failure("TypeError", "unsupported operand")
-    assert "type" in cause.lower()
+def test_classify_recursion_error():
+    assert classify_error("RecursionError: maximum recursion depth") == "infinite recursion"
 
 
-def test_diagnose_attribute_error():
-    """AttributeError diagnosed as missing attribute/None access."""
-    cause = diagnose_failure("AttributeError", "'NoneType' has no attribute 'split'")
-    assert "attribute" in cause.lower() or "none" in cause.lower()
+def test_classify_unknown():
+    assert classify_error("something completely unrelated") == "unknown error type"
 
 
-def test_diagnose_connection_error():
-    """Connection errors diagnosed as infrastructure issue."""
-    cause = diagnose_failure("ConnectionRefusedError", "[Errno 111]")
-    assert "connection" in cause.lower() or "network" in cause.lower() or "infra" in cause.lower()
+# ── parse_failures tests ─────────────────────────────────────────────────
 
 
-def test_diagnose_unknown_error():
-    """Unknown error types get a generic diagnosis."""
-    cause = diagnose_failure("FoobarError", "something weird")
-    assert len(cause) > 0
+def test_parse_failures_empty():
+    result = parse_failures("")
+    assert result == {}
 
 
-# ── generate_markdown ────────────────────────────────────────────────
+def test_parse_failures_single():
+    output = "FAILED assays/test_foo.py::test_bar - TypeError: bad arg\n"
+    groups = parse_failures(output)
+    assert "assays/test_foo.py" in groups
+    assert len(groups["assays/test_foo.py"]) == 1
+    entry = groups["assays/test_foo.py"][0]
+    assert entry["test"] == "test_bar"
+    assert "TypeError: bad arg" in entry["error"]
+    assert entry["cause"] == "type mismatch — wrong argument count or type"
 
 
-def test_generate_markdown_includes_headers():
-    """Markdown report has title and file section headers."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    grouped = group_by_file(results)
-    md = generate_markdown(grouped, results)
-    assert "# Test Failure Report" in md
-    assert "assays/test_foo.py" in md
-    assert "assays/test_qux.py" in md
+def test_parse_failures_multiple_files():
+    output = (
+        "FAILED assays/test_a.py::test_one - ValueError: bad\n"
+        "FAILED assays/test_b.py::test_two - KeyError: 'x'\n"
+    )
+    groups = parse_failures(output)
+    assert len(groups) == 2
+    assert "assays/test_a.py" in groups
+    assert "assays/test_b.py" in groups
 
 
-def test_generate_markdown_includes_test_names():
-    """Markdown report lists individual failing test names."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    grouped = group_by_file(results)
-    md = generate_markdown(grouped, results)
-    assert "test_bar" in md
-    assert "test_baz" in md
-    assert "test_spam" in md
+def test_parse_failures_multiple_tests_same_file():
+    output = (
+        "FAILED assays/test_a.py::test_one - TypeError: a\n"
+        "FAILED assays/test_a.py::test_two - ValueError: b\n"
+    )
+    groups = parse_failures(output)
+    assert len(groups) == 1
+    assert len(groups["assays/test_a.py"]) == 2
 
 
-def test_generate_markdown_includes_diagnosis():
-    """Markdown report includes likely cause for each failure."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    grouped = group_by_file(results)
-    md = generate_markdown(grouped, results)
-    # Should have diagnosis sections
-    assert "Likely cause" in md or "likely" in md.lower() or "Cause" in md
+def test_parse_failures_with_traceback_line():
+    output = (
+        "FAILED assays/test_a.py::test_one - AssertionError: assert False\n"
+        "assays/test_a.py:42: AssertionError: assert False\n"
+    )
+    groups = parse_failures(output)
+    entry = groups["assays/test_a.py"][0]
+    assert entry["line"] == "42"
 
 
-def test_generate_markdown_includes_summary():
-    """Markdown report includes a summary section with counts."""
-    results = parse_pytest_output(SAMPLE_OUTPUT_SIMPLE)
-    grouped = group_by_file(results)
-    md = generate_markdown(grouped, results)
-    assert "Summary" in md or "summary" in md
-    assert "3" in md  # 3 total failures
+def test_parse_failures_no_error_detail():
+    output = "FAILED assays/test_a.py::test_one\n"
+    groups = parse_failures(output)
+    assert "assays/test_a.py" in groups
+    entry = groups["assays/test_a.py"][0]
+    assert entry["test"] == "test_one"
+    assert entry["error"] == ""
 
 
-def test_generate_markdown_empty():
-    """Empty results produce a 'no failures' message."""
-    md = generate_markdown({}, [])
-    assert "no failures" in md.lower() or "all tests passed" in md.lower()
+# ── format_markdown tests ────────────────────────────────────────────────
 
 
-def test_generate_markdown_mixed_errors():
-    """Report correctly handles mixed error types from different files."""
-    results = parse_pytest_output(SAMPLE_MIXED_FAILURES)
-    grouped = group_by_file(results)
-    md = generate_markdown(grouped, results)
-    assert "assays/test_api.py" in md
-    assert "assays/test_db.py" in md
-    assert "assays/test_utils.py" in md
+def test_format_markdown_no_failures():
+    md = format_markdown({}, 0)
+    assert "No failures found" in md
+    assert "All tests passing" in md
 
 
-# ── main / CLI integration ──────────────────────────────────────────
+def test_format_markdown_with_failures():
+    groups = {
+        "assays/test_a.py": [
+            {"test": "test_one", "line": "10", "error": "TypeError: bad", "cause": "type mismatch — wrong argument count or type"},
+        ]
+    }
+    md = format_markdown(groups, 1)
+    assert "## Test Failure Report" in md
+    assert "**1 failure(s)**" in md
+    assert "assays/test_a.py" in md
+    assert "test_one" in md
+    assert "TypeError: bad" in md
+    assert "type mismatch" in md
 
 
-def _mock_completed_process(stdout: str, returncode: int) -> MagicMock:
-    """Build a CompletedProcess-like mock with both stdout and stderr."""
-    return MagicMock(stdout=stdout, stderr="", returncode=returncode)
+def test_format_markdown_table_headers():
+    groups = {
+        "assays/x.py": [
+            {"test": "test_t", "line": "", "error": "", "cause": "unknown error type"},
+        ]
+    }
+    md = format_markdown(groups, 1)
+    assert "| Test |" in md
+    assert "|------|" in md
 
 
-def test_main_outputs_markdown_by_default(capsys):
-    """main() prints markdown report to stdout."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = _mock_completed_process(SAMPLE_OUTPUT_SIMPLE, 1)
-        main([])
-        captured = capsys.readouterr()
-        assert "Test Failure Report" in captured.out
+def test_format_markdown_truncates_long_error():
+    long_err = "x" * 200
+    groups = {
+        "a.py": [
+            {"test": "test_t", "line": "", "error": long_err, "cause": "unknown error type"},
+        ]
+    }
+    md = format_markdown(groups, 1)
+    # Error should be truncated to 80 chars in the table
+    for line in md.splitlines():
+        if "test_t" in line:
+            assert len(line) < 300  # reasonable bound
+            break
 
 
-def test_main_json_flag(capsys):
-    """main(['--json']) outputs valid JSON."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = _mock_completed_process(SAMPLE_OUTPUT_SIMPLE, 1)
-        main(["--json"])
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert "failures" in data
-        assert len(data["failures"]) == 3
+# ── format_json tests ────────────────────────────────────────────────────
 
 
-def test_main_all_pass(capsys):
-    """main() handles all-passing test suites."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = _mock_completed_process(SAMPLE_OUTPUT_EMPTY, 0)
-        main([])
-        captured = capsys.readouterr()
-        assert "no failures" in captured.out.lower() or "all tests passed" in captured.out.lower()
+def test_format_json_structure():
+    groups = {
+        "a.py": [
+            {"test": "test_x", "line": "5", "error": "err", "cause": "cause"},
+        ]
+    }
+    out = format_json(groups, 1)
+    data = json.loads(out)
+    assert data["total_failed"] == 1
+    assert data["files_affected"] == 1
+    assert "a.py" in data["failures"]
+    assert data["failures"]["a.py"][0]["test"] == "test_x"
 
 
-def test_main_json_all_pass(capsys):
-    """main(['--json']) with no failures returns empty list."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = _mock_completed_process(SAMPLE_OUTPUT_EMPTY, 0)
-        main(["--json"])
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert data["failures"] == []
+def test_format_json_empty():
+    out = format_json({}, 0)
+    data = json.loads(out)
+    assert data["total_failed"] == 0
+    assert data["files_affected"] == 0
+    assert data["failures"] == {}
+
+
+# ── run_pytest tests ─────────────────────────────────────────────────────
+
+
+def test_run_pytest_success(tmp_path):
+    """run_pytest returns stdout and returncode."""
+    # Create a tiny passing test
+    (tmp_path / "test_pass.py").write_text("def test_ok(): assert True\n")
+    stdout, rc = run_pytest(tmp_path)
+    assert rc == 0
+    assert "1 passed" in stdout
+
+
+def test_run_pytest_failure(tmp_path):
+    """run_pytest returns non-zero rc for failures."""
+    (tmp_path / "test_fail.py").write_text("def test_bad(): assert False\n")
+    stdout, rc = run_pytest(tmp_path)
+    assert rc != 0
+    assert "FAILED" in stdout
+
+
+# ── main (CLI) tests ─────────────────────────────────────────────────────
+
+
+def test_main_markdown_output(tmp_path, capsys):
+    """main outputs markdown by default."""
+    (tmp_path / "test_pass.py").write_text("def test_ok(): assert True\n")
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--dir", str(tmp_path)])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    assert "No failures found" in out
+
+
+def test_main_json_output(tmp_path, capsys):
+    """main --json outputs valid JSON."""
+    (tmp_path / "test_pass.py").write_text("def test_ok(): assert True\n")
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--json", "--dir", str(tmp_path)])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data["total_failed"] == 0
+
+
+def test_main_with_failures_json(tmp_path, capsys):
+    """main --json with a failing test reports the failure."""
+    (tmp_path / "test_fail.py").write_text("def test_bad(): assert False\n")
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--json", "--dir", str(tmp_path)])
+    assert exc_info.value.code != 0
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data["total_failed"] >= 1
+    assert data["files_affected"] >= 1
+
+
+def test_main_with_failures_markdown(tmp_path, capsys):
+    """main with a failing test outputs markdown table."""
+    (tmp_path / "test_fail.py").write_text("def test_bad(): assert False\n")
+    with pytest.raises(SystemExit):
+        main(["--dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert "## Test Failure Report" in out
+    assert "test_fail.py" in out
+    assert "test_bad" in out

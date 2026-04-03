@@ -68,7 +68,7 @@ def check_health() -> bool:
         ok = False
 
     # Check LaunchAgent plist (macOS only)
-    if PLIST_PATH.parent.exists():
+    if sys.platform == "darwin":
         if PLIST_PATH.exists():
             print(f"  ✓ LaunchAgent plist found at {PLIST_PATH}")
             # Try to verify it's loaded via launchctl
@@ -88,14 +88,14 @@ def check_health() -> bool:
                     )
                     ok = False
             except (FileNotFoundError, subprocess.TimeoutExpired):
-                # launchctl not available (non-macOS) — skip silently
+                # launchctl not available — skip silently
                 pass
         else:
             print(f"  ✗ LaunchAgent plist missing at {PLIST_PATH}", file=sys.stderr)
             ok = False
     else:
         # Not on macOS — LaunchAgent check is N/A
-        print("  ~/Library/LaunchAgents not found (non-macOS), plist check skipped")
+        print("  LaunchAgent check skipped (non-macOS)")
 
     # Check ~/code exists
     if CODE_DIR.exists():

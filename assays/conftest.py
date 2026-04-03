@@ -1,10 +1,48 @@
 from __future__ import annotations
 
+import importlib.util
+import shutil
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 import yaml
+
+
+# Allow pytest to collect test files with dots in the name (e.g. test_foo.sh.py).
+# The dot makes Python's importer treat "test_foo" as a package, causing
+# ModuleNotFoundError.  We use a custom Module subclass that loads via
+# importlib.util.spec_from_file_location, bypassing the broken import path.
+
+
+class _DottedNameModule(pytest.Module):
+    """Module collector that loads .sh.py test files via importlib.util,
+    bypassing the broken package-resolution import."""
+
+    def _getobj(self):
+        safe_name = self.path.name.replace(".", "_").removesuffix("_py")
+        if safe_name not in sys.modules:
+            spec = importlib.util.spec_from_file_location(safe_name, str(self.path))
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot create import spec for {self.path}")
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[safe_name] = mod
+            spec.loader.exec_module(mod)
+        return sys.modules[safe_name]
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_collect_file(file_path: Path, parent):
+    """For .sh.py files, replace the default Module with our custom one
+    that handles dotted filenames correctly."""
+    if file_path.suffixes != [".sh", ".py"] or not file_path.name.startswith("test_"):
+        yield
+        return
+    outcome = yield
+    # Discard any nodes created by other hooks (e.g. the default collector)
+    # and replace with our custom module that knows how to import dotted names.
+    outcome.force_result([_DottedNameModule.from_parent(parent, path=file_path)])
 
 
 @pytest.fixture
@@ -70,3 +108,78 @@ def germline_dir(home_dir):
 def effectors_dir(germline_dir):
     """Return the effectors directory as a Path."""
     return germline_dir / "effectors"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
+    """Remove leftover pytest temporary directories before test session starts.
+
+    This prevents FileExistsError when pytest's tmp_path fixture tries to create
+    a directory that already exists and is non-empty.
+    """
+    import os
+    import stat
+    import tempfile
+
+    def _force_rmtree(path: Path) -> None:
+        """Remove a directory tree, handling permission errors on readonly files."""
+        import errno
+
+        def handle_error(func, exc_path, exc_info):
+            """Error handler for shutil.rmtree that fixes permissions and retries."""
+            if exc_path and os.path.isdir(exc_path):
+                os.chmod(exc_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            elif exc_path and os.path.isfile(exc_path):
+                os.chmod(exc_path, stat.S_IWRITE | stat.S_IREAD)
+
+        # Use shutil.rmtree with error handler for robust removal
+        try:
+            shutil.rmtree(path, onerror=handle_error)
+        except OSError:
+            # Fallback: walk and force-remove
+            for dirpath, dirnames, filenames in os.walk(path, topdown=False):
+                for name in filenames:
+                    f = os.path.join(dirpath, name)
+                    try:
+                        os.chmod(f, stat.S_IWRITE | stat.S_IREAD)
+                        os.unlink(f)
+                    except OSError:
+                        pass
+                for name in dirnames:
+                    d = os.path.join(dirpath, name)
+                    try:
+                        if os.path.islink(d):
+                            os.unlink(d)
+                        else:
+                            os.chmod(d, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                            os.rmdir(d)
+                    except OSError:
+                        pass
+            try:
+                os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                os.rmdir(path)
+            except OSError:
+                pass
+
+    tmpdir = Path(tempfile.gettempdir())
+    basetemp = pytestconfig.option.basetemp
+    active_basetemp = Path(basetemp) if basetemp else None
+    temp_paths = list(tmpdir.glob("pytest-*"))
+    if active_basetemp is not None:
+        temp_paths.append(active_basetemp)
+    for path in temp_paths:
+        if not path.is_dir():
+            continue
+        try:
+            if active_basetemp is not None and path == active_basetemp:
+                for child in list(path.iterdir()):
+                    if child.is_symlink():
+                        child.unlink()
+                    elif child.is_dir():
+                        _force_rmtree(child)
+                    else:
+                        child.unlink(missing_ok=True)
+                continue
+            _force_rmtree(path)
+        except OSError:
+            pass

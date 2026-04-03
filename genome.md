@@ -30,6 +30,10 @@
 
 Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
+**Marks library:** `~/epigenome/marks/`. Each file has `description:` frontmatter. **When starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding.** Example: before working on golem, `grep -l "golem" ~/epigenome/marks/*.md`. Same pattern as epistemics — not by remembering, but by looking.
+
+**Read anatomy first.** Before probing, querying, or debugging any subsystem, read its CLAUDE.md or README. The docs exist — use them before running blind commands. `~/germline/effectors/*/CLAUDE.md` for organism tools.
+
 **Meta-rules:** Evidence > opinions. One correction = full sweep. When in doubt, test it. Work generates work — follow it. Origin is recoverable, spark is perishable. Fix what breaks before testing what doesn't — triage by blast radius. All dispatch orients toward north star goals — read `North Star.md` before selecting work.
 
 ## Facts
@@ -100,3 +104,29 @@ Draft autonomously, pause before "send". Auto-push personal repos. Ask before sh
 - **Package manager**: pnpm
 - **Front-stage** (client-facing): Terry's voice, not mine.
 - **Copy-paste**: `deltos`. Gists >4096 chars only.
+
+## Memory
+
+Memory index: `~/epigenome/marks/MEMORY.md` (also `~/.claude/projects/-home-terry/memory/MEMORY.md`). Read at session start. Each line links to a detailed mark file — read relevant ones when the task matches.
+
+Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference/finding), `source` (cc/gemini/codex/goose/user), `durability` (methyl=durable, acetyl=volatile), `protected: true` for core corrections.
+
+## GLM Coaching
+
+Append recurring GLM failure patterns to `~/epigenome/marks/feedback_golem_coaching.md`. Prepended to every golem dispatch. Format: pattern name, what GLM does wrong, fix instruction.
+
+<!-- BEGIN CODEX TOOL MAP -->
+## Codex Tool Mapping
+
+When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equivalents:
+- Read → shell reads (cat/sed) or rg
+- Write → shell redirection or apply_patch
+- Edit/MultiEdit → apply_patch
+- Bash → shell_command
+- Grep → rg (fallback: grep)
+- Glob → rg --files or find
+- WebFetch/WebSearch → curl or Context7
+- AskUserQuestion → numbered list in chat, wait for reply
+- Task/Subagent → sequential in main thread; multi_tool_use.parallel for tool calls
+- Skill → open the referenced SKILL.md and follow it
+<!-- END CODEX TOOL MAP -->

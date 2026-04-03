@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-"""Shared helpers for invoking external CLI organelles and LLM calls from tools."""
-
 import os
 import shutil
 import subprocess
 from pathlib import Path
+
+"""Shared helpers for invoking external CLI organelles and LLM calls from tools."""
 
 # Repo root: metabolon → germline
 VIVESCA_ROOT = Path(__file__).resolve().parent.parent

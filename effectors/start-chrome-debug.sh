@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Start Chrome with remote debugging enabled
 # This allows Playwright/OpenClaw to connect without extension clicks
 

@@ -985,7 +985,7 @@ No status field.
 class TestOperonHeartbeat:
     """Tests for _operon_heartbeat function."""
 
-    @patch("metabolon.metabolism.substrates.operons.OperonSubstrate")
+    @patch("metabolon.metabolism.substrates.operon_monitor.OperonSubstrate")
     def test_heartbeat_success(self, mock_substrate: Mock):
         """Test successful operon heartbeat."""
         substrate_instance = MagicMock()
@@ -1002,21 +1002,21 @@ class TestOperonHeartbeat:
         assert any("**1** stale" in line for line in lines)
         assert any("stale_op" in line for line in lines)
 
-    @patch("metabolon.metabolism.substrates.operons.OperonSubstrate", side_effect=ImportError)
+    @patch("metabolon.metabolism.substrates.operon_monitor.OperonSubstrate", side_effect=ImportError)
     def test_heartbeat_import_error(self, mock_substrate: Mock):
         """Test handling import error."""
         lines = _operon_heartbeat()
 
         assert any("unavailable" in line for line in lines)
 
-    @patch("metabolon.metabolism.substrates.operons.OperonSubstrate", side_effect=Exception("boom"))
+    @patch("metabolon.metabolism.substrates.operon_monitor.OperonSubstrate", side_effect=Exception("boom"))
     def test_heartbeat_exception(self, mock_substrate: Mock):
         """Test handling general exception."""
         lines = _operon_heartbeat()
 
         assert any("unavailable" in line for line in lines)
 
-    @patch("metabolon.metabolism.substrates.operons.OperonSubstrate")
+    @patch("metabolon.metabolism.substrates.operon_monitor.OperonSubstrate")
     def test_heartbeat_never_fired(self, mock_substrate: Mock):
         """Test operon that has never fired."""
         substrate_instance = MagicMock()

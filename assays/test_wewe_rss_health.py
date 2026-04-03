@@ -54,12 +54,11 @@ class TestLoadState:
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
         assert _mod["load_state"]() == {"last_status": "ok"}
 
-    def test_empty_file_raises_json_error(self, tmp_path, monkeypatch):
+    def test_empty_file_returns_default(self, tmp_path, monkeypatch):
         state_file = tmp_path / "state.json"
         state_file.write_text("")
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
-        with pytest.raises(json.JSONDecodeError):
-            _mod["load_state"]()
+        assert _mod["load_state"]() == {"last_status": "ok"}
 
 
 # ── save_state tests ────────────────────────────────────────────────────────
@@ -159,6 +158,7 @@ class TestMain:
         state_file.write_text(json.dumps({"last_status": "ok"}))
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
         monkeypatch.setitem(_mod, "check_service", lambda: (False, "API unreachable"))
+        monkeypatch.setattr("sys.argv", ["wewe-rss-health.py"])
 
         alerts = []
         monkeypatch.setitem(_mod, "send_alert", lambda msg: alerts.append(msg))
@@ -172,6 +172,7 @@ class TestMain:
         state_file.write_text(json.dumps({"last_status": "failing"}))
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
         monkeypatch.setitem(_mod, "check_service", lambda: (True, "5 feed(s) active"))
+        monkeypatch.setattr("sys.argv", ["wewe-rss-health.py"])
 
         alerts = []
         monkeypatch.setitem(_mod, "send_alert", lambda msg: alerts.append(msg))
@@ -185,6 +186,7 @@ class TestMain:
         state_file.write_text(json.dumps({"last_status": "ok"}))
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
         monkeypatch.setitem(_mod, "check_service", lambda: (True, "3 feed(s) active"))
+        monkeypatch.setattr("sys.argv", ["wewe-rss-health.py"])
 
         alerts = []
         monkeypatch.setitem(_mod, "send_alert", lambda msg: alerts.append(msg))
@@ -197,6 +199,7 @@ class TestMain:
         state_file.write_text(json.dumps({"last_status": "failing"}))
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
         monkeypatch.setitem(_mod, "check_service", lambda: (False, "down"))
+        monkeypatch.setattr("sys.argv", ["wewe-rss-health.py"])
 
         alerts = []
         monkeypatch.setitem(_mod, "send_alert", lambda msg: alerts.append(msg))
@@ -209,6 +212,7 @@ class TestMain:
         state_file.write_text(json.dumps({"last_status": "ok"}))
         monkeypatch.setitem(_mod, "STATE_FILE", state_file)
         monkeypatch.setitem(_mod, "check_service", lambda: (True, "ok"))
+        monkeypatch.setattr("sys.argv", ["wewe-rss-health.py"])
 
         alerts = []
         monkeypatch.setitem(_mod, "send_alert", lambda msg: alerts.append(msg))

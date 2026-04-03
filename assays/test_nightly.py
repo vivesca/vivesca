@@ -49,7 +49,7 @@ def _patch_attr(name, value):
 
 
 def _setup_home(tmp_path):
-    """Patch HOME, HEALTH_OUT, FLYWHEEL_OUT to tmp_path and return output paths."""
+    """Patch HOME, HEALTH_OUT, FLYWHEEL_OUT, _MEMORY_DIR to tmp_path and return output paths."""
     health_out = tmp_path / ".claude" / "nightly-health.md"
     flywheel_out = tmp_path / ".claude" / "skill-flywheel-daily.md"
     health_out.parent.mkdir(parents=True, exist_ok=True)
@@ -57,6 +57,8 @@ def _setup_home(tmp_path):
     _mod["HOME"] = tmp_path
     _mod["HEALTH_OUT"] = health_out
     _mod["FLYWHEEL_OUT"] = flywheel_out
+    home_stem = str(tmp_path).strip("/").replace("/", "-")
+    _mod["_MEMORY_DIR"] = tmp_path / ".claude" / "projects" / f"-{home_stem}" / "memory"
     return health_out, flywheel_out
 
 
@@ -133,7 +135,7 @@ class TestFileAgeMinutes:
 class TestIsRunning:
     def test_returns_true_when_label_present(self):
         mock_result = MagicMock()
-        mock_result.stdout = "12345 0  com.vivesca.mcp\n67890 0  com.apple.system\n"
+        mock_result.stdout = "active\n"
         with _patch_attr("subprocess", MagicMock(run=lambda *a, **kw: mock_result)):
             assert nightly._is_running("com.vivesca.mcp") is True
 
@@ -156,7 +158,7 @@ class TestIsRunning:
 
 class TestCheckHealth:
     def _make_mem_file(self, tmp_path, n_lines):
-        mem = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md"
+        mem = _mod["_MEMORY_DIR"] / "MEMORY.md"
         mem.parent.mkdir(parents=True, exist_ok=True)
         mem.write_text("\n".join(["line"] * n_lines))
         return mem
@@ -166,7 +168,7 @@ class TestCheckHealth:
         self._make_mem_file(tmp_path, 100)
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         mem_rows = [r for r in rows if r[0] == "MEMORY.md lines"]
@@ -178,7 +180,7 @@ class TestCheckHealth:
         self._make_mem_file(tmp_path, 160)
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         mem_rows = [r for r in rows if r[0] == "MEMORY.md lines"]
@@ -190,7 +192,7 @@ class TestCheckHealth:
         self._make_mem_file(tmp_path, 250)
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         mem_rows = [r for r in rows if r[0] == "MEMORY.md lines"]
@@ -201,7 +203,7 @@ class TestCheckHealth:
         _setup_home(tmp_path)
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         mem_rows = [r for r in rows if r[0] == "MEMORY.md lines"]
@@ -223,7 +225,7 @@ class TestCheckHealth:
         _setup_home(tmp_path)
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         mcp_rows = [r for r in rows if r[0] == "MCP server"]
@@ -236,7 +238,7 @@ class TestCheckHealth:
         (tmp_path / ".agent-browser-profile").mkdir()
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         abp_rows = [r for r in rows if r[0] == "Agent-browser profile"]
@@ -248,7 +250,7 @@ class TestCheckHealth:
         _setup_home(tmp_path)
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         abp_rows = [r for r in rows if r[0] == "Agent-browser profile"]
@@ -264,7 +266,7 @@ class TestCheckHealth:
         cache_file.write_text("export FOO=bar\n" * 20)  # > 100 bytes
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess), \
              patch("tempfile.gettempdir", return_value=str(cache_dir)):
             rows = nightly.check_health()
@@ -280,7 +282,7 @@ class TestCheckHealth:
         cache_file.write_text("x")  # < 100 bytes
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess), \
              patch("tempfile.gettempdir", return_value=str(cache_dir)):
             rows = nightly.check_health()
@@ -294,7 +296,7 @@ class TestCheckHealth:
         cache_dir.mkdir()
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess), \
              patch("tempfile.gettempdir", return_value=str(cache_dir)):
             rows = nightly.check_health()
@@ -310,7 +312,7 @@ class TestCheckHealth:
         ws.write_text("{}")
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         vault_rows = [r for r in rows if r[0] == "Vault sync"]
@@ -327,7 +329,7 @@ class TestCheckHealth:
         os.utime(ws, (old_time, old_time))
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         vault_rows = [r for r in rows if r[0] == "Vault sync"]
@@ -344,7 +346,7 @@ class TestCheckHealth:
         hook_log.write_text("\n".join(entries) + "\n")
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         hook_rows = [r for r in rows if r[0] == "Hook fires (24h)"]
@@ -358,7 +360,7 @@ class TestCheckHealth:
         dr_marker.write_text("sync")
 
         mock_subprocess = MagicMock()
-        mock_subprocess.run.return_value = MagicMock(stdout="com.vivesca.mcp\n")
+        mock_subprocess.run.return_value = MagicMock(stdout="active\n")
         with _patch_attr("subprocess", mock_subprocess):
             rows = nightly.check_health()
         dr_rows = [r for r in rows if r[0] == "DR sync"]
@@ -498,6 +500,93 @@ class TestMain:
         assert "Running skill flywheel" in out
 
 
+# ── health_to_json ─────────────────────────────────────────────────────────────
+
+
+class TestHealthToJson:
+    def test_produces_valid_json(self):
+        rows = [("MEMORY.md lines", "50/150", "ok")]
+        result = nightly.health_to_json(rows)
+        parsed = json.loads(result)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+
+    def test_json_fields(self):
+        rows = [("MCP server", "running", "ok")]
+        result = nightly.health_to_json(rows)
+        parsed = json.loads(result)
+        entry = parsed[0]
+        assert entry["component"] == "MCP server"
+        assert entry["status"] == "ok"
+        assert entry["details"] == "running"
+
+    def test_json_multiple_rows(self):
+        rows = [
+            ("MEMORY.md lines", "50/150", "ok"),
+            ("MCP server", "DOWN", "red"),
+            ("Agent-browser profile", "missing", "warn"),
+        ]
+        result = nightly.health_to_json(rows)
+        parsed = json.loads(result)
+        assert len(parsed) == 3
+        assert parsed[0]["component"] == "MEMORY.md lines"
+        assert parsed[1]["status"] == "red"
+        assert parsed[2]["details"] == "missing"
+
+    def test_json_empty_rows(self):
+        result = nightly.health_to_json([])
+        parsed = json.loads(result)
+        assert parsed == []
+
+    def test_json_is_pretty_printed(self):
+        rows = [("Test", "val", "ok")]
+        result = nightly.health_to_json(rows)
+        assert "\n" in result  # indent=2 produces newlines
+
+
+# ── main --json ────────────────────────────────────────────────────────────────
+
+
+class TestMainJson:
+    def test_json_flag_outputs_json(self, tmp_path, capsys):
+        _setup_home(tmp_path)
+
+        test_rows = [("MEMORY.md lines", "50/150", "ok")]
+        with patch.object(sys, "argv", ["nightly", "--json"]), \
+             _patch_attr("check_health", MagicMock(return_value=test_rows)):
+            nightly.main()
+
+        out = capsys.readouterr().out
+        # Skip the "[nightly] Running health checks..." line
+        json_lines = [l for l in out.strip().splitlines() if not l.startswith("[nightly]")]
+        parsed = json.loads("\n".join(json_lines))
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+        assert parsed[0]["component"] == "MEMORY.md lines"
+        assert parsed[0]["status"] == "ok"
+        assert parsed[0]["details"] == "50/150"
+
+    def test_json_flag_skips_file_writes(self, tmp_path, capsys):
+        health_out, flywheel_out = _setup_home(tmp_path)
+
+        with patch.object(sys, "argv", ["nightly", "--json"]), \
+             _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
+            nightly.main()
+
+        assert not health_out.exists()
+        assert not flywheel_out.exists()
+
+    def test_json_flag_no_banner(self, tmp_path, capsys):
+        _setup_home(tmp_path)
+
+        with patch.object(sys, "argv", ["nightly", "--json"]), \
+             _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
+            nightly.main()
+
+        out = capsys.readouterr().out
+        assert "=== Nightly run" not in out
+
+
 # ── Integration: subprocess execution ─────────────────────────────────────────
 
 
@@ -511,3 +600,23 @@ class TestSubprocessExecution:
         )
         assert result.returncode == 0
         assert "Nightly run" in result.stdout
+
+    def test_json_flag_subprocess(self):
+        result = subprocess.run(
+            [sys.executable, str(_NIGHTLY_PATH), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        # Find the JSON output (after the "[nightly] Running health checks..." line)
+        lines = result.stdout.strip().splitlines()
+        # Skip the "[nightly] Running health checks..." line, parse the rest as JSON
+        json_lines = [l for l in lines if not l.startswith("[nightly]")]
+        json_text = "\n".join(json_lines)
+        parsed = json.loads(json_text)
+        assert isinstance(parsed, list)
+        for entry in parsed:
+            assert "component" in entry
+            assert "status" in entry
+            assert "details" in entry

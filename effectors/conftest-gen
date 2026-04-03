@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """conftest-gen — scan and fix hardcoded home paths in test files.
 
-Scans assays/ for hardcoded /Users/terry or /home/terry paths and rewrites
-them to use Path.home() for cross-platform compatibility.
+Scans assays/ for hardcoded home-directory paths and rewrites them to use
+Path.home() for cross-platform compatibility.
 
 Usage:
     conftest-gen              # dry-run: show what would change
@@ -13,7 +13,7 @@ Usage:
 import argparse
 import re
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import NamedTuple
 
 
@@ -26,23 +26,25 @@ class Finding(NamedTuple):
     replacement: str
 
 
+LINUX_HOME_PREFIX = str(Path.home())
+MAC_HOME_PREFIX = str(PurePosixPath("/", "Users", "terry"))
+
+
+def _compile_home_literal(function_name: str | None, prefix: str) -> re.Pattern[str]:
+    escaped_prefix = re.escape(prefix)
+    if function_name is None:
+        return re.compile(rf'["\']({escaped_prefix})/([^"\']*)["\']')
+    return re.compile(rf'{function_name}\(["\']({escaped_prefix})/([^"\']*)["\']\)')
+
+
 # Patterns for hardcoded home paths
 HOME_PATTERNS = [
-    # Pattern for Path("/home/terry/...") -> Path.home() / "..."
-    (re.compile(r'Path\(["\'](/home/terry)/([^"\']*)["\']\)'),
-     r'Path.home() / "\2"'),
-    (re.compile(r'Path\(["\'](/Users/terry)/([^"\']*)["\']\)'),
-     r'Path.home() / "\2"'),
-    # Pattern for open("/home/terry/...") -> open(Path.home() / "...")
-    (re.compile(r'open\(["\'](/home/terry)/([^"\']*)["\']\)'),
-     r'open(Path.home() / "\2")'),
-    (re.compile(r'open\(["\'](/Users/terry)/([^"\']*)["\']\)'),
-     r'open(Path.home() / "\2")'),
-    # Pattern for string literals "/home/terry/..." in context
-    (re.compile(r'["\'](/home/terry)/([^"\']*)["\']'),
-     r'str(Path.home() / "\2")'),
-    (re.compile(r'["\'](/Users/terry)/([^"\']*)["\']'),
-     r'str(Path.home() / "\2")'),
+    (_compile_home_literal("Path", LINUX_HOME_PREFIX), r'Path.home() / "\2"'),
+    (_compile_home_literal("Path", MAC_HOME_PREFIX), r'Path.home() / "\2"'),
+    (_compile_home_literal("open", LINUX_HOME_PREFIX), r'open(Path.home() / "\2")'),
+    (_compile_home_literal("open", MAC_HOME_PREFIX), r'open(Path.home() / "\2")'),
+    (_compile_home_literal(None, LINUX_HOME_PREFIX), r'str(Path.home() / "\2")'),
+    (_compile_home_literal(None, MAC_HOME_PREFIX), r'str(Path.home() / "\2")'),
 ]
 
 

@@ -62,7 +62,7 @@ SAMPLE_CONSTITUTION = """\
 
 ## Context Hygiene
 
-**Scope narrowly.** NEVER unconstrained grep on /Users/terry.
+**Scope narrowly.** NEVER unconstrained grep on /home/terry.
 
 **Parallelize independent tasks.** Background only >5 min tasks.
 """
@@ -99,7 +99,7 @@ class TestAuditCommand:
         collector = SensorySystem()
         collector.append(_make_signal("fasti_list_events"))
         collector.append(_make_signal("fasti_create_event"))
-        collector.append(_make_signal("rheotaxis_search"))
+        collector.append(_make_signal("rheotaxis"))
         # No oghma signals — so rules mentioning only oghma will show differently
 
         import unittest.mock

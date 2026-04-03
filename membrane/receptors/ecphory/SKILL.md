@@ -20,7 +20,7 @@ triggers:
   - "experiment"
 allowed-tools:
   - Bash
-  - mcp__vivesca__ecphory_logs
+  - mcp__vivesca__ecphory
   - mcp__vivesca__histone_search
   - mcp__vivesca__rheotaxis_search
 ---

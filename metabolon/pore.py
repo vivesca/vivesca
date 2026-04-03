@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 
 from metabolon.locus import blog_published
+from metabolon.morphology import resolve_memory_dir
 
 
 @click.group()
@@ -62,16 +63,35 @@ def serve(http: bool, host: str | None, port: int | None):
 @cli.command()
 def reload():
     """Restart the HTTP server by bouncing the LaunchAgent."""
+    import platform
     import subprocess
 
     label = "com.vivesca.mcp"
-    plist = os.path.expanduser(f"~/Library/LaunchAgents/{label}.plist")
-    if not os.path.exists(plist):
-        click.echo(f"LaunchAgent not found: {plist}", err=True)
-        sys.exit(1)
-    subprocess.run(["launchctl", "unload", plist], check=True, timeout=300)
-    subprocess.run(["launchctl", "load", plist], check=True, timeout=300)
-    click.echo(f"Reloaded {label}")
+
+    if platform.system() == "Darwin":
+        plist = os.path.expanduser(f"~/Library/LaunchAgents/{label}.plist")
+        if not os.path.exists(plist):
+            click.echo(f"LaunchAgent not found: {plist}", err=True)
+            sys.exit(1)
+        subprocess.run(["launchctl", "unload", plist], check=True, timeout=300)
+        subprocess.run(["launchctl", "load", plist], check=True, timeout=300)
+        click.echo(f"Reloaded {label}")
+    else:
+        # Linux: try systemd user service
+        try:
+            subprocess.run(
+                ["systemctl", "--user", "restart", f"{label}.service"],
+                check=True,
+                timeout=300,
+            )
+            click.echo(f"Reloaded {label} via systemctl")
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            click.echo(
+                f"launchctl not available on {platform.system()}; "
+                f"systemctl restart also failed: {exc}",
+                err=True,
+            )
+            sys.exit(1)
 
 
 @cli.command()
@@ -1034,7 +1054,7 @@ def metabolism_init():
     store = Genome()
     server = assemble_organism()
 
-    tools = asyncio.run(server.expressed_tools())
+    tools = asyncio.run(server.list_tools())
     count = 0
     for tool in tools:
         if tool.description:
@@ -1383,7 +1403,7 @@ def pulse(waves, model, retry, focus, stop_after, overnight, max_waves, dry_run)
     "--memory-dir",
     type=click.Path(exists=False),
     default=None,
-    help="Crystal directory (default: ~/.claude/projects/-Users-terry/memory/).",
+    help="Crystal directory (default: auto-resolved CC project memory dir).",
 )
 @click.option("--days", default=30, help="Stimulus window in days.")
 def metabolism_dissolve(memory_dir: str | None, days: int):
@@ -1396,7 +1416,7 @@ def metabolism_dissolve(memory_dir: str | None, days: int):
     if memory_dir:
         mem_path = Path(memory_dir)
     else:
-        mem_path = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
+        mem_path = resolve_memory_dir()
 
     if not mem_path.exists():
         click.echo(f"Memory directory not found: {mem_path}")

@@ -605,3 +605,257 @@ class TestFindModulesEdgeCases:
         (deep / "core.py").write_text("")
         result = find_modules(tmp_path)
         assert "a/b/c/core" in result
+
+    def test_root_main_included(self, tmp_path):
+        """Root __main__.py has no slash so it's NOT filtered out."""
+        (tmp_path / "__main__.py").write_text("")
+        (tmp_path / "real.py").write_text("")
+        result = find_modules(tmp_path)
+        assert "__main__" in result
+        assert "real" in result
+
+    def test_root_tests_dir_skipped(self, tmp_path):
+        """Root-level tests/ directory is skipped."""
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        (tests / "test_x.py").write_text("")
+        (tmp_path / "src.py").write_text("")
+        result = find_modules(tmp_path)
+        assert "src" in result
+        assert all("tests/" not in m for m in result)
+
+
+# ── module_to_test_name additional edge cases ──────────────────────────
+
+
+class TestModuleToTestNameAdditional:
+    """Additional edge cases for module_to_test_name."""
+
+    def test_two_part_path_uses_last_only(self):
+        """Two-part path like lysin/cli uses only the last component."""
+        assert module_to_test_name("lysin/cli") == "test_cli.py"
+
+    def test_two_part_path_underscore_component(self):
+        """Two-part path with underscore in last component."""
+        assert module_to_test_name("enzymes/my_module") == "test_my_module.py"
+
+    def test_three_part_path_no_underscore(self):
+        """Three-part with non-underscore parent uses full parent name."""
+        assert module_to_test_name("a/b/c") == "test_b_c.py"
+
+    def test_three_part_underscore_parent_last_segment(self):
+        """Parent with underscore uses only the last underscore segment."""
+        assert module_to_test_name("x/alpha_beta/gamma") == "test_beta_gamma.py"
+
+
+# ── check_coverage edge cases ─────────────────────────────────────────
+
+
+class TestCheckCoverageEdgeCases:
+    """Additional edge cases for check_coverage."""
+
+    def test_single_module_tested(self):
+        modules = ["solo"]
+        test_files = {"test_solo.py"}
+        coverage, untested = check_coverage(modules, test_files)
+        assert coverage["solo"] == ("test_solo.py", True)
+        assert untested == []
+
+    def test_multiple_untested(self):
+        modules = ["a", "b", "c"]
+        test_files: set[str] = set()
+        coverage, untested = check_coverage(modules, test_files)
+        assert len(untested) == 3
+        assert all(coverage[m][1] is False for m in modules)
+
+    def test_coverage_dict_keys_match_modules(self):
+        """Every module appears in the coverage dict."""
+        modules = ["x", "y/z", "a/b/c"]
+        test_files: set[str] = set()
+        coverage, _ = check_coverage(modules, test_files)
+        assert set(coverage.keys()) == set(modules)
+
+
+# ── stub creation content verification ─────────────────────────────────
+
+
+class TestStubContent:
+    """Verify stub file content matches expected format."""
+
+    def test_stub_import_path(self, tmp_path):
+        """Stub uses correct module import path."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "widget.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+
+        ns: dict = {"__name__": "stub_content_test"}
+        source = EFFECTOR.read_text().replace(
+            "germline = Path(__file__).parent.parent",
+            f"germline = Path('{tmp_path}')",
+        )
+        exec(source, ns)
+
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        content = (assays / "test_widget.py").read_text()
+        assert '"""Tests for metabolon.widget."""' in content
+        assert "import pytest" in content
+        assert "def test_placeholder():" in content
+
+    def test_stub_nested_import_path(self, tmp_path):
+        """Stub for nested module uses dotted import path."""
+        sub = tmp_path / "metabolon" / "enzymes"
+        sub.mkdir(parents=True)
+        (sub / "catalase.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+
+        ns: dict = {"__name__": "stub_nested_test"}
+        source = EFFECTOR.read_text().replace(
+            "germline = Path(__file__).parent.parent",
+            f"germline = Path('{tmp_path}')",
+        )
+        exec(source, ns)
+
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        content = (assays / "test_catalase.py").read_text()
+        assert "metabolon.enzymes.catalase" in content
+
+    def test_stub_prints_creation_count(self, tmp_path, capsys):
+        """--create-stubs prints how many files were created."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        (metabolon / "beta.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+
+        ns: dict = {"__name__": "stub_count_test"}
+        source = EFFECTOR.read_text().replace(
+            "germline = Path(__file__).parent.parent",
+            f"germline = Path('{tmp_path}')",
+        )
+        exec(source, ns)
+
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        out = capsys.readouterr().out
+        assert "Created 2 stub test files" in out
+
+
+# ── combined flags ────────────────────────────────────────────────────
+
+
+class TestCombinedFlags:
+    """Test --json combined with --create-stubs."""
+
+    def test_json_plus_create_stubs(self, tmp_path, capsys):
+        """--json --create-stubs outputs JSON AND creates stub files."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "orphan.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+
+        ns: dict = {"__name__": "combined_flags_test"}
+        source = EFFECTOR.read_text().replace(
+            "germline = Path(__file__).parent.parent",
+            f"germline = Path('{tmp_path}')",
+        )
+        exec(source, ns)
+
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--json", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        # Should have JSON output (stub creation message is also printed)
+        out = capsys.readouterr().out
+        # JSON comes first, then the stub message
+        assert '"total": 1' in out or '"total":1' in out
+        # Stub file should exist
+        assert (assays / "test_orphan.py").exists()
+
+    def test_json_output_modules_list(self, tmp_path, capsys):
+        """--json includes the full modules list."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        (metabolon / "beta.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("pass")
+
+        ns: dict = {"__name__": "json_modules_test"}
+        source = EFFECTOR.read_text().replace(
+            "germline = Path(__file__).parent.parent",
+            f"germline = Path('{tmp_path}')",
+        )
+        exec(source, ns)
+
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--json"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        data = json.loads(capsys.readouterr().out)
+        assert "alpha" in data["modules"]
+        assert "beta" in data["modules"]
+        assert data["untested"] == ["beta"]
+
+
+# ── print_report additional edge cases ────────────────────────────────
+
+
+class TestPrintReportEdgeCases:
+    """Additional print_report edge cases."""
+
+    def test_all_tested_no_untested_section(self, capsys):
+        """When all modules tested, UNTESTED MODULES section is absent."""
+        modules = ["alpha", "beta"]
+        test_files = {"test_alpha.py", "test_beta.py"}
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert "UNTESTED MODULES" not in out
+        assert "TESTED MODULES" in out
+
+    def test_separator_lines_count(self, capsys):
+        """Report has the expected separator lines."""
+        modules = ["alpha"]
+        test_files = {"test_alpha.py"}
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert out.count("=" * 60) >= 3
+
+    def test_coverage_zero_with_modules(self, capsys):
+        """0% coverage shows 0.0%."""
+        modules = ["a", "b"]
+        test_files: set[str] = set()
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert "0.0%" in out

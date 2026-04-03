@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import os
+
 from metabolon.locus import (
-    chromatin,
-    receptors,
-    phenotype_md,
-    PLATFORM_SYMLINKS,
     PLATFORM_MARKERS_CONFIRM,
     PLATFORM_MARKERS_REQUIRED,
+    PLATFORM_SYMLINKS,
+    chromatin,
+    phenotype_md,
+    receptors,
 )
 
 """integrin -- attachment integrity probe.
@@ -41,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import VIVESCA_ROOT
@@ -50,6 +52,7 @@ from metabolon.morphology import Secretion
 SKILLS_DIR = receptors
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
 RECEPTOR_RETIREMENT_LOG = chromatin / "receptor-retirement.md"
+USER_HOME_PATTERN = re.escape(str(Path.home()))
 
 # Shell builtins and ubiquitous utilities -- always resolvable
 BUILTINS = frozenset(
@@ -118,6 +121,7 @@ CMD_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 # Known platform config dirs to ignore in new-platform detection
 _KNOWN_PLATFORM_DIRS = {p.parent.name for p in PLATFORM_SYMLINKS if p.parent != Path.home()}
 _KNOWN_PLATFORM_DIRS.add(".claude")  # ~/.claude is known but symlink lives at ~/CLAUDE.md
+_KNOWN_PLATFORM_DIRS.add(".docker-data")  # root-owned, unreadable -- skip early
 
 
 def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
@@ -141,20 +145,37 @@ def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
 
     # Detect unknown CLI platform dirs
     unknown: list[str] = []
-    for entry in sorted(Path.home().iterdir()):
-        if not entry.name.startswith(".") or not entry.is_dir():
-            continue
-        if entry.name in _KNOWN_PLATFORM_DIRS:
-            continue
-        if not (entry / PLATFORM_MARKERS_REQUIRED).exists():
-            continue
-        if any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM):
-            unknown.append(entry.name)
+    try:
+        for entry in sorted(Path.home().iterdir()):
+            if not entry.name.startswith(".") or not entry.is_dir():
+                continue
+            if entry.name in _KNOWN_PLATFORM_DIRS:
+                continue
+            try:
+                has_marker = (entry / PLATFORM_MARKERS_REQUIRED).exists()
+            except PermissionError:
+                continue
+            if not has_marker:
+                continue
+            try:
+                has_confirm = any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM)
+            except PermissionError:
+                continue
+            if has_confirm:
+                unknown.append(entry.name)
+    except PermissionError:
+        pass  # unreadable home-dir entry during scan
 
     return issues, unknown
 
 
-_LAUNCHAGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
+import platform as _platform
+
+_LAUNCHAGENTS_DIR = (
+    Path.home() / "Library" / "LaunchAgents"
+    if _platform.system() == "Darwin"
+    else Path.home() / "epigenome" / "oscillators"
+)
 
 
 def _check_launchagent_paths() -> list[dict]:
@@ -236,8 +257,8 @@ def _check_untested_code() -> list[dict]:
 
 
 # Match paths inside backticks (preserves spaces) or bare paths
-_SKILL_PATH_BACKTICK_RE = re.compile(r"`((?:/Users/\w+|~/)[^`]+)`")
-_SKILL_PATH_BARE_RE = re.compile(r"(?:^|\s)((?:/Users/\w+|~/)[a-zA-Z][^\s`\"'>]*)")
+_SKILL_PATH_BACKTICK_RE = re.compile(rf"`((?:{USER_HOME_PATTERN}|~/)[^`]+)`")
+_SKILL_PATH_BARE_RE = re.compile(rf"(?:^|\s)((?:{USER_HOME_PATTERN}|~/)[a-zA-Z][^\s`\"'>]*)")
 _SKIP_FRAGMENTS = frozenset(("YYYY", "*", "/tmp/", "{", "$(", "example", "<"))
 
 
@@ -276,9 +297,17 @@ def _check_skill_paths() -> list[dict]:
                 exp_path = Path(expanded)
                 parent = exp_path.parent
                 basename = exp_path.name
-                if parent.is_dir() and any(
-                    child.name.startswith(basename) for child in parent.iterdir()
-                ):
+                try:
+                    is_truncation = (
+                        parent.is_dir()
+                        and any(
+                            child.name.startswith(basename)
+                            for child in parent.iterdir()
+                        )
+                    )
+                except PermissionError:
+                    is_truncation = False
+                if is_truncation:
                     continue  # Truncation artifact, not a real break
                 broken.append({
                     "skill": skill_dir.name,
@@ -1254,6 +1283,24 @@ def find_latest_cache_version(cache_dir: Path) -> Path | None:
     return versions[-1][1]
 
 
+def _safe_walk(root: Path) -> list[Path]:
+    """Like rglob('*') but skips unreadable directories.
+
+    os.walk with onerror silences PermissionError per-directory instead
+    of aborting the entire traversal.
+    """
+    results: list[Path] = []
+    def _on_error(_: OSError) -> None:
+        pass  # skip unreadable directories
+    for dirpath, _dirnames, filenames in os.walk(root, onerror=_on_error):
+        dp = Path(dirpath)
+        for fname in filenames:
+            results.append(dp / fname)
+        # Also yield subdirectories (matching rglob("*") behavior)
+        results.append(dp)
+    return results
+
+
 def diff_fork(local_dir: Path, cache_dir: Path) -> dict:
     """Compare local fork against upstream cache.
 
@@ -1267,11 +1314,11 @@ def diff_fork(local_dir: Path, cache_dir: Path) -> dict:
     local_files: set[str] = set()
     cache_files: set[str] = set()
 
-    for f in local_dir.rglob("*"):
+    for f in _safe_walk(local_dir):
         if f.is_file() and not any(p.name == ".git" for p in f.parents):
             local_files.add(str(f.relative_to(local_dir)))
 
-    for f in cache_dir.rglob("*"):
+    for f in _safe_walk(cache_dir):
         if f.is_file() and not any(p.name == ".git" for p in f.parents):
             cache_files.add(str(f.relative_to(cache_dir)))
 

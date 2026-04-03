@@ -32,6 +32,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 HKT = timezone(timedelta(hours=8))
 HISTORY_FILES = {

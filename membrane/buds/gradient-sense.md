@@ -9,7 +9,7 @@ Run the proprioception_gradient tool to sense what domains the organism is orien
 
 1. Call the gradient sensor:
    ```bash
-   cd ~/germline && uv run python -c "from metabolon.enzymes.gradient import proprioception_gradient; import json; print(json.dumps(proprioception_gradient().model_dump(), indent=2))"
+   cd ~/germline && uv run python -c "from metabolon.enzymes.proprioception import proprioception; import json; print(json.dumps(proprioception(target='gradient').model_dump(), indent=2))"
    ```
 
 2. Interpret the polarity vector:

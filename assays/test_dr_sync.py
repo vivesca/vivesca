@@ -89,13 +89,24 @@ class TestDRMemorySync:
             s = str(self_path)
             return "memory" in s or "officina" in s or "projects" in s
 
+        # Mock iterdir to return a single project with memory
+        mock_project = MagicMock()
+        mock_project.name = "test-project"
+        mock_project.__truediv__ = lambda self, key: Path(f"/home/user/.claude/projects/test-project/{key}")
+
+        def mock_is_dir(self):
+            return "memory" in str(self)
+
         with patch("shutil.copy2"):
             with patch("shutil.copytree", mock_copytree):
                 with patch("shutil.rmtree"):
                     with patch("pathlib.Path.exists", mock_exists):
-                        with patch("subprocess.run"):
-                            dr.sync()
-                            mock_copytree.assert_called_once()
+                        with patch("pathlib.Path.iterdir", return_value=[mock_project]):
+                            with patch("pathlib.Path.is_dir", mock_is_dir):
+                                with patch("pathlib.Path.mkdir"):
+                                    with patch("subprocess.run"):
+                                        dr.sync()
+                                        mock_copytree.assert_called_once()
 
     def test_memory_dest_removed_first(self, dr):
         rmtree_calls = []

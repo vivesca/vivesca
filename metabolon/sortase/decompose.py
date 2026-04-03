@@ -273,9 +273,7 @@ def score_spec_quality(spec_text: str) -> dict[str, int]:
     tool_budget = 0
     if re.search(r"(?i)tool\s+budget\b", text):
         tool_budget += 7
-    if re.search(r"(?i)max\s+\d+\s+tool", text):
-        tool_budget += 3
-    elif re.search(r"(?i)max\s+\d+\s+call", text):
+    if re.search(r"(?i)max\s+\d+\s+tool", text) or re.search(r"(?i)max\s+\d+\s+call", text):
         tool_budget += 3
     if re.search(r"(?i)budget\b", text):
         tool_budget += 2
@@ -313,8 +311,6 @@ def lint_plan(plan_text: str) -> list[str]:
             "No constraints section found",
             "No verification command found",
         ]
-
-    text_lower = text.lower()
 
     # Missing output path
     output_indicators = [

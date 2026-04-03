@@ -12,12 +12,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from metabolon.locus import endocytosis_alerts
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.organelles.endocytosis_rss.fetcher import internalize_rss, internalize_web
 from metabolon.organelles.endocytosis_rss.log import record_cargo
 from metabolon.organelles.endocytosis_rss.state import lockfile
-
-from metabolon.locus import endocytosis_alerts
 
 ALERT_SIGNAL_LOG = endocytosis_alerts
 

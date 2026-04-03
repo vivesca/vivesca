@@ -115,12 +115,12 @@ def test_crystallised_is_subset():
 
 
 def test_by_enzyme_finds_matching():
-    # Pick an enzyme we know exists: "rheotaxis_search" is used by "scan" and "research"
-    result = by_enzyme("rheotaxis_search")
+    # Pick an enzyme we know exists: "rheotaxis" is used by "scan" and "research"
+    result = by_enzyme("rheotaxis")
     assert isinstance(result, list)
     assert len(result) >= 2
     for op in result:
-        assert "rheotaxis_search" in op.enzymes
+        assert "rheotaxis" in op.enzymes
 
 
 def test_by_enzyme_no_match():

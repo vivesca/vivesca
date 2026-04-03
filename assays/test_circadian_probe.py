@@ -727,18 +727,20 @@ def test_send_via_telegram_failure():
 
 def test_send_via_telegram_handles_import_error():
     """send_via_telegram handles ImportError gracefully."""
-    # Remove the module if it exists
-    sys.modules.pop("metabolon.organelles.secretory_vesicle", None)
+    # Force ImportError by injecting a broken module
+    broken = MagicMock()
+    broken.secrete_text = property(lambda self: (_ for _ in ()).throw(ImportError("no module")))
 
-    source = open(str(Path.home() / "germline/effectors/circadian-probe.py")).read()
-    ns = {
-        "__name__": "test",
-        "__file__": str(Path.home() / "germline/effectors/circadian-probe.py"),
-    }
-    exec(source, ns)
-    send_via_telegram_fresh = ns["send_via_telegram"]
+    with patch.dict("sys.modules", {"metabolon.organelles.secretory_vesicle": None}):
+        source = open(str(Path.home() / "germline/effectors/circadian-probe.py")).read()
+        ns = {
+            "__name__": "test",
+            "__file__": str(Path.home() / "germline/effectors/circadian-probe.py"),
+        }
+        exec(source, ns)
+        send_via_telegram_fresh = ns["send_via_telegram"]
 
-    result = send_via_telegram_fresh("test message")
+        result = send_via_telegram_fresh("test message")
 
     assert result is False
 

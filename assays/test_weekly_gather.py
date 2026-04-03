@@ -256,14 +256,17 @@ class TestGatherNow:
 
 class TestGatherQuarterly:
     def test_found(self, wg, g, tmp_path):
+        now = datetime.now()
+        q = (now.month - 1) // 3 + 1
+        q_file = f"{now.year}-Q{q}.md"
         q_dir = tmp_path / "Quarterly"
         q_dir.mkdir()
-        (q_dir / "2026-Q1.md").write_text("# Q1 Goals")
+        (q_dir / q_file).write_text("# Q Goals")
         with patch.dict(g, {"NOTES": tmp_path}):
             result = wg.gather_quarterly()
         assert result["found"] is True
-        assert "Q1 2026" in result["summary"]
-        assert result["content"] == "# Q1 Goals"
+        assert f"Q{q} {now.year}" in result["summary"]
+        assert result["content"] == "# Q Goals"
 
     def test_not_found(self, wg, g, tmp_path):
         with patch.dict(g, {"NOTES": tmp_path}):

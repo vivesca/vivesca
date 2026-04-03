@@ -17,6 +17,9 @@ import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 
+if str(Path(__file__).resolve().parent.parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 ROUTES_PATH = Path.home() / ".config/translocon/routes.yaml"
 HEALTH_PATH = Path.home() / ".local/share/translocon/health.json"
 LOG_PATH = Path.home() / ".local/share/translocon/log.jsonl"
@@ -163,33 +166,21 @@ def _inject_coaching(prompt: str) -> str:
     return prompt
 
 
-def _build_goose_cmd(model: str, prompt: str, recipe: str | None = None) -> list[str]:
-    cmd = ["goose", "run", "-q", "--no-session",
-           "--provider", "glm-coding", "--model", model]
-    if recipe:
-        cmd += ["--recipe", recipe]
-    cmd += ["-t", prompt]
-    return cmd
-
-
-def _resolve_droid_model(short_name: str) -> str:
-    """Map short model name (e.g. GLM-5.1) to Factory custom model ID from settings."""
-    settings = Path.home() / ".factory" / "settings.json"
-    if settings.exists():
-        for m in json.loads(settings.read_text()).get("customModels", []):
-            mid = m.get("id", "")
-            if short_name in mid:
-                return mid
-    return f"custom:{short_name}"
-
-
-def _build_droid_cmd(model: str, directory: str, prompt: str,
+def _build_golem_cmd(model: str, directory: str, prompt: str,
                      auto: str | None = None) -> list[str]:
-    model_flag = _resolve_droid_model(model)
-    cmd = [shutil.which("droid") or "droid", "exec", "-m", model_flag, "--cwd", directory, prompt]
-    if auto:
-        cmd.insert(2, "--auto")
-        cmd.insert(3, auto)
+    """Build golem CLI command (replaces goose/droid)."""
+    cmd = ["golem"]
+    # Map model to provider if it matches a known one
+    if "volcano" in model.lower():
+        cmd += ["--provider", "volcano"]
+    elif "infini" in model.lower():
+        cmd += ["--provider", "infini"]
+    
+    if auto == "high":
+        cmd.append("--force")
+    
+    # Golem takes prompt as last argument
+    cmd.append(prompt)
     return cmd
 
 
@@ -208,20 +199,14 @@ def _resolve_mode(args: argparse.Namespace) -> tuple[list[str], str, str, str | 
 
     routes = _load_routes()
     route = routes.get(mode, routes.get("explore", _DEFAULT_ROUTES["explore"]))
-    chain: list[str] = list(route.get("chain", ["goose"]))
-    model: str = route.get("model", "GLM-4.7")
+    # Replace missing backends with golem in the chain
+    chain: list[str] = ["golem"]
+    model: str = route.get("model", "GLM-5.1")
     auto: str | None = route.get("auto")
 
-    # Skill+mcp: first backend is droid (from mcp route)
-    if args.skill and args.mcp:
-        chain = ["droid", "goose"]
-        auto = "high"
-    # Skill+build: use build model
-    if args.skill and args.build:
-        model = "GLM-5.1"
-
+    # User overrides
     if args.backend:
-        chain = [args.backend]
+        chain = ["golem"]
     if args.model:
         model = args.model
     directory = args.dir or os.path.expanduser("~")
@@ -625,13 +610,11 @@ def main_impl(args: argparse.Namespace) -> int:
             print(f"translocon: logging to {tee_log}", file=sys.stderr)
     ticker = _ProgressTicker(interval=10.0)
     for b in healthy_chain:
-        cmd = _build_goose_cmd(model, prompt, recipe_path) if b == "goose" else \
-              _build_droid_cmd(model, directory, prompt, auto)
+        cmd = _build_golem_cmd(model, directory, prompt, auto)
         benv = env
         prev = os.getcwd()
         try:
-            if b == "goose":
-                os.chdir(directory)
+            os.chdir(directory)
             ticker.start()
             try:
                 out_len = 0
@@ -650,7 +633,7 @@ def main_impl(args: argparse.Namespace) -> int:
                 ticker.stop()
                 print("", file=sys.stderr)  # newline after progress dots
         finally:
-            os.chdir(prev) if b == "goose" else None
+            os.chdir(prev)
         if rc == 0:
             _record_result(b, True)
             _log_call(_entry(b, True, out_len))

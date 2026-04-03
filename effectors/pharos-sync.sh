@@ -31,8 +31,14 @@ CLAUDE_DIR="$HOME/.claude"
 
 changed=false
 
-# Sync entire memory directory
-MEMORY_SRC="$CLAUDE_DIR/projects/-Users-terry/memory"
+# Sync entire memory directory — discover dynamically
+MEMORY_SRC=""
+for d in "$CLAUDE_DIR"/projects/*/memory; do
+    if [ -d "$d" ]; then
+        MEMORY_SRC="$d"
+        break
+    fi
+done
 MEMORY_DST="$OFFICINA/claude/memory"
 if [ -d "$MEMORY_SRC" ]; then
     mkdir -p "$MEMORY_DST"
@@ -45,12 +51,14 @@ sync_file \
     "$OFFICINA/claude/settings.json" && changed=true || true
 
 # Push credentials to Fly.io pharos
+# Remote path for lucerna (Linux VM). Escaped \$HOME so it expands on the remote,
+# not on the local machine where $HOME may differ (e.g. macOS → /Users/terry).
 if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
     CREDS=$(cat "$CLAUDE_DIR/.credentials.json")
-    flyctl ssh console -a lucerna -C "bash -c 'cat > /home/terry/.claude/.credentials.json << ENDCREDS
+    flyctl ssh console -a lucerna -C "bash -c 'cat > \$HOME/.claude/.credentials.json << ENDCREDS
 ${CREDS}
 ENDCREDS
-chown terry:terry /home/terry/.claude/.credentials.json'" 2>/dev/null \
+chown terry:terry \$HOME/.claude/.credentials.json'" 2>/dev/null \
         && echo "updated: .credentials.json → lucerna" || true
 fi
 

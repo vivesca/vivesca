@@ -1,0 +1,59 @@
+name: LinkedIn Post
+description: Original LinkedIn posts — observations, builder proof, learning narratives
+
+checks:
+  - name: hook
+    question: "Does the first line stop the scroll — specific, surprising, or direct?"
+    weight: high
+    examples:
+      good: "I shipped the bank's first ML model. Nobody celebrated."
+      bad: "Excited to share some thoughts on AI in financial services."
+
+  - name: opinion
+    question: "Does it contain a genuine take, not just information or recap?"
+    weight: high
+    examples:
+      good: "The benchmark obsession is a distraction — what matters is deployment rate"
+      bad: "AI is transforming the financial services industry in many ways"
+
+  - name: specificity
+    question: "Are claims grounded in named examples, numbers, or concrete details?"
+    weight: high
+    examples:
+      good: "One committee approval took 11 weeks — for a model that took 3 weeks to build"
+      bad: "Governance can slow things down significantly"
+
+  - name: no_cringe_opener
+    question: "Free of humbled/excited/thrilled openers and engagement-bait closers?"
+    weight: high
+    examples:
+      good: Post starts with the observation or story directly
+      bad: "Humbled to share...", "Excited to announce...", "What do you think? Drop a comment!"
+
+  - name: voice
+    question: "Sounds like Terry — direct, understated, practitioner — not corporate comms?"
+    weight: medium
+    examples:
+      good: "The model worked. The process nearly killed it."
+      bad: "As a leader in the AI space, I've observed that cross-functional alignment is key"
+
+  - name: no_listicle
+    question: "Not structured as 'X things I learned' or a numbered list?"
+    weight: medium
+    examples:
+      good: Prose observation or short narrative
+      bad: "3 lessons from shipping AI in a bank: 1. Governance matters. 2. Data quality..."
+
+  - name: length
+    question: "Appropriate length — observation posts ~100-200 words, builder posts ~200-400?"
+    weight: medium
+    examples:
+      good: "Tight enough to read in 30 seconds, substantial enough to have a point"
+      bad: "Either too thin to land, or padded past the point of the observation"
+
+  - name: no_hashtag_spam
+    question: "Hashtags minimal — 0-2 max, only if genuinely relevant?"
+    weight: low
+    examples:
+      good: No hashtags, or one topically precise one
+      bad: "#AI #MachineLearning #FinTech #Leadership #Innovation #DataScience"

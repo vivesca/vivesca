@@ -13,12 +13,12 @@ import random
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.morphology import Secretion
+from metabolon.morphology import Secretion, resolve_memory_dir
 
-_CHECKPOINT_DIR = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
+_CHECKPOINT_DIR = resolve_memory_dir()
 
 _ADJECTIVES = [
     "happy",

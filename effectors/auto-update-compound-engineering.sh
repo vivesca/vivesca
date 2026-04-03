@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Auto-update compound-engineering plugin
-# Add to crontab: 0 2 * * 0 ~/germline/effectors/auto-update-compound-engineering.sh
+# Add to crontab: 0 2 * * 0 $HOME/germline/effectors/auto-update-compound-engineering.sh
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: auto-update-compound-engineering.sh"

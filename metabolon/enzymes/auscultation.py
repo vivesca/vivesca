@@ -1,20 +1,25 @@
-from __future__ import annotations
-
 """auscultation — deterministic log reading for system diagnostics.
 
 Exposes the listening surfaces the auscultation skill taps:
   auscultation    — System log diagnostics. Actions: logs|errors
 """
 
+from __future__ import annotations
 
+import platform as _platform
 import re
 from collections import Counter
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
-_LOG_DIR = Path.home() / "Library" / "Logs" / "vivesca"
+# macOS: ~/Library/Logs/vivesca/   Linux: ~/.local/share/vivesca/
+_LOG_DIR = (
+    Path.home() / "Library" / "Logs" / "vivesca"
+    if _platform.system() == "Darwin"
+    else Path.home() / ".local" / "share" / "vivesca"
+)
 _TMP_DIR = Path.home() / "tmp"
 
 
@@ -63,7 +68,7 @@ def auscultation(
     if action == "logs":
         logs = _glob_logs()
         if not logs:
-            return "No log files found in ~/Library/Logs/vivesca/ or ~/tmp/"
+            return f"No log files found in {_LOG_DIR} or {_TMP_DIR}"
 
         if log_name:
             logs = [lg for lg in logs if lg.name == log_name]

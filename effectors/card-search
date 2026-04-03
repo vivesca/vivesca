@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Search consulting cards by keyword. Quick recall for client calls."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+CARDS_DIR = Path(os.environ.get("CARDS_DIR", str(Path.home() / "epigenome/chromatin/euchromatin/consulting/cards")))
+
+
+def get_card_title(card_path: Path) -> str:
+    """Extract title from first # heading in card."""
+    try:
+        with open(card_path, "r") as f:
+            for line in f:
+                if line.startswith("# "):
+                    return line[2:].strip()
+    except Exception:
+        pass
+    return card_path.stem
+
+
+def list_cards() -> None:
+    """List all cards with their titles."""
+    cards = sorted(CARDS_DIR.glob("*.md"))
+    if not cards:
+        print("No cards found.", file=sys.stderr)
+        sys.exit(1)
+    for card in cards:
+        title = get_card_title(card)
+        print(f"{card.stem}: {title}")
+
+
+def search_cards(keyword: str, full: bool = False) -> int:
+    """Search cards for keyword and display results. Returns match count."""
+    if not CARDS_DIR.exists():
+        print(f"Cards directory not found: {CARDS_DIR}", file=sys.stderr)
+        sys.exit(1)
+
+    matching_files: list[Path] = []
+    for card_path in sorted(CARDS_DIR.glob("*.md")):
+        try:
+            content = card_path.read_text()
+            if keyword.lower() in content.lower():
+                matching_files.append(card_path)
+        except Exception as e:
+            print(f"Error reading {card_path.name}: {e}", file=sys.stderr)
+
+    if not matching_files:
+        print(f"No cards found matching: {keyword}")
+        return 0
+
+    for card_path in matching_files:
+        title = get_card_title(card_path)
+        print(f"\n{'='*60}")
+        print(f"File: {card_path.stem}")
+        print(f"Title: {title}")
+        print("=" * 60)
+
+        if full:
+            # Show full content
+            try:
+                print(card_path.read_text())
+            except Exception as e:
+                print(f"Error reading file: {e}", file=sys.stderr)
+        else:
+            # Show first 3 lines after title
+            try:
+                lines = card_path.read_text().splitlines()
+                # Skip title line, show next 3 non-empty lines
+                shown = 0
+                for line in lines[1:]:
+                    if line.strip():
+                        print(line.rstrip())
+                        shown += 1
+                        if shown >= 3:
+                            break
+            except Exception as e:
+                print(f"Error reading file: {e}", file=sys.stderr)
+
+    print(f"\n{len(matching_files)} card(s) found.")
+    return len(matching_files)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Search consulting cards by keyword",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  card-search 'model risk'     Show matching cards (title + 3 lines)
+  card-search --full 'bias'    Show full content of matching cards
+  card-search --list           List all cards with titles""",
+    )
+    parser.add_argument("keyword", nargs="?", help="Search keyword")
+    parser.add_argument(
+        "--full", "-f", action="store_true", help="Show full card content"
+    )
+    parser.add_argument("--list", "-l", action="store_true", help="List all cards")
+
+    args = parser.parse_args()
+
+    if args.list:
+        list_cards()
+    elif args.keyword:
+        count = search_cards(args.keyword, full=args.full)
+        if count == 0:
+            sys.exit(0)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

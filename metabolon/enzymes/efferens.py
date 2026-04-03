@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from metabolon.organelles.effector import run_cli
-
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+
+from metabolon.organelles.effector import run_cli
 
 BINARY = str(Path.home() / ".local/bin/efferens")
 

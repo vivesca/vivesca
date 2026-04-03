@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """differentiation — gym session support tool.
 
 Consolidated tool for the differentiation gym-coaching skill:
@@ -8,11 +6,12 @@ Consolidated tool for the differentiation gym-coaching skill:
 - write_log: write a completed gym session log
 """
 
+from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.organelles import chemoreceptor
@@ -62,7 +61,11 @@ def differentiation(
             guidance = "Full session. Follow working weights from last log."
 
         contributors = data.get("contributors", {})
-        contribs_str = ", ".join(f"{k}: {v}" for k, v in contributors.items()) if contributors else "—"
+        contribs_str = (
+            ", ".join(f"{k}: {v}" for k, v in contributors.items())
+            if contributors
+            else "—"
+        )
 
         return (
             f"Readiness: {score}\n"

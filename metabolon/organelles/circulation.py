@@ -31,25 +31,34 @@ import json
 import operator
 import time
 from pathlib import Path
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, TypedDict, cast
 
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
-from metabolon.locus import chromatin, praxis
+from metabolon.locus import (
+    chromatin,
+    checkpoints_db,
+    north_star,
+    now,
+    poiesis_reports,
+    praxis,
+    tmp,
+)
 from metabolon.symbiont import transduce, transduce_safe
 
 # ── paths ────────────────────────────────────────────────────
 
-CHECKPOINT_DB = Path.home() / ".local" / "share" / "vivesca" / "checkpoints.db"
+CHECKPOINT_DB = checkpoints_db
 
-NORTH_STAR_PATH = chromatin / "North Star.md"
+NORTH_STAR_PATH = north_star
 SHAPES_PATH = chromatin / "euchromatin" / "epistemics" / "north-star-shapes.md"
 DIVISION_PATH = chromatin / "euchromatin" / "epistemics" / "division-of-labour.md"
-NOW_PATH = chromatin / "NOW.md"
-MANIFEST_PATH = Path.home() / "tmp" / "circulation-manifest.md"
-REPORT_DIR = chromatin / "Poiesis Reports"
+NOW_PATH = now
+MANIFEST_PATH = tmp / "circulation-manifest.md"
+REPORT_DIR = poiesis_reports
 
 # ── models ───────────────────────────────────────────────────
 
@@ -131,7 +140,7 @@ def select_goals(state: CirculationState) -> dict:
 North stars:
 {state['north_stars'][:2000]}
 
-Current Praxis (TODO):
+Current Praxis:
 {state['praxis_items'][:2000]}
 
 Systole #{state['systole_num']}. Budget: {state['budget_status']}.
@@ -292,11 +301,11 @@ def checkpoint_node(state: CirculationState) -> dict:
     work = state.get("dispatched_work", [])
     lines = [
         f"# Circulation Manifest — Systole {state.get('systole_num', 0)}",
-        f"",
+        "",
         f"Produced: {state.get('total_produced', 0)}",
         f"For review: {state.get('total_for_review', 0)}",
         f"Budget: {state.get('budget_status', 'unknown')}",
-        f"",
+        "",
         "## Completed Work",
     ]
     for w in work:
@@ -435,7 +444,7 @@ def circulate(
     interrupt = ["dispatch"] if interactive else None
     app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
 
     # Check for existing checkpoint to resume
     if resume and persistent:
@@ -484,7 +493,7 @@ def review_and_continue(
     graph = build_graph()
     app = graph.compile(checkpointer=checkpointer, interrupt_before=["dispatch"])
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
 
     if not approve:
         # Jump to checkpoint's output edge — should_continue routes to report → END
@@ -514,7 +523,7 @@ def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        state = preflight({
+        state = preflight({  # type: ignore[arg-type]
             "systole_num": 0,
             "budget_status": "green",
             "mode": args.mode,

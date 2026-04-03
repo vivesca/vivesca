@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Perplexity API CLI — lightweight replacement for MCP server
 # Usage: perplexity.sh <mode> "query"
 #   Modes: search | ask | research | reason

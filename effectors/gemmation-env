@@ -4,6 +4,15 @@
 # Telegram, GOG, browser profile, 1Password token are NOT needed.
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: gemmation-env"
+    echo ""
+    echo "Wrapper for LaunchAgent-invoked legatus. Sets minimal env for"
+    echo "launchd context (PATH + package managers), then execs legatus."
+    echo "macOS-only — exits 0 with a message on other platforms."
+    exit 0
+fi
+
 UNAME_S="$(uname -s)"
 HOME_DIR="$(eval echo ~)"
 

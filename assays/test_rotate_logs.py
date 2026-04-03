@@ -61,13 +61,13 @@ class TestConstants:
         assert "LOG_DIR" in rotate_logs_module
 
     def test_keep_lines_defined(self, rotate_logs_module):
-        """Test KEEP_LINES is defined."""
-        assert "KEEP_LINES" in rotate_logs_module
-        assert isinstance(rotate_logs_module["KEEP_LINES"], int)
+        """Test DEFAULT_KEEP is defined."""
+        assert "DEFAULT_KEEP" in rotate_logs_module
+        assert isinstance(rotate_logs_module["DEFAULT_KEEP"], int)
 
     def test_keep_lines_is_200(self, rotate_logs_module):
-        """Test KEEP_LINES is 200."""
-        assert rotate_logs_module["KEEP_LINES"] == 200
+        """Test DEFAULT_KEEP is 200."""
+        assert rotate_logs_module["DEFAULT_KEEP"] == 200
 
     def test_log_dir_is_in_home(self, rotate_logs_module):
         """Test LOG_DIR is under home directory."""
@@ -87,7 +87,7 @@ class TestLogTruncation:
         log_file.write_text("\n".join(lines) + "\n")
 
         # Run the script logic manually
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         content = log_file.read_text().splitlines()
         if len(content) > keep:
             log_file.write_text("\n".join(content[-keep:]) + "\n")
@@ -107,7 +107,7 @@ class TestLogTruncation:
         log_file.write_text(original_content)
 
         # Run the script logic manually
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         content = log_file.read_text().splitlines()
         if len(content) > keep:
             log_file.write_text("\n".join(content[-keep:]) + "\n")
@@ -121,7 +121,7 @@ class TestLogTruncation:
         log_file.write_text("")
 
         # Run the script logic
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         try:
             content = log_file.read_text().splitlines()
             if len(content) > keep:
@@ -141,7 +141,7 @@ class TestLogTruncation:
         log_file.write_text(original_content)
 
         # Run the script logic
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         content = log_file.read_text().splitlines()
         if len(content) > keep:
             log_file.write_text("\n".join(content[-keep:]) + "\n")
@@ -160,7 +160,7 @@ class TestLogTruncation:
             log_file.write_text("\n".join(lines) + "\n")
 
         # Run truncation for each
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         for log_file in log_dir.glob("*.log"):
             try:
                 content = log_file.read_text().splitlines()
@@ -228,7 +228,7 @@ class TestErrorHandling:
 
         # The script has try/except that catches exceptions per file
         # So good.log should still be processed even if another fails
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         for log in log_dir.glob("*.log"):
             try:
                 lines = log.read_text().splitlines()
@@ -263,7 +263,7 @@ class TestIntegration:
             log_file.write_text("\n".join(lines) + "\n")
 
         # Run rotation
-        keep = rotate_logs_module["KEEP_LINES"]
+        keep = rotate_logs_module["DEFAULT_KEEP"]
         for log in log_dir.glob("*.log"):
             try:
                 lines = log.read_text().splitlines()

@@ -11,13 +11,14 @@ Checks:
   1. Disk space (% used, absolute free)
   2. Disk space on /data volume
   3. Memory usage
-  4. Daemon status (running, PID, task counts)
-  5. Git repo health (clean, no corruption)
-  6. Python venv health (uv sync needed?)
-  7. Test count (collected, errors)
-  8. Stale files (old sessions, caches, logs)
-  9. Golem process count
-  10. Hatchet container health
+  4. CPU load (1-min average from /proc/loadavg)
+  5. Daemon status (running, PID, task counts)
+  6. Git repo health (clean, no corruption)
+  7. Python venv health (uv sync needed?)
+  8. Test count (collected, errors)
+  9. Stale files (old sessions, caches, logs)
+  10. Golem process count
+  11. Hatchet container health
 
 Auto-fix actions:
   - Disk > 80%: prune old sessions, caches, logs
@@ -79,7 +80,7 @@ class HealthReport:
 
 
 def check_disk() -> Check:
-    """Check disk usage on /home/terry volume."""
+    """Check disk usage on home volume."""
     try:
         usage = shutil.disk_usage(HOME)
         pct = (usage.used / usage.total) * 100
@@ -130,6 +131,26 @@ def check_memory() -> Check:
         )
     except Exception as e:
         return Check(name="memory", status="error", value="?", detail=str(e))
+
+
+def check_cpu() -> Check:
+    """Check CPU load from /proc/loadavg (1-min average)."""
+    try:
+        with open("/proc/loadavg") as f:
+            fields = f.read().split()
+        load = float(fields[0])
+        load_str = fields[0]
+
+        if load > 12:
+            status = "crit"
+        elif load > 6:
+            status = "warn"
+        else:
+            status = "ok"
+
+        return Check(name="cpu", status=status, value=load_str)
+    except Exception as e:
+        return Check(name="cpu", status="error", value="?", detail=str(e))
 
 
 def check_daemon() -> Check:
@@ -440,6 +461,7 @@ def run_health(fix: bool = False, as_json: bool = False, daemon_mode: bool = Fal
     report.add(check_disk())
     report.add(check_disk_data())
     report.add(check_memory())
+    report.add(check_cpu())
     report.add(check_daemon())
     report.add(check_golem_processes())
     report.add(check_hatchet())

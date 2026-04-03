@@ -1,0 +1,276 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""
+maintenance-cron - Deterministic maintenance checks (replaces golem-queue tasks).
+
+Runs type-checking, linting, and effector health checks without using LLM tokens.
+Designed to run as a cron job, not through the golem queue.
+
+Checks performed:
+  pyright  - Type-check metabolon/ via pyright, report error count
+  ruff     - Lint metabolon/ via ruff, report issue count
+  health   - Spot-check 10 random effectors for structural validity
+
+Usage:
+  maintenance-cron [--dry-run] [--verbose] [--help]
+
+Exit codes:
+  0  All checks pass
+  1  One or more checks failed
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import random
+import subprocess
+import sys
+from pathlib import Path
+
+GERMLINE = Path.home() / "germline"
+EFFECTORS_DIR = GERMLINE / "effectors"
+
+
+def run_cmd(
+    cmd: list[str],
+    *,
+    cwd: Path | None = None,
+    timeout: int = 120,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> tuple[int, str]:
+    """Run a command, return (returncode, stdout). On dry_run, just print."""
+    cmd_str = " ".join(cmd)
+    if dry_run:
+        print(f"  [dry-run] would run: {cmd_str}")
+        if cwd:
+            print(f"  [dry-run] cwd: {cwd}")
+        return 0, ""
+    if verbose:
+        print(f"  running: {cmd_str}")
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if verbose and result.stderr:
+            sys.stderr.write(result.stderr)
+        return result.returncode, result.stdout
+    except subprocess.TimeoutExpired:
+        print(f"  TIMEOUT ({timeout}s) running: {cmd_str}")
+        return 1, ""
+
+
+def check_pyright(dry_run: bool, verbose: bool) -> tuple[bool, int]:
+    """Run pyright on metabolon/, return (pass, error_count)."""
+    print("\n[pyright] Type-checking metabolon/ ...")
+    rc, stdout = run_cmd(
+        ["uv", "run", "pyright", "metabolon/", "--outputjson"],
+        cwd=GERMLINE,
+        timeout=300,
+        dry_run=dry_run,
+        verbose=verbose,
+    )
+    if dry_run:
+        print("  [dry-run] pyright skipped")
+        return True, 0
+
+    error_count = 0
+    try:
+        data = json.loads(stdout)
+        # Try summary.errorCount first
+        summary = data.get("summary", {})
+        if isinstance(summary, dict):
+            error_count = summary.get("errorCount", 0)
+        # Fallback: count errors from generalDiagnostics array
+        if error_count == 0:
+            diags = data.get("generalDiagnostics", [])
+            if isinstance(diags, list):
+                error_count = sum(
+                    1 for d in diags
+                    if d.get("severity") == "error"
+                )
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        if verbose:
+            print("  Could not parse pyright JSON output")
+        # Non-zero rc without parseable output means failure
+        error_count = rc
+
+    passed = rc == 0 and error_count == 0
+    status = "PASS" if passed else "FAIL"
+    print(f"  pyright: {status} (errors={error_count})")
+    return passed, error_count
+
+
+def check_ruff(dry_run: bool, verbose: bool) -> tuple[bool, int]:
+    """Run ruff check on metabolon/, return (pass, issue_count)."""
+    print("\n[ruff] Linting metabolon/ ...")
+    rc, stdout = run_cmd(
+        ["uv", "run", "ruff", "check", "metabolon/", "--output-format=concise"],
+        cwd=GERMLINE,
+        timeout=120,
+        dry_run=dry_run,
+        verbose=verbose,
+    )
+    if dry_run:
+        print("  [dry-run] ruff skipped")
+        return True, 0
+
+    issue_count = 0
+    if stdout.strip():
+        issue_count = len(stdout.strip().splitlines())
+
+    passed = issue_count == 0
+    status = "PASS" if passed else "FAIL"
+    print(f"  ruff: {status} (issues={issue_count})")
+    if verbose and issue_count > 0:
+        for line in stdout.strip().splitlines()[:20]:
+            print(f"    {line}")
+        if issue_count > 20:
+            print(f"    ... and {issue_count - 20} more")
+    return passed, issue_count
+
+
+def check_effector_health(
+    dry_run: bool, verbose: bool, sample_size: int = 10
+) -> tuple[bool, int, int]:
+    """Spot-check random effectors, return (pass, passed_count, sample_size)."""
+    print(f"\n[health] Spot-checking {sample_size} random effectors ...")
+
+    # Collect candidate effectors (files only, skip symlinks and directories)
+    candidates = sorted(
+        p
+        for p in EFFECTORS_DIR.iterdir()
+        if p.is_file() and not p.name.startswith(".")
+    )
+    if not candidates:
+        print("  No effectors found.")
+        return True, 0, 0
+
+    sample = random.sample(candidates, min(sample_size, len(candidates)))
+    passed_count = 0
+
+    for eff in sample:
+        issues: list[str] = []
+        name = eff.name
+
+        # 1. File exists (it should since we listed it)
+        if not eff.exists():
+            issues.append("file missing")
+            print(f"  {name}: FAIL ({', '.join(issues)})")
+            continue
+
+        # 2. Shebang present
+        try:
+            first_line = eff.read_text(encoding="utf-8", errors="replace").splitlines()[0]
+            if not first_line.startswith("#!"):
+                issues.append("no shebang")
+        except (IndexError, OSError) as exc:
+            issues.append(f"read error: {exc}")
+
+        # 3. Python files pass ast.parse
+        is_python = (
+            eff.suffix == ".py"
+            or first_line.startswith("#!") and "python" in first_line
+        )
+        if is_python:
+            try:
+                ast.parse(eff.read_text(encoding="utf-8", errors="replace"))
+            except SyntaxError as exc:
+                issues.append(f"syntax error: {exc.msg}")
+            except OSError as exc:
+                issues.append(f"read error: {exc}")
+
+        # 4. Responds to --help without crashing (timeout 10s)
+        if dry_run:
+            print(f"  [dry-run] {name}: would run {eff} --help")
+            passed_count += 1
+            continue
+
+        try:
+            result = subprocess.run(
+                [str(eff), "--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode not in (0, 1, 2):
+                # Some tools return 1 or 2 for --help but that's fine
+                issues.append(f"--help exit={result.returncode}")
+        except subprocess.TimeoutExpired:
+            issues.append("--help timeout")
+        except PermissionError:
+            issues.append("not executable")
+        except Exception as exc:
+            issues.append(f"--help error: {exc}")
+
+        passed = len(issues) == 0
+        status = "PASS" if passed else "FAIL"
+        if verbose or not passed:
+            suffix = f" ({', '.join(issues)})" if issues else ""
+            print(f"  {name}: {status}{suffix}")
+        passed_count += 1 if passed else 0
+
+    all_passed = passed_count == len(sample)
+    status = "PASS" if all_passed else "FAIL"
+    print(f"  health: {status} ({passed_count}/{len(sample)} effectors OK)")
+    return all_passed, passed_count, len(sample)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="maintenance-cron",
+        description=(
+            "Deterministic maintenance checks that previously ran as golem tasks. "
+            "Runs pyright type-checking, ruff linting, and effector health checks "
+            "without using any LLM tokens. Designed for cron, not the golem queue."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would run without executing checks.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show full output from each check.",
+    )
+    args = parser.parse_args()
+
+    if args.dry_run:
+        print("=== DRY RUN ===")
+
+    all_pass = True
+
+    pyright_pass, pyright_errors = check_pyright(args.dry_run, args.verbose)
+    ruff_pass, ruff_issues = check_ruff(args.dry_run, args.verbose)
+    health_pass, health_ok, health_total = check_effector_health(
+        args.dry_run, args.verbose
+    )
+
+    if not pyright_pass:
+        all_pass = False
+    if not ruff_pass:
+        all_pass = False
+    if not health_pass:
+        all_pass = False
+
+    print()
+    print(
+        f"maintenance-cron: pyright={pyright_errors} "
+        f"ruff={ruff_issues} health={health_ok}/{health_total}"
+    )
+
+    return 0 if all_pass else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

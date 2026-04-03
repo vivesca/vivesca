@@ -1029,7 +1029,7 @@ def test_clean_env_preserves_path():
 
 def test_clean_env_preserves_home():
     """Test _clean_env preserves HOME."""
-    with patch.dict(os.environ, {"HOME": "/Users/test"}, clear=False):
+    with patch.dict(os.environ, {"HOME": str(Path.home())}, clear=False):
         env = _clean_env("gemini")
         assert "HOME" in env
 

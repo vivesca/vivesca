@@ -37,9 +37,10 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
+from metabolon.locus import setpoints_dir
 from pydantic import BaseModel
 
-SETPOINTS_DIR = Path.home() / ".local" / "share" / "vivesca" / "setpoints"
+SETPOINTS_DIR = setpoints_dir
 
 
 class Threshold:

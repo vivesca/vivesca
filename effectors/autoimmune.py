@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 PreToolUse hook — meta-spiral guard.
 
@@ -14,6 +12,7 @@ Input: PreToolUse JSON on stdin (tool_input.skill, session_id)
 Output: JSON with hookSpecificOutput.permissionDecision = "deny" to block.
 """
 
+from __future__ import annotations
 
 import argparse
 import json
@@ -112,7 +111,9 @@ def has_open_items_due_within_days(days: int = 7) -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PreToolUse hook — meta-spiral guard. Blocks excessive sarcio calls when deadline work is pending.")
+    parser = argparse.ArgumentParser(
+        description="PreToolUse hook — meta-spiral guard. Blocks excessive sarcio calls when deadline work is pending."
+    )
     parser.parse_args()
 
     try:

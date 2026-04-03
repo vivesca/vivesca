@@ -1,0 +1,52 @@
+name: Default
+description: General quality checks for any output type
+
+checks:
+  - name: goal_alignment
+    question: "Does the output achieve the stated goal?"
+    weight: high
+    examples:
+      good: "Asked for summary, got concise summary"
+      bad: "Asked for summary, got tangentially related analysis"
+
+  - name: completeness
+    question: "Is the output complete, or are there obvious gaps?"
+    weight: high
+    examples:
+      good: "Addresses all parts of the request"
+      bad: "Only handles half the question"
+
+  - name: accuracy
+    question: "Is the information accurate (to the best of knowledge)?"
+    weight: high
+    examples:
+      good: "Facts are correct and verifiable"
+      bad: "Contains errors or unsupported claims"
+
+  - name: clarity
+    question: "Is it clear and easy to understand?"
+    weight: medium
+    examples:
+      good: "Reader can follow without re-reading"
+      bad: "Confusing structure or unclear phrasing"
+
+  - name: actionable
+    question: "If it's supposed to inform action, does it?"
+    weight: medium
+    examples:
+      good: "Clear next steps or recommendations"
+      bad: "Informative but no guidance on what to do"
+
+  - name: appropriate_length
+    question: "Is the length appropriate for the task?"
+    weight: low
+    examples:
+      good: "Detailed enough to be useful, concise enough to be readable"
+      bad: "Too verbose or too terse for the context"
+
+  - name: formatting
+    question: "Is it well-formatted and scannable?"
+    weight: low
+    examples:
+      good: "Good use of headers, lists, emphasis"
+      bad: "Wall of text, hard to scan"

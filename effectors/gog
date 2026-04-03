@@ -1,0 +1,671 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+"""gog — Gmail & Google Calendar CLI via Google APIs.
+
+Subcommands: gmail (read, send, reply, archive, search, get, thread, batch, drafts, filters),
+             calendar (list, update, delete).
+OAuth credentials: ~/.config/gog/credentials.json
+Token cache:       ~/.config/gog/token.json (gmail), ~/.config/gog/token_calendar.json (calendar)
+"""
+
+import argparse
+import base64
+import json
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from email.mime.text import MIMEText
+from pathlib import Path
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+CONFIG_DIR = Path.home() / ".config" / "gog"
+CREDS_FILE = CONFIG_DIR / "credentials.json"
+TOKEN_FILE = CONFIG_DIR / "token.json"
+
+# ── Auth ──────────────────────────────────────────────────────────────
+
+
+def _get_creds(scopes: list[str], token_suffix: str = "") -> Credentials:
+    """Load cached token or run OAuth flow."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    token_file = TOKEN_FILE if not token_suffix else TOKEN_FILE.with_name(
+        f"token_{token_suffix}.json"
+    )
+    creds: Credentials | None = None
+    if token_file.exists():
+        creds = Credentials.from_authorized_user_file(str(token_file), scopes)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            if not CREDS_FILE.exists():
+                sys.exit(
+                    f"ERROR: No credentials at {CREDS_FILE}. "
+                    "Download from Google Cloud Console → APIs → Credentials."
+                )
+            flow = InstalledAppFlow.from_client_secrets_file(str(CREDS_FILE), scopes)
+            creds = flow.run_local_server(port=0)
+        token_file.write_text(creds.to_json())
+    return creds
+
+
+def _service():
+    """Return an authenticated Gmail service object."""
+    return build("gmail", "v1", credentials=_get_creds(GMAIL_SCOPES))
+
+
+def _calendar_service():
+    """Return an authenticated Calendar service object."""
+    return build("calendar", "v3", credentials=_get_creds(CALENDAR_SCOPES, "calendar"))
+
+
+# ── Helpers ───────────────────────────────────────────────────────────
+
+
+def _header(msg: dict, name: str) -> str:
+    """Extract a header value from a Gmail message dict."""
+    for h in msg.get("payload", {}).get("headers", []):
+        if h["name"].lower() == name.lower():
+            return h["value"]
+    return ""
+
+
+def _snippet(msg: dict) -> str:
+    return msg.get("snippet", "")
+
+
+def _date(msg: dict) -> str:
+    ts = int(msg.get("internalDate", 0)) / 1000
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else ""
+
+
+def _from(msg: dict) -> str:
+    return _header(msg, "From")
+
+
+def _subject(msg: dict) -> str:
+    return _header(msg, "Subject")
+
+
+def _format_row(msg: dict) -> str:
+    return f"{_date(msg)} | {_from(msg)} | {_subject(msg)} | {_snippet(msg)}"
+
+
+def _get_message(svc, msg_id: str, fmt: str = "metadata") -> dict:
+    return svc.users().messages().get(userId="me", id=msg_id, format=fmt).execute()
+
+
+def _decode_body(payload: dict) -> str:
+    """Decode a message payload body (handles base64url)."""
+    body = payload.get("body", {}).get("data", "")
+    if not body:
+        parts = payload.get("parts", [])
+        for p in parts:
+            if p.get("mimeType") == "text/plain":
+                body = p.get("body", {}).get("data", "")
+                break
+        if not body and parts:
+            body = parts[0].get("body", {}).get("data", "")
+    return base64.urlsafe_b64decode(body).decode("utf-8", errors="replace") if body else ""
+
+
+# ── Subcommands ───────────────────────────────────────────────────────
+
+
+def cmd_read(args: argparse.Namespace) -> None:
+    """List messages in inbox (or matching query)."""
+    svc = _service()
+    q = args.query or "in:inbox"
+    params: dict = {"userId": "me", "maxResults": args.max or 20}
+    if q:
+        params["q"] = q
+    if args.unread:
+        params["q"] = (params.get("q", "") + " is:unread").strip()
+    if args.from_:
+        params["q"] = (params.get("q", "") + f" from:{args.from_}").strip()
+    if args.after:
+        params["q"] = (params.get("q", "") + f" after:{args.after}").strip()
+
+    try:
+        result = svc.users().messages().list(**params).execute()
+    except HttpError as e:
+        sys.exit(f"ERROR: {e}")
+
+    messages = result.get("messages", [])
+    if not messages:
+        print("No messages found.")
+        return
+
+    for m in messages:
+        msg = _get_message(svc, m["id"], "full" if args.full else "metadata")
+        print(f'{msg["id"]}  {_format_row(msg)}')
+        if args.full:
+            print(_decode_body(msg.get("payload", {})))
+            print("---")
+
+
+def cmd_send(args: argparse.Namespace) -> None:
+    """Send an email."""
+    svc = _service()
+    message = MIMEText(args.body)
+    message["to"] = args.to
+    message["subject"] = args.subject
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    body: dict = {"raw": raw}
+
+    if args.reply_to_message_id:
+        original = _get_message(svc, args.reply_to_message_id, "metadata")
+        refs = _header(original, "References")
+        msg_id_header = _header(original, "Message-ID")
+        if msg_id_header:
+            message["In-Reply-To"] = msg_id_header
+            message["References"] = f"{refs} {msg_id_header}".strip()
+        if not args.subject.startswith("Re:"):
+            message["subject"] = f"Re: {_subject(original)}"
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        body["raw"] = raw
+        tid = original.get("threadId")
+        if tid:
+            body["threadId"] = tid
+
+    try:
+        sent = svc.users().messages().send(userId="me", body=body).execute()
+        print(f"Sent: {sent['id']}")
+    except HttpError as e:
+        sys.exit(f"ERROR: send failed: {e}")
+
+
+def cmd_reply(args: argparse.Namespace) -> None:
+    """Reply to a specific message by ID."""
+    svc = _service()
+    original = _get_message(svc, args.id, "metadata")
+    to_addr = _header(original, "From")
+    subject = _header(original, "Subject")
+    if not subject.startswith("Re:"):
+        subject = f"Re: {subject}"
+
+    message = MIMEText(args.body)
+    message["to"] = to_addr
+    message["subject"] = subject
+    msg_id_header = _header(original, "Message-ID")
+    refs = _header(original, "References")
+    if msg_id_header:
+        message["In-Reply-To"] = msg_id_header
+        message["References"] = f"{refs} {msg_id_header}".strip()
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    body: dict = {"raw": raw, "threadId": original.get("threadId")}
+
+    try:
+        sent = svc.users().messages().send(userId="me", body=body).execute()
+        print(f"Replied: {sent['id']}")
+    except HttpError as e:
+        sys.exit(f"ERROR: reply failed: {e}")
+
+
+def cmd_archive(args: argparse.Namespace) -> None:
+    """Remove INBOX label from a message."""
+    svc = _service()
+    try:
+        svc.users().messages().modify(
+            userId="me",
+            id=args.id,
+            body={"removeLabelIds": ["INBOX"]},
+        ).execute()
+        print(f"Archived: {args.id}")
+    except HttpError as e:
+        sys.exit(f"ERROR: archive failed: {e}")
+
+
+def cmd_search(args: argparse.Namespace) -> None:
+    """Search Gmail with a query string."""
+    svc = _service()
+    params: dict = {
+        "userId": "me",
+        "q": args.query,
+        "maxResults": args.max or 20,
+    }
+    try:
+        result = svc.users().messages().list(**params).execute()
+    except HttpError as e:
+        sys.exit(f"ERROR: {e}")
+
+    messages = result.get("messages", [])
+    if not messages:
+        print("No messages found.")
+        return
+
+    for m in messages:
+        msg = _get_message(svc, m["id"], "metadata")
+        print(f'{msg["id"]}  {_format_row(msg)}')
+
+
+def cmd_get(args: argparse.Namespace) -> None:
+    """Get full details of a single message."""
+    svc = _service()
+    msg = _get_message(svc, args.id, "full")
+    print(f"ID:     {msg['id']}")
+    print(f"Thread: {msg.get('threadId', '')}")
+    print(f"Labels: {', '.join(msg.get('labelIds', []))}")
+    print(f"Date:   {_date(msg)}")
+    print(f"From:   {_from(msg)}")
+    print(f"To:     {_header(msg, 'To')}")
+    print(f"Subject:{_subject(msg)}")
+    print()
+    print(_decode_body(msg.get("payload", {})))
+
+
+def cmd_thread_get(args: argparse.Namespace) -> None:
+    """Get all messages in a thread."""
+    svc = _service()
+    try:
+        thread = svc.users().threads().get(userId="me", id=args.id).execute()
+    except HttpError as e:
+        sys.exit(f"ERROR: {e}")
+
+    for msg in thread.get("messages", []):
+        labels = msg.get("labelIds", [])
+        print(f'--- {msg["id"]} [{", ".join(labels)}] ---')
+        print(f"Date:   {_date(msg)}")
+        print(f"From:   {_from(msg)}")
+        print(f"Subject:{_subject(msg)}")
+        print(_decode_body(msg.get("payload", {})))
+        print()
+
+
+def cmd_thread_modify(args: argparse.Namespace) -> None:
+    """Add/remove labels on a thread."""
+    svc = _service()
+    body: dict = {}
+    if args.add:
+        body["addLabelIds"] = args.add
+    if args.remove:
+        body["removeLabelIds"] = args.remove
+    try:
+        svc.users().threads().modify(userId="me", id=args.id, body=body).execute()
+        print(f"Thread {args.id} modified.")
+    except HttpError as e:
+        sys.exit(f"ERROR: thread modify failed: {e}")
+
+
+def cmd_batch_modify(args: argparse.Namespace) -> None:
+    """Batch modify labels on messages."""
+    svc = _service()
+    body: dict = {"ids": args.ids}
+    if args.add:
+        body["addLabelIds"] = args.add
+    if args.remove:
+        body["removeLabelIds"] = args.remove
+    try:
+        svc.users().messages().batchModify(userId="me", body=body).execute()
+        print(f"Modified {len(args.ids)} messages.")
+    except HttpError as e:
+        sys.exit(f"ERROR: batch modify failed: {e}")
+
+
+def cmd_drafts_list(args: argparse.Namespace) -> None:
+    """List drafts."""
+    svc = _service()
+    try:
+        result = svc.users().drafts().list(userId="me", maxResults=args.max or 20).execute()
+    except HttpError as e:
+        sys.exit(f"ERROR: {e}")
+
+    drafts = result.get("drafts", [])
+    if not drafts:
+        print("No drafts.")
+        return
+    for d in drafts:
+        msg = _get_message(svc, d["message"]["id"], "metadata")
+        print(f'{d["id"]}  {_format_row(msg)}')
+
+
+def cmd_drafts_create(args: argparse.Namespace) -> None:
+    """Create a draft."""
+    svc = _service()
+    message = MIMEText(args.body)
+    message["to"] = args.to
+    message["subject"] = args.subject
+    if args.cc:
+        message["cc"] = args.cc
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    draft_body: dict = {"message": {"raw": raw}}
+
+    if args.reply_to_message_id:
+        original = _get_message(svc, args.reply_to_message_id, "metadata")
+        msg_id_header = _header(original, "Message-ID")
+        refs = _header(original, "References")
+        if msg_id_header:
+            message["In-Reply-To"] = msg_id_header
+            message["References"] = f"{refs} {msg_id_header}".strip()
+        if not args.subject.startswith("Re:"):
+            message["subject"] = f"Re: {_subject(original)}"
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        draft_body["message"]["raw"] = raw
+        tid = original.get("threadId")
+        if tid:
+            draft_body["message"]["threadId"] = tid
+
+    try:
+        draft = svc.users().drafts().create(userId="me", body=draft_body).execute()
+        print(f"Draft created: {draft['id']}")
+    except HttpError as e:
+        sys.exit(f"ERROR: draft create failed: {e}")
+
+
+def cmd_drafts_delete(args: argparse.Namespace) -> None:
+    """Delete a draft."""
+    svc = _service()
+    try:
+        svc.users().drafts().delete(userId="me", id=args.id).execute()
+        print(f"Draft deleted: {args.id}")
+    except HttpError as e:
+        sys.exit(f"ERROR: draft delete failed: {e}")
+
+
+def cmd_filters_create(args: argparse.Namespace) -> None:
+    """Create a Gmail filter."""
+    svc = _service()
+    criteria: dict = {}
+    if args.from_:
+        criteria["from"] = args.from_
+    if args.to:
+        criteria["to"] = args.to
+    if args.subject:
+        criteria["subject"] = args.subject
+
+    action: dict = {}
+    if args.archive:
+        action["removeLabelIds"] = ["INBOX"]
+    if args.never_spam:
+        action.setdefault("addLabelIds", [])
+    if args.important:
+        action["addLabelIds"] = ["IMPORTANT"]
+    if args.never_spam:
+        action["addLabelIds"] = action.get("addLabelIds", []) + ["SPAM"]
+
+    try:
+        f = svc.users().settings().filters().create(
+            userId="me", body={"criteria": criteria, "action": action}
+        ).execute()
+        print(f"Filter created: {f['id']}")
+    except HttpError as e:
+        sys.exit(f"ERROR: filter create failed: {e}")
+
+
+# ── Calendar subcommands ──────────────────────────────────────────────
+
+
+def _default_calendar_id() -> str:
+    """Return calendar ID from env or default."""
+    return os.environ.get("GOG_CALENDAR_ID", "terry.li.hm@gmail.com")
+
+
+def _event_to_dict(event: dict) -> dict:
+    """Extract the fields fasti expects from a Calendar API event."""
+    start = event.get("start", {})
+    end = event.get("end", {})
+    out: dict = {
+        "id": event["id"],
+        "summary": event.get("summary", ""),
+        "start": {k: v for k, v in start.items() if k in ("dateTime", "date")},
+        "end": {k: v for k, v in end.items() if k in ("dateTime", "date")},
+    }
+    return out
+
+
+def cmd_calendar_list(args: argparse.Namespace) -> None:
+    """List upcoming calendar events as JSON."""
+    svc = _calendar_service()
+    cal_id = _default_calendar_id()
+    now = datetime.now(timezone.utc)
+    time_min = (now - timedelta(days=30)).isoformat() + "Z"
+    time_max = (now + timedelta(days=90)).isoformat() + "Z"
+
+    all_events: list[dict] = []
+    page_token = None
+
+    while True:
+        params: dict = {
+            "calendarId": cal_id,
+            "timeMin": time_min,
+            "timeMax": time_max,
+            "maxResults": 250,
+            "singleEvents": True,
+            "orderBy": "startTime",
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        try:
+            result = svc.events().list(**params).execute()
+        except HttpError as e:
+            sys.exit(f"ERROR: {e}")
+
+        for ev in result.get("items", []):
+            all_events.append(_event_to_dict(ev))
+
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    response = {"events": all_events, "nextPageToken": None}
+    if args.json:
+        print(json.dumps(response))
+    else:
+        for ev in all_events:
+            start = ev["start"].get("dateTime") or ev["start"].get("date", "")
+            end = ev["end"].get("dateTime") or ev["end"].get("date", "")
+            print(f'{ev["id"]}  {start}–{end}  {ev["summary"]}')
+
+
+def cmd_calendar_update(args: argparse.Namespace) -> None:
+    """Update an event's start/end time."""
+    svc = _calendar_service()
+    cal_id = args.calendar_id
+    event_id = args.event_id
+
+    try:
+        event = svc.events().get(calendarId=cal_id, eventId=event_id).execute()
+    except HttpError as e:
+        sys.exit(f"ERROR: event not found: {e}")
+
+    event["start"] = {"dateTime": args.from_, "timeZone": event.get("start", {}).get("timeZone", "UTC")}
+    event["end"] = {"dateTime": args.to, "timeZone": event.get("end", {}).get("timeZone", "UTC")}
+
+    try:
+        updated = svc.events().update(calendarId=cal_id, eventId=event_id, body=event).execute()
+        print(f"Updated: {updated['id']}")
+    except HttpError as e:
+        sys.exit(f"ERROR: update failed: {e}")
+
+
+def cmd_calendar_delete(args: argparse.Namespace) -> None:
+    """Delete a calendar event."""
+    svc = _calendar_service()
+    cal_id = args.calendar_id
+    event_id = args.event_id
+
+    try:
+        svc.events().delete(calendarId=cal_id, eventId=event_id).execute()
+        print(f"Deleted: {event_id}")
+    except HttpError as e:
+        sys.exit(f"ERROR: delete failed: {e}")
+
+
+# ── CLI ───────────────────────────────────────────────────────────────
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="gog",
+        description="gog — Gmail CLI via Google Gmail API",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # gog gmail ...
+    gmail = sub.add_parser("gmail", help="Gmail operations")
+    gmail_sub = gmail.add_subparsers(dest="gmail_command")
+
+    # gog calendar ...
+    cal = sub.add_parser("calendar", help="Google Calendar operations")
+    cal_sub = cal.add_subparsers(dest="calendar_command")
+
+    # read
+    p_read = gmail_sub.add_parser("read", help="List messages (default: inbox)")
+    p_read.add_argument("--full", action="store_true", help="Show full message body")
+    p_read.add_argument("--unread", action="store_true", help="Only unread messages")
+    p_read.add_argument("--from", dest="from_", help="Filter by sender")
+    p_read.add_argument("--after", help="Filter after date (YYYY/MM/DD)")
+    p_read.add_argument("--max", type=int, default=20, help="Max results")
+    p_read.add_argument("--query", "-q", help="Gmail query string")
+    p_read.set_defaults(func=cmd_read)
+
+    # send
+    p_send = gmail_sub.add_parser("send", help="Send an email")
+    p_send.add_argument("--to", required=True, help="Recipient")
+    p_send.add_argument("--subject", required=True, help="Subject line")
+    p_send.add_argument("--body", required=True, help="Email body text")
+    p_send.add_argument("--reply-to-message-id", dest="reply_to_message_id", help="Message-ID to reply to")
+    p_send.add_argument("--quote", action="store_true", help="Quote original message (placeholder)")
+    p_send.set_defaults(func=cmd_send)
+
+    # reply
+    p_reply = gmail_sub.add_parser("reply", help="Reply to a message by ID")
+    p_reply.add_argument("--id", required=True, help="Message ID to reply to")
+    p_reply.add_argument("--body", required=True, help="Reply body text")
+    p_reply.set_defaults(func=cmd_reply)
+
+    # archive
+    p_archive = gmail_sub.add_parser("archive", help="Archive a message (remove INBOX)")
+    p_archive.add_argument("--id", required=True, help="Message ID")
+    p_archive.set_defaults(func=cmd_archive)
+
+    # search
+    p_search = gmail_sub.add_parser("search", help="Search Gmail")
+    p_search.add_argument("query", help="Gmail search query")
+    p_search.add_argument("--max", type=int, default=20, help="Max results")
+    p_search.add_argument("--plain", action="store_true", help="Plain output")
+    p_search.add_argument("--limit", type=int, default=None, help="Max results (alias)")
+    p_search.set_defaults(func=cmd_search)
+
+    # get
+    p_get = gmail_sub.add_parser("get", help="Get full message details")
+    p_get.add_argument("id", help="Message ID")
+    p_get.add_argument("--plain", action="store_true", help="Plain text output")
+    p_get.set_defaults(func=cmd_get)
+
+    # thread
+    p_thread = gmail_sub.add_parser("thread", help="Thread operations")
+    thread_sub = p_thread.add_subparsers(dest="thread_command")
+
+    p_tg = thread_sub.add_parser("get", help="Get thread messages")
+    p_tg.add_argument("id", help="Thread ID")
+    p_tg.set_defaults(func=cmd_thread_get)
+
+    p_tm = thread_sub.add_parser("modify", help="Modify thread labels")
+    p_tm.add_argument("id", help="Thread ID")
+    p_tm.add_argument("--add", action="append", help="Label to add (repeatable)")
+    p_tm.add_argument("--remove", action="append", help="Label to remove (repeatable)")
+    p_tm.set_defaults(func=cmd_thread_modify)
+
+    # batch
+    p_batch = gmail_sub.add_parser("batch", help="Batch operations")
+    batch_sub = p_batch.add_subparsers(dest="batch_command")
+
+    p_bm = batch_sub.add_parser("modify", help="Batch modify labels")
+    p_bm.add_argument("ids", nargs="+", help="Message IDs")
+    p_bm.add_argument("--add", action="append", help="Label to add (repeatable)")
+    p_bm.add_argument("--remove", action="append", help="Label to remove (repeatable)")
+    p_bm.add_argument("-y", action="store_true", help="Confirm")
+    p_bm.set_defaults(func=cmd_batch_modify)
+
+    # drafts
+    p_drafts = gmail_sub.add_parser("drafts", help="Draft operations")
+    drafts_sub = p_drafts.add_subparsers(dest="drafts_command")
+
+    p_dl = drafts_sub.add_parser("list", help="List drafts")
+    p_dl.add_argument("--max", type=int, default=20)
+    p_dl.add_argument("--plain", action="store_true")
+    p_dl.set_defaults(func=cmd_drafts_list)
+
+    p_dc = drafts_sub.add_parser("create", help="Create a draft")
+    p_dc.add_argument("--to", required=True)
+    p_dc.add_argument("--cc", default=None)
+    p_dc.add_argument("--subject", required=True)
+    p_dc.add_argument("--body", required=True)
+    p_dc.add_argument("--reply-to-message-id", dest="reply_to_message_id", default=None)
+    p_dc.add_argument("--attach", action="append", help="Attachment path (repeatable)")
+    p_dc.set_defaults(func=cmd_drafts_create)
+
+    p_dd = drafts_sub.add_parser("delete", help="Delete a draft")
+    p_dd.add_argument("id", help="Draft ID")
+    p_dd.add_argument("--force", action="store_true")
+    p_dd.set_defaults(func=cmd_drafts_delete)
+
+    # filters
+    p_filters = gmail_sub.add_parser("filters", help="Filter operations")
+    filters_sub = p_filters.add_subparsers(dest="filters_command")
+
+    p_fc = filters_sub.add_parser("create", help="Create a filter")
+    p_fc.add_argument("--from", dest="from_", help="Filter by sender")
+    p_fc.add_argument("--to", default=None, help="Filter by recipient")
+    p_fc.add_argument("--subject", default=None, help="Filter by subject")
+    p_fc.add_argument("--archive", action="store_true", help="Skip inbox")
+    p_fc.add_argument("--never-spam", dest="never_spam", action="store_true")
+    p_fc.add_argument("--important", action="store_true")
+    p_fc.set_defaults(func=cmd_filters_create)
+
+    # calendar list
+    p_cal_list = cal_sub.add_parser("list", help="List calendar events")
+    p_cal_list.add_argument("--json", action="store_true", help="Output as JSON")
+    p_cal_list.set_defaults(func=cmd_calendar_list)
+
+    # calendar update
+    p_cal_update = cal_sub.add_parser("update", help="Update event time")
+    p_cal_update.add_argument("calendar_id", help="Calendar ID")
+    p_cal_update.add_argument("event_id", help="Event ID")
+    p_cal_update.add_argument("--from", dest="from_", required=True, help="New start time (RFC3339)")
+    p_cal_update.add_argument("--to", required=True, help="New end time (RFC3339)")
+    p_cal_update.set_defaults(func=cmd_calendar_update)
+
+    # calendar delete
+    p_cal_delete = cal_sub.add_parser("delete", help="Delete an event")
+    p_cal_delete.add_argument("calendar_id", help="Calendar ID")
+    p_cal_delete.add_argument("event_id", help="Event ID")
+    p_cal_delete.add_argument("--force", action="store_true", help="Skip confirmation")
+    p_cal_delete.set_defaults(func=cmd_calendar_delete)
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    # Default to help if no command given
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
+    if hasattr(args, "func"):
+        # Handle --limit alias for --max in search
+        if hasattr(args, "limit") and args.limit and not getattr(args, "max", None):
+            args.max = args.limit
+        args.func(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

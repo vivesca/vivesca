@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import datetime
+import json
+import re
+
+from metabolon.locus import phantoms_db
+
 """checkpoint — immune checkpoint filter for task dispatch.
 
 Deterministic gate that runs before any task is dispatched or before an
@@ -27,16 +33,10 @@ Skip if: Q2=no (wrong category).
 Also enforce: max 3 agent:terry items per systole.
 """
 
-
-import datetime
-import json
-import re
-from pathlib import Path
-
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-PHANTOM_TRACKER = Path.home() / ".local" / "share" / "vivesca" / "phantoms.json"
+PHANTOM_TRACKER = phantoms_db
 
 # ---------------------------------------------------------------------------
 # Phantom obligation patterns
@@ -50,7 +50,8 @@ _PHANTOM_PATTERNS: list[re.Pattern] = [
     re.compile(r"\b(submit|apply|register|enroll|enrol)\b.*\b(terry|you)\b", re.I),
     # Writing in Terry's voice
     re.compile(
-        r"\b(linkedin|twitter|tweet|blog post|about page|bio|biography)\b.*\b(draft|write|post|publish)\b",
+        r"\b(linkedin|twitter|tweet|blog post|about page|bio|biography)\b"
+        r".*\b(draft|write|post|publish)\b",
         re.I,
     ),
     re.compile(r"\b(draft|write|compose)\b.*\b(linkedin|bio|about|profile)\b", re.I),
@@ -85,7 +86,8 @@ _NON_AUTOMATED_PATTERNS: list[re.Pattern] = [
 # Used to fast-path approval when task is clearly in scope.
 _AUTOMATED_SIGNALS: list[re.Pattern] = [
     re.compile(
-        r"\b(research|synthesize|synthesis|summarize|analyse|analyze|monitor|fetch|compile|draft for review)\b",
+        r"\b(research|synthesize|synthesis|summarize|analyse|analyze|"
+        r"monitor|fetch|compile|draft for review)\b",
         re.I,
     ),
     re.compile(r"\b(code|script|tool|automate|generate|extract)\b", re.I),
@@ -137,7 +139,8 @@ def should_suppress(task: dict) -> tuple[bool, str]:
             if pat.search(description):
                 return (
                     False,
-                    f"non-Automated category detected: '{pat.pattern}' matched — skip or reclassify",
+                    "non-Automated category detected: "
+                    f"'{pat.pattern}' matched — skip or reclassify",
                 )
 
     # --- Q3: Obligation detection --------------------------------------------
@@ -150,7 +153,8 @@ def should_suppress(task: dict) -> tuple[bool, str]:
         reason = _phantom_reason(description)
         return (
             False,
-            f"phantom obligation blocked: task not sourced from Terry and creates obligation requiring his name/voice/presence. {reason}",
+            "phantom obligation blocked: task not sourced from Terry and "
+            f"creates obligation requiring his name/voice/presence. {reason}",
         )
 
     return True, "approved"
@@ -252,7 +256,7 @@ def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
                 created_at = datetime.date.fromisoformat(created_at_str)
             except ValueError:
                 created_at = today
-            
+
             age_days = (today - created_at).days
 
             results.append({

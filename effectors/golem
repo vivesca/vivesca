@@ -74,7 +74,7 @@ if not log_file:
 stats = defaultdict(lambda: {'runs': 0, 'pass': 0, 'fail': 0, 'total_duration': 0, 'tests_created': 0})
 
 try:
-    with open(log_file, 'r') as f:
+    with open(log_file, 'r', errors='replace') as f:
         lines = f.readlines()
 
     if recent > 0:
@@ -125,26 +125,34 @@ PYTHON_SCRIPT
 }
 
 # Handle subcommands first
-if [[ "${1:-}" == "summary" ]]; then
-  shift
-  summary_args=()
-  while [[ "${1:-}" == --* ]]; do
-    case "$1" in
-      --recent) summary_args+=("--recent" "$2"); shift 2 ;;
-      --json) summary_args+=("--json"); JSON_OUTPUT=true; shift ;;
-      --log=*) summary_args+=("$1"); shift ;;
-      --quiet) QUIET=true; shift ;;
-      -h|--help) head -11 "$0" | tail -10 | sed 's/^# */  /'; exit 0 ;;
-      *) echo "Unknown flag: $1" >&2; exit 1 ;;
-    esac
-  done
-  if $QUIET; then
-    _run_summary "${summary_args[@]+"${summary_args[@]}"}" >/dev/null
-  else
-    _run_summary "${summary_args[@]+"${summary_args[@]}"}"
-  fi
-  exit 0
-fi
+# Consolidated subcommands: delegate to golem-tools Python script
+_GOLEM_TOOLS="$(dirname "$0")/golem-tools"
+case "${1:-}" in
+  summary)
+    shift
+    summary_args=()
+    while [[ "${1:-}" == --* ]]; do
+      case "$1" in
+        --recent) summary_args+=("--recent" "$2"); shift 2 ;;
+        --json) summary_args+=("--json"); JSON_OUTPUT=true; shift ;;
+        --log=*) summary_args+=("$1"); shift ;;
+        --quiet) QUIET=true; shift ;;
+        -h|--help) head -11 "$0" | tail -10 | sed 's/^# */  /'; exit 0 ;;
+        *) echo "Unknown flag: $1" >&2; exit 1 ;;
+      esac
+    done
+    if $QUIET; then
+      _run_summary "${summary_args[@]+"${summary_args[@]}"}" >/dev/null
+    else
+      _run_summary "${summary_args[@]+"${summary_args[@]}"}"
+    fi
+    exit 0
+    ;;
+  dash|health|report|review|reviewer|top|validate)
+    _subcmd="$1"; shift
+    exec python3 "$_GOLEM_TOOLS" "$_subcmd" "$@"
+    ;;
+esac
 
 # Strip optional task ID prefix: [t-xxxxxx] placed by golem-daemon before flags
 # e.g. "golem [t-a4a00f] --provider volcano ..." → task_id=t-a4a00f, then parse flags
@@ -180,30 +188,37 @@ if $FULL_REQUESTED && ! $FORCE; then
 fi
 
 # Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
-case "$PROVIDER" in
-  zhipu)
-    _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-    _URL="https://open.bigmodel.cn/api/anthropic"
-    _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
-  volcano)
-    _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
-    _URL="https://ark.cn-beijing.volces.com/api/coding"
-    # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
-    _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
-  infini)
-    _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
-    _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.5-air" ;;
-  gemini)
-    _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
-    _CLI="gemini"  # uses gemini CLI, not claude
-    ;;
-  codex)
-    _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
-    _CLI="codex"  # uses codex CLI, not claude
-    ;;
-  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
-esac
+_configure_provider() {
+  local prov="$1"
+  case "$prov" in
+    zhipu)
+      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+      _URL="https://open.bigmodel.cn/api/anthropic"
+      _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
+    volcano)
+      _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
+      _URL="https://ark.cn-beijing.volces.com/api/coding"
+      # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
+      _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
+    infini)
+      _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
+      _URL="https://cloud.infini-ai.com/maas/coding"
+      _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.7" ;;
+    gemini)
+      _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
+      _CLI="gemini"  # uses gemini CLI, not claude
+      ;;
+    codex)
+      _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
+      _CLI="codex"  # uses codex CLI, not claude
+      ;;
+    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
+  esac
+}
+
+# Initial configuration
+_CLI="claude"
+_configure_provider "$PROVIDER"
 
 # Fallback provider mapping
 _fallback_provider() {
@@ -233,10 +248,10 @@ _preflight_check() {
   # Infini returns code 20013 for quota exhaustion (sometimes with non-429 HTTP status)
   if echo "$_response" | grep -qE '"code":20013|request limit exceeded|AccountQuotaExceeded'; then
     local _reset
-    _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+    _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1 || true)
     # Infini embeds the window in the error message: "5-hour request limit exceeded"
     local _window
-    _window=$(echo "$_response" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1)
+    _window=$(echo "$_response" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1 || true)
     if [[ -n "$_window" ]]; then
       echo "${_reset:-rate-limited, no reset time} window=${_window}h"
     else
@@ -249,7 +264,7 @@ _preflight_check() {
     429)
       # Extract reset time from error JSON (e.g. "reset at 2026-04-01 11:05:30 +0800")
       local _reset
-      _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+      _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1 || true)
       echo "${_reset:-rate-limited, no reset time}"
       return 1 ;;
     *) return 2 ;;
@@ -286,6 +301,10 @@ _run_golem() {
   # Max wall-clock time for claude: max_turns * 60s + 120s buffer
   local _claude_timeout=$(( MAX_TURNS * 60 + 120 ))
 
+  # Wall-clock limit to avoid Temporal SIGTERM (default 28 min)
+  local _wall_limit="${GOLEM_WALL_LIMIT:-1680}"
+  local _wall_start=$(date +%s)
+
   # Retry loop with exponential backoff for rate limits (429)
   local _max_retries=3
   local _attempt=0
@@ -293,15 +312,23 @@ _run_golem() {
   local _claude_ran=false  # track whether claude was actually invoked
 
   while [[ $_attempt -lt $_max_retries ]]; do
+    # Wall-limit check: skip attempt if remaining time < per-attempt timeout
+    local _elapsed=$(( $(date +%s) - _wall_start ))
+    local _remaining=$(( _wall_limit - _elapsed ))
+    if [[ $_remaining -lt $_claude_timeout ]]; then
+      $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+      break
+    fi
+
     # Pre-flight health check: detect rate-limit before wasting time on claude
     # Skip preflight for non-CC providers (gemini, codex have their own error handling)
-    if [[ -n "${_CLI:-}" ]]; then
+    if [[ -n "${_CLI:-}" && "${_CLI}" != "claude" ]]; then
       : # non-CC provider, skip preflight
     else
-    local _preflight_result
-    _pf_rc=0
-    _preflight_result=$(_preflight_check) || _pf_rc=$?
-    if [[ $_pf_rc -eq 1 ]]; then
+      local _preflight_result
+      local _pf_rc=0
+      _preflight_result=$(_preflight_check) || _pf_rc=$?
+      if [[ $_pf_rc -eq 1 ]]; then
       # Rate-limited — extract reset time and compute smart backoff
       _attempt=$(( _attempt + 1 ))
       # Parse "reset at YYYY-MM-DD HH:MM:SS" into epoch seconds
@@ -317,7 +344,7 @@ _run_golem() {
       fi
       # Parse Infini-style window hint: "window=5h" means 5-hour rate limit window
       local _window_h
-      _window_h=$(echo "$_preflight_result" | grep -oE 'window=[0-9]+h' | grep -oE '[0-9]+' | head -1)
+      _window_h=$(echo "$_preflight_result" | grep -oE 'window=[0-9]+h' | grep -oE '[0-9]+' | head -1 || true)
       if [[ -n "$_window_h" ]] && [[ $_wait_secs -lt $(( _window_h * 3600 )) ]]; then
         # No explicit reset time, but we know the window — wait the full window duration
         _wait_secs=$(( _window_h * 3600 ))
@@ -331,6 +358,13 @@ _run_golem() {
       fi
       [[ $_wait_secs -gt 600 ]] && _wait_secs=600  # cap at 10 min
       if [[ $_attempt -lt $_max_retries ]]; then
+        # Wall-limit check: skip retry if remaining time < per-attempt timeout
+        local _elapsed=$(( $(date +%s) - _wall_start ))
+        local _remaining=$(( _wall_limit - _elapsed ))
+        if [[ $_remaining -lt $_claude_timeout ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+          break
+        fi
         $QUIET || echo "[preflight] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), waiting ${_wait_secs}s — $_preflight_result" >&2
         sleep "$_wait_secs"
         _backoff=$(( _backoff * 2 ))
@@ -342,6 +376,13 @@ _run_golem() {
       # to claude launch as last resort (the endpoint may behave differently for CC).
       _attempt=$(( _attempt + 1 ))
       if [[ $_attempt -lt $_max_retries ]]; then
+        # Wall-limit check: skip retry if remaining time < per-attempt timeout
+        local _elapsed=$(( $(date +%s) - _wall_start ))
+        local _remaining=$(( _wall_limit - _elapsed ))
+        if [[ $_remaining -lt $_claude_timeout ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+          break
+        fi
         $QUIET || echo "[preflight] $PROVIDER connection error (attempt $_attempt/$_max_retries), retrying in ${_backoff}s" >&2
         sleep "$_backoff"
         _backoff=$(( _backoff * 2 ))
@@ -379,7 +420,8 @@ _run_golem() {
       ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
       API_TIMEOUT_MS=3000000 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-0}" \
+      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-2}" \
+      CLAUDE_CODE_TMPDIR="/tmp/golem-${PROVIDER}" \
       claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
@@ -388,7 +430,7 @@ _run_golem() {
     [[ $exit_code -eq 124 ]] && exit_code=1
 
     # Claude exits 0 even on 429 API errors — detect this and treat as rate-limit
-    if [[ $exit_code -eq 0 ]] && echo "$output" | grep -qiE 'API Error.*429|429.*quota|code.*20013'; then
+    if [[ $exit_code -eq 0 ]] && echo "$output" | grep -qiE 'API Error.*429|429.*quota|code.*20013|usage.limit|hit your.*limit'; then
       exit_code=1
       $QUIET || echo "[golem] claude reported 429 despite exit=0, treating as rate-limit" >&2
     fi
@@ -400,7 +442,7 @@ _run_golem() {
     # 1. Explicit 429 strings in output
     # 2. Empty/whitespace-only output with non-zero exit (claude swallows 429 errors silently)
     local _is_ratelimit=false
-    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded'; then
+    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded|usage.limit|hit your.*limit|quota will reset'; then
       _is_ratelimit=true
     elif [[ -z "${output// /}" ]]; then
       # Empty output + failure = claude got 429 and retried internally until giving up
@@ -413,9 +455,16 @@ _run_golem() {
     if $_is_ratelimit; then
       _attempt=$(( _attempt + 1 ))
       if [[ $_attempt -lt $_max_retries ]]; then
+        # Wall-limit check: skip retry if remaining time < per-attempt timeout
+        local _elapsed=$(( $(date +%s) - _wall_start ))
+        local _remaining=$(( _wall_limit - _elapsed ))
+        if [[ $_remaining -lt $_claude_timeout ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+          break
+        fi
         # Try to extract reset time from error message
         local _reset_time
-        _reset_time=$(echo "$output" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+        _reset_time=$(echo "$output" | grep -oiE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}|try again at [0-9]{1,2}:[0-9]{2} [AP]M' | head -1 || true)
         $QUIET || echo "[retry] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), backoff ${_backoff}s${_reset_time:+, $_reset_time}" >&2
         sleep "$_backoff"
         _backoff=$(( _backoff * 2 ))  # exponential: 30 → 60 → 120
@@ -469,7 +518,7 @@ _run_golem() {
   local _rl_window=""
   local _emit_rl_marker=false
   # Case 1: output contains explicit rate-limit text
-  if [[ $exit_code -ne 0 ]] && echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|request.?limit.?exceeded'; then
+  if [[ $exit_code -ne 0 ]] && echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|request.?limit.?exceeded|usage.?limit|hit your.*limit|quota will reset'; then
     _emit_rl_marker=true
     _rl_window=$(echo "$output" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1 || true)
   fi
@@ -485,19 +534,22 @@ _run_golem() {
     # If window unknown, fill in per-provider defaults so daemon can parse it
     if [[ -z "$_rl_window" ]]; then
       case "$PROVIDER" in
-        infini) _rl_window=5 ;;   # Infini: 1000 req / 5 hours
+        infini) _rl_window=5 ;;    # Infini: 1000 req / 5 hours
+        volcano) _rl_window=5 ;;   # Volcano: 5-hour quota window
+        codex) _rl_window=1 ;;     # Codex: ~hourly resets
       esac
     fi
     echo "GOLEM_RATE_LIMIT: provider=$PROVIDER exit=$exit_code window=${_rl_window:-?}h duration=${duration}s" >&2
   fi
 
-  if $JSON_OUTPUT; then
+    if $JSON_OUTPUT; then
     local _json_tmp
     _json_tmp="$(mktemp)"
     printf '%s' "$output" > "$_json_tmp"
     python3 -c "
 import json, sys
-output_text = open(sys.argv[1]).read()
+with open(sys.argv[1], 'r', errors='replace') as f:
+    output_text = f.read()
 result = {
     'output': output_text,
     'exit_code': int(sys.argv[2]),
@@ -516,7 +568,7 @@ print(json.dumps(result))
 
   # Auto-capture: if prompt mentions "Write to ~/...md", save output there
   local _target
-  _target=$(echo "$1" | grep -oE 'Write to ~/[^ "]+' | head -1 | sed 's/^Write to //')
+  _target=$(echo "$1" | grep -oE 'Write to ~/[^ "]+' | head -1 | sed 's/^Write to //' || true)
   if [[ -n "$_target" && ${#output} -gt 200 ]]; then
     _target="${_target/#~/$HOME}"
     mkdir -p "$(dirname "$_target")"
@@ -524,26 +576,6 @@ print(json.dumps(result))
   fi
 
   return $exit_code
-}
-
-# _configure_provider: set _KEY, _URL, _OPUS, _SONNET, _HAIKU for given provider
-_configure_provider() {
-  local prov="$1"
-  case "$prov" in
-    zhipu)
-      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-      _URL="https://open.bigmodel.cn/api/anthropic"
-      _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
-    volcano)
-      _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
-      _URL="https://ark.cn-beijing.volces.com/api/coding"
-      _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
-    infini)
-      _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
-      _URL="https://cloud.infini-ai.com/maas/coding"
-      _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.7" ;;
-    *) echo "Unknown provider: $prov (zhipu|volcano|infini)" >&2; return 1 ;;
-  esac
 }
 
 # _run_with_fallback: run _run_golem, retry on fallback provider if primary fails
@@ -566,9 +598,9 @@ _run_with_fallback() {
 
 if $BATCH; then
   for mod in "$@"; do
-    $QUIET || echo ">>> golem: $mod"
+    ($QUIET || $JSON_OUTPUT) || echo ">>> golem: $mod"
     _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'." || true
-    $QUIET || echo
+    ($QUIET || $JSON_OUTPUT) || echo
   done
 elif $TEST; then
   mod="$1"

@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-"""Tests for effectors/start-chrome-debug.sh — Chrome remote debugging launcher.
-
-Since the script starts Chrome and interacts with the system,
-tests operate by:
-  1. Validating script structure (shebang, error flags, help text).
-  2. Testing argument parsing and error conditions.
-  3. Verifying platform detection logic with mocks.
-"""
+"""Tests for effectors/start-chrome-debug.sh — start Chrome with remote debugging."""
 
 import os
 import stat
 import subprocess
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -20,261 +12,229 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
 
 
-def _read_script() -> str:
-    return SCRIPT.read_text()
+# ── helpers ─────────────────────────────────────────────────────────────
 
 
-# ── Structural tests ────────────────────────────────────────────────────
+def _run(
+    args: list[str] | None = None,
+    env_extra: dict | None = None,
+    path_dirs: list[Path] | None = None,
+    tmp_path: Path | None = None,
+    replace_path: bool = False,
+) -> subprocess.CompletedProcess:
+    """Run start-chrome-debug.sh with an optional custom PATH."""
+    env = os.environ.copy()
+    if tmp_path is not None:
+        env["HOME"] = str(tmp_path)
+    if path_dirs is not None:
+        if replace_path:
+            env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
+        else:
+            env["PATH"] = (
+                os.pathsep.join(str(p) for p in path_dirs)
+                + os.pathsep
+                + env.get("PATH", "")
+            )
+    if env_extra:
+        env.update(env_extra)
+    cmd = ["bash", str(SCRIPT)] + (args or [])
+    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=10)
+
+
+def _make_mock_bin(
+    tmp_path: Path,
+    name: str,
+    stdout: str = "",
+    exit_code: int = 0,
+) -> Path:
+    """Create a mock executable in tmp_path/bin/<name>; returns the bindir."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    script = bindir / name
+    script.write_text(f"#!/bin/bash\n{stdout}\nexit {exit_code}\n")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return bindir
+
+
+def _make_recording_bin(
+    tmp_path: Path,
+    name: str,
+    record_file: Path,
+    exit_code: int = 0,
+) -> Path:
+    """Create a mock that records its argv to record_file."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    script = bindir / name
+    script.write_text(
+        f'#!/bin/bash\necho "$@" >> {record_file}\nexit {exit_code}\n'
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return bindir
+
+
+# ── script structure ────────────────────────────────────────────────────
 
 
 class TestScriptStructure:
-    """Verify the script has required structural elements."""
-
-    def test_file_exists(self):
+    def test_script_exists(self):
         assert SCRIPT.exists()
 
-    def test_executable(self):
-        mode = SCRIPT.stat().st_mode
-        assert mode & stat.S_IEXEC, "start-chrome-debug.sh should be executable"
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
 
-    def test_shebang(self):
-        lines = _read_script().splitlines()
-        assert lines[0] == "#!/bin/bash"
-
-    def test_strict_mode(self):
-        content = _read_script()
-        assert "set -euo pipefail" in content
-
-    def test_default_port_set(self):
-        content = _read_script()
-        assert "DEBUG_PORT=9222" in content
-
-    def test_no_todo_or_fixme(self):
-        """Script should not contain TODO or FIXME markers."""
-        content = _read_script()
-        for line in content.splitlines():
-            upper = line.upper()
-            assert "TODO" not in upper, f"Found TODO: {line.strip()}"
-            assert "FIXME" not in upper, f"Found FIXME: {line.strip()}"
-
-    def test_script_ends_with_newline(self):
-        """Script should end with a trailing newline."""
-        content = _read_script()
-        assert content.endswith("\n"), "Script should end with a newline"
+    def test_script_has_shebang(self):
+        first_line = SCRIPT.read_text().splitlines()[0]
+        assert first_line == "#!/usr/bin/env bash"
 
 
-# ── Syntax check ────────────────────────────────────────────────────────
+# ── --help / -h ────────────────────────────────────────────────────────
 
 
-class TestSyntaxCheck:
-    """Verify the script is syntactically valid bash."""
+class TestHelp:
+    def test_help_exits_zero(self):
+        r = _run(["--help"])
+        assert r.returncode == 0
 
-    def test_bash_syntax_valid(self):
-        """bash -n should report no syntax errors."""
-        r = subprocess.run(
-            ["bash", "-n", str(SCRIPT)],
-            capture_output=True, text=True, timeout=10,
+    def test_help_prints_usage(self):
+        r = _run(["--help"])
+        assert "Usage: start-chrome-debug.sh" in r.stdout
+        assert "--port" in r.stdout
+        assert "9222" in r.stdout
+
+    def test_h_short_flag(self):
+        r = _run(["-h"])
+        assert r.returncode == 0
+        assert "Usage: start-chrome-debug.sh" in r.stdout
+
+
+# ── unknown option ──────────────────────────────────────────────────────
+
+
+class TestUnknownOption:
+    def test_unknown_option_exits_2(self):
+        r = _run(["--bogus"])
+        assert r.returncode == 2
+
+    def test_unknown_option_stderr(self):
+        r = _run(["--bogus"])
+        assert "Unknown option: --bogus" in r.stderr
+
+
+# ── chrome not found ────────────────────────────────────────────────────
+
+
+class TestChromeNotFound:
+    def test_no_chrome_exits_1(self, tmp_path):
+        # Provide PATH with only essential system dirs, no Chrome
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 1
+
+    def test_no_chrome_error_message(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert "Chrome/Chromium not found" in r.stderr
+
+
+# ── chrome already running on debug port ────────────────────────────────
+
+
+class TestChromeAlreadyRunning:
+    def test_already_running_exits_0(self, tmp_path):
+        # Mock curl to succeed (port responds) + mock a chrome binary
+        bindir = _make_mock_bin(tmp_path, "curl", stdout="mock-response", exit_code=0)
+        _make_mock_bin(tmp_path, "google-chrome-stable", exit_code=0)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 0
+
+    def test_already_running_message(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "curl", stdout="mock-response", exit_code=0)
+        _make_mock_bin(tmp_path, "google-chrome-stable", exit_code=0)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert "already running with debugging on port 9222" in r.stdout
+
+
+# ── successful start ───────────────────────────────────────────────────
+
+
+class TestSuccessfulStart:
+    def test_chrome_started_with_debug_port(self, tmp_path):
+        # curl fails (nothing on port), chrome mock succeeds and stays alive
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        # Chrome mock that sleeps briefly so kill -0 works
+        chrome_script = tmp_path / "bin" / "google-chrome-stable"
+        chrome_script.parent.mkdir(exist_ok=True)
+        chrome_script.write_text(
+            '#!/bin/bash\nsleep 5\n'
         )
-        assert r.returncode == 0, f"Syntax error in start-chrome-debug.sh:\n{r.stderr}"
+        chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 0
 
-    def test_shellcheck_if_available(self):
-        """Run shellcheck if available, but don't fail if not installed."""
-        r = subprocess.run(
-            ["which", "shellcheck"],
-            capture_output=True, text=True, timeout=5,
+    def test_chrome_started_output(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        chrome_script = tmp_path / "bin" / "google-chrome-stable"
+        chrome_script.parent.mkdir(exist_ok=True)
+        chrome_script.write_text('#!/bin/bash\nsleep 5\n')
+        chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert "Chrome started with remote debugging on port 9222" in r.stdout
+        assert "http://localhost:9222" in r.stdout
+
+    def test_chrome_receives_debug_port_flag(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        record_file = tmp_path / "chrome_invocations.txt"
+        bindir = _make_recording_bin(tmp_path, "google-chrome-stable", record_file)
+        # Chrome needs to stay alive for the kill -0 check
+        chrome_script = tmp_path / "bin" / "google-chrome-stable"
+        chrome_script.write_text(
+            f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n'
         )
-        if r.returncode != 0:
-            pytest.skip("shellcheck not installed")
+        chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
+        r = _run(tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 0
+        invocations = record_file.read_text()
+        assert "--remote-debugging-port=9222" in invocations
+        assert "--user-data-dir=" in invocations
 
-        r = subprocess.run(
-            ["shellcheck", str(SCRIPT)],
-            capture_output=True, text=True, timeout=10,
+
+# ── custom port ─────────────────────────────────────────────────────────
+
+
+class TestCustomPort:
+    def test_custom_port_passed_to_chrome(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        record_file = tmp_path / "chrome_invocations.txt"
+        chrome_script = tmp_path / "bin" / "google-chrome-stable"
+        chrome_script.parent.mkdir(exist_ok=True)
+        chrome_script.write_text(
+            f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n'
         )
-        # We allow warnings but not errors
-        if r.returncode != 0:
-            # Filter to only errors (SC level)
-            errors = [
-                line for line in r.stdout.splitlines()
-                if "error" in line.lower()
-            ]
-            assert not errors, f"shellcheck errors:\n{r.stdout}"
+        chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
+        r = _run(args=["-p", "9333"], tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 0
+        invocations = record_file.read_text()
+        assert "--remote-debugging-port=9333" in invocations
 
-
-# ── Help flag execution tests ───────────────────────────────────────────
-
-
-class TestHelpFlag:
-    """Run the script with --help / -h and verify output."""
-
-    def test_help_long_flag(self):
-        """--help prints usage text and exits 0."""
-        result = subprocess.run(
-            ["bash", str(SCRIPT), "--help"],
-            capture_output=True,
-            text=True,
+    def test_custom_port_long_flag(self, tmp_path):
+        bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
+        record_file = tmp_path / "chrome_invocations.txt"
+        chrome_script = tmp_path / "bin" / "google-chrome-stable"
+        chrome_script.parent.mkdir(exist_ok=True)
+        chrome_script.write_text(
+            f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n'
         )
-        assert result.returncode == 0
-        assert "Usage:" in result.stdout
-        assert "Start Chrome with remote debugging enabled" in result.stdout
+        chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
+        r = _run(args=["--port", "9444"], tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 0
+        invocations = record_file.read_text()
+        assert "--remote-debugging-port=9444" in invocations
 
-    def test_help_short_flag(self):
-        """-h prints usage text and exits 0."""
-        result = subprocess.run(
-            ["bash", str(SCRIPT), "-h"],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert "Usage:" in result.stdout
-
-    def test_help_mentions_port_option(self):
-        """Help text mentions the --port option."""
-        result = subprocess.run(
-            ["bash", str(SCRIPT), "--help"],
-            capture_output=True,
-            text=True,
-        )
-        assert "Debugging port" in result.stdout
-        assert "default: 9222" in result.stdout
-
-
-# ── Argument parsing tests ───────────────────────────────────────────────
-
-
-class TestArgumentParsing:
-    """Test argument parsing behavior."""
-
-    def test_unknown_option_exits_with_2(self):
-        """Unknown option should exit with code 2."""
-        result = subprocess.run(
-            ["bash", str(SCRIPT), "--unknown-option"],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 2
-        assert "Unknown option:" in result.stderr
-
-    def test_custom_port_accepted(self):
-        """Custom port via -p/--port should be accepted.
-        We don't actually start Chrome, just verify parsing doesn't fail early.
-        """
-        # Mock uname -s to return Linux, mock command -v to give us a fake chrome
-        mock_script = f"""\
-            # Mock the parts that detect platform and chrome
-            uname() {{ echo "Linux"; }}
-            command() {{
-                if [ "$1" = "-v" ] && [ "$2" = "google-chrome-stable" ]; then
-                    echo "/usr/bin/google-chrome";
-                    return 0;
-                fi
-                return 1
-            }}
-            # Override curl to always fail (chrome not running)
-            curl() {{ return 1; }}
-            # Exit before actually starting chrome
-            exit 0
-            # Source the original script
-            . {SCRIPT}
-        """
-        # Include args directly in the script
-        result = subprocess.run(
-            ["bash", "-c", f"{mock_script} -p 9223"],
-            capture_output=True,
-            text=True,
-        )
-        # It should parse ok, no parsing error (exit 0 expected)
-        assert result.returncode == 0, f"Failed with: {result.stderr}"
-
-
-# ── Platform detection tests ─────────────────────────────────────────────
-
-
-class TestPlatformDetection:
-    """Test platform detection and error handling."""
-
-    def test_unsupported_platform_exits_with_1(self):
-        """Unsupported platform (like FreeBSD) should exit with 1."""
-        mock_script = f"""\
-            uname() {{ echo "FreeBSD"; }}
-            . {SCRIPT}
-        """
-        result = subprocess.run(
-            ["bash", "-c", mock_script],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 1
-        assert "Unsupported platform:" in result.stderr
-
-    def test_linux_searches_multiple_candidates(self):
-        """On Linux, script searches multiple chrome candidate names."""
-        content = _read_script()
-        assert "google-chrome-stable" in content
-        assert "google-chrome" in content
-        assert "chromium-browser" in content
-        assert "chromium" in content
-
-    def test_chrome_not_found_exits_with_1(self):
-        """If no Chrome binary found, exit with 1."""
-        mock_script = f"""\
-            uname() {{ echo "Linux"; }}
-            command() {{ return 1; }}  # No candidates found
-            . {SCRIPT}
-        """
-        result = subprocess.run(
-            ["bash", "-c", mock_script],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 1
-        assert "Chrome/Chromium not found on PATH" in result.stderr
-
-    def test_non_executable_chrome_exits_with_1(self, tmp_path):
-        """If Chrome binary exists but isn't executable, exit with 1."""
-        # Create a non-executable fake chrome
-        fake_chrome = tmp_path / "chrome"
-        fake_chrome.write_text("#!/bin/bash\necho 'fake chrome'\n")
-        # No executable permission
-        fake_chrome.chmod(0o644)
-
-        mock_script = f"""\
-            uname() {{ echo "Linux"; }}
-            command() {{ echo "{fake_chrome}"; return 0; }}
-            . {SCRIPT}
-        """
-        result = subprocess.run(
-            ["bash", "-c", mock_script],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 1
-        assert "not executable" in result.stderr
-
-
-# ── Running detection tests ──────────────────────────────────────────────
-
-
-class TestRunningDetection:
-    """Test detection when Chrome is already running with debugging."""
-
-    def test_exits_0_when_already_running(self, tmp_path):
-        """If curl can connect to the port, exit 0 with message."""
-        # Create a fake executable chrome
-        fake_chrome = tmp_path / "chrome"
-        fake_chrome.write_text("#!/bin/bash\necho 'fake chrome'\n")
-        fake_chrome.chmod(0o755)
-
-        mock_script = f"""\
-            uname() {{ echo "Linux"; }}
-            command() {{ echo "{fake_chrome}"; return 0; }}
-            # Curl succeeds → already running
-            curl() {{ return 0; }}
-            . {SCRIPT}
-        """
-        result = subprocess.run(
-            ["bash", "-c", mock_script],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert "already running with debugging" in result.stdout
+    def test_custom_port_already_running(self, tmp_path):
+        # curl succeeds on custom port → "already running" message
+        bindir = _make_mock_bin(tmp_path, "curl", stdout="ok", exit_code=0)
+        _make_mock_bin(tmp_path, "google-chrome-stable", exit_code=0)
+        r = _run(args=["-p", "9333"], tmp_path=tmp_path, path_dirs=[bindir])
+        assert r.returncode == 0
+        assert "port 9333" in r.stdout

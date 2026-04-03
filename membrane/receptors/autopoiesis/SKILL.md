@@ -34,7 +34,7 @@ Run `vivesca autopoiesis probe` or call `inflammasome_probe` MCP tool.
 ### Step 4: Crystallize (methylation -- learning)
 
 - If fixes were applied -> run `vivesca autopoiesis methylate`
-- Check ~/tmp/methylation-proposal-*.md for pending crystallizations
+- Check ~/epigenome/chromatin/immunity/methylation/methylation-proposal-*.md for pending crystallizations
 - Check ~/tmp/titration-proposals-*.md for new subsystem designs
 
 ### Step 5: Grow (angiogenesis + entrainment)

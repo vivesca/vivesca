@@ -34,9 +34,9 @@ One skill, four phases. Run `date` first, then route by time. All old trigger wo
 
 | Time (HKT) | Phase | Old skill | Entry point |
 |---|---|---|---|
-| 06:00–10:00 | **Dawn** | entrainment + germination | `entrainment_brief` + `germination_brief` |
+| 06:00–10:00 | **Dawn** | entrainment + germination | `pinocytosis(action="overnight")` + `pinocytosis(action="morning")` |
 | 10:00–17:00 | **Day** | ultradian | `ultradian-gather` |
-| 17:00–21:00 | **Dusk** | interphase | `gather_interphase` |
+| 17:00–21:00 | **Dusk** | interphase | `pinocytosis(action="evening")` |
 | On-demand | **Day** | ultradian | `ultradian-gather` (regardless of time) |
 | **Weekend** | **Day** (relaxed) | ultradian | Same phases, skip work-specific tasks (job alerts, heavy Praxis) |
 | **Holiday** | **Day** (relaxed) | ultradian | Treat as weekend. Calendar all-day event with holiday keyword. |
@@ -57,8 +57,8 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
 
 ### Steps
 
-1. **Call `entrainment_brief`** — aggregates sleep + overnight alerts in one call. Do not call sopor separately.
-2. **Call `germination_brief`** — automation results, NEEDS_ATTENTION flags. Both always run; they sense different systems.
+1. **Call `pinocytosis(action="overnight")`** — aggregates sleep + overnight alerts in one call. Do not call sopor separately.
+2. **Call `pinocytosis(action="morning")`** — automation results, NEEDS_ATTENTION flags. Both always run; they sense different systems.
 3. **Readiness < 65** → flag explicitly before discussing workload. Cross-ref `~/epigenome/marks/user_health_exercise_readiness.md` (< 70 = light only, resume > 75).
 4. **Active experiments** → `assay list` — surface experiment day and status.
 5. **Right-sided morning headache** → check `~/epigenome/marks/user_health_sleep_headache_pattern.md`.
@@ -69,7 +69,7 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
 ### Anti-patterns
 - Don't skip germination just because entrainment ran — they sense different systems
 - Don't proceed with heavy planning at low readiness — recommend lighter day first
-- Don't assume "no flag" means everything passed — call germination_brief to confirm
+- Don't assume "no flag" means everything passed — call pinocytosis(action="morning") to confirm
 
 ---
 
@@ -86,7 +86,7 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
 5. **Overdue and today's TODO** — from Praxis.md, max 5 items, most time-sensitive first
 6. **Goose task queue** — surface count of done/ tasks needing review. If any exist, prompt CC to read `done/*.md`, check the `## Result` section, and approve or redispatch.
 7. **Focus sensing (gradient)** — when user asks "what should I focus on?" or priority planning:
-   - Run `proprioception_gradient` (default 7-day; 14 for career/health, 3 for recent spikes)
+   - Run `proprioception(target="gradient")` (default 7-day; 14 for career/health, 3 for recent spikes)
    - Read topology: `independent` 2-sensor > `adjacent` 2-sensor. Coverage >= 2 is confirmed.
    - `diffuse` = no clear axis — report as isotropic, don't force interpretation
    - If polarity diverges from stated goals (North Star.md), surface the gap explicitly
@@ -123,15 +123,15 @@ One short paragraph. No headers, no bullets unless 3+ overdue items. Lead with t
 
 ### Steps
 
-0. **Gather** — call `gather_interphase` (inbox, WhatsApp, calendar, Praxis, budget, reminders, email threads, prospective memory)
+0. **Gather** — call `pinocytosis(action="evening")` (inbox, WhatsApp, calendar, Praxis, budget, reminders, email threads, priming entries)
 1. **Inbox triage** — `sorting_thread` on every unread + Cora-archived Important Info/Context emails. Read Cora briefs. Decide: action_required / monitor / archive. Update Email Threads Tracker.
 2. **Messages** — WhatsApp via `keryx read`, LinkedIn. Draft only, never send.
 3. **Brain dump** — ask: "Anything still rattling around?" Capture to daily note.
 4. **What shipped today** — read daily note cytokinesis logs. Write 2-3 line summary. If consulting-relevant, append spark to `_sparks.md`.
 5. **Tomorrow prep** — calendar, checkpoint, Praxis, Schedule.md in parallel. One-line prep per meeting. Thursday: check token reset.
 6. **Nudge** — blocked items needing follow-up. One-line per item.
-7. **Daily note close** — call `interphase_close_daily_note` with shipped, tomorrow, open_threads, nudges, day_score (1-5). This is the canonical tool; do not write the daily note manually.
-8. **Flush prospective** — check `WHEN: next session` triggers.
+7. **Daily note close** — call `emit(action="interphase_close")` with shipped, tomorrow, open_threads, nudges, day_score (1-5). This is the canonical tool; do not write the daily note manually.
+8. **Flush priming** — check `WHEN: next session` triggers.
 9. **Praxis sync** — update resolved, add new, mark blocked.
 
 Then: **"You're done. Evening is yours."**
@@ -152,7 +152,7 @@ Then: **"You're done. Evening is yours."**
 
 Used by Dawn phase and also available standalone when diagnosing overnight automation.
 
-1. **`germination_brief`** — dashboard, latest run summary, NEEDS_ATTENTION status
+1. **`pinocytosis(action="morning")`** — dashboard, latest run summary, NEEDS_ATTENTION status
 2. **`germination_results <task>`** — drill into one task's output (only on failure or user request)
 3. **`germination_list`** — history across runs (only when diagnosing recurring failures)
 

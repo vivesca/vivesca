@@ -11,7 +11,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
@@ -122,8 +122,9 @@ def sortase(
             )
 
             # Log
-            from metabolon.sortase.logger import append_log
             from datetime import datetime
+
+            from metabolon.sortase.logger import append_log
             dur = round(sum(a.duration_s for r in results for a in r.attempts), 3)
             entry = {
                 "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -186,6 +187,7 @@ def sortase(
                     "started_at": e.get("started_at", ""),
                 }
                 for e in entries
+                if isinstance(e, dict)
             ],
         )
 

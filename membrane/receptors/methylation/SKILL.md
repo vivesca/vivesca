@@ -36,8 +36,8 @@ This reads three signal sources from the past 7 days:
 - `~/logs/inflammasome.log` (probe failures)
 
 It groups patterns, dispatches a synthesis call for any pattern seen >= 2 times, and writes:
-- `~/tmp/methylation-proposal-YYYY-MM-DD.md` (main proposal)
-- `~/tmp/hybridization-proposals-YYYY-MM-DD.md` (new subsystem designs, if gaps found)
+- `~/epigenome/chromatin/immunity/methylation/methylation-proposal-YYYY-MM-DD.md` (main proposal)
+- `~/epigenome/chromatin/immunity/methylation/hybridization-proposals-YYYY-MM-DD.md` (new subsystem designs, if gaps found)
 
 ### Step 2: Check the log
 
@@ -49,7 +49,7 @@ If "no patterns above threshold" -- report clean week, no crystallization needed
 
 ### Step 3: Review proposals
 
-Read the proposal file(s) in `~/tmp/`. For each proposal:
+Read the proposal file(s) in `~/epigenome/chromatin/immunity/methylation/`. For each proposal:
 
 - **TYPE: probe** -- evaluate if the probe is safe and useful. Pure path/import checks can be applied directly to `~/germline/metabolon/organelles/inflammasome.py`.
 - **TYPE: repair** -- evaluate if the repair pattern is deterministic and safe. Present to Terry for approval.

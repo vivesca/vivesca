@@ -6,12 +6,13 @@ import contextlib
 import datetime
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
 from collections import defaultdict
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import EffectorResult, Secretion
@@ -266,12 +267,25 @@ def interoception(
         from metabolon.metabolism.setpoint import Threshold
 
         parts: list[str] = []
-        try:
-            result = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
-            pulse_lines = [line for line in result.stdout.splitlines() if "vivesca" in line]
-            parts.append("Pulse: " + ("; ".join(pulse_lines) or "NOT FOUND"))
-        except Exception as exc:
-            parts.append(f"Pulse: check failed ({exc})")
+        if platform.system() == "Darwin":
+            try:
+                result = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
+                pulse_lines = [line for line in result.stdout.splitlines() if "vivesca" in line]
+                parts.append("Pulse: " + ("; ".join(pulse_lines) or "NOT FOUND"))
+            except Exception as exc:
+                parts.append(f"Pulse: check failed ({exc})")
+        else:
+            try:
+                result = subprocess.run(
+                    ["systemctl", "--user", "list-units", "--type=service", "--no-legend"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                pulse_lines = [line for line in result.stdout.splitlines() if "vivesca" in line]
+                parts.append("Pulse: " + ("; ".join(pulse_lines) or "NOT FOUND"))
+            except Exception as exc:
+                parts.append(f"Pulse: check failed ({exc})")
 
         try:
             from metabolon.organelles.vasomotor_sensor import sense

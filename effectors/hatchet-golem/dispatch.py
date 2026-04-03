@@ -24,6 +24,11 @@ import sys
 import time
 from pathlib import Path
 
+# Early --help check before importing worker (which initializes Hatchet).
+if "--help" in sys.argv or "-h" in sys.argv:
+    print(__doc__)
+    sys.exit(0)
+
 from hatchet_sdk import Hatchet
 
 # Import the task references from worker
@@ -212,10 +217,6 @@ def main() -> None:
     global _json_mode
 
     args = sys.argv[1:]
-
-    if "--help" in args or "-h" in args:
-        print(__doc__)
-        return
 
     json_mode = "--json" in args
     if json_mode:

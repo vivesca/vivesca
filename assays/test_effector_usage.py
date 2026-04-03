@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-"""Tests for effector-usage — scans golem logs for effector mentions."""
+"""Tests for effector-usage — scans golem logs and skills/hooks for effector mentions."""
 
 import json
+import subprocess
 import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -25,7 +26,11 @@ scan_daemon_log = _mod["scan_daemon_log"]
 compute_report = _mod["compute_report"]
 list_effectors = _mod["list_effectors"]
 scan_claude_sources = _mod["scan_claude_sources"]
+format_report = _mod["format_report"]
+main = _mod["main"]
 RE_EFFECTOR = _mod["RE_EFFECTOR"]
+
+EFFECTOR_PATH = Path.home() / "germline" / "effectors" / "effector-usage"
 
 
 # ── Regex tests ──────────────────────────────────────────────────────
@@ -251,6 +256,211 @@ class TestListEffectors:
     def test_known_effector_present(self):
         result = list_effectors()
         assert "golem-top" in result
+
+
+# ── scan_claude_sources tests ─────────────────────────────────────────
+
+
+class TestScanClaudeSources:
+    def test_finds_effector_in_skill_md(self, tmp_path):
+        skills = tmp_path / "skills"
+        skill_dir = skills / "test-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "Run `~/germline/effectors/golem-top` for stats."
+        )
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert "golem-top" in refs
+        assert "skills/test-skill/SKILL.md" in refs["golem-top"]
+
+    def test_finds_effector_in_hook_py(self, tmp_path):
+        skills = tmp_path / "skills"
+        skills.mkdir()
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        (hooks / "synapse.py").write_text(
+            '# reference\n# effectors/methylation is used here\n'
+        )
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert "methylation" in refs
+        assert "hooks/synapse.py" in refs["methylation"]
+
+    def test_multiple_sources_for_one_effector(self, tmp_path):
+        skills = tmp_path / "skills"
+        skill_dir = skills / "assay"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("Use effectors/assay check")
+        (skill_dir / "recipe.yaml").write_text("cmd: effectors/assay list")
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        (hooks / "axon.py").write_text("effectors/assay")
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert "assay" in refs
+        assert len(refs["assay"]) == 3
+
+    def test_no_references_returns_empty(self, tmp_path):
+        skills = tmp_path / "skills"
+        skill_dir = skills / "empty-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("No effector references here.")
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert len(refs) == 0
+
+    def test_skips_dotfiles_in_skills(self, tmp_path):
+        skills = tmp_path / "skills"
+        skill_dir = skills / "my-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / ".hidden").write_text("effectors/golem-top")
+        (skill_dir / "SKILL.md").write_text("nothing")
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert "golem-top" not in refs
+
+    def test_skips_non_py_hooks(self, tmp_path):
+        skills = tmp_path / "skills"
+        skills.mkdir()
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        (hooks / "data.json").write_text('{"eff": "effectors/golem-top"}')
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert "golem-top" not in refs
+
+    def test_skips_dot_dirs_in_skills(self, tmp_path):
+        skills = tmp_path / "skills"
+        dot_dir = skills / ".hidden-skill"
+        dot_dir.mkdir(parents=True)
+        (dot_dir / "SKILL.md").write_text("effectors/golem-top")
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        refs = scan_claude_sources(skills_dir=skills, hooks_dir=hooks)
+        assert "golem-top" not in refs
+
+    def test_nonexistent_dirs_return_empty(self, tmp_path):
+        refs = scan_claude_sources(
+            skills_dir=tmp_path / "no-skills",
+            hooks_dir=tmp_path / "no-hooks",
+        )
+        assert len(refs) == 0
+
+
+# ── format_report tests ───────────────────────────────────────────────
+
+
+class TestFormatReport:
+    def test_report_has_header(self):
+        report = {
+            "most_used": [],
+            "never_used": [],
+            "recently_broken": [],
+            "skill_referenced": [],
+            "orphaned": [],
+            "total_effectors": 10,
+            "total_mentions": 5,
+        }
+        text = format_report(report)
+        assert "EFFECTOR USAGE REPORT" in text
+
+    def test_orphaned_section_shown(self):
+        report = {
+            "most_used": [],
+            "never_used": [],
+            "recently_broken": [],
+            "skill_referenced": [],
+            "orphaned": ["orphan-tool-a", "orphan-tool-b"],
+            "total_effectors": 2,
+            "total_mentions": 0,
+        }
+        text = format_report(report)
+        assert "orphan-tool-a" in text
+        assert "orphan-tool-b" in text
+
+    def test_skill_referenced_shown(self):
+        report = {
+            "most_used": [],
+            "never_used": [],
+            "recently_broken": [],
+            "skill_referenced": [
+                {"name": "assay", "sources": ["skills/assay/SKILL.md"]},
+            ],
+            "orphaned": [],
+            "total_effectors": 1,
+            "total_mentions": 1,
+        }
+        text = format_report(report)
+        # skill_referenced is not shown in format_report, only in --skills mode
+        assert "EFFECTOR USAGE REPORT" in text
+
+
+# ── CLI integration tests ─────────────────────────────────────────────
+
+
+class TestCLI:
+    def test_help_flag(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH, "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        assert "effector-usage" in result.stdout
+
+    def test_json_flag_produces_valid_json(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH, "--json"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert "most_used" in data
+        assert "orphaned" in data
+        assert "skill_referenced" in data
+        assert isinstance(data["total_effectors"], int)
+        assert data["total_effectors"] > 0
+
+    def test_orphaned_flag(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH, "--orphaned"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert "Orphaned" in result.stdout or "All effectors" in result.stdout
+
+    def test_skills_flag(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH, "--skills"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert "Skill/hook-referenced" in result.stdout or "No effectors" in result.stdout
+
+    def test_broken_flag(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH, "--broken"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+
+    def test_unused_flag(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH, "--unused"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert "Never used" in result.stdout or "All effectors" in result.stdout
+
+    def test_default_report(self):
+        result = subprocess.run(
+            [EFFECTOR_PATH],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert "EFFECTOR USAGE REPORT" in result.stdout
+        assert "Most Used" in result.stdout
+        assert "Orphaned" in result.stdout
 
 
 # ── AST parse check ──────────────────────────────────────────────────

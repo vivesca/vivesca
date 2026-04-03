@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pull config repos from GitHub and apply Claude config.
 # Runs every 15min via agent-sync systemd timer on Pharos.
-set -uo pipefail
+set -euo pipefail
 
 usage() {
     cat <<'HELP'
@@ -18,7 +18,7 @@ case "${1:-}" in
     -h|--help) usage; exit 0 ;;
 esac
 
-REPOS=("$HOME/agent-config" "$HOME/skills" "$HOME/code/epigenome/chromatin")
+REPOS=("$HOME/agent-config" "$HOME/skills" "$HOME/epigenome/chromatin")
 
 for repo in "${REPOS[@]}"; do
     [ -d "$repo/.git" ] || continue

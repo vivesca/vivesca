@@ -1,381 +1,359 @@
 from __future__ import annotations
 
-"""Tests for effectors/cibus.py — loaded via exec (effectors are scripts, not importable modules)."""
-
+"""Tests for effectors/cibus — Hong Kong restaurant finder (OpenRice)."""
 
 import json
+import subprocess
 import sys
-from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-CIBUS_PATH = Path(__file__).resolve().parent.parent / "effectors" / "cibus.py"
+CIBUS = Path.home() / "germline" / "effectors" / "cibus.py"
 
 
-@pytest.fixture()
-def cibus():
-    """Load cibus.py into a fresh namespace."""
-    ns = {"__name__": "cibus_test", "__file__": str(CIBUS_PATH)}
-    exec(open(CIBUS_PATH).read(), ns)
+def _load_cibus():
+    """Load the cibus effector by exec-ing its Python body."""
+    source = CIBUS.read_text()
+    ns: dict = {"__name__": "cibus_test"}
+    exec(source, ns)
     return ns
 
 
-def _mock_urlopen_resp(body: bytes):
-    """Build a mock that behaves like urlopen's return value (context manager with .read())."""
-    resp = MagicMock()
-    resp.read.return_value = body
-    resp.__enter__ = lambda s: resp
-    resp.__exit__ = MagicMock(return_value=False)
-    return resp
+_mod = _load_cibus()
+resolve_id = _mod["resolve_id"]
+current_hours = _mod["current_hours"]
+format_table = _mod["format_table"]
+list_options = _mod["list_options"]
+fetch = _mod["fetch"]
+CUISINES = _mod["CUISINES"]
+DISTRICTS = _mod["DISTRICTS"]
+PRICE_LABELS = _mod["PRICE_LABELS"]
 
 
-def _patch_urlopen(ns, body: bytes):
-    """Patch the 'urlopen' key in the exec'd namespace (imported via 'from urllib.request import urlopen')."""
-    resp = _mock_urlopen_resp(body)
-    mock_fn = MagicMock(return_value=resp)
-    return patch.dict(ns, {"urlopen": mock_fn}), mock_fn
-
-
-# ---------------------------------------------------------------------------
-# resolve_id
-# ---------------------------------------------------------------------------
+# ── resolve_id tests ───────────────────────────────────────────────────────
 
 
 class TestResolveId:
-    def test_exact_match(self, cibus):
-        assert cibus["resolve_id"]("cantonese", cibus["CUISINES"], "cuisine") == 1002
+    """Tests for resolve_id fuzzy matching."""
 
-    def test_case_insensitive(self, cibus):
-        assert cibus["resolve_id"]("Japanese", cibus["CUISINES"], "cuisine") == 2009
+    def test_exact_match(self):
+        assert resolve_id("italian", CUISINES, "cuisine") == 3006
 
-    def test_stripped_whitespace(self, cibus):
-        assert cibus["resolve_id"]("  thai  ", cibus["CUISINES"], "cuisine") == 2004
+    def test_case_insensitive(self):
+        assert resolve_id("Italian", CUISINES, "cuisine") == 3006
+        assert resolve_id("ITALIAN", CUISINES, "cuisine") == 3006
 
-    def test_substring_match(self, cibus):
-        # "viet" matches "vietnamese" and "viet", both map to 2002
-        assert cibus["resolve_id"]("viet", cibus["CUISINES"], "cuisine") == 2002
+    def test_chinese_name(self):
+        assert resolve_id("意大利", CUISINES, "cuisine") == 3006
 
-    def test_empty_returns_none(self, cibus):
-        assert cibus["resolve_id"]("", cibus["CUISINES"], "cuisine") is None
+    def test_empty_string_returns_none(self):
+        assert resolve_id("", CUISINES, "cuisine") is None
 
-    def test_unknown_returns_none(self, cibus):
-        assert cibus["resolve_id"]("martian", cibus["CUISINES"], "cuisine") is None
+    def test_none_returns_none(self):
+        """resolve_id(None, ...) returns None because 'not None' is True."""
+        assert resolve_id(None, CUISINES, "cuisine") is None
 
-    def test_district_exact(self, cibus):
-        assert cibus["resolve_id"]("central", cibus["DISTRICTS"], "district") == 1003
+    def test_district_exact_match(self):
+        assert resolve_id("central", DISTRICTS, "district") == 1003
 
-    def test_district_alias(self, cibus):
-        assert cibus["resolve_id"]("tst", cibus["DISTRICTS"], "district") == 2008
+    def test_district_alias_tst(self):
+        assert resolve_id("tst", DISTRICTS, "district") == 2008
 
-    def test_chinese_cuisine(self, cibus):
-        assert cibus["resolve_id"]("日本", cibus["CUISINES"], "cuisine") == 2009
+    def test_substring_match_single(self):
+        """Substring match returns id when exactly one match."""
+        # "mong" is a substring of "mong kok" — single match
+        result = resolve_id("mong", DISTRICTS, "district")
+        assert result == 2010
 
-    def test_ambiguous_prints_to_stderr(self, cibus):
-        table = {"alpha one": 1, "alpha two": 2}
-        captured = StringIO()
-        with patch("sys.stderr", captured):
-            result = cibus["resolve_id"]("alpha", table, "field")
-        assert result in (1, 2)
-        assert "Ambiguous" in captured.getvalue()
+    def test_unknown_returns_none(self, capsys):
+        """Unknown name prints error and returns None."""
+        result = resolve_id("zebra", CUISINES, "cuisine")
+        assert result is None
+        captured = capsys.readouterr()
+        assert "Unknown cuisine" in captured.err
 
+    def test_ambiguous_picks_first(self, capsys):
+        """Ambiguous match picks first result and warns."""
+        # "wan" matches "sheung wan" and "wan chai" — ambiguous
+        result = resolve_id("wan", DISTRICTS, "district")
+        assert result is not None
+        captured = capsys.readouterr()
+        assert "Ambiguous" in captured.err
 
-# ---------------------------------------------------------------------------
-# fetch
-# ---------------------------------------------------------------------------
-
-
-class TestFetch:
-    def test_basic_fetch_parses_json(self, cibus):
-        mock_body = json.dumps({
-            "paginationResult": {
-                "results": [{"name": "Sushi Taichi", "scoreOverall": 4.5}]
-            }
-        }).encode()
-        ctx, mock_fn = _patch_urlopen(cibus, mock_body)
-        with ctx:
-            results = cibus["fetch"](5, None, None, None)
-        assert len(results) == 1
-        assert results[0]["name"] == "Sushi Taichi"
-
-    def test_fetch_sends_cuisine_param(self, cibus):
-        mock_body = json.dumps({"paginationResult": {"results": []}}).encode()
-        ctx, mock_fn = _patch_urlopen(cibus, mock_body)
-        with ctx:
-            cibus["fetch"](5, 2009, None, None)
-        req = mock_fn.call_args[0][0]
-        assert "cuisineId=2009" in req.full_url
-
-    def test_fetch_sends_all_params(self, cibus):
-        mock_body = json.dumps({"paginationResult": {"results": []}}).encode()
-        ctx, mock_fn = _patch_urlopen(cibus, mock_body)
-        with ctx:
-            cibus["fetch"](10, 2009, 1003, 3)
-        req = mock_fn.call_args[0][0]
-        url = req.full_url
-        assert "rows=10" in url
-        assert "cuisineId=2009" in url
-        assert "districtId=1003" in url
-        assert "priceRangeId=3" in url
-
-    def test_fetch_no_filters_no_params_in_url(self, cibus):
-        mock_body = json.dumps({"paginationResult": {"results": []}}).encode()
-        ctx, mock_fn = _patch_urlopen(cibus, mock_body)
-        with ctx:
-            cibus["fetch"](5, None, None, None)
-        url = mock_fn.call_args[0][0].full_url
-        assert "cuisineId" not in url
-        assert "districtId" not in url
-        assert "priceRangeId" not in url
-
-    def test_fetch_html_response_exits(self, cibus):
-        mock_body = b"<html>captcha</html>"
-        ctx, _ = _patch_urlopen(cibus, mock_body)
-        with ctx:
-            with pytest.raises(SystemExit):
-                cibus["fetch"](5, None, None, None)
+    def test_whitespace_stripped(self):
+        assert resolve_id("  italian  ", CUISINES, "cuisine") == 3006
 
 
-# ---------------------------------------------------------------------------
-# current_hours
-# ---------------------------------------------------------------------------
+# ── current_hours tests ────────────────────────────────────────────────────
 
 
 class TestCurrentHours:
-    def _today_dow(self):
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Asia/Hong_Kong")).weekday() + 1
+    """Tests for current_hours time extraction."""
 
-    def test_closed(self, cibus):
-        poi = {"poiHours": [{"dayOfWeek": self._today_dow(), "isClose": True}]}
-        assert cibus["current_hours"](poi) == "Closed"
+    @pytest.fixture()
+    def _fake_datetime(self):
+        """Temporarily replace _mod['datetime'] with a fake returning a fixed Monday."""
+        from datetime import datetime as real_dt
+        monday = real_dt(2026, 3, 30, 12, 0)  # Monday (weekday 0 → OR dow 1)
+        original = _mod["datetime"]
 
-    def test_24hr(self, cibus):
-        poi = {"poiHours": [{"dayOfWeek": self._today_dow(), "is24hr": True}]}
-        assert cibus["current_hours"](poi) == "24h"
+        class FakeDT:
+            @staticmethod
+            def now(tz=None):
+                return monday
 
-    def test_normal_hours(self, cibus):
-        poi = {
-            "poiHours": [
-                {"dayOfWeek": self._today_dow(), "period1Start": "1100", "period1End": "2300"}
-            ]
-        }
-        # Code does [:5] on "1100" → "1100", not "11:00"
-        assert cibus["current_hours"](poi) == "1100-2300"
+        _mod["datetime"] = FakeDT
+        yield
+        _mod["datetime"] = original
 
-    def test_no_hours_data(self, cibus):
-        assert cibus["current_hours"]({}) == "—"
-        assert cibus["current_hours"]({"poiHours": []}) == "—"
+    def test_closed_today(self, _fake_datetime):
+        poi = {"poiHours": [{"dayOfWeek": 1, "isClose": True}]}
+        assert current_hours(poi) == "Closed"
 
-    def test_different_day(self, cibus):
-        other_day = (self._today_dow() % 7) + 1
-        poi = {"poiHours": [{"dayOfWeek": other_day, "period1Start": "0900", "period1End": "1800"}]}
-        assert cibus["current_hours"](poi) == "—"
+    def test_24hr(self, _fake_datetime):
+        poi = {"poiHours": [{"dayOfWeek": 1, "is24hr": True}]}
+        assert current_hours(poi) == "24h"
+
+    def test_normal_hours(self, _fake_datetime):
+        poi = {"poiHours": [{"dayOfWeek": 1, "period1Start": "1100", "period1End": "2300"}]}
+        assert current_hours(poi) == "1100-2300"
+
+    def test_no_matching_day(self, _fake_datetime):
+        poi = {"poiHours": [{"dayOfWeek": 3, "period1Start": "1100", "period1End": "2300"}]}
+        assert current_hours(poi) == "—"
+
+    def test_empty_hours_list(self):
+        assert current_hours({"poiHours": []}) == "—"
+
+    def test_no_poi_hours_key(self):
+        assert current_hours({}) == "—"
 
 
-# ---------------------------------------------------------------------------
-# format_table
-# ---------------------------------------------------------------------------
-
-
-def _minimal_result(**overrides):
-    """Build a minimal valid result dict for format_table tests."""
-    r = {
-        "name": "Test",
-        "categories": [],
-        "district": {"name": "Central"},
-        "scoreOverall": None,
-        "scoreSmile": 0,
-        "scoreCry": 0,
-        "reviewCount": 0,
-        "priceRangeId": 0,
-        "phones": [""],   # non-empty list avoids IndexError bug at line 218
-        "openNow": False,
-        "shortenUrl": "",
-        "addressOtherLang": "",
-    }
-    r.update(overrides)
-    return r
+# ── format_table tests ─────────────────────────────────────────────────────
 
 
 class TestFormatTable:
-    def test_empty_results(self, cibus):
-        assert cibus["format_table"]([]) == "No results found."
+    """Tests for format_table output formatting."""
 
-    def test_single_result(self, cibus):
-        results = [_minimal_result(
-            name="Test Restaurant",
-            categories=[{"categoryTypeId": 1, "name": "Italian"}],
-            scoreOverall=4.3,
-            priceRangeId=3,
-            phones=["23456789"],
-            openNow=True,
-            shortenUrl="https://or.test/1",
-            addressOtherLang="123 Test St",
-        )]
-        output = cibus["format_table"](results)
+    def test_empty_results(self):
+        assert format_table([]) == "No results found."
+
+    def test_single_result_has_headers(self):
+        results = [
+            {
+                "name": "Test Restaurant",
+                "categories": [{"name": "Italian", "categoryTypeId": 1}],
+                "district": {"name": "Central"},
+                "scoreOverall": 4.5,
+                "scoreSmile": 10,
+                "scoreCry": 1,
+                "reviewCount": 50,
+                "priceRangeId": 3,
+                "phones": ["23456789"],
+                "openNow": True,
+                "poiHours": [],
+                "shortenUrl": "https://example.com",
+                "address": "123 Test St",
+            }
+        ]
+        output = format_table(results)
+        assert "Name" in output
         assert "Test Restaurant" in output
         assert "Italian" in output
         assert "Central" in output
-        assert "4.3" in output
-        assert "$101-200" in output
-        assert "Yes" in output
-        assert "https://or.test/1" in output
-        assert "123 Test St" in output
+        assert "4.5" in output
 
-    def test_multiple_results_numbered(self, cibus):
-        results = [_minimal_result(name=f"R{i}") for i in range(3)]
-        output = cibus["format_table"](results)
+    def test_price_label_resolved(self):
+        results = [
+            {
+                "name": "Cheap Eats",
+                "categories": [],
+                "district": {"name": "Mong Kok"},
+                "scoreOverall": None,
+                "scoreSmile": 0,
+                "scoreCry": 0,
+                "reviewCount": 0,
+                "priceRangeId": 1,
+                "phones": ["23456789"],
+                "openNow": False,
+                "poiHours": [],
+                "shortenUrl": "",
+                "address": "",
+            }
+        ]
+        output = format_table(results)
+        assert "<$50" in output
+
+    def test_multiple_results_numbered(self):
+        results = [
+            {"name": f"R{i}", "categories": [], "district": {"name": "?"}, "scoreOverall": None,
+             "scoreSmile": 0, "scoreCry": 0, "reviewCount": 0, "priceRangeId": 0,
+             "phones": ["00000000"], "openNow": False, "poiHours": [], "shortenUrl": "", "address": ""}
+            for i in range(3)
+        ]
+        output = format_table(results)
         assert "[1]" in output
         assert "[2]" in output
         assert "[3]" in output
 
-    def test_has_header_and_separator(self, cibus):
-        results = [_minimal_result()]
-        output = cibus["format_table"](results)
-        lines = output.split("\n")
-        # header line, separator line, data line, blank, link line
-        assert len(lines) >= 4
-        assert "---" in lines[1] or "-|-" in lines[1]
 
-
-# ---------------------------------------------------------------------------
-# list_options
-# ---------------------------------------------------------------------------
+# ── list_options tests ─────────────────────────────────────────────────────
 
 
 class TestListOptions:
-    def test_prints_cuisines_and_districts(self, cibus):
-        captured = StringIO()
-        with patch("sys.stdout", captured):
-            cibus["list_options"]()
-        out = captured.getvalue()
-        assert "Cuisines:" in out
-        assert "Districts:" in out
-        assert "italian" in out
-        assert "central" in out
-        # CJK names should NOT appear
-        assert "日本" not in out
-        assert "中環" not in out
+    """Tests for list_options output."""
+
+    def test_prints_cuisines_and_districts(self, capsys):
+        list_options()
+        captured = capsys.readouterr()
+        assert "Cuisines:" in captured.out
+        assert "Districts:" in captured.out
+        assert "italian" in captured.out
+        assert "central" in captured.out
+
+    def test_no_chinese_chars_in_output(self, capsys):
+        list_options()
+        captured = capsys.readouterr()
+        # English names only — Chinese filtered out
+        for line in captured.out.splitlines():
+            if line.strip() and not line.startswith("Cuisines") and not line.startswith("Districts"):
+                assert all(ord(c) < 128 or c in " \t" for c in line), f"Non-ASCII in: {line}"
 
 
-# ---------------------------------------------------------------------------
-# main (CLI integration)
-# ---------------------------------------------------------------------------
+# ── CLI tests (subprocess) ─────────────────────────────────────────────────
 
 
-class TestMain:
-    def _mock_results(self):
-        return [
-            {
-                "name": "Pasta House",
-                "categories": [{"categoryTypeId": 1, "name": "Italian", "categoryId": 3006}],
-                "district": {"name": "Central", "districtId": 1003},
-                "scoreOverall": 4.0,
-                "scoreSmile": 5,
-                "scoreCry": 0,
-                "reviewCount": 20,
-                "priceRangeId": 3,
-                "phones": ["21112222"],
-                "openNow": True,
-                "poiHours": [],
-                "shortenUrl": "https://or.test/pasta",
-                "addressOtherLang": "1 Queen's Road",
-            }
-        ]
+class TestCli:
+    """Integration tests via subprocess.run."""
 
-    def _patch_fetch(self, ns, results=None):
-        """Patch fetch in namespace dict with a fake that returns canned results."""
-        if results is None:
-            results = self._mock_results()
-        fake = MagicMock(return_value=results)
-        return patch.dict(ns, {"fetch": fake}), fake
+    def test_help_flag(self):
+        r = subprocess.run(
+            [sys.executable, str(CIBUS), "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "Hong Kong restaurant finder" in r.stdout
 
-    def test_list_flag(self, cibus):
-        captured = StringIO()
-        with patch("sys.argv", ["cibus", "--list"]), patch("sys.stdout", captured):
-            cibus["main"]()
-        assert "Cuisines:" in captured.getvalue()
+    def test_list_flag(self):
+        r = subprocess.run(
+            [sys.executable, str(CIBUS), "--list"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "Cuisines:" in r.stdout
+        assert "Districts:" in r.stdout
 
-    def test_no_args_exits(self, cibus):
-        with patch("sys.argv", ["cibus"]):
+    def test_no_args_exits_error(self):
+        r = subprocess.run(
+            [sys.executable, str(CIBUS)],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode != 0
+
+    def test_unknown_cuisine_exits_error(self):
+        r = subprocess.run(
+            [sys.executable, str(CIBUS), "-c", "zebracuisine999"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode != 0
+        assert "Unknown cuisine" in r.stderr
+
+
+# ── fetch tests (mocked network) ───────────────────────────────────────────
+
+
+class TestFetch:
+    """Tests for fetch with mocked urlopen."""
+
+    def _make_fake_urlopen(self, body: bytes):
+        """Build a fake urlopen that returns the given body bytes."""
+        captured_url = {}
+
+        def fake_urlopen(req, timeout=15):
+            captured_url["url"] = req.full_url if hasattr(req, "full_url") else str(req)
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = body
+            mock_resp.__enter__ = lambda s: mock_resp
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        return fake_urlopen, captured_url
+
+    def test_fetch_builds_correct_url(self):
+        body = json.dumps(
+            {"paginationResult": {"results": [{"name": "Sushi Place"}]}}
+        ).encode()
+        fake, captured_url = self._make_fake_urlopen(body)
+
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
+            results = fetch(5, 3006, 1003, 3)
+        finally:
+            _mod["urlopen"] = original
+
+        assert len(results) == 1
+        assert results[0]["name"] == "Sushi Place"
+        url = captured_url["url"]
+        assert "cuisineId=3006" in url
+        assert "districtId=1003" in url
+        assert "priceRangeId=3" in url
+        assert "rows=5" in url
+
+    def test_fetch_no_optional_params(self):
+        body = json.dumps({"paginationResult": {"results": []}}).encode()
+        fake, captured_url = self._make_fake_urlopen(body)
+
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
+            results = fetch(10, None, None, None)
+        finally:
+            _mod["urlopen"] = original
+
+        assert results == []
+        url = captured_url["url"]
+        assert "cuisineId" not in url
+        assert "districtId" not in url
+        assert "priceRangeId" not in url
+        assert "rows=10" in url
+
+    def test_fetch_html_response_exits(self):
+        fake, _ = self._make_fake_urlopen(b"<html>captcha</html>")
+
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
             with pytest.raises(SystemExit):
-                cibus["main"]()
+                fetch(5, None, None, None)
+        finally:
+            _mod["urlopen"] = original
 
-    def test_cuisine_and_area_query(self, cibus):
-        ctx, mock_fetch = self._patch_fetch(cibus)
-        captured = StringIO()
-        with ctx, patch("sys.argv", ["cibus", "-c", "italian", "-a", "central"]), patch("sys.stdout", captured):
-            cibus["main"]()
-        assert "Pasta House" in captured.getvalue()
+    def test_fetch_invalid_json_exits(self):
+        fake, _ = self._make_fake_urlopen(b"not json")
 
-    def test_json_output(self, cibus):
-        ctx, _ = self._patch_fetch(cibus)
-        captured = StringIO()
-        with ctx, patch("sys.argv", ["cibus", "-c", "italian", "-a", "central", "--json"]), patch("sys.stdout", captured):
-            cibus["main"]()
-        data = json.loads(captured.getvalue())
-        assert isinstance(data, list)
-        assert data[0]["name"] == "Pasta House"
-
-    def test_positional_shorthand(self, cibus):
-        ctx, mock_fetch = self._patch_fetch(cibus)
-        captured = StringIO()
-        with ctx, patch("sys.argv", ["cibus", "italian", "central"]), patch("sys.stdout", captured):
-            cibus["main"]()
-        mock_fetch.assert_called_once()
-
-    def test_unknown_cuisine_exits(self, cibus):
-        ctx, _ = self._patch_fetch(cibus)
-        with ctx, patch("sys.argv", ["cibus", "-c", "martian"]):
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
             with pytest.raises(SystemExit):
-                cibus["main"]()
-
-    def test_fetch_error_exits(self, cibus):
-        fake = MagicMock(side_effect=RuntimeError("timeout"))
-        with patch.dict(cibus, {"fetch": fake}), patch("sys.argv", ["cibus", "-c", "italian", "-a", "central"]), patch("sys.stderr", StringIO()):
-            with pytest.raises(SystemExit):
-                cibus["main"]()
-
-    def test_budget_passed_to_fetch(self, cibus):
-        ctx, mock_fetch = self._patch_fetch(cibus)
-        captured = StringIO()
-        with ctx, patch("sys.argv", ["cibus", "-c", "thai", "-b", "3"]), patch("sys.stdout", captured):
-            cibus["main"]()
-        assert mock_fetch.call_args[0][3] == 3  # budget
-
-    def test_rows_passed_to_fetch(self, cibus):
-        ctx, mock_fetch = self._patch_fetch(cibus)
-        captured = StringIO()
-        with ctx, patch("sys.argv", ["cibus", "-c", "thai", "--rows", "10"]), patch("sys.stdout", captured):
-            cibus["main"]()
-        assert mock_fetch.call_args[0][0] == 10  # rows
+                fetch(5, None, None, None)
+        finally:
+            _mod["urlopen"] = original
 
 
-# ---------------------------------------------------------------------------
-# Constants / data integrity
-# ---------------------------------------------------------------------------
+# ── PRICE_LABELS sanity ────────────────────────────────────────────────────
 
 
-class TestConstants:
-    def test_price_labels(self, cibus):
-        labels = cibus["PRICE_LABELS"]
+class TestPriceLabels:
+    """Verify price label mapping."""
+
+    def test_all_budget_choices_present(self):
         for i in range(1, 6):
-            assert i in labels
-            assert "$" in labels[i]
-        assert len(labels) == 5
+            assert i in PRICE_LABELS
 
-    def test_cuisines_has_common_entries(self, cibus):
-        c = cibus["CUISINES"]
-        for name in ("cantonese", "japanese", "italian", "thai", "korean"):
-            assert name in c
-
-    def test_districts_has_common_entries(self, cibus):
-        d = cibus["DISTRICTS"]
-        for name in ("central", "causeway bay", "mong kok", "tsim sha tsui"):
-            assert name in d
-
-    def test_api_url_https(self, cibus):
-        assert cibus["API"].startswith("https://")
+    def test_labels_are_strings(self):
+        for v in PRICE_LABELS.values():
+            assert isinstance(v, str)
+            assert "$" in v

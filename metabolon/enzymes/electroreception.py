@@ -12,7 +12,7 @@ import re
 import sqlite3
 from datetime import datetime, timedelta
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion

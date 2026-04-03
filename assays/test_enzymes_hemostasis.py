@@ -154,7 +154,8 @@ class TestLaunchagentAction:
         mock_result.returncode = 0
         mock_result.stderr = ""
         with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True):
+             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
+             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.example.agent.plist",
@@ -171,7 +172,8 @@ class TestLaunchagentAction:
         mock_result.returncode = 0
         mock_result.stderr = ""
         with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True):
+             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
+             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.example.agent.plist",
@@ -184,7 +186,8 @@ class TestLaunchagentAction:
     def test_plist_not_found(self):
         from metabolon.enzymes.hemostasis import hemostasis
 
-        with patch("metabolon.enzymes.hemostasis.Path.exists", return_value=False):
+        with patch("metabolon.enzymes.hemostasis.Path.exists", return_value=False), \
+             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/nonexistent/plist.plist",
@@ -196,7 +199,8 @@ class TestLaunchagentAction:
     def test_invalid_launchagent_action(self):
         from metabolon.enzymes.hemostasis import hemostasis
 
-        with patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True):
+        with patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
+             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
@@ -213,7 +217,8 @@ class TestLaunchagentAction:
         mock_result.returncode = 1
         mock_result.stderr = "operation not permitted"
         with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True):
+             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
+             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
@@ -240,6 +245,21 @@ class TestLaunchagentAction:
 
         assert result.success is False
         assert "timed out" in result.message
+
+    def test_launchagent_non_darwin_rejected(self):
+        """On non-Darwin platforms, launchagent action should be rejected."""
+        from metabolon.enzymes.hemostasis import hemostasis
+
+        with patch("metabolon.enzymes.hemostasis.platform.system", return_value="Linux"):
+            result = hemostasis(
+                action="launchagent",
+                plist_path="/Library/LaunchAgents/com.test.plist",
+                launchagent_action="unload",
+            )
+
+        assert result.success is False
+        assert "launchctl is not available" in result.message
+        assert "Linux" in result.message
 
 
 class TestHandoffAction:

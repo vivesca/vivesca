@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.locus import chromatin as CHROMATIN
@@ -90,7 +90,7 @@ def _read_efferens() -> str:
     try:
         import acta
 
-        messages = acta.read()
+        messages = acta.read()  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
     except Exception as exc:
         return f"Efferens unavailable: {exc}"
     if not messages:

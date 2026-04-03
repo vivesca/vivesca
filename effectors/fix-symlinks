@@ -1,17 +1,21 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """Fix symlinks broken by Mac→Linux rsync.
 
-Replaces /Users/terry/ targets with /home/terry/ in key directories.
-Idempotent — safe to run multiple times.
+Replaces macOS home-directory symlink targets with the current Linux home path
+in key directories. Idempotent and safe to run multiple times.
 """
 from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-MAC_PREFIX = "/Users/terry/"
-LINUX_PREFIX = "/home/terry/"
+MAC_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
+LINUX_PREFIX = f"{Path.home()}/"
 SCAN_DIRS = ["~/.claude", "~/epigenome", "~/germline"]
 
 

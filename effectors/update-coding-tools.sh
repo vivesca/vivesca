@@ -1,69 +1,96 @@
 #!/usr/bin/env bash
 # Auto-update all tools hourly
-# Runs via LaunchAgent com.terry.update-coding-tools
+# macOS: LaunchAgent com.terry.update-coding-tools
+# Linux: systemd timer or cron
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: update-coding-tools.sh"
     echo
-    echo "Auto-update brew, npm, pnpm, uv, cargo, and Mac App Store tools."
-    echo "macOS only — requires Homebrew. Logs to ~/.coding-tools-update.log."
+    echo "Auto-update brew (macOS) / apt (Linux), npm, pnpm, uv, and cargo tools."
+    echo "Logs to ~/.coding-tools-update.log."
     exit 0
 fi
 
-set -e
+set -euo pipefail
 
-# Cron runs with minimal PATH — load Homebrew and user binaries
-if command -v brew &>/dev/null; then
-    eval "$(brew shellenv)"
-else
-    echo "Error: Homebrew not found. This script requires macOS with Homebrew." >&2
-    exit 1
-fi
 export PATH="$HOME/.cargo/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/Library/pnpm:$PATH"
 
 LOG_FILE="$HOME/.coding-tools-update.log"
 echo "=== $(date) ===" >> "$LOG_FILE"
 
-# ── Homebrew (everything) ──
-echo "Updating brew..." | tee -a "$LOG_FILE"
-brew update 2>&1 | tee -a "$LOG_FILE" || true
-brew upgrade 2>&1 | tee -a "$LOG_FILE" || true
-brew upgrade --cask --greedy 2>&1 | tee -a "$LOG_FILE" || true
-brew cleanup --prune=7 2>&1 | tee -a "$LOG_FILE" || true
+OS="$(uname -s)"
+
+# ── System packages ──
+if [[ "$OS" == "Darwin" ]]; then
+    if command -v brew &>/dev/null; then
+        eval "$(brew shellenv)"
+        echo "Updating brew..." | tee -a "$LOG_FILE"
+        brew update 2>&1 | tee -a "$LOG_FILE" || true
+        brew upgrade 2>&1 | tee -a "$LOG_FILE" || true
+        brew upgrade --cask --greedy 2>&1 | tee -a "$LOG_FILE" || true
+        brew cleanup --prune=7 2>&1 | tee -a "$LOG_FILE" || true
+    else
+        echo "Warning: Homebrew not found on macOS." | tee -a "$LOG_FILE"
+    fi
+    # Mac App Store
+    if command -v mas &>/dev/null; then
+        echo "Updating Mac App Store apps..." | tee -a "$LOG_FILE"
+        mas upgrade 2>&1 | tee -a "$LOG_FILE" || true
+    fi
+elif [[ "$OS" == "Linux" ]]; then
+    if command -v apt &>/dev/null; then
+        echo "Updating apt packages..." | tee -a "$LOG_FILE"
+        sudo apt update 2>&1 | tee -a "$LOG_FILE" || true
+        sudo apt upgrade -y 2>&1 | tee -a "$LOG_FILE" || true
+        sudo apt autoremove -y 2>&1 | tee -a "$LOG_FILE" || true
+    fi
+fi
 
 # ── npm globals ──
-echo "Updating npm globals..." | tee -a "$LOG_FILE"
-npm update -g 2>&1 | tee -a "$LOG_FILE" || true
+if command -v npm &>/dev/null; then
+    echo "Updating npm globals..." | tee -a "$LOG_FILE"
+    npm update -g 2>&1 | tee -a "$LOG_FILE" || true
+fi
 
 # ── pnpm globals ──
-echo "Updating pnpm globals..." | tee -a "$LOG_FILE"
-pnpm update -g 2>&1 | tee -a "$LOG_FILE" || true
+if command -v pnpm &>/dev/null; then
+    echo "Updating pnpm globals..." | tee -a "$LOG_FILE"
+    pnpm update -g 2>&1 | tee -a "$LOG_FILE" || true
+fi
 
 # ── uv tools ──
-echo "Updating uv tools..." | tee -a "$LOG_FILE"
-uv tool upgrade --all 2>&1 | tee -a "$LOG_FILE" || true
+if command -v uv &>/dev/null; then
+    echo "Updating uv tools..." | tee -a "$LOG_FILE"
+    uv tool upgrade --all 2>&1 | tee -a "$LOG_FILE" || true
+fi
 
 # ── Cargo tools ──
-echo "Updating cargo tools..." | tee -a "$LOG_FILE"
-cargo binstall -y compound-perplexity typos-cli 2>&1 | tee -a "$LOG_FILE" || true
-
-# ── Mac App Store ──
-echo "Updating Mac App Store apps..." | tee -a "$LOG_FILE"
-mas upgrade 2>&1 | tee -a "$LOG_FILE" || true
+if command -v cargo-binstall &>/dev/null; then
+    echo "Updating cargo tools..." | tee -a "$LOG_FILE"
+    cargo binstall -y compound-perplexity typos-cli 2>&1 | tee -a "$LOG_FILE" || true
+fi
 
 # ── Post-update self-heal ──
 echo "Verifying critical tools..." | tee -a "$LOG_FILE"
 HEALTH_FILE="$HOME/.coding-tools-health.json"
 
-declare -A REPAIR=(
-  [brew]="/opt/homebrew/bin/brew"
-  [claude]="brew install --cask claude"
-  [opencode]="brew install opencode"
-  [gemini]="brew install gemini-cli"
-  [codex]="brew install codex"
-  [agent-browser]="brew install agent-browser"
-  [mas]="brew install mas"
-)
+declare -A REPAIR=()
+if [[ "$OS" == "Darwin" ]]; then
+    REPAIR=(
+      [brew]="/opt/homebrew/bin/brew"
+      [claude]="brew install --cask claude"
+      [opencode]="brew install opencode"
+      [gemini]="brew install gemini-cli"
+      [codex]="brew install codex"
+      [agent-browser]="brew install agent-browser"
+      [mas]="brew install mas"
+    )
+else
+    REPAIR=(
+      [claude]="npm install -g @anthropic-ai/claude-code"
+      [gemini]="npm install -g @anthropic-ai/gemini-cli"
+    )
+fi
 
 failures=()
 for cmd in "${!REPAIR[@]}"; do

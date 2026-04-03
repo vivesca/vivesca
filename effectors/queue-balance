@@ -25,67 +25,6 @@ PROVIDER_CONCURRENCY: dict[str, int] = {
 }
 
 
-def parse_queue(text: str) -> tuple[Counter[str], int]:
-    """Parse queue text, return (provider_counts, unassigned_count).
-
-    Only counts tasks in sections above '## Done'.
-    Dispatched tasks have --provider X.
-    Unassigned tasks are #### headings without a provider dispatch line.
-    """
-    # Split at Done section — only consider content before it
-    done_match = re.search(r"^## Done", text, re.MULTILINE)
-    active_text = text[: done_match.start()] if done_match else text
-
-    provider_counts: Counter[str] = Counter()
-
-    # Match dispatched task lines: - [ ] `golem --provider <name> ...`
-    dispatched = re.findall(r"--provider\s+(\S+)", active_text)
-    for provider in dispatched:
-        provider_counts[provider] += 1
-
-    # Count unassigned tasks: #### headings (task titles without dispatch)
-    # Exclude lines that are just section headers like "### Pending"
-    unassigned = 0
-    in_pending = False
-    for line in active_text.splitlines():
-        stripped = line.strip()
-        # Track whether we're in a pending/active section
-        if re.match(r"^##+(?: Pending| Builds| Retries| Fixes| Compound)", stripped):
-            in_pending = True
-            continue
-        if re.match(r"^##+(?: Done)", stripped):
-            in_pending = False
-            continue
-        if not in_pending:
-            # Still count #### lines even outside explicit sections
-            pass
-        # #### lines that are NOT section categories and NOT followed by
-        # a dispatched task on the same or next line
-        if re.match(r"^####\s+\S", stripped):
-            # Check if there's a --provider dispatch on this or nearby lines
-            # Simple approach: count #### as unassigned unless the heading
-            # itself contains --provider (it won't)
-            # But some #### are just category labels under "###" sections.
-            # Only count if it looks like a task description.
-            heading_text = re.sub(r"^####\s+", "", stripped)
-            # Skip generic section labels (single word, all caps, etc.)
-            if heading_text and not re.match(r"^(?:IMPORTANT|Pending|Done|Builds|Retries|Fixes|Compound)", heading_text, re.IGNORECASE):
-                unassigned += 1
-
-    # Don't double-count: dispatched tasks under #### headings should not
-    # also count as unassigned. We count #### headings as unassigned only
-    # if there's no --provider dispatch for them.
-    # Since dispatched tasks use - [ ] lines (not ####), they don't overlap.
-    # But we should subtract: if a section has both #### and - [ ], the ####
-    # is the title and - [ ] is the dispatch. For simplicity, if any dispatched
-    # task exists, we assume #### headings are just titles for dispatched tasks
-    # within the same section and don't count them separately.
-    # Better approach: only count #### headings that have NO - [ ] dispatch
-    # line in the block between this #### and the next heading.
-
-    return provider_counts, unassigned
-
-
 def parse_queue_v2(text: str) -> tuple[Counter[str], int]:
     """Parse queue text, return (provider_counts, unassigned_count).
 

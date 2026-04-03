@@ -23,7 +23,7 @@ PULSE_REVIEW_PATH = Path(__file__).resolve().parents[1] / "effectors" / "pulse-r
 
 
 @pytest.fixture()
-def pr(tmp_path):
+def pr():
     """Load pulse-review via exec into an isolated namespace dict."""
     ns: dict = {"__name__": "test_pulse_review", "__doc__": ""}
     source = PULSE_REVIEW_PATH.read_text(encoding="utf-8")
@@ -65,10 +65,10 @@ class TestMainArgs:
         manifest.write_text("# Manifest\n- item 1\n- item 2\n", encoding="utf-8")
 
         mock_pq = MagicMock(return_value=[("gemini-3.1-pro", "Looks good."), ("codex", "Clean.")])
-        pr["parallel_query"] = mock_pq
 
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
         mock_pq.assert_called_once()
@@ -83,20 +83,21 @@ class TestMainArgs:
 
 class TestOutputFormatting:
     def test_creates_output_file(self, pr, tmp_path, capsys):
-        """Should create a review markdown file in ~/tmp/."""
+        """Should create a review markdown file in ~/germline/loci/pulse/."""
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        pr["parallel_query"] = MagicMock(
+        mock_pq = MagicMock(
             return_value=[("gemini-3.1-pro", "Gemini review text."), ("codex", "Codex review text.")]
         )
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
         assert out_dir.exists()
-        review_files = list(out_dir.glob("copia-review-*.md"))
+        review_files = list(out_dir.glob("pulse-review-*.md"))
         assert len(review_files) == 1
         content = review_files[0].read_text(encoding="utf-8")
         assert "Gemini review text." in content
@@ -107,17 +108,18 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        pr["parallel_query"] = MagicMock(
+        mock_pq = MagicMock(
             return_value=[("gemini-3.1-pro", "Review A."), ("codex", "Review B.")]
         )
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
-        review_file = list(out_dir.glob("copia-review-*.md"))[0]
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
+        review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
-        assert "# Copia Review" in content
+        assert "# Pulse Review" in content
         assert "## Gemini 3.1 Pro" in content
         assert "## Codex (GPT-5.4)" in content
 
@@ -126,15 +128,16 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        pr["parallel_query"] = MagicMock(
+        mock_pq = MagicMock(
             return_value=[("gemini-3.1-pro", "ok"), ("codex", "ok")]
         )
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
-        review_file = list(out_dir.glob("copia-review-*.md"))[0]
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
+        review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert str(manifest) in content
 
@@ -144,15 +147,16 @@ class TestOutputFormatting:
         manifest.write_text("# Test\n", encoding="utf-8")
 
         # Only one model responds
-        pr["parallel_query"] = MagicMock(
+        mock_pq = MagicMock(
             return_value=[("gemini-3.1-pro", "Only Gemini responded.")]
         )
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
-        out_dir = tmp_path / "tmp"
-        review_file = list(out_dir.glob("copia-review-*.md"))[0]
+        out_dir = tmp_path / "germline" / "loci" / "pulse"
+        review_file = list(out_dir.glob("pulse-review-*.md"))[0]
         content = review_file.read_text(encoding="utf-8")
         assert "(no response)" in content
 
@@ -161,11 +165,12 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        pr["parallel_query"] = MagicMock(
+        mock_pq = MagicMock(
             return_value=[("gemini-3.1-pro", "Review text."), ("codex", "Codex text.")]
         )
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
         out = capsys.readouterr().out
@@ -179,11 +184,12 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        pr["parallel_query"] = MagicMock(
+        mock_pq = MagicMock(
             return_value=[("gemini-3.1-pro", "ok"), ("codex", "ok")]
         )
         with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
-             patch.object(Path, "home", return_value=tmp_path):
+             patch.object(Path, "home", return_value=tmp_path), \
+             patch("metabolon.symbiont.parallel_transduce", mock_pq):
             pr["main"]()
 
         out = capsys.readouterr().out

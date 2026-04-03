@@ -20,12 +20,14 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from metabolon.locus import genome_md, home as _home
+
 SRC_DIR = Path(__file__).parent.parent  # metabolon/
 
 # Receptor binding sites — where resources activate (constitution, CLAUDE.md).
 _RECEPTOR_BINDING_SITES: list[Path] = [
-    Path.home() / ".local" / "share" / "vivesca" / "genome.md",
-    Path.home() / "CLAUDE.md",
+    genome_md,
+    _home / "CLAUDE.md",
 ]
 
 

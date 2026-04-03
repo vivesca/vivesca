@@ -15,9 +15,10 @@ GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-h
 
 def _load_module():
     """Load golem-health effector into a module object via exec()."""
-    ns: dict = {"__name__": "golem_health", "__file__": str(GOLEM_HEALTH_PATH)}
-    exec(GOLEM_HEALTH_PATH.read_text(), ns)
-    mod = types.SimpleNamespace(**ns)
+    mod = types.ModuleType("golem_health")
+    mod.__file__ = str(GOLEM_HEALTH_PATH)
+    sys.modules["golem_health"] = mod
+    exec(GOLEM_HEALTH_PATH.read_text(), mod.__dict__)
     return mod
 
 

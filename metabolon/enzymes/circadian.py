@@ -1,8 +1,8 @@
-from __future__ import annotations
-
 """circadian — calendar management plus sleep and heart-rate sensing."""
 
-from fastmcp.tools import tool
+from __future__ import annotations
+
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import EffectorResult, Secretion
@@ -40,7 +40,9 @@ def circadian(
 
     if action == "set":
         if not summary or not date or not from_time or not to_time:
-            return EffectorResult(success=False, message="set requires: summary, date, from_time, to_time")
+            return EffectorResult(
+            success=False, message="set requires: summary, date, from_time, to_time"
+        )
         from metabolon.organelles.circadian_clock import schedule_event
 
         duration_minutes = 60

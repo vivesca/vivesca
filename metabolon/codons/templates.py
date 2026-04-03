@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from fastmcp.prompts.function_prompt import prompt
+
 """Prompt templates for common agent workflows.
 
 Prompts:
@@ -9,14 +11,11 @@ Prompts:
 """
 
 
-from fastmcp.prompts import prompt
-
-
 @prompt(
     name="research",
     description=(
         "Generate a structured research brief. "
-        "Calls rheotaxis_search as appropriate and formats findings "
+        "Calls rheotaxis as appropriate and formats findings "
         "with executive summary, key points, sources, and recommended actions."
     ),
 )
@@ -28,10 +27,13 @@ def research(
     """Structured research brief prompt."""
     context_block = f"\nBackground context: {context}\n" if context else ""
     depth_instruction = {
-        "quick": "Use rheotaxis_search with depth=quick for a quick factual lookup.",
-        "standard": "Use rheotaxis_search with depth=thorough for a thorough survey.",
-        "deep": "Use rheotaxis_search with depth=deep for deep investigation (expensive — confirm before running).",
-    }.get(depth, "Use rheotaxis_search with depth=thorough for a thorough survey.")
+        "quick": "Use rheotaxis with depth=quick for a quick factual lookup.",
+        "standard": "Use rheotaxis with depth=thorough for a thorough survey.",
+        "deep": (
+            "Use rheotaxis with depth=deep for deep investigation "
+            "(expensive — confirm before running)."
+        ),
+    }.get(depth, "Use rheotaxis with depth=thorough for a thorough survey.")
 
     return (
         f"Research the following topic and produce a structured brief.\n\n"
@@ -109,7 +111,8 @@ def morning_brief(
         f"Generate a morning situation report for Terry.\n\n"
         f"Steps:\n"
         f"1. Read vivesca://circadian — list today's events with times (HKT).\n"
-        f"2. Use histone with action=search for any pending items or open loops from recent sessions.\n"
+        "2. Use histone with action=search for any pending items or "
+        "open loops from recent sessions.\n"
         f"3. Check ~/epigenome/chromatin/Tonus.md for active priorities.\n"
         f"{focus_block}"
         f"4. Produce a brief (under 300 words) covering:\n"

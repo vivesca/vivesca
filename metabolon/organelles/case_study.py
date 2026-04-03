@@ -43,13 +43,13 @@ class CaseStudy:
         lines = [
             f"# {self.title}",
             "",
-            f"## Challenge",
+            "## Challenge",
             self.challenge,
             "",
-            f"## Approach",
+            "## Approach",
             self.approach,
             "",
-            f"## Result",
+            "## Result",
             self.result,
         ]
         if self.metrics:

@@ -367,6 +367,77 @@ class TestGracefulDegradation:
         assert "tailscale" in combined.lower()
 
 
+class TestOAuthInjection:
+    """Vault-backed OAuth document injection."""
+
+    def _setup_with_fake_op(self, home: Path) -> Path:
+        _make_env_fly(home)
+        germline = home / "germline"
+        germline.mkdir()
+        (germline / ".git").mkdir()
+        epigenome = home / "epigenome"
+        epigenome.mkdir()
+        (epigenome / ".git").mkdir()
+
+        effectors_dir = germline / "effectors"
+        effectors_dir.mkdir()
+        importin_path = effectors_dir / "importin"
+        importin_path.write_text("#!/usr/bin/env python3\nprint('')\n")
+        importin_path.chmod(0o755)
+
+        fake_bin = home / "fake-bin"
+        fake_bin.mkdir()
+        op_path = fake_bin / "op"
+        op_path.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "vault" && "$2" == "list" ]]; then
+  exit 0
+fi
+if [[ "$1" == "read" ]]; then
+  case "$2" in
+    op://Agents/claude-oauth/credential) printf '{"claude":"ok"}' ;;
+    op://Agents/gemini-oauth/credential) printf '{"gemini":"ok"}' ;;
+    op://Agents/gemini-oauth/google_accounts) printf '{"accounts":["a@example.com"]}' ;;
+    op://Agents/codex-oauth/credential) printf '{"codex":"ok"}' ;;
+    *) exit 1 ;;
+  esac
+  exit 0
+fi
+exit 1
+"""
+        )
+        op_path.chmod(0o755)
+        return fake_bin
+
+    def test_oauth_files_injected_from_vault(self, tmp_path):
+        """OAuth documents are written when op access is available."""
+        fake_bin = self._setup_with_fake_op(tmp_path)
+        env_extra = {"PATH": f"{fake_bin}:{os.environ['PATH']}"}
+
+        result = _run_soma_activate(tmp_path, env_extra=env_extra)
+
+        assert result.returncode == 0
+        assert (tmp_path / ".claude" / "credentials.json").read_text() == '{"claude":"ok"}\n'
+        assert (tmp_path / ".gemini" / "oauth_creds.json").read_text() == '{"gemini":"ok"}\n'
+        assert (tmp_path / ".gemini" / "google_accounts.json").read_text() == '{"accounts":["a@example.com"]}\n'
+        assert (tmp_path / ".codex" / "auth.json").read_text() == '{"codex":"ok"}\n'
+
+    def test_existing_oauth_files_are_not_overwritten(self, tmp_path):
+        """Existing OAuth files are preserved on rerun."""
+        fake_bin = self._setup_with_fake_op(tmp_path)
+        existing_file = tmp_path / ".codex" / "auth.json"
+        existing_file.parent.mkdir(parents=True)
+        existing_file.write_text("existing\n")
+        env_extra = {"PATH": f"{fake_bin}:{os.environ['PATH']}"}
+
+        result = _run_soma_activate(tmp_path, env_extra=env_extra)
+
+        assert result.returncode == 0
+        assert existing_file.read_text() == "existing\n"
+        assert "Codex OAuth exists" in result.stdout
+
+
 # ── Repo pull ──────────────────────────────────────────────────────────
 
 

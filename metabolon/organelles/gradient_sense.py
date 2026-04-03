@@ -182,10 +182,10 @@ _TOPIC_CLUSTERS: dict[str, list[str]] = {
 
 # Tool names mapped to topic domain (for signal log classification)
 _TOOL_DOMAINS: dict[str, str] = {
-    "rheotaxis_search": "ai_models",
-    "histone_search": "career_consulting",
+    "rheotaxis": "ai_models",
+    "histone": "career_consulting",
     "histone_mark": "career_consulting",
-    "circadian_list": "career_consulting",
+    "circadian": "career_consulting",
     "circadian_set": "career_consulting",
     "ligand_bind": "career_consulting",
     "ligand_draft": "career_consulting",

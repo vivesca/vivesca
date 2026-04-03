@@ -1,0 +1,59 @@
+name: Outreach Message
+description: Networking messages, LinkedIn DMs, cold emails, follow-ups
+
+checks:
+  - name: personalization
+    question: "Does it reference something specific about the recipient (their work, posts, background)?"
+    weight: high
+    examples:
+      good: "I saw your post about building ML platforms at scale"
+      bad: "I came across your profile and wanted to connect"
+
+  - name: clear_ask
+    question: "Is there a clear, specific ask or purpose?"
+    weight: high
+    examples:
+      good: "Would you have 15 minutes for a call next week?"
+      bad: "I'd love to connect and learn more about your journey"
+
+  - name: relevance
+    question: "Is the connection to the recipient's work/expertise clear?"
+    weight: high
+    examples:
+      good: "Given your experience with fraud detection at Monzo..."
+      bad: "I'm interested in fintech and thought you might have insights"
+
+  - name: concise
+    question: "Is it appropriately brief? (<150 words for LinkedIn, <250 for email)"
+    weight: medium
+    examples:
+      good: "3 short paragraphs with clear purpose"
+      bad: "Wall of text with life story"
+
+  - name: tone
+    question: "Professional but warm? No desperation or over-formality?"
+    weight: medium
+    examples:
+      good: "I'd appreciate any time you could spare"
+      bad: "I would be eternally grateful for even a moment of your precious time"
+
+  - name: value_offer
+    question: "Does it hint at mutual value, not just asking for help?"
+    weight: medium
+    examples:
+      good: "Happy to share what I've learned about X in return"
+      bad: "I really need your help with my job search"
+
+  - name: exclamation_marks
+    question: "Max 1 exclamation mark in the entire message?"
+    weight: low
+    examples:
+      good: "Thanks for considering!"
+      bad: "So excited to connect! Would love to chat! Thanks so much!"
+
+  - name: no_filler
+    question: "Free of filler phrases and redundant context?"
+    weight: low
+    examples:
+      good: "I lead data science at CNCBI"
+      bad: "I wanted to reach out because I'm currently working as..."

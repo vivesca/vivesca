@@ -49,7 +49,7 @@ class TestProviders:
         mod = _load_effector()
         cfg = mod["PROVIDERS"]["volcano"]
         assert cfg["key_env"] == "VOLCANO_API_KEY"
-        assert cfg["auth_mode"] == "token"
+        assert cfg["auth_mode"] == "key"
 
     def test_infini_config(self):
         mod = _load_effector()

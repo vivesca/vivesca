@@ -7,7 +7,7 @@ Mac is authoritative. Lucerna never writes back.
 """
 
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import EffectorResult, Vital

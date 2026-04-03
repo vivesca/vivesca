@@ -14,10 +14,11 @@ Clot first, understand second.
 
 
 import datetime
+import platform
 import subprocess
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.locus import chromatin
@@ -134,6 +135,15 @@ def hemostasis(
 
     # --- launchagent ------------------------------------------------------
     if action == "launchagent":
+        if platform.system() != "Darwin":
+            return EffectorResult(
+                success=False,
+                message=(
+                    f"launchctl is not available on {platform.system()}. "
+                    "Use `systemctl --user start/stop <service>` instead."
+                ),
+            )
+
         la = launchagent_action.lower()
         if la not in ("load", "unload"):
             return EffectorResult(

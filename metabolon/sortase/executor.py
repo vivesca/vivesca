@@ -11,9 +11,10 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 from metabolon.sortase.decompose import TaskSpec
 
@@ -58,7 +59,7 @@ def _prepend_coaching(prompt: str, tool: str) -> str:
     """
     if tool in ("goose", "droid"):
         return prompt
-    if tool not in ("opencode", "golem", "crush") or not COACHING_NOTES.exists():
+    if tool not in ("opencode", "golem", "crush", "codex") or not COACHING_NOTES.exists():
         return prompt
     try:
         notes = COACHING_NOTES.read_text(encoding="utf-8")
@@ -323,7 +324,7 @@ def _legacy_tombstone(task_name: str) -> str:
     return f"__removed__:{task_name}"
 
 
-def _read_status_entries() -> list[dict]:
+def _read_status_entries() -> list[dict | str]:
     path = _status_path()
     if not path.exists():
         return []
@@ -333,13 +334,13 @@ def _read_status_entries() -> list[dict]:
         return []
 
 
-def _write_status_entries(entries: list[dict]) -> None:
+def _write_status_entries(entries: list[dict | str]) -> None:
     path = _status_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
 
 
-def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
+def _locked_status_update(fn: Callable[[list[dict | str]], list[dict | str]]) -> None:
     """Atomically read-modify-write status.json with file locking."""
     import fcntl
 
@@ -357,7 +358,7 @@ def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
 
 
 def register_running(task_name: str, tool: str | None = None, project_dir: Path | None = None) -> None:
-    def _add(entries: list[dict]) -> list[dict]:
+    def _add(entries: list[dict | str]) -> list[dict | str]:
         if tool is None or project_dir is None:
             tombstone = _legacy_tombstone(task_name)
             if tombstone in entries:
@@ -380,7 +381,7 @@ def register_running(task_name: str, tool: str | None = None, project_dir: Path 
 
 
 def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
-    def _remove(entries: list[dict]) -> list[dict]:
+    def _remove(entries: list[dict | str]) -> list[dict | str]:
         if project_dir is None:
             remaining = [entry for entry in entries if entry != task_name]
             if len(remaining) == len(entries):
@@ -399,7 +400,7 @@ def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
     _locked_status_update(_remove)
 
 
-def list_running() -> list[dict]:
+def list_running() -> list[dict[str, Any] | str]:
     entries = _read_status_entries()
     for entry in entries:
         if isinstance(entry, dict) and "pid" in entry:
@@ -421,6 +422,16 @@ async def _run_command(
     dry_run: bool = False,
     coaching: bool = True,
 ) -> ExecutionAttempt:
+    # For codex: long specs get written to a file and referenced by path.
+    # Must happen BEFORE coaching prepend — otherwise coaching drowns the spec.
+    if tool == "codex" and len(prompt) > 2000:
+        spec_file = Path(tempfile.gettempdir()) / f"sortase-codex-spec-{task_name or 'task'}.md"
+        spec_file.write_text(prompt, encoding="utf-8")
+        prompt = (
+            f"You are working in {project_dir}. "
+            f"Read the spec at {spec_file} and execute every step in it. "
+            f"Only touch files listed in the spec's 'Files changed' section."
+        )
     if coaching:
         prompt = _prepend_coaching(prompt, tool)
     if dry_run:

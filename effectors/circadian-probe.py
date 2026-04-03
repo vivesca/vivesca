@@ -23,6 +23,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 CHROMATIN = Path.home() / "epigenome" / "chromatin"
+_SENT_FILE = Path.home() / ".cache" / "circadian-probe-last-sent"
 
 # Claude Code memory dir: path-encodes the project root
 _CLAUDE_PROJ_DIR = Path.home() / ".claude" / "projects"
@@ -147,10 +148,6 @@ def scan_prospective_memory() -> list[str]:
         if not in_active or not line.strip().startswith("- WHEN:"):
             continue
 
-        # Check for date-based triggers
-        re.compile(
-            r"(?:~?\s*)?((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+)?(\w{3}\s+\d{1,2})"
-        )
         # Also check for "any session" or "next session" triggers
         if "any session" in line or "next session" in line:
             # Extract the THEN action
@@ -251,12 +248,33 @@ def build_digest() -> str:
     return "\n\n".join(sections)
 
 
+def _already_sent_today() -> bool:
+    """Check if we already sent the heartbeat today (dedup guard)."""
+    if not _SENT_FILE.exists():
+        return False
+    try:
+        stamp = _SENT_FILE.read_text().strip()
+        return stamp == date.today().isoformat()
+    except OSError:
+        return False
+
+
+def _mark_sent() -> None:
+    """Record that we sent today's heartbeat."""
+    _SENT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _SENT_FILE.write_text(date.today().isoformat())
+
+
 def send_via_telegram(message: str) -> bool:
     """Send message via secretory vesicle (Telegram API directly)."""
     try:
+        _germline = str(Path.home() / "germline")
+        if _germline not in sys.path:
+            sys.path.insert(0, _germline)
         from metabolon.organelles.secretory_vesicle import secrete_text
 
         secrete_text(message, html=False, label="AKM Heartbeat")
+        _mark_sent()
         return True
     except Exception as exc:
         print(f"Telegram send failed: {exc}", file=sys.stderr)
@@ -267,10 +285,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="AKM Heartbeat — nightly chromatin health digest via Telegram."
     )
-    parser.parse_args()
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print digest without sending."
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Send even if already sent today."
+    )
+    args = parser.parse_args()
 
     digest = build_digest()
     print(digest)  # Log to stdout (captured by LaunchAgent)
+
+    if args.dry_run:
+        return
+
+    if _already_sent_today() and not args.force:
+        print("Already sent today — skipping (use --force to override).")
+        return
 
     if not send_via_telegram(digest):
         print("WARNING: Failed to send via Telegram", file=sys.stderr)

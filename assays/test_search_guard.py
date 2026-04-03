@@ -57,10 +57,13 @@ class TestSearchGuardBasics:
         content = SEARCH_GUARD_PATH.read_text()
         assert "def main()" in content
 
-    def test_has_binaries_dict(self):
-        """Test that search-guard defines BINARIES mapping."""
+    def test_has_known_wrappers_set(self):
+        """Test that search-guard defines _KNOWN_WRAPPERS set."""
         content = SEARCH_GUARD_PATH.read_text()
-        assert "BINARIES" in content
+        assert "_KNOWN_WRAPPERS" in content
+        assert "grep" in content
+        assert "rg" in content
+        assert "find" in content
 
 
 # ── Symlink verification ──────────────────────────────────────────────────────
@@ -195,19 +198,19 @@ class TestInternalFunctions:
         assert hasattr(sg, "main")
         assert callable(sg.main)
 
-    def test_binaries_dict_exists(self, sg):
-        """Test that BINARIES dict is defined."""
-        assert hasattr(sg, "BINARIES")
-        binaries = sg.BINARIES
-        assert "grep" in binaries
-        assert "rg" in binaries
-        assert "find" in binaries
+    def test_known_wrappers_exists(self, sg):
+        """Test that _KNOWN_WRAPPERS set is defined."""
+        assert hasattr(sg, "_KNOWN_WRAPPERS")
+        wrappers = sg._KNOWN_WRAPPERS
+        assert isinstance(wrappers, set)
+        assert "grep" in wrappers
+        assert "rg" in wrappers
+        assert "find" in wrappers
 
-    def test_binaries_paths_are_absolute(self, sg):
-        """Test that BINARIES paths are absolute."""
-        binaries = sg.BINARIES
-        for name, path in binaries.items():
-            assert os.path.isabs(path), f"{name} path is not absolute: {path}"
+    def test_find_real_binary_is_callable(self, sg):
+        """Test that _find_real_binary function exists."""
+        assert hasattr(sg, "_find_real_binary")
+        assert callable(sg._find_real_binary)
 
 
 # ── Blocking logic tests via mocks ────────────────────────────────────────────
@@ -233,6 +236,10 @@ class TestBlockingLogic:
         out = capsys.readouterr().out
         assert "BLOCKED" in out
 
+    @pytest.mark.skipif(
+        os.path.expanduser("~").startswith("/home"),
+        reason="~/Library blocking is macOS-specific"
+    )
     def test_blocks_macos_library_via_mock(self, sg):
         """Test macOS Library path blocking via mock."""
         with patch("sys.argv", ["rg", "pattern", str(Path.home() / "Library")]):
@@ -240,15 +247,15 @@ class TestBlockingLogic:
                 sg.main()
             assert exc.value.code == 1
 
-    def test_blocks_macos_downloads_via_mock(self, sg):
-        """Test macOS Downloads path blocking via mock."""
+    def test_blocks_downloads_via_mock(self, sg):
+        """Test Downloads path blocking via mock."""
         with patch("sys.argv", ["rg", "pattern", str(Path.home() / "Downloads")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
-    def test_blocks_macos_pictures_via_mock(self, sg):
-        """Test macOS Pictures path blocking via mock."""
+    def test_blocks_pictures_via_mock(self, sg):
+        """Test Pictures path blocking via mock."""
         with patch("sys.argv", ["rg", "pattern", str(Path.home() / "Pictures")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()

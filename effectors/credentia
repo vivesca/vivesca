@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+"""tessera-google — Provision Google OAuth Desktop credentials headlessly.
+
+Creates a GCP OAuth Desktop client, captures the secret via Playwright
+network interception, runs the OAuth consent flow, and stores tokens
+in 1Password.
+
+Requires: Mac with Chrome signed in + cookie bridge (port 7743), Playwright on Mac.
+
+Usage:
+    tessera-google --project consilium-489403 --scope gmail.modify --name "Gmail Vivesca"
+    tessera-google --project consilium-489403 --scope gmail.modify --name "Gmail Vivesca" --store
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+COOKIE_BRIDGE_PORT = 7743
+OAUTH_LOCAL_PORT = 8099
+MAC_HOST = "mac"
+
+
+def ssh(cmd: str, timeout: int = 30) -> str:
+    result = subprocess.run(
+        ["ssh", MAC_HOST, cmd],
+        capture_output=True, text=True, timeout=timeout,
+    )
+    if result.returncode != 0 and result.stderr:
+        print(f"  ssh stderr: {result.stderr[:200]}", file=sys.stderr)
+    return result.stdout.strip()
+
+
+def step1_enable_api(project: str, scope: str) -> None:
+    api_name = f"{scope.split('.')[0]}.googleapis.com"
+    print(f"[1/4] Enabling {api_name} on {project}...")
+    ssh(f'gcloud services enable {api_name} --project={project}', timeout=60)
+    print(f"  Done.")
+
+
+def step2_create_client(project: str, name: str) -> tuple[str, str]:
+    """Create Desktop OAuth client and capture secret via Playwright."""
+    print(f"[2/4] Creating OAuth Desktop client '{name}'...")
+
+    script = f'''
+import json, time, re, urllib.request
+
+# Get cookies from bridge
+all_cookies = {{}}
+for domain in ["google.com", "accounts.google.com", "console.cloud.google.com"]:
+    data = json.loads(urllib.request.urlopen(f"http://localhost:{COOKIE_BRIDGE_PORT}/cookies?domain={{domain}}").read())
+    all_cookies.update(data)
+
+from playwright.sync_api import sync_playwright
+
+captured = []
+
+def on_response(response):
+    try:
+        if response.status in (200, 201):
+            try:
+                body = response.text()
+            except:
+                return
+            if body and ("clientSecret" in body or "client_secret" in body or "GOCSPX" in body):
+                captured.append(body[:10000])
+    except:
+        pass
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    ctx = browser.new_context()
+    for cookie_name, cookie_value in all_cookies.items():
+        try:
+            ctx.add_cookies([{{"name": cookie_name, "value": cookie_value,
+                             "domain": ".google.com", "path": "/",
+                             "secure": True, "sameSite": "Lax"}}])
+        except:
+            pass
+
+    page = ctx.new_page()
+    page.on("response", on_response)
+
+    page.goto("https://console.cloud.google.com/auth/clients/create?project={project}",
+              wait_until="domcontentloaded", timeout=30000)
+    time.sleep(20)
+
+    if "signin" in page.url:
+        print("ERROR:NOT_AUTHENTICATED")
+        browser.close()
+        exit(1)
+
+    # Dismiss overlays
+    page.evaluate("document.querySelectorAll('.cfc-page-overlay').forEach(e => e.remove())")
+    try:
+        page.locator("button", has_text="OK, got it").click(timeout=3000)
+    except:
+        pass
+
+    # Fill form
+    page.locator("[role=combobox]").last.click()
+    time.sleep(2)
+    page.locator("[role=option]", has_text="Desktop app").click()
+    time.sleep(2)
+    page.locator("input").first.fill("{name}")
+    time.sleep(1)
+
+    page.evaluate("document.querySelectorAll('.cfc-page-overlay').forEach(e => e.remove())")
+    page.evaluate("document.querySelectorAll('button').forEach(b => {{ if (b.innerText.trim() === 'Create') b.click(); }})")
+    time.sleep(8)
+
+    # Extract client ID from page
+    text = page.inner_text("body")
+    client_id_match = re.search(r'(\\d{{10,}}-[a-z0-9]{{30,}}\\.apps\\.googleusercontent\\.com)', text)
+    client_id = client_id_match.group(1) if client_id_match else ""
+
+    # Extract secret from captured API responses
+    client_secret = ""
+    for body in captured:
+        secrets = re.findall(r'GOCSPX-[A-Za-z0-9_-]+', body)
+        if secrets:
+            client_secret = secrets[0]
+            break
+
+    print(f"CLIENT_ID={{client_id}}")
+    print(f"CLIENT_SECRET={{client_secret}}")
+    browser.close()
+'''
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
+        tmp.write(script)
+        tmp_path = tmp.name
+
+    subprocess.run(["scp", tmp_path, f"{MAC_HOST}:/tmp/_tessera_create.py"],
+                   capture_output=True, timeout=10)
+    os.unlink(tmp_path)
+
+    output = ssh('uv run --with playwright python3 /tmp/_tessera_create.py', timeout=120)
+
+    client_id = ""
+    client_secret = ""
+    for line in output.splitlines():
+        if line.startswith("CLIENT_ID="):
+            client_id = line.split("=", 1)[1]
+        elif line.startswith("CLIENT_SECRET="):
+            client_secret = line.split("=", 1)[1]
+
+    if not client_id or not client_secret:
+        print(f"  Failed to capture credentials. Output:\n{output}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"  Client ID: {client_id[:40]}...")
+    print(f"  Secret: {client_secret[:15]}...")
+    return client_id, client_secret
+
+
+def step3_oauth_flow(client_id: str, client_secret: str, scope: str) -> str:
+    """Run OAuth consent flow on Mac, return refresh token."""
+    print(f"[3/4] Running OAuth consent flow (scope: {scope})...")
+
+    creds_json = json.dumps({
+        "installed": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": ["http://localhost"],
+        }
+    })
+
+    script = f'''
+import json
+from google_auth_oauthlib.flow import InstalledAppFlow
+import tempfile, os
+
+creds_data = {repr(creds_json)}
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+    f.write(creds_data)
+    creds_path = f.name
+
+flow = InstalledAppFlow.from_client_secrets_file(creds_path, ["https://www.googleapis.com/auth/{scope}"])
+creds = flow.run_local_server(port={OAUTH_LOCAL_PORT}, open_browser=True, timeout_seconds=180)
+os.unlink(creds_path)
+print(f"REFRESH_TOKEN={{creds.refresh_token}}")
+'''
+
+    # Start flow in background on Mac
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
+        tmp.write(script)
+        tmp_path = tmp.name
+
+    subprocess.run(["scp", tmp_path, f"{MAC_HOST}:/tmp/_tessera_oauth.py"],
+                   capture_output=True, timeout=10)
+    os.unlink(tmp_path)
+
+    ssh(f'nohup uv run --with google-auth-oauthlib --with google-api-python-client '
+        f'python3 /tmp/_tessera_oauth.py > /tmp/_tessera_oauth.log 2>&1 &')
+
+    # Wait for browser to open, then automate consent
+    time.sleep(10)
+    _automate_consent()
+
+    # Wait for flow to complete
+    time.sleep(10)
+    log = ssh('cat /tmp/_tessera_oauth.log')
+
+    refresh_token = ""
+    for line in log.splitlines():
+        if line.startswith("REFRESH_TOKEN="):
+            refresh_token = line.split("=", 1)[1]
+
+    if not refresh_token:
+        print(f"  Flow failed. Log:\n{log}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"  Refresh token: {refresh_token[:25]}...")
+    return refresh_token
+
+
+def _automate_consent() -> None:
+    """Click through Google consent screens via AppleScript."""
+    def chrome_js(js_code: str) -> str:
+        escaped = js_code.replace('\\', '\\\\').replace('"', '\\"')
+        return ssh(
+            f'osascript -e \'tell application "Google Chrome" to execute '
+            f'active tab of first window javascript "{escaped}"\'',
+            timeout=10,
+        )
+
+    # Account chooser
+    chrome_js('var e=document.querySelectorAll("[data-identifier]");e.length>0&&e[0].click();"ok"')
+    time.sleep(5)
+
+    # Unverified app warning
+    chrome_js('var e=document.querySelectorAll("a,button");for(var i=0;i<e.length;i++)if(e[i].innerText.indexOf("Advanced")!==-1){e[i].click();break;}"ok"')
+    time.sleep(2)
+    chrome_js('var e=document.querySelectorAll("a,button");for(var i=0;i<e.length;i++)if(e[i].innerText.indexOf("Go to")!==-1&&e[i].innerText.indexOf("unsafe")!==-1){e[i].click();break;}"ok"')
+    time.sleep(5)
+
+    # Grant consent
+    chrome_js('var b=document.querySelectorAll("button");for(var i=0;i<b.length;i++)if(b[i].innerText.trim()==="Continue"){b[i].click();break;}"ok"')
+
+
+def step4_store(client_id: str, client_secret: str, refresh_token: str,
+                scope: str, project: str, name: str) -> None:
+    """Store credentials in 1Password and print env vars."""
+    print(f"[4/4] Storing credentials...")
+
+    subprocess.run([
+        "op", "item", "create", "--vault", "Agents",
+        "--category", "API Credential",
+        "--title", f"{name} OAuth",
+        "--tags", f"oauth,{scope.split('.')[0]},vivesca",
+        f"client_id={client_id}",
+        f"client_secret={client_secret}",
+        f"refresh_token={refresh_token}",
+        f"project={project}",
+        f"scope={scope}",
+    ], capture_output=True, timeout=15)
+
+    prefix = scope.split(".")[0].upper()
+    print(f"\n  Add to ~/.zshenv:")
+    print(f'  export {prefix}_CLIENT_ID="{client_id}"')
+    print(f'  export {prefix}_CLIENT_SECRET="{client_secret}"')
+    print(f'  export {prefix}_REFRESH_TOKEN="{refresh_token}"')
+    print(f"\n  Stored in 1Password vault Agents.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Provision Google OAuth Desktop credentials")
+    parser.add_argument("--project", required=True, help="GCP project ID")
+    parser.add_argument("--scope", required=True, help="Google API scope (e.g. gmail.modify)")
+    parser.add_argument("--name", required=True, help="OAuth client display name")
+    parser.add_argument("--store", action="store_true", help="Store in 1Password")
+    parser.add_argument("--skip-api", action="store_true", help="Skip API enablement")
+    args = parser.parse_args()
+
+    if not args.skip_api:
+        step1_enable_api(args.project, args.scope)
+
+    client_id, client_secret = step2_create_client(args.project, args.name)
+    refresh_token = step3_oauth_flow(client_id, client_secret, args.scope)
+
+    if args.store:
+        step4_store(client_id, client_secret, refresh_token,
+                    args.scope, args.project, args.name)
+    else:
+        print(f"\nClient ID: {client_id}")
+        print(f"Client Secret: {client_secret}")
+        print(f"Refresh Token: {refresh_token}")
+        print(f"\nRun with --store to save to 1Password.")
+
+
+if __name__ == "__main__":
+    main()

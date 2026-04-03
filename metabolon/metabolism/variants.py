@@ -6,7 +6,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-DEFAULT_ROOT = Path.home() / ".local" / "share" / "vivesca" / "variants"
+from metabolon.locus import variants_root
+
+DEFAULT_ROOT = variants_root
 
 
 class Genome:

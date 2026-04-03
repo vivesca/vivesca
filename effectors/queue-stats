@@ -175,6 +175,10 @@ def format_duration(seconds: float) -> str:
 
 
 def main() -> int:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return 0
+
     if not QUEUE_FILE.exists():
         print(f"Error: queue file not found: {QUEUE_FILE}", file=sys.stderr)
         return 1

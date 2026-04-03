@@ -1,256 +1,328 @@
-#!/usr/bin/env python3
-"""Test for tmux-url-select.sh effector script."""
+from __future__ import annotations
+
+"""Tests for effectors/tmux-url-select.sh.
+
+Effectors are scripts — tested via subprocess.run, never imported.
+"""
 
 import os
 import subprocess
-import tempfile
+import textwrap
 from pathlib import Path
 
 import pytest
 
-EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "tmux-url-select.sh"
+SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "tmux-url-select.sh"
+BUFFER_FILE = Path("/tmp/tmux-url-buffer")
 
 
-def test_tmux_url_select_script_exists():
-    """Verify the script file exists."""
-    assert EFFECTOR_PATH.exists()
-    assert EFFECTOR_PATH.is_file()
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-
-def test_tmux_url_select_help_flag():
-    """Test that --help prints usage and exits cleanly."""
-    result = subprocess.run(
-        [str(EFFECTOR_PATH), "--help"],
+def _run(
+    args: list[str] | None = None,
+    env_extra: dict[str, str] | None = None,
+    timeout: int = 10,
+    stdin_data: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run tmux-url-select.sh with optional overrides."""
+    cmd = ["bash", str(SCRIPT), *(args or [])]
+    env = os.environ.copy()
+    env.update(env_extra or {})
+    return subprocess.run(
+        cmd,
         capture_output=True,
         text=True,
+        timeout=timeout,
+        env=env,
+        input=stdin_data,
     )
-    assert result.returncode == 0
-    assert "Usage: tmux-url-select.sh" in result.stdout
-    assert "Interactively select a URL" in result.stdout
-    assert "fzf" in result.stdout
 
 
-def test_tmux_url_select_help_flag_short():
-    """Test that -h prints usage and exits cleanly."""
-    result = subprocess.run(
-        [str(EFFECTOR_PATH), "-h"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert "Usage: tmux-url-select.sh" in result.stdout
+def _make_mock_bin(bindir: Path, name: str, body: str) -> Path:
+    """Create a mock executable script in bindir."""
+    path = bindir / name
+    path.write_text(f"#!/usr/bin/env bash\n{body}\n")
+    path.chmod(0o755)
+    return path
 
 
-def test_no_urls_when_buffer_missing():
-    """Test script handles missing buffer file gracefully."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        buffer_path = Path(tmpdir) / "tmux-url-buffer"
-        # Don't create the buffer file - test missing file handling
-        result = subprocess.run(
-            [str(EFFECTOR_PATH)],
-            capture_output=True,
-            text=True,
-            env={**os.environ, "TMPDIR": tmpdir},
-            # Script hardcodes /tmp/tmux-url-buffer, so this tests
-            # the "no URLs found" path when file doesn't exist
-        )
-        # Script should exit 0 and print message about no URLs
-        assert result.returncode == 0
-        assert "No URLs found in pane" in result.stdout
+def _env_with_mocked_path(tmp_path: Path, mocks: dict[str, str]) -> dict[str, str]:
+    """Return env dict with a PATH that finds our mock scripts first."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    for name, body in mocks.items():
+        _make_mock_bin(bindir, name, body)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '/usr/bin:/bin')}"
+    return env
 
 
-def test_no_urls_when_buffer_empty():
-    """Test script handles empty buffer file."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        buffer_path = Path(tmpdir) / "tmux-url-buffer"
-        buffer_path.write_text("")
-        
-        # Script hardcodes /tmp/tmux-url-buffer, so we need to create it there
-        # Use a subprocess to avoid polluting the real /tmp
-        real_buffer = Path("/tmp/tmux-url-buffer")
-        original_content = None
-        if real_buffer.exists():
-            original_content = real_buffer.read_text()
-        
+def _write_buffer(urls: str, tmp_path: Path) -> Path:
+    """Write url content to the buffer path and return the path."""
+    buf = tmp_path / "tmux-url-buffer"
+    buf.write_text(urls)
+    return buf
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+class TestHelp:
+    """--help and -h flags."""
+
+    def test_help_flag(self):
+        r = _run(["--help"])
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+        assert "tmux-url-select.sh" in r.stdout
+
+    def test_h_short_flag(self):
+        r = _run(["-h"])
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+
+
+class TestNoURLsFound:
+    """When the buffer file is missing or has no URLs."""
+
+    def test_missing_buffer_file(self, tmp_path: Path, monkeypatch):
+        """Missing buffer file → prints message, exits 0."""
+        buf = tmp_path / "nonexistent"
+        env = _env_with_mocked_path(tmp_path, {})
+        # Patch the buffer path by rewriting the script's grep target.
+        # Instead, write to /tmp/tmux-url-buffer pointing nowhere:
+        # We'll just ensure /tmp/tmux-url-buffer doesn't have URLs.
+        # Use a tmp buffer file and override via sed-free approach:
+        # Actually easiest: just ensure the real buffer is absent/empty.
+        r = _run(env_extra=env)
+        assert r.returncode == 0
+        assert "No URLs found in pane" in r.stdout
+
+    def test_empty_buffer_file(self, tmp_path: Path):
+        """Empty buffer → prints message, exits 0."""
+        BUFFER_FILE.write_text("")
         try:
-            real_buffer.write_text("")
-            result = subprocess.run(
-                [str(EFFECTOR_PATH)],
-                capture_output=True,
-                text=True,
-            )
-            assert result.returncode == 0
-            assert "No URLs found in pane" in result.stdout
+            r = _run()
+            assert r.returncode == 0
+            assert "No URLs found in pane" in r.stdout
         finally:
-            # Restore or clean up
-            if original_content is not None:
-                real_buffer.write_text(original_content)
-            elif real_buffer.exists():
-                real_buffer.unlink()
+            BUFFER_FILE.unlink(missing_ok=True)
 
-
-def test_url_extraction_and_osc52_output():
-    """Test URL extraction and OSC 52 output with mocked fzf."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        
-        # Create mock fzf that selects the first URL
-        mock_fzf = tmpdir_path / "fzf"
-        mock_fzf.write_text(
-            '#!/bin/bash\n'
-            '# Mock fzf - read stdin and output first line\n'
-            'head -1\n'
-        )
-        mock_fzf.chmod(0o755)
-        
-        # Create mock tmux
-        mock_tmux = tmpdir_path / "tmux"
-        mock_tmux.write_text(
-            '#!/bin/bash\n'
-            'echo "tmux: $@"\n'
-        )
-        mock_tmux.chmod(0o755)
-        
-        # Create buffer with URLs
-        real_buffer = Path("/tmp/tmux-url-buffer")
-        original_content = None
-        if real_buffer.exists():
-            original_content = real_buffer.read_text()
-        
+    def test_buffer_with_no_urls(self, tmp_path: Path):
+        """Buffer with plain text (no URLs) → prints message, exits 0."""
+        BUFFER_FILE.write_text("just some text\nno links here\n")
         try:
-            real_buffer.write_text(
-                "Check out https://example.com/page1 for info\n"
-                "Also see https://example.com/page2\n"
-                "Duplicate https://example.com/page1\n"
-            )
-            
-            # Run with mocked PATH
-            env = {**os.environ, "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}"}
-            result = subprocess.run(
-                [str(EFFECTOR_PATH)],
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            
-            # Should have selected first URL and output OSC 52
-            assert result.returncode == 0
-            # OSC 52 format: ESC]52;c;<base64>BEL
-            assert "\x1b]52;c;" in result.stdout
-            # Verify base64 encoded URL in output
+            r = _run()
+            assert r.returncode == 0
+            assert "No URLs found in pane" in r.stdout
+        finally:
+            BUFFER_FILE.unlink(missing_ok=True)
+
+
+class TestURLSelection:
+    """URL extraction and selection via fzf."""
+
+    def test_single_url_selected(self, tmp_path: Path):
+        """Single URL in buffer, fzf selects it → OSC 52 emitted."""
+        url = "https://example.com/page"
+        BUFFER_FILE.write_text(f"Check out {url} for details\n")
+        try:
+            # Mock fzf to just pass through stdin (pick first line)
+            # Mock tmux display-message to capture args
+            mock_fzf = textwrap.dedent("""\
+                # fzf mock: just echo first line from stdin
+                head -n1
+            """)
+            display_msg_file = tmp_path / "tmux_display_args"
+            mock_tmux = textwrap.dedent(f"""\
+                echo "$@" > {display_msg_file}
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            # Should contain OSC 52 escape sequence with base64-encoded URL
             import base64
-            # The selected URL should be the first one after dedup
-            # URLs are extracted and deduplicated, first one should be selected
-            assert "\x07" in result.stdout  # BEL character terminates OSC
+            expected_b64 = base64.b64encode(url.encode()).decode()
+            assert f"\033]52;c;{expected_b64}\a" in r.stdout
+            # tmux display-message should have been called
+            assert display_msg_file.exists()
+            msg = display_msg_file.read_text()
+            assert "display-message" in msg
+            assert url in msg
         finally:
-            if original_content is not None:
-                real_buffer.write_text(original_content)
-            elif real_buffer.exists():
-                real_buffer.unlink()
+            BUFFER_FILE.unlink(missing_ok=True)
 
-
-def test_url_deduplication():
-    """Test that duplicate URLs are removed before selection."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-
-        # Track what fzf receives on stdin
-        fzf_input_file = tmpdir_path / "fzf_input.txt"
-        mock_fzf = tmpdir_path / "fzf"
-        mock_fzf.write_text(
-            '#!/bin/bash\n'
-            f'cat > {fzf_input_file}\n'
-            '# Output first line for selection\n'
-            'head -1\n'
+    def test_multiple_urls_deduplicated(self, tmp_path: Path):
+        """Duplicate URLs in buffer are deduplicated before fzf."""
+        BUFFER_FILE.write_text(
+            "See https://example.com and also https://example.com again\n"
         )
-        mock_fzf.chmod(0o755)
-        
-        # Create mock tmux
-        mock_tmux = tmpdir_path / "tmux"
-        mock_tmux.write_text('#!/bin/bash\n')
-        mock_tmux.chmod(0o755)
-        
-        real_buffer = Path("/tmp/tmux-url-buffer")
-        original_content = None
-        if real_buffer.exists():
-            original_content = real_buffer.read_text()
-        
         try:
-            # Write buffer with duplicate URLs
-            real_buffer.write_text(
-                "https://example.com/page1\n"
-                "https://example.com/page2\n"
-                "https://example.com/page1\n"  # duplicate
-                "https://example.com/page3\n"
-                "https://example.com/page2\n"  # duplicate
-            )
-            
-            env = {**os.environ, "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}"}
-            result = subprocess.run(
-                [str(EFFECTOR_PATH)],
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            
-            # Check that fzf received deduplicated URLs
-            if fzf_input_file.exists():
-                urls_seen = fzf_input_file.read_text().strip().split("\n")
-                # Should have 3 unique URLs, not 5
-                assert len(urls_seen) == 3, f"Expected 3 unique URLs, got {len(urls_seen)}: {urls_seen}"
+            # Capture what fzf receives on stdin by writing it to a file
+            fzf_input_file = tmp_path / "fzf_input"
+            mock_fzf = textwrap.dedent(f"""\
+                cat > {fzf_input_file}
+                # Output the first URL
+                head -n1 {fzf_input_file}
+            """)
+            mock_tmux = textwrap.dedent("""\
+                true
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            # The fzf input should have only 1 line (deduplicated)
+            fzf_input = fzf_input_file.read_text().strip()
+            lines = [l for l in fzf_input.splitlines() if l.strip()]
+            assert len(lines) == 1
+            assert lines[0] == "https://example.com"
         finally:
-            if original_content is not None:
-                real_buffer.write_text(original_content)
-            elif real_buffer.exists():
-                real_buffer.unlink()
+            BUFFER_FILE.unlink(missing_ok=True)
+
+    def test_url_selection_none_chosen(self, tmp_path: Path):
+        """fzf returns empty (user cancelled) → no OSC 52 output."""
+        BUFFER_FILE.write_text("Visit https://example.com today\n")
+        try:
+            # Mock fzf to return empty
+            mock_fzf = textwrap.dedent("""\
+                # Simulate user pressing Escape / cancelling
+                true  # output nothing
+            """)
+            mock_tmux = textwrap.dedent("""\
+                echo "SHOULD NOT BE CALLED" > /tmp/test_tmux_fail
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            # No OSC 52 escape sequence
+            assert "\033]52;" not in r.stdout
+        finally:
+            BUFFER_FILE.unlink(missing_ok=True)
+
+    def test_url_with_special_chars(self, tmp_path: Path):
+        """URLs with query params and fragments are handled correctly."""
+        url = "https://example.com/path?q=hello+world&lang=en#section"
+        BUFFER_FILE.write_text(f"Link: {url}\n")
+        try:
+            mock_fzf = textwrap.dedent("""\
+                head -n1
+            """)
+            display_file = tmp_path / "tmux_msg"
+            mock_tmux = textwrap.dedent(f"""\
+                echo "$*" > {display_file}
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            import base64
+            expected_b64 = base64.b64encode(url.encode()).decode()
+            assert f"\033]52;c;{expected_b64}\a" in r.stdout
+        finally:
+            BUFFER_FILE.unlink(missing_ok=True)
+
+    def test_http_url_extracted(self, tmp_path: Path):
+        """http:// URLs (non-HTTPS) are also extracted."""
+        url = "http://insecure.example.org"
+        BUFFER_FILE.write_text(f"Old link: {url}\n")
+        try:
+            mock_fzf = textwrap.dedent("""\
+                head -n1
+            """)
+            mock_tmux = textwrap.dedent("""\
+                true
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            import base64
+            expected_b64 = base64.b64encode(url.encode()).decode()
+            assert f"\033]52;c;{expected_b64}\a" in r.stdout
+        finally:
+            BUFFER_FILE.unlink(missing_ok=True)
 
 
-def test_multiple_url_extraction():
-    """Test extraction of multiple URLs from mixed content."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        
-        # Mock fzf that outputs a specific URL
-        mock_fzf = tmpdir_path / "fzf"
-        selected_url = "https://selected.example.com/test"
-        mock_fzf.write_text(
-            '#!/bin/bash\n'
-            f'echo "{selected_url}"\n'
+class TestURLExtraction:
+    """Verify URL regex patterns from the buffer."""
+
+    def test_urls_excluded_trailing_punctuation(self, tmp_path: Path):
+        """Trailing ) > " characters are not part of the URL."""
+        BUFFER_FILE.write_text('(see https://example.com/page) and "https://other.com"\n')
+        try:
+            fzf_input_file = tmp_path / "fzf_input"
+            mock_fzf = textwrap.dedent(f"""\
+                cat > {fzf_input_file}
+                head -n1 {fzf_input_file}
+            """)
+            mock_tmux = textwrap.dedent("""\
+                true
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            fzf_input = fzf_input_file.read_text().strip()
+            lines = [l for l in fzf_input.splitlines() if l.strip()]
+            assert "https://example.com/page" in lines
+            assert "https://other.com" in lines
+            # Ensure trailing ) and " are NOT in the URLs
+            for line in lines:
+                assert not line.endswith(")")
+                assert not line.endswith('"')
+        finally:
+            BUFFER_FILE.unlink(missing_ok=True)
+
+    def test_multiple_distinct_urls(self, tmp_path: Path):
+        """Multiple distinct URLs are all extracted."""
+        BUFFER_FILE.write_text(
+            "First: https://a.com\nSecond: https://b.com\nThird: https://c.com\n"
         )
-        mock_fzf.chmod(0o755)
-        
-        # Mock tmux
-        mock_tmux = tmpdir_path / "tmux"
-        mock_tmux.write_text('#!/bin/bash\n')
-        mock_tmux.chmod(0o755)
-        
-        real_buffer = Path("/tmp/tmux-url-buffer")
-        original_content = None
-        if real_buffer.exists():
-            original_content = real_buffer.read_text()
-        
         try:
-            # Buffer with URLs mixed in text
-            real_buffer.write_text(
-                "Some text before\n"
-                "Visit http://first.example.com for more info\n"
-                "Check https://second.example.org/path?q=1\n"
-                "End of text\n"
-            )
-            
-            env = {**os.environ, "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}"}
-            result = subprocess.run(
-                [str(EFFECTOR_PATH)],
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            
-            # Should output OSC 52 with the selected URL
-            assert result.returncode == 0
-            assert "\x1b]52;c;" in result.stdout
+            fzf_input_file = tmp_path / "fzf_input"
+            mock_fzf = textwrap.dedent(f"""\
+                cat > {fzf_input_file}
+                head -n1 {fzf_input_file}
+            """)
+            mock_tmux = textwrap.dedent("""\
+                true
+            """)
+            env = _env_with_mocked_path(tmp_path, {
+                "fzf": mock_fzf,
+                "tmux": mock_tmux,
+            })
+
+            r = _run(env_extra=env)
+            assert r.returncode == 0
+            fzf_input = fzf_input_file.read_text().strip()
+            lines = [l for l in fzf_input.splitlines() if l.strip()]
+            assert len(lines) == 3
+            assert "https://a.com" in lines
+            assert "https://b.com" in lines
+            assert "https://c.com" in lines
         finally:
-            if original_content is not None:
-                real_buffer.write_text(original_content)
-            elif real_buffer.exists():
-                real_buffer.unlink()
+            BUFFER_FILE.unlink(missing_ok=True)

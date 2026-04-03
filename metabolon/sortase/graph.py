@@ -29,6 +29,7 @@ from typing import Annotated, TypedDict
 
 logger = logging.getLogger(__name__)
 
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
@@ -364,7 +365,7 @@ def run(
         thread_id, CHECKPOINT_DB, interactive,
     )
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}  # type: ignore[typed-dict]
 
     initial_state: SortaseState = {
         "plan_file": str(plan_file),
@@ -422,7 +423,7 @@ def review_and_continue(
         thread_id, approve, CHECKPOINT_DB,
     )
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}  # type: ignore[typed-dict]
 
     if not approve:
         app.update_state(

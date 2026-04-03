@@ -7,7 +7,7 @@ Absorbs: gap_junction (ligand_*), keryx (keryx_*), receptor (receptor_*).
 """
 
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
@@ -48,7 +48,7 @@ def gap_junction(
             return GapJunctionResult(output="read requires: name")
         from metabolon.organelles.gap_junction import receive_signals
         result = receive_signals(name, limit)
-        prefix = f"[gap_junction] " if name.lower() in GAP_JUNCTION_CONTACTS else ""
+        prefix = "[gap_junction] " if name.lower() in GAP_JUNCTION_CONTACTS else ""
         return GapJunctionResult(output=f"{prefix}{result}")
 
     elif action == "search":

@@ -13,14 +13,20 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 
-HOME = Path.home()
-SIGNAL_BUS = HOME / ".local" / "share" / "vivesca" / "signals.jsonl"
-INFECTION_LOG = HOME / ".local" / "share" / "vivesca" / "infections.jsonl"
-GERMLINE = HOME / "germline"
-EPIGENOME = HOME / "epigenome"
-GOLEM_LOG = HOME / ".local" / "share" / "vivesca" / "golem.jsonl"
+from metabolon.locus import (
+    epigenome,
+    germline,
+    golem_log,
+    infections_log,
+    signals_log,
+)
+
+SIGNAL_BUS = signals_log
+INFECTION_LOG = infections_log
+GERMLINE = germline
+EPIGENOME = epigenome
+GOLEM_LOG = golem_log
 
 MAX_REPO_AGE_HOURS = 4
 MAX_SIGNAL_BUS_AGE_HOURS = 12
@@ -183,8 +189,8 @@ def check_provider_health(provider: str = "zhipu", timeout: float = 5.0) -> Chec
     This is a lightweight check that doesn't make actual LLM calls.
     Returns warning on failure (degraded but usable).
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     config = PROVIDER_CONFIG.get(provider)
     if config is None:

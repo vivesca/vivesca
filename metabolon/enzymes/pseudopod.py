@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """pseudopod — browser cookie bridge + translocon dispatch for LLM tasks."""
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import EffectorResult

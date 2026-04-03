@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # backup-due.sh — nightly backup of Due app database
 # Copies Due's Compact.duecdb to ~/epigenome/oscillators/backups/ with a datestamp.
 # Runs nightly at 23:00 via com.terry.due-backup LaunchAgent.

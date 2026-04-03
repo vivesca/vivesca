@@ -14,13 +14,15 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import types
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +187,60 @@ class TestDaemonProviderLimits:
         assert ns.get_provider_limit("volcano") == 16
 
 
+class TestDaemonDispatchMigration:
+    def test_cooldown_provider_migrates_to_any_free_provider(self):
+        ns = _load("golem-daemon")
+        cmd = 'golem [t-abc123] --provider infini "test baz.py"'
+        provider_cooldown_until = {
+            "infini": 1000.0,
+            "codex": 1000.0,
+            "gemini": 1000.0,
+        }
+        runtime_cmd, provider, dispatch_provider = ns._resolve_dispatch_command(
+            cmd,
+            provider_cooldown_until,
+            {"volcano": 0},
+        )
+
+        assert provider == "infini"
+        assert dispatch_provider == "zhipu"
+        assert "--provider zhipu" in runtime_cmd
+        assert "--provider infini" not in runtime_cmd
+
+    def test_non_cooldown_provider_keeps_affinity(self):
+        ns = _load("golem-daemon")
+        cmd = 'golem [t-abc123] --provider zhipu "test bar.py"'
+
+        runtime_cmd, provider, dispatch_provider = ns._resolve_dispatch_command(
+            cmd,
+            {"infini": 1000.0},
+            {"gemini": 0, "volcano": 0},
+        )
+
+        assert provider == "zhipu"
+        assert dispatch_provider == "zhipu"
+        assert runtime_cmd == cmd
+
+    def test_jsonl_record_keeps_affinity_provider_for_stats(self):
+        ns = _load("golem-daemon")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            jsonl_path = Path(temp_dir) / "golem.jsonl"
+            ns.JSONLFILE = jsonl_path
+
+            ns._write_jsonl_record(
+                "t-abc123",
+                "infini",
+                0,
+                42,
+                'golem [t-abc123] --provider zhipu "test baz.py"',
+                dispatch_provider="zhipu",
+            )
+
+            record = json.loads(jsonl_path.read_text().strip())
+            assert record["provider"] == "infini"
+            assert record["dispatch_provider"] == "zhipu"
+
+
 class TestDaemonCheckDiskSpace:
     def test_returns_tuple(self):
         ns = _load("golem-daemon")
@@ -268,7 +324,8 @@ class TestDaemonMarkFailed:
         ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
         ns.QueueLock._lock_path = lock_path
-        result = ns.mark_failed(4, "bad command", exit_code=2)
+        # Pass non-empty tail to trigger no-retry on exit=2
+        result = ns.mark_failed(4, "bad command", exit_code=2, tail="usage: ...")
         assert result["retried"] is False
         content = tmp_queue.read_text()
         assert "- [!]" in content
@@ -306,7 +363,7 @@ class TestDaemonRunGolem:
         mock_result.stdout = "all tests passed"
         mock_result.stderr = ""
         with patch("subprocess.run", return_value=mock_result):
-            cmd, exit_code, tail = ns.run_golem('golem "test"')
+            cmd, exit_code, tail, duration = ns.run_golem('golem "test"')
         assert exit_code == 0
         assert "test" in cmd
 
@@ -317,7 +374,7 @@ class TestDaemonRunGolem:
         mock_result.stdout = ""
         mock_result.stderr = "error occurred"
         with patch("subprocess.run", return_value=mock_result):
-            _, exit_code, _ = ns.run_golem('golem "test"')
+            _, exit_code, _, _ = ns.run_golem('golem "test"')
         assert exit_code == 1
 
 
@@ -462,14 +519,16 @@ class TestDashProviderStats:
 class TestDashQueueStatus:
     def test_basic_status(self, tmp_queue):
         ns = _load("golem-dash")
-        status_text, last_done = ns.queue_status(tmp_queue, use_color=False)
+        # queue_status returns (status_text, last_done, pending, done, failed)
+        status_text, last_done, _, _, _ = ns.queue_status(tmp_queue, use_color=False)
         assert "Pending: 3" in status_text
         assert "Done: 0" in status_text
 
     def test_missing_queue(self, tmp_path):
         ns = _load("golem-dash")
-        output = ns.queue_status(tmp_path / "nope.md", use_color=False)
-        assert "not found" in output.lower()
+        # queue_status returns 5 values
+        status_text, _, _, _, _ = ns.queue_status(tmp_path / "nope.md", use_color=False)
+        assert "not found" in status_text.lower()
 
     def test_with_done_tasks(self, tmp_path):
         ns = _load("golem-dash")
@@ -479,7 +538,8 @@ class TestDashQueueStatus:
             '- [x] `golem "task B"` \u2192 exit=0\n'
             '- [!] `golem "task C"`\n'
         )
-        status_text, last_done = ns.queue_status(q, use_color=False)
+        # queue_status returns 5 values
+        status_text, last_done, pending, done, failed = ns.queue_status(q, use_color=False)
         assert "Pending: 1" in status_text
         assert "Done: 1" in status_text
         assert "Failed: 1" in status_text
@@ -750,10 +810,10 @@ class TestValidateFile:
     def test_hardcoded_mac_path(self, tmp_path):
         ns = _load("golem-validate")
         f = tmp_path / "path.py"
-        f.write_text('p = str(Path.home() / "germline")\n')
+        f.write_text(f'p = "{MAC_HOME_PREFIX}germline"\n')
         status, issues = ns.validate_file(f)
         assert status == "FAIL"
-        assert any(str(Path.home() / "") in i for i in issues)
+        assert any("hardcoded macOS home path" in i for i in issues)
 
     def test_todo_marker(self, tmp_path):
         ns = _load("golem-validate")
@@ -1482,4 +1542,3 @@ class TestGolemVolcanoIntegration:
                 assert "reset at" in error.get("message", ""), \
                     f"Expected 'reset at' in error message: {error['message']}"
                 assert "TooManyRequests" in error.get("type", "")
-

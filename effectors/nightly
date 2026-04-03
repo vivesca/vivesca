@@ -4,18 +4,26 @@
 Runs at 02:00 via com.terry.nightly LaunchAgent.
 Writes:
   ~/.claude/nightly-health.md   — system health dashboard
-  ~/.claude/skill-flywheel-daily.md — skill routing report (stub)
+  ~/.claude/skill-flywheel-daily.md — skill routing report
 """
 
+import platform
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
 
+IS_MACOS = platform.system() == "Darwin"
+
 HOME = Path.home()
 HEALTH_OUT = HOME / ".claude" / "nightly-health.md"
 FLYWHEEL_OUT = HOME / ".claude" / "skill-flywheel-daily.md"
 TODAY = datetime.now().strftime("%Y-%m-%d")
+
+# Claude Code memory dir: path-encodes the project root
+_CLAUDE_PROJ_DIR = HOME / ".claude" / "projects"
+_HOME_STEM = str(HOME).strip("/").replace("/", "-")
+_MEMORY_DIR = _CLAUDE_PROJ_DIR / f"-{_HOME_STEM}" / "memory"
 
 
 def _line_count(path: Path) -> int | None:
@@ -41,6 +49,16 @@ def _file_age_minutes(path: Path) -> int | None:
 
 
 def _is_running(label: str) -> bool:
+    if not IS_MACOS:
+        # On Linux, check systemd user units
+        try:
+            r = subprocess.run(
+                ["systemctl", "--user", "is-active", label],
+                capture_output=True, text=True, timeout=5,
+            )
+            return r.stdout.strip() == "active"
+        except Exception:
+            return False
     try:
         r = subprocess.run(
             ["launchctl", "list"], capture_output=True, text=True, timeout=5
@@ -55,7 +73,7 @@ def check_health() -> list[tuple[str, str, str]]:
     rows: list[tuple[str, str, str]] = []
 
     # MEMORY.md line count
-    mem_lines = _line_count(HOME / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md")
+    mem_lines = _line_count(_MEMORY_DIR / "MEMORY.md")
     if mem_lines is not None:
         status = "ok" if mem_lines < 150 else ("warn" if mem_lines < 200 else "red")
         rows.append(("MEMORY.md lines", f"{mem_lines}/150", status))
@@ -80,18 +98,34 @@ def check_health() -> list[tuple[str, str, str]]:
     mcp_running = _is_running("com.vivesca.mcp")
     rows.append(("MCP server", "running" if mcp_running else "DOWN", "ok" if mcp_running else "red"))
 
-    # LaunchAgent count
-    la_dir = HOME / "Library" / "LaunchAgents"
-    if la_dir.exists():
-        total = len(list(la_dir.glob("com.vivesca.*.plist"))) + len(list(la_dir.glob("com.terry.*.plist")))
-        # Check how many are loaded
-        try:
-            r = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
-            loaded = sum(1 for line in r.stdout.splitlines() if "vivesca" in line or "com.terry" in line)
-        except Exception:
-            loaded = 0
-        status = "ok" if loaded >= total - 2 else "warn"
-        rows.append(("LaunchAgents", f"{loaded}/{total} loaded", status))
+    # LaunchAgent / systemd count
+    if IS_MACOS:
+        la_dir = HOME / "Library" / "LaunchAgents"
+        if la_dir.exists():
+            total = len(list(la_dir.glob("com.vivesca.*.plist"))) + len(list(la_dir.glob("com.terry.*.plist")))
+            try:
+                r = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
+                loaded = sum(1 for line in r.stdout.splitlines() if "vivesca" in line or "com.terry" in line)
+            except Exception:
+                loaded = 0
+            status = "ok" if loaded >= total - 2 else "warn"
+            rows.append(("LaunchAgents", f"{loaded}/{total} loaded", status))
+    else:
+        # Linux: check systemd user units
+        systemd_dir = HOME / ".config" / "systemd" / "user"
+        if systemd_dir.exists():
+            total = len(list(systemd_dir.glob("*.service")))
+            try:
+                r = subprocess.run(
+                    ["systemctl", "--user", "list-units", "--type=service", "--state=active", "--no-legend"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                loaded = len(r.stdout.splitlines())
+            except Exception:
+                loaded = 0
+            if total > 0:
+                status = "ok" if loaded >= total - 2 else "warn"
+                rows.append(("Systemd units", f"{loaded}/{total} active", status))
 
     # Agent-browser profile
     abp = HOME / ".agent-browser-profile"
@@ -187,10 +221,36 @@ def write_flywheel() -> None:
     print(f"Flywheel report written to {FLYWHEEL_OUT}")
 
 
+def health_to_json(rows: list[tuple[str, str, str]]) -> str:
+    """Convert health check rows to a JSON array of objects."""
+    import json
+    entries = [
+        {"component": metric, "status": status, "details": value}
+        for metric, value, status in rows
+    ]
+    return json.dumps(entries, indent=2)
+
+
 def main() -> None:
-    print(f"=== Nightly run: {datetime.now().strftime('%a %b %d %H:%M:%S %Z %Y')} ===")
+    import sys
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("nightly — system health dashboard + flywheel report.\n")
+        print("Usage: nightly [--help] [--json]")
+        print("\nFlags:")
+        print("  --json   Output health check results as JSON array")
+        print("\nWrites (unless --json):")
+        print("  ~/.claude/nightly-health.md       — system health dashboard")
+        print("  ~/.claude/skill-flywheel-daily.md  — skill routing report")
+        sys.exit(0)
+
     print("[nightly] Running health checks...")
     rows = check_health()
+
+    if "--json" in sys.argv:
+        print(health_to_json(rows))
+        return
+
+    print(f"=== Nightly run: {datetime.now().strftime('%a %b %d %H:%M:%S %Z %Y')} ===")
     write_health(rows)
     print("[nightly] Running skill flywheel...")
     write_flywheel()

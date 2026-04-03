@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.locus import experiments as EXPERIMENTS_DIR

@@ -31,6 +31,8 @@ import yaml
 CONFIG_PATH = Path.home() / "epigenome/phenotype/linkedin-monitor.yaml"
 OUTPUT_DIR = Path.home() / "epigenome/chromatin/Consulting"
 CACHE_DIR = Path.home() / ".cache/linkedin-monitor"
+
+
 def _find_agent_browser() -> str:
     """Locate agent-browser: check PATH first, then platform-specific fallbacks."""
     from shutil import which

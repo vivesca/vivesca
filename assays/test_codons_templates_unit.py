@@ -206,7 +206,7 @@ class TestNoStaleReferences:
     STALE_RESOURCE_URIS = ["vivesca://calendar/today"]
     # Current valid tool names that SHOULD appear where referenced
     VALID_TOOLS = {
-        "rheotaxis_search": lambda: research(topic="x"),
+        "rheotaxis": lambda: research(topic="x"),
         "histone": lambda: morning_brief(),
     }
     # Current valid resource URIs that SHOULD appear where referenced

@@ -1,0 +1,6 @@
+#!/usr/bin/env zsh
+set -a
+source ~/.zshenv.local
+set +a
+cd ~/germline
+exec .venv/bin/vivesca serve --http

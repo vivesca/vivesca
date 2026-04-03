@@ -1,0 +1,335 @@
+#!/usr/bin/env -S uv run --script
+from __future__ import annotations
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""capco-brief — quick-reference briefings for Capco onboarding."""
+
+import argparse
+import re
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+HKT = ZoneInfo("Asia/Hong_Kong")
+CHROMATIN = Path.home() / "epigenome" / "chromatin"
+PULSE = Path.home() / "docs" / "pulse"
+FASTI = Path.home() / ".cargo" / "bin" / "fasti"
+
+# ── helpers ──────────────────────────────────────────────────────────
+
+def _read(p: Path) -> str:
+    try:
+        return p.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
+def _capco_files() -> list[Path]:
+    """Collect Capco Transition.md + Capco*.md from chromatin root and Capco/ dir."""
+    files: list[Path] = []
+    root_transition = CHROMATIN / "Capco Transition.md"
+    if root_transition.exists():
+        files.append(root_transition)
+    # glob root-level Capco*.md (excluding the Transition one)
+    for p in sorted(CHROMATIN.glob("Capco*.md")):
+        if p not in files:
+            files.append(p)
+    # glob Capco/ subdirectory
+    capco_dir = CHROMATIN / "Capco"
+    if capco_dir.is_dir():
+        for p in sorted(capco_dir.glob("*.md")):
+            if not p.name.startswith("."):
+                files.append(p)
+    return files
+
+
+# ── stakeholders ─────────────────────────────────────────────────────
+
+# Words that should NEVER appear in a person name at any position
+_NEVER_NAME_WORDS = frozenset({
+    # organisational / brand
+    "bank", "institute", "centre", "center", "library", "university",
+    "college", "association", "foundation", "council", "group", "labs",
+    "capital", "markets", "consulting", "partners", "solutions",
+    "technology", "services", "systems", "software", "platform",
+    "capco", "hsbc", "cncbi", "wipro", "openai", "google", "apple",
+    # structural / concept
+    "role", "team", "office", "day", "week", "month", "year",
+    "checklist", "outfit", "alarm", "reception", "laptop", "phone",
+    "bag", "item", "route", "dress", "transport", "benefits",
+    "insurance", "probation", "payroll", "tax", "coffee", "event",
+    "review", "model", "data", "risk", "governance", "regulatory",
+    "compliance", "engagement", "delivery", "strategy", "digital",
+    "transformation", "innovation", "operations", "consumer",
+    "application", "selection", "use", "quick", "pricing", "stage",
+    "outputs", "inputs", "active", "smart", "process", "redesign",
+    "technical", "standard", "first", "formal", "deep", "module",
+    "exam", "basic", "parent", "strategic", "service", "org",
+    "thought", "content", "arrival", "social", "mitigation",
+    "prompt", "sensitive", "improper", "unbounded", "system",
+    "excessive", "agent", "agentic", "supply", "unexpected",
+    "cascading", "rogue", "bounded", "control", "minimum",
+    "due", "dynamic", "connect", "connectivity", "workflow",
+    "performance", "consulting", "talent", "context", "information",
+    "numbers", "jurisdiction", "matrix", "maturity", "operating",
+    "capability", "transfer", "senior", "consultants", "approver",
+    "assistant", "rugby", "captain", "rapport", "opportunities",
+    "next", "steps", "managing", "principal", "intelligent",
+    "document", "integration", "structural", "flags", "organisational",
+    "sponsor", "sun", "life", "asia", "to", "for", "the", "your",
+    "her", "his", "their", "this", "that", "about", "why", "how",
+    "what", "when", "where", "which", "who", "from", "with",
+    "named", "newly", "super", "typical", "explicit", "hong",
+    "kong", "scaled", "fixed", "managed", "common", "principle",
+    "four", "low", "medium", "high", "big", "inference", "decision",
+    "baringa", "neurons", "alan", "turing", "hawaiian", "morgan",
+    "stanley", "delta", "managed", "one", "up", "not",
+    "wells", "fargo", "manager", "hiring", "draft", "pre",
+    "agentic", "tiering", "afternoon", "background",
+    "divergences", "documents", "requirements", "principles",
+    "design",
+    # additional false positives from tables
+    "fwd", "myterm", "plus", "consider", "epa",
+    "follow", "eu", "nist", "oecd", "internal", "tooling",
+    "diffusion", "llms", "states", "mas", "jpmorgan", "chase",
+    "three", "outsourcing",
+})
+
+
+def _is_person_name(s: str) -> bool:
+    """Return True if s looks like a real person name (2-3 title-case words)."""
+    s = s.strip("* ")
+    # reject if contains commas (e.g. "Dara Sosulski, PhD")
+    if "," in s:
+        s = s.split(",")[0].strip()
+    words = s.split()
+    if len(words) < 2 or len(words) > 4:
+        return False
+    for w in words:
+        # strip trailing punctuation from table extraction artifacts
+        w_clean = w.rstrip(":.,;")
+        # each word must be purely alphabetic, title-cased, ≥2 chars
+        if len(w_clean) < 2 or not w_clean.isalpha():
+            if w_clean.lower() not in ("dr", "mr", "mrs", "ms"):
+                return False
+        if not w_clean[0].isupper():
+            return False
+        if w_clean.lower() in _NEVER_NAME_WORDS:
+            return False
+    return True
+
+
+def cmd_stakeholders(_args: argparse.Namespace) -> None:
+    """Extract named people with roles from Capco markdown files."""
+    entries: list[tuple[str, str, str]] = []  # (name, role, source)
+
+    for fpath in _capco_files():
+        text = _read(fpath)
+        stem = fpath.stem
+
+        # Pattern 1: "### Firstname Lastname — Role" (Key People.md)
+        for m in re.finditer(r"^###\s+(.+?)\s*[—–-]\s*(.+)$", text, re.M):
+            name = m.group(1).strip()
+            role = m.group(2).split("\n")[0].strip()
+            if _is_person_name(name) and role:
+                entries.append((name, role, stem))
+
+        # Pattern 2: table row "| **Firstname Lastname** | Role |"
+        for m in re.finditer(
+            r"\|\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|", text
+        ):
+            name = m.group(1).strip()
+            role = m.group(2).strip()
+            if _is_person_name(name) and role and len(role) > 5:
+                entries.append((name, role, stem))
+
+        # Pattern 3: "- **Label:** Firstname Lastname (Role)" from Transition.md
+        for m in re.finditer(
+            r"\*\*\w+\*{0,2}:\*\*\s+([A-Z][a-z]+(?: [A-Z][a-z]+)+)\s*[(\[](.+?)[)\]]",
+            text,
+        ):
+            name = m.group(1).strip()
+            role = m.group(2).strip()
+            if _is_person_name(name) and role:
+                entries.append((name, role, stem))
+
+        # Pattern 4: "Firstname Lastname (Capco / Role)" one-liners
+        for m in re.finditer(
+            r"([A-Z][a-z]+(?: [A-Z][a-z]+)+)\s*\(([^)]{5,80}?)\)", text
+        ):
+            name = m.group(1).strip()
+            role = m.group(2).strip()
+            if _is_person_name(name) and any(
+                kw in role.lower() for kw in (
+                    "director", "partner", "principal", "consultant",
+                    "manager", "head", "lead", "officer", "ed ",
+                    "managing", "executive", "capco", "hsbc", "bank",
+                    "practice", "governance", "data", "ai ",
+                )
+            ):
+                entries.append((name, role, stem))
+
+    # deduplicate by normalized name (keep first occurrence — richest source)
+    seen: dict[str, tuple[str, str, str]] = {}
+    for name, role, src in entries:
+        # normalize: strip commas, suffixes like ", PhD", lowercase
+        key = re.sub(r"[,].*$", "", name).strip().lower()
+        if key not in seen:
+            seen[key] = (name, role, src)
+
+    if not seen:
+        print("No stakeholders found in Capco files.")
+        return
+
+    # print table
+    print("# Capco Stakeholders\n")
+    print(f"| {'Name':<22} | {'Role':<60} | {'Source':<25} |")
+    print(f"|{'-'*24}|{'-'*62}|{'-'*27}|")
+    for name, role, src in seen.values():
+        n = (name[:20] + "..") if len(name) > 22 else name
+        r = (role[:58] + "..") if len(role) > 60 else role
+        s = (src[:23] + "..") if len(src) > 25 else src
+        print(f"| {n:<22} | {r:<60} | {s:<25} |")
+
+    print(f"\n_{len(seen)} people extracted from {len(_capco_files())} files._")
+
+
+# ── calendar ─────────────────────────────────────────────────────────
+
+def cmd_calendar(_args: argparse.Namespace) -> None:
+    """Read fasti output for next 5 days, group by client vs internal."""
+    today = datetime.now(tz=HKT).date()
+    all_events: list[tuple[str, str, str]] = []  # (date, time/title, category)
+
+    for i in range(5):
+        d = today + timedelta(days=i)
+        dstr = d.isoformat()
+        try:
+            result = subprocess.run(
+                [str(FASTI), "list", dstr],
+                capture_output=True, text=True, timeout=15,
+            )
+            output = result.stdout.strip()
+        except (subprocess.SubprocessError, FileNotFoundError, OSError):
+            output = ""
+
+        if not output:
+            continue
+
+        for line in output.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("Events"):
+                continue
+            # categorise: client-side keywords vs internal
+            lower = line.lower()
+            if any(kw in lower for kw in (
+                "hsbc", "client", "aims", "customer", "hang seng",
+                "bank", "site visit", "secondment",
+            )):
+                cat = "client"
+            else:
+                cat = "internal"
+            all_events.append((dstr, line, cat))
+
+    if not all_events:
+        print("# Calendar — Next 5 Days\n")
+        print("_No events found. (fasti may be unavailable or calendar empty.)_")
+        return
+
+    # group
+    client = [(d, t) for d, t, c in all_events if c == "client"]
+    internal = [(d, t) for d, t, c in all_events if c == "internal"]
+
+    print("# Calendar — Next 5 Days\n")
+    if client:
+        print("## Client\n")
+        for d, t in client:
+            print(f"- **{d}** — {t}")
+        print()
+    if internal:
+        print("## Internal\n")
+        for d, t in internal:
+            print(f"- **{d}** — {t}")
+        print()
+    print(f"_{len(client)} client · {len(internal)} internal · {len(all_events)} total_")
+
+# ── checklist ────────────────────────────────────────────────────────
+
+def cmd_checklist(_args: argparse.Namespace) -> None:
+    """Read capco-day1-*.md files, output unchecked items."""
+    files = sorted(PULSE.glob("capco-day1-*.md"))
+    if not files:
+        print("No capco-day1-*.md files found in ~/docs/pulse/.")
+        return
+
+    items: list[tuple[str, str]] = []  # (source, item_text)
+    for fpath in files:
+        text = _read(fpath)
+        stem = fpath.stem
+        for m in re.finditer(r"^- \[ \] (.+)$", text, re.M):
+            item = m.group(1).strip()
+            if item:
+                items.append((stem, item))
+
+    if not items:
+        print("# Capco Day 1 Checklist\n")
+        print("_All items checked off! Nothing remaining._")
+        return
+
+    print("# Capco Day 1 — Unchecked Items\n")
+    current_src = ""
+    for src, item in items:
+        if src != current_src:
+            current_src = src
+            # extract a short label from filename
+            label = src.replace("capco-day1-", "").replace("-2026-", " (").split("-2026-")[0]
+            if "(" in label and ")" not in label:
+                label += ")"
+            print(f"## {label}\n")
+        # clean markdown bold from item for readability
+        clean = item.replace("**", "")
+        print(f"- [ ] {clean}")
+    print(f"\n_{len(items)} unchecked items from {len(files)} files._")
+
+
+# ── main ─────────────────────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="capco-brief",
+        description="Quick-reference briefings for Capco onboarding.",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser(
+        "stakeholders",
+        help="extract named people with roles into a quick-reference table",
+    )
+    sub.add_parser(
+        "calendar",
+        help="show next 5 days of calendar, grouped client vs internal",
+    )
+    sub.add_parser(
+        "checklist",
+        help="list unchecked Day 1 action items",
+    )
+
+    args = parser.parse_args()
+    if args.command == "stakeholders":
+        cmd_stakeholders(args)
+    elif args.command == "calendar":
+        cmd_calendar(args)
+    elif args.command == "checklist":
+        cmd_checklist(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Bypass Tailscale exit node for Chinese AI API traffic.
+from __future__ import annotations
+_HELP = """Bypass Tailscale exit node for Chinese AI API traffic.
 
 Resolves provider hostnames and adds host routes via the LAN gateway,
 so traffic goes direct (HK → China) instead of via exit node (HK → JP → China).
@@ -12,14 +13,34 @@ Usage:
 
 import json
 import os
+import socket
 import subprocess
 import sys
 
+IS_LINUX = sys.platform == "linux"
 
-def _route_cmd(*args: str) -> list[str]:
-    """Build route command, skipping sudo when already root."""
-    base = ["/sbin/route"] + list(args)
-    return base if os.getuid() == 0 else ["sudo"] + base
+
+def _sudo_wrap() -> list[str]:
+    """Empty list if root, else ['sudo']."""
+    return [] if os.getuid() == 0 else ["sudo"]
+
+
+def _add_host_route(ip: str, gateway: str) -> subprocess.CompletedProcess:
+    """Add a host route. Cross-platform."""
+    if IS_LINUX:
+        cmd = _sudo_wrap() + ["ip", "route", "add", f"{ip}/32", "via", gateway]
+    else:
+        cmd = _sudo_wrap() + ["/sbin/route", "-n", "add", f"{ip}/32", gateway]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+
+def _del_host_route(ip: str) -> subprocess.CompletedProcess:
+    """Delete a host route. Cross-platform."""
+    if IS_LINUX:
+        cmd = _sudo_wrap() + ["ip", "route", "del", f"{ip}/32"]
+    else:
+        cmd = _sudo_wrap() + ["/sbin/route", "-n", "delete", f"{ip}/32"]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
 CN_API_HOSTS = [
     # ZhiPu
@@ -45,19 +66,26 @@ CN_API_HOSTS = [
 
 
 def _resolve(host: str) -> list[str]:
-    """Resolve hostname to IPs, skipping CNAMEs."""
-    result = subprocess.run(
-        ["dig", "+short", host], capture_output=True, text=True, timeout=5
-    )
-    return [
-        line.strip()
-        for line in result.stdout.splitlines()
-        if line.strip() and not line.strip().endswith(".")
-    ]
+    """Resolve hostname to IPv4 addresses."""
+    try:
+        return list({addr[4][0] for addr in socket.getaddrinfo(host, None, socket.AF_INET)})
+    except socket.gaierror:
+        return []
 
 
 def _lan_gateway() -> str | None:
     """Find the non-Tailscale default gateway."""
+    if IS_LINUX:
+        result = subprocess.run(
+            ["ip", "route", "show", "default"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            # default via GW dev IFACE
+            if len(parts) >= 5 and parts[0] == "default" and not parts[4].startswith("tailscale"):
+                return parts[2]
+        return None
     result = subprocess.run(
         ["netstat", "-rn"], capture_output=True, text=True, timeout=5
     )
@@ -68,20 +96,33 @@ def _lan_gateway() -> str | None:
     return None
 
 
-def _current_zhipu_routes() -> dict[str, str]:
+def _current_cn_routes() -> dict[str, str]:
     """Return {ip: interface} for IPs we manage."""
     all_ips = set()
     for host in CN_API_HOSTS:
         all_ips.update(_resolve(host))
 
+    if IS_LINUX:
+        result = subprocess.run(
+            ["ip", "route", "show"], capture_output=True, text=True, timeout=5,
+        )
+        routes = {}
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            # 1.2.3.4/32 via GW dev IFACE
+            if len(parts) >= 5 and parts[0].split("/")[0] in all_ips:
+                routes[parts[0].split("/")[0]] = parts[4]
+        return routes
     result = subprocess.run(
         ["netstat", "-rn"], capture_output=True, text=True, timeout=5
     )
     routes = {}
     for line in result.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 4 and parts[0].split("/")[0] in all_ips:
-            routes[parts[0]] = parts[3]  # interface
+        if len(parts) >= 4:
+            ip = parts[0].split("/")[0]
+            if ip in all_ips:
+                routes[ip] = parts[3]  # interface
     return routes
 
 
@@ -113,24 +154,21 @@ def add_routes() -> None:
         all_ips.update(ips)
 
     if not all_ips:
-        print("Could not resolve any ZhiPu IPs")
+        print("Could not resolve any CN API IPs")
         sys.exit(1)
 
     added = 0
     for ip in sorted(all_ips):
-        result = subprocess.run(
-            _route_cmd("-n", "add", f"{ip}/32", gateway),
-            capture_output=True, text=True, timeout=30,
-        )
+        result = _add_host_route(ip, gateway)
         if result.returncode == 0:
             print(f"  + {ip} via {gateway}")
             added += 1
-        elif "already in table" in result.stderr:
+        elif "already in table" in result.stderr or "File exists" in result.stderr:
             print(f"  = {ip} (already routed)")
         else:
             print(f"  ! {ip} failed: {result.stderr.strip()}")
 
-    print(f"\n{added} route(s) added. ZhiPu traffic bypasses Tailscale exit node.")
+    print(f"\n{added} route(s) added. CN API traffic bypasses Tailscale exit node.")
 
 
 def remove_routes() -> None:
@@ -139,16 +177,13 @@ def remove_routes() -> None:
         all_ips.update(_resolve(host))
 
     for ip in sorted(all_ips):
-        subprocess.run(
-            _route_cmd("-n", "delete", f"{ip}/32"),
-            capture_output=True, text=True, timeout=30,
-        )
+        _del_host_route(ip)
         print(f"  - {ip}")
     print("Routes removed.")
 
 
 def show_status() -> None:
-    routes = _current_zhipu_routes()
+    routes = _current_cn_routes()
     exit_active = _tailscale_exit_active()
     gateway = _lan_gateway()
 
@@ -165,22 +200,24 @@ def show_status() -> None:
     print()
     if not routes:
         if exit_active:
-            print("No bypass routes set — ZhiPu traffic goes through exit node!")
+            print("No bypass routes set — CN API traffic goes through exit node!")
         else:
             print("No bypass routes needed — no exit node active.")
     else:
         for ip, iface in sorted(routes.items()):
-            bypassed = not iface.startswith("utun")
+            bypassed = not iface.startswith(("utun", "tailscale"))
             print(f"  {ip} → {iface} ({'direct' if bypassed else 'TUNNELED'})")
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "add"
-    if cmd == "remove":
+    if cmd in ("--help", "-h"):
+        print(_HELP)
+    elif cmd == "remove":
         remove_routes()
     elif cmd == "status":
         show_status()
     elif cmd in ("add", ""):
         add_routes()
     else:
-        print(__doc__)
+        print(_HELP)

@@ -3,27 +3,29 @@ from __future__ import annotations
 """Tests for effectors/soma-pull — repo pull scheduler with log rotation."""
 
 import subprocess
+import types
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 
-EFFECTOR_PATH = Path(str(Path.home() / "germline/effectors/soma-pull"))
+EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "soma-pull"
 
 
 def _load_module():
-    """Load soma-pull by exec-ing its source."""
+    """Load soma-pull by exec-ing its source into a ModuleType."""
     source = EFFECTOR_PATH.read_text()
-    ns: dict = {"__name__": "soma_pull_test"}
-    exec(source, ns)
-    return ns
+    mod = types.ModuleType("soma_pull")
+    mod.__file__ = str(EFFECTOR_PATH)
+    exec(source, mod.__dict__)
+    return mod
 
 
 _mod = _load_module()
-pull = _mod["pull"]
-REPOS = _mod["REPOS"]
-LOG = _mod["LOG"]
+pull = _mod.pull
+REPOS = _mod.REPOS
+LOG = _mod.LOG
 
 
 # ── pull() tests ──────────────────────────────────────────────────────
@@ -142,7 +144,8 @@ def test_main_success_writes_log(tmp_path):
         # Create the fake repo
         (tmp_path / "r1").mkdir()
         (tmp_path / "r1" / ".git").mkdir()
-        _mod["main"]()
+        _mod.main()
+
     assert log_path.exists()
     content = log_path.read_text()
     assert "r1" in content
@@ -160,7 +163,7 @@ def test_main_failure_exits_nonzero(tmp_path):
         patch.object(_mod, "LOG", log_path),
     ):
         with pytest.raises(SystemExit) as exc_info:
-            _mod["main"]()
+            _mod.main()
     assert exc_info.value.code == 1
 
 
@@ -186,7 +189,7 @@ def test_main_log_rotation(tmp_path):
         patch.object(_mod, "LOG", log_path),
         patch("subprocess.run", return_value=mock_result),
     ):
-        _mod["main"]()
+        _mod.main()
 
     final_lines = log_path.read_text().splitlines()
     # Should be 250 old kept + 1 new = 251
@@ -214,7 +217,7 @@ def test_main_no_rotation_when_under_limit(tmp_path):
         patch.object(_mod, "LOG", log_path),
         patch("subprocess.run", return_value=mock_result),
     ):
-        _mod["main"]()
+        _mod.main()
 
     final_lines = log_path.read_text().splitlines()
     # 10 original + 1 new = 11
@@ -238,7 +241,7 @@ def test_main_creates_log_directory(tmp_path):
         patch.object(_mod, "LOG", log_path),
         patch("subprocess.run", return_value=mock_result),
     ):
-        _mod["main"]()
+        _mod.main()
 
     assert log_path.exists()
     assert log_path.parent.is_dir()
@@ -261,7 +264,7 @@ def test_main_log_line_format(tmp_path):
         patch.object(_mod, "LOG", log_path),
         patch("subprocess.run", return_value=mock_result),
     ):
-        _mod["main"]()
+        _mod.main()
 
     line = log_path.read_text().strip()
     assert line.startswith("[")
@@ -288,7 +291,7 @@ def test_main_multiple_repos_in_log_line(tmp_path):
         patch.object(_mod, "LOG", log_path),
         patch("subprocess.run", return_value=mock_result),
     ):
-        _mod["main"]()
+        _mod.main()
 
     line = log_path.read_text().strip()
     assert "alpha" in line
@@ -317,7 +320,7 @@ def test_main_mixed_success_failure(tmp_path):
         patch("subprocess.run", return_value=mock_result),
     ):
         with pytest.raises(SystemExit) as exc_info:
-            _mod["main"]()
+            _mod.main()
 
     assert exc_info.value.code == 1
     line = log_path.read_text().strip()

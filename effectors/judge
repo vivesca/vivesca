@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["anthropic"]
+# dependencies = []
 # ///
 """judge — LLM quality gate for content evaluation.
 
@@ -32,29 +32,9 @@ Exit codes:
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
-
-import anthropic
-
-# ---------------------------------------------------------------------------
-# Model resolution
-# ---------------------------------------------------------------------------
-
-_LLM_MODELS_PATH = Path.home() / ".config" / "llm-models.json"
-
-
-def _model_id(key: str) -> str:
-    """Resolve a registry key to its Anthropic SDK model ID string."""
-    try:
-        registry = json.loads(_LLM_MODELS_PATH.read_text())
-        return registry[key]["model"]
-    except Exception:
-        return key
-
-
-# Default to glm for cost efficiency (judge is high-volume, low-stakes per call)
-DEFAULT_MODEL = "glm"
 
 # ---------------------------------------------------------------------------
 # Rubric definitions
@@ -147,37 +127,67 @@ def build_user_prompt(content: str, rubric_name: str, context: str | None = None
 # ---------------------------------------------------------------------------
 
 def evaluate(content: str, rubric_name: str, context: str | None = None, model: str | None = None) -> dict:
-    """Run the judge evaluation. Returns parsed verdict dict."""
-    model_id = _model_id(model or DEFAULT_MODEL)
-    client = anthropic.Anthropic()
-
+    """Run the judge evaluation via claude --print --bare. Returns parsed verdict dict."""
+    chosen_model = model or "sonnet"
     user_prompt = build_user_prompt(content, rubric_name, context)
 
-    msg = client.messages.create(
-        model=model_id,
-        max_tokens=500,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
+    cmd = [
+        "claude", "--print", "--bare",
+        "--model", chosen_model,
+        "--system-prompt", SYSTEM_PROMPT,
+        "--output-format", "json",
+        "--max-turns", "1",
+        "--", user_prompt,
+    ]
 
-    raw = msg.content[0].text.strip()
-
-    # Strip markdown fencing if present (model sometimes adds it despite instructions)
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        # Remove first line (```json or ```) and last line (```)
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        raw = "\n".join(lines)
+    # Unset CLAUDECODE to avoid nociceptor hook interference
+    env = os.environ.copy()
+    env.pop("CLAUDECODE", None)
 
     try:
-        result = json.loads(raw)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
+    except subprocess.TimeoutExpired:
+        return {
+            "verdict": "FAIL", "score": 0, "criteria": {},
+            "summary": "Judge timed out after 120s",
+        }
+
+    if proc.returncode != 0:
+        return {
+            "verdict": "FAIL", "score": 0, "criteria": {},
+            "summary": f"claude exited {proc.returncode}: {proc.stderr[:200]}",
+        }
+
+    # claude --output-format json returns {"type":"result","result":"<text>",...}
+    raw = proc.stdout.strip()
+    if not raw:
+        return {
+            "verdict": "FAIL", "score": 0, "criteria": {},
+            "summary": "claude returned empty output",
+        }
+
+    try:
+        envelope = json.loads(raw)
+        if isinstance(envelope, dict) and "result" in envelope:
+            text = str(envelope["result"]).strip()
+        else:
+            text = raw
+    except json.JSONDecodeError:
+        text = raw
+
+    # Strip markdown fencing if present (model sometimes adds it despite instructions)
+    if text.startswith("```"):
+        lines = text.splitlines()
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        text = "\n".join(lines)
+
+    try:
+        result = json.loads(text)
     except json.JSONDecodeError:
         return {
-            "verdict": "FAIL",
-            "score": 0,
-            "criteria": {},
-            "summary": f"Judge returned unparseable output: {raw[:200]}",
-            "_raw": raw,
+            "verdict": "FAIL", "score": 0, "criteria": {},
+            "summary": f"Judge returned unparseable output: {text[:200]}",
+            "_raw": text,
         }
 
     # Ensure required fields exist
@@ -230,7 +240,7 @@ def main() -> int:
     parser.add_argument(
         "--model",
         default=None,
-        help=f"Model registry key (default: {DEFAULT_MODEL})",
+        help="Model to pass to claude CLI (default: sonnet)",
     )
     parser.add_argument(
         "--list-rubrics",
@@ -270,9 +280,6 @@ def main() -> int:
     # Evaluate
     try:
         result = evaluate(content, args.rubric, context=args.context, model=args.model)
-    except anthropic.APIError as e:
-        print(f"Error: API call failed — {e}", file=sys.stderr)
-        return 3
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 3

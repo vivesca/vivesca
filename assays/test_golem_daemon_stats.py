@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -49,11 +50,22 @@ def _make_record(
     }
 
 
-def _run_stats(mod: dict) -> tuple[str, int]:
+def _run_stats(mod: dict, args: list[str] | None = None, running_file: Path | None = None) -> tuple[str, int]:
     """Run cmd_stats with captured stdout. Returns (output, returncode)."""
+    if args is None:
+        args = ["--all"]
     buf = StringIO()
-    with patch("sys.stdout", buf):
-        rc = mod["cmd_stats"]()
+    # Override RUNNING_FILE and PIDFILE to avoid reading real system state
+    orig_running = mod["RUNNING_FILE"]
+    orig_pid = mod["PIDFILE"]
+    mod["RUNNING_FILE"] = running_file if running_file is not None else mod["Path"]("/tmp/nonexistent_running_stats.json")
+    mod["PIDFILE"] = mod["Path"]("/tmp/nonexistent_stats.pid")
+    try:
+        with patch("sys.stdout", buf):
+            rc = mod["cmd_stats"](args)
+    finally:
+        mod["RUNNING_FILE"] = orig_running
+        mod["PIDFILE"] = orig_pid
     return buf.getvalue(), rc
 
 
@@ -158,7 +170,7 @@ class TestPermanentlyFailed:
 class TestTodayFilter:
     def test_today_tasks(self, tmp_path: Path):
         jsonl = tmp_path / "golem.jsonl"
-        today_str = "2026-04-01"
+        today_str = datetime.now().strftime("%Y-%m-%d")
         _write_jsonl(jsonl, [
             _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
             _make_record(exit_code=1, ts=f"{today_str} 10:00:00"),
@@ -195,8 +207,8 @@ class TestProviderStats:
         assert rc == 0
         assert "zhipu" in out
         assert "2 tasks" in out
-        assert "1 passed" in out
-        assert "1 failed" in out
+        assert "1 pass" in out
+        assert "1 rate-limited" in out
         # avg = (60+120)/2 = 90s = 1m30s
         assert "1m30s" in out
 
@@ -482,7 +494,7 @@ class TestMainDispatch:
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         buf = StringIO()
-        with patch("sys.argv", ["golem-daemon", "stats"]), patch("sys.stdout", buf):
+        with patch("sys.argv", ["golem-daemon", "stats", "--all"]), patch("sys.stdout", buf):
             rc = mod["main"]()
         assert rc == 0
         assert "Total tasks: 1" in buf.getvalue()
@@ -555,6 +567,261 @@ class TestOutputFormat:
         # Both lines should contain "tasks", "passed", "failed", "avg"
         for line in lines:
             assert "tasks" in line
-            assert "passed" in line
-            assert "failed" in line
+            assert "pass" in line
+            assert "rate-limited" in line
+            assert "real-fail" in line
             assert "avg" in line
+
+# ── time-window filtering ──────────────────────────────────
+
+
+class TestTimeWindowFiltering:
+    """Tests for the default 8h window and --since flag."""
+
+    def test_default_filters_old_records(self, tmp_path: Path):
+        """Default (no flags) filters to last 8h — old records excluded."""
+        jsonl = tmp_path / "golem.jsonl"
+        # Record from 10h ago should be excluded
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=10)).strftime("%Y-%m-%d %H:%M:%S")
+        _write_jsonl(jsonl, [_make_record(exit_code=0, ts=old_ts)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=[])
+        assert rc == 0
+        assert "No tasks in window (last 8h)" in out
+
+    def test_default_includes_recent_records(self, tmp_path: Path):
+        """Default (no flags) includes records from within 8h."""
+        jsonl = tmp_path / "golem.jsonl"
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        _write_jsonl(jsonl, [_make_record(exit_code=0, ts=recent_ts)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=[])
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 1, failed: 0)" in out
+
+    def test_since_2h_flag(self, tmp_path: Path):
+        """--since=2h excludes records older than 2 hours."""
+        jsonl = tmp_path / "golem.jsonl"
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+        _write_jsonl(jsonl, [
+            _make_record(exit_code=0, ts=old_ts),
+            _make_record(exit_code=1, ts=recent_ts),
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=["--since=2h"])
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 0, failed: 1)" in out
+
+    def test_since_30m_flag(self, tmp_path: Path):
+        """--since=30m filters to last 30 minutes."""
+        jsonl = tmp_path / "golem.jsonl"
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+        _write_jsonl(jsonl, [
+            _make_record(exit_code=0, ts=old_ts),
+            _make_record(exit_code=0, ts=recent_ts),
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=["--since=30m"])
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 1, failed: 0)" in out
+
+    def test_today_flag(self, tmp_path: Path):
+        """--today only includes records from today."""
+        jsonl = tmp_path / "golem.jsonl"
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        yesterday = (datetime.now() - __import__("datetime").timedelta(days=1)).strftime("%Y-%m-%d")
+        _write_jsonl(jsonl, [
+            _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
+            _make_record(exit_code=1, ts=f"{yesterday} 15:00:00"),
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=["--today"])
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 1, failed: 0)" in out
+
+    def test_all_flag_shows_everything(self, tmp_path: Path):
+        """--all shows all records regardless of age."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [
+            _make_record(exit_code=0, ts="2020-01-01 00:00:00"),
+            _make_record(exit_code=1, ts="2020-06-15 12:00:00"),
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=["--all"])
+        assert rc == 0
+        assert "Total tasks: 2 (passed: 1, failed: 1)" in out
+
+    def test_iso_timestamp_parsed(self, tmp_path: Path):
+        """ISO format '2026-04-02T04:29:07Z' is parsed correctly for filtering."""
+        jsonl = tmp_path / "golem.jsonl"
+        recent_iso = (datetime.now() - __import__("datetime").timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_jsonl(jsonl, [_make_record(exit_code=0, ts=recent_iso)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, args=[])
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 1, failed: 0)" in out
+
+
+# ── daemon status header ───────────────────────────────────
+
+
+class TestDaemonStatusHeader:
+    """Tests for the daemon status header line."""
+
+    def test_header_shows_stopped(self, tmp_path: Path):
+        """Header shows 'stopped' when pidfile missing."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record()])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Daemon: stopped" in out
+
+    def test_header_shows_pending_count(self, tmp_path: Path):
+        """Header shows correct pending count from queue."""
+        jsonl = tmp_path / "golem.jsonl"
+        queue = tmp_path / "queue.md"
+        _write_jsonl(jsonl, [_make_record()])
+        queue.write_text("- [ ] `golem \"task1\"`\n- [!!] `golem \"task2\"`\n- [x] `golem \"done\"`\n")
+        mod = _load_module(jsonl, queue)
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "2 tasks pending" in out
+
+    def test_header_shows_zero_running_when_no_file(self, tmp_path: Path):
+        """Header shows 0 running when RUNNING_FILE doesn't exist."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record()])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "0 running" in out
+
+
+# ── currently running section ──────────────────────────────
+
+
+class TestCurrentlyRunningSection:
+    """Tests for the 'Currently running' section from RUNNING_FILE."""
+
+    def test_no_running_section_when_empty(self, tmp_path: Path):
+        """No 'Currently running' section when RUNNING_FILE is empty."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record()])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Currently running:" not in out
+
+    def test_running_section_shows_tasks(self, tmp_path: Path):
+        """Currently running section lists task IDs and elapsed time."""
+        jsonl = tmp_path / "golem.jsonl"
+        running_file = tmp_path / "golem-running.json"
+        _write_jsonl(jsonl, [_make_record()])
+        running_file.write_text(json.dumps([
+            {"task_id": "t-abc123", "provider": "zhipu", "cmd": "golem test", "started_at": 1000.0},
+        ]))
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, running_file=running_file)
+        assert rc == 0
+        assert "Currently running:" in out
+        assert "t-abc123" in out
+        assert "zhipu" in out
+        assert "elapsed" in out
+
+    def test_running_section_without_started_at(self, tmp_path: Path):
+        """Running task without started_at shows no elapsed time."""
+        jsonl = tmp_path / "golem.jsonl"
+        running_file = tmp_path / "golem-running.json"
+        _write_jsonl(jsonl, [_make_record()])
+        running_file.write_text(json.dumps([
+            {"task_id": "t-noeta", "provider": "codex", "cmd": "golem test"},
+        ]))
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod, running_file=running_file)
+        assert rc == 0
+        assert "t-noeta" in out
+        assert "elapsed" not in out
+
+
+# ── permanently failed listing ──────────────────────────────
+
+
+class TestPermanentlyFailedListing:
+    """Tests for the permanently failed task IDs listing."""
+
+    def test_no_listing_when_empty(self, tmp_path: Path):
+        """No perma-failed ID listing when queue has no [!] entries."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record()])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        # Count line exists but no ID listing
+        assert "Permanently failed (retries exhausted): 0" in out
+        # No duplicate listing section since count is 0
+
+    def test_listing_shows_task_ids(self, tmp_path: Path):
+        """Perma-failed listing shows task IDs from queue [!] lines."""
+        jsonl = tmp_path / "golem.jsonl"
+        queue = tmp_path / "queue.md"
+        _write_jsonl(jsonl, [_make_record()])
+        queue.write_text(
+            '- [!] `golem [t-abc123] "failed1"`\n'
+            '- [!] `golem [t-def456] "failed2"`\n'
+        )
+        mod = _load_module(jsonl, queue)
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Permanently failed (retries exhausted): 2" in out
+        assert "t-abc123" in out
+        assert "t-def456" in out
+
+
+# ── export stats time filtering ────────────────────────────
+
+
+class TestExportStatsTimeFiltering:
+    """Tests for time filtering on --export-stats."""
+
+    def test_export_since_filters_records(self, tmp_path: Path, capsys):
+        """cmd_export_stats --since=1h filters old records."""
+        jsonl = tmp_path / "golem.jsonl"
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
+        _write_jsonl(jsonl, [
+            {"ts": recent_ts, "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
+            {"ts": old_ts, "provider": "infini", "exit": 0, "duration": 30, "cmd": "test"},
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        orig_jsonl = mod["JSONLFILE"]
+        try:
+            mod["JSONLFILE"] = jsonl
+            rc = mod["cmd_export_stats"](["--since=1h"])
+        finally:
+            mod["JSONLFILE"] = orig_jsonl
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out.strip())
+        providers = {d["provider"] for d in data}
+        assert "zhipu" in providers
+        assert "infini" not in providers
+
+    def test_export_all_shows_everything(self, tmp_path: Path, capsys):
+        """cmd_export_stats --all includes all records."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [
+            {"ts": "2020-01-01 00:00:00", "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        orig_jsonl = mod["JSONLFILE"]
+        try:
+            mod["JSONLFILE"] = jsonl
+            rc = mod["cmd_export_stats"](["--all"])
+        finally:
+            mod["JSONLFILE"] = orig_jsonl
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out.strip())
+        assert len(data) >= 1
+        assert data[0]["provider"] == "zhipu"

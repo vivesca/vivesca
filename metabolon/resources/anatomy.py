@@ -525,7 +525,7 @@ def _operon_heartbeat() -> list[str]:
     """Run the operon substrate and return a compact heartbeat summary."""
     lines: list[str] = []
     try:
-        from metabolon.metabolism.substrates.operons import OperonSubstrate
+        from metabolon.metabolism.substrates.operon_monitor import OperonSubstrate
 
         substrate = OperonSubstrate()
         sensed = substrate.sense(days=30)

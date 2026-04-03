@@ -21,7 +21,7 @@ from pathlib import Path
 
 CLAUDE = str(Path.home() / ".local" / "bin" / "claude")
 MODELS = {
-    "glm": "glm-5.1",
+    "glm": "GLM-5.1",
     "sonnet": "sonnet",
     "haiku": "haiku",
     "opus": "opus",

@@ -151,9 +151,9 @@ class TestSenseEndocytosis:
 class TestSenseSignals:
     def test_maps_tools_to_domains(self) -> None:
         entries = [
-            {"ts": _recent_timestamp(), "tool": "rheotaxis_search"},
-            {"ts": _recent_timestamp(), "tool": "rheotaxis_search"},
-            {"ts": _recent_timestamp(), "tool": "circadian_list"},
+            {"ts": _recent_timestamp(), "tool": "rheotaxis"},
+            {"ts": _recent_timestamp(), "tool": "rheotaxis"},
+            {"ts": _recent_timestamp(), "tool": "circadian"},
         ]
         with patch(
             "metabolon.organelles.gradient_sense._read_jsonl",
@@ -178,7 +178,7 @@ class TestSenseSignals:
 
     def test_old_entries_filtered(self) -> None:
         old_ts = (datetime.now(UTC) - timedelta(days=30)).isoformat()
-        entries = [{"ts": old_ts, "tool": "rheotaxis_search"}]
+        entries = [{"ts": old_ts, "tool": "rheotaxis"}]
         with patch(
             "metabolon.organelles.gradient_sense._read_jsonl",
             return_value=entries,

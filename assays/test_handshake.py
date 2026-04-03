@@ -59,7 +59,7 @@ async def test_handshake():
             "checkpoint_list",
             "checkpoint_move",
             "checkpoint_set",
-            "rheotaxis_search",
+            "rheotaxis",
             "circadian_sleep",
             "endocytosis_check_auth",
             "endocytosis_extract",

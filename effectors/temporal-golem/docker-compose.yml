@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: temporal
       POSTGRES_DB: temporal
     ports:
-      - "5432:5432"
+      - "5436:5432"
     volumes:
       - temporal-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -44,7 +44,7 @@ services:
       - TEMPORAL_ADDRESS=temporal-server:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:8080
     ports:
-      - "8080:8080"
+      - "8233:8080"
 
   temporal-admin-tools:
     image: temporalio/admin-tools:latest

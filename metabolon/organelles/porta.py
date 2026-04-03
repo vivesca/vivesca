@@ -2,13 +2,18 @@ from __future__ import annotations
 
 """porta — cookie bridge from Chrome to agent-browser Playwright context.
 
-Reads Chrome cookies for a domain via pycookiecheat (macOS Keychain
-decryption), then injects them into agent-browser's active page.
+Extracts Chrome cookies via cookie-bridge HTTP server on Mac (LaunchAgent
+with Keychain access), then injects into agent-browser (local or via SSH).
+
+Architecture:
+  soma → HTTP GET mac:7743/cookies?domain=X → cookie-bridge (Mac LaunchAgent)
+       → pycookiecheat (macOS Keychain) → cookies JSON
+  soma → SSH mac agent-browser cookies set → Playwright context
 
 Constraints:
-  - Requires GUI session (Keychain access). Will not work from Blink/SSH.
   - Cookie injection only. Does not handle localStorage or JWT auth.
-  - agent-browser must be running and reachable.
+  - cookie-bridge must be running on Mac (LaunchAgent: com.terryli.cookie-bridge).
+  - Falls back to local pycookiecheat if cookie-bridge unreachable.
 """
 
 
@@ -16,15 +21,18 @@ import subprocess
 
 
 def _ab(args: list[str], timeout: int = 15) -> tuple[bool, str]:
-    """Run agent-browser command. Returns (success, output)."""
-    # Late import to avoid circular dependency; pseudopod owns the _ab helpers
-    # but porta is an organelle (not a tool), so we re-implement the slim variant.
-    import os
+    """Run agent-browser command, locally or via SSH to Mac."""
+    import platform
 
-    path = os.popen("which agent-browser").read().strip() or "agent-browser"
+    if platform.system() == "Darwin":
+        cmd = ["agent-browser", *args]
+    else:
+        # agent-browser with Chrome lives on Mac — relay via SSH
+        cmd = ["ssh", "mac", "agent-browser", *args]
+
     try:
         result = subprocess.run(
-            [path, *args],
+            cmd,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -35,8 +43,8 @@ def _ab(args: list[str], timeout: int = 15) -> tuple[bool, str]:
         return False, "timeout"
     except FileNotFoundError:
         return False, "agent-browser not found"
-    except subprocess.CalledProcessError as e:
-        return False, e.stderr.strip()
+    except subprocess.CalledProcessError as exc:
+        return False, exc.stderr.strip()
 
 
 def inject(domain: str) -> dict:
@@ -53,23 +61,32 @@ def inject(domain: str) -> dict:
     domain = domain.removeprefix("https://").removeprefix("http://").rstrip("/")
     url = f"https://{domain}"
 
-    try:
-        from pycookiecheat import chrome_cookies
-    except ImportError:
-        return {
-            "success": False,
-            "message": "pycookiecheat not installed — run: pip install pycookiecheat",
-            "count": 0,
-        }
+    # Cookie bridge: HTTP server on Mac with Keychain access (LaunchAgent)
+    # Falls back to local pycookiecheat if running on macOS directly
+    import json
+    import urllib.request
 
+    cookie_bridge_url = f"http://mac:7743/cookies?domain={domain}"
     try:
-        cookies: dict[str, str] = chrome_cookies(url)
-    except Exception as exc:
-        return {
-            "success": False,
-            "message": f"Chrome cookie extraction failed: {exc}",
-            "count": 0,
-        }
+        with urllib.request.urlopen(cookie_bridge_url, timeout=10) as resp:
+            cookies: dict[str, str] = json.loads(resp.read().decode("utf-8"))
+        if "error" in cookies:
+            return {
+                "success": False,
+                "message": f"Cookie bridge error: {cookies['error']}",
+                "count": 0,
+            }
+    except Exception:
+        # Fallback: direct pycookiecheat (if running on macOS)
+        try:
+            from pycookiecheat import chrome_cookies  # type: ignore
+            cookies = chrome_cookies(url)
+        except Exception as exc:
+            return {
+                "success": False,
+                "message": f"Cookie extraction failed (bridge unreachable, local fallback failed): {exc}",
+                "count": 0,
+            }
 
     if not cookies:
         return {

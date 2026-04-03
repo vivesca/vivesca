@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""soma-status — single-screen system health summary.
+
+Collects supervisorctl status, golem-daemon stats, disk usage, uptime,
+and memory info into a unified report.
+
+Usage:
+    soma-status          # human-readable summary
+    soma-status --json   # machine-readable JSON
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+GOLEM_DAEMON = Path.home() / "germline" / "effectors" / "golem-daemon"
+
+
+# ── data collectors ──────────────────────────────────────────────────
+
+def collect_supervisor() -> list[dict]:
+    """Parse supervisorctl status into list of program dicts."""
+    try:
+        result = subprocess.run(
+            ["supervisorctl", "status"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except FileNotFoundError:
+        return []
+    except subprocess.TimeoutExpired:
+        return []
+
+    programs: list[dict] = []
+    for line in result.stdout.splitlines():
+        # Format: program:name  STATE   pid  uptime
+        # e.g.: golem-daemon                    RUNNING   pid 12345, uptime 1:23:45
+        m = re.match(
+            r'^(\S+)\s+(RUNNING|STOPPED|STARTING|BACKOFF|STOPPING|EXITED|FATAL|UNKNOWN)\s*(.*)',
+            line,
+        )
+        if m:
+            name = m.group(1)
+            state = m.group(2)
+            info = m.group(3).strip()
+            pid: int | None = None
+            if state == "RUNNING":
+                pid_m = re.search(r'pid (\d+)', info)
+                if pid_m:
+                    pid = int(pid_m.group(1))
+            programs.append({"name": name, "state": state, "pid": pid, "info": info})
+    return programs
+
+
+def collect_golem_stats() -> str:
+    """Run golem-daemon stats and return its stdout."""
+    try:
+        result = subprocess.run(
+            [sys.executable, str(GOLEM_DAEMON), "stats"],
+            capture_output=True, text=True, timeout=30,
+        )
+        return result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "(golem-daemon stats unavailable)"
+
+
+def collect_disk() -> dict:
+    """Parse df -h / for root filesystem usage."""
+    try:
+        result = subprocess.run(
+            ["df", "-h", "/"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except FileNotFoundError:
+        return {"error": "df not found"}
+
+    lines = result.stdout.splitlines()
+    if len(lines) < 2:
+        return {"error": "unexpected df output"}
+
+    # Header: Filesystem Size Used Avail Use% Mounted
+    parts = lines[1].split()
+    if len(parts) < 6:
+        return {"error": "unexpected df output"}
+
+    return {
+        "filesystem": parts[0],
+        "size": parts[1],
+        "used": parts[2],
+        "avail": parts[3],
+        "use_pct": parts[4],
+        "mounted": parts[5],
+    }
+
+
+def collect_uptime() -> str:
+    """Return uptime string."""
+    try:
+        result = subprocess.run(
+            ["uptime"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip()
+    except FileNotFoundError:
+        return "(uptime unavailable)"
+
+
+def collect_memory() -> dict:
+    """Parse free -h output into a dict."""
+    try:
+        result = subprocess.run(
+            ["free", "-h"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except FileNotFoundError:
+        return {"error": "free not found"}
+
+    lines = result.stdout.splitlines()
+    mem: dict = {}
+    swap: dict = {}
+
+    for line in lines:
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0] == "Mem:":
+            mem = {
+                "total": parts[1],
+                "used": parts[2],
+                "free": parts[3],
+                "shared": parts[4] if len(parts) > 4 else "",
+                "buff_cache": parts[5] if len(parts) > 5 else "",
+                "available": parts[6] if len(parts) > 6 else "",
+            }
+        elif parts[0] == "Swap:":
+            swap = {
+                "total": parts[1],
+                "used": parts[2],
+                "free": parts[3],
+            }
+
+    return {"mem": mem, "swap": swap}
+
+
+# ── formatting ───────────────────────────────────────────────────────
+
+def format_human(
+    supervisor: list[dict],
+    golem_stats: str,
+    disk: dict,
+    uptime_str: str,
+    memory: dict,
+) -> str:
+    """Render all sections into a single-screen summary."""
+    lines: list[str] = []
+
+    # ── Uptime ──
+    lines.append("═" * 60)
+    lines.append(" UPTIME")
+    lines.append("═" * 60)
+    lines.append(f"  {uptime_str}")
+    lines.append("")
+
+    # ── Supervisor ──
+    lines.append("═" * 60)
+    lines.append(" SERVICES (supervisorctl)")
+    lines.append("═" * 60)
+    if supervisor:
+        for prog in supervisor:
+            pid_str = f"  pid={prog['pid']}" if prog["pid"] is not None else ""
+            lines.append(f"  {prog['name']:<30s} {prog['state']}{pid_str}")
+    else:
+        lines.append("  (supervisor not running or no programs)")
+    lines.append("")
+
+    # ── Golem Stats ──
+    lines.append("═" * 60)
+    lines.append(" GOLEM STATS")
+    lines.append("═" * 60)
+    for gl in golem_stats.splitlines():
+        lines.append(f"  {gl}")
+    lines.append("")
+
+    # ── Disk ──
+    lines.append("═" * 60)
+    lines.append(" DISK (/)")
+    lines.append("═" * 60)
+    if "error" in disk:
+        lines.append(f"  {disk['error']}")
+    else:
+        lines.append(
+            f"  {disk['size']} total  {disk['used']} used  "
+            f"{disk['avail']} avail  ({disk['use_pct']} full)"
+        )
+    lines.append("")
+
+    # ── Memory ──
+    lines.append("═" * 60)
+    lines.append(" MEMORY")
+    lines.append("═" * 60)
+    mem = memory.get("mem", {})
+    swap = memory.get("swap", {})
+    if mem:
+        lines.append(
+            f"  RAM:  {mem.get('used', '?')} used / {mem.get('total', '?')} total  "
+            f"({mem.get('available', '?')} available)"
+        )
+    if swap:
+        lines.append(
+            f"  Swap: {swap.get('used', '?')} used / {swap.get('total', '?')} total"
+        )
+    if not mem and not swap:
+        lines.append("  (memory info unavailable)")
+
+    lines.append("═" * 60)
+    return "\n".join(lines)
+
+
+def format_json(
+    supervisor: list[dict],
+    golem_stats: str,
+    disk: dict,
+    uptime_str: str,
+    memory: dict,
+) -> str:
+    """Render all sections as a JSON object."""
+    payload = {
+        "uptime": uptime_str,
+        "supervisor": supervisor,
+        "golem_stats": golem_stats,
+        "disk": disk,
+        "memory": memory,
+    }
+    return json.dumps(payload, indent=2)
+
+
+# ── main ─────────────────────────────────────────────────────────────
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="System health summary")
+    parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Output machine-readable JSON",
+    )
+    args = parser.parse_args(argv)
+
+    supervisor = collect_supervisor()
+    golem_stats = collect_golem_stats()
+    disk = collect_disk()
+    uptime_str = collect_uptime()
+    memory = collect_memory()
+
+    if args.json_output:
+        print(format_json(supervisor, golem_stats, disk, uptime_str, memory))
+    else:
+        print(format_human(supervisor, golem_stats, disk, uptime_str, memory))
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

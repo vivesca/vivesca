@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -688,3 +689,405 @@ class TestModelsModule:
         inp = GolemDispatchInput(tasks=[GolemTaskSpec(provider="zhipu", task="hello")])
         assert len(inp.tasks) == 1
         assert inp.tasks[0].provider == "zhipu"
+
+
+# ============================================================================
+# Dispatch module tests — queue parsing, cooldown, throttle, concurrency
+# ============================================================================
+
+
+class TestDispatchQueueLock:
+    """Test QueueLock context manager from dispatch module."""
+
+    def test_queue_lock_acquires_and_releases(self):
+        """QueueLock can be used as a context manager without error."""
+        import dispatch
+        with dispatch.QueueLock():
+            pass  # should not raise
+
+    def test_queue_lock_path_matches_daemon(self):
+        """QueueLock uses the same lock file as golem-daemon."""
+        import dispatch
+        assert "golem-queue.lock" in str(dispatch.QueueLock._lock_path)
+
+
+class TestDispatchTaskId:
+    """Test task ID generation and parsing."""
+
+    def test_generate_task_id_format(self):
+        """Generated task IDs match t-XXXXXX format."""
+        import dispatch
+        tid = dispatch._generate_task_id()
+        assert tid.startswith("t-")
+        assert len(tid) == 8  # "t-" + 6 hex chars
+        import re
+        assert re.match(r"^t-[0-9a-f]{6}$", tid)
+
+    def test_generate_task_id_unique(self):
+        """Successive calls produce different IDs."""
+        import dispatch
+        ids = {dispatch._generate_task_id() for _ in range(20)}
+        assert len(ids) == 20
+
+    def test_task_id_re_extracts_hex(self):
+        """TASK_ID_RE extracts 6-char hex from bracket notation."""
+        import dispatch
+        m = dispatch.TASK_ID_RE.search("golem [t-abc123] --provider zhipu")
+        assert m is not None
+        assert m.group(1) == "abc123"
+
+
+class TestDispatchParseQueue:
+    """Test parse_queue with temp queue files."""
+
+    def _write_queue(self, content: str, tmp_path: Path) -> Path:
+        qf = tmp_path / "golem-queue.md"
+        qf.write_text(content)
+        return qf
+
+    def test_parse_empty_queue(self, tmp_path):
+        """parse_queue returns [] for empty queue."""
+        import dispatch
+        qf = self._write_queue("", tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert result == []
+
+    def test_parse_single_pending(self, tmp_path):
+        """parse_queue finds a single pending task."""
+        import dispatch
+        qf = self._write_queue('- [ ] `golem --provider zhipu "Do stuff"`\n', tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert len(result) == 1
+        line_num, prompt, provider, task_id, max_turns = result[0]
+        assert provider == "zhipu"
+        assert "Do stuff" in prompt
+        assert task_id.startswith("t-")
+
+    def test_parse_generates_task_ids(self, tmp_path):
+        """parse_queue generates t-xxxxxx IDs for tasks without them."""
+        import dispatch
+        qf = self._write_queue('- [ ] `golem --provider zhipu "Task"`\n', tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert len(result) == 1
+        task_id = result[0][3]
+        assert task_id.startswith("t-")
+        # Verify ID was written back to file
+        content = qf.read_text()
+        assert f"[{task_id}]" in content
+
+    def test_parse_preserves_existing_task_id(self, tmp_path):
+        """parse_queue keeps existing task IDs."""
+        import dispatch
+        qf = self._write_queue('- [ ] `golem [t-dead42] --provider zhipu "Task"`\n', tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert len(result) == 1
+        assert result[0][3] == "t-dead42"
+
+    def test_parse_high_priority_first(self, tmp_path):
+        """High-priority [!!] tasks sort before normal [ ]."""
+        import dispatch
+        content = (
+            '- [ ] `golem --provider zhipu "Normal"`\n'
+            '- [!!] `golem --provider zhipu "Urgent"`\n'
+        )
+        qf = self._write_queue(content, tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert len(result) == 2
+        # Urgent should be first
+        assert "Urgent" in result[0][1]
+        assert "Normal" in result[1][1]
+
+    def test_parse_skips_completed(self, tmp_path):
+        """Completed [x] tasks are ignored."""
+        import dispatch
+        content = '- [x] `golem [t-aaa111] --provider zhipu "Done"`\n'
+        qf = self._write_queue(content, tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert result == []
+
+    def test_parse_extracts_max_turns(self, tmp_path):
+        """parse_queue extracts --max-turns value."""
+        import dispatch
+        content = '- [ ] `golem --provider zhipu --max-turns 42 "Task"`\n'
+        qf = self._write_queue(content, tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert result[0][4] == 42
+
+    def test_parse_default_max_turns(self, tmp_path):
+        """parse_queue defaults max_turns to 50."""
+        import dispatch
+        content = '- [ ] `golem --provider zhipu "Task"`\n'
+        qf = self._write_queue(content, tmp_path)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.parse_queue()
+        assert result[0][4] == 50
+
+
+class TestDispatchMarkDone:
+    """Test mark_done with temp queue files."""
+
+    def test_mark_done_normal(self, tmp_path):
+        """mark_done changes [ ] to [x]."""
+        import dispatch
+        content = '- [ ] `golem [t-abc123] --provider zhipu "Task"`\n'
+        qf = tmp_path / "golem-queue.md"
+        qf.write_text(content)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            dispatch.mark_done(0, task_id="t-abc123")
+        assert "[x]" in qf.read_text()
+
+    def test_mark_done_high_priority(self, tmp_path):
+        """mark_done changes [!!] to [x]."""
+        import dispatch
+        content = '- [!!] `golem [t-def456] --provider zhipu "Task"`\n'
+        qf = tmp_path / "golem-queue.md"
+        qf.write_text(content)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            dispatch.mark_done(0, task_id="t-def456")
+        assert "[x]" in qf.read_text()
+        assert "[!!]" not in qf.read_text()
+
+
+class TestDispatchMarkFailed:
+    """Test mark_failed with temp queue files."""
+
+    def test_mark_failed_retries_once(self, tmp_path):
+        """mark_failed adds (retry) tag on first failure."""
+        import dispatch
+        content = '- [ ] `golem [t-fail00] --provider zhipu "Task"`\n'
+        qf = tmp_path / "golem-queue.md"
+        qf.write_text(content)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.mark_failed(0, task_id="t-fail00")
+        assert result["retried"] is True
+        assert "(retry)" in qf.read_text()
+
+    def test_mark_failed_permanent_after_retry(self, tmp_path):
+        """mark_failed marks [!] permanently on second failure."""
+        import dispatch
+        content = '- [ ] `golem [t-fail01] --provider zhipu "Task (retry)"`\n'
+        qf = tmp_path / "golem-queue.md"
+        qf.write_text(content)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.mark_failed(0, task_id="t-fail01")
+        assert result["retried"] is False
+        assert "[!]" in qf.read_text()
+
+    def test_mark_failed_detects_rate_limit(self, tmp_path):
+        """mark_failed sets rate_limited=True when reason contains 429."""
+        import dispatch
+        content = '- [ ] `golem [t-rl0000] --provider zhipu "Task"`\n'
+        qf = tmp_path / "golem-queue.md"
+        qf.write_text(content)
+        with patch.object(dispatch, "QUEUE_FILE", qf):
+            result = dispatch.mark_failed(0, task_id="t-rl0000", reason="HTTP 429 rate limit exceeded")
+        assert result["rate_limited"] is True
+
+
+class TestDispatchCooldown:
+    """Test cooldown tracking functions."""
+
+    def test_set_and_check_cooldown(self):
+        """_set_cooldown and _is_on_cooldown work together."""
+        import dispatch
+        dispatch._provider_cooldown_until.clear()
+        dispatch._set_cooldown("zhipu", 3600)
+        assert dispatch._is_on_cooldown("zhipu")
+
+    def test_cooldown_expires(self):
+        """Cooldown expires when time has passed."""
+        import dispatch
+        dispatch._provider_cooldown_until.clear()
+        # Set cooldown in the past
+        dispatch._provider_cooldown_until["infini"] = time.time() - 1
+        assert not dispatch._is_on_cooldown("infini")
+
+    def test_cooldown_only_extends(self):
+        """_set_cooldown only extends, never shortens cooldown."""
+        import dispatch
+        dispatch._provider_cooldown_until.clear()
+        far_future = time.time() + 10000
+        dispatch._provider_cooldown_until["volcano"] = far_future
+        dispatch._set_cooldown("volcano", 10)  # try to shorten
+        assert dispatch._provider_cooldown_until["volcano"] == far_future
+
+
+class TestDispatchThrottle:
+    """Test adaptive throttle functions."""
+
+    def test_throttle_reduces_limit(self):
+        """_throttle_provider reduces effective concurrency."""
+        import dispatch
+        dispatch._provider_throttle.clear()
+        base = dispatch.PROVIDER_LIMITS["zhipu"]
+        dispatch._throttle_provider("zhipu")
+        assert dispatch.get_provider_limit("zhipu") == base - 1
+
+    def test_unthrottle_restores_limit(self):
+        """_unthrottle_provider restores concurrency."""
+        import dispatch
+        dispatch._provider_throttle.clear()
+        dispatch._provider_throttle["zhipu"] = 2
+        dispatch._unthrottle_provider("zhipu")
+        assert dispatch.get_provider_limit("zhipu") == dispatch.PROVIDER_LIMITS["zhipu"] - 1
+
+    def test_throttle_minimum_one(self):
+        """Concurrency never drops below 1."""
+        import dispatch
+        dispatch._provider_throttle.clear()
+        dispatch._provider_throttle["infini"] = dispatch.PROVIDER_LIMITS["infini"] - 1
+        dispatch._throttle_provider("infini")
+        assert dispatch.get_provider_limit("infini") >= 1
+
+    def test_unthrottle_wont_go_negative(self):
+        """Unthrottling at 0 stays at 0."""
+        import dispatch
+        dispatch._provider_throttle.clear()
+        dispatch._unthrottle_provider("zhipu")
+        assert dispatch._provider_throttle.get("zhipu", 0) == 0
+
+
+class TestDispatchCandidates:
+    """Test _dispatch_candidates fallback chain."""
+
+    def test_candidates_includes_fallback_first(self):
+        """Fallback candidates come first, then remaining providers."""
+        import dispatch
+        candidates = dispatch._dispatch_candidates("codex")
+        assert candidates[0] == "gemini"
+        assert candidates[1] == "zhipu"
+        # All providers should be present except codex itself
+        assert "codex" not in candidates
+        assert len(candidates) == len(dispatch.PROVIDER_LIMITS) - 1
+
+    def test_candidates_no_duplicates(self):
+        """_dispatch_candidates never returns duplicates."""
+        import dispatch
+        for prov in dispatch.PROVIDER_LIMITS:
+            candidates = dispatch._dispatch_candidates(prov)
+            assert len(candidates) == len(set(candidates))
+
+
+class TestDispatchPickProvider:
+    """Test _pick_dispatch_provider fallback logic."""
+
+    def test_prefers_primary_when_available(self):
+        """Returns primary provider when not on cooldown."""
+        import dispatch
+        dispatch._provider_cooldown_until.clear()
+        dispatch._provider_running.clear()
+        assert dispatch._pick_dispatch_provider("zhipu") == "zhipu"
+
+    def test_falls_back_on_cooldown(self):
+        """Falls back when primary is on cooldown."""
+        import dispatch
+        dispatch._provider_cooldown_until.clear()
+        dispatch._provider_running.clear()
+        dispatch._set_cooldown("zhipu", 3600)
+        result = dispatch._pick_dispatch_provider("zhipu")
+        assert result is not None
+        assert result != "zhipu"
+
+    def test_returns_none_all_on_cooldown(self):
+        """Returns None when all providers are on cooldown."""
+        import dispatch
+        dispatch._provider_cooldown_until.clear()
+        dispatch._provider_running.clear()
+        for prov in dispatch.PROVIDER_LIMITS:
+            dispatch._set_cooldown(prov, 3600)
+        assert dispatch._pick_dispatch_provider("zhipu") is None
+
+
+class TestDispatchFindTaskLine:
+    """Test _find_task_line resilience."""
+
+    def test_fast_path_correct_line(self):
+        """Returns line_num when it still matches."""
+        import dispatch
+        lines = [
+            "- [ ] `golem [t-abc123] --provider zhipu \"Task\"`",
+            "- [ ] `golem [t-def456] --provider zhipu \"Other\"`",
+        ]
+        assert dispatch._find_task_line(lines, 0, "t-abc123") == 0
+        assert dispatch._find_task_line(lines, 1, "t-def456") == 1
+
+    def test_slow_path_scan_by_id(self):
+        """Scans by task_id when line_num is wrong."""
+        import dispatch
+        lines = [
+            "# header",
+            "- [ ] `golem [t-abc123] --provider zhipu \"Task\"`",
+        ]
+        assert dispatch._find_task_line(lines, 0, "t-abc123") == 1
+
+    def test_returns_minus_one_not_found(self):
+        """Returns -1 when task can't be found."""
+        import dispatch
+        lines = ["- [x] completed task"]
+        assert dispatch._find_task_line(lines, 0, "t-noexist") == -1
+
+
+class TestDispatchRateLimit:
+    """Test rate-limit detection functions."""
+
+    def test_is_rate_limited_429(self):
+        """Detects HTTP 429."""
+        import dispatch
+        assert dispatch.is_rate_limited("HTTP 429 Too Many Requests")
+
+    def test_is_rate_limited_quota(self):
+        """Detects quota exceeded."""
+        import dispatch
+        assert dispatch.is_rate_limited("AccountQuotaExceeded for user")
+
+    def test_not_rate_limited_normal(self):
+        """Normal errors are not rate-limited."""
+        import dispatch
+        assert not dispatch.is_rate_limited("file not found")
+
+    def test_parse_rate_limit_window_duration(self):
+        """Parses '5-hour' duration."""
+        import dispatch
+        assert dispatch.parse_rate_limit_window("rate limit: 5-hour window") == 5 * 3600
+
+    def test_parse_rate_limit_window_minutes(self):
+        """Parses '30-minute' duration."""
+        import dispatch
+        assert dispatch.parse_rate_limit_window("retry after 30-minute cooldown") == 30 * 60
+
+    def test_parse_rate_limit_window_gemini(self):
+        """Parses Gemini 'quota will reset after NmNs' format."""
+        import dispatch
+        assert dispatch.parse_rate_limit_window("quota will reset after 18m38s") == 18 * 60 + 38
+
+    def test_parse_rate_limit_window_none(self):
+        """Returns None for non-matching text."""
+        import dispatch
+        assert dispatch.parse_rate_limit_window("something went wrong") is None
+
+
+class TestDispatchSwapProvider:
+    """Test _swap_provider command rewriting."""
+
+    def test_swap_provider_in_command(self):
+        """Swaps --provider in a golem command string."""
+        import dispatch
+        cmd = 'golem [t-abc123] --provider zhipu --max-turns 25 "Do stuff"'
+        result = dispatch._swap_provider(cmd, "zhipu", "codex")
+        assert "--provider codex" in result
+        assert "--provider zhipu" not in result
+
+    def test_swap_preserves_rest(self):
+        """Swapping provider preserves the rest of the command."""
+        import dispatch
+        cmd = 'golem --provider zhipu --max-turns 25 "Do stuff"'
+        result = dispatch._swap_provider(cmd, "zhipu", "gemini")
+        assert "--max-turns 25" in result
+        assert "Do stuff" in result

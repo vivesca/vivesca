@@ -43,7 +43,7 @@ def test_models_defined():
     assert "sonnet" in channel.MODELS
     assert "haiku" in channel.MODELS
     assert "opus" in channel.MODELS
-    assert channel.MODELS["glm"] == "glm-5.1"
+    assert channel.MODELS["glm"] == "GLM-5.1"
 
 def test_zhipu_models():
     """Test glm is in ZHIPU_MODELS."""

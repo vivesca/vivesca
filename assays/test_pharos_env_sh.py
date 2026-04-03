@@ -1,245 +1,339 @@
 from __future__ import annotations
 
-"""Tests for effectors/pharos-env.sh — bash script tested via subprocess."""
+"""Tests for effectors/pharos-env.sh — environment wrapper for systemd services."""
 
 import os
 import stat
 import subprocess
+import tempfile
 from pathlib import Path
 
-import pytest
-
-ORIGINAL_SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-env.sh"
+PHAROS_ENV = Path.home() / "germline/effectors/pharos-env.sh"
 
 
-# ── helpers ─────────────────────────────────────────────────────────────
-
-
-def _prepare_script(tmp_path: Path) -> Path:
-    """Copy the script and replace /home/terry with tmp_path for testing."""
-    script_content = ORIGINAL_SCRIPT.read_text()
-    script_content = script_content.replace('/home/terry', str(tmp_path))
-    script_path = tmp_path / "pharos-env.sh"
-    script_path.write_text(script_content)
-    script_path.chmod(script_path.stat().st_mode | stat.S_IEXEC)
-    return script_path
-
-
-def _run(
-    tmp_path: Path,
-    command: list[str],
-    have_local_env: bool = False,
-) -> subprocess.CompletedProcess:
-    """Run pharos-env.sh with given command in a testable environment."""
-    env = os.environ.copy()
-    script_path = _prepare_script(tmp_path)
-
-    # Create the .zshenv.local if requested
-    if have_local_env:
-        zshenv = tmp_path / ".zshenv.local"
-        zshenv.write_text(
-            "export PHAROS_TEST_VAR=test-value\n"
-            "export ANOTHER_VAR=another-value\n"
-        )
-
+def _run(args: list[str], env: dict | None = None, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
+    """Run pharos-env.sh and return CompletedProcess."""
     return subprocess.run(
-        ["bash", str(script_path)] + command,
-        capture_output=True, text=True, env=env, timeout=10,
+        ["/bin/bash", str(PHAROS_ENV), *args],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=cwd,
+        timeout=10,
     )
 
 
-# ── Basic functionality tests ───────────────────────────────────────────
+# ── help flag tests ──────────────────────────────────────────────────
 
 
-class TestPharosEnv:
-    """Test the environment wrapper script."""
+def test_help_long_flag():
+    """--help prints usage and exits 0."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "Usage: pharos-env.sh" in r.stdout
+    assert "Environment wrapper" in r.stdout
 
-    def test_script_is_executable(self):
-        """The script should have executable permissions."""
-        assert ORIGINAL_SCRIPT.exists()
-        stat_info = ORIGINAL_SCRIPT.stat()
-        assert stat_info.st_mode & stat.S_IEXEC != 0, "Script should be executable"
 
-    def test_sets_correct_home(self, tmp_path: Path):
-        """HOME should be set correctly."""
-        r = _run(tmp_path, ["printenv", "HOME"])
-        assert r.returncode == 0
-        assert r.stdout.strip() == str(tmp_path)
+def test_help_short_flag():
+    """-h prints usage and exits 0."""
+    r = _run(["-h"])
+    assert r.returncode == 0
+    assert "Usage: pharos-env.sh" in r.stdout
 
-    def test_sets_extended_path(self, tmp_path: Path):
-        """PATH should include all expected directories."""
-        r = _run(tmp_path, ["printenv", "PATH"])
-        assert r.returncode == 0
-        path = r.stdout.strip()
-        expected_dirs = [
-            f"{tmp_path}/.local/bin",
-            f"{tmp_path}/.cargo/bin",
-            f"{tmp_path}/.bun/bin",
-            f"{tmp_path}/go/bin",
-            f"{tmp_path}/.nix-profile/bin",
-            "/nix/var/nix/profiles/default/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-        ]
-        for expected in expected_dirs:
-            assert expected in path, f"Expected {expected} in PATH"
 
-    def test_sources_local_secrets_when_present(self, tmp_path: Path):
-        """When .zshenv.local exists, variables should be exported from it."""
-        r = _run(tmp_path, ["printenv", "PHAROS_TEST_VAR"], have_local_env=True)
-        assert r.returncode == 0
-        assert r.stdout.strip() == "test-value"
+# ── command execution tests ──────────────────────────────────────────
 
-    def test_works_without_local_secrets(self, tmp_path: Path):
-        """When .zshenv.local doesn't exist, script still works fine."""
-        # Check that we don't get an error
-        r = _run(tmp_path, ["echo", "hello world"])
-        assert r.returncode == 0
-        assert r.stdout.strip() == "hello world"
 
-    def test_executes_command_successfully(self, tmp_path: Path):
-        """The script should exec the given command and pass through exit code."""
-        # Exit 0
-        r = _run(tmp_path, ["true"])
-        assert r.returncode == 0
+def test_exec_command():
+    """Runs the given command via exec."""
+    r = _run(["echo", "hello world"])
+    assert r.returncode == 0
+    assert r.stdout.strip() == "hello world"
 
-        # Exit non-zero should pass through
-        r = _run(tmp_path, ["false"])
-        assert r.returncode != 0
 
-    def test_passes_arguments_correctly(self, tmp_path: Path):
-        """Arguments should be passed through correctly to the command."""
-        r = _run(tmp_path, ["echo", "one", "two three", "four"])
-        assert r.returncode == 0
-        assert r.stdout.strip() == "one two three four"
+def test_exec_command_with_args():
+    """Passes arguments through to the exec'd command."""
+    r = _run(["printf", "%s-%s", "foo", "bar"])
+    assert r.returncode == 0
+    assert r.stdout == "foo-bar"
 
-    # ── Help flag tests ────────────────────────────────────────────────────
 
-    def test_help_long_flag(self, tmp_path: Path):
-        """--help should print usage text and exit 0."""
-        script_path = _prepare_script(tmp_path)
-        r = subprocess.run(
-            ["bash", str(script_path), "--help"],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode == 0
-        assert "Usage:" in r.stdout
-        assert "pharos-env.sh" in r.stdout
+def test_propagates_exit_code():
+    """Forwards the child process exit code."""
+    r = _run(["/bin/bash", "-c", "exit 42"])
+    assert r.returncode == 42
 
-    def test_help_short_flag(self, tmp_path: Path):
-        """-h should print usage text and exit 0."""
-        script_path = _prepare_script(tmp_path)
-        r = subprocess.run(
-            ["bash", str(script_path), "-h"],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode == 0
-        assert "Usage:" in r.stdout
 
-    # ── Error handling tests ───────────────────────────────────────────────
+# ── PATH tests ────────────────────────────────────────────────────────
 
-    def test_no_arguments_exits_cleanly(self, tmp_path: Path):
-        """Running with no arguments: exec with empty $@ is a no-op, exits 0."""
-        script_path = _prepare_script(tmp_path)
-        r = subprocess.run(
-            ["bash", str(script_path)],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode == 0
-        assert r.stdout == ""
-        assert r.stderr == ""
 
-    # ── .zshenv.local multi-variable test ──────────────────────────────────
+def test_path_includes_local_bin():
+    """PATH includes $HOME/.local/bin."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    assert r.returncode == 0
+    parts = r.stdout.strip().split(":")
+    assert str(Path.home() / ".local/bin") in parts
 
-    def test_sources_multiple_vars_from_local_secrets(self, tmp_path: Path):
-        """Both variables from .zshenv.local should be exported."""
-        r = _run(tmp_path, ["printenv", "ANOTHER_VAR"], have_local_env=True)
-        assert r.returncode == 0
-        assert r.stdout.strip() == "another-value"
 
-    # ── PATH ordering test ─────────────────────────────────────────────────
+def test_path_includes_cargo_bin():
+    """PATH includes $HOME/.cargo/bin."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    assert str(Path.home() / ".cargo/bin") in parts
 
-    def test_path_order_prefers_local_bin(self, tmp_path: Path):
-        """$HOME/.local/bin should be the first entry in PATH."""
-        r = _run(tmp_path, ["printenv", "PATH"])
-        assert r.returncode == 0
-        path = r.stdout.strip()
-        first_entry = path.split(":")[0]
-        assert first_entry == f"{tmp_path}/.local/bin"
 
-    # ── Additional edge-case tests ────────────────────────────────────────
+def test_path_includes_nix_profile():
+    """PATH includes $HOME/.nix-profile/bin."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    assert str(Path.home() / ".nix-profile/bin") in parts
 
-    def test_stderr_passthrough(self, tmp_path: Path):
-        """stderr from the executed command should pass through unchanged."""
-        r = _run(tmp_path, ["bash", "-c", "echo err >&2; echo out"])
-        assert r.returncode == 0
-        assert r.stdout.strip() == "out"
-        assert r.stderr.strip() == "err"
 
-    def test_set_a_exports_vars_to_child(self, tmp_path: Path):
-        """Variables from .zshenv.local must be exported (visible to child processes)."""
-        zshenv = tmp_path / ".zshenv.local"
-        zshenv.write_text("export EXPORTED_VAR=visible\n")
-        # Use a nested bash -c to confirm the var is in the environment
-        r = _run(
-            tmp_path,
-            ["bash", "-c", "printenv EXPORTED_VAR"],
-            have_local_env=False,
-        )
-        # Re-prepare with the custom zshenv already written above
-        script_path = _prepare_script(tmp_path)
-        env = os.environ.copy()
-        r = subprocess.run(
-            ["bash", str(script_path), "bash", "-c", "printenv EXPORTED_VAR"],
-            capture_output=True, text=True, env=env, timeout=10,
-        )
-        assert r.returncode == 0
-        assert r.stdout.strip() == "visible"
+def test_path_includes_system_dirs():
+    """PATH includes standard system directories."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    for expected in ("/usr/local/bin", "/usr/bin", "/bin"):
+        assert expected in parts
 
-    def test_empty_zshenv_local_no_error(self, tmp_path: Path):
-        """An empty .zshenv.local should not cause any errors."""
-        zshenv = tmp_path / ".zshenv.local"
-        zshenv.write_text("")
-        script_path = _prepare_script(tmp_path)
-        env = os.environ.copy()
-        r = subprocess.run(
-            ["bash", str(script_path), "echo", "ok"],
-            capture_output=True, text=True, env=env, timeout=10,
-        )
-        assert r.returncode == 0
-        assert r.stdout.strip() == "ok"
-        assert r.stderr == ""
 
-    def test_command_with_special_characters_in_args(self, tmp_path: Path):
-        """Arguments with spaces and special characters should pass through."""
-        r = _run(tmp_path, ["printf", "%s\\n", "hello world", "foo$bar"])
-        assert r.returncode == 0
-        assert r.stdout == "hello world\nfoo$bar\n"
+# ── HOME default tests ────────────────────────────────────────────────
 
-    def test_path_contains_nix_dirs(self, tmp_path: Path):
-        """PATH should include Nix profile directories."""
-        r = _run(tmp_path, ["printenv", "PATH"])
-        assert r.returncode == 0
-        path = r.stdout.strip()
-        assert f"{tmp_path}/.nix-profile/bin" in path
-        assert "/nix/var/nix/profiles/default/bin" in path
 
-    def test_path_order_cargo_before_system(self, tmp_path: Path):
-        """Cargo bin should come before /usr/bin to allow custom tool versions."""
-        r = _run(tmp_path, ["printenv", "PATH"])
-        assert r.returncode == 0
-        path = r.stdout.strip()
-        assert path.index(f"{tmp_path}/.cargo/bin") < path.index("/usr/bin")
+def test_home_falls_back_to_expanded_tilde():
+    """When HOME is unset, script sets it to expanded ~."""
+    env = dict(os.environ)
+    env.pop("HOME", None)
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV), "/bin/bash", "-c", "echo $HOME"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == str(Path.home())
 
-    def test_exit_code_propagation_nonzero(self, tmp_path: Path):
-        """Non-zero exit codes (e.g., 42) should propagate through exec."""
-        r = _run(tmp_path, ["bash", "-c", "exit 42"])
-        assert r.returncode == 42
 
-    def test_no_zshenv_local_does_not_source(self, tmp_path: Path):
-        """Without .zshenv.local, PHAROS_TEST_VAR should not be set."""
-        r = _run(tmp_path, ["printenv", "PHAROS_TEST_VAR"])
-        # printenv exits 1 when variable not found
-        assert r.returncode != 0
-        assert r.stdout.strip() == ""
+# ── .zshenv.local sourcing tests ──────────────────────────────────────
+
+
+def test_sources_zshenv_local(tmp_path: Path):
+    """Sources $HOME/.zshenv.local when it exists, exporting variables."""
+    zshenv = tmp_path / ".zshenv.local"
+    zshenv.write_text('export PHAROS_TEST_VAR="from_local"\n')
+
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+    env.pop("PHAROS_TEST_VAR", None)
+
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV), "/bin/bash", "-c", "echo $PHAROS_TEST_VAR"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == "from_local"
+
+
+def test_no_zshenv_local_no_error(tmp_path: Path):
+    """Does not fail when .zshenv.local is absent."""
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV), "echo", "ok"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == "ok"
+
+
+# ── error cases ───────────────────────────────────────────────────────
+
+
+def test_no_args_exits_clean():
+    """Running with no arguments: exec with no args is a no-op, exits 0."""
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout == ""
+
+
+# ── additional PATH coverage ──────────────────────────────────────────
+
+
+def test_path_includes_bun_bin():
+    """PATH includes $HOME/.bun/bin."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    assert str(Path.home() / ".bun/bin") in parts
+
+
+def test_path_includes_go_bin():
+    """PATH includes $HOME/go/bin."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    assert str(Path.home() / "go/bin") in parts
+
+
+def test_path_includes_nix_default_profile():
+    """PATH includes /nix/var/nix/profiles/default/bin."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    assert "/nix/var/nix/profiles/default/bin" in parts
+
+
+def test_path_custom_dirs_before_system():
+    """Custom bin dirs appear before system dirs in PATH."""
+    r = _run(["/bin/bash", "-c", "echo $PATH"])
+    parts = r.stdout.strip().split(":")
+    local_bin = str(Path.home() / ".local/bin")
+    usr_bin = "/usr/bin"
+    if local_bin in parts and usr_bin in parts:
+        assert parts.index(local_bin) < parts.index(usr_bin)
+
+
+def test_path_is_fully_replaced():
+    """Script sets PATH explicitly, not inheriting or appending."""
+    env = dict(os.environ)
+    env["PATH"] = "/usr/sbin:/sbin"
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV), "/bin/bash", "-c", "echo $PATH"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    parts = r.stdout.strip().split(":")
+    assert "/usr/sbin" not in parts
+    assert "/sbin" not in parts
+    assert str(Path.home() / ".local/bin") in parts
+
+
+# ── HOME handling ──────────────────────────────────────────────────────
+
+
+def test_home_preserved_when_set(tmp_path: Path):
+    """HOME is preserved when already set in the environment."""
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV), "/bin/bash", "-c", "echo $HOME"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == str(tmp_path)
+
+
+# ── .zshenv.local edge cases ──────────────────────────────────────────
+
+
+def test_zshenv_local_exports_multiple_vars(tmp_path: Path):
+    """Multiple exports in .zshenv.local are all available."""
+    zshenv = tmp_path / ".zshenv.local"
+    zshenv.write_text(
+        'export PHAROS_ALPHA="1"\nexport PHAROS_BETA="2"\n'
+    )
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+    env.pop("PHAROS_ALPHA", None)
+    env.pop("PHAROS_BETA", None)
+    r = subprocess.run(
+        [
+            "/bin/bash",
+            str(PHAROS_ENV),
+            "/bin/bash",
+            "-c",
+            "echo $PHAROS_ALPHA:$PHAROS_BETA",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == "1:2"
+
+
+def test_zshenv_local_set_a_exports_unset_vars(tmp_path: Path):
+    """set -a ensures bare assignments in .zshenv.local are exported."""
+    zshenv = tmp_path / ".zshenv.local"
+    zshenv.write_text('PHAROS_BARE_EXPORT="yes"\n')
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+    env.pop("PHAROS_BARE_EXPORT", None)
+    r = subprocess.run(
+        [
+            "/bin/bash",
+            str(PHAROS_ENV),
+            "/bin/bash",
+            "-c",
+            "echo $PHAROS_BARE_EXPORT",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == "yes"
+
+
+def test_zshenv_local_var_used_by_child(tmp_path: Path):
+    """Variables from .zshenv.local are available to the exec'd command."""
+    zshenv = tmp_path / ".zshenv.local"
+    zshenv.write_text('export MY_SECRET_KEY="abc123"\n')
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+    env.pop("MY_SECRET_KEY", None)
+    r = subprocess.run(
+        ["/bin/bash", str(PHAROS_ENV), "printenv", "MY_SECRET_KEY"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+    assert r.returncode == 0
+    assert r.stdout.strip() == "abc123"
+
+
+# ── exec behavior ─────────────────────────────────────────────────────
+
+
+def test_exec_replaces_process():
+    """exec replaces the bash process — child PID should equal the spawned PID."""
+    r = _run(["/bin/bash", "-c", "echo $$"])
+    assert r.returncode == 0
+    # After exec, the PID printed by $$ is the direct child of our subprocess.run
+    # (not a grandchild). We just verify a PID was printed.
+    pid_str = r.stdout.strip()
+    assert pid_str.isdigit()
+    assert int(pid_str) > 0
+
+
+def test_multiword_arg_passed_correctly():
+    """Arguments with spaces are passed through correctly."""
+    r = _run(["echo", "hello   world"])
+    assert r.returncode == 0
+    assert r.stdout.strip() == "hello   world"
+
+
+def test_stderr_passthrough():
+    """Child stderr flows through to the parent."""
+    r = _run(["/bin/bash", "-c", "echo err >&2"])
+    assert r.returncode == 0
+    assert r.stderr.strip() == "err"

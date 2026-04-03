@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""Fetch the latest Evident Banking Brief and output as markdown.
+
+Usage:
+    evident-brief              # fetch latest, print markdown to stdout
+    evident-brief --save       # also save to ~/.cache/lustro-articles/
+    evident-brief --list       # list available briefs (title, date, slug)
+    evident-brief --slug X     # fetch a specific brief by slug
+
+Content extraction delegated to pinocytosis (smart routing).
+Index discovery via Firecrawl map() → agent-browser fallback.
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+
+INDEX_URL = "https://evidentinsights.com/bankingbrief/"
+BASE_URL = "https://evidentinsights.com/bankingbrief/"
+CHROMATIN_DIR = Path.home() / "epigenome" / "chromatin" / "euchromatin" / "evident"
+
+
+def _get_firecrawl_key() -> str:
+    """Resolve Firecrawl API key: env var, then 1Password."""
+    key = os.environ.get("FIRECRAWL_API_KEY", "")
+    if key:
+        return key
+    try:
+        r = subprocess.run(
+            ["op", "item", "get", "Firecrawl", "--vault", "Agents", "--fields", "credential", "--reveal"],
+            capture_output=True, text=True, timeout=10,
+        )
+        key = r.stdout.strip()
+        if key and key.startswith("fc-"):
+            return key
+    except Exception:
+        pass
+    return ""
+
+
+def _ab(cmd: str, timeout: int = 15) -> str:
+    r = subprocess.run(
+        ["agent-browser"] + cmd.split(),
+        capture_output=True, text=True, timeout=timeout,
+    )
+    return r.stdout.strip()
+
+
+# ---------------------------------------------------------------------------
+# Content extraction — Jina Reader (best signal/noise for Evident, free)
+# ---------------------------------------------------------------------------
+
+def fetch_markdown(url: str) -> str:
+    """Fetch URL as markdown via Jina Reader."""
+    import urllib.request
+    req = urllib.request.Request(
+        f"https://r.jina.ai/{url}",
+        headers={"Accept": "text/markdown", "User-Agent": "evident-brief/1.0"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        md = resp.read().decode("utf-8")
+    if len(md) < 100:
+        print(f"Jina returned too little content ({len(md)} chars).", file=sys.stderr)
+        sys.exit(1)
+    return md
+
+
+# ---------------------------------------------------------------------------
+# Index parsing: Firecrawl map() → agent-browser fallback
+# ---------------------------------------------------------------------------
+
+def _parse_index_firecrawl() -> list[dict]:
+    """Use Firecrawl map() to discover all brief URLs (1 credit)."""
+    key = _get_firecrawl_key()
+    if not key:
+        return []
+    from firecrawl import FirecrawlApp
+    fc = FirecrawlApp(api_key=key)
+    result = fc.map(INDEX_URL, limit=50)
+    briefs = []
+    slug_re = re.compile(r'/bankingbrief/([a-z0-9][-a-z0-9]+)$')
+    for item in (result.links or []) if hasattr(result, 'links') else []:
+        url = item.url if hasattr(item, 'url') else str(item)
+        m = slug_re.search(url)
+        if m:
+            slug = m.group(1)
+            title = (item.title or slug.replace("-", " ").title()) if hasattr(item, 'title') else slug.replace("-", " ").title()
+            # Clean Evident prefix from title
+            title = re.sub(r'^Evident\s*-\s*', '', title)
+            title = re.sub(r'\s*\|.*$', '', title).strip()
+            briefs.append({"title": title, "slug": slug, "url": url, "date": ""})
+    return briefs
+
+
+def _parse_index_browser() -> list[dict]:
+    """Fallback: use agent-browser to parse index (handles cookie wall)."""
+    try:
+        _ab(f"open {INDEX_URL}", timeout=20)
+        time.sleep(2)
+
+        snap = _ab("snapshot")
+        for line in snap.splitlines():
+            if "Accept all" in line:
+                m = re.search(r'ref=(\w+)', line)
+                if m:
+                    _ab(f"click @{m.group(1)}")
+                    time.sleep(1)
+                break
+
+        snap = _ab("snapshot")
+        briefs = []
+        seen = set()
+        date_re = re.compile(
+            r'(\d{1,2}\s+(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4})',
+            re.IGNORECASE,
+        )
+        skip = {
+            "Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy",
+            "Learn more about Membership", "Show more", "Register here", "Apply here",
+            "CAREERS", "Careers", "LINKEDIN", "TWITTER",
+        }
+
+        current_date = None
+        for line in snap.splitlines():
+            dm = date_re.search(line)
+            if dm:
+                current_date = dm.group(1).title()
+
+            if 'link "' in line and 'bankingbrief' not in line.lower():
+                title_m = re.search(r'link "([^"]+)"', line)
+                if title_m and title_m.group(1) not in skip:
+                    title = title_m.group(1)
+                    slug = title.lower().strip()
+                    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+                    slug = re.sub(r'\s+', '-', slug).strip('-')
+                    if slug and slug not in seen:
+                        seen.add(slug)
+                        briefs.append({
+                            "title": title, "slug": slug,
+                            "url": f"{BASE_URL}{slug}", "date": current_date or "",
+                        })
+                        current_date = None
+
+        return [b for b in briefs if b.get("date")]
+    finally:
+        subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
+
+
+def parse_index() -> list[dict]:
+    """Parse the brief index. agent-browser (has dates + order) → Firecrawl map fallback."""
+    briefs = _parse_index_browser()
+    if briefs:
+        return briefs
+    # Fallback: map() gets all slugs but no dates/order
+    try:
+        briefs = _parse_index_firecrawl()
+        if briefs:
+            print(f"[map] {len(briefs)} briefs (no dates)", file=sys.stderr)
+            return briefs
+    except Exception as e:
+        print(f"[map] failed: {e}", file=sys.stderr)
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Brief fetching & formatting
+# ---------------------------------------------------------------------------
+
+def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
+    """Fetch a single brief. Returns {title, date, slug, url, markdown}."""
+    url = f"{BASE_URL}{slug}"
+    raw = fetch_markdown(url)
+
+    # Extract title
+    title = slug.replace("-", " ").title()
+    title_match = re.search(r'^Title:\s*(.+)', raw, re.MULTILINE)
+    if title_match:
+        t = title_match.group(1).strip()
+        t = re.sub(r'^Evident\s*-\s*', '', t)
+        t = re.sub(r'\s*\|.*$', '', t)
+        if t:
+            title = t
+    # Firecrawl uses H1 directly
+    h1_match = re.search(r'^# (.+)', raw, re.MULTILINE)
+    if h1_match and len(h1_match.group(1)) < 80:
+        title = h1_match.group(1).strip()
+
+    # Extract date
+    date = ""
+    date_match = re.search(
+        r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
+        raw,
+    )
+    if date_match:
+        date = date_match.group(1)
+    elif index_meta and index_meta.get("date"):
+        date = index_meta["date"]
+
+    # Clean markdown
+    md = raw
+    md = re.sub(r'^(?:Title|URL Source|Markdown Content):.*\n?', '', md, flags=re.MULTILINE)
+
+    for marker in ["TOP OF THE NEWS", "Welcome back to the Banking Brief"]:
+        idx = md.find(marker)
+        if idx != -1:
+            md = md[idx:]
+            break
+
+    for marker in ["Explore the archive", "MORE NEWS", "You are receiving this"]:
+        idx = md.find(marker)
+        if idx != -1:
+            md = md[:idx].rstrip()
+
+    header = (
+        f"# Evident Banking Brief: {title}\n\n"
+        f"**Date:** {date}\n"
+        f"**Source:** [Evident Banking Brief]({url})\n\n"
+        f"---\n\n"
+    )
+
+    return {
+        "title": title,
+        "date": date,
+        "slug": slug,
+        "url": url,
+        "markdown": header + md,
+    }
+
+
+def save_brief(brief: dict) -> Path:
+    """Save brief as markdown to chromatin."""
+    CHROMATIN_DIR.mkdir(parents=True, exist_ok=True)
+
+    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    if brief["date"]:
+        for fmt in ("%d %B %Y", "%d %b %Y"):
+            try:
+                dt = datetime.strptime(brief["date"], fmt)
+                date_str = dt.strftime("%Y-%m-%d")
+                break
+            except ValueError:
+                continue
+
+    filename = f"{date_str}_{brief['slug']}.md"
+    filepath = CHROMATIN_DIR / filename
+    filepath.write_text(brief["markdown"])
+    return filepath
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(description="Fetch the latest Evident Banking Brief.")
+    parser.add_argument("--save", action="store_true", help="Save to chromatin")
+    parser.add_argument("--list", action="store_true", help="List available briefs")
+    parser.add_argument("--slug", type=str, help="Fetch a specific brief by URL slug")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    args = parser.parse_args()
+
+    if args.list:
+        briefs = parse_index()
+        for b in briefs:
+            print(f"  {b.get('date', '?'):<22} {b['title']:<45} {b['slug']}")
+        print(f"\n{len(briefs)} briefs found.", file=sys.stderr)
+        return
+
+    briefs = parse_index()
+    brief_meta = {b["slug"]: b for b in briefs}
+
+    if args.slug:
+        slug = args.slug
+    else:
+        if not briefs:
+            print("No briefs found on index page.", file=sys.stderr)
+            sys.exit(1)
+        slug = briefs[0]["slug"]
+        print(f"Latest: {briefs[0]['title']}", file=sys.stderr)
+
+    brief = fetch_brief(slug, index_meta=brief_meta.get(slug))
+
+    if args.json:
+        out = {k: v for k, v in brief.items() if k != "markdown"}
+        out["text"] = brief["markdown"]
+        json.dump(out, sys.stdout, ensure_ascii=False, indent=2)
+    else:
+        print(brief["markdown"])
+
+    if args.save:
+        path = save_brief(brief)
+        print(f"Saved to {path}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

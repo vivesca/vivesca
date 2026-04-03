@@ -59,6 +59,7 @@ PY_SMOKE_IMPORTS = [
 def _path() -> str:
     extra = [
         "/opt/homebrew/bin",
+        "/usr/local/bin",
         str(Path.home() / ".cargo" / "bin"),
         str(Path.home() / ".local" / "bin"),
         str(Path.home() / ".bun" / "bin"),
@@ -68,7 +69,11 @@ def _path() -> str:
 
 
 def _uv() -> str:
-    for p in ["/opt/homebrew/bin/uv", str(Path.home() / ".cargo/bin/uv")]:
+    for p in [
+        "/opt/homebrew/bin/uv",
+        str(Path.home() / ".cargo/bin/uv"),
+        str(Path.home() / ".local/bin/uv"),
+    ]:
         if Path(p).exists():
             return p
     return "uv"
@@ -116,7 +121,7 @@ def save_state(state: dict) -> None:
 
 
 def should_run(state: dict) -> bool:
-    if FORCE:
+    if FORCE or DRY_RUN:
         return True
     last = state.get("last_run")
     if not last:

@@ -15,12 +15,13 @@ import filecmp
 import json
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 
 HKT = timezone(timedelta(hours=8))
 _GRADIENT_LOG = str(Path.home() / "logs" / "proprioception.jsonl")
@@ -238,7 +239,11 @@ def _sense() -> str:
     """Proprioceptive readiness check against active goals."""
     from metabolon.organelles.receptor_sense import (
         GOALS_DIR as _ORGANELLE_GOALS_DIR,
+    )
+    from metabolon.organelles.receptor_sense import (
         SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
+    )
+    from metabolon.organelles.receptor_sense import (
         ProprioceptiveStore,
         restore_goals,
         synthesize_signal_summary,
@@ -295,6 +300,8 @@ def _drill(
     """Record a proprioceptive drill signal."""
     from metabolon.organelles.receptor_sense import (
         SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
+    )
+    from metabolon.organelles.receptor_sense import (
         ProprioceptiveStore,
     )
 
@@ -500,7 +507,7 @@ def _timing() -> str:
     return "\n".join(lines)
 
 
-_DISPATCH: dict[str, callable] = {
+_DISPATCH: dict[str, Callable] = {
     "genome": _genome,
     "anatomy": _anatomy,
     "circadian": _circadian,

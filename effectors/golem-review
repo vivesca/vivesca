@@ -16,16 +16,19 @@ import re
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 # Paths
 GERMLINE = Path.home() / "germline"
+EPIGENOME = Path.home() / "epigenome"
 QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
 LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 REVIEW_FILE = GERMLINE / "loci" / "copia" / "golem-review-latest.md"
 COPIA_DIR = GERMLINE / "loci" / "copia"
 EFFECTORS_DIR = GERMLINE / "effectors"
 ASSAYS_DIR = GERMLINE / "assays"
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
+CONSULTING_SUBDIRS = ["cards", "deep-dives", "case-studies", "prep", "regulatory"]
 
 # Provider rotation
 _PROVIDERS = ["infini", "zhipu", "volcano", "infini", "zhipu"]
@@ -186,12 +189,179 @@ def run_pytest_on_files(files: list[str]) -> dict:
 # ── check_consulting_content ───────────────────────────────────────────
 
 
+def _detect_section_keyword(lines: list[str], keywords: tuple[str, ...]) -> bool:
+    """Check if any markdown heading contains one of the keywords."""
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            heading_text = stripped.lstrip("#").strip().lower()
+            if any(kw in heading_text for kw in keywords):
+                return True
+    return False
+
+
+def _compute_quality_score(entry: dict) -> int:
+    """Compute a 0-100 quality score from consulting content checks.
+
+    Breakdown: words 20, headings 8, paragraphs 8, structure 8,
+               intro 8, conclusion 8, min_sections_ok 8,
+               section_count 8, heading_hierarchy 8,
+               no broken sections -4, filler penalty -8.
+    """
+    score = 0
+    wc = entry.get("word_count", 0)
+    score += min(20, int(wc / 500 * 20)) if wc > 0 else 0
+    if entry.get("has_headings"):
+        score += 8
+    if entry.get("has_paragraphs"):
+        score += 8
+    if entry.get("has_structure_elements"):
+        score += 8
+    if entry.get("has_introduction"):
+        score += 8
+    if entry.get("has_conclusion"):
+        score += 8
+    if entry.get("min_sections_ok"):
+        score += 8
+    if entry.get("has_proper_heading_hierarchy"):
+        score += 8
+    # Section count bonus: 2+ = 4, 4+ = 8
+    sec = entry.get("section_count", 0)
+    if sec >= 4:
+        score += 8
+    elif sec >= 2:
+        score += 4
+    # Penalty: broken sections reduce score
+    broken = entry.get("broken_sections", 0)
+    score -= min(4, broken * 2)
+    # Penalty: filler content
+    if entry.get("has_filler_content"):
+        score -= 8
+    return max(0, score)
+
+
+def _verdict_from_score(score: int) -> str:
+    """Map quality score to a verdict string."""
+    if score >= 80:
+        return "excellent"
+    if score >= 60:
+        return "good"
+    if score >= 40:
+        return "needs_work"
+    return "poor"
+
+
+def _count_sections(lines: list[str]) -> tuple[int, int]:
+    """Count (total_sections, broken_sections).
+
+    A section is a heading line (# ...). A broken section is a heading
+    followed only by blank lines or another heading (no body text).
+    """
+    sections: list[tuple[str, bool]] = []  # (heading_text, has_body)
+    current_has_body = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            # Save previous section
+            if sections is not None and sections:
+                sections[-1] = (sections[-1][0], sections[-1][1] or current_has_body)
+            sections.append((stripped, False))
+            current_has_body = False
+        elif stripped == "":
+            continue
+        else:
+            current_has_body = True
+
+    # Finalize last section
+    if sections:
+        sections[-1] = (sections[-1][0], sections[-1][1] or current_has_body)
+
+    total = len(sections)
+    broken = sum(1 for _, has_body in sections if not has_body)
+    return total, broken
+
+
+def _check_heading_hierarchy(lines: list[str]) -> bool:
+    """Return True if heading levels don't skip (e.g. H1 → H4 is bad).
+
+    Allows starting at any level and increasing by 1, but not jumping
+    more than 1 level at a time.
+    """
+    prev_level = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            continue
+        level = len(stripped) - len(stripped.lstrip("#"))
+        if level < 1:
+            continue
+        if prev_level == 0:
+            prev_level = level
+            continue
+        if level > prev_level + 1:
+            return False
+        prev_level = level
+    return True
+
+
+def _check_filler_content(text: str) -> bool:
+    """Return True if the text appears to be filler (repetitive content).
+
+    Checks for: same sentence repeated >3 times, or >50% of unique
+    sentences are very short (<5 words).
+    """
+    sentences = re.split(r'[.!?]+', text)
+    sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 2]
+    if len(sentences) < 4:
+        return False
+    # Check for repeated sentences (>3 identical)
+    from collections import Counter
+    counts = Counter(s.lower() for s in sentences)
+    for sentence, cnt in counts.items():
+        if cnt > 3:
+            return True
+    # Check if >50% of unique sentences are very short (<5 words)
+    short_count = sum(1 for s in set(sentences) if len(s.split()) < 5)
+    unique_count = len(set(sentences))
+    if unique_count > 0 and short_count / unique_count > 0.5:
+        return True
+    return False
+
+
+def _compute_paragraph_stats(lines: list[str]) -> float:
+    """Return average word count per paragraph block.
+
+    A paragraph is a contiguous block of non-blank, non-heading lines.
+    Returns 0.0 if no paragraphs found.
+    """
+    paragraphs: list[int] = []
+    current_words = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "" or stripped.startswith("#"):
+            if current_words > 0:
+                paragraphs.append(current_words)
+                current_words = 0
+            continue
+        current_words += len(stripped.split())
+    if current_words > 0:
+        paragraphs.append(current_words)
+    if not paragraphs:
+        return 0.0
+    return sum(paragraphs) / len(paragraphs)
+
+
 def check_consulting_content(files: list[str]) -> list[dict]:
     """Check each file: exists? adequate word count (>200)? proper structure?
 
     Returns list of {file, exists, word_count, adequate,
                      has_headings, has_paragraphs, has_structure_elements,
-                     structure_ok}.
+                     structure_ok, has_introduction, has_conclusion,
+                     section_count, broken_sections, min_sections_ok,
+                     has_proper_heading_hierarchy, avg_paragraph_word_count,
+                     has_filler_content, overall_quality_pass,
+                     quality_score, verdict}.
     """
     results = []
     for rel_path in files:
@@ -201,6 +371,14 @@ def check_consulting_content(files: list[str]) -> list[dict]:
             "adequate": False,
             "has_headings": False, "has_paragraphs": False,
             "has_structure_elements": False, "structure_ok": False,
+            "has_introduction": False, "has_conclusion": False,
+            "section_count": 0, "broken_sections": 0,
+            "min_sections_ok": False,
+            "has_proper_heading_hierarchy": True,
+            "avg_paragraph_word_count": 0.0,
+            "has_filler_content": False,
+            "overall_quality_pass": False,
+            "quality_score": 0, "verdict": "poor",
         }
 
         if not full_path.exists():
@@ -252,15 +430,130 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         has_table = any("|" in l and "---" in l for l in lines)
         entry["has_structure_elements"] = has_list or has_code or has_bold or has_table
 
+        # Section analysis
+        section_count, broken_sections = _count_sections(lines)
+        entry["section_count"] = section_count
+        entry["broken_sections"] = broken_sections
+        entry["min_sections_ok"] = section_count >= 2 and broken_sections == 0
+
         # Overall structure: needs headings + at least one of paragraphs/structure elements
         entry["structure_ok"] = (
             entry["has_headings"]
             and (entry["has_paragraphs"] or entry["has_structure_elements"])
         )
 
+        # Introduction / conclusion detection via heading keywords
+        entry["has_introduction"] = _detect_section_keyword(
+            lines, ("introduction", "intro", "overview", "background", "context"),
+        )
+        entry["has_conclusion"] = _detect_section_keyword(
+            lines, ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
+        )
+
+        # Heading hierarchy
+        entry["has_proper_heading_hierarchy"] = _check_heading_hierarchy(lines)
+
+        # Paragraph stats
+        entry["avg_paragraph_word_count"] = _compute_paragraph_stats(lines)
+
+        # Filler detection
+        entry["has_filler_content"] = _check_filler_content(text)
+
+        # Quality score and verdict
+        entry["quality_score"] = _compute_quality_score(entry)
+        entry["verdict"] = _verdict_from_score(entry["quality_score"])
+
+        # Overall quality pass: adequate words, proper structure, no filler, hierarchy ok
+        entry["overall_quality_pass"] = (
+            entry["adequate"]
+            and entry["structure_ok"]
+            and not entry["has_filler_content"]
+            and entry["has_proper_heading_hierarchy"]
+        )
+
         results.append(entry)
 
     return results
+
+
+# ── scan_consulting_dirs ───────────────────────────────────────────────
+
+
+def scan_consulting_dirs(base_dir: Path | None = None) -> list[str]:
+    """Recursively find .md files in consulting subdirectories.
+
+    Scans CONSULTING_SUBDIRS under base_dir (or EPIGENOME) and returns
+    relative paths as strings. Excludes reviewer-cycle- files.
+    """
+    root = base_dir or EPIGENOME
+    if not root.exists():
+        return []
+
+    files: list[str] = []
+    # Check both the flat consulting/ subdirs and nested chromatin/euchromatin/consulting/
+    search_dirs = [
+        root / "consulting",
+        root / "chromatin" / "euchromatin" / "consulting",
+    ]
+
+    for consulting_dir in search_dirs:
+        if not consulting_dir.exists():
+            continue
+        for subdir_name in CONSULTING_SUBDIRS:
+            subdir = consulting_dir / subdir_name
+            if not subdir.exists():
+                continue
+            for md_file in sorted(subdir.glob("*.md")):
+                if md_file.name.startswith("reviewer-cycle-"):
+                    continue
+                rel = md_file.relative_to(root)
+                files.append(str(rel))
+
+    return files
+
+
+# ── compute_consulting_summary ─────────────────────────────────────────
+
+
+def compute_consulting_summary(results: list[dict]) -> dict:
+    """Compute aggregate consulting quality stats from check_consulting_content results.
+
+    Returns {total, passed, failed, missing, avg_word_count,
+             avg_quality_score, pass_rate, verdicts}.
+    Missing files (exists=False) are counted in total but not in pass/fail.
+    """
+    total = len(results)
+    if total == 0:
+        return {
+            "total": 0, "passed": 0, "failed": 0, "missing": 0,
+            "avg_word_count": 0.0, "avg_quality_score": 0.0,
+            "pass_rate": 0.0, "verdicts": {},
+        }
+
+    existing = [r for r in results if r.get("exists")]
+    missing = [r for r in results if not r.get("exists")]
+    passed = [r for r in existing if r.get("overall_quality_pass")]
+    failed = [r for r in existing if not r.get("overall_quality_pass")]
+
+    avg_wc = sum(r.get("word_count", 0) for r in existing) / len(existing) if existing else 0.0
+    avg_score = sum(r.get("quality_score", 0) for r in existing) / len(existing) if existing else 0.0
+    pass_rate = len(passed) / len(existing) if existing else 0.0
+
+    verdicts: dict[str, int] = {}
+    for r in existing:
+        v = r.get("verdict", "poor")
+        verdicts[v] = verdicts.get(v, 0) + 1
+
+    return {
+        "total": total,
+        "passed": len(passed),
+        "failed": len(failed),
+        "missing": len(missing),
+        "avg_word_count": round(avg_wc, 1),
+        "avg_quality_score": round(avg_score, 1),
+        "pass_rate": round(pass_rate, 3),
+        "verdicts": verdicts,
+    }
 
 
 # ── diagnose_failure ───────────────────────────────────────────────────
@@ -279,7 +572,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
         return "import_error"
     if "syntaxerror" in combined:
         return "syntax_error"
-    if "/users/terry/" in combined:
+    if MAC_HOME_PREFIX.lower() in combined:
         return "path_issue"
     if "timeout" in combined:
         return "timeout"
@@ -432,7 +725,7 @@ def write_fixed_tasks(failed_tasks: list[dict]) -> int:
         if "path_issue" in diag:
             lines.append(
                 '- [ ] `golem --provider infini --max-turns 50 '
-                '"Fix path_issue: replace /Users/terry/ with Path.home(). '
+                '"Fix path_issue: replace hardcoded home paths with Path.home(). '
                 'Run tests after."`'
             )
         elif "import_error" in diag:
@@ -476,6 +769,7 @@ def generate_review(
     auto_requeue: bool,
     queued_count: int,
     fixed_count: int,
+    consulting_summary: dict | None = None,
 ) -> str:
     """Generate a review summary markdown string."""
     ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
@@ -544,10 +838,40 @@ def generate_review(
             heads = "H" if r.get("has_headings") else "_"
             paras = "P" if r.get("has_paragraphs") else "_"
             elems = "S" if r.get("has_structure_elements") else "_"
+            intro = "I" if r.get("has_introduction") else "_"
+            concl = "C" if r.get("has_conclusion") else "_"
+            score = r.get("quality_score", 0)
+            verdict = r.get("verdict", "poor")
+            sec_count = r.get("section_count", 0)
+            broken = r.get("broken_sections", 0)
+            min_ok = "M" if r.get("min_sections_ok") else "_"
+            hier = "↕" if r.get("has_proper_heading_hierarchy") else "⚠"
+            avg_p = r.get("avg_paragraph_word_count", 0.0)
+            filler = "FILLER" if r.get("has_filler_content") else ""
+            pass_mark = "✓" if r.get("overall_quality_pass") else "✗"
             lines.append(
                 f"- [{status}|{struct}] {r['file']}: {wc} words ({exists}) "
-                f"[{heads}{paras}{elems}]"
+                f"[{heads}{paras}{elems}{intro}{concl}{min_ok}] "
+                f"secs={sec_count}(broken:{broken}) {hier} "
+                f"avg_p={avg_p:.0f}w {filler} "
+                f"score={score} ({verdict}) {pass_mark}"
             )
+        lines.append("")
+
+    # Consulting quality summary
+    if consulting_summary:
+        lines.append("## Consulting Quality Summary")
+        lines.append(f"- {consulting_summary['total']} files checked: "
+                     f"{consulting_summary['passed']} passed, "
+                     f"{consulting_summary['failed']} failed, "
+                     f"{consulting_summary['missing']} missing")
+        lines.append(f"- Average word count: {consulting_summary['avg_word_count']:.0f}")
+        lines.append(f"- Average quality score: {consulting_summary['avg_quality_score']:.0f}/100")
+        lines.append(f"- Pass rate: {consulting_summary['pass_rate']:.0%}")
+        verdicts = consulting_summary.get("verdicts", {})
+        if verdicts:
+            parts = [f"{k}: {v}" for k, v in sorted(verdicts.items())]
+            lines.append(f"- Verdicts: {', '.join(parts)}")
         lines.append("")
 
     # Failure diagnoses
@@ -591,6 +915,13 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
     ]
     consulting_results = check_consulting_content(content_files)
 
+    # 4b. Also check epigenome consulting content directories
+    consulting_dir_files = scan_consulting_dirs()
+    if consulting_dir_files:
+        epigenome_results = check_consulting_content(consulting_dir_files)
+        consulting_results.extend(epigenome_results)
+    consulting_summary = compute_consulting_summary(consulting_results)
+
     # 5. Diagnose failures
     failed_diagnoses = []
     for entry in activity.get("failed", []):
@@ -608,7 +939,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
     if auto_requeue and failed_diagnoses:
         fixed_count = write_fixed_tasks(failed_diagnoses)
 
-        # 7. Auto-generate if queue low
+    # 7. Auto-generate if queue low
     queued_count = 0
     pending = count_pending_tasks()
     if pending < 50:
@@ -618,7 +949,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
             new_tasks = generate_queue_tasks(untested, needed)
             queued_count = append_tasks_to_queue(new_tasks)
 
-        # 8. Write review
+    # 8. Write review
     review = generate_review(
         activity=activity,
         recent_files=recent_files,
@@ -629,6 +960,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
         auto_requeue=auto_requeue,
         queued_count=queued_count,
         fixed_count=fixed_count,
+        consulting_summary=consulting_summary,
     )
 
     REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -649,6 +981,31 @@ def main():
 
     if "--help" in args or "-h" in args:
         print(__doc__)
+        return 0
+
+    # --check-consulting <dir>: scan a directory for consulting content
+    if "--check-consulting" in args:
+        idx = args.index("--check-consulting")
+        base = Path(args[idx + 1]) if idx + 1 < len(args) else EPIGENOME
+        files = scan_consulting_dirs(base_dir=base)
+        if not files:
+            print(f"No consulting content found under {base}")
+            return 0
+        results = check_consulting_content(files)
+        summary = compute_consulting_summary(results)
+        print(f"Consulting content under {base}:")
+        print(f"  {summary['total']} files: "
+              f"{summary['passed']} passed, "
+              f"{summary['failed']} failed, "
+              f"{summary['missing']} missing")
+        print(f"  Avg word count: {summary['avg_word_count']:.0f}")
+        print(f"  Avg quality score: {summary['avg_quality_score']:.0f}/100")
+        print(f"  Pass rate: {summary['pass_rate']:.0%}")
+        for r in results:
+            mark = "✓" if r.get("overall_quality_pass") else "✗"
+            wc = r.get("word_count", 0)
+            verdict = r.get("verdict", "poor")
+            print(f"  [{mark}] {r['file']}: {wc} words ({verdict})")
         return 0
 
     auto_requeue = "--auto-requeue" in args

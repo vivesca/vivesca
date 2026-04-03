@@ -18,7 +18,7 @@ USER_HOME = str(Path.home())
 SYSTEM_PREFIXES = ("/bin/", "/usr/", "/opt/", "/sbin/", "/Library/")
 # Regex to extract absolute paths from shell -c strings.
 # Stop at shell operators (&, |, ;, ), space) and quotes.
-_PATH_RE = re.compile(r'/Users/[^\s;&|"\'`)]+')
+_PATH_RE = re.compile(rf"{re.escape(USER_HOME)}[^\s;&|\"'`)]+")
 
 
 def _collect_user_paths(args: list[str]) -> list[str]:

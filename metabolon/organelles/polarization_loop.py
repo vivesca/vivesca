@@ -25,8 +25,9 @@ import sqlite3
 import subprocess
 import time
 from pathlib import Path
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, cast
 
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
@@ -374,8 +375,6 @@ Return ONLY the JSON array."""
 
 def stopping_gate(state: PolarizationState) -> dict:
     """6-check stopping gate. All must pass before stopping."""
-    budget = state.get("budget_status", "green")
-
     # Re-check budget (may have changed during systole)
     fresh_budget = _budget_status()
 
@@ -539,7 +538,7 @@ def polarize(
     interrupt = ["dispatch"] if interactive else None
     app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
 
     # Check for existing checkpoint to resume
     if persistent:
@@ -584,7 +583,7 @@ def review_and_continue(
     graph = build_graph()
     app = graph.compile(checkpointer=checkpointer, interrupt_before=["dispatch"])
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
 
     if not approve:
         app.update_state(
@@ -613,7 +612,7 @@ def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        state = preflight({
+        state = preflight({  # type: ignore[arg-type]
             "systole_num": 0,
             "budget_status": "green",
             "mode": args.mode,

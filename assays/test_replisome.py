@@ -5,6 +5,7 @@ from __future__ import annotations
 
 
 import subprocess
+import sys
 import types
 from unittest.mock import MagicMock, patch, mock_open
 from pathlib import Path
@@ -16,6 +17,13 @@ replisome_code = replisome_path.read_text()
 # Create module namespace and exec
 namespace = {"__name__": "test_mod"}
 exec(replisome_code, namespace)
+
+# Register the exec'd namespace as a real module so that
+# typing.get_type_hints() can resolve annotations like Annotated[list[dict], _append]
+# when LangGraph inspects ReplisomeState at graph-build time.
+_test_mod = types.ModuleType("test_mod")
+_test_mod.__dict__.update(namespace)
+sys.modules["test_mod"] = _test_mod
 
 # Create a proper module-like object that shares the same namespace
 # This allows patching to work correctly

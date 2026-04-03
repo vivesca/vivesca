@@ -1,16 +1,15 @@
-from __future__ import annotations
-
 """cytokinesis — session consolidation pre-checks.
 
 Wraps the cytokinesis CLI gather command as an MCP tool.
 Returns structured JSON for skill consumption.
 """
 
+from __future__ import annotations
 
 import json
 import subprocess
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
@@ -34,7 +33,10 @@ class GatherResult(Secretion):
 
 @tool(
     name="cytokinesis_gather",
-    description="Deterministic pre-wrap checks: dirty repos, skill gaps, memory budget, tonus age, stale marks.",
+    description=(
+        "Deterministic pre-wrap checks: dirty repos, "
+        "skill gaps, memory budget, tonus age, stale marks."
+    ),
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def cytokinesis_gather() -> GatherResult:

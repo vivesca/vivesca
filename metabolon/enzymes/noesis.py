@@ -1,70 +1,69 @@
 from __future__ import annotations
 
-"""noesis — web-grounded search via Perplexity API.
+"""noesis — Perplexity-powered AI search tool.
 
 Tools:
-  noesis — action: search|ask|research
-
-Resources:
-  vivesca://noesis/search-log — last 10 search queries
+  noesis        — search / ask / research via the noesis CLI binary
+  noesis_search_log — resource returning recent search history
 """
 
-
+import os
 import subprocess
 
-from metabolon.organelles.effector import run_cli  # noqa: E402
+from fastmcp.tools.function_tool import tool
+from mcp.types import ToolAnnotations
 
-from fastmcp.tools import tool  # noqa: E402
-from fastmcp.resources import resource  # noqa: E402
-from mcp.types import ToolAnnotations  # noqa: E402
+from metabolon.organelles.effector import run_cli
 
 BINARY = "~/.cargo/bin/noesis"
-
-# Deep research can take minutes; override the default timeout.
 _RESEARCH_TIMEOUT = 300
+
+_VALID_ACTIONS = ("search", "ask", "research")
 
 
 @tool(
     name="noesis",
-    description="AI search. Actions: search|ask|research",
-    annotations=ToolAnnotations(readOnlyHint=False),
+    description="Perplexity-powered AI search. Actions: search, ask, research.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 def noesis(action: str, query: str = "") -> str:
-    """AI-powered web search via Perplexity API.
+    """Run a noesis CLI action.
 
     Args:
-        action: One of search, ask, research.
-            search   — quick search via sonar (~$0.006).
-            ask      — thorough survey via sonar-pro (~$0.01).
-            research — deep research via sonar-deep-research (~$0.40, EXPENSIVE).
-        query: The search query or question.
+        action: One of 'search', 'ask', or 'research'.
+        query:  The search query or question.
     """
-    if action == "search":
-        return run_cli(BINARY, ["search", query])
-    elif action == "ask":
-        return run_cli(BINARY, ["ask", query])
-    elif action == "research":
-        return run_cli(BINARY, ["research", "--save", query], timeout=_RESEARCH_TIMEOUT)
-    else:
-        return f"Unknown action '{action}'. Use one of: search, ask, research."
+    if action not in _VALID_ACTIONS:
+        return f"Unknown action '{action}'. Choose from: {', '.join(_VALID_ACTIONS)}"
+
+    if action == "research":
+        return run_cli(
+            BINARY, ["research", "--save", query], timeout=_RESEARCH_TIMEOUT
+        )
+
+    return run_cli(BINARY, [action, query])
 
 
-@resource("vivesca://noesis/search-log")
 def noesis_search_log() -> str:
-    """Returns the last 10 noesis queries from the usage log."""
-    import os
-
-    path = os.path.expanduser(BINARY)
+    """Return recent noesis search log entries (last 10 lines)."""
     try:
         result = subprocess.run(
-            [path, "log"],
-            capture_output=True,
-            text=True,
+            [os.path.expanduser(BINARY), "log"],
             check=True,
             timeout=10,
+            capture_output=True,
+            text=True,
         )
-        lines = result.stdout.strip().splitlines()
-        return "\n".join(lines[-10:]) if len(lines) > 10 else result.stdout.strip()
     except subprocess.CalledProcessError as e:
         error_msg = (e.stderr or "").strip() or str(e)
-        raise ValueError(f"noesis log error: {error_msg}")
+        raise ValueError(f"noesis log error: {error_msg}") from e
+
+    output = result.stdout.strip()
+    if not output:
+        return ""
+
+    lines = output.split("\n")
+    if len(lines) > 10:
+        lines = lines[-10:]
+
+    return "\n".join(lines)

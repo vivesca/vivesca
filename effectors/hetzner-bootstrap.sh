@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Hetzner VPS Bootstrap for Claude Code
 # Run as root on a fresh Ubuntu 22.04 VPS
 # Usage: ssh root@<IP> 'bash -s' < hetzner-bootstrap.sh
@@ -14,6 +14,11 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     exit 0
 fi
 
+if [[ $EUID -ne 0 ]]; then
+   echo "ERROR: This script must be run as root." >&2
+   exit 1
+fi
+
 echo "=== Hetzner Claude Code Bootstrap ==="
 
 # 1. System updates
@@ -27,11 +32,11 @@ if ! id terry &>/dev/null; then
   echo "terry ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/terry
 
   # Copy SSH keys from root
-  mkdir -p /home/terry/.ssh
-  cp /root/.ssh/authorized_keys /home/terry/.ssh/
-  chown -R terry:terry /home/terry/.ssh
-  chmod 700 /home/terry/.ssh
-  chmod 600 /home/terry/.ssh/authorized_keys
+  mkdir -p ~terry/.ssh
+  cp /root/.ssh/authorized_keys ~terry/.ssh/
+  chown -R terry:terry ~terry/.ssh
+  chmod 700 ~terry/.ssh
+  chmod 600 ~terry/.ssh/authorized_keys
 fi
 
 # 3. Install Node.js (LTS via fnm)
@@ -91,8 +96,8 @@ sudo -u terry bash -c '
 '
 
 # 10. Harden SSH
-sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
 systemctl restart sshd
 
 echo ""

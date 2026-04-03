@@ -9,11 +9,12 @@ Actions: extract|screenshot|check_auth
 import atexit
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
@@ -93,8 +94,9 @@ def navigator(
         if not url:
             return NavigatorResult(success=False, data={}, error="screenshot requires: url")
         
-        # caffeinate to wake display if sleeping
-        subprocess.run(["caffeinate", "-u", "-t", "2"], capture_output=True, timeout=300)
+        # caffeinate to wake display if sleeping (macOS only)
+        if sys.platform == "darwin":
+            subprocess.run(["caffeinate", "-u", "-t", "2"], capture_output=True, timeout=300)
 
         ok, out = _run_ab(["open", url])
         if not ok:

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Mobile tmux session manager
 
 show_usage() {

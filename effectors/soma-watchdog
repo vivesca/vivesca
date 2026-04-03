@@ -9,6 +9,7 @@ Every 60 seconds:
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import signal
@@ -22,6 +23,10 @@ POLL = 60  # seconds
 HOME = Path.home()
 GERMLINE = HOME / "germline"
 LOG = HOME / "tmp" / "soma-watchdog.log"
+
+# Observability paths
+JSONL_PATH = HOME / "epigenome" / "chromatin" / "telemetry" / "soma-resources.jsonl"
+ALERT_STAMP = HOME / "tmp" / "soma-alert-last.txt"
 
 # Thresholds
 DISK_WARN_GB = 2.0
@@ -72,7 +77,7 @@ def clean_temps():
 
     # Python cache in germline
     subprocess.run(
-        "find /home/terry/germline -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null",
+        f"find {GERMLINE} -name __pycache__ -type d -exec rm -rf {{}} + 2>/dev/null",
         shell=True, timeout=30
     )
 
@@ -93,35 +98,139 @@ def rotate_log(path: Path, max_mb: float = LOG_MAX_MB):
 
 
 def kill_runaway_golems():
-    """Kill golem/claude processes that exceed time or memory limits."""
+    """Kill golem/claude processes that exceed time or memory limits.
+
+    Skip interactive CC sessions (those attached to a TTY) — only target
+    headless golems (tty == '?').
+    """
     killed = 0
     try:
         result = subprocess.run(
-            "ps -eo pid,etimes,rss,comm --no-headers | grep claude",
+            "ps -eo pid,etimes,rss,tty,comm --no-headers | grep claude",
             shell=True, capture_output=True, text=True, timeout=10
         )
         for line in result.stdout.strip().splitlines():
             parts = line.split()
-            if len(parts) < 4:
+            if len(parts) < 5:
                 continue
             pid, elapsed_s, rss_kb = int(parts[0]), int(parts[1]), int(parts[2])
+            tty = parts[3]
             rss_mb = rss_kb / 1024
+
+            # Interactive CC sessions have a TTY (pts/N) — never kill those
+            if tty != "?":
+                continue
 
             if elapsed_s > GOLEM_MAX_SECONDS:
                 os.kill(pid, signal.SIGTERM)
-                log(f"KILLED runaway PID {pid}: {elapsed_s}s elapsed (max {GOLEM_MAX_SECONDS})")
+                log(f"KILLED runaway PID {pid}: {elapsed_s}s elapsed (max {GOLEM_MAX_SECONDS}), tty={tty}")
                 killed += 1
             elif rss_mb > GOLEM_MAX_RSS_MB:
                 os.kill(pid, signal.SIGTERM)
-                log(f"KILLED memory hog PID {pid}: {rss_mb:.0f}MB RSS (max {GOLEM_MAX_RSS_MB})")
+                log(f"KILLED memory hog PID {pid}: {rss_mb:.0f}MB RSS (max {GOLEM_MAX_RSS_MB}), tty={tty}")
                 killed += 1
     except Exception as e:
         log(f"kill_runaway error: {e}")
     return killed
 
 
+def log_resources():
+    """Append one JSON line per tick to JSONL_PATH with system metrics."""
+    try:
+        JSONL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().isoformat()
+
+        # cpu_1m from /proc/loadavg field 1
+        try:
+            loadavg = Path("/proc/loadavg").read_text().split()
+            cpu_1m = float(loadavg[0])
+        except Exception:
+            cpu_1m = 0.0
+
+        # mem_pct from /proc/meminfo MemAvailable/MemTotal
+        try:
+            mem_total = mem_avail = 0.0
+            for line in Path("/proc/meminfo").read_text().splitlines():
+                parts = line.split()
+                if parts and parts[0] == "MemTotal:":
+                    mem_total = float(parts[1])
+                elif parts and parts[0] == "MemAvailable:":
+                    mem_avail = float(parts[1])
+            mem_pct = (mem_avail / mem_total * 100.0) if mem_total else 0.0
+        except Exception:
+            mem_pct = 0.0
+
+        # disk_pct and disk_free_gb from shutil.disk_usage
+        try:
+            u = shutil.disk_usage(str(HOME))
+            disk_pct = u.used / u.total * 100.0
+            disk_free_gb = u.free / (1024 ** 3)
+        except Exception:
+            disk_pct = 0.0
+            disk_free_gb = 0.0
+
+        # golem_count from pgrep -c -f golem
+        try:
+            r = subprocess.run(
+                ["pgrep", "-c", "-f", "golem"],
+                capture_output=True, text=True, timeout=5,
+            )
+            golem_count = int(r.stdout.strip()) if r.returncode == 0 else 0
+        except Exception:
+            golem_count = 0
+
+        record = {
+            "ts": ts,
+            "cpu_1m": round(cpu_1m, 2),
+            "mem_pct": round(mem_pct, 2),
+            "disk_pct": round(disk_pct, 2),
+            "disk_free_gb": round(disk_free_gb, 2),
+            "golem_count": golem_count,
+        }
+        with open(JSONL_PATH, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception as e:
+        log(f"log_resources error: {e}")
+
+
+def alert_on_crit(health_json: dict):
+    """If any health check has status==crit, alert via deltos. Dedup 15 min."""
+    try:
+        crit_names = [
+            k for k, v in health_json.items()
+            if isinstance(v, dict) and v.get("status") == "crit"
+        ]
+        if not crit_names:
+            return
+
+        # Dedup: skip if alert was sent less than 15 min ago (by mtime)
+        if ALERT_STAMP.exists():
+            try:
+                elapsed = time.time() - ALERT_STAMP.stat().st_mtime
+                if elapsed < 900:
+                    return
+            except OSError:
+                pass
+
+        deltos = shutil.which("deltos")
+        if not deltos:
+            log("alert_on_crit: deltos not found on PATH")
+            return
+
+        message = f"[soma-watchdog] CRIT: {', '.join(crit_names)}"
+        subprocess.run([deltos, message], timeout=30)
+
+        # Write stamp after sending
+        ALERT_STAMP.parent.mkdir(parents=True, exist_ok=True)
+        ALERT_STAMP.write_text(datetime.now().isoformat())
+        log(f"alert_on_crit sent: {message}")
+    except Exception as e:
+        log(f"alert_on_crit error: {e}")
+
+
 def check_cycle():
-    """One watchdog cycle."""
+    """One watchdog cycle. Returns health dict."""
+    health: dict = {}
     vol_free = free_gb(HOME)
     root_free = free_mb(Path("/tmp"))
 
@@ -132,15 +241,23 @@ def check_cycle():
         log(f"DISK WARN: volume {vol_free:.1f}GB → {vol_after:.1f}GB (cleaned {cleaned})")
 
         if vol_after < DISK_CRIT_GB:
+            health["disk_volume"] = {"status": "crit", "free_gb": vol_after}
             # Emergency: kill all golems to stop disk writes
-            subprocess.run("pkill -f 'claude.*--print' 2>/dev/null", shell=True, timeout=300, )
+            subprocess.run("pkill -f 'claude.*--print' 2>/dev/null", shell=True, timeout=300)
             log(f"DISK CRITICAL: killed all golems. Volume at {vol_after:.1f}GB")
+        else:
+            health["disk_volume"] = {"status": "warn", "free_gb": vol_after}
+    else:
+        health["disk_volume"] = {"status": "ok", "free_gb": vol_free}
 
     # Disk: root
     if root_free < ROOT_WARN_MB:
+        health["root_fs"] = {"status": "warn", "free_mb": root_free}
         clean_temps()
         root_after = free_mb(Path("/tmp"))
         log(f"ROOT WARN: /tmp {root_free:.0f}MB → {root_after:.0f}MB")
+    else:
+        health["root_fs"] = {"status": "ok", "free_mb": root_free}
 
     # Log rotation
     for logfile in [
@@ -158,6 +275,8 @@ def check_cycle():
     # Runaway processes
     kill_runaway_golems()
 
+    return health
+
 
 def main():
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -166,7 +285,9 @@ def main():
     log("Watchdog started")
     try:
         while True:
-            check_cycle()
+            health = check_cycle()
+            log_resources()
+            alert_on_crit(health)
             time.sleep(POLL)
     except KeyboardInterrupt:
         log("Watchdog stopped")

@@ -108,8 +108,12 @@ def test_pinocytosis_count_job_alerts_no_files():
     from metabolon.enzymes import pinocytosis as module
     original = module.JOB_HUNT_DIR
     try:
-        # Create a proper mock that handles glob and returns empty list
+        # Mock the directory so that / returns a fake path with exists()=False
+        # and glob returns empty, exercising the "no candidates" branch.
         mock_dir = MagicMock()
+        mock_file = MagicMock()
+        mock_file.exists.return_value = False
+        mock_dir.__truediv__ = MagicMock(return_value=mock_file)
         mock_dir.glob = MagicMock(return_value=[])
         module.JOB_HUNT_DIR = mock_dir
         with patch("metabolon.enzymes.pinocytosis._hkt_now") as mock_hkt:

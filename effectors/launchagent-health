@@ -1,20 +1,36 @@
 #!/usr/bin/env python3
 """LaunchAgent health check — verify deployed plists match source and are valid XML."""
 
+import platform
 import subprocess
 import sys
 from pathlib import Path
 
-LAUNCH_DIR = Path.home() / "Library" / "LaunchAgents"
+IS_MACOS = platform.system() == "Darwin"
+LAUNCH_DIR = (
+    Path.home() / "Library" / "LaunchAgents"
+    if IS_MACOS
+    else Path.home() / ".config" / "systemd" / "user"
+)
 SOURCE_DIR = Path.home() / "epigenome" / "oscillators"
 LOG = Path.home() / "logs" / "launchagent-health.log"
+PLIST_PATTERNS = ("com.terry.*.plist", "com.vivesca.*.plist")
+
+
+def iter_plists():
+    if not LAUNCH_DIR.exists():
+        return []
+
+    matched = []
+    for pattern in PLIST_PATTERNS:
+        matched.extend(LAUNCH_DIR.glob(pattern))
+    return sorted(matched)
 
 
 def check():
     issues = []
 
-    # Check all com.terry.* plists in LaunchAgents
-    for plist in sorted([*LAUNCH_DIR.glob("com.terry.*.plist"), *LAUNCH_DIR.glob("com.vivesca.*.plist")]):
+    for plist in iter_plists():
         # Skip symlinks (those are fine — they auto-update)
         if plist.is_symlink():
             continue
@@ -23,9 +39,14 @@ def check():
         content = plist.read_text(errors="replace")
         if not content.strip().startswith("<?xml") and not content.strip().startswith("<!DOCTYPE"):
             # Could be binary plist — check with plutil
-            result = subprocess.run(
-                ["plutil", "-lint", str(plist)], capture_output=True, text=True, timeout=30
-            )
+            try:
+                result = subprocess.run(
+                    ["plutil", "-lint", str(plist)], capture_output=True, text=True, timeout=30
+                )
+            except FileNotFoundError:
+                # plutil is macOS-only; on Linux, treat non-XML as invalid
+                issues.append(f"INVALID: {plist.name} — not XML and plutil unavailable")
+                continue
             if result.returncode != 0:
                 issues.append(f"INVALID: {plist.name} — not a valid plist")
                 continue
@@ -36,7 +57,7 @@ def check():
             import filecmp
 
             if not filecmp.cmp(str(plist), str(source), shallow=False):
-                issues.append(f"DRIFT: {plist.name} — differs from source in officina/launchd/")
+                issues.append(f"DRIFT: {plist.name} — differs from source in {SOURCE_DIR}/")
 
     # Check for hardcoded secrets in text scripts (skip binaries)
     import re
@@ -64,6 +85,16 @@ def check():
 
 
 if __name__ == "__main__":
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        print()
+        print("Usage: launchagent-health [--help]")
+        print()
+        print("Checks:")
+        print("  - Deployed plists match source (detects drift)")
+        print("  - Plist XML is valid (detects corruption)")
+        print("  - No hardcoded secrets in effectors/")
+        sys.exit(0)
     issues = check()
     if issues:
         output = "LaunchAgent health issues:\n" + "\n".join(f"  - {i}" for i in issues)
