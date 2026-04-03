@@ -504,6 +504,13 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     dispatched = []  # list of (line_num, task_id) for mark_done
     skipped = 0
     for line_num, prompt, provider, task_id, max_turns in pending:
+        # Enforce test-file gate: prompt must reference a test file
+        has_test_ref = bool(re.search(r'(?:assays/test_\w+\.py|pytest\s+assays/|test_\w+\.py)', prompt))
+        if not has_test_ref:
+            skipped += 1
+            log(f"[SKIP] [{task_id}] no test file referenced in prompt — CC must write tests first")
+            continue
+
         dispatch_provider = _pick_dispatch_provider(provider)
 
         if dispatch_provider is None:
