@@ -167,6 +167,87 @@ web_sources:
     rss: https://www.interconnects.ai/feed
     url: https://www.interconnects.ai/
 
+  # --- Bank tech blogs: weekly metabolism ---
+  # Direct signals of what banks are actually building. Complement
+  # Evident (benchmarks) with first-party engineering content.
+
+  - name: DBS Tech Blog
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/dbs-tech-blog
+    url: https://medium.com/dbs-tech-blog
+
+  - name: ING Tech Blog
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/ing-blog
+    url: https://medium.com/ing-blog
+
+  - name: Adyen Tech
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/adyen
+    url: https://medium.com/adyen
+
+  - name: PayPal Tech
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/paypal-tech
+    url: https://medium.com/paypal-tech
+
+  - name: Revolut Tech
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/revolut
+    url: https://medium.com/revolut
+
+  - name: Wise Engineering
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/wise-engineering
+    url: https://medium.com/wise-engineering
+
+  - name: Nubank Engineering
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://building.nubank.com/feed/
+    url: https://building.nubank.com
+
+  - name: Capital One Tech
+    tier: 2
+    cadence: weekly
+    tags: [banking, tech]
+    rss: https://medium.com/feed/capital-one-tech
+    url: https://medium.com/capital-one-tech
+
+  - name: Jane Street Tech Blog
+    tier: 2
+    cadence: biweekly
+    tags: [banking, tech]
+    rss: https://blog.janestreet.com/feed.xml
+    url: https://blog.janestreet.com
+
+  - name: BIS FSI
+    tier: 2
+    cadence: biweekly
+    tags: [banking, regulation]
+    rss: https://www.bis.org/doclist/bis_fsi_publs.rss
+    url: https://www.bis.org/fsi/
+
+  - name: Bank of England AI/Fintech
+    tier: 2
+    cadence: biweekly
+    tags: [banking, regulation]
+    rss: https://www.bankofengland.co.uk/rss/publications
+    url: https://www.bankofengland.co.uk/research
+
   # --- Research / academic: biweekly metabolism ---
   # Low publication frequency, dense substrate. Biweekly polling keeps the
   # receptor sensitive without saturating the log with empty results.
