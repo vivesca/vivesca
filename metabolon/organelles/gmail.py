@@ -12,7 +12,9 @@ after initial setup.
 """
 
 import base64
+import html
 import os
+import re
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -87,9 +89,27 @@ def _date_str(msg: dict) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else ""
 
 
+def _strip_html(html_text: str) -> str:
+    """Strip HTML tags, removing <style>/<script> blocks and preserving line breaks."""
+    # 1. Remove <style>...</style> and <script>...</script> blocks entirely
+    text = re.sub(r"<style[^>]*>.*?</style>", "", html_text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    # 2. Replace block-closing / line-break tags with newlines before stripping
+    text = re.sub(r"<br\s*/?\s*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</(?:p|div|tr)>", "\n", text, flags=re.IGNORECASE)
+    # 3. Strip remaining tags
+    text = re.sub(r"<[^>]+>", " ", text)
+    # 4. Unescape HTML entities
+    text = html.unescape(text)
+    # 5. Collapse runs of whitespace (excluding newlines) and limit consecutive newlines to 2
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 def _decode_body(payload: dict) -> str:
     """Decode message body from base64url, preferring text/plain. Recurses into nested multipart."""
-    def _find_part(node: dict, mime: str) -> str:
+    def _find_part(node: dict, mime: str) -> str | None:
         if node.get("mimeType") == mime:
             data = node.get("body", {}).get("data", "")
             if data:
@@ -98,12 +118,18 @@ def _decode_body(payload: dict) -> str:
             found = _find_part(part, mime)
             if found:
                 return found
-        return ""
+        return None
 
-    body_data = _find_part(payload, "text/plain") or _find_part(payload, "text/html")
-    if not body_data:
-        return ""
-    return base64.urlsafe_b64decode(body_data).decode("utf-8", errors="replace")
+    plain_data = _find_part(payload, "text/plain")
+    if plain_data:
+        return base64.urlsafe_b64decode(plain_data).decode("utf-8", errors="replace")
+
+    html_data = _find_part(payload, "text/html")
+    if html_data:
+        raw = base64.urlsafe_b64decode(html_data).decode("utf-8", errors="replace")
+        return _strip_html(raw)
+
+    return ""
 
 
 def _format_message(msg: dict, include_body: bool = False) -> str:
