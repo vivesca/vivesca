@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import time
+import urllib.request
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -94,27 +95,106 @@ async def _run_tool(
 
 
 async def _run_grok(query: str) -> ToolResult:
-    return await _run_tool(
-        "grok",
-        _find_bin("grok", "~/germline/effectors/grok", "~/bin/grok"),
-        [query], cost=0.05,
-    )
+    """XAI Grok search via chat completions API with search tool."""
+    start = time.time()
+    api_key = os.environ.get("XAI_API_KEY", "")
+    if not api_key:
+        return ToolResult(tool="grok", query=query, result="", cost=0.05,
+                          latency_s=0, error="XAI_API_KEY not set")
+    try:
+        payload = json.dumps({
+            "model": "grok-3-mini",
+            "messages": [{"role": "user", "content": query}],
+            "search_parameters": {"mode": "auto"},
+            "temperature": 0
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.x.ai/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+        content = data["choices"][0]["message"]["content"]
+        return ToolResult(tool="grok", query=query, result=content,
+                          cost=0.05, latency_s=time.time() - start)
+    except Exception as exc:
+        return ToolResult(tool="grok", query=query, result="", cost=0.05,
+                          latency_s=time.time() - start, error=str(exc)[:200])
 
 
 async def _run_exa(query: str) -> ToolResult:
-    return await _run_tool(
-        "exa",
-        _find_bin("exauro", "~/bin/exauro"),
-        ["search", "--n", "5", query], cost=0.01,
-    )
+    """Exa neural search via REST API."""
+    start = time.time()
+    api_key = os.environ.get("EXA_API_KEY", "")
+    if not api_key:
+        return ToolResult(tool="exa", query=query, result="", cost=0.01,
+                          latency_s=0, error="EXA_API_KEY not set")
+    try:
+        payload = json.dumps({
+            "query": query,
+            "numResults": 5,
+            "type": "neural",
+            "contents": {"text": {"maxCharacters": 300}},
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.exa.ai/search",
+            data=payload,
+            headers={
+                "x-api-key": api_key,
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+        results = data.get("results", [])
+        parts = []
+        for r in results:
+            title = r.get("title", "")
+            url = r.get("url", "")
+            text = r.get("text", "")[:200]
+            parts.append(f"{title}\n{url}\n{text}")
+        return ToolResult(tool="exa", query=query, result="\n\n".join(parts),
+                          cost=0.01, latency_s=time.time() - start)
+    except Exception as exc:
+        return ToolResult(tool="exa", query=query, result="", cost=0.01,
+                          latency_s=time.time() - start, error=str(exc)[:200])
 
 
-async def _run_noesis_search(query: str) -> ToolResult:
-    return await _run_tool(
-        "noesis_search",
-        _find_bin("noesis", "~/.cargo/bin/noesis", "~/bin/noesis"),
-        ["search", query], cost=0.006,
-    )
+async def _run_perplexity(query: str) -> ToolResult:
+    """Perplexity search via chat completions API."""
+    start = time.time()
+    api_key = os.environ.get("PERPLEXITY_API_KEY", "")
+    if not api_key:
+        return ToolResult(tool="perplexity", query=query, result="", cost=0.006,
+                          latency_s=0, error="PERPLEXITY_API_KEY not set")
+    try:
+        payload = json.dumps({
+            "model": "sonar",
+            "messages": [{"role": "user", "content": query}],
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.perplexity.ai/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+        content = data["choices"][0]["message"]["content"]
+        citations = data.get("citations", [])
+        if citations:
+            content += "\n\nSources:\n" + "\n".join(f"  {i+1}. {c}" for i, c in enumerate(citations))
+        return ToolResult(tool="perplexity", query=query, result=content,
+                          cost=0.006, latency_s=time.time() - start)
+    except Exception as exc:
+        return ToolResult(tool="perplexity", query=query, result="", cost=0.006,
+                          latency_s=time.time() - start, error=str(exc)[:200])
 
 
 async def _run_tavily(query: str) -> ToolResult:
@@ -413,7 +493,7 @@ async def _run_all(query: str) -> list[ToolResult]:
     tasks = [
         _run_grok(query),
         _run_exa(query),
-        _run_noesis_search(query),
+        _run_perplexity(query),
         _run_tavily(query),
         _run_serper(query),
         _run_zhipu(query),
