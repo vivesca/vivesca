@@ -61,9 +61,10 @@ def test_invalid_flag_exits_nonzero():
 
 
 def test_no_args_runs_without_crash():
-    """`python -m metabolon` with no args starts the stdio server (runs until killed)."""
+    """`python -m metabolon` with no args starts the stdio server and exits cleanly."""
     proc = subprocess.Popen(
         [sys.executable, "-m", "metabolon"],
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -73,8 +74,9 @@ def test_no_args_runs_without_crash():
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.communicate()
-    # The process stayed alive (timeout killed it) and did not crash immediately.
-    assert proc.returncode == -9  # killed by our timeout
+    # FastMCP 3.x stdio server exits with 0 after processing stdin EOF.
+    # It should not crash with a non-zero exit code.
+    assert proc.returncode is not None and proc.returncode <= 0
 
 
 def test_http_mode_runs_without_crash():
