@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
-CARDS_DIR = Path.home() / "epigenome/chromatin/euchromatin/consulting/cards"
+CARDS_DIR = Path(os.environ.get("CARDS_DIR", str(Path.home() / "epigenome/chromatin/euchromatin/consulting/cards")))
 
 
 def get_card_title(card_path: Path) -> str:
