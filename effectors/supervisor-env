@@ -1,0 +1,24 @@
+#!/bin/bash
+# Shared environment for all supervisor programs.
+# Sources API keys and sets consistent PATH.
+# Usage in supervisor: command=/home/terry/germline/effectors/supervisor-env <actual-command> <args...>
+
+export HOME="/home/terry"
+export TZ="Asia/Hong_Kong"
+export PATH="/home/terry/germline/.venv/bin:/home/terry/germline/effectors:/home/terry/bin:/home/terry/.local/bin:/home/terry/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Source API keys from resolved env file (written by op read, chmod 600)
+if [ -f "$HOME/germline/.env.vivesca" ]; then
+    set -a
+    source "$HOME/germline/.env.vivesca"
+    set +a
+fi
+
+# Source Fly.io secrets if present
+if [ -f "$HOME/.env.fly" ]; then
+    set -a
+    source "$HOME/.env.fly"
+    set +a
+fi
+
+exec "$@"
