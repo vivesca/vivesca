@@ -431,3 +431,5 @@
 {"ts": "2026-04-03T00:14:40+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-04-03T00:15:22+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-04-03T00:28:27+00:00", "model": "sonar-deep-research", "query": "What are the current OCI Always Free tier limits for ARM instances in 2026?"}
+{"ts": "2026-04-03T02:21:40+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-03T02:21:40+00:00", "model": "sonar", "query": "test query"}
