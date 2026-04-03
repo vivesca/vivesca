@@ -13,9 +13,12 @@ after initial setup.
 
 import base64
 import html
+import mimetypes
 import os
 import re
 from datetime import datetime
+from email.encoders import encode_base64
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import lru_cache
@@ -24,6 +27,7 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.http import BatchHttpRequest
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 GOG_TOKEN_FILE = Path.home() / ".config" / "gog" / "token.json"
@@ -151,22 +155,110 @@ def _format_message(msg: dict, include_body: bool = False) -> str:
 # ---------------------------------------------------------------------------
 
 
-def search(query: str, max_results: int = 20) -> str:
-    """Search Gmail. Returns formatted message list."""
+def search(query: str, max_results: int = 20, threads: bool = False) -> str:
+    """Search Gmail. Returns formatted message list.
+
+    Uses batch API (up to 100 per batch) instead of N+1 individual get() calls.
+    Supports pagination: keeps fetching pages until *max_results* is reached
+    or no more pages remain.
+
+    When *threads* is True, searches threads instead of individual messages
+    and batches the ``threads().get()`` calls.
+    """
     svc = service()
-    result = svc.users().messages().list(
-        userId="me", q=query, maxResults=max_results
-    ).execute()
-    messages = result.get("messages", [])
-    if not messages:
+    if threads:
+        return _search_threads(svc, query, max_results)
+    return _search_messages(svc, query, max_results)
+
+
+def _search_messages(svc, query: str, max_results: int) -> str:
+    """Paginate messages().list() then batch messages().get()."""
+    # --- collect stubs with pagination ---
+    all_stubs: list[dict] = []
+    page_token = None
+    while len(all_stubs) < max_results:
+        kwargs: dict = {
+            "userId": "me",
+            "q": query,
+            "maxResults": min(100, max_results - len(all_stubs)),
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+        result = svc.users().messages().list(**kwargs).execute()
+        msgs = result.get("messages", [])
+        all_stubs.extend(msgs)
+        page_token = result.get("nextPageToken")
+        if not page_token or not msgs:
+            break
+
+    all_stubs = all_stubs[:max_results]
+    if not all_stubs:
         return "No messages found."
-    lines = []
-    for msg_stub in messages:
-        msg = svc.users().messages().get(
-            userId="me", id=msg_stub["id"], format="metadata"
-        ).execute()
-        lines.append(_format_message(msg))
-    return "\n".join(lines)
+
+    # --- batch fetch in chunks of 100 ---
+    collected: list[tuple[int, str]] = []
+
+    def _callback(request_id: str, response: dict, exception: Exception | None) -> None:
+        if exception is None:
+            collected.append((int(request_id), _format_message(response)))
+
+    for offset in range(0, len(all_stubs), 100):
+        batch = BatchHttpRequest(callback=_callback)
+        for j, stub in enumerate(all_stubs[offset : offset + 100]):
+            req = svc.users().messages().get(
+                userId="me", id=stub["id"], format="metadata"
+            )
+            batch.add(req, request_id=str(offset + j))
+        batch.execute()
+
+    collected.sort(key=lambda pair: pair[0])
+    return "\n".join(line for _, line in collected)
+
+
+def _search_threads(svc, query: str, max_results: int) -> str:
+    """Paginate threads().list() then batch threads().get()."""
+    # --- collect thread stubs with pagination ---
+    all_stubs: list[dict] = []
+    page_token = None
+    while len(all_stubs) < max_results:
+        kwargs: dict = {
+            "userId": "me",
+            "q": query,
+            "maxResults": min(100, max_results - len(all_stubs)),
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+        result = svc.users().threads().list(**kwargs).execute()
+        threads = result.get("threads", [])
+        all_stubs.extend(threads)
+        page_token = result.get("nextPageToken")
+        if not page_token or not threads:
+            break
+
+    all_stubs = all_stubs[:max_results]
+    if not all_stubs:
+        return "No messages found."
+
+    # --- batch fetch in chunks of 100 ---
+    collected: list[tuple[int, str]] = []
+
+    def _callback(request_id: str, response: dict, exception: Exception | None) -> None:
+        if exception is None:
+            msgs = response.get("messages", [])
+            thread_lines = [_format_message(m) for m in msgs]
+            collected.append((int(request_id), "\n".join(thread_lines)))
+
+    for offset in range(0, len(all_stubs), 100):
+        batch = BatchHttpRequest(callback=_callback)
+        for j, stub in enumerate(all_stubs[offset : offset + 100]):
+            req = svc.users().threads().get(
+                userId="me", id=stub["id"], format="metadata"
+            )
+            batch.add(req, request_id=str(offset + j))
+        batch.execute()
+
+    collected.sort(key=lambda pair: pair[0])
+    return "\n\n".join(block for _, block in collected)
 
 
 def get_thread(thread_id: str) -> str:
@@ -224,6 +316,21 @@ def send_email(
     msg_mime = MIMEText(body) if not attachments else MIMEMultipart()
     if attachments:
         msg_mime.attach(MIMEText(body))
+        for file_path in attachments:
+            path = Path(file_path)
+            mime_type, _ = mimetypes.guess_type(str(path))
+            if mime_type is None:
+                mime_type = "application/octet-stream"
+            maintype, subtype = mime_type.split("/", 1)
+            with open(path, "rb") as f:
+                file_data = f.read()
+            part = MIMEBase(maintype, subtype)
+            part.set_payload(file_data)
+            encode_base64(part)
+            part.add_header(
+                "Content-Disposition", "attachment", filename=path.name
+            )
+            msg_mime.attach(part)
 
     msg_mime["to"] = to
     msg_mime["subject"] = subject
