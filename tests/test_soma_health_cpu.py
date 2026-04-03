@@ -27,6 +27,7 @@ def _import_soma_health():
         "soma_health", _SOMA_HEALTH_PATH, loader=loader
     )
     mod = importlib.util.module_from_spec(spec)
+    sys.modules["soma_health"] = mod  # dataclasses needs this at class-def time
     spec.loader.exec_module(mod)
     return mod
 
