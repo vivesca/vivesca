@@ -88,6 +88,14 @@ RATE_LIMIT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Month name/abbreviation → month number.  Used by parse_rate_limit_window
+# to avoid the Python 3.15 deprecation for strptime with day-of-month but no year.
+import calendar as _calendar
+_MONTH_NAME_MAP: dict[str, int] = {}
+for _i in range(1, 13):
+    _MONTH_NAME_MAP[_calendar.month_abbr[_i].lower()] = _i
+    _MONTH_NAME_MAP[_calendar.month_name[_i].lower()] = _i
+
 
 def disk_hygiene() -> int:
     """Prune old Claude session files and caches. Returns bytes freed (approx)."""
@@ -745,7 +753,7 @@ def parse_rate_limit_window(tail: str) -> int | None:
     )
     if m:
         try:
-            month_str = m.group(1)
+            month_str = m.group(1).lower()
             day = int(m.group(2))
             year = int(m.group(3))
             hour = int(m.group(4))
@@ -754,16 +762,14 @@ def parse_rate_limit_window(tail: str) -> int | None:
                 hour += 12
             elif m.group(6).upper() == "AM" and hour == 12:
                 hour = 0
-            for fmt in ("%B %d", "%b %d"):
-                try:
-                    md = datetime.strptime(f"{month_str} {day}", fmt)
-                    reset_time = datetime(year, md.month, md.day, hour, minute)
-                    delta = (reset_time - datetime.now()).total_seconds()
-                    if delta > 0:
-                        return int(delta)
-                    break
-                except ValueError:
-                    continue
+            # Map month name/abbreviation to month number without strptime
+            # to avoid Python 3.15 deprecation for day-of-month without year.
+            month_num = _MONTH_NAME_MAP.get(month_str)
+            if month_num is not None:
+                reset_time = datetime(year, month_num, day, hour, minute)
+                delta = (reset_time - datetime.now()).total_seconds()
+                if delta > 0:
+                    return int(delta)
         except (ValueError, OverflowError):
             pass
 
@@ -1716,7 +1722,7 @@ def daemon_loop(dry_run: bool = False):
                                 # Only extend, never shorten existing cooldown
                                 if provider_cooldown_until.get(dispatch_provider, 0) < cooldown_end:
                                     provider_cooldown_until[dispatch_provider] = cooldown_end
-                                    if cooldown > BILLING_EXHAUSTED_THRESHOLD:
+                                    if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
                                         # Billing-cycle exhaustion: long cooldown, no early-recovery probing
                                         reset_tm = time.localtime(cooldown_end)
                                         reset_str = time.strftime("%b %d", reset_tm).replace(" 0", " ")
@@ -1730,7 +1736,7 @@ def daemon_loop(dry_run: bool = False):
                                 cd_min = int(cooldown // 60)
                                 cd_hrs = int(cooldown // 3600)
                                 reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "empty-output" if is_empty_output and not is_explicit_ratelimit else "output-match"
-                                if cooldown > BILLING_EXHAUSTED_THRESHOLD:
+                                if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
                                     log(f"BILLING-EXHAUSTED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_hrs}h (exit={exit_code}, dur={duration}s)")
                                 else:
                                     log(f"RATE-LIMITED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
