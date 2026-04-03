@@ -61,6 +61,18 @@ python3 ~/germline/effectors/temporal-golem/dispatch.py --status | head -20
 cat ~/germline/loci/golem-queue.md
 ```
 
+### Phase 0.5: Complexity routing
+
+Before planning, classify the task:
+
+| Size | Signal | Action |
+|------|--------|--------|
+| Trivial | Single file, <20 lines, obvious fix | CC does it directly — no queue, no golem |
+| Small | 1-3 files, clear scope | Single golem task, skip Phase 1 audit |
+| Large | Multi-file, ambiguity, dependencies | Full Phase 1 audit + multi-task queue |
+
+Don't build a 5-task campaign for a one-liner fix.
+
 ### Phase 1: What matters? (CC judgment — do this BEFORE queuing)
 
 **Stop and think:** what is the most impactful work right now? Check:
@@ -80,7 +92,11 @@ Then prioritize:
 
 ### Phase 2: Write tasks with test gates
 
-**CC writes tests first, golem implements to pass them.** This is the core loop:
+**CC writes tests first, golem implements to pass them.** This is the core loop.
+
+**Controller extracts, subagents don't read.** CC reads specs/plans once and injects exactly what the golem needs into its prompt. Never tell golem "read the plan file and do what it says" — that wastes turns and lets the golem misinterpret. State the action directly.
+
+**Manufactured skepticism in review.** When reviewing golem output, assume the report is optimistic. Verify independently — don't trust "all tests pass" without running them.
 
 1. CC writes `assays/test_<feature>.py` with concrete test cases
 2. CC writes queue entry referencing the test file
@@ -103,6 +119,8 @@ Then prioritize:
 - **Test** — write tests for existing module. `--max-turns 30`.
 
 **Group related tasks into operons** when they share context.
+
+**File-level conflict check before parallel dispatch.** Before launching parallel golem tasks, check file overlaps. If two tasks touch the same file, serialize them. Non-overlapping tasks run in parallel. Prevents agent write collisions.
 
 ### Phase 3: Queue writes (use fcntl lock)
 

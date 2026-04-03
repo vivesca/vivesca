@@ -2,6 +2,7 @@
 name: scrinium
 description: Route captured knowledge to the right storage layer — MEMORY.md, CLAUDE.md, docs/solutions/, vault, or skill. Consult before writing any persistent note or memory.
 user_invocable: false
+epistemics: [knowledge-capture, delegate]
 ---
 
 # Scrinium — Knowledge Routing
@@ -21,6 +22,16 @@ When capturing a lesson, correction, or discovery, route it here first.
 | Insight / opinion / analysis / op-ed | Garden post (`sarcio new`, `draft: false`) — low bar, publish by default |
 | Reference data (facts, trackers, account details) | Vault note (the "other" bucket) |
 | One-off correction, not generalizable | Daily note only |
+
+## Overlap Check Before Creating
+
+Before creating a new mark, solution doc, or chromatin note, score against existing ones on five dimensions: problem statement, root cause, solution approach, referenced files, prevention rules.
+
+- **4-5 match** → update existing doc in place, don't create a duplicate
+- **2-3 match** → create new, note the overlap
+- **0-1 match** → create new
+
+Two docs describing the same problem will inevitably drift apart. Update > duplicate.
 
 ## Worth Noting At All?
 

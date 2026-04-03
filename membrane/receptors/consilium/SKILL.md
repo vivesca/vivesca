@@ -12,6 +12,7 @@ triggers:
   - debate
 github_url: https://github.com/terry-li-hm/consilium
 user_invocable: true
+epistemics: [review, deliberation]
 cli_version: 0.5.1
 cli_verified: 2026-03-03
 runtime: rust
@@ -59,6 +60,15 @@ Everything else → --deep (default)
 ```
 
 ---
+
+## Interpreting Results — Confidence Gate
+
+When reviewing consilium output with multiple models disagreeing:
+
+- **Suppress findings below 0.50 confidence** — don't surface noise to the user
+- **Retain low-confidence findings as residuals** — if a second model corroborates (even weakly, 0.55+), promote
+- **Promote unconditionally** if the finding describes a concrete blocking risk, regardless of confidence
+- When models disagree on the same point, present as a **tradeoff** (not dropped, not merged into one winner) — the user decides
 
 ## When to Use / Not Use
 

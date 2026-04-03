@@ -76,7 +76,7 @@ BEFORE attempting ANY fix:
 1. Create failing test case first (when applicable)
 2. ONE fix addressing root cause — no "while I'm here" changes
 3. Verify: test passes, no regressions
-4. If 3+ fixes failed: STOP — question the architecture, not the symptoms
+4. **3-fix escalation rule:** If 3+ fixes failed, STOP and question the architecture — don't attempt fix #4. Pattern signal: each fix reveals a new problem in a different place. That's not a bug, it's a wrong design
 
 ### Phase 6: Sweep, Risk, Immunise
 

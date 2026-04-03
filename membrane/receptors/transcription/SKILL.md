@@ -41,6 +41,26 @@ Before asking anything, scan for what already exists. Match depth to scope:
 - **Light:** Quick search for the topic, check for prior art, move on.
 - **Standard/Deep:** Search relevant code, docs, recent brainstorms. Read the most relevant existing artifact. Note patterns to follow.
 
+### 1.5. Divergent ideation (when the problem space is open)
+
+**Trigger:** user asks "what should we build?", "what would you improve?", "ideate", or the request is open-ended without a specific target. Skip this when the user already knows what they want.
+
+Generate many ideas before critiquing any:
+
+1. **Diverge with frames.** Dispatch 3-5 parallel sub-agents, each biased toward a different angle:
+   - pain/friction in current workflows
+   - missing capability or unmet need
+   - inversion — remove or automate a painful step
+   - assumption-breaking — reframe the problem
+   - leverage — what compounds future work
+   Each agent generates 5-8 raw candidates grounded in codebase context. No filtering yet.
+
+2. **Merge and synthesize.** Deduplicate. Then scan for cross-cutting combinations — ideas from different frames that together are stronger than either alone. Add 2-3 combined ideas.
+
+3. **Adversarial filter.** Critique the full merged list. For each rejected idea, write a one-line reason. Score survivors on: groundedness, expected value, novelty, pragmatism, leverage, implementation burden. Keep 5-7 survivors.
+
+4. **Present and choose.** Show survivors ranked. User picks one → proceed to step 2 with that idea as the target.
+
 ### 2. Pressure test (standard/deep only)
 
 Before generating approaches, challenge the request:
@@ -58,6 +78,8 @@ State your view. If the answer is "don't build this," say so.
 Each answer reshapes the next question. This is the point — divergent exploration, not a pre-planned interview.
 
 Exit when the shape is clear OR the user says "enough, let's go."
+
+**Negative existential claims:** If you assert something is absent ("there's no auth middleware", "the API doesn't have X"), verify against source before writing it into the spec — or label it "unverified assumption." These are the highest-risk hallucinations in planning.
 
 ### 4. Approaches
 
@@ -103,11 +125,13 @@ topic: <kebab-case>
 
 ## Outstanding Questions
 
-### Before Planning
+### Before Planning (blocks — must be answered before handoff)
 - [Question that blocks implementation]
 
-### Deferred
-- [Question better answered during planning or building]
+### Deferred to Planning (better answered during codebase exploration)
+- [Question that can wait]
+
+Planning cannot start while "Before Planning" questions remain unanswered. Don't disguise blocking ambiguity as deferred questions.
 ```
 
 Omit empty sections. A 10-line doc that says the right things beats a 100-line doc padded with ceremony.

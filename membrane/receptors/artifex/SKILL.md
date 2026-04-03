@@ -1,6 +1,7 @@
 ---
 name: artifex
 description: Guide for designing skills. Use when noticing a recurring pattern, wondering if something deserves a skill, creating new skills, refactoring existing ones, reviewing skill architecture, or during any skill review. Load early — before you know if a skill is warranted, not just when you've decided to write one.
+epistemics: [skill, design]
 ---
 
 # Skills Design Guide
@@ -97,7 +98,19 @@ When a skill delegates to or depends on another, document it with a `## Calls` f
 
 This is a flat list, not a graph — just enough to know which skills break if a dependency changes. No `called-by` tracking; that's too much overhead for marginal benefit. Update it when the skill's steps change.
 
-### 4. Rationalizations to Reject
+### 4. Compliance Framing by Skill Type
+
+Different skill types need different persuasion patterns to get Claude to actually follow them:
+
+| Skill type | Framing | Why |
+|------------|---------|-----|
+| **Discipline** (TDD, debugging, verification) | Authority + Commitment: "YOU MUST", forced announcement, task tracking | Eliminates decision fatigue, creates public commitment |
+| **Collaborative** (design, brainstorming) | Unity + Commitment: shared goal framing, incremental validation | Preserves engagement without rigidity |
+| **Reference** (lookup, routing) | None — just present the information | Over-framing reference skills creates sycophancy |
+
+**Never use "Liking" framing for discipline skills** — friendly tone undercuts enforcement and creates permission to skip steps. Authority framing ("No exceptions. This is non-negotiable.") empirically doubles compliance vs neutral framing.
+
+### 5. Rationalizations to Reject
 
 For steps Claude is tempted to skip, pre-list the common excuses. Use sparingly — only on steps where you've observed Claude actually skipping.
 
@@ -107,7 +120,7 @@ For steps Claude is tempted to skip, pre-list the common excuses. Use sparingly 
 | "The code is simple enough it doesn't need tests" | Simple code has simple tests |
 ```
 
-### 5. Active Questions > Passive Tables
+### 6. Active Questions > Passive Tables
 
 When a skill needs the model to scan or evaluate something, use direct yes/no questions — not reference tables. Tables present correct information but the model skips over them (legatum skill: 54% boilerplate rate with a passive "What to Look For" table). Rephrasing as questions forces the model to engage with each item before concluding "nothing here."
 
@@ -127,13 +140,13 @@ Add a **fast path** for genuinely trivial cases (e.g., ≤3 turns) so the questi
 
 **Require explicit answers, not just engagement.** Active questions are necessary but not sufficient — the model can read a question and still skip it silently. For high-stakes checklist items, add: *"Answer yes or no explicitly. Omitting this is a skip, not a no."* This makes failure visible rather than silent, and creates an audit trail in the output block. Applied to wrap Step 0B (garden post / LinkedIn / consulting arsenal): passive scan → active yes/no → explicit answer required.
 
-### 6. Seed Skills Early
+### 7. Seed Skills Early
 
 When a novel pattern emerges (a useful visualization technique, a new workflow, a research method), **propose creating a stub skill immediately** — don't wait for three occurrences. The skill acts as a collector: one pattern today, more added organically as they come up. A stub that grows is better than reconstructing three patterns from memory after the fact. If it's still a single pattern after a month, demote to `~/docs/solutions/`.
 
 **Actively propose:** When you spot Terry doing something for the first time that looks like it'll recur (a type of analysis, a content format, a deployment pattern), suggest seeding a skill for it.
 
-### 7. Length — Skill vs Vault Note
+### 8. Length — Skill vs Vault Note
 
 Skills should be action-oriented: what to do, in what order, with what commands. When a skill grows long, split it:
 
@@ -146,7 +159,7 @@ Signal that a skill needs splitting: you find yourself reading the rationale sec
 
 **Hard cap: operational core ≤150 lines.** If the skill file exceeds ~150 lines, split: keep the operational core (steps, commands, decision rules) in `SKILL.md`; move extended reference (flag compatibility, prompting tips, model tendencies, changelog, research foundations) to `REFERENCE.md` in the same directory. Link from the skill: `(extended reference: [REFERENCE.md](./REFERENCE.md))`. Applied to consilium Mar 2026 — 571L → 180L SKILL.md + REFERENCE.md.
 
-### 8. Naming
+### 9. Naming
 
 - **Action skills** → verb-first: `evaluate-job`, `design-skill`
 - **Trigger/lookup skills** → short nouns: `todo`, `hko`, `morning`
@@ -174,7 +187,7 @@ curl -s https://crates.io/api/v1/crates/<name> | python3 -c "import sys,json; d=
 
 A name collision mid-build forces a full rename (see: necto → synaxis, mnemon → docima). Reserve before planning, not after.
 
-### 9. Single Responsibility
+### 10. Single Responsibility
 
 A skill should have one reason to change. **Test:** can you state its job in one sentence without "and"? If not, split it.
 
@@ -182,7 +195,7 @@ This matters more than in code because LLM attention is the scarce resource — 
 
 **Smell:** top-level branching like "if the user wants X do A, if they want Y do B" — that's a router skill calling two worker skills, not one skill.
 
-### 10. Fail-State Specification
+### 11. Fail-State Specification
 
 Every step that gathers, checks, or calls something external must define what happens when it fails or returns nothing. Without an explicit failure clause, the LLM will hallucinate a plausible continuation.
 
@@ -197,7 +210,7 @@ Every step that gathers, checks, or calls something external must define what ha
 
 Valid fail actions: ask the user, abort with a stated reason, fall back to a named default. Pick one per step — don't leave it open.
 
-### 11. Scope Clamping
+### 12. Scope Clamping
 
 LLMs are eager generalizers. A skill must state what it deliberately **does not** do, or it will helpfully extend into adjacent work you didn't ask for.
 
@@ -212,7 +225,7 @@ Add a brief `## Boundaries` or `## Not this skill` section for any skill prone t
 
 Every skill you debug for scope creep should get a boundary clause added retroactively.
 
-### 12. Example as Specification
+### 13. Example as Specification
 
 Include at least one realistic input → expected output example in non-trivial skills. This is the single most effective way to reduce misinterpretation — examples are more precise than paragraphs of prose.
 
@@ -227,7 +240,7 @@ Expected output:
 
 The example also acts as a regression anchor: if a skill starts behaving oddly after an edit, check whether the example still holds.
 
-### 13. Skills Fetch, LaunchAgents Collect
+### 14. Skills Fetch, LaunchAgents Collect
 
 **Skills should be result renderers, not data gatherers.** If a skill makes API calls or runs file scans to assemble its output, ask: could a LaunchAgent pre-compute this and write a snapshot?
 
@@ -241,7 +254,7 @@ Skip when: data must be real-time (live calendar, current search results).
 
 Full pattern: `~/docs/solutions/patterns/skill-as-renderer.md`
 
-### 14. Feedback Loop Checkpoint
+### 15. Feedback Loop Checkpoint
 
 When designing any tool or scheduled task, ask: **what number goes up or down?** If you can't name a feedback signal, you're building a cron job, not a learning system.
 
@@ -260,7 +273,7 @@ scrape → score relevance → log → weekly: analyse scores → update filters
 
 Apply when: the tool runs repeatedly and its output quality could vary. Skip when: truly one-shot or the output is binary (health check pass/fail).
 
-### 15. CLI/Skill Split Rule
+### 16. CLI/Skill Split Rule
 
 When crystallizing session knowhow into reusable form, always split:
 
@@ -275,7 +288,32 @@ When crystallizing session knowhow into reusable form, always split:
 
 **The test:** Could a shell script do this step correctly every time? → CLI. Would a human need to eyeball it? → Skill.
 
-### 16. Proactive Crystallization
+### 17. TDD for Skills
+
+RED-GREEN-REFACTOR applied to skill authoring:
+
+1. **RED:** Run a baseline session without the skill. Capture how the agent fails — what it skips, hallucinates, or gets wrong. This is your test suite.
+2. **GREEN:** Write the skill targeting those specific failure modes. Each section should address a documented failure.
+3. **REFACTOR:** Run again with the skill. Find remaining loopholes and close them.
+
+"If you didn't watch an agent fail without the skill, you don't know if the skill teaches the right thing."
+
+Skip for trivial skills (simple lookup, single command). Apply for any skill that shapes judgment or multi-step behavior.
+
+**Pressure scenario design:** Good test scenarios need (1) concrete A/B/C forced choice with real file paths, (2) at least 3 simultaneous pressures (time + sunk cost + exhaustion is canonical), (3) framing as "real scenario, you must act." Single-pressure tests are insufficient — agents resist one pressure but break under three.
+
+### 18. Headless Mode for Composable Skills
+
+Any skill that may be invoked by another skill should support headless mode:
+
+- No interactive prompts (no AskUserQuestion)
+- Return structured text data (not file writes)
+- End with a detectable terminal signal ("Review complete", "Analysis done")
+- Caller parses output without understanding internal structure
+
+Add to skills that are commonly called by other skills. Not needed for pure user-facing skills.
+
+### 19. Proactive Crystallization
 
 **Don't wait for the user to ask "should we make a skill?"** After a session with significant domain knowhow discovery (3+ workarounds, domain-specific patterns, multi-step fallback chains), proactively propose:
 
