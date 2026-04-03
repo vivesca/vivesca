@@ -1708,6 +1708,9 @@ def daemon_loop(dry_run: bool = False):
                             if is_explicit_ratelimit or is_fast_exit or is_empty_output:
                                 # Rate-limited: apply proportional cooldown immediately
                                 window = parse_rate_limit_window(tail)
+                                # Billing-exhausted without parseable reset date: use 24h default
+                                if window is None and is_billing_exhausted(tail):
+                                    window = BILLING_EXHAUSTED_THRESHOLD
                                 cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
                                 cooldown_end = time.time() + cooldown
                                 # Only extend, never shorten existing cooldown
@@ -2137,18 +2140,26 @@ def cmd_status():
             try:
                 entries = json.loads(COOLDOWN_LOG.read_text())
                 now = time.time()
-                # Latest burnout per provider, not yet resumed
+                # Latest cooldown per provider, not yet resumed
                 active = {}
                 for e in entries:
                     p = e.get("provider", "?")
                     if e.get("event") == "resumed":
                         active.pop(p, None)
-                    elif e.get("event") == "burnout" and e.get("resets_at"):
+                    elif e.get("event") in ("burnout", "billing-exhausted") and e.get("resets_at"):
                         reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
                         if reset_time > now:
-                            active[p] = e["resets_at"][11:16]
+                            active[p] = {"event": e["event"], "resets_at": e["resets_at"]}
                 if active:
-                    print(f"Cooldowns: {', '.join(f'{p} (resets {t})' for p, t in sorted(active.items()))}")
+                    parts = []
+                    for p, info in sorted(active.items()):
+                        if info["event"] == "billing-exhausted":
+                            dt = time.strptime(info["resets_at"], "%Y-%m-%d %H:%M:%S")
+                            label = time.strftime("%b %d", dt).replace(" 0", " ")
+                            parts.append(f"{p} (billing limit, resets {label})")
+                        else:
+                            parts.append(f"{p} (resets {info['resets_at'][11:16]})")
+                    print(f"Cooldowns: {', '.join(parts)}")
             except (json.JSONDecodeError, OSError, KeyError, ValueError):
                 pass
 
