@@ -63,6 +63,31 @@ def _git_snapshot() -> dict:
         return {"stat": "", "numstat": ""}
 
 
+def _detect_prior_commits(
+    repo_root: str, time_window_minutes: int = 40, author: str = "golem"
+) -> list[str]:
+    """Find commits from a prior killed golem attempt within the time window.
+
+    Scans ``git log`` for oneline commits authored by *author* in the last
+    *time_window_minutes* minutes.  Used so a retried activity can resume
+    from partial work instead of starting from scratch.
+    """
+    try:
+        result = _subprocess.run(
+            [
+                "git", "log", "--oneline",
+                f"--since={time_window_minutes} minutes ago",
+                f"--author={author}",
+            ],
+            capture_output=True, text=True, timeout=10,
+            cwd=repo_root,
+        )
+        lines = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
+        return lines
+    except Exception:
+        return []
+
+
 @activity.defn
 async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
     """Execute a single golem task as a subprocess."""
@@ -87,6 +112,23 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
                 "output_path": str(cached),
             }
 
+    # Detect partial progress from a prior killed attempt
+    prior_commits = await asyncio.to_thread(
+        _detect_prior_commits, repo_root, time_window_minutes=40, author="golem"
+    )
+    effective_task = task
+    if prior_commits:
+        commit_list = "\n".join(f"  - {c}" for c in prior_commits)
+        prefix = (
+            "NOTE: A prior attempt on this task made the following commits "
+            "before being interrupted:\n"
+            f"{commit_list}\n"
+            "Review these commits — if they partially complete the task, "
+            "continue from where they left off. "
+            "Do NOT redo already-committed work.\n\n"
+        )
+        effective_task = prefix + task
+
     # Snapshot before golem runs
     pre_diff = await asyncio.to_thread(_git_snapshot)
 
@@ -94,7 +136,7 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         "bash", str(GOLEM_SCRIPT),
         "--provider", provider,
         "--max-turns", str(max_turns),
-        task,
+        effective_task,
     ]
     # Run golem from repo root, not temporal-golem subdir
     repo_root = str(Path.home() / "germline")
@@ -185,6 +227,7 @@ import json
 import re as _re
 import subprocess as _subprocess
 import time as _time
+from datetime import datetime as _datetime, timezone as _timezone
 
 # ── LangGraph golem activity ──
 
