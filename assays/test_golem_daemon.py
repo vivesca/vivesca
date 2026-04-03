@@ -3630,3 +3630,273 @@ class TestBillingVsShortCooldownExtended:
         # Billing override should enforce 24h
         enforced = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
         assert enforced == BILLING_EXHAUSTED_THRESHOLD
+
+
+# ── _log_cooldown billing-exhausted tests ────────────────────────────────
+
+_log_cooldown = _mod["_log_cooldown"]
+COOLDOWN_LOG = _mod["COOLDOWN_LOG"]
+
+
+class TestLogCooldownBillingExhausted:
+    """Tests for _log_cooldown with billing-exhausted events."""
+
+    def test_billing_exhausted_event_logged(self, tmp_path):
+        """_log_cooldown writes a billing-exhausted entry with resets_at."""
+        import json as _json
+
+        log_file = tmp_path / "cooldowns.json"
+        saved = {}
+        saved["COOLDOWN_LOG"] = _mod["COOLDOWN_LOG"]
+        _mod["COOLDOWN_LOG"] = log_file
+        try:
+            future = time.time() + 5 * 86400
+            _log_cooldown("codex", future, "billing exhausted", event="billing-exhausted")
+            entries = _json.loads(log_file.read_text())
+            assert len(entries) == 1
+            assert entries[0]["event"] == "billing-exhausted"
+            assert entries[0]["provider"] == "codex"
+            assert entries[0]["resets_at"] is not None
+        finally:
+            _mod["COOLDOWN_LOG"] = saved["COOLDOWN_LOG"]
+
+    def test_billing_exhausted_dedupe_same_reset(self, tmp_path):
+        """_log_cooldown dedupes billing-exhausted with same reset time."""
+        import json as _json
+
+        log_file = tmp_path / "cooldowns.json"
+        saved = {}
+        saved["COOLDOWN_LOG"] = _mod["COOLDOWN_LOG"]
+        _mod["COOLDOWN_LOG"] = log_file
+        try:
+            future = time.time() + 5 * 86400
+            _log_cooldown("codex", future, "billing exhausted", event="billing-exhausted")
+            _log_cooldown("codex", future, "billing exhausted again", event="billing-exhausted")
+            entries = _json.loads(log_file.read_text())
+            assert len(entries) == 1  # deduped
+        finally:
+            _mod["COOLDOWN_LOG"] = saved["COOLDOWN_LOG"]
+
+    def test_billing_exhausted_no_dedupe_different_reset(self, tmp_path):
+        """_log_cooldown does NOT dedupe when reset times differ."""
+        import json as _json
+
+        log_file = tmp_path / "cooldowns.json"
+        saved = {}
+        saved["COOLDOWN_LOG"] = _mod["COOLDOWN_LOG"]
+        _mod["COOLDOWN_LOG"] = log_file
+        try:
+            future1 = time.time() + 5 * 86400
+            future2 = time.time() + 10 * 86400
+            _log_cooldown("codex", future1, "first", event="billing-exhausted")
+            _log_cooldown("codex", future2, "second", event="billing-exhausted")
+            entries = _json.loads(log_file.read_text())
+            assert len(entries) == 2
+        finally:
+            _mod["COOLDOWN_LOG"] = saved["COOLDOWN_LOG"]
+
+    def test_burnout_default_event(self, tmp_path):
+        """_log_cooldown defaults to 'burnout' event."""
+        import json as _json
+
+        log_file = tmp_path / "cooldowns.json"
+        saved = {}
+        saved["COOLDOWN_LOG"] = _mod["COOLDOWN_LOG"]
+        _mod["COOLDOWN_LOG"] = log_file
+        try:
+            future = time.time() + 3600
+            _log_cooldown("infini", future, "rate limited")
+            entries = _json.loads(log_file.read_text())
+            assert len(entries) == 1
+            assert entries[0]["event"] == "burnout"
+        finally:
+            _mod["COOLDOWN_LOG"] = saved["COOLDOWN_LOG"]
+
+    def test_log_truncated_at_100(self, tmp_path):
+        """_log_cooldown truncates reason to 100 chars."""
+        import json as _json
+
+        log_file = tmp_path / "cooldowns.json"
+        saved = {}
+        saved["COOLDOWN_LOG"] = _mod["COOLDOWN_LOG"]
+        _mod["COOLDOWN_LOG"] = log_file
+        try:
+            future = time.time() + 3600
+            long_reason = "x" * 200
+            _log_cooldown("codex", future, long_reason, event="billing-exhausted")
+            entries = _json.loads(log_file.read_text())
+            assert len(entries[0]["reason"]) == 100
+        finally:
+            _mod["COOLDOWN_LOG"] = saved["COOLDOWN_LOG"]
+
+
+# ── Integration: daemon-loop billing-exhaustion flow ──────────────────────
+
+PROVIDER_DISABLED = _mod["PROVIDER_DISABLED"]
+
+
+class TestDaemonLoopBillingExhaustion:
+    """Integration tests: task fails with billing message → PROVIDER_DISABLED set."""
+
+    def test_billing_exhausted_sets_provider_disabled(self):
+        """When a billing-exhausted message is detected, PROVIDER_DISABLED is populated."""
+        # Simulate the daemon loop's billing-exhaustion handling logic
+        tail = "You've hit your usage limit. Please try again at Dec 25th, 2030 4:01 PM"
+        task_id = "t-abc123"
+        dispatch_provider = "codex"
+        exit_code = 1
+
+        assert is_rate_limited(tail)
+        assert is_billing_exhausted(tail)
+
+        window = parse_rate_limit_window(tail)
+        assert window is not None and window > BILLING_EXHAUSTED_THRESHOLD
+
+        # This is the logic from daemon_loop
+        if is_billing_exhausted(tail):
+            window = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
+        assert cooldown >= BILLING_EXHAUSTED_THRESHOLD
+
+        cooldown_end = time.time() + cooldown
+        if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
+            reset_tm = time.localtime(cooldown_end)
+            reset_str = time.strftime("%b %d", reset_tm).replace(" 0", " ")
+            PROVIDER_DISABLED[dispatch_provider] = {
+                "resets_at": cooldown_end,
+                "resets_str": reset_str,
+            }
+
+        assert dispatch_provider in PROVIDER_DISABLED
+        assert PROVIDER_DISABLED[dispatch_provider]["resets_str"] is not None
+
+        # Cleanup
+        PROVIDER_DISABLED.pop(dispatch_provider, None)
+
+    def test_short_rate_limit_does_not_set_provider_disabled(self):
+        """A normal (non-billing) rate limit does NOT set PROVIDER_DISABLED."""
+        tail = "429 Too Many Requests"
+        dispatch_provider = "infini"
+
+        assert is_rate_limited(tail)
+        assert not is_billing_exhausted(tail)
+
+        window = parse_rate_limit_window(tail)  # None
+        if is_billing_exhausted(tail):
+            window = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
+
+        # cooldown should be the default 5h, not billing threshold
+        assert cooldown == RATE_LIMIT_COOLDOWN_SECONDS
+        assert cooldown < BILLING_EXHAUSTED_THRESHOLD
+        assert dispatch_provider not in PROVIDER_DISABLED
+
+    def test_disabled_provider_blocks_dispatch(self):
+        """Provider in PROVIDER_DISABLED cannot receive new tasks."""
+        codex_disabled = {"codex": {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}}
+        # codex-affinity task should fallback to gemini
+        result = _pick_dispatch_provider("codex", {}, {}, provider_disabled=codex_disabled)
+        assert result is not None
+        assert result != "codex"
+        assert result == "gemini"  # first in codex fallback chain
+
+    def test_clear_cooldown_clears_provider_disabled(self):
+        """After clearing cooldown, PROVIDER_DISABLED is cleared too."""
+        # Simulate setting PROVIDER_DISABLED
+        PROVIDER_DISABLED["codex"] = {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}
+        assert "codex" in PROVIDER_DISABLED
+
+        # Simulate the clear-cooldown signal handler logic
+        provider_cooldown_until = {"codex": time.time() + 86400}
+        for p in list(provider_cooldown_until):
+            PROVIDER_DISABLED.pop(p, None)
+            del provider_cooldown_until[p]
+
+        assert "codex" not in PROVIDER_DISABLED
+        assert not provider_cooldown_until
+
+    def test_truncated_billing_output_still_enforces_24h(self):
+        """Even when output is truncated (early kill), billing override gives 24h."""
+        tail = "You've hit your usage limit for this billing"  # truncated
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)  # None (no date)
+        assert window is None
+        window = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+        assert window == BILLING_EXHAUSTED_THRESHOLD
+
+    def test_full_billing_output_uses_actual_reset_date(self):
+        """Full Codex billing message uses the actual reset date, not just 24h."""
+        tail = "You've hit your usage limit. Please try again at Dec 25th, 2030 4:01 PM"
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+        # The window should be MUCH larger than 24h (it's years away)
+        assert window > 365 * 86400  # > 1 year
+
+
+# ── Codex-specific edge case tests ──────────────────────────────────────
+
+class TestCodexBillingEdgeCases:
+    """Edge-case tests for realistic Codex billing-limit scenarios."""
+
+    def test_codex_billing_with_st_suffix(self):
+        """Date with 'st' suffix (e.g. '1st') is parsed."""
+        tail = "try again at Jan 1st, 2030 12:00 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_billing_with_no_suffix(self):
+        """Date without ordinal suffix is also parsed."""
+        # The regex uses (?:st|nd|rd|th)? so the suffix is optional
+        tail = "try again at Apr 8, 2030 4:01 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_billing_12am(self):
+        """12:00 AM in billing format is midnight (hour=0)."""
+        tail = "try again at Dec 25th, 2030 12:00 AM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_billing_12pm(self):
+        """12:00 PM in billing format is noon (hour=12)."""
+        tail = "try again at Dec 25th, 2030 12:00 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_full_error_with_newlines(self):
+        """Multi-line Codex error with newlines is parsed."""
+        tail = "Error during execution:\nYou've hit your usage limit\n\nPlease try again at Apr 8th, 2026 4:01 PM"
+        assert is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        # Apr 8, 2026 is ~5 days from now (Apr 3, 2026)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_short_format_not_billing(self):
+        """Short-format 'try again at 9:01 PM' without billing keywords is not billing."""
+        tail = "try again at 9:01 PM"
+        assert not is_billing_exhausted(tail)
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_billing_reset_date_str_codex_format(self):
+        """parse_reset_date_str returns human-readable date for Codex format."""
+        result = parse_reset_date_str("try again at Apr 8th, 2026 4:01 PM")
+        assert result is not None
+        assert "Apr" in result
+        assert "8" in result
+        assert "2026" in result
+        assert "4:01 PM" in result
+
+    def test_billing_reset_date_str_no_comma(self):
+        """parse_reset_date_str handles Codex format without comma after day."""
+        result = parse_reset_date_str("try again at Apr 8th 2026 4:01 PM")
+        assert result is not None
+        assert "Apr" in result
