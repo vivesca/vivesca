@@ -1,7 +1,7 @@
 ---
-name: tessera-google
-description: Provision Google OAuth Desktop credentials headlessly — create GCP client, capture secret, run consent flow, store tokens. Extension of tessera for Google APIs.
-triggers: ["google oauth", "gmail setup", "google api credentials", "gcp oauth client"]
+name: credentia
+description: Forge OAuth credentials from authenticated browser sessions — GCP client creation, secret capture via Playwright network interception, consent flow automation, token storage.
+triggers: ["google oauth", "gmail setup", "google api credentials", "gcp oauth client", "credentia"]
 epistemics: [browser-automation, credential-management]
 ---
 
@@ -108,8 +108,8 @@ export GMAIL_REFRESH_TOKEN="..."
 | Killing Chrome | Loses session cookies (memory-only) |
 
 ## CLI Tool
-`tessera-google` effector: `~/germline/effectors/tessera-google`
+`credentia` effector: `~/germline/effectors/credentia`
 ```
-tessera-google --project PROJECT --scope SCOPE --name CLIENT_NAME
+credentia --project PROJECT --scope SCOPE --name CLIENT_NAME
 ```
 Automates steps 1-4. Requires Mac Chrome authenticated + cookie bridge running.

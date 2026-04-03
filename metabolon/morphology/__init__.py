@@ -16,9 +16,6 @@ __all__ = [
     "Secretion",
     "Vesicle",
     "Vital",
-<<<<<<< Updated upstream
     "resolve_memory_dir",
-=======
     "clean_env",
->>>>>>> Stashed changes
 ]
