@@ -25,6 +25,8 @@ Usage:
     golem-daemon clear-cooldown     # Clear all provider cooldowns
     golem-daemon clear-cooldown X   # Clear cooldown for provider X only
     golem-daemon --dry-run          # Show routing decisions without executing tasks
+    golem-daemon evict <task_id>    # Remove zombie task from running state
+    golem-daemon evict --stale      # Auto-evict all tasks running >2x provider avg
 """
 from __future__ import annotations
 
@@ -2709,6 +2711,90 @@ def cmd_review(args: list[str]) -> int:
     return 0
 
 
+def cmd_evict(args: list[str]) -> int:
+    """Remove zombie tasks from golem-running.json.
+
+    Usage:
+        golem-daemon evict <task_id>   — evict a specific task by ID
+        golem-daemon evict --stale     — auto-evict tasks running >2x provider average
+        golem-daemon evict --all       — clear all running tasks (nuclear option)
+    """
+    if not RUNNING_FILE.exists():
+        print("No running tasks file")
+        return 0
+
+    try:
+        tasks = json.loads(RUNNING_FILE.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"Failed to read {RUNNING_FILE}: {exc}")
+        return 1
+
+    if not tasks:
+        print("No running tasks")
+        return 0
+
+    # --all: clear everything
+    if "--all" in args:
+        count = len(tasks)
+        RUNNING_FILE.write_text("[]")
+        print(f"Evicted all {count} running tasks")
+        log(f"EVICT: cleared all {count} running tasks")
+        return 0
+
+    # --stale: auto-detect and evict stale tasks
+    if "--stale" in args:
+        now = time.time()
+        # Default stale threshold: 2 hours (golem tasks rarely exceed 30min)
+        threshold = 7200
+        stale = [t for t in tasks if now - t.get("started_at", now) > threshold]
+        if not stale:
+            print(f"No stale tasks (threshold: {threshold // 3600}h)")
+            return 0
+        kept = [t for t in tasks if t not in stale]
+        RUNNING_FILE.write_text(json.dumps(kept))
+        for task in stale:
+            tid = task.get("task_id", "?")
+            prov = task.get("provider", "?")
+            elapsed_h = (now - task.get("started_at", now)) / 3600
+            print(f"  Evicted [{tid}] {prov} — stale {elapsed_h:.1f}h")
+            log(f"EVICT: [{tid}] {prov} stale {elapsed_h:.1f}h")
+        print(f"Evicted {len(stale)} stale tasks, {len(kept)} still running")
+        return 0
+
+    # Specific task_id
+    target = args[0] if args else None
+    if not target:
+        print("Usage: golem-daemon evict <task_id> | --stale | --all")
+        return 1
+
+    # Normalize: accept "t-abc123" or just "abc123"
+    if not target.startswith("t-"):
+        target = f"t-{target}"
+
+    found_idx = None
+    for idx, task in enumerate(tasks):
+        if task.get("task_id") == target:
+            found_idx = idx
+            break
+
+    if found_idx is None:
+        print(f"Task {target} not in running list")
+        print("Running tasks:")
+        for task in tasks:
+            print(f"  [{task.get('task_id', '?')}] {task.get('provider', '?')} [{task.get('node', 'soma')}]")
+        return 1
+
+    evicted = tasks.pop(found_idx)
+    RUNNING_FILE.write_text(json.dumps(tasks))
+    tid = evicted.get("task_id", "?")
+    prov = evicted.get("provider", "?")
+    node = evicted.get("node", "soma")
+    cmd_str = evicted.get("cmd", "")[:60]
+    print(f"Evicted [{tid}] {prov} [{node}] — {cmd_str}")
+    log(f"EVICT: [{tid}] {prov} [{node}]")
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -2746,9 +2832,11 @@ def main():
         return cmd_clear_cooldown(provider)
     elif cmd == "review":
         return cmd_review(sys.argv[2:])
+    elif cmd == "evict":
+        return cmd_evict(sys.argv[2:])
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], --dry-run")
+        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], evict, --dry-run")
         return 1
 
 if __name__ == "__main__":
