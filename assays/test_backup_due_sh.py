@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Tests for backup-due.sh — nightly backup of Due app database."""
 
+import datetime
 import os
 import subprocess
 from pathlib import Path
@@ -120,7 +121,8 @@ def test_retention_keeps_last_30(fake_env):
     # Should have at most 30 files (pruned the oldest 5 + added today = 30 total)
     assert len(backups) == 30
     # The newest file should exist
-    assert (fake_env["backup_dir"] / "due-2026-04-02.duecdb").exists()
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    assert (fake_env["backup_dir"] / f"due-{today}.duecdb").exists()
 
 
 def test_retention_no_files_no_error(fake_env):

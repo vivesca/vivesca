@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Tests for card-search effector — search consulting cards by keyword."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -259,12 +260,16 @@ def test_subprocess_list_flag():
     assert result.returncode in (0, 1)
 
 
-def test_subprocess_search_keyword():
+def test_subprocess_search_keyword(tmp_path):
     """card-search with a keyword runs without crashing."""
+    cards = tmp_path / "cards"
+    cards.mkdir()
+    (cards / "sample.md").write_text("# Test Card\nSome test content\n")
     result = subprocess.run(
         [sys.executable, CARDS_SEARCH_PATH, "test"],
         capture_output=True,
         text=True,
+        env={**os.environ, "CARDS_DIR": str(cards)},
     )
     # Returns 0 whether matches found or not
     assert result.returncode == 0
@@ -434,12 +439,16 @@ def test_search_cards_empty_card_not_matched(cards_dir, patch_cards_dir, capsys)
 # ── additional coverage tests ──────────────────────────────────────────
 
 
-def test_subprocess_short_flag_f():
+def test_subprocess_short_flag_f(tmp_path):
     """card-search -f <keyword> works as --full."""
+    cards = tmp_path / "cards"
+    cards.mkdir()
+    (cards / "sample.md").write_text("# Test Card\nSome test content\n")
     result = subprocess.run(
         [sys.executable, CARDS_SEARCH_PATH, "-f", "test"],
         capture_output=True,
         text=True,
+        env={**os.environ, "CARDS_DIR": str(cards)},
     )
     assert result.returncode == 0
 
@@ -454,12 +463,16 @@ def test_subprocess_short_flag_l():
     assert result.returncode in (0, 1)
 
 
-def test_subprocess_full_flag():
+def test_subprocess_full_flag(tmp_path):
     """card-search --full <keyword> runs without error."""
+    cards = tmp_path / "cards"
+    cards.mkdir()
+    (cards / "model.md").write_text("# Model Card\nModel content here\n")
     result = subprocess.run(
         [sys.executable, CARDS_SEARCH_PATH, "--full", "model"],
         capture_output=True,
         text=True,
+        env={**os.environ, "CARDS_DIR": str(cards)},
     )
     assert result.returncode == 0
 
