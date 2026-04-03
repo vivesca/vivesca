@@ -597,17 +597,25 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
                     if fallback:
                         _auto_requeue(spec.get("task", ""), fallback)
                         log(f"[FALLBACK] [{tid}] {orig_provider}->{fallback} — requeued on fallback")
-                reason = f"review rejected: {', '.join(flags)}" if flags else "review rejected"
                 exit_code = tr.get("exit_code", 0)
+                has_commits = bool(review.get("diff", "").strip())
                 if exit_code == -15:
                     reason = f"exit_code={exit_code}"
                 elif flags:
                     reason = f"review rejected: {', '.join(flags)}"
                 else:
                     reason = "review rejected"
-                mark_failed(ln, task_id=tid, reason=reason)
-                log(f"[FAIL] [{tid}] {tr.get('provider', '?')} — {reason}")
-                rejected_count += 1
+
+                if has_commits and exit_code != 0:
+                    # Code landed but task failed (max turns, test gate, quota).
+                    # Mark done with note — the work is recoverable.
+                    mark_done(ln, task_id=tid)
+                    log(f"[PARTIAL] [{tid}] {tr.get('provider', '?')} — {reason} but commits landed, marking done")
+                    flagged_count += 1
+                else:
+                    mark_failed(ln, task_id=tid, reason=reason)
+                    log(f"[FAIL] [{tid}] {tr.get('provider', '?')} — {reason}")
+                    rejected_count += 1
         except Exception as e:
             log(f"[FAIL] [{tid}] workflow error: {e}")
             mark_failed(ln, task_id=tid, reason=f"workflow error: {str(e)[:100]}")
