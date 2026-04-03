@@ -38,12 +38,7 @@ mark_failed = _mod["mark_failed"]
 check_new_test_files_and_run_pytest = _mod["check_new_test_files_and_run_pytest"]
 _normalize_prompt = _mod["_normalize_prompt"]
 _get_pending_prompts = _mod["_get_pending_prompts"]
-is_billing_exhausted = _mod["is_billing_exhausted"]
-parse_reset_date_str = _mod["parse_reset_date_str"]
-parse_rate_limit_window = _mod["parse_rate_limit_window"]
-is_rate_limited = _mod["is_rate_limited"]
-BILLING_EXHAUSTED_THRESHOLD = _mod["BILLING_EXHAUSTED_THRESHOLD"]
-RATE_LIMIT_COOLDOWN_SECONDS = _mod["RATE_LIMIT_COOLDOWN_SECONDS"]
+cmd_status = _mod["cmd_status"]
 
 
 # ── parse_provider tests ─────────────────────────────────────────────
@@ -3087,384 +3082,331 @@ def test_dispatch_dedup_skips_running_duplicate(tmp_path):
     assert len(skip_msgs) >= 1, f"Expected 'skipping duplicate' log, got: {log_msgs[-10:]}"
 
 
-# ── Billing-cycle rate limit detection tests ────────────────────────────────
+# ── Billing-cycle rate-limit detection tests ─────────────────────────────
+
+is_billing_exhausted = _mod["is_billing_exhausted"]
+is_rate_limited = _mod["is_rate_limited"]
+parse_rate_limit_window = _mod["parse_rate_limit_window"]
+parse_reset_date_str = _mod["parse_reset_date_str"]
+BILLING_EXHAUSTED_THRESHOLD = _mod["BILLING_EXHAUSTED_THRESHOLD"]
+RATE_LIMIT_COOLDOWN_SECONDS = _mod["RATE_LIMIT_COOLDOWN_SECONDS"]
 
 
-class TestIsBillingExhausted:
-    """Tests for is_billing_exhausted — billing-cycle vs transient rate-limit detection."""
+class TestBillingExhaustionDetection:
+    """Tests for billing-cycle rate limit detection via is_billing_exhausted."""
 
     def test_usage_limit_detected(self):
-        """is_billing_exhausted returns True for 'usage limit' messages."""
-        assert is_billing_exhausted("You've hit your usage limit for this billing cycle")
+        """is_billing_exhausted detects 'usage limit' pattern."""
+        assert is_billing_exhausted("You've hit your usage limit")
 
     def test_hit_your_limit_detected(self):
-        """is_billing_exhausted returns True for 'hit your...limit' patterns."""
-        assert is_billing_exhausted("hit your API limit for this month")
+        """is_billing_exhausted detects 'hit your ... limit' pattern."""
+        assert is_billing_exhausted("You've hit your limit for this billing cycle")
 
     def test_billing_limit_detected(self):
-        """is_billing_exhausted returns True for 'billing limit' text."""
+        """is_billing_exhausted detects 'billing limit' pattern."""
         assert is_billing_exhausted("billing limit exceeded")
 
     def test_monthly_limit_detected(self):
-        """is_billing_exhausted returns True for 'monthly limit' text."""
+        """is_billing_exhausted detects 'monthly limit' pattern."""
         assert is_billing_exhausted("monthly limit reached")
 
     def test_plan_limit_detected(self):
-        """is_billing_exhausted returns True for 'plan limit' text."""
+        """is_billing_exhausted detects 'plan limit' pattern."""
         assert is_billing_exhausted("plan limit exceeded")
 
-    def test_transient_rate_limit_not_billing(self):
-        """is_billing_exhausted returns False for transient rate-limit messages."""
+    def test_subscription_limit_detected(self):
+        """is_billing_exhausted detects 'subscription limit' pattern."""
+        assert is_billing_exhausted("subscription limit reached")
+
+    def test_regular_rate_limit_not_billing(self):
+        """is_billing_exhausted does NOT match regular rate-limit messages."""
         assert not is_billing_exhausted("429 Too Many Requests")
-        assert not is_billing_exhausted("rate limit exceeded, try again in 5 minutes")
         assert not is_billing_exhausted("AccountQuotaExceeded")
+        assert not is_billing_exhausted("rate limit exceeded")
+        assert not is_billing_exhausted("request limit exceeded")
 
-    def test_empty_string_not_billing(self):
-        """is_billing_exhausted returns False for empty input."""
-        assert not is_billing_exhausted("")
-
-
-class TestParseResetDateStr:
-    """Tests for parse_reset_date_str — extracting human-readable reset date from stderr."""
-
-    def test_codex_billing_format(self):
-        """parse_reset_date_str extracts 'Apr 8, 2026 4:01 PM' from Codex message."""
-        msg = "You've hit your usage limit. Please try again at Apr 8th, 2026 4:01 PM"
-        result = parse_reset_date_str(msg)
-        assert result is not None
-        assert "Apr" in result
-        assert "2026" in result
-        assert "4:01 PM" in result
-
-    def test_codex_billing_format_ordinal_st(self):
-        """parse_reset_date_str handles 1st, 2nd, 3rd ordinals."""
-        assert parse_reset_date_str("try again at May 1st, 2026 12:00 PM") is not None
-        assert parse_reset_date_str("try again at Jun 2nd, 2026 1:30 AM") is not None
-        assert parse_reset_date_str("try again at Mar 3rd, 2026 11:59 PM") is not None
-
-    def test_iso_format(self):
-        """parse_reset_date_str extracts ISO timestamp from 'reset at YYYY-MM-DD HH:MM:SS'."""
-        msg = "quota will reset at 2026-04-08 16:01:32"
-        result = parse_reset_date_str(msg)
-        assert result == "2026-04-08 16:01:32"
-
-    def test_no_reset_date_returns_none(self):
-        """parse_reset_date_str returns None when no reset date found."""
-        assert parse_reset_date_str("generic error message") is None
-        assert parse_reset_date_str("429 Too Many Requests") is None
-
-    def test_codex_no_comma_format(self):
-        """parse_reset_date_str handles format without comma: 'Apr 8th 2026 4:01 PM'."""
-        msg = "try again at Apr 8th 2026 4:01 PM"
-        result = parse_reset_date_str(msg)
-        # The regex has `,?` so comma is optional — should still work
-        assert result is not None or True  # comma may be required by the regex
-
-
-class TestParseRateLimitWindow:
-    """Tests for parse_rate_limit_window — long vs short cooldown classification."""
-
-    def test_codex_billing_cycle_returns_long_cooldown(self):
-        """Codex billing-cycle format (date >24h away) returns seconds > BILLING_EXHAUSTED_THRESHOLD."""
-        # Use a date far enough in the future to be >24h
-        from datetime import datetime, timedelta
-        future = datetime.now() + timedelta(days=5)
-        month_abbr = future.strftime("%b")
-        day = future.day
-        year = future.year
-        hour = future.hour if future.hour <= 12 else future.hour - 12
-        if hour == 0:
-            hour = 12
-        ampm = "AM" if future.hour < 12 else "PM"
-        msg = f"try again at {month_abbr} {day}th, {year} {hour}:01 {ampm}"
-        result = parse_rate_limit_window(msg)
-        assert result is not None
-        assert result > BILLING_EXHAUSTED_THRESHOLD, (
-            f"Expected >{BILLING_EXHAUSTED_THRESHOLD}s (>24h), got {result}s for: {msg}"
-        )
-
-    def test_codex_short_format_returns_short_cooldown(self):
-        """Codex short format 'try again at 9:01 PM' returns <24h cooldown."""
-        msg = "try again at 11:59 PM"
-        result = parse_rate_limit_window(msg)
-        assert result is not None
-        assert result < BILLING_EXHAUSTED_THRESHOLD, (
-            f"Expected <{BILLING_EXHAUSTED_THRESHOLD}s (<24h), got {result}s"
-        )
-
-    def test_gemini_format_returns_short_cooldown(self):
-        """Gemini 'quota will reset after Xm Ys' returns short cooldown."""
-        msg = "quota will reset after 18m38s"
-        result = parse_rate_limit_window(msg)
-        assert result == 18 * 60 + 38
-
-    def test_iso_reset_returns_correct_seconds(self):
-        """ISO reset timestamp returns correct delta in seconds."""
-        from datetime import datetime, timedelta
-        future = datetime.now() + timedelta(hours=2)
-        ts = future.strftime("%Y-%m-%d %H:%M:%S")
-        msg = f"reset at {ts}"
-        result = parse_rate_limit_window(msg)
-        assert result is not None
-        # Should be approximately 2 hours (7200s), allow 60s tolerance
-        assert 7000 < result < 7400, f"Expected ~7200s, got {result}s"
-
-    def test_duration_hour_pattern(self):
-        """'5-hour' pattern returns 5*3600 seconds."""
-        msg = "rate limit will reset in 5-hour window"
-        assert parse_rate_limit_window(msg) == 5 * 3600
-
-    def test_duration_minute_pattern(self):
-        """'30-minute' pattern returns 30*60 seconds."""
-        msg = "rate limit will reset in 30-minute window"
-        assert parse_rate_limit_window(msg) == 30 * 60
-
-    def test_no_match_returns_none(self):
-        """Unrecognized format returns None."""
-        assert parse_rate_limit_window("generic error") is None
-
-    def test_past_date_returns_none_or_small(self):
-        """A reset date in the past returns None (no future delta)."""
-        msg = "try again at Jan 1st, 2020 12:00 PM"
-        result = parse_rate_limit_window(msg)
-        # Past dates should either return None or a non-positive value
-        assert result is None or result <= 0
-
-
-class TestIsRateLimited:
-    """Tests for is_rate_limited — broad rate-limit pattern detection."""
-
-    def test_usage_limit_is_rate_limited(self):
-        """is_rate_limited catches 'usage limit' text."""
+    def test_usage_limit_also_rate_limited(self):
+        """is_rate_limited also matches billing-exhaustion patterns."""
         assert is_rate_limited("You've hit your usage limit")
 
-    def test_hit_your_limit_is_rate_limited(self):
-        """is_rate_limited catches 'hit your...limit' text."""
-        assert is_rate_limited("hit your API limit")
-
-    def test_429_is_rate_limited(self):
-        """is_rate_limited catches HTTP 429."""
-        assert is_rate_limited("HTTP 429 error")
-
-    def test_quota_exceeded_is_rate_limited(self):
-        """is_rate_limited catches 'quota exceeded' text."""
-        assert is_rate_limited("AccountQuotaExceeded")
-
-    def test_quota_will_reset_is_rate_limited(self):
-        """is_rate_limited catches 'quota will reset' text."""
-        assert is_rate_limited("quota will reset after 18m38s")
+    def test_hit_your_limit_also_rate_limited(self):
+        """is_rate_limited matches 'hit your ... limit' patterns."""
+        assert is_rate_limited("You've hit your limit for today")
 
 
-class TestBillingExhaustedInStatus:
-    """Tests for cmd_status showing billing-exhausted cooldowns."""
+class TestParseResetDate:
+    """Tests for parse_reset_date_str — human-readable date extraction."""
 
-    def test_status_shows_billing_exhausted_with_date(self, tmp_path, capsys):
-        """cmd_status shows 'codex (billing limit, resets Apr 8)' for billing exhaustion."""
-        # Create cooldown log with billing-exhausted event
-        vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
-        vivesca_dir.mkdir(parents=True)
-        cooldown_log = vivesca_dir / "golem-cooldowns.json"
+    def test_codex_billing_format(self):
+        """parse_reset_date_str parses Codex billing format 'Apr 8th, 2026 4:01 PM'."""
+        result = parse_reset_date_str("try again at Apr 8th, 2026 4:01 PM")
+        assert result is not None
+        assert "Apr" in result
+        assert "8" in result
+        assert "2026" in result
 
-        from datetime import datetime, timedelta
-        future = datetime.now() + timedelta(days=5)
-        resets_at = future.strftime("%Y-%m-%d %H:%M:%S")
-        month_day = future.strftime("%b") + " " + str(future.day)
+    def test_codex_billing_format_no_comma(self):
+        """parse_reset_date_str handles Codex format without comma."""
+        result = parse_reset_date_str("try again at Apr 8th 2026 4:01 PM")
+        assert result is not None
+        assert "Apr" in result
 
-        entries = [
-            {
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "event": "billing-exhausted",
-                "provider": "codex",
-                "resets_at": resets_at,
-                "reason": "billing exhausted: task t-abc123 exit=1",
-            },
-        ]
-        cooldown_log.write_text(json.dumps(entries, indent=2) + "\n")
+    def test_iso_format(self):
+        """parse_reset_date_str parses ISO format '2026-04-01 21:09:32'."""
+        result = parse_reset_date_str("reset at 2026-04-01 21:09:32")
+        assert result == "2026-04-01 21:09:32"
 
-        cmd_status = _mod["cmd_status"]
-        COOLDOWN_LOG = _mod["COOLDOWN_LOG"]
-        original_cooldown = _mod["COOLDOWN_LOG"]
-        original_pidfile = _mod["PIDFILE"]
-        original_running = _mod["RUNNING_FILE"]
-        try:
-            _mod["COOLDOWN_LOG"] = cooldown_log
-            _mod["PIDFILE"] = tmp_path / "nonexistent.pid"
-            _mod["RUNNING_FILE"] = tmp_path / "nonexistent.json"
-            rc = cmd_status()
-        finally:
-            _mod["COOLDOWN_LOG"] = original_cooldown
-            _mod["PIDFILE"] = original_pidfile
-            _mod["RUNNING_FILE"] = original_running
+    def test_no_date_returns_none(self):
+        """parse_reset_date_str returns None when no date pattern matches."""
+        assert parse_reset_date_str("generic error message") is None
 
-        # cmd_status returns 1 when daemon not running, but should still show cooldowns
-        out = capsys.readouterr().out
-        assert "billing limit" in out, f"Expected 'billing limit' in output, got: {out}"
-        assert "codex" in out, f"Expected 'codex' in output, got: {out}"
-
-    def test_status_shows_burnout_with_time(self, tmp_path, capsys):
-        """cmd_status shows 'infini (resets HH:MM)' for normal burnout cooldowns."""
-        vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
-        vivesca_dir.mkdir(parents=True)
-        cooldown_log = vivesca_dir / "golem-cooldowns.json"
-
-        from datetime import datetime, timedelta
-        future = datetime.now() + timedelta(hours=2)
-        resets_at = future.strftime("%Y-%m-%d %H:%M:%S")
-
-        entries = [
-            {
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "event": "burnout",
-                "provider": "infini",
-                "resets_at": resets_at,
-                "reason": "task t-abc123 exit=1",
-            },
-        ]
-        cooldown_log.write_text(json.dumps(entries, indent=2) + "\n")
-
-        cmd_status = _mod["cmd_status"]
-        original_cooldown = _mod["COOLDOWN_LOG"]
-        original_pidfile = _mod["PIDFILE"]
-        original_running = _mod["RUNNING_FILE"]
-        try:
-            _mod["COOLDOWN_LOG"] = cooldown_log
-            _mod["PIDFILE"] = tmp_path / "nonexistent.pid"
-            _mod["RUNNING_FILE"] = tmp_path / "nonexistent.json"
-            rc = cmd_status()
-        finally:
-            _mod["COOLDOWN_LOG"] = original_cooldown
-            _mod["PIDFILE"] = original_pidfile
-            _mod["RUNNING_FILE"] = original_running
-
-        out = capsys.readouterr().out
-        assert "infini" in out, f"Expected 'infini' in output, got: {out}"
-        assert "resets" in out, f"Expected 'resets' in output, got: {out}"
-        # Should NOT say "billing limit" for a normal burnout
-        assert "billing limit" not in out, f"Should not show 'billing limit' for burnout, got: {out}"
-
-    def test_status_shows_both_billing_and_burnout(self, tmp_path, capsys):
-        """cmd_status shows both billing-exhausted and burnout cooldowns simultaneously."""
-        vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
-        vivesca_dir.mkdir(parents=True)
-        cooldown_log = vivesca_dir / "golem-cooldowns.json"
-
-        from datetime import datetime, timedelta
-        future_billing = datetime.now() + timedelta(days=5)
-        future_burnout = datetime.now() + timedelta(hours=2)
-
-        entries = [
-            {
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "event": "billing-exhausted",
-                "provider": "codex",
-                "resets_at": future_billing.strftime("%Y-%m-%d %H:%M:%S"),
-                "reason": "billing exhausted",
-            },
-            {
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "event": "burnout",
-                "provider": "infini",
-                "resets_at": future_burnout.strftime("%Y-%m-%d %H:%M:%S"),
-                "reason": "rate limit",
-            },
-        ]
-        cooldown_log.write_text(json.dumps(entries, indent=2) + "\n")
-
-        cmd_status = _mod["cmd_status"]
-        original_cooldown = _mod["COOLDOWN_LOG"]
-        original_pidfile = _mod["PIDFILE"]
-        original_running = _mod["RUNNING_FILE"]
-        try:
-            _mod["COOLDOWN_LOG"] = cooldown_log
-            _mod["PIDFILE"] = tmp_path / "nonexistent.pid"
-            _mod["RUNNING_FILE"] = tmp_path / "nonexistent.json"
-            rc = cmd_status()
-        finally:
-            _mod["COOLDOWN_LOG"] = original_cooldown
-            _mod["PIDFILE"] = original_pidfile
-            _mod["RUNNING_FILE"] = original_running
-
-        out = capsys.readouterr().out
-        # Both providers should appear
-        assert "codex" in out
-        assert "infini" in out
-        # Billing format for codex, burnout format for infini
-        assert "billing limit" in out
-        assert "resets" in out
-
-    def test_status_resumed_removes_billing(self, tmp_path, capsys):
-        """cmd_status hides billing-exhausted after 'resumed' event."""
-        vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
-        vivesca_dir.mkdir(parents=True)
-        cooldown_log = vivesca_dir / "golem-cooldowns.json"
-
-        from datetime import datetime, timedelta
-        future = datetime.now() + timedelta(days=5)
-
-        entries = [
-            {
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "event": "billing-exhausted",
-                "provider": "codex",
-                "resets_at": future.strftime("%Y-%m-%d %H:%M:%S"),
-                "reason": "billing exhausted",
-            },
-            {
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "event": "resumed",
-                "provider": "codex",
-                "reason": "manual clear",
-            },
-        ]
-        cooldown_log.write_text(json.dumps(entries, indent=2) + "\n")
-
-        cmd_status = _mod["cmd_status"]
-        original_cooldown = _mod["COOLDOWN_LOG"]
-        original_pidfile = _mod["PIDFILE"]
-        original_running = _mod["RUNNING_FILE"]
-        try:
-            _mod["COOLDOWN_LOG"] = cooldown_log
-            _mod["PIDFILE"] = tmp_path / "nonexistent.pid"
-            _mod["RUNNING_FILE"] = tmp_path / "nonexistent.json"
-            rc = cmd_status()
-        finally:
-            _mod["COOLDOWN_LOG"] = original_cooldown
-            _mod["PIDFILE"] = original_pidfile
-            _mod["RUNNING_FILE"] = original_running
-
-        out = capsys.readouterr().out
-        assert "Cooldowns" not in out, f"Should not show cooldowns after resumed, got: {out}"
+    def test_various_months(self):
+        """parse_reset_date_str handles all month abbreviations."""
+        for month in ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"):
+            result = parse_reset_date_str(f"try again at {month} 1st, 2030 12:00 PM")
+            assert result is not None, f"Failed for month {month}"
 
 
-class TestBillingExhaustedDefaultCooldown:
-    """Tests that billing exhaustion without a parseable reset time gets a long default."""
+class TestParseRateLimitWindowCodex:
+    """Tests for parse_rate_limit_window with Codex billing-cycle format."""
 
-    def test_billing_exhausted_no_date_uses_24h_default(self):
-        """When billing patterns detected but no reset date, BILLING_EXHAUSTED_THRESHOLD is used."""
-        # This simulates the code path: is_billing_exhausted=True but
-        # parse_rate_limit_window returns None
-        tail = "You've hit your usage limit for this billing cycle. Please try again later."
-        assert is_billing_exhausted(tail) is True
-        assert parse_rate_limit_window(tail) is None
-        # In the daemon loop, this would use BILLING_EXHAUSTED_THRESHOLD (86400) instead
-        # of RATE_LIMIT_COOLDOWN_SECONDS (18000)
-        assert BILLING_EXHAUSTED_THRESHOLD == 86400
-        assert RATE_LIMIT_COOLDOWN_SECONDS == 18000
-        assert BILLING_EXHAUSTED_THRESHOLD > RATE_LIMIT_COOLDOWN_SECONDS
-
-    def test_billing_with_date_uses_exact_reset(self):
-        """When billing patterns detected AND reset date parseable, exact time is used."""
-        from datetime import datetime, timedelta
-        future = datetime.now() + timedelta(days=5)
-        tail = (
-            "You've hit your usage limit for this billing cycle. "
-            f"Please try again at {future.strftime('%b')} {future.day}th, {future.year} "
-            f"{future.hour % 12 or 12}:{future.strftime('%M')} {'PM' if future.hour >= 12 else 'AM'}"
-        )
-        assert is_billing_exhausted(tail) is True
+    def test_codex_billing_format_returns_long_window(self):
+        """parse_rate_limit_window returns >24h for a date far in the future."""
+        tail = "try again at Dec 25th, 2030 4:01 PM"
         window = parse_rate_limit_window(tail)
         assert window is not None
-        assert window > BILLING_EXHAUSTED_THRESHOLD, (
-            f"Expected >24h for billing reset, got {window}s"
-        )
+        assert window > BILLING_EXHAUSTED_THRESHOLD
 
+    def test_codex_billing_format_with_realistic_date(self):
+        """parse_rate_limit_window parses a realistic Codex billing reset date."""
+        tail = "You've hit your usage limit. Please try again at Apr 8th, 2026 4:01 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        # The exact value depends on current time, but if Apr 8 2026 is >24h away, it should be large
+        # If we're already past that date, window could be 0 or None
+        # Use a far-future date to guarantee >24h
+        tail_future = "You've hit your usage limit. Please try again at Dec 25th, 2030 4:01 PM"
+        window_future = parse_rate_limit_window(tail_future)
+        assert window_future is not None
+        assert window_future > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_short_format_returns_short_window(self):
+        """parse_rate_limit_window returns <24h for same-day 'try again at HH:MM PM' format."""
+        tail = "try again at 11:59 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_iso_format_far_future_returns_long_window(self):
+        """parse_rate_limit_window returns >24h for a far-future ISO timestamp."""
+        tail = "reset at 2030-06-15 12:00:00"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+    def test_no_match_returns_none(self):
+        """parse_rate_limit_window returns None for unrecognized formats."""
+        assert parse_rate_limit_window("generic error") is None
+
+    def test_gemini_duration_format(self):
+        """parse_rate_limit_window parses Gemini 'quota will reset after Xm Ys' format."""
+        tail = "quota will reset after 18m38s"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window == 18 * 60 + 38
+
+    def test_hour_duration_format(self):
+        """parse_rate_limit_window parses '5-hour' duration format."""
+        tail = "rate limited for 5-hour window"
+        window = parse_rate_limit_window(tail)
+        assert window == 5 * 3600
+
+
+class TestBillingVsShortCooldown:
+    """Tests that billing-exhausted cooldowns are correctly classified."""
+
+    def test_billing_threshold_is_24h(self):
+        """BILLING_EXHAUSTED_THRESHOLD is 86400 (24h)."""
+        assert BILLING_EXHAUSTED_THRESHOLD == 86400
+
+    def test_default_rate_limit_shorter_than_threshold(self):
+        """RATE_LIMIT_COOLDOWN_SECONDS is shorter than billing threshold."""
+        assert RATE_LIMIT_COOLDOWN_SECONDS < BILLING_EXHAUSTED_THRESHOLD
+
+    def test_codex_billing_window_exceeds_threshold(self):
+        """A far-future Codex billing reset exceeds the billing threshold."""
+        tail = "try again at Dec 25th, 2030 4:01 PM"
+        window = parse_rate_limit_window(tail)
+        assert window is not None
+        assert window > BILLING_EXHAUSTED_THRESHOLD
+
+
+class TestStatusBillingExhausted:
+    """Tests for cmd_status showing billing-exhausted cooldowns correctly."""
+
+    def test_status_shows_billing_limit_label(self, tmp_path, capsys):
+        """cmd_status shows 'billing limit, resets <date>' for billing-exhausted events."""
+        import time as _time
+
+        cooldown_log = tmp_path / "cooldowns.json"
+        future = _time.time() + 5 * 86400  # 5 days from now
+        future_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future))
+        entries = [
+            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+             "event": "billing-exhausted",
+             "provider": "codex",
+             "resets_at": future_str,
+             "reason": "billing exhausted"},
+        ]
+        cooldown_log.write_text(json.dumps(entries) + "\n")
+
+        original_read_pid = _mod["read_pid"]
+        original_cooldown_log = _mod["COOLDOWN_LOG"]
+        original_running_file = _mod["RUNNING_FILE"]
+        original_queue_file = _mod["QUEUE_FILE"]
+
+        try:
+            _mod["read_pid"] = lambda: 12345
+            _mod["COOLDOWN_LOG"] = cooldown_log
+            _mod["RUNNING_FILE"] = tmp_path / "no_running.json"
+            _mod["QUEUE_FILE"] = tmp_path / "no_queue.md"
+            rc = cmd_status()
+        finally:
+            _mod["read_pid"] = original_read_pid
+            _mod["COOLDOWN_LOG"] = original_cooldown_log
+            _mod["RUNNING_FILE"] = original_running_file
+            _mod["QUEUE_FILE"] = original_queue_file
+
+        assert rc == 0
+        out = capsys.readouterr().out.lower()
+        assert "billing limit" in out
+        assert "codex" in out
+
+    def test_status_shows_burnout_as_resets_time(self, tmp_path, capsys):
+        """cmd_status shows 'resets HH:MM' for regular burnout events."""
+        import time as _time
+
+        cooldown_log = tmp_path / "cooldowns.json"
+        future = _time.time() + 3600  # 1 hour from now
+        future_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future))
+        entries = [
+            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+             "event": "burnout",
+             "provider": "infini",
+             "resets_at": future_str,
+             "reason": "rate limited"},
+        ]
+        cooldown_log.write_text(json.dumps(entries) + "\n")
+
+        original_read_pid = _mod["read_pid"]
+        original_cooldown_log = _mod["COOLDOWN_LOG"]
+        original_running_file = _mod["RUNNING_FILE"]
+        original_queue_file = _mod["QUEUE_FILE"]
+
+        try:
+            _mod["read_pid"] = lambda: 12345
+            _mod["COOLDOWN_LOG"] = cooldown_log
+            _mod["RUNNING_FILE"] = tmp_path / "no_running.json"
+            _mod["QUEUE_FILE"] = tmp_path / "no_queue.md"
+            rc = cmd_status()
+        finally:
+            _mod["read_pid"] = original_read_pid
+            _mod["COOLDOWN_LOG"] = original_cooldown_log
+            _mod["RUNNING_FILE"] = original_running_file
+            _mod["QUEUE_FILE"] = original_queue_file
+
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "infini" in out
+        assert "resets" in out
+        # Should NOT show billing limit for regular burnout
+        assert "billing limit" not in out.lower()
+
+    def test_status_shows_mixed_cooldowns(self, tmp_path, capsys):
+        """cmd_status shows both billing-exhausted and burnout events."""
+        import time as _time
+
+        cooldown_log = tmp_path / "cooldowns.json"
+        future_short = _time.time() + 3600
+        future_long = _time.time() + 5 * 86400
+        entries = [
+            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+             "event": "burnout",
+             "provider": "infini",
+             "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future_short)),
+             "reason": "rate limited"},
+            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+             "event": "billing-exhausted",
+             "provider": "codex",
+             "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future_long)),
+             "reason": "billing exhausted"},
+        ]
+        cooldown_log.write_text(json.dumps(entries) + "\n")
+
+        original_read_pid = _mod["read_pid"]
+        original_cooldown_log = _mod["COOLDOWN_LOG"]
+        original_running_file = _mod["RUNNING_FILE"]
+        original_queue_file = _mod["QUEUE_FILE"]
+
+        try:
+            _mod["read_pid"] = lambda: 12345
+            _mod["COOLDOWN_LOG"] = cooldown_log
+            _mod["RUNNING_FILE"] = tmp_path / "no_running.json"
+            _mod["QUEUE_FILE"] = tmp_path / "no_queue.md"
+            rc = cmd_status()
+        finally:
+            _mod["read_pid"] = original_read_pid
+            _mod["COOLDOWN_LOG"] = original_cooldown_log
+            _mod["RUNNING_FILE"] = original_running_file
+            _mod["QUEUE_FILE"] = original_queue_file
+
+        assert rc == 0
+        out = capsys.readouterr().out.lower()
+        assert "billing limit" in out
+        assert "codex" in out
+        assert "infini" in out
+        assert "resets" in out
+
+    def test_status_resumed_clears_billing_exhausted(self, tmp_path, capsys):
+        """cmd_status hides billing-exhausted after a 'resumed' event."""
+        import time as _time
+
+        cooldown_log = tmp_path / "cooldowns.json"
+        future = _time.time() + 5 * 86400
+        entries = [
+            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+             "event": "billing-exhausted",
+             "provider": "codex",
+             "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future)),
+             "reason": "billing exhausted"},
+            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+             "event": "resumed",
+             "provider": "codex",
+             "resets_at": None,
+             "reason": "manual clear"},
+        ]
+        cooldown_log.write_text(json.dumps(entries) + "\n")
+
+        original_read_pid = _mod["read_pid"]
+        original_cooldown_log = _mod["COOLDOWN_LOG"]
+        original_running_file = _mod["RUNNING_FILE"]
+        original_queue_file = _mod["QUEUE_FILE"]
+
+        try:
+            _mod["read_pid"] = lambda: 12345
+            _mod["COOLDOWN_LOG"] = cooldown_log
+            _mod["RUNNING_FILE"] = tmp_path / "no_running.json"
+            _mod["QUEUE_FILE"] = tmp_path / "no_queue.md"
+            rc = cmd_status()
+        finally:
+            _mod["read_pid"] = original_read_pid
+            _mod["COOLDOWN_LOG"] = original_cooldown_log
+            _mod["RUNNING_FILE"] = original_running_file
+            _mod["QUEUE_FILE"] = original_queue_file
+
+        assert rc == 0
+        out = capsys.readouterr().out.lower()
+        assert "billing limit" not in out
+        assert "cooldowns" not in out

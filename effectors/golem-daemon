@@ -27,7 +27,6 @@ Usage:
     golem-daemon --dry-run          # Show routing decisions without executing tasks
     golem-daemon evict <task_id>    # Remove zombie task from running state
     golem-daemon evict --stale      # Auto-evict all tasks running >2x provider avg
-    golem-daemon enqueue "golem ..."  # Add task to queue (rejects duplicates)
 """
 from __future__ import annotations
 
@@ -88,6 +87,14 @@ RATE_LIMIT_PATTERNS = re.compile(
     r'usage.?limit|hit your.*limit|quota will reset',
     re.IGNORECASE,
 )
+
+# Month name/abbreviation → month number.  Used by parse_rate_limit_window
+# to avoid the Python 3.15 deprecation for strptime with day-of-month but no year.
+import calendar as _calendar
+_MONTH_NAME_MAP: dict[str, int] = {}
+for _i in range(1, 13):
+    _MONTH_NAME_MAP[_calendar.month_abbr[_i].lower()] = _i
+    _MONTH_NAME_MAP[_calendar.month_name[_i].lower()] = _i
 
 
 def disk_hygiene() -> int:
@@ -746,7 +753,7 @@ def parse_rate_limit_window(tail: str) -> int | None:
     )
     if m:
         try:
-            month_str = m.group(1)
+            month_str = m.group(1).lower()
             day = int(m.group(2))
             year = int(m.group(3))
             hour = int(m.group(4))
@@ -755,16 +762,14 @@ def parse_rate_limit_window(tail: str) -> int | None:
                 hour += 12
             elif m.group(6).upper() == "AM" and hour == 12:
                 hour = 0
-            for fmt in ("%B %d", "%b %d"):
-                try:
-                    md = datetime.strptime(f"{month_str} {day}", fmt)
-                    reset_time = datetime(year, md.month, md.day, hour, minute)
-                    delta = (reset_time - datetime.now()).total_seconds()
-                    if delta > 0:
-                        return int(delta)
-                    break
-                except ValueError:
-                    continue
+            # Map month name/abbreviation to month number without strptime
+            # to avoid Python 3.15 deprecation for day-of-month without year.
+            month_num = _MONTH_NAME_MAP.get(month_str)
+            if month_num is not None:
+                reset_time = datetime(year, month_num, day, hour, minute)
+                delta = (reset_time - datetime.now()).total_seconds()
+                if delta > 0:
+                    return int(delta)
         except (ValueError, OverflowError):
             pass
 
@@ -1199,8 +1204,15 @@ def remote_exec(cmd: str, worker: dict) -> tuple[str, int, str, int]:
 
     # Build the command to run inside Docker on the remote host.
     # Escape single quotes for the nested bash -c '...' layer.
+    # Volume-mount the host's germline clone into the container and set
+    # the workdir so golem commands run in the right directory.
     inner_cmd = cmd.replace("'", "'\\''")
-    docker_cmd = f"docker run --rm gemmule:latest bash -c 'cd /root/germline && {inner_cmd}'"
+    docker_cmd = (
+        f"docker run --rm"
+        f" -v /home/{user}/germline:/home/terry/germline"
+        f" -w /home/terry/germline"
+        f" gemmule:latest bash -c '{inner_cmd}'"
+    )
 
     ssh_cmd = [
         'ssh',
@@ -1702,26 +1714,15 @@ def daemon_loop(dry_run: bool = False):
                             if is_explicit_ratelimit or is_fast_exit or is_empty_output:
                                 # Rate-limited: apply proportional cooldown immediately
                                 window = parse_rate_limit_window(tail)
-                                is_billing = is_billing_exhausted(tail)
-                                if window:
-                                    cooldown = window
-                                    # Billing-cycle exhaustion detected — ensure
-                                    # cooldown is at least BILLING_EXHAUSTED_THRESHOLD
-                                    # even if parser returned a short window (e.g. step-3
-                                    # short-format matched before step-2 full date).
-                                    if is_billing and cooldown < BILLING_EXHAUSTED_THRESHOLD:
-                                        cooldown = BILLING_EXHAUSTED_THRESHOLD
-                                elif is_billing:
-                                    # Billing-cycle exhaustion detected but couldn't
-                                    # parse exact reset time — use 24h default
-                                    cooldown = BILLING_EXHAUSTED_THRESHOLD
-                                else:
-                                    cooldown = RATE_LIMIT_COOLDOWN_SECONDS
+                                # Billing-exhausted without parseable reset date: use 24h default
+                                if window is None and is_billing_exhausted(tail):
+                                    window = BILLING_EXHAUSTED_THRESHOLD
+                                cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
                                 cooldown_end = time.time() + cooldown
                                 # Only extend, never shorten existing cooldown
                                 if provider_cooldown_until.get(dispatch_provider, 0) < cooldown_end:
                                     provider_cooldown_until[dispatch_provider] = cooldown_end
-                                    if cooldown > BILLING_EXHAUSTED_THRESHOLD:
+                                    if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
                                         # Billing-cycle exhaustion: long cooldown, no early-recovery probing
                                         reset_tm = time.localtime(cooldown_end)
                                         reset_str = time.strftime("%b %d", reset_tm).replace(" 0", " ")
@@ -1735,7 +1736,7 @@ def daemon_loop(dry_run: bool = False):
                                 cd_min = int(cooldown // 60)
                                 cd_hrs = int(cooldown // 3600)
                                 reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "empty-output" if is_empty_output and not is_explicit_ratelimit else "output-match"
-                                if cooldown > BILLING_EXHAUSTED_THRESHOLD:
+                                if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
                                     log(f"BILLING-EXHAUSTED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_hrs}h (exit={exit_code}, dur={duration}s)")
                                 else:
                                     log(f"RATE-LIMITED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
@@ -2122,44 +2123,6 @@ def cmd_stop():
         print("Daemon already stopped")
         return 0
 
-def _show_cooldown_status():
-    """Print active cooldowns (billing-exhausted and burnout) from cooldown log."""
-    if not COOLDOWN_LOG.exists():
-        return
-    try:
-        entries = json.loads(COOLDOWN_LOG.read_text())
-        now = time.time()
-        # Latest cooldown per provider, not yet resumed
-        active_burnout: dict[str, str] = {}
-        active_billing: dict[str, str] = {}
-        for e in entries:
-            p = e.get("provider", "?")
-            if e.get("event") == "resumed":
-                active_burnout.pop(p, None)
-                active_billing.pop(p, None)
-            elif e.get("event") == "billing-exhausted" and e.get("resets_at"):
-                reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
-                if reset_time > now:
-                    reset_tm = time.localtime(reset_time)
-                    active_billing[p] = time.strftime("%b ", reset_tm) + str(reset_tm.tm_mday)
-                    active_burnout.pop(p, None)  # billing overrides burnout display
-            elif e.get("event") == "burnout" and e.get("resets_at"):
-                reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
-                if reset_time > now:
-                    active_burnout[p] = e["resets_at"][11:16]
-        # Format combined output: billing limits shown with date, short cooldowns with time
-        parts = []
-        for p in sorted(set(active_billing) | set(active_burnout)):
-            if p in active_billing:
-                parts.append(f"{p} (billing limit, resets {active_billing[p]})")
-            else:
-                parts.append(f"{p} (resets {active_burnout[p]})")
-        if parts:
-            print(f"Cooldowns: {', '.join(parts)}")
-    except (json.JSONDecodeError, OSError, KeyError, ValueError):
-        pass
-
-
 def cmd_status():
     """Check daemon status."""
     pid = read_pid()
@@ -2179,7 +2142,32 @@ def cmd_status():
         print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info}), global cap {MAX_TOTAL_CONCURRENT}")
 
         # Show cooldown status from log (deduplicated per provider)
-        _show_cooldown_status()
+        if COOLDOWN_LOG.exists():
+            try:
+                entries = json.loads(COOLDOWN_LOG.read_text())
+                now = time.time()
+                # Latest cooldown per provider, not yet resumed
+                active = {}
+                for e in entries:
+                    p = e.get("provider", "?")
+                    if e.get("event") == "resumed":
+                        active.pop(p, None)
+                    elif e.get("event") in ("burnout", "billing-exhausted") and e.get("resets_at"):
+                        reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                        if reset_time > now:
+                            active[p] = {"event": e["event"], "resets_at": e["resets_at"]}
+                if active:
+                    parts = []
+                    for p, info in sorted(active.items()):
+                        if info["event"] == "billing-exhausted":
+                            dt = time.strptime(info["resets_at"], "%Y-%m-%d %H:%M:%S")
+                            label = time.strftime("%b %d", dt).replace(" 0", " ")
+                            parts.append(f"{p} (billing limit, resets {label})")
+                        else:
+                            parts.append(f"{p} (resets {info['resets_at'][11:16]})")
+                    print(f"Cooldowns: {', '.join(parts)}")
+            except (json.JSONDecodeError, OSError, KeyError, ValueError):
+                pass
 
         # Show running task IDs from state file
         if RUNNING_FILE.exists():
@@ -2198,8 +2186,6 @@ def cmd_status():
         return 0
     else:
         print("Daemon not running")
-        # Show cooldowns even when daemon is not running
-        _show_cooldown_status()
         return 1
 
 def cmd_clean() -> int:
@@ -2749,77 +2735,6 @@ def cmd_review(args: list[str]) -> int:
     return 0
 
 
-def cmd_enqueue(args: list[str]) -> int:
-    """Enqueue a task into golem-queue.md with dedup guard.
-
-    Checks existing pending ([ ] and [!!]) lines for the same normalized
-    prompt.  If a duplicate is found, the task is rejected with a message.
-    Otherwise it is appended before the ## Done section.
-
-    Usage:
-        golem-daemon enqueue 'golem --provider zhipu --max-turns 25 "Fix foo"'
-    """
-    if not args:
-        print("Usage: golem-daemon enqueue 'golem --provider <p> --max-turns <n> \"<prompt>\"'")
-        return 1
-
-    cmd = args[0].strip()
-    if not cmd.startswith("golem "):
-        print("Error: command must start with 'golem '")
-        return 1
-
-    norm = _normalize_prompt(cmd)
-
-    # Check pending entries for duplicate
-    existing = _get_pending_prompts()
-    if norm in existing:
-        # Find the matching line for context
-        match_line = ""
-        if QUEUE_FILE.exists():
-            try:
-                for line in QUEUE_FILE.read_text().splitlines():
-                    m = re.match(r'^- \[( |!!)\] `([^`]+)`', line)
-                    if m and _normalize_prompt(m.group(2)) == norm:
-                        match_line = line.strip()
-                        break
-            except (PermissionError, OSError, UnicodeDecodeError):
-                pass
-        print(f"Duplicate rejected: a task with the same prompt is already pending.")
-        if match_line:
-            print(f"  Existing: {match_line[:100]}")
-        return 1
-
-    # Append before ## Done section
-    with QueueLock():
-        if not QUEUE_FILE.exists():
-            QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            lines = ["## Pending", "", "## Done", ""]
-        else:
-            try:
-                lines = QUEUE_FILE.read_text().splitlines()
-            except (PermissionError, OSError, UnicodeDecodeError):
-                print("Error: queue file unreadable")
-                return 1
-
-        # Find insertion point (before ## Done, or end of file)
-        insert_idx = len(lines)
-        for i, line in enumerate(lines):
-            if line.strip() == "## Done":
-                insert_idx = i
-                break
-
-        task_line = f"- [ ] `{cmd}`"
-        lines.insert(insert_idx, task_line)
-        try:
-            QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except (PermissionError, OSError):
-            print("Error: queue file not writable")
-            return 1
-
-    print(f"Enqueued: {cmd[:80]}...")
-    return 0
-
-
 def cmd_evict(args: list[str]) -> int:
     """Remove zombie tasks from golem-running.json.
 
@@ -2941,13 +2856,11 @@ def main():
         return cmd_clear_cooldown(provider)
     elif cmd == "review":
         return cmd_review(sys.argv[2:])
-    elif cmd == "enqueue":
-        return cmd_enqueue(sys.argv[2:])
     elif cmd == "evict":
         return cmd_evict(sys.argv[2:])
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], enqueue, evict, --dry-run")
+        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], evict, --dry-run")
         return 1
 
 if __name__ == "__main__":
