@@ -1,21 +1,20 @@
 ---
-name: sarcio
+name: exocytosis
 description: >
-  Manage the terryli.hm digital garden (sarcio = Latin "to patch/mend").
-  Create, publish, revise, and list posts. Source: ~/code/sarcio/.
-  Posts: ~/notes/Writing/Blog/Published/.
+  Publish to terryli.hm garden. Secretome (chromatin) -> Astro -> deploy.
+  CLI: ~/germline/effectors/publish. Posts: ~/epigenome/chromatin/secretome/.
 triggers:
   - "garden post"
-  - "sarcio"
   - "new post"
   - "publish post"
-  - "revise post"
+  - "blog post"
+  - "exocytosis"
 ---
 
-# sarcio — Garden CLI
+# exocytosis — Garden Publishing
 
-Manages posts in `~/notes/Writing/Blog/Published/`. The sync LaunchAgent
-pushes them live at terryli.hm every 5 min.
+Manages posts in `~/epigenome/chromatin/secretome/`. `publish push` syncs to
+Astro repo (`~/code/terryli-hm/`), commits, and pushes to deploy.
 
 ## Voice & Content Tiers
 

@@ -32,6 +32,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Marks library:** `~/epigenome/marks/`. Each file has `description:` frontmatter. **When starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding.** Example: before working on golem, `grep -l "golem" ~/epigenome/marks/*.md`. Same pattern as epistemics — not by remembering, but by looking.
 
+**Read anatomy first.** Before probing, querying, or debugging any subsystem, read its CLAUDE.md or README. The docs exist — use them before running blind commands. `~/germline/effectors/*/CLAUDE.md` for organism tools.
+
 **Meta-rules:** Evidence > opinions. One correction = full sweep. When in doubt, test it. Work generates work — follow it. Origin is recoverable, spark is perishable. Fix what breaks before testing what doesn't — triage by blast radius. All dispatch orients toward north star goals — read `North Star.md` before selecting work.
 
 ## Facts

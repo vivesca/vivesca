@@ -9,11 +9,10 @@ Actions: search|thread|categorize|archive|mark_read|label|send|filter
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.cytosol import invoke_organelle, synthesize
+from metabolon.cytosol import synthesize
 from metabolon.morphology import EffectorResult, Secretion
 from metabolon.organelles import endosomal as endosomal_organelle
-
-GOG = "gog"
+from metabolon.organelles import gmail
 
 
 class EndosomalResult(Secretion):
@@ -64,13 +63,13 @@ def endosomal(
     if action == "search":
         if not query:
             return EffectorResult(success=False, message="search requires: query")
-        result = invoke_organelle(GOG, ["gmail", "search", query, "--plain"], timeout=30)
+        result = gmail.search(query)
         return EndosomalResult(output=result)
 
     elif action == "thread":
         if not thread_id:
             return EffectorResult(success=False, message="thread requires: thread_id")
-        result = invoke_organelle(GOG, ["gmail", "thread", "get", thread_id, "--full"], timeout=60)
+        result = gmail.get_thread(thread_id)
         return EndosomalResult(output=result)
 
     elif action == "categorize":
@@ -89,61 +88,43 @@ def endosomal(
     elif action == "archive":
         if not _message_ids:
             return EffectorResult(success=False, message="archive requires: message_ids")
-        result = invoke_organelle(GOG, ["gmail", "archive", "--force", *_message_ids], timeout=30)
-        return EffectorResult(success=True, message=result or f"Archived {len(_message_ids)} message(s).")
+        result = gmail.archive(_message_ids)
+        return EffectorResult(success=True, message=result)
 
     elif action == "mark_read":
         if not _message_ids:
             return EffectorResult(success=False, message="mark_read requires: message_ids")
-        result = invoke_organelle(GOG, ["gmail", "mark-read", "--force", *_message_ids], timeout=30)
-        return EffectorResult(success=True, message=result or f"Marked {len(_message_ids)} message(s) as read.")
+        result = gmail.mark_read(_message_ids)
+        return EffectorResult(success=True, message=result)
 
     elif action == "label":
         if not name:
             return EffectorResult(success=False, message="label requires: name")
-        result = invoke_organelle(GOG, ["gmail", "labels", "create", name], timeout=15)
-        return EffectorResult(success=True, message=result or f"Label created: {name}")
+        result = gmail.create_label(name)
+        return EffectorResult(success=True, message=result)
 
     elif action == "send":
-        args = ["gmail", "send"]
-        if reply_to_message_id:
-            args.extend(["--reply-to-message-id", reply_to_message_id, "--reply-all", "--quote"])
-        if to:
-            args.extend(["--to", to])
-        if subject:
-            args.extend(["--subject", subject])
-        if body:
-            args.extend(["--body", body])
-        if cc:
-            args.extend(["--cc", cc])
-        for path in attach or []:
-            args.extend(["--attach", path])
         if not reply_to_message_id and (not to or not subject or not body):
             return EffectorResult(success=False, message="New emails require to, subject, and body. Replies require reply_to_message_id.")
-        result = invoke_organelle(GOG, args, timeout=60)
-        return EffectorResult(success=True, message=result or "Email sent.")
+        result = gmail.send_email(
+            to=to, subject=subject, body=body, cc=cc,
+            reply_to_message_id=reply_to_message_id,
+            attachments=attach,
+        )
+        return EffectorResult(success=True, message=result)
 
     elif action == "filter":
         if not from_sender and not subject_pattern:
             return EffectorResult(success=False, message="Provide at least one of: from_sender, subject_pattern.")
         if not add_label and not archive and not mark_read:
             return EffectorResult(success=False, message="Provide at least one action: add_label, archive, or mark_read.")
-        args = ["gmail", "settings", "filters", "create"]
-        if from_sender:
-            args.extend(["--from", from_sender])
-        if subject_pattern:
-            args.extend(["--subject", subject_pattern])
-        if add_label:
-            args.extend(["--add-label", add_label])
-        if archive:
-            args.append("--archive")
-        if mark_read:
-            args.append("--mark-read")
         if dry_run:
-            args.append("--dry-run")
-        result = invoke_organelle(GOG, args, timeout=15)
-        prefix = "[DRY RUN] " if dry_run else ""
-        return EffectorResult(success=True, message=f"{prefix}{result or 'Filter applied.'}")
+            return EffectorResult(success=True, message=f"[DRY RUN] Would create filter: from={from_sender}, subject={subject_pattern}, label={add_label}, archive={archive}, mark_read={mark_read}")
+        result = gmail.create_filter(
+            from_sender=from_sender, subject_pattern=subject_pattern,
+            add_label=add_label, archive=archive, mark_read=mark_read,
+        )
+        return EffectorResult(success=True, message=result)
 
     else:
         return EffectorResult(success=False, message=f"Unknown action '{action}'. Valid: search, thread, categorize, archive, mark_read, label, send, filter")
