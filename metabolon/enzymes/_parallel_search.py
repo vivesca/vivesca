@@ -386,11 +386,12 @@ def _report(query: str, results: list[ToolResult]) -> str:
     if failed > 0:
         backend_names = ", ".join(r.tool for r in errored)
         ok_names = ", ".join(r.tool for r in ok) or "none"
+        error_details = "; ".join(f"{r.tool}: {r.error[:80]}" for r in errored)
         health_file.write_text(f"degraded {failed}/{total} {backend_names}")
         raise RuntimeError(
             f"rheotaxis degraded: {failed}/{total} backends failed "
             f"({backend_names}). Only {ok_names} returned results. "
-            f"Fix the backends before relying on search."
+            f"Errors: {error_details}"
         )
     else:
         # Healthy — clear the flag

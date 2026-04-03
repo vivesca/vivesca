@@ -14,7 +14,7 @@ from metabolon.organelles import rheotaxis_engine
     description="Web search. Default: 8 backends parallel (~$0.03). mode=research: Perplexity deep ($0.40).",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def rheotaxis(
+async def rheotaxis(
     query: str,
     mode: str = "",
 ) -> str:
@@ -28,7 +28,6 @@ def rheotaxis(
     if mode == "research":
         return rheotaxis_engine.perplexity_deep(query)
 
-    import asyncio
     from metabolon.enzymes._parallel_search import _run_all, _report
-    results = asyncio.run(_run_all(query))
+    results = await _run_all(query)
     return _report(query, results)
