@@ -105,7 +105,6 @@ async def _run_grok(query: str) -> ToolResult:
         payload = json.dumps({
             "model": "grok-3-mini",
             "messages": [{"role": "user", "content": query}],
-            "search_parameters": {"mode": "auto"},
             "temperature": 0
         }).encode()
         req = urllib.request.Request(
@@ -138,7 +137,6 @@ async def _run_exa(query: str) -> ToolResult:
             "query": query,
             "numResults": 5,
             "type": "neural",
-            "contents": {"text": {"maxCharacters": 300}},
         }).encode()
         req = urllib.request.Request(
             "https://api.exa.ai/search",
@@ -146,6 +144,7 @@ async def _run_exa(query: str) -> ToolResult:
             headers={
                 "x-api-key": api_key,
                 "Content-Type": "application/json",
+                "User-Agent": "vivesca/1.0",
             },
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -498,7 +497,7 @@ async def _run_all(query: str) -> list[ToolResult]:
         _run_serper(query),
         _run_zhipu(query),
         _run_jina(query),
-        _run_firecrawl(query),
+        # firecrawl removed — 500 free credits reserved for pinocytosis scraping
     ]
 
     raw = await asyncio.gather(*tasks, return_exceptions=True)
