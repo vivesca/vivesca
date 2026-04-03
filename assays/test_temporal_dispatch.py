@@ -175,8 +175,8 @@ def test_parse_queue_prompt_is_full_cmd_when_no_quotes(tmp_path):
     _write_queue(qf, "- [ ] `golem --provider infini --max-turns 20`\n")
     tasks = parse_queue()
     assert len(tasks) == 1
-    # prompt_match returns None, so prompt = cmd (full backtick content)
-    assert tasks[0][1] == "golem --provider infini --max-turns 20"
+    # prompt_match returns None, so prompt = cmd (full backtick content, with auto-injected task ID)
+    assert "--provider infini --max-turns 20" in tasks[0][1]
 
 
 # ── mark_done tests ───────────────────────────────────────────────────
