@@ -2947,7 +2947,7 @@ def main():
         return cmd_evict(sys.argv[2:])
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], evict, --dry-run")
+        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], enqueue, evict, --dry-run")
         return 1
 
 if __name__ == "__main__":
