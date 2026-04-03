@@ -27,6 +27,7 @@ Usage:
     golem-daemon --dry-run          # Show routing decisions without executing tasks
     golem-daemon evict <task_id>    # Remove zombie task from running state
     golem-daemon evict --stale      # Auto-evict all tasks running >2x provider avg
+    golem-daemon enqueue "golem ..."  # Add task to queue (rejects duplicates)
 """
 from __future__ import annotations
 
@@ -2748,6 +2749,77 @@ def cmd_review(args: list[str]) -> int:
     return 0
 
 
+def cmd_enqueue(args: list[str]) -> int:
+    """Enqueue a task into golem-queue.md with dedup guard.
+
+    Checks existing pending ([ ] and [!!]) lines for the same normalized
+    prompt.  If a duplicate is found, the task is rejected with a message.
+    Otherwise it is appended before the ## Done section.
+
+    Usage:
+        golem-daemon enqueue 'golem --provider zhipu --max-turns 25 "Fix foo"'
+    """
+    if not args:
+        print("Usage: golem-daemon enqueue 'golem --provider <p> --max-turns <n> \"<prompt>\"'")
+        return 1
+
+    cmd = args[0].strip()
+    if not cmd.startswith("golem "):
+        print("Error: command must start with 'golem '")
+        return 1
+
+    norm = _normalize_prompt(cmd)
+
+    # Check pending entries for duplicate
+    existing = _get_pending_prompts()
+    if norm in existing:
+        # Find the matching line for context
+        match_line = ""
+        if QUEUE_FILE.exists():
+            try:
+                for line in QUEUE_FILE.read_text().splitlines():
+                    m = re.match(r'^- \[( |!!)\] `([^`]+)`', line)
+                    if m and _normalize_prompt(m.group(2)) == norm:
+                        match_line = line.strip()
+                        break
+            except (PermissionError, OSError, UnicodeDecodeError):
+                pass
+        print(f"Duplicate rejected: a task with the same prompt is already pending.")
+        if match_line:
+            print(f"  Existing: {match_line[:100]}")
+        return 1
+
+    # Append before ## Done section
+    with QueueLock():
+        if not QUEUE_FILE.exists():
+            QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            lines = ["## Pending", "", "## Done", ""]
+        else:
+            try:
+                lines = QUEUE_FILE.read_text().splitlines()
+            except (PermissionError, OSError, UnicodeDecodeError):
+                print("Error: queue file unreadable")
+                return 1
+
+        # Find insertion point (before ## Done, or end of file)
+        insert_idx = len(lines)
+        for i, line in enumerate(lines):
+            if line.strip() == "## Done":
+                insert_idx = i
+                break
+
+        task_line = f"- [ ] `{cmd}`"
+        lines.insert(insert_idx, task_line)
+        try:
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            print("Error: queue file not writable")
+            return 1
+
+    print(f"Enqueued: {cmd[:80]}...")
+    return 0
+
+
 def cmd_evict(args: list[str]) -> int:
     """Remove zombie tasks from golem-running.json.
 
@@ -2869,6 +2941,8 @@ def main():
         return cmd_clear_cooldown(provider)
     elif cmd == "review":
         return cmd_review(sys.argv[2:])
+    elif cmd == "enqueue":
+        return cmd_enqueue(sys.argv[2:])
     elif cmd == "evict":
         return cmd_evict(sys.argv[2:])
     else:
