@@ -566,6 +566,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     flagged_count = 0
     rejected_count = 0
     for handle, ln, tid, spec in handles:
+        dispatch_prov = spec.get("provider", "zhipu")
         try:
             result = await handle.result()
             task_results = result.get("results", [])
@@ -580,6 +581,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
                 extra = f" → {output_path}" if output_path else ""
                 log(f"[DONE] [{tid}] {tr.get('provider', '?')}{extra}")
                 approved_count += 1
+                _unthrottle_provider(dispatch_prov)
             elif verdict == "approved_with_flags":
                 log(f"[HOLD] [{tid}] {tr.get('provider', '?')} — flags: {', '.join(flags)}")
                 flagged_count += 1
@@ -596,6 +598,13 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
                         _auto_requeue(spec.get("task", ""), fallback)
                         log(f"[FALLBACK] [{tid}] {orig_provider}->{fallback} — requeued on fallback")
                 reason = f"review rejected: {', '.join(flags)}" if flags else "review rejected"
+                exit_code = tr.get("exit_code", 0)
+                if exit_code == -15:
+                    reason = f"exit_code={exit_code}"
+                elif flags:
+                    reason = f"review rejected: {', '.join(flags)}"
+                else:
+                    reason = "review rejected"
                 mark_failed(ln, task_id=tid, reason=reason)
                 log(f"[FAIL] [{tid}] {tr.get('provider', '?')} — {reason}")
                 rejected_count += 1
@@ -603,6 +612,10 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
             log(f"[FAIL] [{tid}] workflow error: {e}")
             mark_failed(ln, task_id=tid, reason=f"workflow error: {str(e)[:100]}")
             rejected_count += 1
+        finally:
+            running = _provider_running.get(dispatch_prov, 0)
+            if running > 0:
+                _provider_running[dispatch_prov] = running - 1
 
     log(f"Complete: {approved_count} approved, {flagged_count} flagged, {rejected_count} rejected")
     _sync_reviews()
