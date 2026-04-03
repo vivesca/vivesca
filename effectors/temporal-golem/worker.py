@@ -41,19 +41,20 @@ _HEARTBEAT_INTERVAL = 30.0
 _ACTIVITY_TIMEOUT = timedelta(minutes=30)
 
 
-def _git_snapshot() -> dict:
+def _git_snapshot(cwd: str | None = None) -> dict:
     """Capture git diff stat + numstat for before/after comparison."""
+    work_dir = cwd or str(Path.home() / "germline")
     try:
         stat = _subprocess.run(
             ["git", "diff", "--stat", "HEAD"],
             capture_output=True, text=True, timeout=10,
-            cwd=str(Path.home()),
+            cwd=work_dir,
         )
         # numstat gives per-file +/- line counts for shrinkage detection
         numstat = _subprocess.run(
             ["git", "diff", "--numstat", "HEAD"],
             capture_output=True, text=True, timeout=10,
-            cwd=str(Path.home()),
+            cwd=work_dir,
         )
         return {
             "stat": stat.stdout[:2000],
@@ -93,6 +94,73 @@ def _git_push(repo_root: str) -> None:
         print("WARNING: git push timed out", file=sys.stderr)
     except Exception as exc:
         print(f"WARNING: git push error: {exc}", file=sys.stderr)
+
+
+def _create_worktree(repo_root: str, branch_name: str) -> str:
+    """Create a git worktree for isolated golem execution. Returns worktree path."""
+    worktree_base = os.path.join(repo_root, ".worktrees")
+    os.makedirs(worktree_base, exist_ok=True)
+    worktree_path = os.path.join(worktree_base, branch_name)
+
+    # Clean up stale worktree if it exists
+    if os.path.exists(worktree_path):
+        _subprocess.run(
+            ["git", "worktree", "remove", "--force", worktree_path],
+            capture_output=True, timeout=10, cwd=repo_root,
+        )
+
+    result = _subprocess.run(
+        ["git", "worktree", "add", "-b", branch_name, worktree_path, "HEAD"],
+        capture_output=True, text=True, timeout=15, cwd=repo_root,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"worktree add failed: {result.stderr}")
+    return worktree_path
+
+
+def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> bool:
+    """Merge worktree branch into main and clean up. Returns True on success."""
+    try:
+        # Check if there are any commits on the branch beyond HEAD
+        result = _subprocess.run(
+            ["git", "log", "--oneline", f"main..{branch_name}"],
+            capture_output=True, text=True, timeout=10, cwd=repo_root,
+        )
+        if not result.stdout.strip():
+            # No commits to merge
+            return True
+
+        # Merge with fast-forward (will work if main hasn't moved)
+        merge = _subprocess.run(
+            ["git", "merge", "--ff-only", branch_name],
+            capture_output=True, text=True, timeout=15, cwd=repo_root,
+        )
+        if merge.returncode != 0:
+            # Try rebase merge if ff fails (another golem may have committed)
+            merge = _subprocess.run(
+                ["git", "rebase", branch_name],
+                capture_output=True, text=True, timeout=30, cwd=repo_root,
+            )
+            if merge.returncode != 0:
+                print(f"WARNING: merge/rebase of {branch_name} failed: {merge.stderr}", file=sys.stderr)
+                return False
+        return True
+    except Exception as exc:
+        print(f"WARNING: merge error for {branch_name}: {exc}", file=sys.stderr)
+        return False
+    finally:
+        # Always clean up worktree and branch
+        try:
+            _subprocess.run(
+                ["git", "worktree", "remove", "--force", worktree_path],
+                capture_output=True, timeout=10, cwd=repo_root,
+            )
+            _subprocess.run(
+                ["git", "branch", "-D", branch_name],
+                capture_output=True, timeout=10, cwd=repo_root,
+            )
+        except Exception:
+            pass
 
 
 def _detect_prior_commits(
@@ -226,9 +294,20 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
     # Run golem from repo root, not temporal-golem subdir
     repo_root = str(Path.home() / "germline")
 
+    # Create isolated worktree for this task
+    branch_name = f"golem-{tid_str or _time.strftime('%H%M%S')}"
+    worktree_path = None
+    try:
+        worktree_path = await asyncio.to_thread(_create_worktree, repo_root, branch_name)
+        work_dir = worktree_path
+    except Exception as exc:
+        print(f"WARNING: worktree creation failed ({exc}), falling back to repo root", file=sys.stderr)
+        work_dir = repo_root
+        worktree_path = None
+
     # Detect partial progress from a prior killed attempt
     prior_commits = await asyncio.to_thread(
-        _detect_prior_commits, repo_root, time_window_minutes=40, author="golem"
+        _detect_prior_commits, work_dir, time_window_minutes=40, author="golem"
     )
     effective_task = task
     if prior_commits:
@@ -244,10 +323,10 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         effective_task = prefix + task
 
     # Pull latest changes (e.g. CC-written test files) before running golem
-    await asyncio.to_thread(_git_pull_ff_only, repo_root)
+    await asyncio.to_thread(_git_pull_ff_only, work_dir)
 
     # Snapshot before golem runs
-    pre_diff = await asyncio.to_thread(_git_snapshot)
+    pre_diff = await asyncio.to_thread(_git_snapshot, work_dir)
 
     cmd = [
         "bash", str(GOLEM_SCRIPT),
@@ -259,8 +338,8 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=repo_root,
-        env={**os.environ, "GOLEM_PROVIDER": provider},
+        cwd=work_dir,
+        env={**os.environ, "GOLEM_PROVIDER": provider, "HOME": str(Path.home())},
     )
 
     # Heartbeat while subprocess runs
@@ -303,8 +382,14 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
     stdout = stdout_bytes.decode(errors="replace")
     stderr = stderr_bytes.decode(errors="replace")
 
-    # Snapshot after golem runs
-    post_diff = await asyncio.to_thread(_git_snapshot)
+    # Snapshot after golem runs (in worktree)
+    post_diff = await asyncio.to_thread(_git_snapshot, work_dir)
+
+    # Merge worktree back to main if golem made commits
+    if worktree_path:
+        merged = await asyncio.to_thread(_merge_worktree, repo_root, branch_name, worktree_path)
+        if not merged:
+            print(f"WARNING: worktree merge failed for {branch_name}", file=sys.stderr)
 
     # Push golem commits to origin so soma can pull without manual intervention
     if rc == 0 and post_diff.get("stat", "").strip():
