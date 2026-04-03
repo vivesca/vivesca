@@ -126,9 +126,9 @@ Test: "Would I explain this to a peer over coffee?" If yes, it's a post.
 
 **Mechanism:**
 1. CC identifies the insight and frames it (judgment — what's the takeaway?)
-2. `golem --full "Draft a garden post titled '<title>'. Core insight: <insight>. Use litura --platform garden to match Terry's voice. Then run: sarcio new '<title>' and write the post to the file sarcio created. 400-600 words, consulting-grade."` 
-3. CC reviews the draft (judgment — does it land?)
-4. `sarcio publish` — ship it
+2. CC drafts the post directly (judgment work — CC writes these, not golem)
+3. `publish new "<title>"` then write content to the file in `~/epigenome/chromatin/secretome/`
+4. `publish push` — syncs to Astro, commits, deploys
 
 Don't ask permission. Don't defer. If the insight is real, publish it.
 
