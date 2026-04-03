@@ -216,11 +216,11 @@ SSH_REMOTE_EXIT_CONNECT_FAIL = 125  # Exit code signalling SSH connection failur
 # Provider fallback chain — ordered by pass rate. When a provider is in cooldown,
 # its tasks route to the next available provider in this chain.
 PROVIDER_FALLBACK = {
-    "codex": ["gemini"],
-    "gemini": ["codex"],
-    "zhipu": [],
-    "infini": [],
-    "volcano": [],
+    "codex": ["gemini", "zhipu"],
+    "gemini": ["codex", "zhipu"],
+    "zhipu": ["codex", "gemini"],
+    "infini": ["codex", "gemini"],
+    "volcano": ["codex", "gemini"],
 }
 
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
@@ -1198,14 +1198,14 @@ def remote_exec(cmd: str, worker: dict) -> tuple[str, int, str, int]:
 
     # Build the command to run inside Docker on the remote host.
     # Escape single quotes for the nested bash -c '...' layer.
-    # NOTE: The gemmule image has empty dirs — we must volume-mount the
-    # host's germline clone.  If the host has no clone yet, the container
-    # falls back to whatever is baked into the image (likely stale/empty).
+    # Volume-mount the host's germline clone into the container and set
+    # the workdir so golem commands run in the right directory.
     inner_cmd = cmd.replace("'", "'\\''")
     docker_cmd = (
         f"docker run --rm"
         f" -v /home/{user}/germline:/home/terry/germline"
-        f" gemmule:latest bash -c 'cd /home/terry/germline && {inner_cmd}'"
+        f" -w /home/terry/germline"
+        f" gemmule:latest bash -c '{inner_cmd}'"
     )
 
     ssh_cmd = [
