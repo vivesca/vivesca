@@ -40,17 +40,18 @@ def test_install_script_has_required_sections() -> None:
         "# 2. Go",
         "# 3. Node.js 22",
         "# 4. Tailscale",
-        "# 5. 1Password CLI",
-        "# 6. Create terry user",
-        "# 7. uv, Bun",
-        "# 8. starship, eza, bat, fd, zoxide",
-        "# 9. npm globals",
-        "# 10. uv tools",
-        "# 11. rustup",
-        "# 12. Playwright",
-        "# 13. Directory scaffold",
-        "# 14. Git config",
-        "# 15. SSH hardening",
+        "# 5. gh CLI",
+        "# 6. 1Password CLI",
+        "# 7. Create terry user",
+        "# 8. uv, Bun",
+        "# 9. starship, eza, bat, fd, zoxide",
+        "# 10. npm globals",
+        "# 11. uv tools",
+        "# 12. rustup",
+        "# 13. Playwright",
+        "# 14. Directory scaffold",
+        "# 15. Git config",
+        "# 16. SSH hardening",
     ]
     for section in required_sections:
         assert section in source
@@ -74,6 +75,9 @@ def test_install_script_installs_required_tools() -> None:
         "pnpm",
         "playwright",
         "rustup",
+        "gh",
+        "ripgrep",
+        "build-essential",
     ]
     for entry in expected_entries:
         assert entry in source

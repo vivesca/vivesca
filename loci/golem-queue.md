@@ -1,3 +1,7 @@
 ### Pending
 
-- [x] `golem [t-c86724] [t-FINAL] Echo 'zhipu-only pipeline working' and run date`
+- [ ] `golem [t-f4200d] -b zhipu [t-VV01] Fix assays/test_enzymes_noesis.py — it has a collection error preventing test suite from running. Read the file, identify the import or syntax error, fix it. Run: cd ~/germline && uv run pytest assays/test_enzymes_noesis.py -v --tb=short to verify.`
+- [ ] `golem [t-a11995] -b zhipu [t-VV02] Read metabolon/organelles/circulation.py. Find all TODO comments and implement them or remove them if they're stale. Run ast.parse and the corresponding test file to verify.`
+- [ ] `golem [t-c6c73c] -b zhipu [t-VV03] Read metabolon/organelles/polarization_loop.py. Find all TODO comments and implement them or remove them if they're stale. Run ast.parse and the corresponding test file to verify.`
+- [ ] `golem [t-b89987] -b zhipu [t-VV04] Run cd ~/germline && uv run pytest assays/ -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -10. For the top 3 failing test files: run pytest on each, read the traceback, fix the issue. Commit each fix.`
+- [ ] `golem [t-feb37c] -b zhipu [t-VV05] Run cd ~/germline && uv run pyright metabolon/ --outputjson 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); errs=[e for e in d.get('generalDiagnostics',[]) if e['severity']==1]; print(f'{len(errs)} errors'); [print(f\"{e['file'].split('/')[-1]}:{e['range']['start']['line']} {e['message'][:80]}\") for e in errs[:10]]". Fix the top 5 pyright errors. Commit.`

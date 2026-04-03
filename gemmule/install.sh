@@ -67,19 +67,28 @@ export DEBIAN_FRONTEND=noninteractive
 log "System packages"
 apt-get update -qq
 SYSTEM_PACKAGES=(
+  build-essential
   ca-certificates
   curl
+  file
+  fzf
   git
+  git-lfs
   gnupg
   htop
   jq
+  libsqlite3-dev
+  libssl-dev
+  lsof
+  mosh
   openssh-server
+  pkg-config
   python3
   python3-dev
   python3-pip
   python3-venv
+  ripgrep
   sqlite3
-  libsqlite3-dev
   sudo
   tmux
   unzip
@@ -129,7 +138,24 @@ else
   ok "tailscale"
 fi
 
-# 5. 1Password CLI
+# 5. gh CLI
+log "GitHub CLI"
+if command -v gh >/dev/null 2>&1; then
+  skip "gh"
+else
+  (type -p wget >/dev/null || apt-get install -y -qq wget) \
+    && mkdir -p -m 755 /etc/apt/keyrings \
+    && out=$(mktemp) && wget -qO "$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    && cat "$out" | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+         | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update -qq && apt-get install -y -qq gh \
+    && rm -f "$out" && rm -rf /var/lib/apt/lists/*
+  ok "gh"
+fi
+
+# 6. 1Password CLI
 log "1Password CLI ${OP_VERSION}"
 if command -v op >/dev/null 2>&1 && op --version 2>/dev/null | grep -q "$OP_VERSION"; then
   skip "op ${OP_VERSION}"
@@ -142,7 +168,7 @@ else
   ok "op ${OP_VERSION}"
 fi
 
-# 6. Create terry user
+# 7. Create terry user
 log "User ${USER_NAME}"
 if id "$USER_NAME" >/dev/null 2>&1; then
   skip "${USER_NAME} user"
@@ -155,7 +181,7 @@ printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$USER_NAME" > "/etc/sudoers.d/${USER_NAME}
 chmod 0440 "/etc/sudoers.d/${USER_NAME}"
 chsh -s "$(command -v zsh)" "$USER_NAME"
 
-# 7. uv, Bun
+# 8. uv, Bun
 log "uv and Bun"
 if run_as_terry 'command -v uv >/dev/null 2>&1'; then
   skip "uv"
@@ -170,7 +196,7 @@ else
   ok "bun"
 fi
 
-# 8. starship, eza, bat, fd, zoxide
+# 9. starship, eza, bat, fd, zoxide
 log "User-space binaries"
 run_as_terry 'mkdir -p ~/.local/bin'
 if run_as_terry 'command -v starship >/dev/null 2>&1'; then
@@ -204,7 +230,7 @@ else
   ok "zoxide"
 fi
 
-# 9. npm globals
+# 10. npm globals
 log "npm globals"
 NPM_PACKAGES=(
   @anthropic-ai/claude-code
@@ -223,7 +249,7 @@ for package_name in "${NPM_PACKAGES[@]}"; do
   fi
 done
 
-# 10. uv tools
+# 11. uv tools
 log "uv tools"
 UV_TOOL_PACKAGES=(
   llm
@@ -244,7 +270,7 @@ for package_name in "${UV_TOOL_PACKAGES[@]}"; do
   fi
 done
 
-# 11. rustup
+# 12. rustup
 log "rustup"
 if run_as_terry 'source ~/.cargo/env 2>/dev/null && command -v rustc >/dev/null 2>&1'; then
   skip "rustup"
@@ -253,7 +279,7 @@ else
   ok "rustup"
 fi
 
-# 12. Playwright
+# 13. Playwright
 log "Playwright"
 if run_as_terry "[ -x ~/.cache/ms-playwright/chromium-*/chrome-linux/chrome ]" 2>/dev/null; then
   skip "playwright chromium"
@@ -262,13 +288,13 @@ else
   ok "playwright chromium"
 fi
 
-# 13. Directory scaffold
+# 14. Directory scaffold
 log "Directory scaffold"
 run_as_terry 'mkdir -p ~/bin ~/code ~/scripts ~/notes ~/epigenome/chromatin ~/epigenome/marks ~/.claude/hooks ~/.claude/skills ~/.claude/agents ~/.ssh ~/germline'
 chmod 700 "${USER_HOME}/.ssh"
 ok "directories"
 
-# 14. Git config
+# 15. Git config
 log "Git config"
 run_as_terry 'git config --global user.name "Terry Li"'
 run_as_terry 'git config --global user.email "terry.li.hm@gmail.com"'
@@ -277,7 +303,7 @@ run_as_terry 'git config --global pull.rebase false'
 run_as_terry 'git config --global push.autoSetupRemote true'
 ok "git config"
 
-# 15. SSH hardening
+# 16. SSH hardening
 log "SSH hardening"
 ensure_line "PasswordAuthentication no" /etc/ssh/sshd_config
 ok "sshd_config"
