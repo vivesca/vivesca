@@ -53,7 +53,7 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 In parallel:
 
-1. **`cytokinesis gather --syntactic`** (CLI, full mode always) — deterministic + LLM reflection + methylation audit
+1. **`cytokinesis gather`** (CLI, full mode always) — deterministic + LLM reflection + methylation audit (JSON by default)
 2. **LLM extraction** — scan session for candidates, classify by priority
 3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to chromatin? Write directly using the Write tool
 
@@ -152,7 +152,7 @@ Don't ask permission. Don't defer. If the insight is real, publish it.
 | `gather --fast` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age (~1s) |
 | `gather` | Full checks including LLM reflection + methylation audit (~60s) |
 | `flush` | Commit dirty repos (git add -A + commit per repo) |
-| `gather --syntactic` | JSON output (most token-efficient; use this in skill) |
+| `gather --semantic` | Human-readable output (JSON is default) |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |
 | `reflect <session-id>` | Scan transcript for reflection candidates (haiku) |

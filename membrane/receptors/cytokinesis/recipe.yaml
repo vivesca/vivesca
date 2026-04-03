@@ -100,7 +100,7 @@ instructions: |
   |---|---|
   | `gather` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age, dep-check, reflection scan |
   | `flush` | Commit dirty repos (git add -A + commit per repo) |
-  | `gather --syntactic` | JSON output (most token-efficient; use this in skill) |
+  | `gather --semantic` | Human-readable output (JSON is default) |
   | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
   | `daily "title"` | Append session log template to today's daily note |
   | `reflect <session-id>` | Scan transcript for reflection candidates (haiku) |

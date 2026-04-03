@@ -398,7 +398,7 @@ def cmd_gather(args):
                 results["reflect"] = []
 
     # --- Phase 1: print fast results immediately ---
-    if not args.syntactic and not args.perceptual:
+    if args.semantic and not args.perceptual:
         for label, info in sorted(results["repos"].items()):
             if not info["clean"] and info["clean"] is not None:
                 print(f"repo:{label} dirty {info['status']}")
@@ -436,7 +436,14 @@ def cmd_gather(args):
             results["reflect"] = []
 
     # Output
-    if args.syntactic:
+    if not args.semantic and not args.perceptual:
+        # Summarize rfts for token efficiency — full list only in semantic/perceptual
+        raw_rfts = results.get("rfts", [])
+        sorted_rfts = sorted(raw_rfts, key=lambda r: len(r.get("issues", [])), reverse=True)
+        results["rfts"] = {
+            "count": len(raw_rfts),
+            "top": [{"file": r["file"], "issues": len(r["issues"])} for r in sorted_rfts[:5]],
+        }
         print(json.dumps(results, indent=2))
         return
 
@@ -989,7 +996,7 @@ def cmd_extract(args):
         candidates = gather.get("reflect", [])
     except json.JSONDecodeError:
         # Try parsing as the semantic format
-        print("extract requires gather --syntactic output (JSON)", file=sys.stderr)
+        print("extract requires gather output (JSON)", file=sys.stderr)
         sys.exit(1)
 
     if not candidates:
@@ -1064,7 +1071,7 @@ def main():
 
     # gather
     g = sub.add_parser("gather", help="Run all pre-wrap checks")
-    g.add_argument("--syntactic", action="store_true", help="JSON output (for code)")
+    g.add_argument("--semantic", action="store_true", help="Human-readable output (default is JSON)")
     g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
     g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
     g.add_argument("--reflect", action="store_true", help="Include LLM reflection scan (slow)")
