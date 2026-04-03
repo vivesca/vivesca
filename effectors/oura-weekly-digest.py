@@ -8,6 +8,7 @@ Oura weekly digest — fetches 7-day health data via chemoreceptor organelle
 and saves a clean markdown note to ~/notes/Daily/Oura Weekly - YYYY-MM-DD.md.
 """
 
+import argparse
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -156,4 +157,8 @@ tags: [oura, health, weekly]
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description=__doc__.strip(),
+    )
+    parser.parse_args()
     main()
