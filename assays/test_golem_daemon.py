@@ -38,6 +38,12 @@ mark_failed = _mod["mark_failed"]
 check_new_test_files_and_run_pytest = _mod["check_new_test_files_and_run_pytest"]
 _normalize_prompt = _mod["_normalize_prompt"]
 _get_pending_prompts = _mod["_get_pending_prompts"]
+is_billing_exhausted = _mod["is_billing_exhausted"]
+parse_reset_date_str = _mod["parse_reset_date_str"]
+parse_rate_limit_window = _mod["parse_rate_limit_window"]
+is_rate_limited = _mod["is_rate_limited"]
+BILLING_EXHAUSTED_THRESHOLD = _mod["BILLING_EXHAUSTED_THRESHOLD"]
+RATE_LIMIT_COOLDOWN_SECONDS = _mod["RATE_LIMIT_COOLDOWN_SECONDS"]
 
 
 # ── parse_provider tests ─────────────────────────────────────────────
