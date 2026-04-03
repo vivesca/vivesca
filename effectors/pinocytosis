@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """pinocytosis — deterministic web content extraction.
 
-Fallback chain: defuddle → jina → firecrawl → agent-browser eval → error.
+Parallel fast tier (defuddle + jina + microlink) → firecrawl → agent-browser → error.
 
 Usage:
   pinocytosis <url>              # Extract text from URL
@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import platform
 
@@ -79,6 +80,26 @@ def _jina(url: str) -> str:
     return ""
 
 
+def _microlink(url: str) -> str:
+    """Extract via Microlink API (free, no auth, 50 req/day)."""
+    import urllib.parse
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            f"https://api.microlink.io?url={urllib.parse.quote(url, safe='')}&data.markdown.attr=markdown",
+            headers={"User-Agent": "pinocytosis/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        text = (data.get("data", {}).get("markdown") or
+                data.get("data", {}).get("description") or "")
+        if len(text) > 100:
+            return text
+    except Exception:
+        pass
+    return ""
+
+
 def _firecrawl(url: str) -> str:
     """Extract via Firecrawl API (1 credit/page). Reserved for paywalled/JS-heavy sites."""
     try:
@@ -133,40 +154,73 @@ def _screenshot(url: str, output: str) -> bool:
 
 
 def fetch_url(url: str, method: str | None = None) -> dict:
-    """Fetch URL content through smart fallback chain."""
+    """Fetch URL content. Parallel fast tier, then serial slow tier."""
     from urllib.parse import urlparse
     domain = urlparse(url).netloc.lstrip("www.")
 
-    # Build chain
-    chain = [
-        ("defuddle", _defuddle),
-        ("jina", _jina),
-        ("firecrawl", _firecrawl),
-        ("agent-browser", _agent_browser_eval),
-    ]
+    all_methods = {
+        "defuddle": _defuddle,
+        "jina": _jina,
+        "microlink": _microlink,
+        "firecrawl": _firecrawl,
+        "agent-browser": _agent_browser_eval,
+    }
 
     # Manual override: use only the specified method
     if method:
-        chain = [(m, fn) for m, fn in chain if m == method]
-        if not chain:
+        if method not in all_methods:
             return {"success": False, "text": "", "method": "none", "url": url,
                     "error": f"Unknown method: {method}"}
-    else:
-        # Check domain hints for skip-to
-        hint = None
-        for pattern, tool in DOMAIN_HINTS.items():
-            if domain.endswith(pattern):
-                hint = tool
-                break
-
-        # If hint, try that tool first
-        if hint:
-            chain = sorted(chain, key=lambda x: 0 if x[0] == hint else 1)
-
-    for name, fn in chain:
-        text = fn(url)
+        text = all_methods[method](url)
         if text:
-            return {"success": True, "text": text, "method": name, "url": url}
+            return {"success": True, "text": text, "method": method, "url": url}
+        return {"success": False, "text": "", "method": "none", "url": url,
+                "error": f"{method} returned no content"}
+
+    # Check domain hints — if hint points to a slow-tier tool, run it first
+    hint = None
+    for pattern, tool in DOMAIN_HINTS.items():
+        if domain.endswith(pattern):
+            hint = tool
+            break
+
+    if hint and hint in ("firecrawl", "agent-browser"):
+        text = all_methods[hint](url)
+        if text:
+            return {"success": True, "text": text, "method": hint, "url": url}
+
+    # Tier 1: parallel fast HTTP calls (free, no browser)
+    fast_tier = [("defuddle", _defuddle), ("jina", _jina), ("microlink", _microlink)]
+
+    # If hint is a fast-tier tool, prioritise it in results but still run all
+    results = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(fn, url): name for name, fn in fast_tier}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                results[name] = future.result()
+            except Exception:
+                results[name] = ""
+
+    # Pick richest non-empty result; prefer hint if tied
+    candidates = [(name, text) for name, text in results.items() if text]
+    if candidates:
+        if hint and any(name == hint for name, _ in candidates):
+            best = next((name, text) for name, text in candidates if name == hint)
+        else:
+            best = max(candidates, key=lambda x: len(x[1]))
+        return {"success": True, "text": best[1], "method": best[0], "url": url}
+
+    # Tier 2: firecrawl (costs credits)
+    text = _firecrawl(url)
+    if text:
+        return {"success": True, "text": text, "method": "firecrawl", "url": url}
+
+    # Tier 3: agent-browser (slow, last resort)
+    text = _agent_browser_eval(url)
+    if text:
+        return {"success": True, "text": text, "method": "agent-browser", "url": url}
 
     return {"success": False, "text": "", "method": "none", "url": url,
             "error": "All extraction methods failed"}
@@ -179,7 +233,7 @@ def main():
     parser.add_argument("--output", "-o", default="", help="Output path for screenshot")
     parser.add_argument("--json", action="store_true", help="JSON output")
     parser.add_argument("--method", "-m",
-                        choices=["defuddle", "jina", "firecrawl", "agent-browser"],
+                        choices=["defuddle", "jina", "microlink", "firecrawl", "agent-browser"],
                         help="Force specific extraction method")
     args = parser.parse_args()
 

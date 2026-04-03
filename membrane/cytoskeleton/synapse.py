@@ -12,7 +12,6 @@ from __future__ import annotations
 import configparser
 import contextlib
 import json
-import math
 import os
 import re
 import subprocess
@@ -20,7 +19,6 @@ import sys
 import tempfile
 import time
 import uuid
-from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -76,93 +74,21 @@ def get_hebbian():
 # ── anamnesis: session-start context loading ───────────────
 
 ANAM_NOW = CHROMATIN_DIR / "Tonus.md"
-ANAM_CONST = _VIVESCA_ROOT / "genome.md"
-ANAM_DOMAINS = {
-    "anatomy": {
-        "code",
-        "vivesca",
-        "hook",
-        "mcp",
-        "rename",
-        "tool",
-        "skill",
-        "substrate",
-        "metabolism",
-        "pipeline",
-        "agent",
-    },
-    "effectors": {"cli", "command", "binary", "script", "tool", "run", "which"},
-    "circadian": {
-        "calendar",
-        "meeting",
-        "schedule",
-        "tomorrow",
-        "today",
-        "week",
-        "plan",
-        "agenda",
-    },
-    "vitals": {
-        "health",
-        "gym",
-        "oura",
-        "sleep",
-        "exercise",
-        "hrv",
-        "readiness",
-        "workout",
-        "pain",
-        "headache",
-    },
-    "budget": {"budget", "token", "usage", "cost", "quota", "limit", "red", "respirometry"},
-}
-ANAM_KEYS = list(ANAM_DOMAINS.keys())
-
-
-def _anam_score(prompt_lower):
-    words = set(prompt_lower.split())
-    scores = {k: len(words & v) for k, v in ANAM_DOMAINS.items()}
-    return sorted(scores, key=lambda k: (-scores[k], k))
-
-
-def _anam_load(key):
-    if key == "anatomy":
-        from metabolon.resources.anatomy import express_anatomy
-
-        return "Anatomy (auto-generated)", express_anatomy()
-    elif key == "effectors":
-        from metabolon.resources.proteome import express_effector_index
-
-        return "Effectors (tool routing)", express_effector_index()
-    elif key == "circadian":
-        from metabolon.organelles.circadian_clock import scheduled_events
-
-        try:
-            events = scheduled_events("today")
-        except Exception:
-            events = ""
-        return "Circadian (today's schedule)", events
-    elif key == "vitals":
-        from metabolon.resources.vitals import express_vitals
-
-        return "Vitals", express_vitals()
-    elif key == "budget":
-        r = subprocess.run(["respirometry"], capture_output=True, text=True, timeout=10)
-        return "Budget", r.stdout.strip() if r.returncode == 0 else ""
-    return "", ""
 
 
 def mod_anamnesis(data):
+    """Session-start context: Tonus + epigenome git pull. Lean.
+
+    Domain context (anatomy, effectors, circadian, vitals, budget) removed —
+    already available on-demand via MCP tools (circadian, interoception,
+    tachometer) or file reads. genome.md removed — duplicate of CLAUDE.md.
+    """
     session_id = data.get("session_id", "")
     if not session_id:
         return []
     marker = TMP_DIR / f"chromatin-pull-{session_id}.done"
     if marker.exists():
         return []
-
-    msg = data.get("message", {})
-    prompt = msg.get("content", "") if isinstance(msg, dict) else ""
-    prompt_lower = prompt.lower() if prompt else ""
 
     try:
         subprocess.run(
@@ -184,22 +110,6 @@ def mod_anamnesis(data):
             lines.append(f"\nTonus.md (active session state):\n{c}")
     except Exception:
         pass
-
-    try:
-        c = ANAM_CONST.read_text(encoding="utf-8").strip()
-        if c:
-            lines.append(f"\nConstitution (vivesca canonical rules):\n{c}")
-    except Exception:
-        pass
-
-    order = _anam_score(prompt_lower) if prompt_lower else ANAM_KEYS
-    for key in order:
-        try:
-            label, content = _anam_load(key)
-            if content:
-                lines.append(f"\n{label}:\n{content}")
-        except Exception:
-            pass
 
     return lines
 
@@ -732,207 +642,11 @@ def mod_phenotype(data):
     return []
 
 
-# ── association: keyword retrieval from Reference/ ─────────
-
-ASSOC_REF = CHROMATIN_DIR / "Reference"
-ASSOC_DEB = HOME / ".claude" / "retrieval-hook-state.json"
-ASSOC_DEB_SEC = _sconf_int("association", "debounce_seconds", 300)
-ASSOC_TOP_K = _sconf_int("association", "top_k", 3)
-ASSOC_MIN = _sconf_float("association", "min_score", 1.5)
-ASSOC_SKIP = {"knowledge-structure.md", ".obsidian", ".DS_Store"}
-ASSOC_STOP = {
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "have",
-    "has",
-    "had",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "could",
-    "should",
-    "may",
-    "might",
-    "can",
-    "shall",
-    "to",
-    "of",
-    "in",
-    "for",
-    "on",
-    "with",
-    "at",
-    "by",
-    "from",
-    "as",
-    "into",
-    "about",
-    "between",
-    "through",
-    "after",
-    "before",
-    "during",
-    "without",
-    "this",
-    "that",
-    "these",
-    "those",
-    "it",
-    "its",
-    "i",
-    "me",
-    "my",
-    "we",
-    "our",
-    "you",
-    "your",
-    "he",
-    "she",
-    "they",
-    "them",
-    "what",
-    "which",
-    "who",
-    "how",
-    "when",
-    "where",
-    "why",
-    "and",
-    "or",
-    "but",
-    "not",
-    "no",
-    "if",
-    "then",
-    "so",
-    "just",
-    "also",
-    "more",
-    "some",
-    "any",
-    "all",
-    "each",
-    "every",
-    "up",
-    "out",
-    "now",
-    "new",
-    "get",
-    "make",
-    "like",
-    "use",
-    "check",
-}
+# ── association: REMOVED ──
+# Crude TF-IDF over Reference/ docs on every prompt (with 5min debounce).
+# Replaced by on-demand search via rheotaxis/histone MCP tools.
 
 
-def _assoc_tok(text):
-    return [
-        w
-        for w in re.findall(r"[a-z][a-z0-9_-]+", text.lower())
-        if w not in ASSOC_STOP and len(w) > 2
-    ]
-
-
-def mod_association(data):
-    prompt = data.get("prompt", "")
-    if not prompt or len(prompt) < 10:
-        return []
-
-    try:
-        if (
-            ASSOC_DEB.exists()
-            and time.time() - float(ASSOC_DEB.read_text().strip()) < ASSOC_DEB_SEC
-        ):
-            return []
-    except Exception:
-        pass
-
-    qtok = _assoc_tok(prompt)
-    if len(qtok) < 2:
-        return []
-    if not ASSOC_REF.exists():
-        return []
-
-    docs = {}
-    for md in ASSOC_REF.rglob("*.md"):
-        rel = str(md.relative_to(ASSOC_REF))
-        if any(s in rel for s in ASSOC_SKIP):
-            continue
-        try:
-            c = md.read_text(errors="replace")
-            if len(c) > 50:
-                docs[rel] = c
-        except OSError:
-            continue
-    if not docs:
-        return []
-
-    qc = Counter(qtok)
-    nd = len(docs)
-    df = Counter()
-    dc = {}
-    for p, c in docs.items():
-        nt = _assoc_tok(Path(p).stem.replace("-", " ").replace("_", " "))
-        ct = _assoc_tok(c[:3000])
-        tc = Counter(ct + nt * 3)
-        dc[p] = tc
-        df.update(tc.keys())
-
-    scored = []
-    for p, tc in dc.items():
-        s = sum(
-            (1 + math.log(tc[t])) * (math.log(nd / df.get(t, 1)) + 1) * qf
-            for t, qf in qc.items()
-            if tc.get(t, 0) > 0
-        )
-        if s >= ASSOC_MIN:
-            scored.append((p, s))
-    scored.sort(key=lambda x: -x[1])
-    scored = scored[:ASSOC_TOP_K]
-    if not scored:
-        return []
-
-    try:
-        ASSOC_DEB.parent.mkdir(parents=True, exist_ok=True)
-        ASSOC_DEB.write_text(str(time.time()))
-    except OSError:
-        pass
-
-    lines = []
-    for p, _ in scored:
-        fp = ASSOC_REF / p
-        try:
-            c = fp.read_text(errors="replace")
-        except OSError:
-            continue
-        heading = next((line.lstrip("#").strip() for line in c.splitlines() if line.startswith("#")), "")
-        body = c
-        if body.startswith("---"):
-            end = body.find("---", 3)
-            if end > 0:
-                body = body[end + 3 :]
-        snippet = " ".join(body.split()[:40])
-        display = heading or Path(p).stem
-        lines.append(f"- [[{Path(p).stem}]] ({p}): {display}")
-        if snippet:
-            lines.append(f"  {snippet}...")
-
-    if lines:
-        sug = "\n".join(lines)
-        return [
-            f"<reference-suggestions>\nPotentially relevant Reference docs:\n{sug}\nRead with Read tool if relevant.\n</reference-suggestions>"
-        ]
-    return []
 
 
 # ── rheotaxis: factual question detection ─────────────────
@@ -1043,7 +757,6 @@ def main():
         mod_circaseptan,
         mod_calorimetry,
         mod_phenotype,
-        mod_association,
         mod_context,
     ]
 

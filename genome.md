@@ -102,3 +102,29 @@ Draft autonomously, pause before "send". Auto-push personal repos. Ask before sh
 - **Package manager**: pnpm
 - **Front-stage** (client-facing): Terry's voice, not mine.
 - **Copy-paste**: `deltos`. Gists >4096 chars only.
+
+## Memory
+
+Memory index: `~/epigenome/marks/MEMORY.md` (also `~/.claude/projects/-home-terry/memory/MEMORY.md`). Read at session start. Each line links to a detailed mark file — read relevant ones when the task matches.
+
+Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference/finding), `source` (cc/gemini/codex/goose/user), `durability` (methyl=durable, acetyl=volatile), `protected: true` for core corrections.
+
+## GLM Coaching
+
+Append recurring GLM failure patterns to `~/epigenome/marks/feedback_golem_coaching.md`. Prepended to every golem dispatch. Format: pattern name, what GLM does wrong, fix instruction.
+
+<!-- BEGIN CODEX TOOL MAP -->
+## Codex Tool Mapping
+
+When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equivalents:
+- Read → shell reads (cat/sed) or rg
+- Write → shell redirection or apply_patch
+- Edit/MultiEdit → apply_patch
+- Bash → shell_command
+- Grep → rg (fallback: grep)
+- Glob → rg --files or find
+- WebFetch/WebSearch → curl or Context7
+- AskUserQuestion → numbered list in chat, wait for reply
+- Task/Subagent → sequential in main thread; multi_tool_use.parallel for tool calls
+- Skill → open the referenced SKILL.md and follow it
+<!-- END CODEX TOOL MAP -->

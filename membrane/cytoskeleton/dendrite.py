@@ -854,31 +854,9 @@ def mod_docima(data):
             pass
 
 
-# ── attention_refresh: re-inject Tonus.md every N mutations ──
-
-ATTN_MARKER = "/tmp/claude-attention-counter"
-ATTN_INTERVAL = 25
-ATTN_NOW = str(HOME / "epigenome/chromatin/Tonus.md")
-
-
-def mod_attention(_data):
-    count = 0
-    try:
-        with open(ATTN_MARKER) as f:
-            count = int(f.read().strip())
-    except (FileNotFoundError, ValueError):
-        pass
-
-    count += 1
-    with open(ATTN_MARKER, "w") as f:
-        f.write(str(count))
-
-    if count % ATTN_INTERVAL == 0 and os.path.exists(ATTN_NOW):
-        with open(ATTN_NOW) as f:
-            content = f.read()
-        lines = [line for line in content.splitlines() if not line.strip().startswith("<!--")]
-        print(f"[attention-refresh] Re-grounding after {count} tool calls:")
-        print("\n".join(lines))
+# ── attention_refresh: REMOVED ──
+# Tonus.md already injected at session start via synapse anamnesis.
+# Re-injecting every 25 tool calls was duplicate context burn.
 
 
 # ── apoptosis: log tool failures ───────────────────────────
@@ -1482,10 +1460,6 @@ def main():
     # Docima (Edit/Write on MEMORY.md)
     if tool in ("Edit", "Write") and "MEMORY.md" in fp:
         modules.append(mod_docima)
-
-    # Attention refresh (Edit/Write/Bash)
-    if tool in ("Edit", "Write", "Bash"):
-        modules.append(mod_attention)
 
     # Recurrence tracking (Read on memory files)
     if tool == "Read" and "memory/" in fp:
