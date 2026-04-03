@@ -236,13 +236,13 @@ class TestScreenshot:
         assert "screenshot_" in result.data["output_path"]
         assert result.data["output_path"].endswith(".png")
 
-    def test_caffeinate_called(self):
-        with (
-            patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok")),
-            patch("metabolon.enzymes.navigator.subprocess.run") as mock_run,
-            patch("metabolon.enzymes.navigator.time.sleep"),
-        ):
-            _fn()(action="screenshot", url="https://example.com", output_path="/tmp/x.png")
+    @patch("metabolon.enzymes.navigator.sys")
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.navigator.subprocess.run")
+    @patch("metabolon.enzymes.navigator.time.sleep")
+    def test_caffeinate_called(self, mock_sleep, mock_run, mock_ab, mock_sys):
+        mock_sys.platform = "darwin"
+        _fn()(action="screenshot", url="https://example.com", output_path="/tmp/x.png")
 
         # First call should be caffeinate
         caffeinate_call = mock_run.call_args_list[0]
@@ -411,12 +411,11 @@ class TestUnknownAction:
 
     def test_action_case_insensitive(self):
         """Action is lowercased and stripped."""
-        result = _fn()(action="  EXTRACT  ", url="https://x.com")
-        # Should not hit unknown action — will try extract flow
-        # Will fail on navigation since _run_ab isn't mocked, but let's mock it
-        with patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok")):
-            with patch("metabolon.enzymes.navigator.time.sleep"):
-                result = _fn()(action="  EXTRACT  ", url="https://x.com")
+        with (
+            patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok")),
+            patch("metabolon.enzymes.navigator.time.sleep"),
+        ):
+            result = _fn()(action="  EXTRACT  ", url="https://x.com")
         assert result.success is True
 
 
@@ -458,3 +457,467 @@ class TestCleanup:
         # Clean up list state
         if str(f) in _pending_screenshots:
             _pending_screenshots.remove(str(f))
+
+
+# ---------------------------------------------------------------------------
+# navigator — navigate action (primary name for extract)
+# ---------------------------------------------------------------------------
+
+class TestNavigate:
+    """Tests for the navigate action (extract is an alias)."""
+
+    def test_navigate_is_primary_name(self):
+        """navigate action works identically to extract."""
+        def mock_run_ab(args):
+            if args[0] == "open":
+                return (True, "ok")
+            if args == ["get", "title"]:
+                return (True, "Nav Page")
+            if args == ["get", "text"]:
+                return (True, "nav content")
+            if args == ["get", "url"]:
+                return (True, "https://nav.co")
+            return (True, "")
+
+        with (
+            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.navigator.time.sleep"),
+        ):
+            result = _fn()(action="navigate", url="https://nav.co")
+
+        assert result.success is True
+        assert result.data["title"] == "Nav Page"
+        assert result.data["text"] == "nav content"
+
+    def test_navigate_missing_url(self):
+        result = _fn()(action="navigate")
+        assert result.success is False
+        assert "url" in result.error
+
+    def test_extract_still_works_as_alias(self):
+        """extract action is an alias for navigate — backward compat."""
+        def mock_run_ab(args):
+            if args[0] == "open":
+                return (True, "ok")
+            if args == ["get", "title"]:
+                return (True, "Alias")
+            if args == ["get", "text"]:
+                return (True, "alias content")
+            if args == ["get", "url"]:
+                return (True, "https://alias.co")
+            return (True, "")
+
+        with (
+            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.navigator.time.sleep"),
+        ):
+            result = _fn()(action="extract", url="https://alias.co")
+
+        assert result.success is True
+        assert result.data["title"] == "Alias"
+
+
+# ---------------------------------------------------------------------------
+# helper functions — _set_viewport, _set_device
+# ---------------------------------------------------------------------------
+
+class TestHelpers:
+    """Tests for _set_viewport and _set_device helpers."""
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_set_viewport_basic(self, mock_run):
+        from metabolon.enzymes.navigator import _set_viewport
+        ok, out = _set_viewport(1920, 1080)
+        assert ok is True
+        assert out == "ok"
+        mock_run.assert_called_once_with(["set", "viewport", "1920", "1080"])
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_set_viewport_with_scale(self, mock_run):
+        from metabolon.enzymes.navigator import _set_viewport
+        ok, out = _set_viewport(1280, 720, scale=2.0)
+        assert ok is True
+        mock_run.assert_called_once_with(
+            ["set", "viewport", "1280", "720", "--scale", "2.0"]
+        )
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_set_viewport_scale_zero_omits_flag(self, mock_run):
+        from metabolon.enzymes.navigator import _set_viewport
+        _set_viewport(800, 600, scale=0)
+        call_args = mock_run.call_args[0][0]
+        assert "--scale" not in call_args
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_set_device(self, mock_run):
+        from metabolon.enzymes.navigator import _set_device
+        ok, out = _set_device("iPhone 14")
+        assert ok is True
+        mock_run.assert_called_once_with(["set", "device", "iPhone 14"])
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "no such device"))
+    def test_set_device_failure(self, mock_run):
+        from metabolon.enzymes.navigator import _set_device
+        ok, out = _set_device("FakeDevice")
+        assert ok is False
+        assert "no such device" in out
+
+
+# ---------------------------------------------------------------------------
+# navigator — screenshot with viewport/device params
+# ---------------------------------------------------------------------------
+
+class TestScreenshotViewportDevice:
+    """Tests for screenshot action with viewport and device parameters."""
+
+    @patch("metabolon.enzymes.navigator.time.sleep")
+    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.navigator.subprocess.run")
+    def test_screenshot_with_viewport(self, mock_sp, mock_run, mock_sleep):
+        mock_run.side_effect = [
+            (True, "ok"),  # set viewport
+            (True, "ok"),  # open
+            (True, "ok"),  # screenshot
+        ]
+        mock_sp.return_value = MagicMock(stdout="", stderr="", returncode=0)
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            width=1920,
+            height=1080,
+            output_path="/tmp/vp.png",
+            wait_ms=0,
+        )
+        assert result.success is True
+        assert result.data["output_path"] == "/tmp/vp.png"
+        # First _run_ab call should be set viewport
+        first_call = mock_run.call_args_list[0][0][0]
+        assert first_call == ["set", "viewport", "1920", "1080"]
+
+    @patch("metabolon.enzymes.navigator.time.sleep")
+    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.navigator.subprocess.run")
+    def test_screenshot_with_viewport_and_scale(self, mock_sp, mock_run, mock_sleep):
+        mock_run.side_effect = [
+            (True, "ok"),  # set viewport
+            (True, "ok"),  # open
+            (True, "ok"),  # screenshot
+        ]
+        mock_sp.return_value = MagicMock(stdout="", stderr="", returncode=0)
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            width=1280,
+            height=720,
+            scale=2.0,
+            output_path="/tmp/vp2.png",
+            wait_ms=0,
+        )
+        assert result.success is True
+        first_call = mock_run.call_args_list[0][0][0]
+        assert first_call == ["set", "viewport", "1280", "720", "--scale", "2.0"]
+
+    @patch("metabolon.enzymes.navigator.time.sleep")
+    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.navigator.subprocess.run")
+    def test_screenshot_with_device(self, mock_sp, mock_run, mock_sleep):
+        mock_run.side_effect = [
+            (True, "ok"),  # set device
+            (True, "ok"),  # open
+            (True, "ok"),  # screenshot
+        ]
+        mock_sp.return_value = MagicMock(stdout="", stderr="", returncode=0)
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            device="iPhone 14",
+            output_path="/tmp/dev.png",
+            wait_ms=0,
+        )
+        assert result.success is True
+        first_call = mock_run.call_args_list[0][0][0]
+        assert first_call == ["set", "device", "iPhone 14"]
+
+    @patch("metabolon.enzymes.navigator.time.sleep")
+    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.navigator.subprocess.run")
+    def test_screenshot_device_and_viewport(self, mock_sp, mock_run, mock_sleep):
+        """Both device and viewport can be set — device first, then viewport."""
+        mock_run.side_effect = [
+            (True, "ok"),  # set device
+            (True, "ok"),  # set viewport
+            (True, "ok"),  # open
+            (True, "ok"),  # screenshot
+        ]
+        mock_sp.return_value = MagicMock(stdout="", stderr="", returncode=0)
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            device="Pixel 7",
+            width=800,
+            height=600,
+            output_path="/tmp/both.png",
+            wait_ms=0,
+        )
+        assert result.success is True
+        calls = [c[0][0] for c in mock_run.call_args_list]
+        assert calls[0] == ["set", "device", "Pixel 7"]
+        assert calls[1] == ["set", "viewport", "800", "600"]
+
+    @patch("metabolon.enzymes.navigator._run_ab")
+    def test_screenshot_device_failure_aborts(self, mock_run):
+        mock_run.return_value = (False, "unknown device")
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            device="NoPhone",
+            output_path="/tmp/x.png",
+        )
+        assert result.success is False
+        assert "Set device failed" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab")
+    def test_screenshot_viewport_failure_aborts(self, mock_run):
+        mock_run.side_effect = [
+            (False, "viewport error"),  # set viewport
+        ]
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            width=99999,
+            height=99999,
+            output_path="/tmp/x.png",
+        )
+        assert result.success is False
+        assert "Set viewport failed" in result.error
+
+    @patch("metabolon.enzymes.navigator.time.sleep")
+    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.navigator.subprocess.run")
+    def test_screenshot_no_viewport_when_zero(self, mock_sp, mock_run, mock_sleep):
+        """width=0, height=0 should NOT call set viewport."""
+        mock_run.side_effect = [
+            (True, "ok"),  # open
+            (True, "ok"),  # screenshot
+        ]
+        mock_sp.return_value = MagicMock(stdout="", stderr="", returncode=0)
+        result = _fn()(
+            action="screenshot",
+            url="https://x.co",
+            width=0,
+            height=0,
+            output_path="/tmp/novp.png",
+            wait_ms=0,
+        )
+        assert result.success is True
+        # Only 2 calls: open + screenshot (no set viewport)
+        assert mock_run.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# navigator — click action
+# ---------------------------------------------------------------------------
+
+class TestClick:
+    """Tests for the click action."""
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "clicked"))
+    def test_click_success(self, mock_run):
+        result = _fn()(action="click", css_selector="#submit-btn")
+        assert result.success is True
+        assert result.data["css_selector"] == "#submit-btn"
+        assert result.data["result"] == "clicked"
+        mock_run.assert_called_once_with(["click", "#submit-btn"])
+
+    def test_click_missing_selector(self):
+        result = _fn()(action="click")
+        assert result.success is False
+        assert "css_selector" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "element not found"))
+    def test_click_failure(self, mock_run):
+        result = _fn()(action="click", css_selector=".missing")
+        assert result.success is False
+        assert "Click failed" in result.error
+        assert "element not found" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_click_complex_selector(self, mock_run):
+        result = _fn()(action="click", css_selector="div.card > button.primary")
+        assert result.success is True
+        mock_run.assert_called_once_with(["click", "div.card > button.primary"])
+
+
+# ---------------------------------------------------------------------------
+# navigator — fill action
+# ---------------------------------------------------------------------------
+
+class TestFill:
+    """Tests for the fill action."""
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "filled"))
+    def test_fill_success(self, mock_run):
+        result = _fn()(action="fill", css_selector="#email", value="user@example.com")
+        assert result.success is True
+        assert result.data["css_selector"] == "#email"
+        assert result.data["value"] == "user@example.com"
+        assert result.data["result"] == "filled"
+        mock_run.assert_called_once_with(["fill", "#email", "user@example.com"])
+
+    def test_fill_missing_selector(self):
+        result = _fn()(action="fill", value="hello")
+        assert result.success is False
+        assert "css_selector" in result.error
+
+    def test_fill_missing_value(self):
+        result = _fn()(action="fill", css_selector="#input")
+        assert result.success is False
+        assert "value" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "not interactable"))
+    def test_fill_failure(self, mock_run):
+        result = _fn()(action="fill", css_selector="#locked", value="test")
+        assert result.success is False
+        assert "Fill failed" in result.error
+        assert "not interactable" in result.error
+
+    def test_fill_empty_string_value_rejected(self):
+        """Empty string value is treated as missing."""
+        result = _fn()(action="fill", css_selector="#input", value="")
+        assert result.success is False
+        assert "value" in result.error
+
+
+# ---------------------------------------------------------------------------
+# navigator — eval action
+# ---------------------------------------------------------------------------
+
+class TestEval:
+    """Tests for the eval action."""
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "42"))
+    def test_eval_success(self, mock_run):
+        result = _fn()(action="eval", js="document.title")
+        assert result.success is True
+        assert result.data["js"] == "document.title"
+        assert result.data["result"] == "42"
+        mock_run.assert_called_once_with(["eval", "document.title"])
+
+    def test_eval_missing_js(self):
+        result = _fn()(action="eval")
+        assert result.success is False
+        assert "js" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "SyntaxError"))
+    def test_eval_failure(self, mock_run):
+        result = _fn()(action="eval", js="invalid{{")
+        assert result.success is False
+        assert "Eval failed" in result.error
+        assert "SyntaxError" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, '{"key":"value"}'))
+    def test_eval_returns_complex_output(self, mock_run):
+        result = _fn()(action="eval", js="JSON.stringify({key:'value'})")
+        assert result.success is True
+        assert result.data["result"] == '{"key":"value"}'
+
+
+# ---------------------------------------------------------------------------
+# navigator — resize action
+# ---------------------------------------------------------------------------
+
+class TestResize:
+    """Tests for the resize action."""
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_resize_success(self, mock_run):
+        result = _fn()(action="resize", width=1920, height=1080)
+        assert result.success is True
+        assert result.data["width"] == 1920
+        assert result.data["height"] == 1080
+        assert "scale" not in result.data
+        mock_run.assert_called_once_with(["set", "viewport", "1920", "1080"])
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_resize_with_scale(self, mock_run):
+        result = _fn()(action="resize", width=1280, height=720, scale=2.0)
+        assert result.success is True
+        assert result.data["scale"] == 2.0
+        mock_run.assert_called_once_with(
+            ["set", "viewport", "1280", "720", "--scale", "2.0"]
+        )
+
+    def test_resize_missing_width(self):
+        result = _fn()(action="resize", height=1080)
+        assert result.success is False
+        assert "width" in result.error
+
+    def test_resize_missing_height(self):
+        result = _fn()(action="resize", width=1920)
+        assert result.success is False
+        assert "height" in result.error
+
+    def test_resize_zero_dimensions(self):
+        result = _fn()(action="resize", width=0, height=0)
+        assert result.success is False
+
+    def test_resize_negative_dimensions(self):
+        result = _fn()(action="resize", width=-100, height=200)
+        assert result.success is False
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "unsupported size"))
+    def test_resize_failure(self, mock_run):
+        result = _fn()(action="resize", width=50000, height=50000)
+        assert result.success is False
+        assert "Resize failed" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    def test_resize_scale_zero_not_in_data(self, mock_run):
+        """scale=0 should be omitted from result data."""
+        result = _fn()(action="resize", width=800, height=600, scale=0)
+        assert result.success is True
+        assert "scale" not in result.data
+
+
+# ---------------------------------------------------------------------------
+# navigator — snapshot action
+# ---------------------------------------------------------------------------
+
+class TestSnapshot:
+    """Tests for the snapshot action."""
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "<accessibility tree>"))
+    def test_snapshot_success(self, mock_run):
+        result = _fn()(action="snapshot")
+        assert result.success is True
+        assert result.data["snapshot"] == "<accessibility tree>"
+        mock_run.assert_called_once_with(["snapshot"])
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "no page"))
+    def test_snapshot_failure(self, mock_run):
+        result = _fn()(action="snapshot")
+        assert result.success is False
+        assert "Snapshot failed" in result.error
+        assert "no page" in result.error
+
+    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, ""))
+    def test_snapshot_empty_page(self, mock_run):
+        result = _fn()(action="snapshot")
+        assert result.success is True
+        assert result.data["snapshot"] == ""
+
+
+# ---------------------------------------------------------------------------
+# navigator — updated unknown action message
+# ---------------------------------------------------------------------------
+
+class TestUpdatedUnknownAction:
+    """Tests that unknown action error includes all valid actions."""
+
+    def test_unknown_lists_all_actions(self):
+        result = _fn()(action="foobar")
+        assert result.success is False
+        assert "Unknown action" in result.error
+        assert "foobar" in result.error
+        for act in ["navigate", "extract", "screenshot", "click", "fill", "eval", "resize", "snapshot", "check_auth"]:
+            assert act in result.error
