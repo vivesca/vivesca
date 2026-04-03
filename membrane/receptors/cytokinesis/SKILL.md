@@ -53,7 +53,7 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 In parallel:
 
-1. **`cytokinesis gather --fast`** (CLI, ~1s) — deterministic pre-checks, returns structured Vital
+1. **`cytokinesis gather --syntactic`** (CLI, full mode always) — deterministic + LLM reflection + methylation audit
 2. **LLM extraction** — scan session for candidates, classify by priority
 3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to chromatin? Write directly using the Write tool
 
