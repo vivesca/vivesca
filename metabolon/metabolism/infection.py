@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TypedDict
 
 from metabolon.locus import infections_log

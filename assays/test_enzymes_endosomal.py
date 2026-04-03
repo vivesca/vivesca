@@ -17,9 +17,15 @@ from metabolon.morphology import EffectorResult
 
 @pytest.fixture(autouse=True)
 def _patch_cytosol(monkeypatch):
-    """Mock invoke_organelle and synthesize for every test."""
-    monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "")
+    """Mock gmail organelle and synthesize for every test."""
     monkeypatch.setattr(mod, "synthesize", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.gmail, "search", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.gmail, "get_thread", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.gmail, "archive", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.gmail, "mark_read", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.gmail, "create_label", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.gmail, "send_email", lambda *a, **kw: "")
+    monkeypatch.setattr(mod.endosomal_organelle, "classify", lambda *a, **kw: "action_required")
 
 
 @pytest.fixture()

@@ -14,10 +14,15 @@ from metabolon.morphology.base import EffectorResult
 
 
 @pytest.fixture
-def mock_invoke_organelle():
-    """Mock invoke_organelle to avoid actual CLI calls."""
-    with patch("metabolon.enzymes.endosomal.invoke_organelle") as mock:
-        mock.return_value = "Mock output"
+def mock_gmail():
+    """Mock gmail organelle to avoid actual API calls."""
+    with patch("metabolon.enzymes.endosomal.gmail") as mock:
+        mock.search.return_value = "Mock output"
+        mock.get_thread.return_value = "Mock output"
+        mock.archive.return_value = "archived"
+        mock.mark_read.return_value = "marked read"
+        mock.create_label.return_value = "label created"
+        mock.send_email.return_value = "sent"
         yield mock
 
 
@@ -27,6 +32,12 @@ def mock_synthesize():
     with patch("metabolon.enzymes.endosomal.synthesize") as mock:
         mock.return_value = "action_required"
         yield mock
+
+
+@pytest.fixture
+def mock_invoke_organelle(mock_gmail):
+    """Backward-compat alias — tests that used invoke_organelle now use mock_gmail."""
+    yield mock_gmail
 
 
 @pytest.fixture
