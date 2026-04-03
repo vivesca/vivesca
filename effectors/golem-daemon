@@ -277,14 +277,18 @@ def _dispatch_candidates(provider: str) -> list[str]:
     return ordered
 
 
-def _pick_dispatch_provider(provider: str, provider_cooldown_until: dict, provider_running: dict) -> str | None:
-    """Pick the runtime provider for a queued task."""
-    if provider not in provider_cooldown_until:
+def _pick_dispatch_provider(provider: str, provider_cooldown_until: dict, provider_running: dict, provider_disabled: dict | None = None) -> str | None:
+    """Pick the runtime provider for a queued task.
+
+    Skips providers in cooldown OR in PROVIDER_DISABLED (billing-cycle exhaustion).
+    """
+    disabled = provider_disabled or {}
+    if provider not in provider_cooldown_until and provider not in disabled:
         return provider
 
     skipped: list[str] = []
     for candidate in _dispatch_candidates(provider):
-        if candidate in provider_cooldown_until:
+        if candidate in provider_cooldown_until or candidate in disabled:
             skipped.append(f"{candidate}:cooldown")
             continue
         current = provider_running.get(candidate, 0)
@@ -1714,9 +1718,11 @@ def daemon_loop(dry_run: bool = False):
                             if is_explicit_ratelimit or is_fast_exit or is_empty_output:
                                 # Rate-limited: apply proportional cooldown immediately
                                 window = parse_rate_limit_window(tail)
-                                # Billing-exhausted without parseable reset date: use 24h default
-                                if window is None and is_billing_exhausted(tail):
-                                    window = BILLING_EXHAUSTED_THRESHOLD
+                                # Billing-exhausted: enforce minimum 24h cooldown even if
+                                # parse_rate_limit_window returned a short value (e.g. the
+                                # message only had "try again at 9:01 PM" without a full date).
+                                if is_billing_exhausted(tail):
+                                    window = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
                                 cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
                                 cooldown_end = time.time() + cooldown
                                 # Only extend, never shorten existing cooldown
