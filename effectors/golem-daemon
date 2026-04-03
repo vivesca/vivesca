@@ -216,11 +216,11 @@ SSH_REMOTE_EXIT_CONNECT_FAIL = 125  # Exit code signalling SSH connection failur
 # Provider fallback chain — ordered by pass rate. When a provider is in cooldown,
 # its tasks route to the next available provider in this chain.
 PROVIDER_FALLBACK = {
-    "codex": ["gemini"],
-    "gemini": ["codex"],
-    "zhipu": [],
-    "infini": [],
-    "volcano": [],
+    "codex": ["gemini", "zhipu"],
+    "gemini": ["codex", "zhipu"],
+    "zhipu": ["codex", "gemini"],
+    "infini": ["codex", "gemini"],
+    "volcano": ["codex", "gemini"],
 }
 
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
@@ -1701,7 +1701,15 @@ def daemon_loop(dry_run: bool = False):
                             if is_explicit_ratelimit or is_fast_exit or is_empty_output:
                                 # Rate-limited: apply proportional cooldown immediately
                                 window = parse_rate_limit_window(tail)
-                                cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
+                                is_billing = is_billing_exhausted(tail)
+                                if window:
+                                    cooldown = window
+                                elif is_billing:
+                                    # Billing-cycle exhaustion detected but couldn't
+                                    # parse exact reset time — use 24h default
+                                    cooldown = BILLING_EXHAUSTED_THRESHOLD
+                                else:
+                                    cooldown = RATE_LIMIT_COOLDOWN_SECONDS
                                 cooldown_end = time.time() + cooldown
                                 # Only extend, never shorten existing cooldown
                                 if provider_cooldown_until.get(dispatch_provider, 0) < cooldown_end:
@@ -2130,18 +2138,33 @@ def cmd_status():
             try:
                 entries = json.loads(COOLDOWN_LOG.read_text())
                 now = time.time()
-                # Latest burnout per provider, not yet resumed
-                active = {}
+                # Latest cooldown per provider, not yet resumed
+                active_burnout: dict[str, str] = {}
+                active_billing: dict[str, str] = {}
                 for e in entries:
                     p = e.get("provider", "?")
                     if e.get("event") == "resumed":
-                        active.pop(p, None)
+                        active_burnout.pop(p, None)
+                        active_billing.pop(p, None)
+                    elif e.get("event") == "billing-exhausted" and e.get("resets_at"):
+                        reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                        if reset_time > now:
+                            reset_tm = time.localtime(reset_time)
+                            active_billing[p] = time.strftime("%b ", reset_tm) + str(reset_tm.tm_mday)
+                            active_burnout.pop(p, None)  # billing overrides burnout display
                     elif e.get("event") == "burnout" and e.get("resets_at"):
                         reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
                         if reset_time > now:
-                            active[p] = e["resets_at"][11:16]
-                if active:
-                    print(f"Cooldowns: {', '.join(f'{p} (resets {t})' for p, t in sorted(active.items()))}")
+                            active_burnout[p] = e["resets_at"][11:16]
+                # Format combined output: billing limits shown with date, short cooldowns with time
+                parts = []
+                for p in sorted(set(active_billing) | set(active_burnout)):
+                    if p in active_billing:
+                        parts.append(f"{p} (billing limit, resets {active_billing[p]})")
+                    else:
+                        parts.append(f"{p} (resets {active_burnout[p]})")
+                if parts:
+                    print(f"Cooldowns: {', '.join(parts)}")
             except (json.JSONDecodeError, OSError, KeyError, ValueError):
                 pass
 
