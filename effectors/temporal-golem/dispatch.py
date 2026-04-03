@@ -320,7 +320,8 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         if not (stripped.startswith("- [ ] ") or stripped.startswith("- [!!] ")):
             continue
 
-        cmd_match = re.search(r"`([^`]+)`", line)
+        # Match outermost backtick pair (greedy — handles backticks inside prompts)
+        cmd_match = re.search(r"`(.+)`", line)
         if not cmd_match:
             continue
 
