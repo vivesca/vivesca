@@ -90,3 +90,5 @@ pytest_*.txt
 test_output*.txt
 test_results*.txt
 test-output*.txt
+loci/golem-reviews.jsonl
+loci/golem-outputs/

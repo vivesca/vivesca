@@ -1,0 +1,436 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""scintigraphy — functional usage scan for the organism.
+
+Measures which tools (CLIs, MCP tools, skills) are hot, warm, cold, or dead
+by checking binary existence, log activity, and signal traces over the
+last 7 days.
+
+Usage:
+    scintigraphy              # full audit table
+    scintigraphy --json       # machine-readable output
+    scintigraphy --days N     # override lookback window (default 7)
+    scintigraphy --type CLI   # filter to one type (CLI/MCP/skill)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+# ── Constants ────────────────────────────────────────────────────────────────
+HOME = Path.home()
+NOW = datetime.now(timezone.utc)
+SEVEN_DAYS_AGO_ISO = (NOW - timedelta(days=7)).strftime("%Y-%m-%d")
+
+CLI_TOOLS = [
+    "noesis", "exauro", "defuddle", "grok", "lustro", "qianli",
+    "pinocytosis", "bird", "auceps", "keryx", "agent-browser",
+    "rodney", "comes", "amicus", "fasti", "salus",
+]
+
+BIN_PATHS = [
+    HOME / "bin",
+    HOME / ".cargo" / "bin",
+    HOME / ".go" / "bin",
+    Path("/usr/local/bin"),
+]
+
+MCP_TOOLS = [
+    "rheotaxis", "histone", "gap_junction", "circadian",
+    "navigator", "interoception", "tachometer", "cytosol",
+    "golem", "porta_inject", "constitution", "nociceptor",
+]
+
+SKILL_NAMES = [
+    "elencho", "indago", "scintigraphy", "circadian", "autoimmune",
+    "chromatin-backup", "backup-due", "chemoreception",
+]
+
+SIGNAL_LOG = HOME / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
+NOESIS_LOG = HOME / ".local" / "share" / "noesis" / "log.jsonl"
+VIVESCA_LOG = HOME / ".local" / "share" / "vivesca" / "golem.jsonl"
+
+# Claude session files — grep for tool/skill mentions
+SESSION_DIR = HOME / ".claude" / "sessions"
+
+# Broadened search paths for tool usage traces
+TOOL_TRACE_DIRS = [
+    HOME / "germline" / "loci" / "signals",
+    HOME / ".local" / "share",
+    HOME / ".claude" / "projects",
+]
+
+# ── Colours ──────────────────────────────────────────────────────────────────
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+DIM    = "\033[2m"
+RED    = "\033[31m"
+GREEN  = "\033[32m"
+YELLOW = "\033[33m"
+CYAN   = "\033[36m"
+MAGENTA = "\033[35m"
+WHITE  = "\033[37m"
+
+
+def verdict(count: int) -> str:
+    if count == 0:
+        return "dead"
+    elif count <= 2:
+        return "cold"
+    elif count <= 8:
+        return "warm"
+    else:
+        return "hot"
+
+
+def verdict_color(v: str) -> str:
+    return {
+        "hot": GREEN,
+        "warm": YELLOW,
+        "cold": CYAN,
+        "dead": RED,
+    }.get(v, RESET)
+
+
+# ── CLI check ────────────────────────────────────────────────────────────────
+def check_cli(name: str) -> tuple[bool, str]:
+    """Return (exists, location) for a CLI binary."""
+    # 1. `which` lookup
+    which = shutil.which(name)
+    if which:
+        return True, which
+    # 2. Manual path scan
+    for d in BIN_PATHS:
+        p = d / name
+        if p.is_file() and os.access(p, os.X_OK):
+            return True, str(p)
+    return False, "-"
+
+
+def count_cli_usage(name: str, since: datetime) -> int:
+    """Count invocations in noesis log, signal logs, session traces."""
+    count = 0
+    cutoff = since.strftime("%Y-%m-%d")
+
+    # Noesis log
+    if NOESIS_LOG.exists():
+        try:
+            for line in NOESIS_LOG.read_text().splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                    ts = rec.get("ts", rec.get("timestamp", ""))
+                    if ts >= cutoff and name in json.dumps(rec):
+                        count += 1
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        except (OSError, PermissionError):
+            pass
+
+    # Rheotaxis signal log — relevant for search-related CLIs
+    if SIGNAL_LOG.exists():
+        try:
+            for line in SIGNAL_LOG.read_text().splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                    ts = rec.get("ts", "")
+                    if ts >= cutoff and name in json.dumps(rec):
+                        count += 1
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        except (OSError, PermissionError):
+            pass
+
+    # Session JSON files — grep for CLI name in any value
+    if SESSION_DIR.exists():
+        for sf in SESSION_DIR.glob("*.json"):
+            try:
+                content = sf.read_text()
+                if name in content:
+                    count += content.count(name)
+            except (OSError, PermissionError):
+                pass
+
+    return count
+
+
+# ── MCP tool check ──────────────────────────────────────────────────────────
+def check_mcp(name: str) -> tuple[bool, str]:
+    """Return (available, source) for an MCP tool."""
+    # Try calling tachometer first
+    try:
+        result = subprocess.run(
+            ["curl", "-sf", "--max-time", "3",
+             f"http://127.0.0.1:8741/mcp",
+             "-d", json.dumps({"tool": f"vivesca__{name}", "action": "status"})],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            return True, "vivesca (live)"
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    # Grep vivesca logs for tool name
+    if VIVESCA_LOG.exists():
+        try:
+            content = VIVESCA_LOG.read_text()
+            if name in content:
+                return True, "vivesca (log trace)"
+        except (OSError, PermissionError):
+            pass
+
+    # Check MCP health audit
+    copia = HOME / "germline" / "loci" / "copia"
+    if copia.exists():
+        for f in copia.glob("vivesca-*.md"):
+            try:
+                if name in f.read_text():
+                    return True, f"audit doc ({f.name})"
+            except (OSError, PermissionError):
+                pass
+
+    return False, "-"
+
+
+def count_mcp_usage(name: str, since: datetime) -> int:
+    """Count MCP tool usage from signal logs and session traces."""
+    count = 0
+    cutoff = since.strftime("%Y-%m-%d")
+
+    # Signal logs
+    for sig_dir in [HOME / "germline" / "loci" / "signals"]:
+        if not sig_dir.exists():
+            continue
+        for jlf in sig_dir.glob("*.jsonl"):
+            try:
+                for line in jlf.read_text().splitlines():
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                        ts = rec.get("ts", rec.get("timestamp", ""))
+                        if ts >= cutoff and name in json.dumps(rec):
+                            count += 1
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+            except (OSError, PermissionError):
+                pass
+
+    # Session files
+    if SESSION_DIR.exists():
+        for sf in SESSION_DIR.glob("*.json"):
+            try:
+                content = sf.read_text()
+                pattern = f"vivesca__{name}"
+                if pattern in content or name in content:
+                    count += max(content.count(pattern), content.count(name))
+            except (OSError, PermissionError):
+                pass
+
+    return count
+
+
+# ── Skill check ──────────────────────────────────────────────────────────────
+def check_skill(name: str) -> tuple[bool, str]:
+    """Return (exists, location) for a skill directory."""
+    skill_dir = HOME / ".claude" / "skills" / name
+    if skill_dir.exists() and (skill_dir / "SKILL.md").exists():
+        return True, str(skill_dir / "SKILL.md")
+
+    # Also check if it's an effector script
+    eff = HOME / "germline" / "effectors" / name
+    if eff.exists():
+        return True, str(eff)
+
+    # Check .py variant
+    eff_py = HOME / "germline" / "effectors" / (name + ".py")
+    if eff_py.exists():
+        return True, str(eff_py)
+
+    # Check .sh variant
+    eff_sh = HOME / "germline" / "effectors" / (name + ".sh")
+    if eff_sh.exists():
+        return True, str(eff_sh)
+
+    return False, "-"
+
+
+def count_skill_usage(name: str, since: datetime) -> int:
+    """Count skill invocations by grepping session files and project dirs."""
+    count = 0
+
+    # Session files
+    if SESSION_DIR.exists():
+        for sf in SESSION_DIR.glob("*.json"):
+            try:
+                content = sf.read_text()
+                if name in content:
+                    count += content.count(name)
+            except (OSError, PermissionError):
+                pass
+
+    # Project-level tool results
+    projects_dir = HOME / ".claude" / "projects"
+    if projects_dir.exists():
+        for tf in projects_dir.rglob("tool-results/*.txt"):
+            try:
+                content = tf.read_text()
+                if name in content:
+                    count += content.count(name)
+            except (OSError, PermissionError):
+                pass
+
+    # Check ~/.claude/plans/
+    plans_dir = HOME / ".claude" / "plans"
+    if plans_dir.exists():
+        for pf in plans_dir.iterdir():
+            try:
+                content = pf.read_text()
+                if name in content:
+                    count += content.count(name)
+            except (OSError, PermissionError):
+                pass
+
+    return count
+
+
+# ── Output ───────────────────────────────────────────────────────────────────
+Row = dict[str, Any]
+
+
+def run_audit(days: int = 7) -> list[Row]:
+    since = NOW - timedelta(days=days)
+    rows: list[Row] = []
+
+    # CLIs
+    for name in CLI_TOOLS:
+        exists, location = check_cli(name)
+        usage = count_cli_usage(name, since) if exists else 0
+        v = verdict(usage)
+        rows.append({
+            "tool": name,
+            "type": "CLI",
+            "exists": exists,
+            "location": location,
+            "usage_7d": usage,
+            "verdict": v,
+        })
+
+    # MCP tools
+    for name in MCP_TOOLS:
+        available, source = check_mcp(name)
+        usage = count_mcp_usage(name, since) if available else 0
+        v = verdict(usage)
+        rows.append({
+            "tool": f"vivesca__{name}",
+            "type": "MCP",
+            "exists": available,
+            "location": source,
+            "usage_7d": usage,
+            "verdict": v,
+        })
+
+    # Skills
+    for name in SKILL_NAMES:
+        exists, location = check_skill(name)
+        usage = count_skill_usage(name, since) if exists else 0
+        v = verdict(usage)
+        rows.append({
+            "tool": name,
+            "type": "skill",
+            "exists": exists,
+            "location": location,
+            "usage_7d": usage,
+            "verdict": v,
+        })
+
+    return rows
+
+
+def print_table(rows: list[Row], filter_type: str | None = None) -> None:
+    if filter_type:
+        rows = [r for r in rows if r["type"] == filter_type]
+
+    # Column widths
+    name_w = max(len(r["tool"]) for r in rows) + 2
+    type_w = 6
+    exist_w = 7
+    usage_w = 9
+    verdict_w = 8
+
+    hdr = (
+        f"{'tool':<{name_w}} {'type':<{type_w}} "
+        f"{'exists?':<{exist_w}} {'7d uses':>{usage_w}}  {'verdict':<{verdict_w}}"
+    )
+    sep = "─" * len(hdr)
+
+    print(f"\n{BOLD}  Scintigraphy — functional usage scan{RESET}")
+    print(f"  {DIM}{NOW.strftime('%Y-%m-%d %H:%M UTC')}{RESET}\n")
+    print(f"  {hdr}")
+    print(f"  {sep}")
+
+    # Sort: hot first, then warm, cold, dead; within tier alphabetical
+    order = {"hot": 0, "warm": 1, "cold": 2, "dead": 3}
+    rows.sort(key=lambda r: (order.get(r["verdict"], 9), r["tool"]))
+
+    for r in rows:
+        exists_str = "✓" if r["exists"] else "✗"
+        vc = verdict_color(r["verdict"])
+        print(
+            f"  {r['tool']:<{name_w}} {r['type']:<{type_w}} "
+            f"{exists_str:<{exist_w}} {r['usage_7d']:>{usage_w}}  "
+            f"{vc}{r['verdict']:<{verdict_w}}{RESET}"
+        )
+
+    print(f"  {sep}")
+    # Summary
+    hot = sum(1 for r in rows if r["verdict"] == "hot")
+    warm = sum(1 for r in rows if r["verdict"] == "warm")
+    cold = sum(1 for r in rows if r["verdict"] == "cold")
+    dead = sum(1 for r in rows if r["verdict"] == "dead")
+    missing = sum(1 for r in rows if not r["exists"])
+    print(
+        f"  {BOLD}Totals:{RESET}  "
+        f"{GREEN}hot={hot}{RESET}  "
+        f"{YELLOW}warm={warm}{RESET}  "
+        f"{CYAN}cold={cold}{RESET}  "
+        f"{RED}dead={dead}{RESET}  "
+        f"{DIM}not installed={missing}{RESET}"
+    )
+    print()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="scintigraphy — functional usage scan"
+    )
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    parser.add_argument("--days", type=int, default=7, help="lookback window (default 7)")
+    parser.add_argument("--type", choices=["CLI", "MCP", "skill"], help="filter to one type")
+    args = parser.parse_args()
+
+    rows = run_audit(days=args.days)
+
+    if args.json:
+        json.dump(rows, sys.stdout, indent=2)
+        print()
+    else:
+        print_table(rows, filter_type=args.type)
+
+
+if __name__ == "__main__":
+    main()
