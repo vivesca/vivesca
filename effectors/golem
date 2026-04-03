@@ -368,6 +368,13 @@ _run_golem() {
       # to claude launch as last resort (the endpoint may behave differently for CC).
       _attempt=$(( _attempt + 1 ))
       if [[ $_attempt -lt $_max_retries ]]; then
+        # Wall-limit check: skip retry if remaining time < per-attempt timeout
+        local _elapsed=$(( $(date +%s) - _wall_start ))
+        local _remaining=$(( _wall_limit - _elapsed ))
+        if [[ $_remaining -lt $_claude_timeout ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+          break
+        fi
         $QUIET || echo "[preflight] $PROVIDER connection error (attempt $_attempt/$_max_retries), retrying in ${_backoff}s" >&2
         sleep "$_backoff"
         _backoff=$(( _backoff * 2 ))
