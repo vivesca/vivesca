@@ -59,23 +59,21 @@ TASK_ID_RE = re.compile(r"\[t-([0-9a-f]{6})\]")
 # Per-provider concurrency limits (mirrors golem-daemon)
 # ---------------------------------------------------------------------------
 
+# Only zhipu confirmed working on ganglion. Others exit 127.
+# Re-enable when provider configs are fixed on ganglion.
 PROVIDER_LIMITS: dict[str, int] = {
     "zhipu": 8,
-    "infini": 2,
-    "volcano": 16,
-    "gemini": 4,
-    "codex": 4,
+    # "infini": 2,
+    # "volcano": 16,
+    # "gemini": 4,
+    # "codex": 4,
 }
 DEFAULT_LIMIT = 4
 MAX_TOTAL_CONCURRENT = 24
 
-# Provider fallback chain — ordered by pass rate.
+# Provider fallback chain — disabled until non-zhipu providers work on ganglion.
 PROVIDER_FALLBACK: dict[str, list[str]] = {
-    "codex": ["gemini", "zhipu"],
-    "gemini": ["codex", "zhipu"],
-    "zhipu": ["codex", "gemini"],
-    "infini": ["codex", "gemini"],
-    "volcano": ["codex", "gemini"],
+    "zhipu": [],
 }
 
 # ---------------------------------------------------------------------------
