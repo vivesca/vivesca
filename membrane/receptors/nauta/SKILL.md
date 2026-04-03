@@ -71,6 +71,25 @@ agent-browser snapshot
 
 After any action, refs become stale. **Always re-snapshot before each action.**
 
+### SPA Component Clicking (Angular, React, Vue)
+
+In SPAs, the visible text is often a `<span>` or `<p>` inside a framework wrapper component (`mat-list-item`, `[role=listbox] > div`, React `li`, etc.). Clicking the text node does nothing — you need the interactive ancestor.
+
+**Pattern:** Find the text, then `.closest()` up to the clickable wrapper:
+```js
+document.querySelector('.programTitle').closest('mat-list-item').click()
+```
+
+**General discovery approach:**
+```js
+// Find what wraps a visible text string
+var el = Array.from(document.querySelectorAll('*'))
+  .find(e => e.textContent.includes('Target Text') && e.offsetHeight < 100);
+// Walk up: el.tagName, el.className, el.parentElement...
+```
+
+**Signs you hit this:** `click @ref` returns success but page doesn't navigate. URL stays the same. `snapshot` shows the element but it's a `StaticText` or `span`, not a link or button.
+
 ### Two Modes
 
 | Mode | Command | Use case |
