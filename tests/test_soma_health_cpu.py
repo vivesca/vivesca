@@ -9,6 +9,7 @@ Acceptance: these tests pass with `pytest tests/test_soma_health_cpu.py`.
 from __future__ import annotations
 
 import importlib
+import importlib.machinery
 import json
 import subprocess
 import sys
@@ -16,10 +17,14 @@ from pathlib import Path
 from unittest.mock import mock_open, patch
 
 
+_SOMA_HEALTH_PATH = str(Path.home() / "germline" / "effectors" / "soma-health")
+
+
 def _import_soma_health():
-    """Import soma-health as a module."""
+    """Import soma-health as a module (file has no .py extension)."""
+    loader = importlib.machinery.SourceFileLoader("soma_health", _SOMA_HEALTH_PATH)
     spec = importlib.util.spec_from_file_location(
-        "soma_health", Path.home() / "germline" / "effectors" / "soma-health"
+        "soma_health", _SOMA_HEALTH_PATH, loader=loader
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

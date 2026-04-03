@@ -112,6 +112,9 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
                 "output_path": str(cached),
             }
 
+    # Run golem from repo root, not temporal-golem subdir
+    repo_root = str(Path.home() / "germline")
+
     # Detect partial progress from a prior killed attempt
     prior_commits = await asyncio.to_thread(
         _detect_prior_commits, repo_root, time_window_minutes=40, author="golem"
@@ -138,8 +141,6 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         "--max-turns", str(max_turns),
         effective_task,
     ]
-    # Run golem from repo root, not temporal-golem subdir
-    repo_root = str(Path.home() / "germline")
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
