@@ -14,12 +14,12 @@ import asyncio
 from datetime import timedelta
 
 from temporalio import workflow
-from temporalio.common import RetryPolicy, TypedSearchAttributes, SearchAttributeKey
+from temporalio.common import RetryPolicy, SearchAttributeKey
 
 with workflow.unsafe.imports_passed_through():
     from worker import run_golem_task, run_golem_graph_task, review_golem_result
 
-# #6: Custom search attributes for Temporal UI filtering
+# #6: Search attributes (registered on server)
 SA_PROVIDER = SearchAttributeKey.for_keyword("GolemProvider")
 SA_VERDICT = SearchAttributeKey.for_keyword("GolemVerdict")
 SA_TASK_ID = SearchAttributeKey.for_keyword("GolemTaskId")
@@ -125,17 +125,14 @@ class GolemDispatchWorkflow:
             }
             review = {"approved": False, "flags": ["activity_failed"], "verdict": "rejected"}
 
-        # #6: Upsert search attributes for Temporal UI
-        try:
-            workflow.upsert_search_attributes(
-                [
-                    SA_PROVIDER.value_set(provider),
-                    SA_VERDICT.value_set(review.get("verdict", "unknown")),
-                    SA_TASK_ID.value_set(task[:50]),
-                ]
-            )
-        except Exception:
-            pass  # search attributes may not be registered yet
+        # #6: Upsert search attributes
+        workflow.upsert_search_attributes(
+            [
+                SA_PROVIDER.value_set(provider),
+                SA_VERDICT.value_set(review.get("verdict", "unknown")),
+                SA_TASK_ID.value_set(task[:50]),
+            ]
+        )
 
         # #5: If flagged, wait for approval signal (timeout 1h, auto-approve)
         if review.get("verdict") == "approved_with_flags":
@@ -150,6 +147,11 @@ class GolemDispatchWorkflow:
                     review = {**review, "approved": False, "verdict": "rejected_by_signal"}
             except asyncio.TimeoutError:
                 pass  # auto-approve after 1h
+
+        # Wire use_review_v2: pass output_path in review for new executions
+        # so dispatch can log it.  Old replays keep current behavior (no output_path).
+        if use_review_v2:
+            review = {**review, "output_path": result.get("output_path", "")}
 
         return {**result, "review": review, "mode": mode, "requeue_prompt": review.get("requeue_prompt", "")}
 

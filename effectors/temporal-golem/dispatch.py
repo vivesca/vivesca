@@ -247,10 +247,6 @@ def _dispatch_candidates(provider: str) -> list[str]:
     return ordered
 
 
-def _swap_provider(cmd: str, old_provider: str, new_provider: str) -> str:
-    """Swap --provider in a command string for runtime fallback."""
-    return cmd.replace(f"--provider {old_provider}", f"--provider {new_provider}", 1)
-
 
 def _pick_dispatch_provider(provider: str) -> str | None:
     """Pick the runtime provider, falling back if the preferred one is on cooldown."""
@@ -350,10 +346,11 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         if prompt_match:
             prompt = prompt_match.group(1)
         else:
-            # Strip golem prefix, task ID, flags to extract bare prompt
+            # Strip golem prefix, task IDs, and known flags only
             prompt = re.sub(r'^golem\s+', '', cmd)
             prompt = re.sub(r'\[t-[0-9a-fA-F]+\]\s*', '', prompt)
-            prompt = re.sub(r'(?:--?\w+)\s+\S+\s*', '', prompt, count=5)
+            prompt = re.sub(r'(?:--provider|-b)\s+\S+\s*', '', prompt)
+            prompt = re.sub(r'--max-turns\s+\d+\s*', '', prompt)
             prompt = prompt.strip() or cmd
 
         turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
@@ -508,22 +505,11 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
         return len(pending)
 
     # Build specs for Temporal workflow, respecting cooldowns & limits
-    # #6: Round-robin across available providers for batch distribution
-    available_providers = [
-        p for p in PROVIDER_LIMITS if not _is_on_cooldown(p)
-    ]
     specs = []
     dispatched = []  # list of (line_num, task_id) for mark_done
     skipped = 0
-    rr_idx = 0
     for line_num, prompt, provider, task_id, max_turns in pending:
-        # If task specifies a provider via -b, respect it; otherwise round-robin
-        if provider == "zhipu" and len(available_providers) > 1 and len(pending) > 1:
-            # No explicit provider preference — distribute across available
-            dispatch_provider = available_providers[rr_idx % len(available_providers)]
-            rr_idx += 1
-        else:
-            dispatch_provider = _pick_dispatch_provider(provider)
+        dispatch_provider = _pick_dispatch_provider(provider)
 
         if dispatch_provider is None:
             skipped += 1
@@ -588,7 +574,9 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
 
             if verdict == "approved":
                 mark_done(ln, task_id=tid)
-                log(f"[DONE] [{tid}] {tr.get('provider', '?')}")
+                output_path = review.get("output_path", "")
+                extra = f" → {output_path}" if output_path else ""
+                log(f"[DONE] [{tid}] {tr.get('provider', '?')}{extra}")
                 approved_count += 1
             elif verdict == "approved_with_flags":
                 log(f"[HOLD] [{tid}] {tr.get('provider', '?')} — flags: {', '.join(flags)}")
@@ -603,7 +591,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
                     fallback_list = PROVIDER_FALLBACK.get(orig_provider, [])
                     fallback = next((f for f in fallback_list if not _is_on_cooldown(f)), None)
                     if fallback:
-                        _auto_requeue(tr.get("task", ""), fallback)
+                        _auto_requeue(spec.get("task", ""), fallback)
                         log(f"[FALLBACK] [{tid}] {orig_provider}->{fallback} — requeued on fallback")
                 reason = f"review rejected: {', '.join(flags)}" if flags else "review rejected"
                 mark_failed(ln, task_id=tid, reason=reason)
