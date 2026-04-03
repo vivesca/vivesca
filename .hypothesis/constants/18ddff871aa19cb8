@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/resources/proteome.py
+# hypothesis_version: 6.151.10
+
+['# Tool Index\n', '*.py', '.', '_', '__init__.py', 'cli', 'description', 'doc', 'effectors', 'enzymes', 'mcp', 'name', 'proteome.md', 'source', 'type', 'vivesca/effectors/', '| Tool | Source |', '|------|--------|']

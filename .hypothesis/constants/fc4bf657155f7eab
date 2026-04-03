@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/metabolism/substrates/spending.py
+# hypothesis_version: 6.151.10
+
+[100, '**', ',', '-summary.md', ': ', '????-??-*.md', 'Proposals:', '^---\\n(.+?)\\n---', 'categories', 'category', 'current', 'file', 'flux_delta', 'meta', 'prior', 'spending']

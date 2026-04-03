@@ -1,0 +1,4 @@
+# file: /home/terry/germline/effectors/client-brief
+# hypothesis_version: 6.151.10
+
+[2.0, 160, '*.md', '---', '--help', '-h', '.DS_Store', '.git', '.obsidian', 'Archive', 'Energy & Utilities', 'Healthcare', 'Retail & Consumer', 'Technology', 'Telecommunications', '\\W+', '__main__', 'ai', 'ai ', 'ai governance', 'aml', 'bank', 'banking', 'chromatin', 'compliance', 'consultancy', 'consulting', 'cybersecurity', 'data governance', 'data management', 'digital', 'energy', 'epigenome', 'fintech', 'fraud', 'genai', 'generative ai', 'global', 'healthcare', 'insurance', 'large', 'mid-cap', 'model', 'pharma', 'regulatory', 'replace', 'responsible ai', 'retail', 'risk', 'risk tiering', 'sandbox', 'scale-up', 'startup', 'technology', 'telco', 'telecom', 'templates', 'tier 1', 'tier-1', 'transform', 'utf-8', '…']

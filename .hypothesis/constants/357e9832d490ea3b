@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/auscultation.py
+# hypothesis_version: 6.151.10
+
+[100, 200, '*.log', '-', '.local', 'Darwin', 'ERROR|WARN|FAIL', 'Library', 'Logs', 'N', 'No log files found.', '\\d+', 'auscultation', 'errors', 'logs', 'replace', 'share', 'tmp', 'vivesca']

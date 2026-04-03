@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/respirometry/parsers/boc.py
+# hypothesis_version: 6.151.10
+
+[0.0, 0.02, '%Y-%m-%d', '%d %b %Y', '%d-%b-%Y', ',', 'BALANCE B/F', 'BOC Credit Card', 'Balance B/F', 'CR', 'CURRENT BALANCE', 'Gift Points', 'HKD', 'LAST ITEM', 'ODD CENTS', 'PPS PAYMENT', 'Payment Slip', '\\s+[A-Z]{2,3}\\s*$', '\\s{2,}', 'boc', 'currency', 'date', 'foreign_amount', 'hkd', 'merchant']

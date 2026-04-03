@@ -530,21 +530,8 @@ def check_pyroptosis(probe_name: str, priming: dict) -> bool:
 def _pyroptosis_alert(probe_name: str, count: int, message: str) -> None:
     """Send Telegram alert on pyroptosis — the only loud escalation path.
 
-    Fires once per probe per pyroptosis threshold crossing (not every cycle).
-    Uses a cooldown file to avoid spam: one alert per probe per 6 hours.
+    Throttling delegated to secretory_vesicle transport layer (24h cooldown per probe).
     """
-    cooldown_dir = _PRIMING_PATH.parent
-    cooldown_file = cooldown_dir / f"pyroptosis_{probe_name}.ts"
-    cooldown_seconds = 6 * 3600  # 6 hours
-
-    try:
-        if cooldown_file.exists():
-            last_alert = float(cooldown_file.read_text().strip())
-            if time.time() - last_alert < cooldown_seconds:
-                return  # Still in cooldown — don't spam
-    except Exception:
-        pass  # Corrupted file — alert anyway
-
     try:
         from metabolon.organelles.secretory_vesicle import secrete_text
 
@@ -553,15 +540,15 @@ def _pyroptosis_alert(probe_name: str, count: int, message: str) -> None:
             f"{count} consecutive failures\n"
             f"<code>{message[:300]}</code>"
         )
-        secrete_text(alert, html=True, label="inflammasome")
+        secrete_text(
+            alert,
+            html=True,
+            label="inflammasome",
+            cooldown_key=f"pyroptosis-{probe_name}",
+            cooldown_seconds=24 * 3600,
+        )
     except Exception:
         pass  # If Telegram itself is broken, don't crash the probe cycle
-
-    try:
-        cooldown_dir.mkdir(parents=True, exist_ok=True)
-        cooldown_file.write_text(str(time.time()))
-    except Exception:
-        pass
 
 
 def adaptive_response(results: list[dict]) -> list[dict]:

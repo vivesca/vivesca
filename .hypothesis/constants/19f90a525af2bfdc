@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/respirometry/payments.py
+# hypothesis_version: 6.151.10
+
+['%Y-%m', '%Y-%m-%d', '--date', '--description', '--from', '--to', '09:00', '09:30', 'active', 'amount', 'autopay', 'bank', 'cards', 'create', 'created', 'due_date', 'fasti', 'pending', 'statement_date', 'statement_day', 'unknown']

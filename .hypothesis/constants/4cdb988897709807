@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/pinocytosis/photoreception.py
+# hypothesis_version: 6.151.10
+
+['--json', '--send', '__main__', 'store_true']

@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/receptor_sense.py
+# hypothesis_version: 6.151.10
+
+['(?=^### )', '*.yaml', '-', '.local', '^## (D\\d+)', '_file', 'a', 'answer', 'avg_score', 'card_type', 'categories', 'category', 'days_to_next_phase', 'drill_count', 'drill_type', 'goal', 'goals', 'last_drilled', 'material', 'materials', 'name', 'never', 'phase', 'phases', 'question', 'score', 'share', 'total_drills', 'ts', 'until', 'vivesca', 'weakest']

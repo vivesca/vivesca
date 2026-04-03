@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/polarization.py
+# hypothesis_version: 6.151.10
+
+['--json', 'action', 'activated', 'deactivated', 'error', 'guard', 'guard_state', 'off', 'on', 'polarization', 'polarization-gather', 'preflight', 'raw_text', 'stderr', 'timeout']

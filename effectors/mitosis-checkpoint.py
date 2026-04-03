@@ -17,6 +17,7 @@ Logic:
   4. Alert via deltos ONLY if repair fails
 
 Silent when healthy. Runs via pacemaker every 30 min.
+Throttling handled by secretory_vesicle transport layer (cooldown_key).
 """
 
 import argparse
@@ -29,6 +30,8 @@ if _venv.exists():
     for p in sorted(_venv.glob("python*/site-packages")):
         if str(p) not in sys.path:
             sys.path.insert(0, str(p))
+
+ALERT_COOLDOWN_SECONDS = 24 * 3600
 
 
 def check_and_heal() -> None:
@@ -43,7 +46,8 @@ def check_and_heal() -> None:
         time.sleep(15)
         info = status()
         if not info["reachable"]:
-            _alert("Gemmule UNREACHABLE — fly machine may be stopped.")
+            _alert("Soma UNREACHABLE — fly machine may be stopped.",
+                   cooldown_key="mitosis-unreachable")
             return
 
     # Find stale or missing targets
@@ -72,21 +76,31 @@ def check_and_heal() -> None:
 
         _alert(
             f"Mitosis checkpoint: self-heal ran but targets still degraded: "
-            f"{', '.join(still_sick)}"
+            f"{', '.join(still_sick)}",
+            cooldown_key="mitosis-degraded",
         )
     else:
         failed = [r for r in report.results if not r.success]
         details = "; ".join(f"{r.target}: {r.message}" for r in failed[:3])
-        _alert(f"Mitosis checkpoint: sync repair failed — {details}")
+        _alert(f"Mitosis checkpoint: sync repair failed — {details}",
+               cooldown_key="mitosis-sync-failed")
 
 
-def _alert(message: str) -> None:
-    """Alert via Telegram. Print to stderr as fallback."""
+def _alert(message: str, cooldown_key: str = "") -> None:
+    """Alert via Telegram. Throttling delegated to secretory_vesicle."""
     print(f"ALERT: {message}", file=sys.stderr)
     try:
         from metabolon.organelles.secretory_vesicle import secrete_text
 
-        secrete_text(f"[mitosis-checkpoint] {message}", html=False, label="DR alert")
+        result = secrete_text(
+            f"[mitosis-checkpoint] {message}",
+            html=False,
+            label="DR alert",
+            cooldown_key=cooldown_key,
+            cooldown_seconds=ALERT_COOLDOWN_SECONDS,
+        )
+        if result == "throttled":
+            print(f"THROTTLED by transport: {message}", file=sys.stderr)
     except Exception as exc:
         print(f"Telegram send failed: {exc}", file=sys.stderr)
 
@@ -100,7 +114,7 @@ def main() -> None:
     try:
         check_and_heal()
     except Exception as exc:
-        _alert(f"Checkpoint crashed: {exc}")
+        _alert(f"Checkpoint crashed: {exc}", cooldown_key="mitosis-crashed")
         sys.exit(1)
 
 

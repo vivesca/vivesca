@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/emit.py
+# hypothesis_version: 6.151.10
+
+['## Interphase', '%Y-%m-%d', '.md.tmp', '<b>\\1</b>', 'Consulting', 'Content Telemetry.md', 'Daily', 'Meta', 'No posts', '\\*\\*(.+?)\\*\\*', '\\1 (\\2)', '\\[(.+?)\\]\\((.+?)\\)', '^#{1,3}\\s+(.+)$', '_sparks.md', 'a', 'all', 'bird', 'chromatin', 'clean', 'daily_note', 'emit', 'epigenome', 'html', 'index', 'interphase_close', 'knowledge_signal', 'linkedin', 'list', 'new', 'overdue', 'plain', 'post', 'praxis', 'publish', 'push', 'reminder', 'someday', 'spare', 'spark', 'stats', 'telegram_image', 'telegram_text', 'telemetry', 'today', 'tweet', 'upcoming']

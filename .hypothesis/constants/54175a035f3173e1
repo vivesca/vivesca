@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/state.py
+# hypothesis_version: 6.151.10
+
+[0.2, 0.5, 1.0, '.lock', 'biweekly', 'daily', 'monthly', 'twice_weekly', 'utf-8', 'w', 'weekly']

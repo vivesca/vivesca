@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/judge.py
+# hypothesis_version: 6.151.10
+
+['--context', '--json', '--model', '.local/bin/judge', 'article', 'glm', 'job-eval', 'judge_evaluate', 'outreach']

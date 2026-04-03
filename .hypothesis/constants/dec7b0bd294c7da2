@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/cargo.py
+# hypothesis_version: 6.151.10
+
+['%Y-%m-%d', '[^\\w\\s]', 'a', 'date', 'title', 'unknown', 'utf-8', 'w']

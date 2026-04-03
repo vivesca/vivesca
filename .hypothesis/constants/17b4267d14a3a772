@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/metabolism/mismatch_repair.py
+# hypothesis_version: 6.151.10
+
+['*.py', '--include=*.py', '-rn', 'CLAUDE.md', 'CrystalSubstrate', 'DnaSubstrate', 'ExecutiveSubstrate', 'Precision: clean', '\\bCrystalSubstrate\\b', '\\bDnaSubstrate\\b', '_', 'autonomic', 'cortical', 'dormant', 'grep', 'labelled autonomic', 'labelled cortical', 'llm', 'metabolism', 'no LLM usage found', 'ok', 'orphan', 'precision.py', 'resource', 'resources', 'structural', 'substrate', 'substrates', 'uses LLM (cortical?)', 'vocabulary']

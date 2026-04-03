@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/lysin/fetch.py
+# hypothesis_version: 6.151.10
+
+[10.0, 15.0, 200, 404, '.', '. ', '1', '3', '<[^>]+>', 'CATALYTIC ACTIVITY', 'Catalytic activity', 'DOMAIN', 'Domain', 'FUNCTION', 'Function', 'Homo sapiens', 'Pathway', 'Pathway summary', 'Reactome', 'SUBUNIT', 'Subunit interactions', 'UniProt', 'User-Agent', 'Wikipedia', '^[a-z]+\\d+[a-z]?$', 'action', 'commentType', 'comments', 'content_urls', 'desktop', 'ecNumber', 'entries', 'extract', 'fields', 'format', 'fullName', 'json', 'limit', 'line', 'may refer to:', 'name', 'opensearch', 'page', 'primaryAccession', 'proteinDescription', 'query', 'reaction', 'recommendedName', 'remaining', 'results', 'rows', 'search', 'sections', 'size', 'species', 'stId', 'summation', 'text', 'texts', 'title', 'types', 'value']

@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/metabolism/dependency_check.py
+# hypothesis_version: 6.151.10
+
+['--help', '.git', 'ANTHROPIC_API_KEY', 'FAIL', 'HEAD', 'Not a git repo', 'Not found on PATH', 'Not set', 'OK', 'Path missing', 'Set', 'ZHIPU_API_KEY', 'api_key', 'assay', 'binary', 'cytokinesis', 'engram', 'epigenome', 'germline', 'git', 'git rev-parse failed', 'git_repo', 'goose', 'rev-parse', 'sortase', 'unknown']

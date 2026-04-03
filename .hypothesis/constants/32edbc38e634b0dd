@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/sortase/validator.py
+# hypothesis_version: 6.151.10
+
+[0.8, 300, ', ', '--name-only', '--stat', '.git', '.venv', 'HEAD', 'Test command failed', '[<>=!~ \\[]', '\\b(TODO|FIXME)\\b', '\\bstub\\b', '__pycache__', 'coverage_ratio', 'covered_modules', 'dependencies', 'dependency-pollution', 'diff', 'directory-spread', 'error', 'git', 'has_test', 'ignore', 'module', 'modules', 'node_modules', 'placeholder-scan', 'project', 'scope-check', 'show', 'target', 'test-coverage', 'tests', 'total_modules', 'utf-8', 'warning']

@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/sortase/history.py
+# hypothesis_version: 6.151.10
+
+['#', '%Y-%m-%d %H:%M', '-', 'Backend', 'Duration', 'Files', 'Plan', 'Status', 'Timestamp', '[green]ok[/green]', '[red]fail[/red]', '[yellow]?[/yellow]', 'backend', 'dim', 'duration', 'duration_s', 'fail', 'files', 'files_changed', 'ok', 'plan', 'right', 'sortase history', 'status', 'success', 'timestamp', 'tool', 'unknown']

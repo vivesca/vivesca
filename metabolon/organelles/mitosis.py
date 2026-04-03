@@ -2,14 +2,11 @@ from __future__ import annotations
 
 """mitosis — asymmetric cell division for disaster recovery.
 
-The iMac is the self-renewing daughter cell. Lucerna (fly.io, nrt) is the
-differentiated standby — kept synchronized via one-way push, activated only
-when the primary dies.
+Soma (fly.io, nrt) is the primary. The iMac is the standby — kept
+synchronized via git push/pull through GitHub.
 
 Sync is git-based and unidirectional: Mac pushes to GitHub, soma pulls.
 No direct SSH or rsync needed — all remote commands go through `fly ssh console`.
-
-State divergence is impossible by design: Mac is always authoritative.
 
 Core functions: sync, status, setup.
 """
@@ -20,8 +17,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Lucerna coordinates
-LUCERNA_APP = "gemmule"  # fly.io app name
+# Soma coordinates
+LUCERNA_APP = "soma"  # fly.io app name
 LUCERNA_USER = "terry"
 LUCERNA_HOME = f"/home/{LUCERNA_USER}"
 

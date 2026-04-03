@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/sortase/compare.py
+# hypothesis_version: 6.151.10
+
+[0.0, 100, '# Session Comparison', '+', 'duration_s', 'failure_reason', 'success', 'timestamp', 'unknown', 'utf-8', '↑', '→', '↓']

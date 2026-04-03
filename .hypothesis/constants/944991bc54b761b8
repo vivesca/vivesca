@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/sortase/decompose.py
+# hypothesis_version: 6.151.10
+
+[180, '(?i)\\bdo\\s+not\\b', '(?i)\\bmust\\s+not\\b', '(?i)\\bnever\\b', '(?i)budget\\b', '(?i)deliverable', '(?i)deliverable\\b', '(?i)max\\s+\\d+\\s+call', '(?i)max\\s+\\d+\\s+tool', '(?i)output\\b.*[:=]', '(?i)output\\s+path', '(?i)save\\s+to\\b', '(?i)tool\\s+budget\\b', '-', '--yolo', '-m', '-p', '.yaml', '.yml', '/tmp/[\\w/.-]+', 'CLAUDECODE', 'FIXME', 'TODO', '\\bscope\\b', '^```', '^```[\\w]*\\s*$', 'clarity', 'complex', 'constraints', 'default', 'description', 'files', 'gemini', 'medium', 'name', 'prerequisite', 'pytest\\b', 'scope', 'signal', 'simple', 'single\\s+deliverable', 'spec', 'tasks', 'tool_budget', 'total', 'utf-8', 'verification']

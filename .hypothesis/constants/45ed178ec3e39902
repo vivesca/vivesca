@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/chromatin.py
+# hypothesis_version: 6.151.10
+
+[0.8, 180, 500, 1024, 86400, '%Y%m%d-%H%M', '*.md', '-', ':', '[^a-z0-9-]', '^---\\s*\\n(.*?)\\n---', 'category', 'content', 'count', 'epigenome', 'file', 'gotcha', 'hybrid', 'marks', 'mtime', 'mtime_days', 'name', 'open', 'path', 'replace', 'saved', 'size_kb', 'source', 'status', 'type']

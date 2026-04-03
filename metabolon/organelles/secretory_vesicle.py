@@ -7,6 +7,7 @@ Credentials: macOS keychain (telegram-bot-token, telegram-chat-id).
 """
 
 
+import hashlib
 import json
 import os
 import subprocess
@@ -18,6 +19,7 @@ from pathlib import Path
 
 _API_BASE = "https://api.telegram.org"
 _LOCK = Path(tempfile.gettempdir()) / "deltos.lock"
+_COOLDOWN_FILE = Path.home() / "tmp" / "secrete-cooldowns.json"
 
 
 def _keychain(service: str) -> str:
@@ -77,8 +79,45 @@ def _html_escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def secrete_text(text: str, html: bool = True, label: str = "") -> str:
-    """Send text to Telegram channel."""
+def _is_cooled_down(key: str, cooldown_seconds: int) -> bool:
+    """Return True if this key was sent within the cooldown window."""
+    now = time.time()
+    stamps: dict = {}
+    if _COOLDOWN_FILE.exists():
+        try:
+            stamps = json.loads(_COOLDOWN_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            stamps = {}
+    last_sent = stamps.get(key, 0)
+    if now - last_sent < cooldown_seconds:
+        return True
+    stamps[key] = now
+    # Prune entries older than 48h
+    stamps = {digest: ts for digest, ts in stamps.items() if now - ts < 48 * 3600}
+    _COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _COOLDOWN_FILE.write_text(json.dumps(stamps))
+    return False
+
+
+def secrete_text(
+    text: str,
+    html: bool = True,
+    label: str = "",
+    cooldown_key: str = "",
+    cooldown_seconds: int = 0,
+) -> str:
+    """Send text to Telegram channel.
+
+    Args:
+        cooldown_key: If set, suppress duplicate sends with the same key
+            within cooldown_seconds. Use for alerts that repeat on a schedule.
+        cooldown_seconds: Cooldown window in seconds. Ignored without cooldown_key.
+    """
+    if cooldown_key and cooldown_seconds > 0:
+        fingerprint = hashlib.md5(cooldown_key.encode()).hexdigest()
+        if _is_cooled_down(fingerprint, cooldown_seconds):
+            return "throttled"
+
     token = _keychain("telegram-bot-token")
     chat_id = _keychain("telegram-chat-id")
     _rate_limit()

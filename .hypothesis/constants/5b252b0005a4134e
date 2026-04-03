@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/sortase/coaching.py
+# hypothesis_version: 6.151.10
+
+['###', '- ', '- **', '^###\\s+(.+)$', '^-\\s+(.+)$', 'category', 'epigenome', 'marks', 'notes', 'utf-8']

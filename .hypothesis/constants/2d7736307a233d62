@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/pathways/overnight.py
+# hypothesis_version: 6.151.10
+
+[120, 600, '  ✓ published', '  ✗ no convergence', '  ✗ publish failed', '--expander', '--push', '--pusher', '-o', 'CLAUDECODE', 'claude', 'code', 'failed', 'gemini', 'glm', 'metabolise', 'no_convergence', 'publish', 'published', 'run', 'sarcio', 'seed', 'slug', 'title', 'tmp', 'uv', 'vivesca', 'vivesca-dev']

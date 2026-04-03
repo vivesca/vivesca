@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/sortase/linter.py
+# hypothesis_version: 6.151.10
+
+['(?i)deliverable\\b', '(?i)output\\s+path', '(?i)save\\s+to\\b', '/tmp/[\\w/.-]+', '=', 'FIXME', 'No issues found.', 'Plan file is empty', 'TODO', 'error', 'info', 'warning']

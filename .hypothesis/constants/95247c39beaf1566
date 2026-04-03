@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/endocytosis.py
+# hypothesis_version: 6.151.10
+
+[0.0, 1024, '*.json', '; ', '=', 'N/A', 'Unknown', 'Untitled', 'avg_engaged_score', 'banking_angle', 'endocytosis', 'false_negatives', 'fetch', 'insufficient_data', 'no_archive', 'ok', 'score', 'source', 'stats', 'status', 'title', 'top', 'total_engaged', 'total_scored']

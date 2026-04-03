@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/case_study.py
+# hypothesis_version: 6.151.10
+
+[100, 300, '## Approach', '## Challenge', '## Key Metrics', '## Result', '*.md', 'Approach', 'Challenge', 'Consulting', 'Context', 'File not found', 'Impact', 'Method', 'Outcome', 'Problem', 'Result', 'Solution', 'Use Cases', '[Consulting Partner]', '[Previous Employer]', '[Regional Bank]', '\\bCNCBI\\b', '\\bCapco\\b', '\\bHSBC\\b', '^#\\s+(.+)$', 'chromatin', 'domain:\\s*(.+)', 'epigenome', 'filename', 'jurisdiction:\\s*(.+)', 'path', 'title', 'utf-8']

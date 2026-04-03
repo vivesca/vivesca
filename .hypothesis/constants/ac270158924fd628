@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/translocon_metrics.py
+# hypothesis_version: 6.151.10
+
+[0.0, 100, '?', 'Summary:', 'a', 'all time', 'avg_duration', 'backend', 'count', 'duration_s', 'mode', 'model', 'output_length', 'p50_duration', 'p95_duration', 'prompt_length', 'seconds', 'success', 'success_count', 'timestamp', 'unknown']

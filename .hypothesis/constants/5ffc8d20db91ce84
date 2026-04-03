@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/lysin/cli.py
+# hypothesis_version: 6.151.10
+
+['--full', '--json', 'Output as JSON', '__main__', 'as_json', 'term']

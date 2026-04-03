@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/gastrulation/check.py
+# hypothesis_version: 6.151.10
+
+['*.py', '.', '__init__.py', 'annotations', 'codons', 'description', 'enzymes', 'prompt', 'resource', 'resources', 'src', 'tool']

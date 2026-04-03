@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/gastrulation/init.py
+# hypothesis_version: 6.151.10
+
+['-', '_', '__init__.py', '__main__.py', 'assays', 'codons', 'description', 'enzymes', 'metabolon', 'module', 'morphology', 'name', 'project/server.py.j2', 'pyproject.toml', 'resources', 'server.py', 'src', 'templates', 'test_handshake.py']

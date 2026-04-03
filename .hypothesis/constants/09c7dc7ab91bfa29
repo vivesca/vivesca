@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/cytosol.py
+# hypothesis_version: 6.151.10
+
+['--backend', '--model', '--timeout', 'Done.', 'no output', 'synthase']

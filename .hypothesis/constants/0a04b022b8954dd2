@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/metabolism/preflight.py
+# hypothesis_version: 6.151.10
+
+[5.0, 200, 3600, '--format=%ct', '-1', '.git', 'ANTHROPIC_API_KEY', 'API reachable', 'API timeout', 'Authorization', 'CRITICAL', 'GET', 'Golem not executable', 'No golem log found', 'OK', 'Set', 'VOLCANO_API_KEY', 'WARN', 'ZHIPU_API_KEY', 'anthropic', 'base_url', 'critical', 'effectors', 'epigenome', 'germline', 'git', 'git log failed', 'golem', 'golem_binary', 'golem_log_freshness', 'info', 'key_var', 'log', 'signal_bus', 'volcano', 'warning', 'zhipu']

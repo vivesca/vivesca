@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/angiogenesis.py
+# hypothesis_version: 6.151.10
+
+[300, '.cache', '.local', 'a', 'angiogenesis', 'co_failures', 'description', 'healed', 'infections.jsonl', 'last_seen', 'pipeline', 'proposals.jsonl', 'proposed', 'share', 'source', 'status', 'target', 'tool', 'ts', 'vessel_type', 'vessels.json', 'vivesca']

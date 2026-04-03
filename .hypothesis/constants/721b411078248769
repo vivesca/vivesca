@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/pinocytosis/ecdysis.py
+# hypothesis_version: 6.151.10
+
+['--json', '__main__', 'store_true']

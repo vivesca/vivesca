@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/endosomal.py
+# hypothesis_version: 6.151.10
+
+['-', '_', 'archive', 'categorize', 'endosomal', 'filter', 'label', 'label requires: name', 'mark_read', 'search', 'send', 'thread']

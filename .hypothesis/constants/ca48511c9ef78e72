@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/telegram_auth.py
+# hypothesis_version: 6.151.10
+
+['.config', 'TELEGRAM_API_HASH', 'TELEGRAM_API_ID', '__main__', 'first_name', 'phone', 'telethon', 'unknown', 'vivesca']

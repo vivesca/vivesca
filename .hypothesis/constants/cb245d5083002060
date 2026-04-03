@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/resources/oscillators.py
+# hypothesis_version: 6.151.10
+
+[3600, 86400, '"PID"\\s*=\\s*(\\d+)', '# Pacemakers\n', '; ', 'Darwin', 'Day', 'Fri', 'Hour', 'Label', 'LaunchAgents', 'Library', 'Minute', 'Mon', 'RunAtLoad', 'Sat', 'StartInterval', 'Sun', 'Thu', 'Tue', 'Wed', 'Weekday', 'com.terry.*.plist', 'com.vivesca.*.plist', 'copy', 'error', 'idle', 'label', 'last_exit', 'launchctl', 'list', 'loaded', 'on-demand', 'on-load only', 'parse error', 'pid', 'rb', 'running', 'schedule', 'scheduled', 'status', 'symlink', 'type', 'unloaded', '—']

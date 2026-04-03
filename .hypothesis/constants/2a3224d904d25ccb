@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/sorting.py
+# hypothesis_version: 6.151.10
+
+['degrade', 'score', 'store', 'transcytose']

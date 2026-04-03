@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/enzymes/sporulation.py
+# hypothesis_version: 6.151.10
+
+[86400, '%Y-%m-%d ~%H:%M HKT', ':', 'age_days', 'amber', 'ant', 'arc', 'ash', 'bat', 'bay', 'bee', 'bell', 'blue', 'bold', 'bright', 'calm', 'cat', 'checkpoint_', 'checkpoint_*.md', 'cod', 'codename', 'cool', 'coral', 'crisp', 'crow', 'dark', 'deep', 'description', 'description:', 'eel', 'elk', 'elm', 'fern', 'fig', 'fox', 'gem', 'gold', 'green', 'happy', 'hawk', 'iron', 'jade', 'keen', 'key', 'leaf', 'list', 'load', 'moon', 'moss', 'oak', 'odd', 'onyx', 'orb', 'owl', 'pale', 'pine', 'quiet', 'rain', 'rare', 'red', 'save', 'sharp', 'silver', 'slim', 'soft', 'sporulation', 'star', 'swift', 'tall', 'warm', 'wave', 'wild', 'yak']

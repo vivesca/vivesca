@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/respirometry/parsers/hsbc.py
+# hypothesis_version: 6.151.10
+
+[0.0, 0.02, '%Y-%m-%d', '%d %b %Y', '%d%b%Y', '([\\d,]+\\.\\d{2})$', ',', '0', 'Amzn\\.com/bill\\s*$', 'CR', 'DCC FEE', 'DCCFEE', 'HKD', 'HSBC Visa Signature', 'ITUNES', 'ITUNES.COM', 'PAYMENT - THANK YOU', 'PAYMENT-THANKYOU', 'PREVIOUSBALANCE', 'US\\s*$', '^\\d{16}', 'currency', 'date', 'foreign_amount', 'hkd', 'hsbc', 'merchant']

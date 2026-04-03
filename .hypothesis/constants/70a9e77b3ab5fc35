@@ -1,0 +1,4 @@
+# file: /home/terry/germline/synaptic/gemini_adapter.py
+# hypothesis_version: 6.151.10
+
+['AfterAgent', 'AfterTool', 'BeforeAgent', 'BeforeTool', 'Notification', 'PostToolUse', 'PreCompact', 'PreCompress', 'PreToolUse', 'Stop', 'UserPromptSubmit', '__main__', 'additionalContext', 'allow', 'approve', 'block', 'content', 'decision', 'deny', 'event', 'hookSpecificOutput', 'input', 'message', 'name', 'output', 'prompt', 'reason', 'replace', 'tool', 'tool_input', 'type']

@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/resources/operons.py
+# hypothesis_version: 6.151.10
+
+['\n## Dormant\n', '# Operon Map\n', '## Expressed\n', ', ', '...', 'crystallised', '—']

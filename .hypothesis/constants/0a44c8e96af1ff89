@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/metabolism/gates.py
+# hypothesis_version: 6.151.10
+
+[200, 'Empty description', 'FAIL:', 'LLM judge rejected', 'LLM judge: PASS', 'OK', 'PASS', 'gating.conf', 'haiku', 'max_words', 'min_words', 'reflex']
