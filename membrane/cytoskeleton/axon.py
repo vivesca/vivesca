@@ -843,11 +843,22 @@ def reset_pipeline_counter(data):
 
 
 def guard_rheotaxis(data):
-    """Nudge: use rheotaxis multi-backend search instead of bare WebSearch.
+    """Nudge or block: use rheotaxis instead of bare WebSearch.
 
-    Allow WebSearch but inject advisory. The principle: no single source
-    is authoritative for real-world facts — fan out across backends.
+    If rheotaxis backends are healthy → nudge (allow with advisory).
+    If rheotaxis is degraded → block WebSearch too (no silent fallback).
     """
+    health_file = HOME / ".cache" / "vivesca" / "rheotaxis-health"
+    if health_file.exists():
+        status = health_file.read_text().strip()
+        if status.startswith("degraded"):
+            deny(
+                f"SEARCH BLOCKED: rheotaxis is {status}. "
+                "WebSearch fallback is also blocked — fix the search backends first. "
+                "Check API keys: EXA, TAVILY, SERPER, JINA, FIRECRAWL, GROK.",
+                "search-degraded",
+            )
+            return
     allow_msg(
         "RHEOTAXIS: You have a /rheotaxis skill for multi-backend search. "
         "Invoke it instead of bare WebSearch — it frames multiple queries "

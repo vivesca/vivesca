@@ -378,16 +378,23 @@ def _report(query: str, results: list[ToolResult]) -> str:
     total = len(results)
     failed = len(errored)
 
-    # If majority of backends failed, raise — partial results are unreliable.
+    # If majority of backends failed, write health file and raise.
+    # Health file lets PreToolUse hook block WebSearch fallback.
     # Raising makes this a tool error that CC cannot silently ignore.
+    health_file = Path.home() / ".cache" / "vivesca" / "rheotaxis-health"
+    health_file.parent.mkdir(parents=True, exist_ok=True)
     if total > 0 and failed > total / 2:
         backend_names = ", ".join(r.tool for r in errored)
         ok_names = ", ".join(r.tool for r in ok) or "none"
+        health_file.write_text(f"degraded {failed}/{total} {backend_names}")
         raise RuntimeError(
             f"rheotaxis degraded: {failed}/{total} backends failed "
             f"({backend_names}). Only {ok_names} returned results. "
             f"Fix the backends before relying on search."
         )
+    else:
+        # Healthy — clear the flag
+        health_file.unlink(missing_ok=True)
 
     lines = []
     for r in ok:
