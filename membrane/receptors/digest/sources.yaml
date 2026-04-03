@@ -1,0 +1,173 @@
+# Personal learning & synthesis — monthly, LLM-assisted
+# Routing rule: "Is this content I want to absorb and apply?" → here
+# For daily awareness/notification → /lustro instead
+# A source can appear in BOTH systems (notification + deep processing)
+
+# === Health ===
+
+- name: Huberman Lab
+  type: youtube
+  handle: "@hubermanlab"
+  rss_url: https://feeds.megaphone.fm/hubermanlab
+  vault_path: Health/Huberman
+  category: health
+
+- name: FoundMyFitness
+  type: youtube
+  handle: "@FoundMyFitness"
+  rss_url: https://foundmyfitness.libsyn.com/rss
+  vault_path: Health/Rhonda Patrick
+  category: health
+
+- name: Peter Attia
+  type: youtube
+  handle: "@PeterAttiaMD"
+  rss_url: https://peterattiadrive.libsyn.com/rss
+  vault_path: Health/Peter Attia
+  category: health
+
+- name: Sam Harris
+  type: youtube
+  handle: "@samharrisorg"
+  rss_url: https://wakingup.libsyn.com/rss
+  vault_path: Health/Sam Harris
+  category: health
+  # Making Sense podcast — meditation, neuroscience, consciousness, ethics
+
+# === Thinking ===
+
+- name: Adam Grant
+  type: youtube
+  handle: "@AdamGrantOT"
+  vault_path: Thinking/Adam Grant
+  category: thinking
+  # WorkLife + ReThinking podcasts — org psych, motivation, work culture
+
+- name: Derek Sivers
+  type: blog
+  url: https://sive.rs
+  rss_url: https://sive.rs/en.atom
+  vault_path: Thinking/Derek Sivers
+  category: thinking
+  # Short essays — philosophy, entrepreneurship, minimalism
+  # Worth reading originals (200 words each, the writing IS the insight)
+
+- name: Daniel Pink
+  type: youtube
+  handle: "@DanielPink"
+  vault_path: Thinking/Daniel Pink
+  category: thinking
+  # Pinkcast + books — motivation, timing, behavioral science
+
+# === Finance & Investing ===
+
+- name: Ben Felix (Common Sense Investing)
+  type: youtube
+  handle: "@BenFelixCSI"
+  rss_url: https://rationalreminder.ca/podcast?format=rss
+  vault_path: Finance/Ben Felix
+  category: finance
+  # Rational Reminder podcast + Common Sense Investing YouTube
+  # Evidence-based investing, factor premiums, index fund advocacy
+
+- name: 小Lin说 (Lindsay)
+  type: youtube
+  handle: "@xiao_lin_shuo"
+  vault_path: Finance/小Lin说
+  category: finance
+  # PKU + Columbia, ex-JPMorgan IB. Macro economics, business case studies,
+  # financial explainers. Chinese-language. 2.3M YouTube / 5M+ Bilibili.
+
+- name: Ray Dalio
+  type: blog
+  url: https://raydalio.substack.com
+  rss_url: https://raydalio.substack.com/feed
+  vault_path: Finance/Ray Dalio
+  category: finance
+  # Principled Perspectives. Macro cycles, geopolitics, world order.
+  # New Substack (Feb 2025). Free tier only.
+
+- name: Morgan Housel
+  type: blog
+  url: https://collabfund.com/blog/authors/morgan/
+  vault_path: Finance/Morgan Housel
+  category: finance
+  # Psychology of Money author. Behavioral finance, long-term thinking.
+  # Short essays — worth reading originals like Sivers.
+
+- name: Farnam Street (Shane Parrish)
+  type: youtube
+  handle: "@TheFarnamStreet"
+  rss_url: https://theknowledgeproject.libsyn.com/rss
+  url: https://fs.blog
+  vault_path: Thinking/Farnam Street
+  category: thinking
+  # The Knowledge Project podcast + fs.blog essays
+  # Mental models, decision-making, multidisciplinary thinking
+
+# === Product & Strategy ===
+
+- name: Lenny Rachitsky
+  type: youtube
+  handle: "@LennysPodcast"
+  rss_url: https://api.substack.com/feed/podcast/10100.rss
+  vault_path: Strategy/Lenny Rachitsky
+  category: strategy
+  # Product, growth, leadership interviews. Guests often CxOs and founders.
+  # Useful client-language calibration for consulting conversations.
+
+# === AI & Tech ===
+
+- name: Naval (Navalmanack)
+  type: youtube
+  handle: "@NavalR"
+  vault_path: AI & Tech/Naval
+  category: ai
+  # Naval Ravikant + Nivi. Infrequent (~few/year) but high-signal.
+  # Founder/investor framing on AI, leverage, entrepreneurship.
+  # Useful as client-language calibration for banking CxO conversations.
+
+- name: a16z
+  type: youtube
+  handle: "@a16z"
+  vault_path: AI & Tech/a16z
+  category: ai
+
+- name: Dwarkesh Patel
+  type: youtube
+  handle: "@DwarkeshPatel"
+  rss_url: https://www.dwarkeshpatel.com/feed
+  vault_path: AI & Tech/Dwarkesh Patel
+  category: ai
+  # Full transcript embedded in Substack episode page (no suffix needed)
+
+- name: All-In Podcast
+  type: youtube
+  handle: "@AllInPodcast"
+  rss_url: https://rss.libsyn.com/shows/254861/destinations/1928300.xml
+  vault_path: AI & Tech/All-In
+  category: finance
+
+- name: Latent Space
+  type: youtube
+  handle: "@LatentSpaceTV"
+  rss_url: https://api.substack.com/feed/podcast/1084089.rss
+  vault_path: AI & Tech/Latent Space
+  category: ai
+  # Full transcript embedded in Substack episode page (no suffix needed)
+
+# === Reader OPML Import (2026-02-21) ===
+
+- name: Veritasium
+  type: youtube
+  handle: "@veritasium"
+  vault_path: Science/Veritasium
+  category: science
+  # Science explainers, engineering, physics — Derek Muller
+
+- name: 硅谷101 (Silicon Valley 101)
+  type: youtube
+  handle: "@TheValley101"
+  vault_path: AI & Tech/硅谷101
+  category: ai
+  # Chinese-language tech commentary, Silicon Valley perspective

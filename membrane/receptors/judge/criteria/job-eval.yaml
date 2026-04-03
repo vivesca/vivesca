@@ -1,0 +1,52 @@
+name: Job Evaluation
+description: Assessments of job postings, role fit analysis, application decisions
+
+checks:
+  - name: fit_analysis
+    question: "Does it clearly assess fit against Terry's background and goals?"
+    weight: high
+    examples:
+      good: "Strong fit: ML in banking, leadership scope, HK-based"
+      bad: "This looks like an interesting role"
+
+  - name: red_flags
+    question: "Are potential concerns or red flags explicitly identified?"
+    weight: high
+    examples:
+      good: "Concern: Reports to non-technical stakeholder, may limit AI autonomy"
+      bad: "No obvious issues"
+
+  - name: specificity
+    question: "Does it reference specific JD requirements, not just general impressions?"
+    weight: high
+    examples:
+      good: "Requires 5+ years credit risk modeling — you have 3 via DBS audit work"
+      bad: "Your experience seems relevant"
+
+  - name: recommendation
+    question: "Is there a clear, actionable recommendation (apply/skip/wait)?"
+    weight: high
+    examples:
+      good: "APPLY — strong fit, address the GenAI experience gap in cover letter"
+      bad: "Could be worth considering"
+
+  - name: career_direction
+    question: "Does it consider long-term career direction, not just immediate fit?"
+    weight: medium
+    examples:
+      good: "This moves toward platform leadership but away from hands-on ML"
+      bad: "Matches your current skills"
+
+  - name: comp_context
+    question: "Is compensation context provided when available?"
+    weight: medium
+    examples:
+      good: "Range 1.2-1.5M HKD, below your 1.8M target but negotiable for right scope"
+      bad: "Salary not listed"
+
+  - name: anti_signals
+    question: "Does it check against known anti-signals from rejection patterns?"
+    weight: low
+    examples:
+      good: "Note: Similar to Mox role you were rejected from — different angle needed"
+      bad: "(no mention of past similar applications)"

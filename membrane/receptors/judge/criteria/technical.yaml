@@ -1,0 +1,52 @@
+name: Technical Analysis
+description: Code reviews, architecture decisions, technical explanations
+
+checks:
+  - name: accuracy
+    question: "Are technical claims accurate and verifiable?"
+    weight: high
+    examples:
+      good: "XGBoost uses gradient boosting with regularization"
+      bad: "XGBoost is a type of neural network"
+
+  - name: completeness
+    question: "Does it address all aspects of the technical question?"
+    weight: high
+    examples:
+      good: "Covers architecture, tradeoffs, and implementation considerations"
+      bad: "Only explains one approach without alternatives"
+
+  - name: appropriate_depth
+    question: "Is the depth appropriate for the audience/context?"
+    weight: medium
+    examples:
+      good: "High-level for interview answer, detailed for implementation plan"
+      bad: "Overly academic when practical guidance was needed"
+
+  - name: tradeoffs
+    question: "Are tradeoffs and limitations acknowledged?"
+    weight: medium
+    examples:
+      good: "This approach is faster but uses more memory"
+      bad: "This is the best solution"
+
+  - name: actionable
+    question: "If recommending something, is it actionable?"
+    weight: medium
+    examples:
+      good: "Use Redis for caching; here's the key schema"
+      bad: "Consider using a caching layer"
+
+  - name: examples
+    question: "Are concrete examples provided where helpful?"
+    weight: low
+    examples:
+      good: "For instance, in a fraud detection pipeline..."
+      bad: "This pattern is commonly used"
+
+  - name: jargon
+    question: "Is jargon explained or avoided when not necessary?"
+    weight: low
+    examples:
+      good: "Uses SHAP (Shapley values for feature attribution)"
+      bad: "Apply SHAP for XAI on the GBDT outputs"

@@ -1,0 +1,52 @@
+name: Article/Writing
+description: Blog posts, essays, documentation, long-form content
+
+checks:
+  - name: clear_thesis
+    question: "Is there a clear main point or thesis?"
+    weight: high
+    examples:
+      good: "Opens with the key insight, everything supports it"
+      bad: "Meanders through multiple unconnected observations"
+
+  - name: structure
+    question: "Is the structure logical and easy to follow?"
+    weight: high
+    examples:
+      good: "Clear sections, each building on the previous"
+      bad: "Ideas scattered without clear progression"
+
+  - name: evidence
+    question: "Are claims supported with evidence, examples, or reasoning?"
+    weight: high
+    examples:
+      good: "This pattern works because [explanation] — for example, [case]"
+      bad: "This is the best approach"
+
+  - name: audience_fit
+    question: "Is the tone and depth appropriate for the target audience?"
+    weight: medium
+    examples:
+      good: "Technical enough for practitioners, accessible for managers"
+      bad: "Too basic for experts, too jargon-heavy for beginners"
+
+  - name: hook
+    question: "Does it open with something that draws the reader in?"
+    weight: medium
+    examples:
+      good: "Starts with a surprising fact, question, or story"
+      bad: "In this article, I will discuss..."
+
+  - name: conclusion
+    question: "Does it end with a clear takeaway or call to action?"
+    weight: medium
+    examples:
+      good: "So next time you face X, try Y"
+      bad: "In conclusion, this is an interesting topic"
+
+  - name: concise
+    question: "Is it as concise as possible while still being complete?"
+    weight: low
+    examples:
+      good: "Every paragraph earns its place"
+      bad: "Repetitive points, could be 50% shorter"
