@@ -1704,6 +1704,12 @@ def daemon_loop(dry_run: bool = False):
                                 is_billing = is_billing_exhausted(tail)
                                 if window:
                                     cooldown = window
+                                    # Billing-cycle exhaustion detected — ensure
+                                    # cooldown is at least BILLING_EXHAUSTED_THRESHOLD
+                                    # even if parser returned a short window (e.g. step-3
+                                    # short-format matched before step-2 full date).
+                                    if is_billing and cooldown < BILLING_EXHAUSTED_THRESHOLD:
+                                        cooldown = BILLING_EXHAUSTED_THRESHOLD
                                 elif is_billing:
                                     # Billing-cycle exhaustion detected but couldn't
                                     # parse exact reset time — use 24h default
@@ -2115,6 +2121,44 @@ def cmd_stop():
         print("Daemon already stopped")
         return 0
 
+def _show_cooldown_status():
+    """Print active cooldowns (billing-exhausted and burnout) from cooldown log."""
+    if not COOLDOWN_LOG.exists():
+        return
+    try:
+        entries = json.loads(COOLDOWN_LOG.read_text())
+        now = time.time()
+        # Latest cooldown per provider, not yet resumed
+        active_burnout: dict[str, str] = {}
+        active_billing: dict[str, str] = {}
+        for e in entries:
+            p = e.get("provider", "?")
+            if e.get("event") == "resumed":
+                active_burnout.pop(p, None)
+                active_billing.pop(p, None)
+            elif e.get("event") == "billing-exhausted" and e.get("resets_at"):
+                reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                if reset_time > now:
+                    reset_tm = time.localtime(reset_time)
+                    active_billing[p] = time.strftime("%b ", reset_tm) + str(reset_tm.tm_mday)
+                    active_burnout.pop(p, None)  # billing overrides burnout display
+            elif e.get("event") == "burnout" and e.get("resets_at"):
+                reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                if reset_time > now:
+                    active_burnout[p] = e["resets_at"][11:16]
+        # Format combined output: billing limits shown with date, short cooldowns with time
+        parts = []
+        for p in sorted(set(active_billing) | set(active_burnout)):
+            if p in active_billing:
+                parts.append(f"{p} (billing limit, resets {active_billing[p]})")
+            else:
+                parts.append(f"{p} (resets {active_burnout[p]})")
+        if parts:
+            print(f"Cooldowns: {', '.join(parts)}")
+    except (json.JSONDecodeError, OSError, KeyError, ValueError):
+        pass
+
+
 def cmd_status():
     """Check daemon status."""
     pid = read_pid()
@@ -2134,39 +2178,7 @@ def cmd_status():
         print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info}), global cap {MAX_TOTAL_CONCURRENT}")
 
         # Show cooldown status from log (deduplicated per provider)
-        if COOLDOWN_LOG.exists():
-            try:
-                entries = json.loads(COOLDOWN_LOG.read_text())
-                now = time.time()
-                # Latest cooldown per provider, not yet resumed
-                active_burnout: dict[str, str] = {}
-                active_billing: dict[str, str] = {}
-                for e in entries:
-                    p = e.get("provider", "?")
-                    if e.get("event") == "resumed":
-                        active_burnout.pop(p, None)
-                        active_billing.pop(p, None)
-                    elif e.get("event") == "billing-exhausted" and e.get("resets_at"):
-                        reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
-                        if reset_time > now:
-                            reset_tm = time.localtime(reset_time)
-                            active_billing[p] = time.strftime("%b ", reset_tm) + str(reset_tm.tm_mday)
-                            active_burnout.pop(p, None)  # billing overrides burnout display
-                    elif e.get("event") == "burnout" and e.get("resets_at"):
-                        reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
-                        if reset_time > now:
-                            active_burnout[p] = e["resets_at"][11:16]
-                # Format combined output: billing limits shown with date, short cooldowns with time
-                parts = []
-                for p in sorted(set(active_billing) | set(active_burnout)):
-                    if p in active_billing:
-                        parts.append(f"{p} (billing limit, resets {active_billing[p]})")
-                    else:
-                        parts.append(f"{p} (resets {active_burnout[p]})")
-                if parts:
-                    print(f"Cooldowns: {', '.join(parts)}")
-            except (json.JSONDecodeError, OSError, KeyError, ValueError):
-                pass
+        _show_cooldown_status()
 
         # Show running task IDs from state file
         if RUNNING_FILE.exists():
@@ -2185,6 +2197,8 @@ def cmd_status():
         return 0
     else:
         print("Daemon not running")
+        # Show cooldowns even when daemon is not running
+        _show_cooldown_status()
         return 1
 
 def cmd_clean() -> int:
