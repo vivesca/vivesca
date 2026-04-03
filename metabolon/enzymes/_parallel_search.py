@@ -374,12 +374,25 @@ def _log_run(query: str, results: list[ToolResult]) -> None:
 
 def _report(query: str, results: list[ToolResult]) -> str:
     ok = [r for r in results if not r.error]
+    errored = [r for r in results if r.error]
+    total = len(results)
+    failed = len(errored)
+
+    # If majority of backends failed, return error — partial results are unreliable
+    if total > 0 and failed > total / 2:
+        backend_names = ", ".join(r.tool for r in errored)
+        ok_names = ", ".join(r.tool for r in ok) or "none"
+        return (
+            f"ERROR: rheotaxis degraded — {failed}/{total} backends failed "
+            f"({backend_names}). Only {ok_names} returned results. "
+            f"Fix the backends before relying on search."
+        )
+
     lines = []
     for r in ok:
         lines.append(f"## {r.tool} ({r.latency_s:.1f}s)")
         lines.append(r.result)
         lines.append("")
-    errored = [r for r in results if r.error]
     if errored:
         lines.append(f"*{len(errored)} backends errored: {', '.join(r.tool for r in errored)}*")
     return "\n".join(lines)
