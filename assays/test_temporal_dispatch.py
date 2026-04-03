@@ -255,6 +255,20 @@ def test_mark_failed_out_of_range(tmp_path):
     assert qf.read_text() == original
 
 
+# ── (retry) suffix stripping ───────────────────────────────────────────
+
+
+def test_retry_suffix_stripped(tmp_path):
+    """(retry) suffix injected by mark_failed is stripped from the prompt."""
+    qf = tmp_path / "golem-queue.md"
+    _write_queue(qf, '- [ ] `golem [t-abc123] --provider zhipu --max-turns 30 "do a thing (retry)"`\n')
+    tasks = parse_queue()
+    assert len(tasks) == 1
+    prompt = tasks[0][1]
+    assert "(retry)" not in prompt
+    assert "do a thing" in prompt
+
+
 # ── dispatch_all tests (async) ────────────────────────────────────────
 
 
@@ -382,3 +396,60 @@ def test_main_status_json(tmp_path, capsys):
 
     captured = capsys.readouterr()
     assert "wf-1" in captured.out
+
+
+# ── poll_loop connection-failure Telegram alert tests ──────────────────
+
+
+def test_conn_failure_telegram_alert():
+    """Telegram alert fires after 5 consecutive OSError failures, and not
+    again until the failure streak resets."""
+    poll_loop = _mod["poll_loop"]
+
+    call_count = 0
+
+    async def _fake_dispatch():
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 5:
+            raise OSError("connection refused")
+        if call_count == 6:
+            return 0  # success — resets streak
+        if call_count <= 11:
+            raise OSError("connection refused again")
+        raise SystemExit(0)  # break the infinite loop
+
+    async def _fake_collect():
+        pass
+
+    popen_calls: list[tuple[tuple, dict]] = []
+
+    def _popen_side_effect(*args, **kwargs):
+        popen_calls.append((args, kwargs))
+        return MagicMock()
+
+    orig_dispatch = _mod["dispatch_all"]
+    orig_collect = _mod["collect_results"]
+    _mod["dispatch_all"] = _fake_dispatch
+    _mod["collect_results"] = _fake_collect
+
+    try:
+        with patch("subprocess.Popen", side_effect=_popen_side_effect):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                try:
+                    asyncio.run(poll_loop(interval=1))
+                except SystemExit:
+                    pass
+    finally:
+        _mod["dispatch_all"] = orig_dispatch
+        _mod["collect_results"] = orig_collect
+
+    # First streak: failures 1-4 → no alert, failure 5 → first alert
+    # Cycle 6: success → streak resets
+    # Second streak: failures 7-10 → no alert, failure 11 → second alert
+    assert len(popen_calls) == 2, f"expected 2 Popen calls, got {len(popen_calls)}"
+    for call_args, call_kwargs in popen_calls:
+        cmd = call_args[0]
+        assert "python3" in cmd[0]
+        assert "send_message" in cmd[2]
+        assert "temporal-dispatch" in cmd[2]

@@ -20,6 +20,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -348,7 +349,12 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         prompt = re.sub(r'\[t-[0-9a-fA-F]+\]\s*', '', prompt)
         prompt = re.sub(r'(?:--provider|-b)\s+\S+\s*', '', prompt)
         prompt = re.sub(r'--max-turns\s+\d+\s*', '', prompt)
-        prompt = prompt.strip() or cmd
+        prompt = re.sub(r'\s*\(retry\)\s*', '', prompt)
+        prompt = prompt.strip()
+        # Strip surrounding quotes if present
+        if len(prompt) >= 2 and prompt[0] == prompt[-1] and prompt[0] in ('"', "'"):
+            prompt = prompt[1:-1]
+        prompt = prompt or cmd
 
         turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
         max_turns = int(turns_match.group(1)) if turns_match else 50
@@ -732,6 +738,7 @@ async def poll_loop(interval: int = 30) -> None:
     """
     log(f"Starting poll loop (interval={interval}s)")
     consecutive_conn_failures = 0
+    _conn_alert_sent = False
     while True:
         try:
             # Phase 1: collect results from previously dispatched workflows
@@ -745,11 +752,27 @@ async def poll_loop(interval: int = 30) -> None:
             elif count > 0:
                 log(f"Dispatched {count} new tasks ({inflight_count} total in-flight)")
             consecutive_conn_failures = 0
+            _conn_alert_sent = False
         except (OSError, ConnectionError) as exc:
             consecutive_conn_failures += 1
             log(f"[CONN] connection failure #{consecutive_conn_failures}: {exc}")
             if consecutive_conn_failures >= 5:
                 log(f"[CONN] CRITICAL: {consecutive_conn_failures} consecutive connection failures -- Temporal server unreachable")
+                if not _conn_alert_sent:
+                    try:
+                        subprocess.Popen(
+                            [
+                                "python3", "-c",
+                                "from metabolon.organelles.telegram import send_message; "
+                                'send_message("[soma] temporal-dispatch: Temporal server unreachable after 5+ poll cycles")',
+                            ],
+                            cwd=os.path.expanduser("~/germline"),
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    except Exception:
+                        pass
+                    _conn_alert_sent = True
         except Exception as exc:
             err_msg = str(exc)
             # Detect rate-limit / quota errors using compiled regex
