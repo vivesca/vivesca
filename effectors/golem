@@ -301,6 +301,10 @@ _run_golem() {
   # Max wall-clock time for claude: max_turns * 60s + 120s buffer
   local _claude_timeout=$(( MAX_TURNS * 60 + 120 ))
 
+  # Wall-clock limit to avoid Temporal SIGTERM (default 28 min)
+  local _wall_limit="${GOLEM_WALL_LIMIT:-1680}"
+  local _wall_start=$(date +%s)
+
   # Retry loop with exponential backoff for rate limits (429)
   local _max_retries=3
   local _attempt=0
