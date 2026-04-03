@@ -368,7 +368,7 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
     return pending
 
 
-_PENDING_PREFIXES = ("- [ ] ", "- [!!] ", "- [!] ")
+_PENDING_PREFIXES = ("- [ ] ", "- [!!] ")
 
 
 def _find_task_line(lines: list[str], line_num: int, task_id: str) -> int:
@@ -678,6 +678,7 @@ async def poll_loop(interval: int = 30) -> None:
     Uses adaptive throttle to reduce per-provider concurrency on failure.
     """
     log(f"Starting poll loop (interval={interval}s)")
+    consecutive_conn_failures = 0
     while True:
         try:
             count = await asyncio.wait_for(dispatch_all(), timeout=120)
@@ -687,8 +688,14 @@ async def poll_loop(interval: int = 30) -> None:
                 # Success — unthrottle all providers
                 for prov in list(_provider_throttle):
                     _unthrottle_provider(prov)
+            consecutive_conn_failures = 0
         except asyncio.TimeoutError:
             log("[POLL] dispatch timed out, will retry next cycle")
+        except (OSError, ConnectionError) as e:
+            consecutive_conn_failures += 1
+            log(f"[CONN] connection failure #{consecutive_conn_failures}: {e}")
+            if consecutive_conn_failures >= 5:
+                log(f"[CONN] CRITICAL: {consecutive_conn_failures} consecutive connection failures — Temporal server unreachable")
         except Exception as e:
             err_msg = str(e)
             # Detect rate-limit / quota errors using compiled regex
