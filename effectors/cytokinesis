@@ -435,13 +435,52 @@ def cmd_gather(args):
         except (concurrent.futures.TimeoutError, Exception):
             results["reflect"] = []
 
-    # Hard gates — CC must complete ALL before cytokinesis is done
-    results["gates"] = {
-        "publish_check": "PENDING — scan session for publishable insights. If found, draft and publish. If none, report 'no publishable insights.'",
-        "corrections_filed": "PENDING — scan for Terry corrections/pushback. File each as feedback memory.",
-        "tonus_updated": "PENDING — update Tonus.md with session deltas.",
-        "process_audit": "PENDING — 5 questions: repeated patterns, misallocated work, lazy avoidance, branch discipline, best practices.",
-    }
+    # Hard gates — deterministic where possible, PENDING where LLM judgment needed
+    gates = {}
+
+    # Gate 1: Publish — check if secretome/ was modified in last 4 hours
+    secretome = CHROMATIN_DIR / "secretome"
+    recent_posts = []
+    if secretome.is_dir():
+        cutoff = time.time() - 4 * 3600
+        for post_file in secretome.glob("*.md"):
+            if post_file.stat().st_mtime > cutoff:
+                recent_posts.append(post_file.stem)
+    if recent_posts:
+        gates["publish_check"] = f"DONE — published: {', '.join(recent_posts)}"
+    else:
+        gates["publish_check"] = "PENDING — no posts published this session. Scan for publishable insights. If none, state explicitly."
+
+    # Gate 2: Corrections — check if feedback_*.md was modified in last 4 hours
+    marks_dir = EPIGENOME_DIR / "marks"
+    recent_feedback = []
+    if marks_dir.is_dir():
+        cutoff = time.time() - 4 * 3600
+        for mark_file in marks_dir.glob("feedback_*.md"):
+            if mark_file.stat().st_mtime > cutoff:
+                recent_feedback.append(mark_file.stem)
+    if recent_feedback:
+        gates["corrections_filed"] = f"DONE — filed {len(recent_feedback)}: {', '.join(recent_feedback[:5])}"
+    else:
+        gates["corrections_filed"] = "PENDING — no feedback memories filed this session. Scan for corrections from Terry."
+
+    # Gate 3: Tonus — check freshness (already computed above)
+    if secs < 1800:  # updated in last 30 min
+        gates["tonus_updated"] = "DONE — updated within 30 min"
+    else:
+        gates["tonus_updated"] = f"PENDING — Tonus is {label} ({secs // 60}m old). Update now."
+
+    # Gate 4: Process audit — always requires LLM judgment
+    gates["process_audit"] = "PENDING — 5 questions: repeated patterns, misallocated work, lazy avoidance, branch discipline, best practices."
+
+    # Gate 5: Repos flushed — check if any dirty
+    dirty_repos = [name for name, info in results["repos"].items() if not info.get("clean") and info.get("clean") is not None]
+    if dirty_repos:
+        gates["repos_flushed"] = f"PENDING — dirty: {', '.join(dirty_repos)}. Run cytokinesis flush."
+    else:
+        gates["repos_flushed"] = "DONE — all repos clean"
+
+    results["gates"] = gates
 
     # Output
     if not args.semantic and not args.perceptual:
@@ -1069,6 +1108,49 @@ def cmd_flush(args):
     return committed
 
 
+# ── Verify ───────────────────────────────────────────────────────────────────
+def cmd_verify(_args):
+    """Re-check all gates deterministically. Reports DONE/PENDING for each."""
+    gates = {}
+    cutoff = time.time() - 4 * 3600
+    chromatin_dir = Path.home() / "epigenome" / "chromatin"
+    epigenome_dir = Path.home() / "epigenome"
+
+    # Publish
+    secretome = chromatin_dir / "secretome"
+    recent_posts = []
+    if secretome.is_dir():
+        for post_file in secretome.glob("*.md"):
+            if post_file.stat().st_mtime > cutoff:
+                recent_posts.append(post_file.stem)
+    gates["publish_check"] = f"DONE ({len(recent_posts)} posts)" if recent_posts else "PENDING"
+
+    # Corrections
+    marks_dir = epigenome_dir / "marks"
+    recent_fb = sum(1 for mark_file in marks_dir.glob("feedback_*.md") if mark_file.stat().st_mtime > cutoff) if marks_dir.is_dir() else 0
+    gates["corrections_filed"] = f"DONE ({recent_fb} filed)" if recent_fb else "PENDING"
+
+    # Tonus
+    _, secs = now_age()
+    gates["tonus_updated"] = "DONE" if secs < 1800 else f"PENDING ({secs // 60}m stale)"
+
+    # Repos
+    dirty = []
+    for label, path in sorted(DEFAULT_REPOS.items()):
+        status = git_status(path)
+        if status:
+            dirty.append(label)
+    gates["repos_flushed"] = "DONE" if not dirty else f"PENDING ({', '.join(dirty)})"
+
+    # Process audit — can't verify deterministically, trust CC
+    gates["process_audit"] = "TRUST — requires LLM judgment"
+
+    all_done = all("DONE" in v or "TRUST" in v for v in gates.values())
+    print(json.dumps({"gates": gates, "all_passed": all_done}, indent=2))
+    if not all_done:
+        sys.exit(1)
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
@@ -1105,6 +1187,9 @@ def main():
     ex = sub.add_parser("extract", help="Review candidates, recommend filings")
     ex.add_argument("--input", type=str, help="Path to gather JSON (default: stdin)")
 
+    # verify
+    sub.add_parser("verify", help="Check all cytokinesis gates passed")
+
     args = parser.parse_args()
 
     if args.command == "gather":
@@ -1119,6 +1204,8 @@ def main():
         cmd_reflect(args)
     elif args.command == "extract":
         cmd_extract(args)
+    elif args.command == "verify":
+        cmd_verify(args)
     else:
         parser.print_help()
         sys.exit(1)
