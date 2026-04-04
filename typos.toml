@@ -1,11 +1,31 @@
 [default.extend-words]
-# Biology-specific terms and variable names
+# Biology/domain terms
 pevents = "pevents"
 sourc = "sourc"
 resolvin = "resolvin"
 selectin = "selectin"
 importin = "importin"
 stilus = "stilus"
+trama = "trama"
+sive = "sive"
+
+# Finance/HR terms
+FPR = "FPR"
+PILON = "PILON"
+OT = "OT"
+BRE = "BRE"
+NED = "NED"
+
+# HK names
+Yau = "Yau"
+Toi = "Toi"
+Mak = "Mak"
+
+# Code/variable names
+ba = "ba"
+BA = "BA"
+typ = "typ"
+mis = "mis"
 
 [files]
 extend-exclude = [

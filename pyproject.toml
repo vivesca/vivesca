@@ -77,6 +77,8 @@ dev = [
   "pytest-asyncio",
   "pytest-cov",
   "pytest-randomly>=4.0.1",
+  "pytest-timeout>=2.4",
+  "pytest-xdist>=3.8",
   "ruff",
   "ty>=0.0.28",
 ]
@@ -87,12 +89,25 @@ line-length = 99
 src = [ "src" ]
 extend-exclude = [ "membrane/receptors/.system" ]
 
-lint.select = [ "B", "E", "F", "I", "RUF", "SIM", "UP" ]
+lint.select = [ "B", "C4", "E", "F", "FURB", "I", "LOG", "PERF", "PT", "RUF", "SIM", "UP" ]
 lint.ignore = [
+  "C408",
   "E501",
+  "FURB110",
+  "PERF401",
+  "PT001",
+  "PT006",
+  "PT009",
+  "PT011",
+  "PT012",
+  "PT015",
+  "PT017",
+  "PT018",
+  "PT019",
+  "PT027",
   "SIM115",
   "SIM117",
-] # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles; SIM117: multi-with is valid Python 3.14
+]
 # E402: from __future__ import annotations pushes imports below module docstring in test files;
 # effectors use sys.path.insert before later imports
 lint.per-file-ignores."assays/*" = [ "E402" ]
