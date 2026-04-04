@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-"""Tests for circadian resource — calendar management via gog CLI.
+"""Tests for circadian resource — calendar management via Google Calendar API.
 
 Covers:
   - circadian.py module-level attributes (BINARY constant, docstring)
-  - circadian_clock._gog subprocess wrapper
   - scheduled_events / scheduled_events_json
   - schedule_event / reschedule_event / cancel_event
   - is_weekend / is_holiday / detect_phase
@@ -19,7 +18,6 @@ import pytest
 import metabolon.resources.circadian as circadian_mod
 from metabolon.organelles.circadian_clock import (
     HKT,
-    _gog,
     cancel_event,
     detect_phase,
     is_holiday,
@@ -29,6 +27,8 @@ from metabolon.organelles.circadian_clock import (
     scheduled_events,
     scheduled_events_json,
 )
+
+MOD = "metabolon.organelles.circadian_clock"
 
 
 # ── Module-level attributes ───────────────────────────────────────────
@@ -42,71 +42,44 @@ class TestCircadianModule:
         assert "circadian" in circadian_mod.__doc__.lower()
 
 
-# ── _gog subprocess wrapper ────────────────────────────────────────────
-
-
-class TestGogWrapper:
-    @patch("metabolon.organelles.circadian_clock.subprocess.run")
-    def test_gog_success(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="output\n", stderr="")
-        result = _gog(["calendar", "list"])
-        assert result == "output"
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args[0] == "gog"
-        assert args[1:] == ["calendar", "list"]
-
-    @patch("metabolon.organelles.circadian_clock.subprocess.run")
-    def test_gog_failure_raises(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error message")
-        with pytest.raises(ValueError, match="gog failed"):
-            _gog(["calendar", "list"])
-
-    @patch("metabolon.organelles.circadian_clock.subprocess.run")
-    def test_gog_timeout(self, mock_run):
-        mock_run.side_effect = TimeoutError()
-        with pytest.raises(TimeoutError):
-            _gog(["calendar", "list"], timeout=5)
-
-
 # ── scheduled_events ───────────────────────────────────────────────────
 
 
 class TestScheduledEvents:
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_scheduled_events_today(self, mock_gog):
-        mock_gog.return_value = "Event 1 at 10:00"
+    @patch(f"{MOD}.scheduled_events_json", return_value=[])
+    def test_no_events(self, mock_json):
         result = scheduled_events("today")
-        assert result == "Event 1 at 10:00"
-        mock_gog.assert_called_once_with(["calendar", "list", "--json"])
+        assert result == "No events."
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_scheduled_events_specific_date(self, mock_gog):
-        mock_gog.return_value = "Event on date"
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_timed_event(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"dateTime": "2026-04-15T10:00:00+08:00"}, "summary": "Meeting"},
+        ]
         result = scheduled_events("2026-04-15")
-        assert result == "Event on date"
-        mock_gog.assert_called_once_with(["calendar", "list", "2026-04-15"])
+        assert "10:00  Meeting" in result
 
 
 # ── scheduled_events_json ──────────────────────────────────────────────
 
 
 class TestScheduledEventsJson:
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_returns_parsed_json(self, mock_gog):
-        mock_gog.return_value = '[{"summary": "Meeting", "start": "10:00"}]'
+    @patch(f"{MOD}.service")
+    def test_returns_events(self, mock_service):
+        mock_service.return_value.events.return_value.list.return_value.execute.return_value = {
+            "items": [{"summary": "Meeting", "start": {"dateTime": "2026-04-15T10:00:00+08:00"}}]
+        }
         result = scheduled_events_json()
-        assert result == [{"summary": "Meeting", "start": "10:00"}]
+        assert result == [{"summary": "Meeting", "start": {"dateTime": "2026-04-15T10:00:00+08:00"}}]
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_returns_empty_on_invalid_json(self, mock_gog):
-        mock_gog.return_value = "not valid json"
+    @patch(f"{MOD}.service", side_effect=Exception("API error"))
+    def test_returns_empty_on_error(self, mock_service):
         result = scheduled_events_json()
         assert result == []
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_returns_empty_on_empty_string(self, mock_gog):
-        mock_gog.return_value = ""
+    @patch(f"{MOD}.service")
+    def test_returns_empty_on_no_items(self, mock_service):
+        mock_service.return_value.events.return_value.list.return_value.execute.return_value = {}
         result = scheduled_events_json()
         assert result == []
 
@@ -115,50 +88,48 @@ class TestScheduledEventsJson:
 
 
 class TestScheduleEvent:
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_schedule_event_basic(self, mock_gog):
-        mock_gog.return_value = "Created event ID: 123"
+    @patch(f"{MOD}.service")
+    def test_schedule_event_basic(self, mock_service):
+        mock_service.return_value.events.return_value.insert.return_value.execute.return_value = {
+            "id": "evt123"
+        }
         result = schedule_event("Meeting", "2026-04-15", "10:00")
-        assert "Created event" in result
-        mock_gog.assert_called_once_with(
-            ["calendar", "create", "Meeting", "--date", "2026-04-15", "--time", "10:00", "--duration", "60"]
-        )
+        assert result == "evt123"
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_schedule_event_custom_duration(self, mock_gog):
-        mock_gog.return_value = "Created event"
+    @patch(f"{MOD}.service")
+    def test_schedule_event_custom_duration(self, mock_service):
+        mock_service.return_value.events.return_value.insert.return_value.execute.return_value = {
+            "id": "evt789"
+        }
         result = schedule_event("Long Meeting", "2026-04-15", "14:00", duration=120)
-        mock_gog.assert_called_once()
-        args = mock_gog.call_args[0][0]
-        assert args[-1] == "120"
+        assert result == "evt789"
 
 
 # ── reschedule_event ───────────────────────────────────────────────────
 
 
 class TestRescheduleEvent:
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_reschedule_event(self, mock_gog):
-        mock_gog.return_value = "Event moved"
+    @patch(f"{MOD}.service")
+    def test_reschedule_event(self, mock_service):
+        mock_svc = mock_service.return_value
+        mock_svc.events.return_value.get.return_value.execute.return_value = {
+            "start": {"dateTime": "2026-04-15T10:00:00+08:00"},
+            "end": {"dateTime": "2026-04-15T11:00:00+08:00"},
+        }
+        mock_svc.events.return_value.update.return_value.execute.return_value = {}
         result = reschedule_event("evt123", "2026-04-16", "15:00")
-        assert result == "Event moved"
-        mock_gog.assert_called_once_with(
-            ["calendar", "update", "evt123", "--from", "2026-04-16T15:00"]
-        )
+        assert result == "evt123"
 
 
 # ── cancel_event ───────────────────────────────────────────────────────
 
 
 class TestCancelEvent:
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_cancel_event(self, mock_gog):
-        mock_gog.return_value = "Event deleted"
+    @patch(f"{MOD}.service")
+    def test_cancel_event(self, mock_service):
+        mock_service.return_value.events.return_value.delete.return_value.execute.return_value = None
         result = cancel_event("evt456")
-        assert result == "Event deleted"
-        mock_gog.assert_called_once_with(
-            ["calendar", "delete", "evt456", "--force"]
-        )
+        assert result == "evt456"
 
 
 # ── is_weekend ─────────────────────────────────────────────────────────
@@ -186,56 +157,55 @@ class TestIsWeekend:
 
 
 class TestIsHoliday:
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_holiday_keyword_detected(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-04-01"}, "summary": "Public Holiday"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_holiday_keyword_detected(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-04-01"}, "summary": "Public Holiday"}
+        ]
         result = is_holiday(date(2026, 4, 1))
         assert result is True
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_leave_keyword_detected(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-04-01"}, "summary": "Annual Leave"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_leave_keyword_detected(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-04-01"}, "summary": "Annual Leave"}
+        ]
         result = is_holiday(date(2026, 4, 1))
         assert result is True
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_chinese_keyword_detected(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-04-01"}, "summary": "休假"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_chinese_keyword_detected(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-04-01"}, "summary": "休假"}
+        ]
         result = is_holiday(date(2026, 4, 1))
         assert result is True
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_regular_event_not_holiday(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-04-01"}, "summary": "Team Meeting"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_regular_event_not_holiday(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-04-01"}, "summary": "Team Meeting"}
+        ]
         result = is_holiday(date(2026, 4, 1))
         assert result is False
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_timed_event_ignored(self, mock_gog):
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_timed_event_ignored(self, mock_json):
         """Timed events (with dateTime, not date) are not treated as holidays."""
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"dateTime": "2026-04-01T09:00"}, "summary": "Holiday"}]
-        })
+        mock_json.return_value = [
+            {"start": {"dateTime": "2026-04-01T09:00"}, "summary": "Holiday"}
+        ]
         result = is_holiday(date(2026, 4, 1))
         assert result is False
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_error_returns_false(self, mock_gog):
-        mock_gog.side_effect = ValueError("gog failed")
+    @patch(f"{MOD}.scheduled_events_json", side_effect=Exception("API error"))
+    def test_error_returns_false(self, mock_json):
         result = is_holiday(date(2026, 4, 1))
         assert result is False
 
-    @patch("metabolon.organelles.circadian_clock._gog")
-    def test_json_error_returns_false(self, mock_gog):
-        mock_gog.return_value = "invalid json"
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_empty_events_returns_false(self, mock_json):
+        mock_json.return_value = []
         result = is_holiday(date(2026, 4, 1))
         assert result is False
 

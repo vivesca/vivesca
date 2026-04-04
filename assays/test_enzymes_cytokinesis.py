@@ -1,6 +1,6 @@
-from __future__ import annotations
+"""Additional edge-case tests for metabolon.enzymes.cytokinesis."""
 
-"""Additional edge-case tests for metabolon.enzymes.cytokinesis gather."""
+from __future__ import annotations
 
 import json
 import subprocess
@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metabolon.enzymes.cytokinesis import GatherResult, cytokinesis_gather
+from metabolon.enzymes.cytokinesis import CytoResult, cytokinesis
+from metabolon.morphology import EffectorResult
 
 
 # ---------------------------------------------------------------------------
@@ -19,7 +20,7 @@ def _run(returncode: int = 0, stdout: str = "", stderr: str = ""):
     return MagicMock(returncode=returncode, stdout=stdout, stderr=stderr)
 
 
-def _payload(**overrides) -> dict:
+def _gather_payload(**overrides) -> dict:
     base = {
         "repos": {},
         "skills": {},
@@ -29,219 +30,181 @@ def _payload(**overrides) -> dict:
         "deps": [],
         "reflect": [],
         "methylation": [],
+        "gates": {"gate_a": "DONE"},
+    }
+    base.update(overrides)
+    return base
+
+
+def _verify_payload(all_passed: bool = True, **overrides) -> dict:
+    base = {
+        "gates": {"gate_a": "DONE"},
+        "all_passed": all_passed,
     }
     base.update(overrides)
     return base
 
 
 # ---------------------------------------------------------------------------
-# Field forwarding
+# Gate counting edge cases
 # ---------------------------------------------------------------------------
 
-class TestFieldForwarding:
-    """Ensure all JSON keys are forwarded to GatherResult."""
+class TestGateCounting:
+    """Edge cases for pending gate detection."""
 
     @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_deps_forwarded(self, mock_run):
-        deps = ["pkg-a==1.0", "pkg-b>=2.0"]
-        mock_run.return_value = _run(stdout=json.dumps(_payload(deps=deps)))
-        result = cytokinesis_gather()
-        assert result.status == "ok"
-        assert result.deps == deps
+    def test_no_gates_key(self, mock_run):
+        mock_run.return_value = _run(stdout=json.dumps({"repos": {}}))
+        result = cytokinesis("gather")
+        assert isinstance(result, CytoResult)
+        assert result.all_gates_passed is True
+        assert result.gates == {}
 
     @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_reflect_forwarded(self, mock_run):
-        reflect = ["note-1", "note-2"]
-        mock_run.return_value = _run(stdout=json.dumps(_payload(reflect=reflect)))
-        result = cytokinesis_gather()
-        assert result.reflect == reflect
+    def test_empty_gates(self, mock_run):
+        mock_run.return_value = _run(stdout=json.dumps({"gates": {}}))
+        result = cytokinesis("gather")
+        assert result.all_gates_passed is True
+        assert "0 pending" in result.output
 
     @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_methylation_forwarded(self, mock_run):
-        meth = ["methyl-item"]
-        mock_run.return_value = _run(stdout=json.dumps(_payload(methylation=meth)))
-        result = cytokinesis_gather()
-        assert result.methylation == meth
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_tonus_forwarded(self, mock_run):
-        now = {"age_label": "fresh", "hours": 1.2}
-        mock_run.return_value = _run(stdout=json.dumps(_payload(now=now)))
-        result = cytokinesis_gather()
-        assert result.tonus == now
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_repos_with_clean_true(self, mock_run):
-        repos = {"germline": {"clean": True}, "other": {"clean": True}}
-        mock_run.return_value = _run(stdout=json.dumps(_payload(repos=repos)))
-        result = cytokinesis_gather()
-        assert result.status == "ok"
-        assert result.repos == repos
-
-
-# ---------------------------------------------------------------------------
-# Missing / partial JSON keys
-# ---------------------------------------------------------------------------
-
-class TestPartialJson:
-    """Gracefully handle missing keys in CLI output."""
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_empty_json_object(self, mock_run):
-        mock_run.return_value = _run(stdout=json.dumps({}))
-        result = cytokinesis_gather()
-        # No repos, no memory over limit, no stale tonus, no rfts → ok
-        assert result.status == "ok"
-        assert result.memory == {}
-        assert result.rfts == []
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_missing_memory_key(self, mock_run):
-        payload = _payload()
-        del payload["memory"]
-        mock_run.return_value = _run(stdout=json.dumps(payload))
-        result = cytokinesis_gather()
-        # mem.get("lines", 0) → 0, mem.get("limit", 150) → 150 → not over
-        assert result.status == "ok"
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_missing_now_key(self, mock_run):
-        payload = _payload()
-        del payload["now"]
-        mock_run.return_value = _run(stdout=json.dumps(payload))
-        result = cytokinesis_gather()
-        assert result.status == "ok"
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_missing_rfts_key(self, mock_run):
-        payload = _payload()
-        del payload["rfts"]
-        mock_run.return_value = _run(stdout=json.dumps(payload))
-        result = cytokinesis_gather()
-        assert result.status == "ok"
-        assert result.rfts == []
-
-
-# ---------------------------------------------------------------------------
-# Warning boundary conditions
-# ---------------------------------------------------------------------------
-
-class TestWarningBoundaries:
-    """Fine-grained boundary checks for warning derivation."""
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_memory_one_below_limit(self, mock_run):
+    def test_multiple_pending_gates(self, mock_run):
         mock_run.return_value = _run(
-            stdout=json.dumps(_payload(memory={"lines": 149, "limit": 150}))
+            stdout=json.dumps({"gates": {"a": "PENDING", "b": "PENDING", "c": "DONE"}})
         )
-        result = cytokinesis_gather()
-        assert result.status == "ok"
+        result = cytokinesis("gather")
+        assert result.all_gates_passed is False
+        assert "2 pending" in result.output
 
     @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_memory_one_over_limit(self, mock_run):
+    def test_partial_pending_status(self, mock_run):
+        """PENDING anywhere in the status string counts."""
         mock_run.return_value = _run(
-            stdout=json.dumps(_payload(memory={"lines": 151, "limit": 150}))
+            stdout=json.dumps({"gates": {"a": "STILL PENDING REVIEW"}})
         )
-        result = cytokinesis_gather()
-        assert result.status == "warning"
-        assert "151/150" in result.message
+        result = cytokinesis("gather")
+        assert result.all_gates_passed is False
 
     @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_tonus_very_stale(self, mock_run):
-        mock_run.return_value = _run(
-            stdout=json.dumps(_payload(now={"age_label": "very stale"}))
-        )
-        result = cytokinesis_gather()
-        assert result.status == "warning"
-        assert "tonus stale" in result.message
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_tonus_unknown_label_ok(self, mock_run):
-        """Labels other than stale/very stale should not trigger warning."""
-        mock_run.return_value = _run(
-            stdout=json.dumps(_payload(now={"age_label": "moderate"}))
-        )
-        result = cytokinesis_gather()
-        assert result.status == "ok"
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_single_rft_warning(self, mock_run):
-        mock_run.return_value = _run(
-            stdout=json.dumps(_payload(rfts=[{"path": "single.md"}]))
-        )
-        result = cytokinesis_gather()
-        assert result.status == "warning"
-        assert "1 stale marks" in result.message
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_empty_rfts_ok(self, mock_run):
-        mock_run.return_value = _run(
-            stdout=json.dumps(_payload(rfts=[]))
-        )
-        result = cytokinesis_gather()
-        assert result.status == "ok"
+    def test_verify_no_all_passed_key(self, mock_run):
+        mock_run.return_value = _run(stdout=json.dumps({"gates": {"a": "DONE"}}))
+        result = cytokinesis("verify")
+        # all_passed defaults to False
+        assert isinstance(result, CytoResult)
+        assert result.all_gates_passed is False
+        assert "BLOCKED" in result.output
 
 
 # ---------------------------------------------------------------------------
-# Error result shape
+# Verify action edge cases
 # ---------------------------------------------------------------------------
 
-class TestErrorResultShape:
-    """Error results should still be GatherResult with sensible defaults."""
+class TestVerifyEdgeCases:
+    """Verify action edge cases."""
 
     @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_error_has_defaults(self, mock_run):
-        mock_run.return_value = _run(returncode=2)
-        result = cytokinesis_gather()
-        assert isinstance(result, GatherResult)
-        assert result.status == "error"
-        assert result.repos == {}
-        assert result.rfts == []
-        assert result.peira is None
-
-    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
-    def test_error_message_contains_exit_code(self, mock_run):
-        mock_run.return_value = _run(returncode=42)
-        result = cytokinesis_gather()
-        assert "42" in result.message
-
-
-# ---------------------------------------------------------------------------
-# GatherResult model edge cases
-# ---------------------------------------------------------------------------
-
-class TestGatherResultModelEdgeCases:
-
-    def test_status_required(self):
-        with pytest.raises(Exception):
-            GatherResult(message="clean")
-
-    def test_message_required(self):
-        with pytest.raises(Exception):
-            GatherResult(status="ok")
-
-    def test_full_construction(self):
-        r = GatherResult(
-            status="warning",
-            message="test",
-            repos={"r": {"clean": False}},
-            skills={"s": True},
-            memory={"lines": 1, "limit": 2},
-            tonus={"age_label": "stale"},
-            rfts=[{"path": "a"}],
-            deps=["d"],
-            peira="branch",
-            reflect=["ref"],
-            methylation=["meth"],
+    def test_verify_all_passed_false_no_pending(self, mock_run):
+        mock_run.return_value = _run(
+            stdout=json.dumps({"gates": {"a": "DONE"}, "all_passed": False})
         )
-        assert r.status == "warning"
-        assert r.repos["r"]["clean"] is False
-        assert r.peira == "branch"
+        result = cytokinesis("verify")
+        assert result.all_gates_passed is False
+        assert "BLOCKED" in result.output
 
-    def test_is_secretion_subclass(self):
-        from metabolon.morphology import Secretion
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_verify_timeout(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="cytokinesis", timeout=90)
+        # _run_cli catches and returns (1, str(exc)), then verify tries json.loads
+        # which fails → EffectorResult
+        result = cytokinesis("verify")
+        assert isinstance(result, EffectorResult)
+        assert result.success is False
 
-        assert issubclass(GatherResult, Secretion)
+
+# ---------------------------------------------------------------------------
+# Flush action edge cases
+# ---------------------------------------------------------------------------
+
+class TestFlushEdgeCases:
+    """Flush action edge cases."""
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_flush_nonzero_exit(self, mock_run):
+        mock_run.return_value = _run(returncode=1, stdout="error msg")
+        result = cytokinesis("flush")
+        assert isinstance(result, CytoResult)
+        assert result.output == "error msg"
+        assert result.data == {"exit_code": 1}
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_flush_whitespace_only(self, mock_run):
+        mock_run.return_value = _run(stdout="   \n  ")
+        result = cytokinesis("flush")
+        assert result.output == "flushed"
+
+
+# ---------------------------------------------------------------------------
+# Wrap action edge cases
+# ---------------------------------------------------------------------------
+
+class TestWrapEdgeCases:
+    """Wrap action edge cases."""
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_wrap_verify_returns_pending(self, mock_run):
+        mock_run.side_effect = [
+            _run(stdout=json.dumps(_gather_payload())),
+            _run(
+                stdout=json.dumps(
+                    _verify_payload(
+                        all_passed=False,
+                        gates={"a": "PENDING", "b": "PENDING"},
+                    )
+                )
+            ),
+        ]
+        result = cytokinesis("wrap")
+        assert isinstance(result, CytoResult)
+        assert result.all_gates_passed is False
+        assert "CANNOT WRAP" in result.output
+        assert "a" in result.output
+        assert "b" in result.output
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_wrap_gather_data_in_result(self, mock_run):
+        gather_data = _gather_payload(repos={"r": {"clean": True}})
+        mock_run.side_effect = [
+            _run(stdout=json.dumps(gather_data)),
+            _run(stdout=json.dumps(_verify_payload(all_passed=True))),
+        ]
+        result = cytokinesis("wrap")
+        assert result.data == gather_data
+
+
+# ---------------------------------------------------------------------------
+# Action case handling
+# ---------------------------------------------------------------------------
+
+class TestActionCaseHandling:
+    """Actions should be case-insensitive and stripped."""
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_uppercase_action(self, mock_run):
+        mock_run.return_value = _run(stdout=json.dumps(_gather_payload()))
+        result = cytokinesis("GATHER")
+        assert isinstance(result, CytoResult)
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_action_with_spaces(self, mock_run):
+        mock_run.return_value = _run(stdout=json.dumps(_gather_payload()))
+        result = cytokinesis("  gather  ")
+        assert isinstance(result, CytoResult)
+
+    @patch("metabolon.enzymes.cytokinesis.subprocess.run")
+    def test_default_action_is_gather(self, mock_run):
+        mock_run.return_value = _run(stdout=json.dumps(_gather_payload()))
+        result = cytokinesis()
+        assert isinstance(result, CytoResult)
 
 
 # ---------------------------------------------------------------------------
@@ -252,10 +215,10 @@ class TestToolDecorator:
     """Verify the @tool decorator was applied correctly."""
 
     def test_tool_name(self):
-        meta = cytokinesis_gather.__fastmcp__
-        assert meta.name == "cytokinesis_gather"
+        meta = cytokinesis.__fastmcp__
+        assert meta.name == "cytokinesis"
 
-    def test_tool_readonly(self):
-        ann = cytokinesis_gather.__fastmcp__.annotations
-        assert ann.readOnlyHint is True
+    def test_tool_not_readonly(self):
+        ann = cytokinesis.__fastmcp__.annotations
+        assert ann.readOnlyHint is False
         assert ann.destructiveHint is False

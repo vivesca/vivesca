@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-"""Tests for metabolon.organelles.circadian_clock — full coverage with mocked gog CLI."""
+"""Tests for metabolon.organelles.circadian_clock — full coverage with mocked Calendar API."""
 
 import json
 from datetime import date, datetime, timedelta, timezone
-from subprocess import CompletedProcess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,54 +17,10 @@ from metabolon.organelles.circadian_clock import (
     schedule_event,
     scheduled_events,
     scheduled_events_json,
-    _gog,
 )
 
 HKT = timezone(timedelta(hours=8))
 MOD = "metabolon.organelles.circadian_clock"
-
-
-# ---------------------------------------------------------------------------
-# _gog
-# ---------------------------------------------------------------------------
-
-
-class TestGog:
-    """Unit tests for the low-level _gog subprocess wrapper."""
-
-    @patch(f"{MOD}.subprocess.run")
-    def test_success_returns_stdout(self, mock_run):
-        mock_run.return_value = CompletedProcess(
-            args=["gog"], returncode=0, stdout="ok output\n", stderr=""
-        )
-        assert _gog(["calendar", "list"]) == "ok output"
-
-    @patch(f"{MOD}.subprocess.run")
-    def test_failure_raises_value_error(self, mock_run):
-        mock_run.return_value = CompletedProcess(
-            args=["gog"], returncode=1, stdout="", stderr="auth error"
-        )
-        with pytest.raises(ValueError, match="auth error"):
-            _gog(["calendar", "list"])
-
-    @patch(f"{MOD}.subprocess.run")
-    def test_timeout_propagated(self, mock_run):
-        mock_run.side_effect = TimeoutError("timed out")
-        with pytest.raises(TimeoutError):
-            _gog(["calendar", "list"], timeout=1)
-
-    @patch(f"{MOD}.subprocess.run")
-    def test_args_forwarded(self, mock_run):
-        mock_run.return_value = CompletedProcess(
-            args=["gog"], returncode=0, stdout="done", stderr=""
-        )
-        _gog(["calendar", "create", "Meeting", "--date", "2026-04-01"])
-        mock_run.assert_called_once_with(
-            ["gog", "calendar", "create", "Meeting", "--date", "2026-04-01"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -74,32 +29,47 @@ class TestGog:
 
 
 class TestScheduledEvents:
-    @patch(f"{MOD}._gog", return_value="3 events found")
-    def test_default_today(self, mock_gog):
+    @patch(f"{MOD}.scheduled_events_json", return_value=[])
+    def test_no_events(self, mock_json):
         result = scheduled_events()
-        assert result == "3 events found"
-        mock_gog.assert_called_once_with(["calendar", "list", "--json"])
+        assert result == "No events."
 
-    @patch(f"{MOD}._gog", return_value="1 event")
-    def test_custom_date(self, mock_gog):
-        result = scheduled_events(date="2026-04-15")
-        assert result == "1 event"
-        mock_gog.assert_called_once_with(["calendar", "list", "2026-04-15"])
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_timed_events(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"dateTime": "2026-04-01T10:00:00+08:00"}, "summary": "Standup"},
+            {"start": {"dateTime": "2026-04-01T14:30:00+08:00"}, "summary": "Review"},
+        ]
+        result = scheduled_events()
+        assert "10:00  Standup" in result
+        assert "14:30  Review" in result
+
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_all_day_event(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-04-01"}, "summary": "Holiday"},
+        ]
+        result = scheduled_events()
+        assert "all-day  Holiday" in result
 
 
 class TestScheduledEventsJson:
-    @patch(f"{MOD}._gog", return_value='[{"summary": "Standup"}]')
-    def test_valid_json(self, mock_gog):
+    @patch(f"{MOD}.service")
+    def test_valid_events(self, mock_service):
+        mock_service.return_value.events.return_value.list.return_value.execute.return_value = {
+            "items": [{"summary": "Standup"}]
+        }
         result = scheduled_events_json()
         assert result == [{"summary": "Standup"}]
 
-    @patch(f"{MOD}._gog", return_value="not json")
-    def test_invalid_json_returns_empty(self, mock_gog):
+    @patch(f"{MOD}.service")
+    def test_no_items_key(self, mock_service):
+        mock_service.return_value.events.return_value.list.return_value.execute.return_value = {}
         result = scheduled_events_json()
         assert result == []
 
-    @patch(f"{MOD}._gog", return_value="")
-    def test_empty_output(self, mock_gog):
+    @patch(f"{MOD}.service", side_effect=Exception("API error"))
+    def test_exception_returns_empty(self, mock_service):
         result = scheduled_events_json()
         assert result == []
 
@@ -110,42 +80,42 @@ class TestScheduledEventsJson:
 
 
 class TestScheduleEvent:
-    @patch(f"{MOD}._gog", return_value="created evt_123")
-    def test_create_with_defaults(self, mock_gog):
+    @patch(f"{MOD}.service")
+    def test_create_with_defaults(self, mock_service):
+        mock_service.return_value.events.return_value.insert.return_value.execute.return_value = {
+            "id": "evt_123"
+        }
         result = schedule_event("Sync", "2026-04-01", "10:00")
-        assert result == "created evt_123"
-        mock_gog.assert_called_once_with(
-            ["calendar", "create", "Sync", "--date", "2026-04-01",
-             "--time", "10:00", "--duration", "60"]
-        )
+        assert result == "evt_123"
 
-    @patch(f"{MOD}._gog", return_value="created evt_456")
-    def test_create_with_custom_duration(self, mock_gog):
+    @patch(f"{MOD}.service")
+    def test_create_with_custom_duration(self, mock_service):
+        mock_service.return_value.events.return_value.insert.return_value.execute.return_value = {
+            "id": "evt_456"
+        }
         result = schedule_event("Deep work", "2026-04-01", "09:00", duration=120)
-        mock_gog.assert_called_once_with(
-            ["calendar", "create", "Deep work", "--date", "2026-04-01",
-             "--time", "09:00", "--duration", "120"]
-        )
+        assert result == "evt_456"
 
 
 class TestRescheduleEvent:
-    @patch(f"{MOD}._gog", return_value="updated")
-    def test_reschedule(self, mock_gog):
+    @patch(f"{MOD}.service")
+    def test_reschedule(self, mock_service):
+        mock_svc = mock_service.return_value
+        mock_svc.events.return_value.get.return_value.execute.return_value = {
+            "start": {"dateTime": "2026-04-01T10:00:00+08:00"},
+            "end": {"dateTime": "2026-04-01T11:00:00+08:00"},
+        }
+        mock_svc.events.return_value.update.return_value.execute.return_value = {}
         result = reschedule_event("evt_abc", "2026-04-02", "14:00")
-        assert result == "updated"
-        mock_gog.assert_called_once_with(
-            ["calendar", "update", "evt_abc", "--from", "2026-04-02T14:00"]
-        )
+        assert result == "evt_abc"
 
 
 class TestCancelEvent:
-    @patch(f"{MOD}._gog", return_value="deleted")
-    def test_cancel(self, mock_gog):
+    @patch(f"{MOD}.service")
+    def test_cancel(self, mock_service):
+        mock_service.return_value.events.return_value.delete.return_value.execute.return_value = None
         result = cancel_event("evt_xyz")
-        assert result == "deleted"
-        mock_gog.assert_called_once_with(
-            ["calendar", "delete", "evt_xyz", "--force"]
-        )
+        assert result == "evt_xyz"
 
 
 # ---------------------------------------------------------------------------
@@ -181,55 +151,51 @@ class TestIsWeekend:
 
 
 class TestIsHoliday:
-    @patch(f"{MOD}._gog")
-    def test_holiday_keyword_match(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-03-30"}, "summary": "Public Holiday"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_holiday_keyword_match(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-03-30"}, "summary": "Public Holiday"}
+        ]
         assert is_holiday(date(2026, 3, 30)) is True
 
-    @patch(f"{MOD}._gog")
-    def test_chinese_keyword(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-10-01"}, "summary": "假期"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_chinese_keyword(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-10-01"}, "summary": "假期"}
+        ]
         assert is_holiday(date(2026, 10, 1)) is True
 
-    @patch(f"{MOD}._gog")
-    def test_timed_event_not_holiday(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"dateTime": "2026-03-30T10:00:00"}, "summary": "Team Sync"}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_timed_event_not_holiday(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"dateTime": "2026-03-30T10:00:00"}, "summary": "Team Sync"}
+        ]
         assert is_holiday(date(2026, 3, 30)) is False
 
-    @patch(f"{MOD}._gog")
-    def test_no_events(self, mock_gog):
-        mock_gog.return_value = json.dumps({"events": []})
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_no_events(self, mock_json):
+        mock_json.return_value = []
         assert is_holiday(date(2026, 3, 30)) is False
 
-    @patch(f"{MOD}._gog")
-    def test_null_summary_treated_as_empty(self, mock_gog):
-        mock_gog.return_value = json.dumps({
-            "events": [{"start": {"date": "2026-03-30"}, "summary": None}]
-        })
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_null_summary_treated_as_empty(self, mock_json):
+        mock_json.return_value = [
+            {"start": {"date": "2026-03-30"}, "summary": None}
+        ]
         assert is_holiday(date(2026, 3, 30)) is False
 
-    @patch(f"{MOD}._gog", side_effect=ValueError("gog down"))
-    def test_gog_error_returns_false(self, mock_gog):
+    @patch(f"{MOD}.scheduled_events_json", side_effect=Exception("API error"))
+    def test_api_error_returns_false(self, mock_json):
         assert is_holiday(date(2026, 3, 30)) is False
 
-    @patch(f"{MOD}._gog", return_value="bad json")
-    def test_json_parse_error_returns_false(self, mock_gog):
-        assert is_holiday(date(2026, 3, 30)) is False
-
-    @patch(f"{MOD}._gog")
-    def test_all_keywords_covered(self, mock_gog):
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_all_keywords_covered(self, mock_json):
         """Every keyword in _HOLIDAY_KEYWORDS should trigger a match."""
         from metabolon.organelles.circadian_clock import _HOLIDAY_KEYWORDS
         for kw in _HOLIDAY_KEYWORDS:
-            mock_gog.return_value = json.dumps({
-                "events": [{"start": {"date": "2026-04-01"}, "summary": kw}]
-            })
+            mock_json.return_value = [
+                {"start": {"date": "2026-04-01"}, "summary": kw}
+            ]
             assert is_holiday(date(2026, 4, 1)) is True, f"keyword {kw!r} not detected"
 
     @patch(f"{MOD}.datetime")
@@ -238,10 +204,9 @@ class TestIsHoliday:
         fake_now = datetime(2026, 4, 1, 12, 0, tzinfo=HKT)
         mock_dt.now.return_value = fake_now
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-        with patch(f"{MOD}._gog", return_value='{"events": []}') as mock_gog:
+        with patch(f"{MOD}.scheduled_events_json", return_value=[]) as mock_json:
             assert is_holiday() is False
-            call_args = mock_gog.call_args[0][0]
-            assert "2026-04-01" in call_args
+            mock_json.assert_called_once_with("2026-04-01")
 
 
 # ---------------------------------------------------------------------------

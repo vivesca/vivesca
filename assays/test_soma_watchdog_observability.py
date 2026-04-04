@@ -28,7 +28,7 @@ check_cycle = _mod["check_cycle"]
 main = _mod["main"]
 
 HOME = _mod["HOME"]
-JSONL_PATH = _mod["JSONL_PATH"]
+METRICS_PATH = _mod["METRICS_PATH"]
 ALERT_STAMP = _mod["ALERT_STAMP"]
 
 
@@ -52,8 +52,8 @@ class _P:
 # ── Constants ──────────────────────────────────────────────────────────
 
 
-def test_jsonl_path_constant():
-    assert JSONL_PATH == HOME / "epigenome" / "chromatin" / "telemetry" / "soma-resources.jsonl"
+def test_metrics_path_constant():
+    assert METRICS_PATH == HOME / ".local" / "share" / "vivesca" / "soma-resources.jsonl"
 
 
 def test_alert_stamp_constant():
@@ -65,7 +65,7 @@ def test_alert_stamp_constant():
 
 def test_log_resources_writes_jsonl(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)):
         log_resources()
     assert jsonl.exists()
@@ -80,7 +80,7 @@ def test_log_resources_writes_jsonl(tmp_path):
 
 def test_log_resources_ts_is_iso(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)):
         log_resources()
     data = json.loads(jsonl.read_text().strip())
@@ -92,7 +92,7 @@ def test_log_resources_cpu_from_loadavg(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
     fake_loadavg = MagicMock()
     fake_loadavg.read_text.return_value = "2.60 12.20 22.78 5/1129 20994"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)), \
          patch.object(Path, "read_text", fake_loadavg.read_text):
         # Path("/proc/loadavg") will use mocked read_text
@@ -105,7 +105,7 @@ def test_log_resources_cpu_from_loadavg(tmp_path):
 def test_log_resources_disk_fields(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
     u = MagicMock(used=30 * 1024 ** 3, total=100 * 1024 ** 3, free=70 * 1024 ** 3)
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=u), \
          patch("subprocess.run", return_value=MagicMock(stdout="3\n", returncode=0)):
         log_resources()
@@ -116,7 +116,7 @@ def test_log_resources_disk_fields(tmp_path):
 
 def test_log_resources_golem_count(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)), \
          patch("subprocess.run", return_value=MagicMock(stdout="5\n", returncode=0)):
         log_resources()
@@ -126,7 +126,7 @@ def test_log_resources_golem_count(tmp_path):
 
 def test_log_resources_golem_count_zero_on_fail(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)), \
          patch("subprocess.run", return_value=MagicMock(stdout="", returncode=1)):
         log_resources()
@@ -136,7 +136,7 @@ def test_log_resources_golem_count_zero_on_fail(tmp_path):
 
 def test_log_resources_creates_dir(tmp_path):
     jsonl = tmp_path / "deep" / "nested" / "soma-resources.jsonl"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)):
         log_resources()
     assert jsonl.exists()
@@ -144,7 +144,7 @@ def test_log_resources_creates_dir(tmp_path):
 
 def test_log_resources_appends(tmp_path):
     jsonl = tmp_path / "soma-resources.jsonl"
-    with _P("JSONL_PATH", jsonl), \
+    with _P("METRICS_PATH", jsonl), \
          patch("shutil.disk_usage", return_value=MagicMock(used=50, total=100, free=50)):
         log_resources()
         log_resources()
@@ -237,6 +237,7 @@ def test_alert_creates_stamp_dir(tmp_path):
     stamp = tmp_path / "deep" / "stamp.txt"
     health = {"disk_volume": {"status": "crit", "free_gb": 0.5}}
     with _P("ALERT_STAMP", stamp), \
+         patch("shutil.which", return_value="deltos"), \
          patch("subprocess.run"):
         alert_on_crit(health)
     assert stamp.exists()
@@ -306,15 +307,17 @@ def test_main_calls_log_resources_and_alert(tmp_path):
     def fake_alert_on_crit(h):
         ac_called.append(h)
 
-    def boom():
-        raise KeyboardInterrupt
+    fake_time = MagicMock()
+    fake_time.sleep.side_effect = KeyboardInterrupt
+    fake_time.time = time.time
 
     with _P("LOG", lp), \
-         _P("JSONL_PATH", jsonl), \
+         _P("METRICS_PATH", jsonl), \
          _P("ALERT_STAMP", stamp), \
          _P("check_cycle", lambda: {"disk_volume": {"status": "ok"}}), \
          _P("log_resources", fake_log_resources), \
-         _P("alert_on_crit", fake_alert_on_crit):
+         _P("alert_on_crit", fake_alert_on_crit), \
+         _P("time", fake_time):
         with patch.object(_mod["sys"], "argv", ["w"]):
             main()
     assert len(lr_called) >= 1
