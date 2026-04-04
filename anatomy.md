@@ -85,6 +85,10 @@ fetch
 gap_junction
 - `gap_junction(action, name, message, query, limit)` -- Unified WhatsApp tool.
 
+### golem_dispatch
+golem_dispatch — MCP tool for direct Temporal workflow dispatch.
+- `golem_dispatch(action, prompt, provider, max_turns, workflow_id, specs, limit)` -- Direct Temporal dispatch for golem tasks.
+
 ### golem_queue
 golem_queue — MCP tool for managing the golem task queue.
 - `golem_queue(action, task_id, tags, provider, max_turns, prompt)` -- Manage the golem task queue.
@@ -288,6 +292,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **expression.py**: `expression`
 - **fetch.py**: `fetch`
 - **gap_junction.py**: `gap_junction`
+- **golem_dispatch.py**: `golem_dispatch`
 - **golem_queue.py**: `golem_queue`
 - **hemostasis.py**: `hemostasis`
 - **histone.py**: `histone`
@@ -392,8 +397,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **412**
-- Most active: `server` (146), `rheotaxis` (98), `fetch` (77), `rheotaxis_search` (23), `navigator` (16)
+- Signals (last 7 days): **444**
+- Most active: `server` (146), `rheotaxis` (112), `fetch` (86), `rheotaxis_search` (23), `navigator` (16)
 
 ## Known Lesions
 
