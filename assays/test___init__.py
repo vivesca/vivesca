@@ -46,7 +46,7 @@ def test_key_subpackages_exist():
 
 def test_pyproject_version_matches():
     """Package version in pyproject.toml is a valid semver (informational check)."""
-    pyproject = Path(metabolon.__file__).parent.parent / "pyproject.toml"
+    pyproject = Path(metabolon.__file__).parent.parent.parent / "pyproject.toml"
     assert pyproject.exists(), "pyproject.toml should exist at repo root"
     content = pyproject.read_text()
     match = re.search(r'^version\s*=\s*"(.+?)"', content, re.MULTILINE)

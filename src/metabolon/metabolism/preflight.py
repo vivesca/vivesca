@@ -208,7 +208,7 @@ def check_golem_binary() -> CheckResult:
     golem_path = shutil.which("golem")
     if golem_path is None:
         # Check default location
-        default_path = HOME / "germline" / "effectors" / "golem"
+        default_path = Path.home() / "germline" / "effectors" / "golem"
         if default_path.exists():
             if os.access(default_path, os.X_OK):
                 return CheckResult(
