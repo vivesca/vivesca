@@ -9,8 +9,6 @@ GMAIL_REFRESH_TOKEN) or falls back to gog's token.json file. No browser needed
 after initial setup.
 """
 
-from __future__ import annotations
-
 import base64
 import html
 import mimetypes
