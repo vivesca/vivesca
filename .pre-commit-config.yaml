@@ -14,3 +14,10 @@ repos:
       - id: codespell
         additional_dependencies:
           - tomli
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.10.0
+    hooks:
+      - id: pip-audit
+        args: [--skip-editable]
+        stages: [pre-push]
