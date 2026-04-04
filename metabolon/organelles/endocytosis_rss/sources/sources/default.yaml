@@ -248,6 +248,23 @@ web_sources:
     rss: https://www.bankofengland.co.uk/rss/publications
     url: https://www.bankofengland.co.uk/research
 
+  # --- FS regulation / consulting: weekly metabolism ---
+  # Banking AI regulation commentary — the "Simon Willison" tier for FS.
+
+  - name: Chris Skinner (The Finanser)
+    tier: 2
+    cadence: weekly
+    tags: [banking, fintech]
+    rss: https://thefinanser.com/feed/
+    url: https://thefinanser.com/
+
+  - name: Bank Reg Blog
+    tier: 2
+    cadence: weekly
+    tags: [banking, regulation]
+    rss: https://bankregblog.substack.com/feed
+    url: https://bankregblog.substack.com/
+
   # --- Research / academic: biweekly metabolism ---
   # Low publication frequency, dense substrate. Biweekly polling keeps the
   # receptor sensitive without saturating the log with empty results.
