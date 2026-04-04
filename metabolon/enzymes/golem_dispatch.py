@@ -16,11 +16,12 @@ from typing import Any
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from metabolon.morphology import EffectorResult, Secretion
 
 # Temporal host — override via TEMPORAL_HOST env var
-TEMPORAL_HOST: str = os.environ.get("TEMPORAL_HOST", "ganglion:7233")
+TEMPORAL_HOST: str = os.environ.get("TEMPORAL_HOST", "100.120.158.22:7233")
 
 # Allow import of GolemDispatchWorkflow from effectors/temporal-golem
 sys.path.insert(
@@ -35,13 +36,13 @@ class QueueResult(Secretion):
     """Structured result for golem-dispatch operations."""
 
     output: str
-    data: dict[str, Any] = {}
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 # ── async helpers ─────────────────────────────────────────────────────────────
 
 
-async def _get_client():  # noqa: ANN202 – avoid importing temporalio at module level
+async def _get_client():
     """Create a Temporal client connected to TEMPORAL_HOST."""
     from temporalio.client import Client
 
