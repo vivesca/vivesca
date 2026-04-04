@@ -61,7 +61,7 @@ for f in src/**/*.py; do echo "## $f"; echo '```python'; cat "$f"; echo '```'; e
 
 # Run red team with actual code
 PROMPT=$(cat /tmp/review.md)
-uv tool run consilium "$PROMPT" --redteam --output ~/notes/Councils/review.md
+uv tool run consilium "$PROMPT" --redteam --output ~/epigenome/chromatin/Councils/review.md
 ```
 
 **Key:** Models can't read files — paste actual code into the prompt. ~55K chars (8 modules) works fine. Use for whole-codebase security review, not single-file bugs.

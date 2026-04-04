@@ -33,7 +33,7 @@ Reference skill. Consult when Terry is building slides, visualizations, or data-
 - Interactive legend (click to highlight category)
 - Comparison table (original vs corrected) with directional markers
 
-**Provenance research:** `~/notes/Research/AI Adoption Dot Visualization - Provenance.md`
+**Provenance research:** `~/epigenome/chromatin/Research/AI Adoption Dot Visualization - Provenance.md`
 
 **Key design choices:**
 - Grid gap matters — too tight looks like a heatmap, too loose loses density

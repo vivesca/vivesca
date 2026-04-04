@@ -16,7 +16,7 @@ Two modes:
 - **Queue mode** — extract a list of books by ASIN (overnight)
 
 CLI at `~/bin/kindle-extract` (source: `~/code/kindle-extract/`).
-Queue file: `~/notes/Books/kindle-queue.txt`
+Queue file: `~/epigenome/chromatin/Books/kindle-queue.txt`
 
 ---
 
@@ -31,8 +31,8 @@ Must contain `read.amazon.com`. If not, tell user to open Kindle Cloud Reader fi
 ### 2. Check resume status
 ```bash
 agent-browser get title
-# Parse: "AWAKENINGS | Kindle" → "Awakenings" → ~/notes/Books/Awakenings.md
-/usr/bin/grep -c "--- Page" ~/notes/Books/<title>.md 2>/dev/null || echo "0"
+# Parse: "AWAKENINGS | Kindle" → "Awakenings" → ~/epigenome/chromatin/Books/Awakenings.md
+/usr/bin/grep -c "--- Page" ~/epigenome/chromatin/Books/<title>.md 2>/dev/null || echo "0"
 ```
 Report: "Found 46 pages already extracted — will resume from page 47."
 
@@ -54,7 +54,7 @@ Stop:   tmux kill-session -t kindle
 
 ## Queue Mode (overnight)
 
-Queue file: `~/notes/Books/kindle-queue.txt`
+Queue file: `~/epigenome/chromatin/Books/kindle-queue.txt`
 Format: one ASIN per line, optional comment after whitespace, `#` lines skipped.
 
 ```
@@ -65,7 +65,7 @@ B0041OT9W6  # The Diary of a Young Girl - Anne Frank
 
 ### Start overnight run
 ```bash
-kindle-extract --queue ~/notes/Books/kindle-queue.txt --background
+kindle-extract --queue ~/epigenome/chromatin/Books/kindle-queue.txt --background
 ```
 
 Output:
@@ -78,7 +78,7 @@ Stop:   tmux kill-session -t kindle
 
 ### Test first (2 pages per book)
 ```bash
-kindle-extract --queue ~/notes/Books/kindle-queue.txt --end-page 2
+kindle-extract --queue ~/epigenome/chromatin/Books/kindle-queue.txt --end-page 2
 ```
 
 ### Monitor
@@ -97,7 +97,7 @@ agent-browser navigate "https://read.amazon.com/kindle-library"
 agent-browser eval "document.body.innerHTML.match(/asin...([A-Z0-9]{10})/g).join(',')"
 ```
 Cross-reference with the title list from `agent-browser snapshot`.
-Curated queue already built at `~/notes/Books/kindle-queue.txt`.
+Curated queue already built at `~/epigenome/chromatin/Books/kindle-queue.txt`.
 
 ---
 
@@ -111,6 +111,6 @@ Curated queue already built at `~/notes/Books/kindle-queue.txt`.
 
 ## Files
 - CLI: `~/bin/kindle-extract` → `~/code/kindle-extract/`
-- Queue: `~/notes/Books/kindle-queue.txt`
-- Output: `~/notes/Books/`
+- Queue: `~/epigenome/chromatin/Books/kindle-queue.txt`
+- Output: `~/epigenome/chromatin/Books/`
 - Log: `~/tmp/kindle.log`

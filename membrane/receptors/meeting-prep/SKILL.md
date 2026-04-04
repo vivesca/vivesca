@@ -28,14 +28,14 @@ Scenario-based drill for upcoming meetings. Generates likely questions, objectio
 
 If the user provides a meeting description, use it directly. If they reference a note or person, read the relevant vault files:
 
-- `~/notes/Capco Transition.md` — if Capco/HSBC-related
-- `~/notes/Job Hunting.md` — CV narrative, comp, story framing
-- `~/notes/Interview Q&A Bank.md` — prepared answers for common questions
-- `~/notes/Core Story Bank.md` — STAR-format behavioral stories
-- `~/notes/TODO.md` — for meeting-specific context and deadlines
+- `~/epigenome/chromatin/Capco Transition.md` — if Capco/HSBC-related
+- `~/epigenome/chromatin/Job Hunting.md` — CV narrative, comp, story framing
+- `~/epigenome/chromatin/Interview Q&A Bank.md` — prepared answers for common questions
+- `~/epigenome/chromatin/Core Story Bank.md` — STAR-format behavioral stories
+- `~/epigenome/TODO.md` — for meeting-specific context and deadlines
 - Any person-specific or company-specific notes the user mentions
 
-Also read `~/notes/CLAUDE.md` for Terry's background summary if not already in context.
+Also read `~/epigenome/chromatin/CLAUDE.md` for Terry's background summary if not already in context.
 
 ### 2. Generate Question
 
@@ -93,7 +93,7 @@ After the user answers:
 
 ### 6. Save Prep Notes (optional)
 
-Ask if they want to save. If yes, save to `~/notes/Meeting Prep - [Context].md` with:
+Ask if they want to save. If yes, save to `~/epigenome/chromatin/Meeting Prep - [Context].md` with:
 - Meeting context header
 - Key talking points (best framings from session)
 - Any flagged blind spots

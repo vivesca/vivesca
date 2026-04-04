@@ -150,7 +150,7 @@ When a search succeeds after multiple attempts, **immediately capture the findin
 
 **1. Where did it live?**
 Update the routing table or add a vault location note here. Future searches start there.
-- Vault article notes: `~/notes/Articles/` — `ls ~/notes/Articles/ | grep -i <keyword>` beats `anam search` for filename-level lookup (Mar 2026).
+- Vault article notes: `~/epigenome/chromatin/Articles/` — `ls ~/epigenome/chromatin/Articles/ | grep -i <keyword>` beats `anam search` for filename-level lookup (Mar 2026).
 
 **2. What does the failure tell us about the CLI?**
 A search miss is a signal about the tool, not just the query. Ask:

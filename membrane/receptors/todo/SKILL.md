@@ -6,7 +6,7 @@ user_invocable: true
 
 # Todo
 
-Quick management of `~/notes/TODO.md` with time-based scheduling.
+Quick management of `~/epigenome/TODO.md` with time-based scheduling.
 
 ## Date Tag Format
 
@@ -39,7 +39,7 @@ Dates are always ISO-8601 (`YYYY-MM-DD`). Regex patterns for parsing:
 
 ## Commands
 
-If `~/notes/TODO.md` is missing, create it with a minimal heading before running any command. If creation fails, report "TODO store unavailable" and stop.
+If `~/epigenome/TODO.md` is missing, create it with a minimal heading before running any command. If creation fails, report "TODO store unavailable" and stop.
 
 ### `/todo` (Today view — default)
 
@@ -48,7 +48,7 @@ Show today's actionable tasks. This is the **default** when no subcommand is giv
 **Logic:**
 1. Run `date +%Y-%m-%d` to get today in HKT
    - If date command fails, use system-provided current date.
-2. Read `~/notes/TODO.md`
+2. Read `~/epigenome/TODO.md`
 3. For each unchecked line (`- [ ]`):
    - SKIP if line contains `` `someday` ``
    - SKIP if line has `` `when:YYYY-MM-DD` `` where date > today
@@ -99,7 +99,7 @@ Show deferred tasks.
 Show all unchecked items regardless of date tags. This is the old default behaviour.
 
 ```bash
-grep -n "^\- \[ \]" ~/notes/TODO.md
+grep -n "^\- \[ \]" ~/epigenome/TODO.md
 ```
 If no lines are returned, report "No open tasks."
 
@@ -108,7 +108,7 @@ If no lines are returned, report "No open tasks."
 Add a new task. Append to end of file. User can include inline tags.
 
 ```bash
-echo "- [ ] <task>" >> ~/notes/TODO.md
+echo "- [ ] <task>" >> ~/epigenome/TODO.md
 ```
 If append fails, report "Failed to add task" and do not claim success.
 
@@ -119,7 +119,7 @@ Examples:
 
 ### `/todo done <partial match>`
 
-Mark a task as done by partial text match. Find the line, replace `- [ ]` with `- [x]`, then move the completed line to `~/notes/TODO Archive.md` (append under the current month's section like `## March 2026`, creating it if it doesn't exist).
+Mark a task as done by partial text match. Find the line, replace `- [ ]` with `- [x]`, then move the completed line to `~/epigenome/TODO Archive.md` (append under the current month's section like `## March 2026`, creating it if it doesn't exist).
 If no unique match is found, ask for a narrower match and do not modify files.
 
 ### `/todo schedule <match> <date>`
@@ -156,7 +156,7 @@ If no unique match is found, ask for a narrower match and do not modify files.
 
 ### `/todo clean`
 
-Move all checked items (`- [x]`) to `~/notes/TODO Archive.md` under the current month's section (e.g. `## March 2026`), appending to an existing section if present or creating a new one. Then remove all `[x]` lines from TODO.md and collapse any resulting double blank lines.
+Move all checked items (`- [x]`) to `~/epigenome/TODO Archive.md` under the current month's section (e.g. `## March 2026`), appending to an existing section if present or creating a new one. Then remove all `[x]` lines from TODO.md and collapse any resulting double blank lines.
 If archive write fails, do not remove checked items from TODO.md.
 
 ### `/todo spare`
@@ -175,11 +175,11 @@ Show the `🔋 Spare Capacity` section items — low-priority maintenance for wh
 
 ## Notes
 
-- Single source: `~/notes/TODO.md`
+- Single source: `~/epigenome/TODO.md`
 - All agents (Claude Code, OpenCode) share this file
 - Tasks grouped under `## Headings` — preserve section structure
-- **NEVER leave `- [x]` lines in TODO.md.** When marking done — whether via `/todo done` or manually — always move the completed line to `~/notes/TODO Archive.md` in the same edit. No exceptions, no "clean up later".
-- **Reflections/journaling items live in `~/notes/Reflections Queue.md`** — not TODO.md
+- **NEVER leave `- [x]` lines in TODO.md.** When marking done — whether via `/todo done` or manually — always move the completed line to `~/epigenome/TODO Archive.md` in the same edit. No exceptions, no "clean up later".
+- **Reflections/journaling items live in `~/epigenome/chromatin/Reflections Queue.md`** — not TODO.md
 - **`🔋 Spare Capacity` section** = low-priority maintenance for spare token budget
 - **`Someday` subsection** at the bottom of Spare Capacity = deferred indefinitely
 - Dates are always ISO-8601 (`YYYY-MM-DD`), always in HKT context

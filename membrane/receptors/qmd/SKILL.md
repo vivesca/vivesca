@@ -53,7 +53,7 @@ nohup qmd embed &       # Background embedding
 
 ```bash
 bun install -g https://github.com/tobi/qmd
-qmd collection add ~/notes --name notes --exclude "Archive/**"
+qmd collection add ~/epigenome/chromatin --name notes --exclude "Archive/**"
 qmd context add qmd://notes "Terry's Obsidian vault"
 qmd embed  # Generate vectors (one-time, slow)
 # MCP removed: was `claude mcp add qmd -s user -- qmd mcp`

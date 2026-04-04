@@ -95,14 +95,14 @@ If `~/.claude/cli-friction.jsonl` has entries: read the file, group errors by CL
 
 ### Step 1: TODO Sweep
 
-Read `~/notes/TODO.md`. Skip if missing.
+Read `~/epigenome/TODO.md`. Skip if missing.
 
-- **Complete:** Done items → `[x]` with note and `done:YYYY-MM-DD`. Hard test: truly done, or just "dev done"? Move checked items to `~/notes/TODO Archive.md`.
+- **Complete:** Done items → `[x]` with note and `done:YYYY-MM-DD`. Hard test: truly done, or just "dev done"? Move checked items to `~/epigenome/TODO Archive.md`.
 - **Create:** New commitments or interrupted WIP → add with verb + concrete next action. Tag `agent:` if Claude can resume.
 
 ### Step 2: Session Log (full mode only)
 
-Append to `~/notes/Daily/YYYY-MM-DD.md`:
+Append to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md`:
 
 ```markdown
 ### HH:MM–HH:MM — [Brief title]

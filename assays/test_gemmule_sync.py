@@ -55,7 +55,7 @@ class TestConstants:
     def test_sync_pairs_sources(self, gs):
         srcs = [s for s, _ in gs.SYNC_PAIRS]
         assert "~/epigenome/chromatin/" in srcs
-        assert "~/notes/" in srcs
+        assert "~/epigenome/chromatin/" in srcs
         assert "~/code/acta/" in srcs
 
     def test_log_file_path(self, gs):

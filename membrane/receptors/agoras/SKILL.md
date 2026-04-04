@@ -38,10 +38,10 @@ Extract: author name/title, verbatim post text, all comments (author + text), en
 
 ### 2. Research the Author
 
-**Check vault first.** Profiles are cached at `~/notes/LinkedIn Profiles/<Name>.md`. Check before fetching LinkedIn:
+**Check vault first.** Profiles are cached at `~/epigenome/chromatin/LinkedIn Profiles/<Name>.md`. Check before fetching LinkedIn:
 
 ```bash
-ls ~/notes/LinkedIn\ Profiles/
+ls ~/epigenome/chromatin/LinkedIn\ Profiles/
 # look for <Name>.md — if found, read it
 ```
 
@@ -59,7 +59,7 @@ Key things to surface: prior companies, domain expertise accumulated before curr
 **After researching, save or update the vault profile:**
 
 ```bash
-# Create or overwrite ~/notes/LinkedIn Profiles/<Name>.md
+# Create or overwrite ~/epigenome/chromatin/LinkedIn Profiles/<Name>.md
 ```
 
 Profile format:
@@ -234,7 +234,7 @@ agent-browser close --profile
 After Terry confirms posted, **update the vault profile's Engagement History**:
 
 ```bash
-# Append to ~/notes/LinkedIn Profiles/<Name>.md Engagement History
+# Append to ~/epigenome/chromatin/LinkedIn Profiles/<Name>.md Engagement History
 # - <YYYY-MM-DD>: Commented on "<topic>" — <one-line summary>
 ```
 
@@ -274,7 +274,7 @@ The Like button ref is typically labelled "React Like" in the snapshot. Click it
 **Every LinkedIn post draft MUST have an entry in `[[LinkedIn Content Ideas]]` BEFORE any draft file or gist is created.** This is the single source of truth for the content pipeline.
 
 ```bash
-cat ~/notes/LinkedIn\ Content\ Ideas.md
+cat ~/epigenome/chromatin/LinkedIn\ Content\ Ideas.md
 ```
 
 If the topic exists, use the captured angle/details. If new, add the entry first (hook, angle, status, timing gate), then create the draft file linked from it.
@@ -283,7 +283,7 @@ If the topic exists, use the captured angle/details. If new, add the entry first
 
 ### 2. Draft Against Playbook Rules
 
-Read the playbook: `~/notes/LinkedIn Posting Playbook.md`
+Read the playbook: `~/epigenome/chromatin/LinkedIn Posting Playbook.md`
 
 **Hard rules:**
 - No external links in post body (link goes in first comment)
@@ -332,9 +332,9 @@ Update `[[LinkedIn Content Ideas]]` status to "Draft ready" with date.
 
 ## Vault References
 
-- `~/notes/LinkedIn Content Ideas.md` — content pipeline
-- `~/notes/LinkedIn Posting Playbook.md` — positioning, metrics, cadence
-- `~/notes/LinkedIn Commenting Principles.md` — rationale behind the voice rules
-- `~/notes/LinkedIn Profile Updates - Feb 2026.md` — headline/about copy
-- `~/notes/LinkedIn Profiles/` — cached author profiles
-- `~/notes/Councils/LLM Council - LinkedIn*` — past comment/post reviews
+- `~/epigenome/chromatin/LinkedIn Content Ideas.md` — content pipeline
+- `~/epigenome/chromatin/LinkedIn Posting Playbook.md` — positioning, metrics, cadence
+- `~/epigenome/chromatin/LinkedIn Commenting Principles.md` — rationale behind the voice rules
+- `~/epigenome/chromatin/LinkedIn Profile Updates - Feb 2026.md` — headline/about copy
+- `~/epigenome/chromatin/LinkedIn Profiles/` — cached author profiles
+- `~/epigenome/chromatin/Councils/LLM Council - LinkedIn*` — past comment/post reviews

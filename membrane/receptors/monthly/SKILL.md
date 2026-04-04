@@ -31,7 +31,7 @@ digest
 ```
 If either command fails, note "Digest unavailable" for this month and continue to section 2.
 
-Output: `~/notes/Health/{source}/{YYYY-MM} Digest.md`
+Output: `~/epigenome/chromatin/Health/{source}/{YYYY-MM} Digest.md`
 Sources configured in `~/skills/digest/sources.yaml`.
 
 ### 2. AI Thematic Digest
@@ -47,7 +47,7 @@ uv run ~/skills/lustro/ai-digest.py
 ```
 If `uv` or script execution fails, mark AI thematic digest as skipped and continue.
 
-Output: `~/notes/AI & Tech/YYYY-MM AI Thematic Digest.md`
+Output: `~/epigenome/chromatin/AI & Tech/YYYY-MM AI Thematic Digest.md`
 Prerequisites: lustro cron must have been running with article archival (default since Feb 2026).
 Cost: ~$0.05-0.15 (Gemini Flash via OpenRouter).
 
@@ -89,7 +89,7 @@ Run inline — no separate skill needed:
 
 a. **Solutions KB** — regenerate index (`python3 ~/scripts/generate-solutions-index.py`) then review for stale or duplicate entries
 b. **Decay report** — `uv run ~/scripts/vault-decay-report.py` for orphans/cold notes
-c. **Daily note archival** — archive notes >60 days old to `~/notes/.archive/dailies/`
+c. **Daily note archival** — archive notes >60 days old to `~/epigenome/chromatin/.archive/dailies/`
 d. **Broken links** — verify `[[wikilinks]]` in CLAUDE.md still resolve
 e. **QMD reindex** — `qmd update && qmd status` (run `qmd embed` in background if stale)
 f. **Mark archive rotation** — scan `~/epigenome/marks/archive/` for marks >3 months old with no citations in any session log or MEMORY.md. These are safe to delete permanently (the knowledge is in code/skills/genome). Report count before and after. Also check: any archived mark that was grep-hit during this month's work → promote back to active marks.
@@ -141,7 +141,7 @@ If rate/search sources are unavailable, note "Finance check partial" and avoid f
 
 ### 9. Direction Audit (quarterly — March, June, September, December only)
 
-Read `~/notes/Life OS.md`. For each domain ask: is this still the right framing? Has anything shifted? Is the listed "next step" still relevant or stale? Update the note in-place — it's a live map, not a historical document. Skip this step in non-quarter months.
+Read `~/epigenome/chromatin/Life OS.md`. For each domain ask: is this still the right framing? Has anything shifted? Is the listed "next step" still relevant or stale? Update the note in-place — it's a live map, not a historical document. Skip this step in non-quarter months.
 
 ### 10. Housekeeping
 

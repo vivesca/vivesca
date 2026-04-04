@@ -27,7 +27,7 @@ Present as a quick dashboard: "3 unread emails, 1 WhatsApp message" style. If no
 
 ### 2. Surface Low-Energy Tasks from TODO.md
 
-If `~/notes/TODO.md` exists, read it and collect unchecked items (`- [ ]`) that fit a low-energy window. If missing, skip this step and note "No TODO.md found — nothing to surface":
+If `~/epigenome/TODO.md` exists, read it and collect unchecked items (`- [ ]`) that fit a low-energy window. If missing, skip this step and note "No TODO.md found — nothing to surface":
 
 **Explicit tag:** Items tagged `low-energy` — always show these.
 
@@ -47,7 +47,7 @@ If `~/notes/TODO.md` exists, read it and collect unchecked items (`- [ ]`) that 
 
 ### 3. LinkedIn job alerts (post-noon only)
 
-If current time is after 12:00 HKT, check `~/notes/Job Hunting/Job Alerts YYYY-MM-DD.md`:
+If current time is after 12:00 HKT, check `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`:
 - Count unchecked flagged roles (`- [ ]` lines)
 - If any exist, include in the menu as: "💼 Job alerts: X roles flagged — `/evaluate-job`"
 - Skip silently if file missing or all items checked

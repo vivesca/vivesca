@@ -22,16 +22,16 @@ Run when you sit down and are ready to work. Loads your priority context, clears
    - If fails or returns all `--`, skip silently.
 
 3. **Staleness check**:
-   - Run `stat -f '%Sm' -t '%Y-%m-%d' ~/notes/NOW.md ~/notes/Capco/Capco\ Transition.md ~/notes/TODO.md`
+   - Run `stat -f '%Sm' -t '%Y-%m-%d' ~/epigenome/chromatin/NOW.md ~/epigenome/chromatin/Capco/Capco\ Transition.md ~/epigenome/TODO.md`
    - If any file's last-modified date is >24h old, flag it: "NOW.md last updated X — treat as stale"
 
 3. **Yesterday's daily note** — carryover only:
-   - Read `~/notes/Daily/YYYY-MM-DD.md` (yesterday), pull `## Tomorrow` and `## Follow-ups` sections only
+   - Read `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` (yesterday), pull `## Tomorrow` and `## Follow-ups` sections only
    - Cross-reference against NOW.md `[decided]` entries — skip anything already resolved
    - If yesterday's note is missing, skip silently
 
 4. **NOW.md open gates** — the core of this brief:
-   - Read `~/notes/NOW.md`
+   - Read `~/epigenome/chromatin/NOW.md`
    - Surface all `[open]` items with their context. This is the work queue.
 
 5. **Check cron logs** (overnight output):
@@ -54,7 +54,7 @@ Run when you sit down and are ready to work. Loads your priority context, clears
 
 10. **Capco countdown + daily prep item** (until start date):
     - Calculate days remaining: `python3 -c "from datetime import date; print((date(2026,4,8)-date.today()).days)"`
-    - Check `~/notes/Capco/Capco Transition.md` for confirmed start date if different
+    - Check `~/epigenome/chromatin/Capco/Capco Transition.md` for confirmed start date if different
     - **Pick today's prep item** — rotate by day-of-week:
       - Mon: Capco methodology
       - Tue: client knowledge

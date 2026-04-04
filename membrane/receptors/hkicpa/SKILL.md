@@ -91,7 +91,7 @@ Click "Add CPD hours". Form fields (by `name` attribute — more stable than ref
 | Ethics (verifiable) | 2h / year (from Dec 2025) | Ethics Conference 2025 enrolled ✓ |
 | Structured | 30h / 3 years | Active Dec 2026 |
 
-Full tracker: `~/notes/HKICPA CPD Tracker.md`
+Full tracker: `~/epigenome/chromatin/HKICPA CPD Tracker.md`
 
 ## CPD Evidence (keep on file, not uploaded)
 

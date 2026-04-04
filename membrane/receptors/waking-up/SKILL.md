@@ -69,12 +69,12 @@ wu estimate <file.json>       # estimate transcription cost
 ## Key Paths
 
 - **Repo:** `~/code/wu/`
-- **Vault transcripts:** `~/notes/Waking Up/` (107 pack folders + Uncategorized)
-- **MOC:** `~/notes/Waking Up/Waking Up MOC.md`
+- **Vault transcripts:** `~/epigenome/chromatin/Waking Up/` (107 pack folders + Uncategorized)
+- **MOC:** `~/epigenome/chromatin/Waking Up/Waking Up MOC.md`
 - **Audio cache:** `~/.cache/waking-up-audio/`
 - **Catalog data:** `data/all_courses.json`, `data/audio_id_mapping.json`
 - **Pack data:** `data/packs.json` (129 packs), `data/pack_courses.json` (scraped pack→course mapping)
-- **Progress note:** `~/notes/Waking Up Transcription Progress.md`
+- **Progress note:** `~/epigenome/chromatin/Waking Up Transcription Progress.md`
 
 ## Transcription Backends
 
@@ -122,7 +122,7 @@ The CLI tries direct URL first (from `audio.url` in catalog), falls back to HLS 
 - `maxOutputTokens: 65536` required — Gemini defaults to ~8192 without it
 
 Full gotchas: `~/docs/solutions/stt-api-gotchas.md`
-Full progress: `~/notes/Waking Up Transcription Progress.md`
+Full progress: `~/epigenome/chromatin/Waking Up Transcription Progress.md`
 
 ## Distillation System
 

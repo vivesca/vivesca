@@ -120,5 +120,5 @@ NIST AI RMF was uploaded `no_llm=true` so findings will differ from the primary 
 ## Files
 
 - Script: `~/bin/lacuna`
-- Vault: `~/notes/Capco/Lacuna/` (symlinks to CLAUDE.md, DEMO_SCRIPT.md, Codex Argentum)
-- **Product strategy** (CLI-first principle, completeness workflow design): `~/notes/Capco/Lacuna/Lacuna - Product Strategy.md`
+- Vault: `~/epigenome/chromatin/Capco/Lacuna/` (symlinks to CLAUDE.md, DEMO_SCRIPT.md, Codex Argentum)
+- **Product strategy** (CLI-first principle, completeness workflow design): `~/epigenome/chromatin/Capco/Lacuna/Lacuna - Product Strategy.md`

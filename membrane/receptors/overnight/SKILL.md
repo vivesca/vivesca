@@ -16,7 +16,7 @@ Check results from the overnight legatus runs. Each task runs as its own LaunchA
 
 ## Architecture
 
-- **Queue file:** `~/notes/opencode-queue.yaml` — task definitions + schedule documentation
+- **Queue file:** `~/epigenome/chromatin/opencode-queue.yaml` — task definitions + schedule documentation
 - **Dispatcher:** `legatus run <name>` (pure dispatcher, no scheduling logic)
 - **Scheduling:** 7 individual CalendarInterval LaunchAgents in `~/officina/launchd/`
 - **Output:** `~/.cache/legatus-runs/<YYYY-MM-DD-HHMM>/<taskname>/` — one dir per dispatch
@@ -56,7 +56,7 @@ cat "$LATEST/<taskname>/stdout.txt"       # read specific task output
 
 ## Add: New Task
 
-1. Add entry to `~/notes/opencode-queue.yaml` with: name, title, backend, timeout, schedule (doc only), prompt
+1. Add entry to `~/epigenome/chromatin/opencode-queue.yaml` with: name, title, backend, timeout, schedule (doc only), prompt
 2. Create a CalendarInterval plist in `~/officina/launchd/com.terry.legatus-<name>.plist`
 3. Copy to `~/Library/LaunchAgents/` and `launchctl load`
 4. Verify with: `legatus list`

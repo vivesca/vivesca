@@ -75,7 +75,7 @@ To add a source, edit `sources.yaml` with:
 
 ## Output
 
-Digest notes are written to `~/notes/{vault_path}/{Channel Name} - {YYYY-MM} Digest.md` with:
+Digest notes are written to `~/epigenome/chromatin/{vault_path}/{Channel Name} - {YYYY-MM} Digest.md` with:
 - Episode-by-episode breakdown
 - Key insights with evidence quality ratings
 - Specific protocols (dose, timing, frequency)

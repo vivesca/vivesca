@@ -17,7 +17,7 @@ speculor triage --date 2026-03-10 # triage a specific date
 
 ## Output
 
-Vault note: `~/notes/Job Hunting/Job Alerts YYYY-MM-DD.md`
+Vault note: `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`
 
 4 tiers after triage:
 - **Strong Match** — HK/SG, great fit (AI/DS leadership, model governance, consulting)
@@ -41,7 +41,7 @@ launchctl load ~/Library/LaunchAgents/com.terry.speculor.plist
 
 - Binary: `~/bin/speculor` (Rust, built from `~/code/speculor/`)
 - Plist: `~/officina/launchd/com.terry.speculor.plist`
-- Vault output: `~/notes/Job Hunting/Job Alerts YYYY-MM-DD.md`
+- Vault output: `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`
 
 ## Triage profile
 

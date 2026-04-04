@@ -33,7 +33,7 @@ If user says "[name] replied" without specifying platform, check Gmail and Linke
 Search the vault for background on this person:
 
 ```bash
-grep -ri "[name]" ~/notes/*.md
+grep -ri "[name]" ~/epigenome/chromatin/*.md
 ```
 
 Grep the canonical project note before drafting — council-reviewed drafts often already exist.

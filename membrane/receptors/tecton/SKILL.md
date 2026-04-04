@@ -13,7 +13,7 @@ triggers:
 
 # Vault Note Structure
 
-Reference skill for how to structure notes in `~/notes/`. Covers atomicity, interlinking, placement, and anti-patterns. Consult before creating a new note or when a note feels too large.
+Reference skill for how to structure notes in `~/epigenome/chromatin/`. Covers atomicity, interlinking, placement, and anti-patterns. Consult before creating a new note or when a note feels too large.
 
 ## Core Principles
 
@@ -49,12 +49,12 @@ Reference skill for how to structure notes in `~/notes/`. Covers atomicity, inte
 
 ## Where Notes Live
 
-- `~/notes/` — general vault root (project-agnostic, career, personal)
-- `~/notes/Capco/` — Capco-facing: positioning, client work, onboarding
-- `~/notes/Capco/Conversation Cards/` — pre-meeting refresh cards
-- `~/notes/Career/` — CV, interview prep, performance reviews
-- `~/notes/Daily/` — daily logs
-- `~/notes/Research/` — external research, clippings
+- `~/epigenome/chromatin/` — general vault root (project-agnostic, career, personal)
+- `~/epigenome/chromatin/Capco/` — Capco-facing: positioning, client work, onboarding
+- `~/epigenome/chromatin/Capco/Conversation Cards/` — pre-meeting refresh cards
+- `~/epigenome/chromatin/Career/` — CV, interview prep, performance reviews
+- `~/epigenome/chromatin/Daily/` — daily logs
+- `~/epigenome/chromatin/Research/` — external research, clippings
 
 **Rule:** If a note is about a CNCBI project operationally → vault root. If it's about how to use that project at Capco → `notes/Capco/`.
 

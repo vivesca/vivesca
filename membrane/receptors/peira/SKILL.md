@@ -22,7 +22,7 @@ peira log --score <n> [--decision keep|discard] [--notes "..."] [--campaign <nam
 peira best [--campaign <name>]             # print winning experiment
 ```
 
-Campaigns live in `~/notes/Experiments/peira-YYYY-MM-DD-<topic>/`. Active campaign = most recent. `--campaign` matches by substring.
+Campaigns live in `~/epigenome/chromatin/Experiments/peira-YYYY-MM-DD-<topic>/`. Active campaign = most recent. `--campaign` matches by substring.
 
 Log is TOML (`log.toml`); brief stays human-editable markdown (`brief.md`). Source: `~/code/peira/`.
 
@@ -40,8 +40,8 @@ Answer all four before starting. If any is unclear → ask. Do not begin the loo
 
 Create two files immediately:
 
-**Log:** `~/notes/Experiments/peira-YYYY-MM-DD-<topic>/log.md`
-**Brief:** `~/notes/Experiments/peira-YYYY-MM-DD-<topic>/brief.md`
+**Log:** `~/epigenome/chromatin/Experiments/peira-YYYY-MM-DD-<topic>/log.md`
+**Brief:** `~/epigenome/chromatin/Experiments/peira-YYYY-MM-DD-<topic>/brief.md`
 
 The brief is the living research context — the human iterates on it, not Claude:
 ```

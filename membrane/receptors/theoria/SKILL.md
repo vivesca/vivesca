@@ -16,7 +16,7 @@ Automated AI landscape snapshots at multiple cadences. LangGraph pipeline using 
 ## Quick Reference
 
 ```bash
-# Manual run (writes to ~/notes/Theoria.md and commits)
+# Manual run (writes to ~/epigenome/chromatin/Theoria.md and commits)
 theoria --period weekly
 theoria --period monthly
 theoria --period quarterly
@@ -61,7 +61,7 @@ Logs: `~/logs/cron-ai-landscape-{weekly,monthly,quarterly,yearly}.log`
 ## Relationship to Other Tools
 
 - **lustro** — data collection (upstream). Feeds theoria's gather node via `lustro log -n 200`.
-- **dialexis skill** — interactive synthesis (parallel). Theoria automates what dialexis does interactively. Both write to `~/notes/Theoria.md`. dialexis adds governance translation pass + client-specific suggestions that theoria doesn't.
+- **dialexis skill** — interactive synthesis (parallel). Theoria automates what dialexis does interactively. Both write to `~/epigenome/chromatin/Theoria.md`. dialexis adds governance translation pass + client-specific suggestions that theoria doesn't.
 - **weekly skill** — consumer. References Theoria.md output during Friday review.
 
 ## Gotchas
@@ -75,5 +75,5 @@ Logs: `~/logs/cron-ai-landscape-{weekly,monthly,quarterly,yearly}.log`
 
 - Repo: `~/code/theoria/` (GitHub: `terry-li-hm/theoria`, private)
 - PyPI: `theoria` (stub reserved)
-- Output: `~/notes/Theoria.md`
+- Output: `~/epigenome/chromatin/Theoria.md`
 - Config: `~/code/theoria/src/theoria/prompts.py` (edit prompt templates here)

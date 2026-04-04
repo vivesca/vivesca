@@ -234,13 +234,13 @@ tags: []
 
 Before generating any note, run:
 ```bash
-grep -r "^tags:" ~/notes/*.md | cut -d: -f2 | tr ',' '\n' | sort -u | head -50
+grep -r "^tags:" ~/epigenome/chromatin/*.md | cut -d: -f2 | tr ',' '\n' | sort -u | head -50
 ```
 If grep returns nothing or fails, use empty tags and continue.
 
 Also check for relevant MOCs:
 ```bash
-ls ~/notes/*MOC*.md ~/notes/Maps/*.md 2>/dev/null
+ls ~/epigenome/chromatin/*MOC*.md ~/epigenome/chromatin/Maps/*.md 2>/dev/null
 ```
 If this lookup fails, skip MOC linking.
 
@@ -248,7 +248,7 @@ If this lookup fails, skip MOC linking.
 
 ## Telemetry
 
-Append to `~/notes/Meta/Analyze Telemetry.md`:
+Append to `~/epigenome/chromatin/Meta/Analyze Telemetry.md`:
 ```
 | [date] | [input] | [detected_type] | [confidence] | [override?] |
 ```
@@ -290,6 +290,6 @@ This skill replaces `/evaluate-article`. Use `/analyze` for all content — URLs
 ## Example
 
 > Type detected: `repo` (high confidence).  
-> Saved to `~/notes/...` with existing tags only.  
+> Saved to `~/epigenome/chromatin/...` with existing tags only.  
 > Key signal: active commits in last 30 days, docs + tests present.  
 > Skip reason (if any): none.

@@ -39,7 +39,7 @@ This is orientation only — no action, no planning. Just close the loop so your
 
 ### 2. Scan open items (30 seconds)
 
-Read `~/notes/NOW.md` — look for anything unresolved that might race tonight.
+Read `~/epigenome/chromatin/NOW.md` — look for anything unresolved that might race tonight.
 
 - If anything is genuinely urgent for tomorrow → note it explicitly below
 - If it can wait → name it out loud and let it go

@@ -34,7 +34,7 @@ A 60-second brief for the moment you wake up. Weather, what's on today, anything
    - List events with times. Flag anything before 10am that requires prep.
 
 4. **Key deadlines today** — a quick scan of TODO.md:
-   - Grep `~/notes/TODO.md` for items tagged `when: <today's date>` or `due: <today>`
+   - Grep `~/epigenome/TODO.md` for items tagged `when: <today's date>` or `due: <today>`
    - Surface only hard deadlines — things with a specific date on them today
    - Skip someday/low-energy/undated items entirely — those are statio's job
    - If nothing due today, skip silently

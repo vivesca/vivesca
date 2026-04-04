@@ -39,8 +39,8 @@ docima eval --blind
 docima report
 
 # Import facts from markdown files
-docima import ~/notes/facts.md -b all
-docima import ~/notes/facts/ -b all --dry-run
+docima import ~/epigenome/chromatin/facts.md -b all
+docima import ~/epigenome/chromatin/facts/ -b all --dry-run
 ```
 
 ## Backends (10)

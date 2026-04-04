@@ -27,16 +27,16 @@ Show outgoing and incoming links from a note, BFS to depth N (default 1).
 
 ```bash
 # Depth 1 — direct connections
-hypha ~/notes --from "Capco Theoria Intelligence"
+hypha ~/epigenome/chromatin --from "Capco Theoria Intelligence"
 
 # Depth 2 — direct + one hop out
-hypha ~/notes --from "Capco Theoria Intelligence" --depth 2
+hypha ~/epigenome/chromatin --from "Capco Theoria Intelligence" --depth 2
 
 # Exclude noisy dirs
-hypha ~/notes --from "Capco Transition" --exclude Archive --exclude "Waking Up"
+hypha ~/epigenome/chromatin --from "Capco Transition" --exclude Archive --exclude "Waking Up"
 
 # JSON output
-hypha ~/notes --from "Capco Theoria Intelligence" --format json | jq .
+hypha ~/epigenome/chromatin --from "Capco Theoria Intelligence" --format json | jq .
 ```
 
 **Output (depth 1):**
@@ -61,16 +61,16 @@ Incoming (10):
 Surface notes that probably should connect to a note but don't yet. Scoring: **Resource Allocation** — each shared neighbor k contributes `1/degree(k)`. Penalises hub notes harder than Adamic-Adar; empirically outperforms it on sparse graphs. Calendrical notes (YYYY-MM-DD, YYYY-WXX) excluded — temporal hubs, not semantic signal.
 
 ```bash
-hypha ~/notes --suggest "Capco Theoria Intelligence"
+hypha ~/epigenome/chromatin --suggest "Capco Theoria Intelligence"
 
 # Limit results (default 15)
-hypha ~/notes --suggest "Capco Theoria Intelligence" --top 5
+hypha ~/epigenome/chromatin --suggest "Capco Theoria Intelligence" --top 5
 
 # Exclude noisy dirs
-hypha ~/notes --suggest "Capco Theoria Intelligence" --exclude Archive --exclude "Waking Up"
+hypha ~/epigenome/chromatin --suggest "Capco Theoria Intelligence" --exclude Archive --exclude "Waking Up"
 
 # JSON
-hypha ~/notes --suggest "Capco Theoria Intelligence" --format json | jq .
+hypha ~/epigenome/chromatin --suggest "Capco Theoria Intelligence" --format json | jq .
 ```
 
 **Output:**
@@ -91,7 +91,7 @@ Shared neighbors shown under each suggestion — makes signal vs noise judgment 
 Find shortest directed path from Note A to Note B (follows outgoing links).
 
 ```bash
-hypha ~/notes --path "Capco Transition" "Bertie Haskins Profile"
+hypha ~/epigenome/chromatin --path "Capco Transition" "Bertie Haskins Profile"
 ```
 
 **Output:**

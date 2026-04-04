@@ -25,15 +25,15 @@ Create a weekly synthesis of work, thinking, and progress.
    - If date computation fails, default to "last 7 days" and note the fallback.
 
 2. **Gather the week's data** (recursive — read distilled layers, not raw):
-   - Read the **## Reflection**, **## Follow-ups**, and **## Mood** sections from each daily note `~/notes/YYYY-MM-DD.md` (not the full session logs — those are raw context, already distilled into the reflection)
-   - Read this week's **Theoria weekly snapshot** from `~/notes/Theoria.md` (written by `/dialexis`). Reference it in the synthesis — don't re-derive AI themes from the raw AI News Log.
-   - Read `~/notes/Capco Transition.md` for transition status
-   - Read `~/notes/TODO.md` for completed/outstanding items
+   - Read the **## Reflection**, **## Follow-ups**, and **## Mood** sections from each daily note `~/epigenome/chromatin/YYYY-MM-DD.md` (not the full session logs — those are raw context, already distilled into the reflection)
+   - Read this week's **Theoria weekly snapshot** from `~/epigenome/chromatin/Theoria.md` (written by `/dialexis`). Reference it in the synthesis — don't re-derive AI themes from the raw AI News Log.
+   - Read `~/epigenome/chromatin/Capco Transition.md` for transition status
+   - Read `~/epigenome/TODO.md` for completed/outstanding items
    - Check `~/docs/solutions/` and `MEMORY.md` for entries this week
    - Check git log for skills/vault commits: `cd ~/skills && git log --oneline --since="7 days ago"`
    - Check `~/logs/` for cron output logs
    - Check CSB job monitor results: `tail -20 ~/logs/cron-csb-jobs.log` and `cat ~/.local/share/csb-jobs/seen.json | python3 -c "import sys,json; print(len(json.load(sys.stdin)),'jobs tracked')"`
-   - **Lararium** — Surface the Mourner's recent observations: `ls ~/notes/Lararium/mourner-*.md 2>/dev/null | tail -7 | xargs -I{} head -20 {}`. Include 1-2 of the most striking observations in the weekly note under `## Lararium`. If the Mourner named an abandoned project worth revisiting, flag it in Open Loops.
+   - **Lararium** — Surface the Mourner's recent observations: `ls ~/epigenome/chromatin/Lararium/mourner-*.md 2>/dev/null | tail -7 | xargs -I{} head -20 {}`. Include 1-2 of the most striking observations in the weekly note under `## Lararium`. If the Mourner named an abandoned project worth revisiting, flag it in Open Loops.
    - **GARP RAI exam prep** (until Apr 4 exam): run `melete stats && melete coverage`. Flag: (a) any weak topic (<60%) with no drill entry → create one; (b) low-coverage topics (<3 attempts) → note for next week's sessions; (c) overall rate trend vs last week.
    - If any source file is missing/unreadable, note it as unavailable and continue with remaining sources.
    - If a command fails, do not retry repeatedly; record one-line failure and continue.
@@ -44,7 +44,7 @@ Create a weekly synthesis of work, thinking, and progress.
    - What moved forward vs what stalled?
    - Where did energy go?
 
-4. **Create weekly note** at `~/notes/Weekly/YYYY-Www.md` (e.g., `2026-W06.md`):
+4. **Create weekly note** at `~/epigenome/chromatin/Weekly/YYYY-Www.md` (e.g., `2026-W06.md`):
 
 ```markdown
 # Week of YYYY-MM-DD
@@ -155,10 +155,10 @@ If a check command fails, mark that metric as `Unavailable` in the table and con
 ### Infrastructure Services
 
 8. **wacli daemon** — `launchctl list com.terry.wacli-sync`. Check exit code (0 = running, 113 = dead). If dead, flag for restart.
-9. **Vault git backup** — Check recency: `cd ~/notes && git log -1 --format='%ci'`. Flag if last commit >2h old (cron runs every 30 min).
+9. **Vault git backup** — Check recency: `cd ~/epigenome/chromatin && git log -1 --format='%ci'`. Flag if last commit >2h old (cron runs every 30 min).
 10. **Vault link health** — Run two passes:
-    - Broken links: `nexis ~/notes --exclude Archive --exclude "Waking Up" --exclude memory 2>/dev/null`. Flag if broken link count >30 or increased from last week.
-    - Asymmetric links: `nexis ~/notes --asymmetry --exclude Archive --exclude "Waking Up" --exclude memory 2>/dev/null`. Surface notes that link out but have no backlinks — add backlinks inline if obvious, defer to `/nexis` session if large volume.
+    - Broken links: `nexis ~/epigenome/chromatin --exclude Archive --exclude "Waking Up" --exclude memory 2>/dev/null`. Flag if broken link count >30 or increased from last week.
+    - Asymmetric links: `nexis ~/epigenome/chromatin --asymmetry --exclude Archive --exclude "Waking Up" --exclude memory 2>/dev/null`. Surface notes that link out but have no backlinks — add backlinks inline if obvious, defer to `/nexis` session if large volume.
     Full triage (atomicity, restructuring) is a separate `/nexis` session — don't do it inline here.
 11. **Agent-browser profile** — `ls -la ~/.agent-browser-profile/Default/Cookies 2>/dev/null && echo "OK" || echo "MISSING"`. Flag if profile directory is missing or Cookies file absent.
 
@@ -255,10 +255,10 @@ Run this alongside the synthesis every Friday:
    - Search: HKMA AI/fintech guidance, GenAI deployments at HK banks
    - Search: competitor moves in HK FSI (Accenture, EY, KPMG, Deloitte)
    - Synthesize into 3 bullets: Capco firm news | AI x banking | Competitor signal
-   - Feed anything useful into `~/notes/Capco/Conversation Cards/` if it's a durable talking point
-9. **ClawHub scan** — Browse [clawhub.ai](https://clawhub.ai) for new/notable skills using semantic search. Focus areas: messaging, health/biometrics, calendar, finance, relationship/CRM. Surface 1-3 ideas worth building; append to `~/notes/Awesome OpenClaw Skills - Evaluation.md` if notable. Skip if nothing new since last week.
+   - Feed anything useful into `~/epigenome/chromatin/Capco/Conversation Cards/` if it's a durable talking point
+9. **ClawHub scan** — Browse [clawhub.ai](https://clawhub.ai) for new/notable skills using semantic search. Focus areas: messaging, health/biometrics, calendar, finance, relationship/CRM. Surface 1-3 ideas worth building; append to `~/epigenome/chromatin/Awesome OpenClaw Skills - Evaluation.md` if notable. Skip if nothing new since last week.
 10. **Scripts repo hygiene** — `cd ~/scripts && git status --short`. Any untracked files? Commit and push. Keep the repo in sync with what's actually running.
-11. **Garden cull** — Scan posts published this week (`ls -lt ~/notes/Writing/Blog/Published/ | head -15`). Kill or merge weak ones (thin thesis, restating others without own angle, generic advice). Write freely during the week, cull on Friday.
+11. **Garden cull** — Scan posts published this week (`ls -lt ~/epigenome/chromatin/Writing/Blog/Published/ | head -15`). Kill or merge weak ones (thin thesis, restating others without own angle, generic advice). Write freely during the week, cull on Friday.
 
 12. **First Friday only** — Run `/monthly` (content digests, skill review, AI deep review, vault hygiene)
    - If a checklist command fails, keep the item open and note the failure reason in the weekly note.
@@ -267,7 +267,7 @@ Run this alongside the synthesis every Friday:
 
 ## Notes
 
-- Create `~/notes/Weekly/` directory if it doesn't exist
+- Create `~/epigenome/chromatin/Weekly/` directory if it doesn't exist
 - Link back to daily notes and relevant vault notes
 - The synthesis captures the broader picture; the reset checklist is action-oriented
 - The energy audit is the most valuable section long-term — it reveals what work is sustainable

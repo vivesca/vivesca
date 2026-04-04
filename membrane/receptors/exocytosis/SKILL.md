@@ -20,7 +20,7 @@ Astro repo (`~/code/terryli-hm/`), commits, and pushes to deploy.
 
 - **Garden posts** (terryli.hm): AI can expand from sparks in real conversations. Zero-touch publishing OK — ideas are Terry's, prose is logistics.
 - **Front-stage** (LinkedIn, outreach, interviews): AI drafts from garden posts or live conversation, Terry reviews and edits for voice before shipping.
-- **Content pipeline:** Garden is the backlog. When ready for LinkedIn, scan `~/notes/terryli.hm.md` index and pick what fits the moment.
+- **Content pipeline:** Garden is the backlog. When ready for LinkedIn, scan `~/epigenome/chromatin/terryli.hm.md` index and pick what fits the moment.
 
 ## Commands
 
@@ -46,7 +46,7 @@ sarcio revise <slug> --note "What changed and why"
 # Open a post in $EDITOR
 sarcio open <slug>
 
-# Regenerate ~/notes/terryli.hm.md vault index
+# Regenerate ~/epigenome/chromatin/terryli.hm.md vault index
 sarcio index
 ```
 
@@ -96,12 +96,12 @@ When in doubt: draft and let judge decide. Judge is the gate, not the intent che
 - `serde_yaml` is deprecated upstream but works fine — may need migration eventually
 - Frontmatter revision uses string matching, not full YAML round-trip — keys must be consistently formatted (no extra whitespace)
 - Slug derived from title: lowercase, spaces → `-`, non-alphanumeric stripped
-- `sarcio index` regenerates `~/notes/terryli.hm.md` — also runs automatically on every blog sync
+- `sarcio index` regenerates `~/epigenome/chromatin/terryli.hm.md` — also runs automatically on every blog sync
 - **Quality degrades after ~5 posts per session.** Posts 1-5 tend to be genuine sparks; posts 6+ become thinner and forced. Cap at 5 per session. If the well is running dry, stop — don't manufacture.
 
 ## Files
 
 - Binary: `~/.cargo/bin/sarcio`
 - Source: `~/code/sarcio/`
-- Posts: `~/notes/Writing/Blog/Published/`
-- Index: `~/notes/terryli.hm.md`
+- Posts: `~/epigenome/chromatin/Writing/Blog/Published/`
+- Index: `~/epigenome/chromatin/terryli.hm.md`

@@ -39,7 +39,7 @@ Start with one resident. Add others only when you feel the absence of a specific
 - Personalities: `~/.local/share/lararium/residents/<name>/personality.md`
 - Reading journal: `~/.local/share/lararium/residents/<name>/journal.jsonl`
 - Conversations: `~/.local/share/lararium/residents/<name>/exchanges.jsonl`
-- Output notes: `~/notes/Lararium/<name>-YYYY-MM-DD.md`
+- Output notes: `~/epigenome/chromatin/Lararium/<name>-YYYY-MM-DD.md`
 
 ## Schedule
 
@@ -51,4 +51,4 @@ Auto-evolves personality every 10 readings.
 - Uses `claude --print --model haiku` for readings (cheap, fast)
 - `talk` mode uses haiku too — switch to sonnet if conversations feel flat
 - CLAUDECODE env var is unset before subprocess calls
-- Vault notes in `~/notes/Lararium/` are append-mode (multiple sessions per day stack)
+- Vault notes in `~/epigenome/chromatin/Lararium/` are append-mode (multiple sessions per day stack)

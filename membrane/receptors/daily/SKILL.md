@@ -25,7 +25,7 @@ Bedtime close → daily note. The final checkpoint of the day.
 1. **Get today's date** (YYYY-MM-DD, HKT)
    - If `date` fails, use system-provided current date and continue.
 
-2. **Read today's daily note** (`~/notes/Daily/YYYY-MM-DD.md`)
+2. **Read today's daily note** (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`)
    - Check for existing session logs from `/legatum` and an "End of Work" section from `/eow`.
    - If the note is empty or missing, **fallback:** delegate history scan to a subagent — use Task tool (subagent_type: "general-purpose", model: "haiku") with prompt: "Run `python ~/scripts/chat_history.py --full` and synthesize a concise summary of today's activity. Group by theme. List key accomplishments, decisions, and unfinished threads. Keep output under 30 lines."
    - If both note read and fallback scan fail, continue with a minimal close based on current session context and label it "partial".
@@ -43,9 +43,9 @@ Bedtime close → daily note. The final checkpoint of the day.
 4. **Tomorrow preview** — scan for what's queued tomorrow:
    - Get tomorrow's date (`date -v+1d +%Y-%m-%d`)
    - If date command fails, skip tomorrow preview and note "Tomorrow preview unavailable".
-   - Read `~/notes/Schedule.md` — check for recurring commitments on that day of the week
+   - Read `~/epigenome/chromatin/Schedule.md` — check for recurring commitments on that day of the week
    - If Schedule.md is missing, continue without recurring commitments.
-   - Read `~/notes/TODO.md` and surface:
+   - Read `~/epigenome/TODO.md` and surface:
      - Items with `due:` = tomorrow (deadlines)
      - Items with `when:` = tomorrow (scheduled starts)
      - Any overdue items (`due:` < tomorrow) that weren't completed

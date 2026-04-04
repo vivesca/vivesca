@@ -32,13 +32,13 @@ Quick health check. `.nexisignore` at vault root auto-excludes structural noise 
 
 ```bash
 # Summary (default — counts only, .nexisignore applied automatically)
-nexis ~/notes
+nexis ~/epigenome/chromatin
 
 # Override: add extra excludes on top of .nexisignore
-nexis ~/notes --exclude "Some Other Dir"
+nexis ~/epigenome/chromatin --exclude "Some Other Dir"
 ```
 
-**`.nexisignore`** lives at `~/notes/.nexisignore` — one directory name per line, `#` for comments. Excluded dirs are silently skipped in all scans.
+**`.nexisignore`** lives at `~/epigenome/chromatin/.nexisignore` — one directory name per line, `#` for comments. Excluded dirs are silently skipped in all scans.
 
 **Interpreting results:**
 - Orphans: ~161 after .nexisignore; the real actionable set is ~20-30 notes.
@@ -55,16 +55,16 @@ Fix broken links interactively. Works on unique *targets* (not sources) — same
 
 ```bash
 # Scoped to a subfolder (recommended — avoids noise)
-nexis ~/notes --broken 2>/dev/null | grep "^  <Folder>/"
+nexis ~/epigenome/chromatin --broken 2>/dev/null | grep "^  <Folder>/"
 
 # Or full vault excluding noise
-nexis ~/notes --exclude Archive --exclude "Waking Up" --broken 2>/dev/null
+nexis ~/epigenome/chromatin --exclude Archive --exclude "Waking Up" --broken 2>/dev/null
 ```
 
 ### Step 2: Extract unique broken targets
 
 ```bash
-nexis ~/notes --broken 2>/dev/null | grep "^  <Folder>/" \
+nexis ~/epigenome/chromatin --broken 2>/dev/null | grep "^  <Folder>/" \
   | sed 's/.*: //' | sort -u
 ```
 
@@ -74,14 +74,14 @@ For each `[[Target]]`:
 
 1. **Search vault for likely redirect:**
 ```bash
-find ~/notes -name "*.md" 2>/dev/null \
+find ~/epigenome/chromatin -name "*.md" 2>/dev/null \
   | grep -i "<keyword from target>" \
   | grep -v ".obsidian\|Archive"
 ```
 
 2. **Check if intentional placeholder** — read the source line for context:
 ```bash
-grep -rn "Target" ~/notes/<Folder>/ 2>/dev/null | head -5
+grep -rn "Target" ~/epigenome/chromatin/<Folder>/ 2>/dev/null | head -5
 ```
 
 3. **Classify as one of:**
@@ -125,13 +125,13 @@ Bulk-convert all broken wikilinks to plain text in place. Use when triage is ove
 
 ```bash
 # Dry-run first — see count without touching files
-nexis ~/notes --exclude Archive --exclude "Waking Up" --unlink --dry-run 2>&1 | grep "Dry run"
+nexis ~/epigenome/chromatin --exclude Archive --exclude "Waking Up" --unlink --dry-run 2>&1 | grep "Dry run"
 
 # Apply (excludes Archive + Waking Up noise)
-nexis ~/notes --exclude Archive --exclude "Waking Up" --unlink 2>/dev/null
+nexis ~/epigenome/chromatin --exclude Archive --exclude "Waking Up" --unlink 2>/dev/null
 
 # Verify: should show 0 signal broken links
-nexis ~/notes --exclude Archive --exclude "Waking Up" 2>/dev/null
+nexis ~/epigenome/chromatin --exclude Archive --exclude "Waking Up" 2>/dev/null
 ```
 
 **What it does:**
@@ -147,7 +147,7 @@ nexis ~/notes --exclude Archive --exclude "Waking Up" 2>/dev/null
 
 Surface non-noise orphans that might need attention.
 
-**Default:** `.nexisignore` at `~/notes/.nexisignore` handles permanently terminal dirs automatically. `nexis ~/notes` reports ~211 orphans (down from 8,113 raw).
+**Default:** `.nexisignore` at `~/epigenome/chromatin/.nexisignore` handles permanently terminal dirs automatically. `nexis ~/epigenome/chromatin` reports ~211 orphans (down from 8,113 raw).
 
 **Three categories of orphans:**
 - **Permanently terminal** → in `.nexisignore` (dedao-courses, Archive, Daily, etc.)
@@ -156,16 +156,16 @@ Surface non-noise orphans that might need attention.
 
 ```bash
 # Weekly hygiene — recently active, unconnected (the real working set)
-nexis ~/notes --orphans --orphan-days 14
+nexis ~/epigenome/chromatin --orphans --orphan-days 14
 
 # Asymmetric links — strongest "should link back" signal
-nexis ~/notes --asymmetry --orphan-days 14
+nexis ~/epigenome/chromatin --asymmetry --orphan-days 14
 
 # Full list (all orphans post-.nexisignore)
-nexis ~/notes --orphans
+nexis ~/epigenome/chromatin --orphans
 ```
 
-**`.nexisignore`** lives at `~/notes/.nexisignore`. Currently excludes: `dedao-courses`, `Archive`, `Daily`, `Councils`, `Clippings`, `Readwise`, `Waking Up`, `copilot`, `memory`, `opencode-runs`, `Job Scans`, `Consilium Reviews`, `Templates`. Books and Learnings are intentionally NOT excluded — they have synthesis value and should surface when recently touched.
+**`.nexisignore`** lives at `~/epigenome/chromatin/.nexisignore`. Currently excludes: `dedao-courses`, `Archive`, `Daily`, `Councils`, `Clippings`, `Readwise`, `Waking Up`, `copilot`, `memory`, `opencode-runs`, `Job Scans`, `Consilium Reviews`, `Templates`. Books and Learnings are intentionally NOT excluded — they have synthesis value and should surface when recently touched.
 
 `--orphan-days 7` → orphans modified in the last 7 days (recently active, not yet connected)
 `--orphan-days 30` → broader recent window — catches notes that drifted disconnected over the past month
@@ -196,7 +196,7 @@ nexis ~/notes --orphans
 
 ## Gotchas
 
-- **Never run `nexis ~/notes/<subfolder>`** — links to notes outside the subfolder will always appear broken. Run on vault root, filter output by path.
+- **Never run `nexis ~/epigenome/chromatin/<subfolder>`** — links to notes outside the subfolder will always appear broken. Run on vault root, filter output by path.
 - **Broken count drops ~70 with v0.2.1** anchor fix. If seeing high counts on older versions: `cargo install nexis` to upgrade.
 - **`--exclude` names match path components exactly** — case-sensitive. `--exclude Archive` works; `--exclude archive` does not.
 - **`--exclude` does NOT accept comma-separated values.** `--exclude "Archive,Daily"` passes the literal string "Archive,Daily" and matches nothing. Use separate flags: `--exclude Archive --exclude Daily`.

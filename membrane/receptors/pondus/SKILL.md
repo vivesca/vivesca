@@ -129,7 +129,7 @@ Audit script at `/tmp/pondus_audit.py` (not committed). Checks:
 4. Cross-source consistency (SWE-bench vs SWE-rebench deltas)
 5. LiveBench value assessment
 
-Analysis note: `~/notes/Pondus - Benchmark Analysis Feb 2026.md`
+Analysis note: `~/epigenome/chromatin/Pondus - Benchmark Analysis Feb 2026.md`
 
 ## Delegation Pattern
 

@@ -33,7 +33,7 @@ Lighter than `/daily` (no weather, health, inbox). Heavier than a `/legatum` (sy
    - Group prompts by session ID to understand what each session covered
    - Extract for each session: topic, key outputs/decisions, anything left open
 
-3. **Read NOW.md** — `~/notes/NOW.md`
+3. **Read NOW.md** — `~/epigenome/chromatin/NOW.md`
    - If NOW.md is missing, note "NOW.md unavailable" and continue.
    - Note anything that was flagged as active this morning
    - Cross-reference against what sessions actually shipped
@@ -46,12 +46,12 @@ Lighter than `/daily` (no weather, health, inbox). Heavier than a `/legatum` (sy
    - If gog fails (keychain locked): note "Gmail unavailable — unlock keychain" and skip.
 
 5. **LinkedIn job alerts** (speculor):
-   - Check if today's note exists: `~/notes/Job Hunting/Job Alerts YYYY-MM-DD.md`
+   - Check if today's note exists: `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`
    - If exists: count flagged roles (lines starting with `- [ ]`) and surface them — "X roles flagged — run `/evaluate-job` on any that look interesting"
    - Skip silently if missing
 
 6. **Theoria eval check** (Fridays only):
-   - If today is Friday: "Which theoria cards this week did you actually use — in a meeting, a draft, or a conversation? Name 2-3." Log the answer to `~/notes/Theoria/eval-labels.md` with date.
+   - If today is Friday: "Which theoria cards this week did you actually use — in a meeting, a draft, or a conversation? Name 2-3." Log the answer to `~/epigenome/chromatin/Theoria/eval-labels.md` with date.
    - Other days: skip silently
 
 7. **Token budget** (brief):

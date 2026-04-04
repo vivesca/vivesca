@@ -60,7 +60,7 @@ moneo ls          # Due app reminders
 
 ### 3. Active decisions and gates — NOW.md
 
-Read `~/notes/NOW.md`.
+Read `~/epigenome/chromatin/NOW.md`.
 
 - If file is missing/unreadable, note "NOW.md unavailable" and continue.
 
@@ -70,14 +70,14 @@ Read `~/notes/NOW.md`.
 
 ### 4. LinkedIn job alerts (post-noon only)
 
-If current time is after 12:00 HKT, check `~/notes/Job Hunting/Job Alerts YYYY-MM-DD.md`:
+If current time is after 12:00 HKT, check `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`:
 - Count unchecked flagged roles (`- [ ]` lines)
 - If any exist, surface briefly: "X job alerts flagged — `/evaluate-job` when you have a moment"
 - Skip silently if file missing or all items checked
 
 ### 5. Overdue and today's TODO items
 
-Read `~/notes/TODO.md`.
+Read `~/epigenome/TODO.md`.
 
 - If file is missing/unreadable, note "TODO.md unavailable" and continue.
 
@@ -91,7 +91,7 @@ Read `~/notes/TODO.md`.
 Based on current time and what was found:
 
 **Commute / transit (morning, before first meeting, no desk):**
-→ Surface today's acta (daily AI brief). Check: `ls ~/notes/Theoria/Daily/$(date -v-1d +%Y-%m-%d).md 2>/dev/null || ls ~/notes/Theoria/Daily/$(date +%Y-%m-%d).md 2>/dev/null`. Read and present key items grouped by lens. Flag any 🚨 READ ORIGINAL with links. If first meeting is soon, also surface one-line prep for it. This is the primary reading window — give the full brief, not a teaser.
+→ Surface today's acta (daily AI brief). Check: `ls ~/epigenome/chromatin/Theoria/Daily/$(date -v-1d +%Y-%m-%d).md 2>/dev/null || ls ~/epigenome/chromatin/Theoria/Daily/$(date +%Y-%m-%d).md 2>/dev/null`. Read and present key items grouped by lens. Flag any 🚨 READ ORIGINAL with links. If first meeting is soon, also surface one-line prep for it. This is the primary reading window — give the full brief, not a teaser.
 
 **Pre-meeting (< 45 min to next calendar event):**
 → Lead with the upcoming event. Surface any prep items. Keep it brief — they're about to be in a meeting.

@@ -28,14 +28,14 @@ theoros --version
 
 ## Vault Output
 
-Feed digest: `~/notes/LinkedIn/YYYY-MM-DD LinkedIn Digest.md`
-Jobs note: `~/notes/LinkedIn/YYYY-MM-DD LinkedIn Jobs.md`
+Feed digest: `~/epigenome/chromatin/LinkedIn/YYYY-MM-DD LinkedIn Digest.md`
+Jobs note: `~/epigenome/chromatin/LinkedIn/YYYY-MM-DD LinkedIn Jobs.md`
 
 Today's digest:
 ```bash
 theoros view
 # or:
-cat ~/notes/LinkedIn/$(date +%Y-%m-%d)\ LinkedIn\ Digest.md
+cat ~/epigenome/chromatin/LinkedIn/$(date +%Y-%m-%d)\ LinkedIn\ Digest.md
 ```
 
 ## Schedule

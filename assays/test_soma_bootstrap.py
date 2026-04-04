@@ -343,7 +343,7 @@ def test_creates_expected_directories():
     """Script creates expected directory structure."""
     source = SCRIPT.read_text()
     dir_section = source[source.index("# 9. Directory"):source.index("# 10. Shell")]
-    expected_dirs = ["~/bin", "~/code", "~/notes", "~/epigenome"]
+    expected_dirs = ["~/bin", "~/code", "~/epigenome/chromatin", "~/epigenome"]
     for d in expected_dirs:
         assert d in dir_section, f"Missing directory creation: {d}"
 

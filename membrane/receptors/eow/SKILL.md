@@ -27,8 +27,8 @@ A checkpoint that looks at the **whole work day** as a unit. `/legatum` handles 
 
 1. **Prep (silent)** — before the conversation:
    - Run `date` (HKT). If fails, use system-provided date.
-   - Read today's daily note (`~/notes/Daily/YYYY-MM-DD.md`) — session logs from `/legatum` should already be there.
-   - Scan `~/notes/TODO.md` for items with today's date or imminent due dates.
+   - Read today's daily note (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`) — session logs from `/legatum` should already be there.
+   - Scan `~/epigenome/TODO.md` for items with today's date or imminent due dates.
    - Run `gog gmail search "in:inbox" --limit 5`.
    - If daily note is empty/missing, delegate history scan to a subagent.
 

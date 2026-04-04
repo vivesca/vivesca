@@ -5,7 +5,7 @@
 # ///
 """
 Oura weekly digest — fetches 7-day health data via chemoreceptor organelle
-and saves a clean markdown note to ~/notes/Daily/Oura Weekly - YYYY-MM-DD.md.
+and saves a clean markdown note to ~/epigenome/chromatin/Daily/Oura Weekly - YYYY-MM-DD.md.
 """
 
 import argparse

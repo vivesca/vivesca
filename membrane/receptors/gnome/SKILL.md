@@ -6,7 +6,7 @@ user_invocable: true
 
 # Gnome
 
-Capture decisions to `~/notes/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal. When logging, tag which `topica` models applied — builds the feedback loop.
+Capture decisions to `~/epigenome/chromatin/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal. When logging, tag which `topica` models applied — builds the feedback loop.
 
 *Gnōmē (γνώμη): in Aristotle, the crystallised residue of having judged — recalled to govern new situations. Sits upstream of both epistēmē (measurable → judex) and boulē (uncertain → consilium).*
 
@@ -56,7 +56,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
    > *Compliance note: Patterns and principles only — no client names, project codes, or proprietary data.*
 
 7. Generate slug from topic: lowercase, kebab-case, max 5 words
-8. Write to `~/notes/decisions/YYYY-MM-DD-<slug>.md` using the template below
+8. Write to `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` using the template below
 9. Confirm: "Decision logged: `decisions/YYYY-MM-DD-<slug>.md`"
 10. If the decision involved complex trade-offs, offer: "Want to stress-test this with `/consilium --redteam`?"
 
@@ -104,7 +104,7 @@ Search past decisions semantically.
 **Logic:**
 1. Run `qmd query "<query>" -n 5` in Bash
 2. Filter results to paths containing `decisions/`
-3. If no decision results found, also check `~/notes/Councils/` for council outputs that may contain decisions
+3. If no decision results found, also check `~/epigenome/chromatin/Councils/` for council outputs that may contain decisions
 4. Present results with: date, decision summary (from frontmatter `decision:` field), confidence, domain
 5. Offer to read any full decision note
 
@@ -114,7 +114,7 @@ Surface decisions with a review date that has passed.
 
 **Logic:**
 1. Run `date +%Y-%m-%d` to get today
-2. Use Grep tool to search `~/notes/decisions/` for `review_date:` in files
+2. Use Grep tool to search `~/epigenome/chromatin/decisions/` for `review_date:` in files
 3. For each file with `review_date:`, read the frontmatter and parse the date
 4. Filter for `review_date` <= today AND `status: active`
 5. If none due: "No decisions up for review."
@@ -127,10 +127,10 @@ Surface decisions with a review date that has passed.
 
 ## Notes
 
-- **Storage:** `~/notes/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, QMD auto-indexes every 2h
+- **Storage:** `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, QMD auto-indexes every 2h
 - **Indexing lag:** New decisions won't appear in bouncer searches for up to 2h. This is fine — the bouncer matters for decisions spaced days/weeks apart, not minutes.
 - **No manual outcome tracking.** The bouncer IS the outcome tracker: if you come back to the same topic, the previous decision either held (you never return) or failed (you're back). Recurrence = implicit failure signal.
-- **Consilium integration:** For complex decisions, use `/consilium` first to deliberate, then `/gnome` to log the outcome. Council outputs in `~/notes/Councils/` complement but don't replace decision notes.
+- **Consilium integration:** For complex decisions, use `/consilium` first to deliberate, then `/gnome` to log the outcome. Council outputs in `~/epigenome/chromatin/Councils/` complement but don't replace decision notes.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.
 
 ## Calls

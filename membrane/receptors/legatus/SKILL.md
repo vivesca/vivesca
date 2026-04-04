@@ -41,7 +41,7 @@ legatus list
 
 ## Architecture
 
-- **Queue file:** `~/notes/opencode-queue.yaml` — task definitions
+- **Queue file:** `~/epigenome/chromatin/opencode-queue.yaml` — task definitions
 - **Scheduling:** individual CalendarInterval LaunchAgents per task (`~/officina/launchd/com.terry.legatus-*.plist`)
 - **Output:** `~/.cache/legatus-runs/<YYYY-MM-DD-HHMM>/<task>/stdout.txt`
 - **Hot dispatch logs:** `~/.cache/legatus-runs/hot-<name>.log`
@@ -52,7 +52,7 @@ Add `output_dir` to any task definition to auto-copy output files to a persisten
 
 ```yaml
 - name: hsbc-desk-research
-  output_dir: ~/notes/Capco
+  output_dir: ~/epigenome/chromatin/Capco
   backend: gemini
   ...
 ```
@@ -66,7 +66,7 @@ Add `output_dir` to any task definition to auto-copy output files to a persisten
 
 ## Adding a New Task
 
-1. Add entry to `~/notes/opencode-queue.yaml`
+1. Add entry to `~/epigenome/chromatin/opencode-queue.yaml`
 2. Create `~/officina/launchd/com.terry.legatus-<name>.plist` with CalendarInterval
 3. `cp ~/officina/launchd/com.terry.legatus-<name>.plist ~/Library/LaunchAgents/`
 4. `launchctl load ~/Library/LaunchAgents/com.terry.legatus-<name>.plist`

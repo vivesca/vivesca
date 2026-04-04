@@ -290,7 +290,7 @@ fi
 
 # 14. Directory scaffold
 log "Directory scaffold"
-run_as_terry 'mkdir -p ~/bin ~/code ~/scripts ~/notes ~/epigenome/chromatin ~/epigenome/marks ~/.claude/hooks ~/.claude/skills ~/.claude/agents ~/.ssh ~/germline'
+run_as_terry 'mkdir -p ~/bin ~/code ~/scripts ~/epigenome/chromatin ~/epigenome/marks ~/.claude/hooks ~/.claude/skills ~/.claude/agents ~/.ssh ~/germline'
 chmod 700 "${USER_HOME}/.ssh"
 ok "directories"
 

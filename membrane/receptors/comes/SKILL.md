@@ -34,7 +34,7 @@ Crate: `phron` on crates.io. Binary: `comes`. Source: `~/code/phron/`. GitHub: h
 `~/.config/comes/config.toml` — copy from `~/code/phron/config.toml.example`
 
 Key fields:
-- `[vault] path` — Obsidian vault root (e.g. `~/notes`)
+- `[vault] path` — Obsidian vault root (e.g. `~/epigenome/chromatin`)
 - `[vault] overnight_dir` — subdir for overnight digests
 - `[llm] synthesis_model` — OpenRouter model ID (e.g. `anthropic/claude-sonnet-4-5`)
 - `[research] topics` — list of overnight research topics
@@ -82,7 +82,7 @@ Logs: `~/logs/comes-nudge.log`, `~/logs/comes-overnight.log`
 - Source: `~/code/phron/`
 - Config: `~/.config/comes/config.toml`
 - State: `~/.config/comes/state.json`
-- Vault output: `~/notes/<vault.overnight_dir>/YYYY-MM-DD-digest.md`
+- Vault output: `~/epigenome/chromatin/<vault.overnight_dir>/YYYY-MM-DD-digest.md`
 - Logs: `~/logs/comes-*.log`
 - Plan: `~/officina/docs/plans/2026-03-06-feat-phron-ai-life-coach-plan.md`
 - Brainstorm: `~/officina/docs/brainstorms/2026-03-06-life-coach-brainstorm.md`

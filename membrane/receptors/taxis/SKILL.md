@@ -203,4 +203,4 @@ Weekly /skill-review checks for staleness
 - `~/docs/solutions/enforcement-ladder.md` — full ladder with examples
 - `~/docs/solutions/rule-violation-log.md` — violation tracking
 - `~/skills/artifex/SKILL.md` — how to design skills
-- `~/notes/Councils/LLM Council - Hook-First Enforcement - 2026-02-27.md` — Oxford debate on hook aggressiveness
+- `~/epigenome/chromatin/Councils/LLM Council - Hook-First Enforcement - 2026-02-27.md` — Oxford debate on hook aggressiveness

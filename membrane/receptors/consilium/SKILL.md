@@ -124,7 +124,7 @@ consilium "question" --deep --vault
 consilium --prompt-file /tmp/prompt.txt --deep --vault
 ```
 
-**`--vault` is mandatory for:** any `--deep`, `--council`, or architecture/review run. Auto-saves to `~/notes/Councils/` with Obsidian Sync backup. Never use `--output /tmp/...` — `/tmp` doesn't survive reboot.
+**`--vault` is mandatory for:** any `--deep`, `--council`, or architecture/review run. Auto-saves to `~/epigenome/chromatin/Councils/` with Obsidian Sync backup. Never use `--output /tmp/...` — `/tmp` doesn't survive reboot.
 
 **For `--quick --quiet` batch/agent-test runs:** use `-o ~/docs/solutions/agent-tests/<name>.md` — skips Obsidian sync but survives session end. Pattern: `consilium --quick --quiet --domain banking -o ~/docs/solutions/agent-tests/proposal-architect.md "..."`
 
@@ -148,11 +148,11 @@ Never use TaskOutput alone to retrieve consilium results — it will timeout and
 
 After completion:
 1. Read `[DECISION]` line as quick signal
-2. Read vault file in `~/notes/Councils/`
+2. Read vault file in `~/epigenome/chromatin/Councils/`
 3. Synthesize: decision + key reasoning + dissents + cost
 4. **Never dump raw transcript into context**
 
-If `--vault` was used but file is missing in `~/notes/Councils/`, treat run as partial.
+If `--vault` was used but file is missing in `~/epigenome/chromatin/Councils/`, treat run as partial.
 
 ---
 
@@ -191,7 +191,7 @@ consilium --doctor                # Check API keys and connectivity
 
 ## Known Issues
 
-- **`--vault` is mandatory for background/overnight runs.** Never `/tmp` — wiped on reboot. `--vault` → `~/notes/Councils/` with Obsidian Sync.
+- **`--vault` is mandatory for background/overnight runs.** Never `/tmp` — wiped on reboot. `--vault` → `~/epigenome/chromatin/Councils/` with Obsidian Sync.
 - **OPENROUTER_API_KEY in background shells** — fixed: key in `~/.zshenv`. No inline fetch needed.
 - **Binary can go stale after code changes.** `cd ~/code/consilium && cargo build --release`
 - **Model timeouts** (historically DeepSeek/GLM) — partial outputs add noise but council still works.

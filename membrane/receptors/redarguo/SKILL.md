@@ -42,7 +42,7 @@ If the redarguo can't find a meaningful challenge, it says:
 redarguo "Taking Capco at 93K over MTR at 120K because consulting compounds"
 
 # Challenge a draft
-redarguo "$(cat ~/notes/Writing/Blog/Published/some-post.md)"
+redarguo "$(cat ~/epigenome/chromatin/Writing/Blog/Published/some-post.md)"
 
 # In-session: Claude pipes the relevant context automatically
 ```
