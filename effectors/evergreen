@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# evergreen — keep Python and deps at latest stable versions.
+# Runs daily via supercronic. Personal repos only.
+set -euo pipefail
+
+REPO_ROOT="${1:-$HOME/germline}"
+LOG="$HOME/tmp/evergreen.log"
+mkdir -p "$(dirname "$LOG")"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
+
+cd "$REPO_ROOT"
+log "Starting evergreen update in $REPO_ROOT"
+
+# 1. Find latest stable CPython available via uv
+LATEST=$(uv python list 2>/dev/null | grep -E '^cpython-[0-9]+\.[0-9]+\.[0-9]+-linux-x86_64-gnu' | grep -v freethreaded | grep -v 'a\|b\|rc' | head -1 | awk '{print $1}' | sed 's/cpython-//;s/-linux.*//')
+CURRENT=$(uv run python --version 2>/dev/null | awk '{print $2}')
+
+if [ -z "$LATEST" ]; then
+    log "Could not determine latest Python version, skipping"
+    exit 0
+fi
+
+log "Current: $CURRENT, Latest available: $LATEST"
+
+# 2. Upgrade Python if newer version available
+if [ "$CURRENT" != "$LATEST" ]; then
+    MINOR_LATEST=$(echo "$LATEST" | cut -d. -f1,2)
+    log "Upgrading to Python $MINOR_LATEST"
+    uv python install "$MINOR_LATEST" 2>>"$LOG"
+    uv venv --python "$MINOR_LATEST" .venv 2>>"$LOG"
+    uv sync 2>>"$LOG"
+    log "Python upgraded to $LATEST"
+else
+    log "Python $CURRENT is latest"
+fi
+
+# 3. Update all deps to latest compatible versions
+log "Updating dependencies"
+uv lock --upgrade 2>>"$LOG"
+uv sync 2>>"$LOG"
+
+# 4. Run tests to verify nothing broke
+log "Running test suite"
+if uv run pytest assays/ -x -q 2>>"$LOG"; then
+    log "All tests pass"
+
+    # 5. Commit lock file if changed
+    if ! git diff --quiet uv.lock 2>/dev/null; then
+        git add uv.lock
+        git commit -m "evergreen: update deps $(date '+%Y-%m-%d')"
+        git push 2>>"$LOG"
+        log "Lock file updated and pushed"
+    else
+        log "No dependency changes"
+    fi
+else
+    log "Tests failed after update — rolling back"
+    git checkout uv.lock .venv 2>/dev/null || true
+    uv sync 2>>"$LOG"
+    log "Rolled back to previous state"
+fi
+
+log "Done"
