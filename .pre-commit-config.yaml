@@ -5,8 +5,10 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
         exclude: ^membrane/receptors/\.system/
+        stages: [pre-commit]
       - id: ruff-format
         exclude: ^membrane/receptors/\.system/
+        stages: [pre-commit]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.2
@@ -14,6 +16,7 @@ repos:
       - id: codespell
         additional_dependencies:
           - tomli
+        stages: [pre-commit]
 
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0
