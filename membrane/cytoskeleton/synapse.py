@@ -737,6 +737,64 @@ def mod_context(data):
     return [f"Parked from earlier today (may be relevant):\n{items}"]
 
 
+# ── entrainment: compact morning brief on "gm" ──────────────
+
+_ENTRAIN_RE = re.compile(
+    r"^(g+m+|good\s+morning|morning)[.!,\s]*$", re.IGNORECASE
+)
+_ENTRAIN_QUEUE = HOME / "germline" / "loci" / "golem-queue.md"
+
+
+def mod_entrainment(data):
+    """Inject compact morning brief when 'gm' detected. Hook, not skill."""
+    prompt = data.get("prompt", "").strip()
+    session_id = data.get("session_id", "")
+    if not prompt or len(prompt) > 30 or not _ENTRAIN_RE.match(prompt):
+        return []
+
+    # Once per session
+    marker = TMP_DIR / f"entrainment-{session_id}.done"
+    if marker.exists():
+        return []
+    marker.touch()
+
+    parts = []
+
+    # Calendar — fire-and-forget start, collect after weather
+    cal_proc = None
+    with contextlib.suppress(Exception):
+        cal_proc = subprocess.Popen(
+            ["fasti", "list"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+
+    # Weather (one-liner)
+    with contextlib.suppress(Exception):
+        wx = subprocess.run(["caelum"], capture_output=True, text=True, timeout=5)
+        if wx.returncode == 0 and wx.stdout.strip():
+            parts.append(wx.stdout.strip().splitlines()[0])
+
+    # Collect calendar
+    if cal_proc:
+        with contextlib.suppress(Exception):
+            stdout, _ = cal_proc.communicate(timeout=5)
+            if cal_proc.returncode == 0 and stdout.strip():
+                events = [e.strip() for e in stdout.strip().splitlines()[:6] if e.strip()]
+                parts.append("Today: " + " | ".join(events))
+
+    # Golem queue summary
+    with contextlib.suppress(Exception):
+        content = _ENTRAIN_QUEUE.read_text()
+        pending = len(re.findall(r"^- \[ \]", content, re.MULTILINE))
+        retry = len(re.findall(r"^- \[!\]", content, re.MULTILINE))
+        done = len(re.findall(r"^- \[x\]", content, re.MULTILINE))
+        if pending or retry or done:
+            parts.append(f"Queue: {pending} pending, {retry} retry, {done} done")
+
+    if parts:
+        return ["[entrainment] " + " | ".join(parts)]
+    return []
+
+
 # ── main ───────────────────────────────────────────────────
 
 
@@ -758,6 +816,7 @@ def main():
         mod_calorimetry,
         mod_phenotype,
         mod_context,
+        mod_entrainment,
     ]
 
     output = []
