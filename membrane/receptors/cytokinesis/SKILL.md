@@ -155,9 +155,10 @@ Don't ask permission. Don't defer. If the insight is real, publish it.
 ### 2. Housekeeping (full mode only)
 
 1. **Uncommitted?** `cytokinesis flush` — commits dirty repos touched this session. PreCompact hook is the safety net if this is skipped.
-2. **TODO sweep:** `cytokinesis archive`
-3. **Session log:** `cytokinesis daily "title"` — outcomes + session arc prose.
-4. **Tonus.md** — update deltas. Max 15 lines, dual-ledger.
+2. **Anatomy refresh:** `cd ~/germline && python3 -c "from metabolon.resources.anatomy import express_anatomy; open('anatomy.md','w').write(express_anatomy())"` — keeps anatomy.md current without a cron job.
+3. **TODO sweep:** `cytokinesis archive`
+4. **Session log:** `cytokinesis daily "title"` — outcomes + session arc prose.
+5. **Tonus.md** — update deltas. Max 15 lines, dual-ledger.
 
 ### 3. Daily note (last step — the output)
 
