@@ -58,6 +58,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Three-layer standard.** Every non-trivial capability ships as three layers: MCP tool (structured interface), skill (judgment — when/how/why), organelle or CLI (deterministic execution). Omit a layer only with a reason.
 
+**MCP over CLI for CC.** If CC calls a CLI via Bash, that CLI should be an MCP tool. CLIs are for humans; MCP tools give typed inputs, structured outputs, and enforceable contracts. CC cannot misparse, ignore, or fake MCP tool responses. Each Bash CLI call by CC is a signal to convert. Migrate incrementally — don't batch.
+
 **Assays ship with code.** New organelles and tools ship with a corresponding `assays/test_*.py`. No test = not done.
 
 **Insulate knowledge domains.** Directory structure = CTCF boundaries. Operations on one domain must not spread into adjacent domains. The boundary IS the protection.
