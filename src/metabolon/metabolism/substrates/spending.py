@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Spending substrate -- periodic trend analysis over parsed statement data.
 

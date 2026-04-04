@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """mitosis — asymmetric cell division for disaster recovery.
 

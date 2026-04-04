@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """vivesca epigenome — scaffold a new epigenome (instance repo).
 

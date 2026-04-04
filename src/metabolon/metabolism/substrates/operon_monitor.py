@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """OperonSubstrate — heartbeat monitor for the organism's behavioural repertoire.
 

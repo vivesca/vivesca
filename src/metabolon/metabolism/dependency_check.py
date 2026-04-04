@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """dependency_check — API key and external dependency integrity.
 

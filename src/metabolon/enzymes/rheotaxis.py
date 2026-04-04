@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """rheotaxis — web search. Default: all cheap backends + synthesis. Named modes for expensive ones."""
 

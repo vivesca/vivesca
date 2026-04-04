@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """mitosis — DR sync tools for soma hot standby.
 

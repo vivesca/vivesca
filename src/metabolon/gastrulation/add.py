@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """vivesca add — add components to an existing project."""
 

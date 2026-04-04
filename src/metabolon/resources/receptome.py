@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Techne — the organism's practiced capabilities.
 

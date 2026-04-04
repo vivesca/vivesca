@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """vivesca check — validate a project against vivesca conventions.
 

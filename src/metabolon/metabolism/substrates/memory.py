@@ -5,7 +5,6 @@ checks signal correlation and constitution overlap, then proposes
 promote/migrate/prune actions. Short-term → long-term.
 """
 
-from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta

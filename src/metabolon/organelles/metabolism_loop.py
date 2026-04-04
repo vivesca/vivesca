@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """metabolism_loop — self-improvement state machine via LangGraph.
 

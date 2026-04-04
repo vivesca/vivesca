@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """rheotaxis_engine — multi-backend web search with parallel execution.
 

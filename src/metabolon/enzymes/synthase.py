@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """synthase — spawn headless CC with full organism access.
 

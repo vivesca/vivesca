@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Infection log — structured record of tool errors for immune pattern detection.
 

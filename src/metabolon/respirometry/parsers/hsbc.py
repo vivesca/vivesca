@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """HSBC Visa Signature statement PDF parser."""
 

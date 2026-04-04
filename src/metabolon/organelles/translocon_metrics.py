@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """translocon_metrics — per-dispatch metrics collection and reporting.
 

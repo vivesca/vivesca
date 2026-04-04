@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """porta — cookie bridge from Chrome to agent-browser Playwright context.
 

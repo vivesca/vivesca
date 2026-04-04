@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """browser_stealth — make Playwright browser contexts undetectable.
 

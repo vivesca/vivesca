@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """rename — deterministic rename across the organism.
 

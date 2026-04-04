@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """circadian_clock — Google Calendar API client for headless environments.
 

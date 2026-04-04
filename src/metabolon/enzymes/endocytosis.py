@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """endocytosis — RSS ingestion and status tools.
 

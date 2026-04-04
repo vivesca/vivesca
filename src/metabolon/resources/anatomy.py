@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Anatomy resource — auto-generated organism overview.
 

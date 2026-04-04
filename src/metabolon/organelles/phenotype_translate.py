@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """phenotype_translate — generate Gemini CLI hook config from Claude Code hook config.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Operon map resource — the organism's catalytic repertoire.
 

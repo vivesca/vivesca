@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """vivesca init — scaffold a new MCP server project."""
 

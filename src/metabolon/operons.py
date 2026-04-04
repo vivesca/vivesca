@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Behavioural repertoire — the organism's enzyme catalogue.
 

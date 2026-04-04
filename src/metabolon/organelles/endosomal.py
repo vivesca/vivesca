@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """endosomal — email classification and triage logic.
 

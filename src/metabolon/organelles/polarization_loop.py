@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """polarization_loop — overnight flywheel via LangGraph.
 

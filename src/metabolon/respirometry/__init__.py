@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Spending metabolism -- credit card statement parsing and monitoring."""
 

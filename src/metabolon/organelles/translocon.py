@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """translocon — dispatch cheap LLM tasks via goose/droid on ZhiPu plan.
 

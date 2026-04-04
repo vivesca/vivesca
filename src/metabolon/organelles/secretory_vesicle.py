@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """secretory_vesicle — Telegram export (formerly deltos).
 

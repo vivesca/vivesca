@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """vasomotor_sensor — Claude Code Max plan token budget usage (formerly respirometry).
 

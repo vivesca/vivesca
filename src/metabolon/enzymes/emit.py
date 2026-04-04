@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """emit — all outbound secretion (output) channels.
 

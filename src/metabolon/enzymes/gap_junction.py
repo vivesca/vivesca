@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """gap_junction — WhatsApp messaging via wacli.
 

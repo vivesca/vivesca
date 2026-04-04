@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Overnight metabolism pipeline: metabolise → draft → publish.
 

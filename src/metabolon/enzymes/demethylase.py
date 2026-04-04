@@ -3,7 +3,6 @@
 Actions: emit|read|history|transduce|resensitize|sweep|record_access
 """
 
-from __future__ import annotations
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations

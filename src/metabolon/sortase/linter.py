@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Plan file linter with structured issue reporting.
 

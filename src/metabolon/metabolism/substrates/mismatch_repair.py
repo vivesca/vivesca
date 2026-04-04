@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """EngramScanSubstrate -- cross-session transcript pattern recognition.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """navigator — browser automation via agent-browser.
 

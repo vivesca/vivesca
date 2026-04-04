@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """tachometer — sortase dispatch throughput monitor.
 

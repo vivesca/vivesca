@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Autonomic thresholds with calibration.
 

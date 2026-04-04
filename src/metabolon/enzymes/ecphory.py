@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """ecphory — deterministic memory retrieval across stores.
 

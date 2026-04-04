@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """browser — headless page fetcher using Playwright.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """kinesin — session-independent agent dispatcher.
 

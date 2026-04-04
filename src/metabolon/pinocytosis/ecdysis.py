@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Ecdysis gather — weekly review context (was weekly).
 

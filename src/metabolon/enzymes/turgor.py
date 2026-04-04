@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """tonus tool — session state. Actions: mark|status"""
 

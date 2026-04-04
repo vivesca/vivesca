@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """nociceptor — unified error detection and pain signaling.
 

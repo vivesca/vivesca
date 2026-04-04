@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """noesis — Perplexity-powered AI search tool.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """pseudopod — browser cookie bridge + translocon dispatch for LLM tasks."""
 

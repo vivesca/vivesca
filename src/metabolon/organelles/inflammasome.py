@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """inflammasome — innate immune system for the vivesca organism.
 

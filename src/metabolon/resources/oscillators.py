@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Pacemakers — live state of all vivesca LaunchAgent oscillators.
 

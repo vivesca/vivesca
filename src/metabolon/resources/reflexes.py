@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Reflexes — automatic responses to lifecycle stimuli.
 

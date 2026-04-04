@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """golgi — blog publishing pipeline (packages, sorts, exports posts).
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Vitals — point-in-time health snapshot.
 

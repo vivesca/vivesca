@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Write parsed statements to chromatin as markdown."""
 

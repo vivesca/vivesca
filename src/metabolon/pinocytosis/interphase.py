@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Interphase gather — evening routine context.
 

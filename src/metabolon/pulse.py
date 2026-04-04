@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """pulse — the organism's heartbeat.
 

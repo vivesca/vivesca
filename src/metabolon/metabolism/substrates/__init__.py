@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Substrate implementations — one per metabolism target."""
 

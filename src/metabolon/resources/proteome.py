@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Effectors — how the organism acts on the world.
 

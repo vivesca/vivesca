@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """demethylase — active memory erasure and consolidation.
 

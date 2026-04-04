@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """lysis — Firecrawl URL scraper, fallback for bot-protected pages.
 

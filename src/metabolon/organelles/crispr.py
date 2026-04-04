@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """crispr.py — adaptive immunity: spacer-guided failure recognition. No LLM step."""
 

@@ -4,7 +4,6 @@ Tools:
   assay — track life experiments: list, check, close
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 

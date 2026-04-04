@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """judge — LLM quality gate against named rubrics.
 

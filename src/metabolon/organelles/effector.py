@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """effector — run CLI binaries from MCP tool handlers."""
 

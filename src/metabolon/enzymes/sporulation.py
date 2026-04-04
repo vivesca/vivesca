@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """sporulation — cross-session checkpoint save/load.
 

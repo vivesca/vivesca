@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """vasomotor — autonomic pacing and budget regulation.
 

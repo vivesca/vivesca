@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Base Pydantic models for vivesca structured output.
 

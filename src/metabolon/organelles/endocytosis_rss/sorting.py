@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Endosome sorting: route scored cargo to one of three fates.
 

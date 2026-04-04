@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """complement — convergent detection and resolution (MAC assembly).
 

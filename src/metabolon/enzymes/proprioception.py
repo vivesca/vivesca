@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Proprioception — sensing the organism's structural state and gradients.
 

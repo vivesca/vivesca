@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """sporulation — garden publishing for terryli.hm (formerly publish CLI).
 

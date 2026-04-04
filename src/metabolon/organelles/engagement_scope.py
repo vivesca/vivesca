@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """engagement_scope — structured engagement scoping from RFP/RFI text.
 

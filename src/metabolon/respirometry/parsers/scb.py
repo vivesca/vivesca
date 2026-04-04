@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Standard Chartered Smart Credit Card statement PDF parser."""
 

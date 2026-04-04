@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """receptor_sense — proprioceptive readiness sensing against long-lived goals.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Pinocytosis — deterministic context gathering for skills.
 

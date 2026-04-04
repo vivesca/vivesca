@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """telegram_receptor — Telegram message reading via Telethon (user client API).
 

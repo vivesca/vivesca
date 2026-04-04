@@ -6,7 +6,6 @@ Consolidated tool for the differentiation gym-coaching skill:
 - write_log: write a completed gym session log
 """
 
-from __future__ import annotations
 
 from datetime import date
 from pathlib import Path

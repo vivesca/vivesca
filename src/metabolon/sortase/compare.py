@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Compare two overnight sessions for coaching effectiveness measurement.
 

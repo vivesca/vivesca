@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """ingestion — meal planning. Actions: read_plan|log_meal"""
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """expression — Weekly career forge pre-flight checks.
 

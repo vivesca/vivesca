@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """sortase — dispatch coding tasks to cheap LLM backends.
 

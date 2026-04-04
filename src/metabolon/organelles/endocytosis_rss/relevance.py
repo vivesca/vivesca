@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Score news items for consulting relevance."""
 

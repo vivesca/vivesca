@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """baroreceptor — HK Observatory environmental sensor (baroreceptor = pressure sensor)."""
 

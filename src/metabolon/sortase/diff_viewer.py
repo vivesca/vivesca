@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Show what a completed sortase task changed via git history."""
 

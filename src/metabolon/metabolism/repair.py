@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Immune system — metaprompt-driven healing."""
 

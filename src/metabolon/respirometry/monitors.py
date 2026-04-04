@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Deterministic spending monitors -- fraud, budget, subscriptions."""
 

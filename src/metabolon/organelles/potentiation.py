@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """potentiation — spaced repetition engine (potentiation = LTP, learning via timed stimulation)."""
 

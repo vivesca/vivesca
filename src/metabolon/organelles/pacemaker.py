@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """pacemaker — reminder signaling (pacemaker = generates signals at scheduled intervals)."""
 

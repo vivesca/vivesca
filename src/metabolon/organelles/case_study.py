@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """case_study — package consulting use cases into presentation-ready formats.
 

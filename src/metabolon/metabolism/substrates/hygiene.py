@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """HygieneSubstrate — metabolism of the organism's own tooling health.
 

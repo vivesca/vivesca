@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """histone — memory database (FTS5 + vector embeddings)."""
 

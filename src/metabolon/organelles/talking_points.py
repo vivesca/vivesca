@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """talking_points — generate talking points from consulting IP library.
 

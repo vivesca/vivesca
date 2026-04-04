@@ -4,7 +4,6 @@ Provides a single place for the CLAUDECODE-contamination guard so callers
 don't each re-implement the same os.environ filter.
 """
 
-from __future__ import annotations
 
 import os
 

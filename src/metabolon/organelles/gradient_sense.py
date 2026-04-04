@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """gradient_sense — sensor array reading and polarity detection.
 

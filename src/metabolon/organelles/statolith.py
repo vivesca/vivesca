@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """statolith — AI model benchmark aggregator (statolith = gravity-sensing dense body)."""
 

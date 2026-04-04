@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """efferens — shared notice board for inter-process messages."""
 

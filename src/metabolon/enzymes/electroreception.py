@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """electroreception — read iMessage/SMS from macOS chat.db.
 

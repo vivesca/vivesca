@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """chemoreceptor — Oura health sensing (formerly sopor). Endosymbiosis: Python CLI -> organelle.
 

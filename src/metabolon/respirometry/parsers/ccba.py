@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """CCBA eye Credit Card statement PDF parser."""
 

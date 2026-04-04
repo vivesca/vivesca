@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Locus — canonical paths for the organism.
 

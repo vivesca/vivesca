@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """chromatin — file-based memory store.
 

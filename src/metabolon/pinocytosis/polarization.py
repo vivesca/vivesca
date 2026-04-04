@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Polarization gather -- overnight flywheel preflight (was poiesis).
 

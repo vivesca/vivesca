@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """perfusion — are all tissues receiving blood?
 

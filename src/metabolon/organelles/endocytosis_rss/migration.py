@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """One-time migration: markdown news log -> JSONL cargo store."""
 

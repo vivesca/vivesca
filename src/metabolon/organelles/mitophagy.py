@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """mitophagy — selective removal of underperforming LLM models.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """praxis — Praxis.md TODO list management (formerly todo-cli).
 

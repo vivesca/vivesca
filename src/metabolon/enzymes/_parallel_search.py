@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """elencho — parallel AI research orchestrator.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """fetch — URL content extraction via pinocytosis effector.
 

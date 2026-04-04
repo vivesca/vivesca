@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """ExecutiveSubstrate — cortical metabolism of constitutional rules.
 

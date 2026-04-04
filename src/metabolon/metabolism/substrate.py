@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Substrate protocol — the contract any metabolism target must satisfy.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """PhenotypeSubstrate — metabolism of MCP tool descriptions (phenotype).
 

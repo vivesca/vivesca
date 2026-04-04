@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Overnight session report generator for sortase.
 

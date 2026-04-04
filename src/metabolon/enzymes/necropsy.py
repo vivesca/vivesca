@@ -4,7 +4,6 @@ Post-mortem analysis of terminated Claude Code sessions.
 List, extract, and timeline session data from ~/.claude/projects/*/.
 """
 
-from __future__ import annotations
 
 import json
 import re

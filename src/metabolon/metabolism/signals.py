@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Stimulus collection and JSONL persistence."""
 

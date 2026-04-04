@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """polarization — North star agent dispatch pre-flight and guard control.
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """gemmation — background AI agent job queue (vesicle budding and dispatch).
 

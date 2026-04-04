@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Merchant categorisation via YAML prefix map."""
 

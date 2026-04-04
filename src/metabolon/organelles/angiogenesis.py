@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """angiogenesis — detect underserved subsystem connections and propose new integrations.
 

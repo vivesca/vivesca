@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """tissue_routing — match the right symbiont strain to each subsystem.
 

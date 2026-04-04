@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """engram — chat session archive search (formerly anam)."""
 
