@@ -1,0 +1,80 @@
+# soma-crontab — migrated from Mac LaunchAgents
+# All times HKT (TZ=Asia/Hong_Kong set in environment)
+# Logs: stdout/stderr captured by supercronic
+#
+# Wrapper: effectors run in germline venv context
+# VENV=/home/terry/germline/.venv/bin
+# UVX=/home/terry/.local/bin/uv
+
+# ── Every 5 minutes ──────────────────────────────────────────
+*/5 * * * * /home/terry/germline/effectors/respirometry --json
+*/5 * * * * /home/terry/germline/effectors/pharos-sync.sh
+
+# ── Every 15 minutes ─────────────────────────────────────────
+*/15 * * * * /home/terry/germline/.venv/bin/vivesca phenotype sync
+
+# ── Every 30 minutes ─────────────────────────────────────────
+*/30 * * * * /home/terry/germline/effectors/chromatin-backup.sh
+*/30 * * * * /home/terry/germline/.venv/bin/vivesca pulse
+
+# ── Hourly ───────────────────────────────────────────────────
+0 * * * * /home/terry/germline/effectors/inflammasome-probe
+0 * * * * /home/terry/germline/effectors/update-coding-tools.sh
+
+# ── Every 2 hours ────────────────────────────────────────────
+0 */2 * * * /home/terry/germline/effectors/qmd-reindex.sh
+
+# ── Every 6 hours ────────────────────────────────────────────
+0 */6 * * * /home/terry/.local/bin/uv run --script --python 3.13 /home/terry/germline/effectors/wewe-rss-health.py
+
+# ── 3x daily (breaking news) ────────────────────────────────
+0 8,14,20 * * * /home/terry/germline/.venv/bin/vivesca endocytosis breaking
+
+# ── Daily ────────────────────────────────────────────────────
+0 2 * * * /home/terry/germline/effectors/nightly
+30 2 * * * /home/terry/germline/effectors/complement --json
+0 3 * * * /home/terry/germline/effectors/demethylase --json
+45 5 * * * /home/terry/germline/effectors/mismatch-repair
+30 6 * * * /home/terry/.local/bin/uv run --script --python 3.13 /home/terry/germline/effectors/circadian-probe.py
+0 8 * * * /home/terry/germline/effectors/exocytosis.py
+0 12 * * * /home/terry/germline/effectors/csb-ai-jobs.py
+30 18 * * * /home/terry/germline/.venv/bin/vivesca endocytosis fetch
+45 21 * * * /home/terry/.local/bin/uv run --script --python 3.13 /home/terry/germline/effectors/x-feed-to-lustro
+30 23 * * * /usr/bin/python3 /home/terry/epigenome/oscillators/interphase-close.py
+
+# ── Weekly ───────────────────────────────────────────────────
+# Saturday
+0 4 * * 6 /home/terry/germline/.venv/bin/vivesca metabolism dissolve --days 7
+0 5 * * 6 /home/terry/germline/.venv/bin/vivesca endocytosis digest --weekly
+0 7 * * 6 /usr/bin/python3 /home/terry/epigenome/oscillators/interphase-weekly.py
+# Sunday
+0 4 * * 0 /home/terry/germline/effectors/methylation
+15 6 * * 0 /home/terry/germline/effectors/mismatch-repair --weekly
+# Monday
+0 9 * * 1 /home/terry/.local/bin/uv run --script --python 3.13 /home/terry/germline/effectors/immunosurveillance.py
+
+# ── Monthly (1st of month) ───────────────────────────────────
+0 5 1 * * /home/terry/germline/.venv/bin/vivesca endocytosis digest
+0 7 1 * * /usr/bin/python3 /home/terry/epigenome/oscillators/interphase-monthly.py
+0 8 1 * * /home/terry/germline/.venv/bin/vivesca endocytosis digest --monthly
+
+# ── Daily (Tier 2 — synced from Mac) ────────────────────────
+0 9 * * * /home/terry/.local/bin/sopor sync
+0 6 * * * /home/terry/.local/bin/transduction --period daily
+0 8,20 * * * /home/terry/.local/bin/perfusion run
+0 9 * * * /home/terry/.cargo/bin/pondus monitor check
+0 12 * * * /home/terry/.cargo/bin/speculor && /home/terry/.cargo/bin/speculor triage || true
+*/5 * * * * /bin/bash /home/terry/code/blog/sync-from-chromatin.sh
+
+# ── Weekly (Tier 2) ──────────────────────────────────────────
+0 4 * * 6 /home/terry/.local/bin/transduction --period weekly
+0 4 * * 0 /home/terry/.local/bin/transduction --domain phronesis --period weekly
+
+# ── Monthly (Tier 2) ────────────────────────────────────────
+0 5 1 * * /home/terry/.local/bin/transduction --period monthly
+
+# ── Quarterly (2nd of Jan/Apr/Jul/Oct) ───────────────────────
+0 6 2 1,4,7,10 * /home/terry/.local/bin/transduction --period quarterly
+
+# ── Yearly (Jan 3rd) ────────────────────────────────────────
+0 7 3 1 * /home/terry/.local/bin/transduction --period yearly
