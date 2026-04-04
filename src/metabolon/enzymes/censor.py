@@ -1,28 +1,28 @@
 
-"""judge — LLM quality gate against named rubrics.
+"""censor — LLM quality gate against named rubrics.
 
 Tools:
-  judge_evaluate — evaluate content against a rubric
+  censor_evaluate — evaluate content against a rubric
 """
 
 from pathlib import Path
 
-from fastmcp.tools.function_tool import tool  # noqa: E402
-from mcp.types import ToolAnnotations  # noqa: E402
+from fastmcp.tools.function_tool import tool
+from mcp.types import ToolAnnotations
 
-from metabolon.organelles.effector import run_cli  # noqa: E402
+from metabolon.organelles.effector import run_cli
 
-BINARY = str(Path.home() / ".local/bin/judge")
+BINARY = str(Path.home() / ".local/bin/censor")
 
 _TIMEOUT = 60
 
 
 @tool(
-    name="judge_evaluate",
+    name="censor_evaluate",
     description="Evaluate content against a rubric (article/job-eval/outreach).",
     annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
 )
-def judge_evaluate(
+def censor_evaluate(
     rubric: str,
     content: str,
     context: str | None = None,

@@ -6,7 +6,6 @@ from __future__ import annotations
 # requires-python = ">=3.13"
 # dependencies = []
 # ///
-
 import argparse
 import configparser
 import sys
@@ -19,7 +18,7 @@ _CONF_PATH = Path(__file__).parent / "exocytosis.conf"
 _conf = configparser.ConfigParser()
 _conf.read(_CONF_PATH)
 
-_JUDGE_RETRY_COUNT = _conf.getint("judge", "judge_retry_count", fallback=1)
+_CENSOR_RETRY_COUNT = _conf.getint("censor", "censor_retry_count", fallback=1)
 
 
 QUEUE = Path.home() / "epigenome/chromatin/Writing/Blog/Queue.md"
@@ -80,7 +79,7 @@ def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
     return transduce("goose", prompt, timeout=120)
 
 
-def judge(post: str) -> tuple[bool, str]:
+def censor(post: str) -> tuple[bool, str]:
     from metabolon.symbiont import transduce
 
     verdict = transduce("glm", f"{JUDGE_PROMPT}\n\nPost:\n{post}", timeout=60)
@@ -113,15 +112,15 @@ def main() -> None:
     style_excerpt = STYLE_GUIDE.read_text()[:2000]
 
     post = generate(topic, style_excerpt)
-    passed, verdict = judge(post)
+    passed, verdict = censor(post)
 
-    for _ in range(_JUDGE_RETRY_COUNT):
+    for _ in range(_CENSOR_RETRY_COUNT):
         if passed:
             break
         post = generate(
             topic, style_excerpt, f"\n\nPrevious attempt failed: {verdict}. Fix the issues."
         )
-        passed, verdict = judge(post)
+        passed, verdict = censor(post)
 
     mark_done(line_num)
 
@@ -133,7 +132,7 @@ def main() -> None:
         except Exception as e:
             notify(f"Garden publish failed: {e}")
     else:
-        notify(f"Garden post skipped (judge failed twice): {topic[:50]}")
+        notify(f"Garden post skipped (censor failed twice): {topic[:50]}")
 
 
 if __name__ == "__main__":

@@ -124,7 +124,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - integrin
 - involution
 - iris
-- judge
+- censor
 - kairos
 - keryx
 - kindle

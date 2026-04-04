@@ -77,9 +77,9 @@ For scheduling:
 - Propose specific times, not vague "next week"
 - Account for HKT timezone
 
-### 5. Review with Judge
+### 5. Review with Censor
 
-Before presenting to Terry, run the draft through `/judge`:
+Before presenting to Terry, run the draft through `/censor`:
 - Use `outreach` criteria for networking/cold messages
 - Use `default` criteria for simple replies
 - If verdict is `needs_work`: revise based on feedback (max 2 iterations)
@@ -90,7 +90,7 @@ Before presenting to Terry, run the draft through `/judge`:
 Show:
 1. Summary of their message
 2. Relevant context from vault
-3. Draft reply (judge-reviewed)
+3. Draft reply (censor-reviewed)
 
 Ask Terry to confirm or adjust before sending.
 

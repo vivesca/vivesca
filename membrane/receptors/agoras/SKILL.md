@@ -301,10 +301,10 @@ Read the playbook: `~/epigenome/chromatin/LinkedIn Posting Playbook.md`
 - Posts that need "AI Solution Lead" title weight → after Capco start (Mar 16+)
 - Builder/personal posts → anytime
 
-### 3. Judge Review (first pass)
+### 3. Censor Review (first pass)
 
-Run judge with `linkedin-post` criteria before spending on consilium:
-- If `needs_work`: revise and re-judge (max 1 iteration)
+Run censor with `linkedin-post` criteria before spending on consilium:
+- If `needs_work`: revise and re-censor (max 1 iteration)
 - If `pass`: proceed to consilium
 
 ### 4. Consilium Review

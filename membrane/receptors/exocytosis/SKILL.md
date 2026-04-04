@@ -55,11 +55,11 @@ publish index
 **New post from session insight:**
 1. `publish new "Title"` — scaffolds with correct frontmatter
 2. Write the post
-3. **Judge gate — skip for standard garden posts.** Judge (article criteria) has never failed a garden post (always scores 88-94). Only run judge when: factual claims need verification, sensitive topic, or front-stage content. For normal opinion/reflection posts → publish directly.
+3. **Censor gate — skip for standard garden posts.** Censor (article criteria) has never failed a garden post (always scores 88-94). Only run censor when: factual claims need verification, sensitive topic, or front-stage content. For normal opinion/reflection posts → publish directly.
 4. **Publish immediately** (`publish publish <slug> --push`), live instantly
 5. Or omit `--push` to let the LaunchAgent pick it up within 5 min
 
-**Brainstorming for garden posts:** Skip the full brainstorm skill. One angle-check question max ("who's the reader?" or "what's the hook?"), then draft. Garden posts are low-risk — judge is the gate.
+**Brainstorming for garden posts:** Skip the full brainstorm skill. One angle-check question max ("who's the reader?" or "what's the hook?"), then draft. Garden posts are low-risk — censor is the gate.
 
 **Revise an existing post:**
 ```bash
@@ -76,10 +76,10 @@ publish list | grep <keyword>
 
 When a publishable insight surfaces in a session:
 1. Draft the post (session context as material)
-2. Run judge (`article` criteria)
+2. Run censor (`article` criteria)
 3. **Pass** → `publish publish <slug>`
-4. **Needs work** → one revision pass → judge again
-5. **Still failing** → `echo "Garden post failed judge: <title>" | deltos "garden"` — do NOT publish silently
+4. **Needs work** → one revision pass → censor again
+5. **Still failing** → `echo "Garden post failed censor: <title>" | deltos "garden"` — do NOT publish silently
 
 **Insight detection — draft autonomously when ALL of:**
 - A non-obvious observation emerged naturally (not manufactured)
@@ -88,7 +88,7 @@ When a publishable insight surfaces in a session:
 - No factual claims needing verification
 - No real names, companies, or time-sensitive content that could embarrass
 
-When in doubt: draft and let judge decide. Judge is the gate, not the intent check.
+When in doubt: draft and let censor decide. Censor is the gate, not the intent check.
 
 ## Gotchas
 

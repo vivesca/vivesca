@@ -1,10 +1,10 @@
 ---
-name: judge
+name: censor
 description: "Review client-facing deliverables (SOWs, proposals, decks, reports) against quality criteria before sending. NOT for code review."
 user_invocable: false
 ---
 
-# Judge Skill
+# Censor Skill
 
 Reusable quality review for skill outputs. Call this after generating drafts, analyses, or any output that benefits from a second pass.
 
@@ -13,12 +13,12 @@ Reusable quality review for skill outputs. Call this after generating drafts, an
 Called by other skills, not directly by user. Skills invoke this at the end of their workflow:
 
 ```
-Execute main task → Call /judge → Iterate if needed → Output
+Execute main task → Call /censor → Iterate if needed → Output
 ```
 
 ## Inputs
 
-- **output** — The content to judge (required)
+- **output** — The content to censor (required)
 - **goal** — What the output was supposed to achieve (required)
 - **domain** — Which criteria to use: `outreach`, `job-eval`, `technical`, `article`, `default` (optional, auto-detect if not specified)
 - **max_iterations** — How many revision cycles before giving up (default: 2)
@@ -70,15 +70,15 @@ If domain not specified, infer from goal keywords:
 
 ## Integration Example
 
-Other skills call judge like this:
+Other skills call censor like this:
 
 ```markdown
 ## Workflow (in /outreach)
 
 1. Gather context about recipient
 2. Draft personalized message
-3. **Review with judge:**
-   - Call judge with output=draft, goal="personalized networking message", domain="outreach"
+3. **Review with censor:**
+   - Call censor with output=draft, goal="personalized networking message", domain="outreach"
    - If needs_work: revise based on feedback
    - Max 2 iterations
 4. Output final draft to user

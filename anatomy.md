@@ -100,9 +100,9 @@ integrin
 interoception - sensing internal state.
 - `interoception(action, query, period, start_datetime, end_datetime, symptom, severity, notes, trend_days, recent_n, task_type, days)` -- Unified internal state sensor.
 
-### judge
-judge — LLM quality gate against named rubrics.
-- `judge_evaluate(rubric, content, context, model)` -- Evaluate content against a named rubric.
+### censor
+censor — LLM quality gate against named rubrics.
+- `censor_evaluate(rubric, content, context, model)` -- Evaluate content against a named rubric.
 
 ### kinesin
 kinesin — session-independent agent dispatcher.
@@ -303,7 +303,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **ingestion.py**: `ingestion`
 - **integrin.py**: `integrin`
 - **interoception.py**: `interoception`
-- **judge.py**: `judge_evaluate`
+- **censor.py**: `censor_evaluate`
 - **kinesin.py**: `translocation`
 - **lysin.py**: `lysin`
 - **lysis.py**: `lysis`

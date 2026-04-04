@@ -3,18 +3,18 @@
 # requires-python = ">=3.13"
 # dependencies = []
 # ///
-"""judge — LLM quality gate for content evaluation.
+"""censor — LLM quality gate for content evaluation.
 
 Evaluates content against named rubrics and returns a structured verdict.
 Used by evaluate-job (step 8), sarcio auto-publish, and evaluate-article.
 
 Usage:
-    judge article < post.md
-    judge article post.md
-    judge job-eval analysis.md
-    judge article --json post.md
-    echo "content" | judge article
-    judge article --context "front-stage LinkedIn" post.md
+    censor article < post.md
+    censor article post.md
+    censor job-eval analysis.md
+    censor article --json post.md
+    echo "content" | censor article
+    censor article --context "front-stage LinkedIn" post.md
 
 Rubrics:
     article     — garden/blog posts (thesis, evidence, hook, conclusion, concision)
@@ -127,7 +127,7 @@ def build_user_prompt(content: str, rubric_name: str, context: str | None = None
 # ---------------------------------------------------------------------------
 
 def evaluate(content: str, rubric_name: str, context: str | None = None, model: str | None = None) -> dict:
-    """Run the judge evaluation via claude --print --bare. Returns parsed verdict dict."""
+    """Run the censor evaluation via claude --print --bare. Returns parsed verdict dict."""
     chosen_model = model or "sonnet"
     user_prompt = build_user_prompt(content, rubric_name, context)
 
@@ -149,7 +149,7 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     except subprocess.TimeoutExpired:
         return {
             "verdict": "FAIL", "score": 0, "criteria": {},
-            "summary": "Judge timed out after 120s",
+            "summary": "Censor timed out after 120s",
         }
 
     if proc.returncode != 0:
@@ -186,14 +186,14 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     except json.JSONDecodeError:
         return {
             "verdict": "FAIL", "score": 0, "criteria": {},
-            "summary": f"Judge returned unparseable output: {text[:200]}",
+            "summary": f"Censor returned unparseable output: {text[:200]}",
             "_raw": text,
         }
 
     # Ensure required fields exist
     for field in ("verdict", "score", "summary"):
         if field not in result:
-            result[field] = {"verdict": "FAIL", "score": 0, "summary": "Missing fields in judge output"}.get(field)
+            result[field] = {"verdict": "FAIL", "score": 0, "summary": "Missing fields in censor output"}.get(field)
 
     # Normalise verdict
     v = str(result["verdict"]).upper().strip()
@@ -210,7 +210,7 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="judge",
+        prog="censor",
         description="LLM quality gate — evaluate content against named rubrics.",
     )
     parser.add_argument(
@@ -235,7 +235,7 @@ def main() -> int:
     parser.add_argument(
         "--context",
         default=None,
-        help="Additional context for the judge (e.g. 'front-stage LinkedIn post')",
+        help="Additional context for the censor (e.g. 'front-stage LinkedIn post')",
     )
     parser.add_argument(
         "--model",

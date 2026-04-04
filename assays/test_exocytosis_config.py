@@ -19,8 +19,8 @@ def test_config_has_expected_sections():
     conf = configparser.ConfigParser()
     conf.read(CONF_PATH)
     assert "generate" in conf.sections()
-    assert "judge" in conf.sections()
-    assert "judge_criteria" in conf.sections()
+    assert "censor" in conf.sections()
+    assert "censor_criteria" in conf.sections()
 
 
 def test_generate_section_has_max_tokens():
@@ -31,21 +31,21 @@ def test_generate_section_has_max_tokens():
     assert 200 <= max_tokens <= 4000
 
 
-def test_judge_section_has_expected_keys():
-    """Judge section has max_tokens_judge and judge_retry_count."""
+def test_censor_section_has_expected_keys():
+    """Censor section has max_tokens_censor and censor_retry_count."""
     conf = configparser.ConfigParser()
     conf.read(CONF_PATH)
-    max_tokens = conf.getint("judge", "max_tokens_judge")
-    retry_count = conf.getint("judge", "judge_retry_count")
+    max_tokens = conf.getint("censor", "max_tokens_censor")
+    retry_count = conf.getint("censor", "censor_retry_count")
     assert 50 <= max_tokens <= 500
     assert 0 <= retry_count <= 5
 
 
-def test_judge_criteria_has_expected_values():
-    """Judge criteria are all HIGH, MED, or LOW."""
+def test_censor_criteria_has_expected_values():
+    """Censor criteria are all HIGH, MED, or LOW."""
     conf = configparser.ConfigParser()
     conf.read(CONF_PATH)
-    criteria = conf["judge_criteria"]
+    criteria = conf["censor_criteria"]
     allowed_values = {"HIGH", "MED", "LOW"}
     for key in ("clear_thesis", "evidence", "hook", "conclusion", "concise"):
         assert key in criteria

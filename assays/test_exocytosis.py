@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for effectors/exocytosis.py — garden post pipeline."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -22,7 +22,7 @@ _mod = _load_exocytosis()
 get_next_topic = _mod["get_next_topic"]
 mark_done = _mod["mark_done"]
 generate = _mod["generate"]
-judge = _mod["judge"]
+censor = _mod["censor"]
 notify = _mod["notify"]
 publish = _mod["publish"]
 main = _mod["main"]
@@ -126,35 +126,35 @@ class TestGenerate:
         assert mock_td.call_args[1]["timeout"] == 120
 
 
-# ── judge ─────────────────────────────────────────────────────────────
+# ── censor ────────────────────────────────────────────────────────────
 
 
-class TestJudge:
+class TestCensor:
     @patch("metabolon.symbiont.transduce", return_value="PASS — strong thesis.")
     def test_pass_verdict(self, mock_td):
-        passed, verdict = judge("Some post text")
+        passed, verdict = censor("Some post text")
         assert passed is True
         assert "PASS" in verdict
 
     @patch("metabolon.symbiont.transduce", return_value="FAIL — no thesis.")
     def test_fail_verdict(self, mock_td):
-        passed, verdict = judge("Bad post")
+        passed, verdict = censor("Bad post")
         assert passed is False
         assert "FAIL" in verdict
 
     @patch("metabolon.symbiont.transduce", return_value="pass — lowercase.")
     def test_case_insensitive_pass(self, mock_td):
-        passed, verdict = judge("Post")
+        passed, _verdict = censor("Post")
         assert passed is True
 
     @patch("metabolon.symbiont.transduce", return_value="Whatever")
     def test_unexpected_response_is_fail(self, mock_td):
-        passed, verdict = judge("Post")
+        passed, _verdict = censor("Post")
         assert passed is False
 
     @patch("metabolon.symbiont.transduce", return_value="PASS.")
     def test_passes_post_to_prompt(self, mock_td):
-        judge("My specific post content")
+        censor("My specific post content")
         prompt = mock_td.call_args[0][1]
         assert "My specific post content" in prompt
 
@@ -214,7 +214,7 @@ class TestMain:
         post_path = fake_queue.parent / "post.md"
         post_path.write_text("---\n---\n")
         mock_new.return_value = ("my-topic", post_path)
-        # First transduce call = generate, second = judge (PASS)
+        # First transduce call = generate, second = censor (PASS)
         mock_td.side_effect = ["A great post.", "PASS — solid."]
         main()
 
@@ -234,12 +234,12 @@ class TestMain:
     @patch("sys.argv", ["exocytosis.py"])
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
-    def test_judge_fail_notifies(
+    def test_censor_fail_notifies(
         self, mock_sec, mock_td, fake_queue, fake_style,
     ):
         fake_queue.write_text("- [ ] Failing topic\n")
         fake_style.write_text("Style.")
-        # generate + judge = FAIL, then retry generate + judge = FAIL
+        # generate + censor = FAIL, then retry generate + censor = FAIL
         mock_td.side_effect = [
             "Bad post.",
             "FAIL — weak.",

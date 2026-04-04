@@ -93,6 +93,10 @@ lint.ignore = [
   "SIM115",
   "SIM117",
 ] # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles; SIM117: multi-with is valid Python 3.14
+# E402: from __future__ import annotations pushes imports below module docstring in test files;
+# effectors use sys.path.insert before later imports
+lint.per-file-ignores."assays/*" = [ "E402" ]
+lint.per-file-ignores."effectors/*" = [ "E402" ]
 lint.per-file-ignores."assays/test_ribosome_daemon_stats.py" = [ "E741", "F821" ]
 lint.per-file-ignores."assays/test_ribosome_dash.py" = [ "E741", "F821" ]
 # Tests that exec() effector scripts — injected names invisible to static analysis
@@ -158,7 +162,7 @@ skip = [
 #   nd          — variable name (nd = len(docs)) and time-unit suffix (Nh/Nm/Nd)
 #   selectin    — cell adhesion molecule family (receptors/layers/cell.yaml)
 #   ore         — in quoted Latin etymology ("the place you extract ore")
-#   unparseable — intentional word choice in error messages (effectors/judge)
+#   unparseable — intentional word choice in error messages (effectors/censor)
 #   importin    — biological nuclear-import protein; also our CLI tool name
 #   sive        — sive.rs (Derek Sivers' domain) in lustro/sources.yaml
 #   wit         — "dry wit" in openclaw persona docs

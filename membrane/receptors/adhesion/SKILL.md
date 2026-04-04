@@ -62,8 +62,8 @@ Analyze LinkedIn job postings against user's background, current pipeline health
 7. **Output recommendation:** APPLY, CONSIDER, or PASS with clear reasoning
    - **Warm lead check:** If a warm lead exists at this company (check [[Job Hunting - Pipeline Archive]] → Warm Leads), do NOT suggest forwarding the job posting to the contact. That's transactional and undermines organic positioning. Instead, note the posting as **intel** (confirms the company is actively hiring for this type of role) — useful context for when the organic introduction happens, not a conversation starter.
 
-8. **Review with Judge:**
-   - Run evaluation through `/judge` with `job-eval` criteria
+8. **Review with Censor:**
+   - Run evaluation through `/censor` with `job-eval` criteria
    - Check: fit_analysis, red_flags, specificity, recommendation, career_direction
    - If verdict is `needs_work`: revise analysis (max 2 iterations)
    - Ensures recommendation is specific and actionable, not vague
