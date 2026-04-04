@@ -66,7 +66,11 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Autopoiesis.** The north star: detection → self-repair → self-generation. If maintenance load is flat or rising, autopoiesis is failing.
 
-**No inline bypasses.** Never `# noqa`, `# type: ignore`, `# pragma: no cover`, `# pyright: ignore`. Fix the code or fix the config.
+**No inline bypasses.** Never `# noqa`, `# type: ignore`, `# pragma: no cover`, `# pyright: ignore`. Fix the code or fix the config. Common temptations and their proper fixes:
+- `data: dict = {}` triggers RUF012 → use `Field(default_factory=dict)`, not `# noqa: RUF012`
+- Unused import → delete it, not `# noqa: F401`. If it's a re-export, use `__all__`.
+- Dynamic `sys.path.insert` confuses Pyright → add a `py.typed` marker or path config, not `# type: ignore`
+- Broad `except Exception` triggers lint → narrow the exception type, not `# noqa: BLE001`
 
 **No ambiguous names.** Never single-letter variables. Name what the thing IS.
 

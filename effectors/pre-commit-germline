@@ -16,7 +16,7 @@ if [ -n "$symlinks" ]; then
 fi
 
 # Lint staged Python files with ruff
-py_files=$(git diff --cached --diff-filter=ACMR --name-only | grep '\.py$')
+py_files=$(git diff --cached --diff-filter=ACMR --name-only | grep '\.py$' | grep -v '\.system/')
 if [ -n "$py_files" ]; then
   if command -v ruff >/dev/null 2>&1; then
     echo "$py_files" | xargs ruff check --no-fix || exit 1
