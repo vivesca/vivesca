@@ -4,12 +4,8 @@ Tests mock the Temporal client to avoid requiring a live server.
 """
 from __future__ import annotations
 
-import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
+from unittest.mock import patch
 
 # ── dispatch action ──────────────────────────────────────────────────────────
 
@@ -185,6 +181,62 @@ class TestTemporalConnection:
         monkeypatch.setenv("TEMPORAL_HOST", "localhost:7233")
         # Re-import to pick up env
         import importlib
+
         import metabolon.enzymes.golem_dispatch as mod
         importlib.reload(mod)
         assert mod.TEMPORAL_HOST == "localhost:7233"
+
+
+# ── running / failed convenience actions ────────────────────────────────────
+
+
+class TestRunning:
+    """running action should filter to RUNNING workflows only."""
+
+    def test_running_returns_only_running(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._list_workflows") as mock_list:
+            mock_list.return_value = [
+                {"workflow_id": "golem-zhipu-aaa", "status": "RUNNING"},
+            ]
+            result = golem_dispatch(action="running")
+            assert "1 running" in result.output
+            mock_list.assert_called_once_with(limit=10, status="Running")
+
+
+class TestFailed:
+    """failed action should filter to FAILED workflows only."""
+
+    def test_failed_returns_only_failed(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._list_workflows") as mock_list:
+            mock_list.return_value = []
+            result = golem_dispatch(action="failed")
+            assert "0 failed" in result.output
+            mock_list.assert_called_once_with(limit=10, status="Failed")
+
+
+class TestListFilters:
+    """list action should support status_filter and provider params."""
+
+    def test_list_with_status_filter(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._list_workflows") as mock_list:
+            mock_list.return_value = []
+            golem_dispatch(action="list", status_filter="Completed")
+            mock_list.assert_called_once_with(
+                limit=10, status="Completed", provider=""
+            )
+
+    def test_list_with_provider_filter(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._list_workflows") as mock_list:
+            mock_list.return_value = []
+            golem_dispatch(action="list", provider="volcano")
+            mock_list.assert_called_once_with(
+                limit=10, status="", provider="volcano"
+            )

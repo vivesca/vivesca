@@ -86,14 +86,21 @@ async def _get_workflow_status(workflow_id: str) -> dict[str, Any]:
     }
 
 
-async def _list_workflows(limit: int = 10) -> list[dict[str, Any]]:
-    """List recent golem workflows."""
+async def _list_workflows(
+    limit: int = 10,
+    status: str = "",
+    provider: str = "",
+) -> list[dict[str, Any]]:
+    """List recent golem workflows, optionally filtered by status/provider."""
     client = await _get_client()
+    clauses = ['WorkflowId STARTS_WITH "golem-"']
+    if status:
+        clauses.append(f'ExecutionStatus = "{status.capitalize()}"')
+    if provider:
+        clauses.append(f'GolemProvider = "{provider}"')
+    query = " AND ".join(clauses)
     results: list[dict[str, Any]] = []
-    async for wf in client.list_workflows(
-        query='WorkflowId STARTS_WITH "golem-"',
-        page_size=limit,
-    ):
+    async for wf in client.list_workflows(query=query, page_size=limit):
         results.append(
             {
                 "workflow_id": wf.id,
@@ -119,7 +126,7 @@ async def _cancel_workflow(workflow_id: str) -> bool:
 
 @tool(
     name="golem_dispatch",
-    description="dispatch|batch|status|list|cancel — direct Temporal workflow dispatch",
+    description="dispatch|batch|status|list|running|failed|cancel — Temporal golem dispatch",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def golem_dispatch(
@@ -130,17 +137,18 @@ def golem_dispatch(
     workflow_id: str = "",
     specs: str = "",
     limit: int = 10,
+    status_filter: str = "",
 ) -> QueueResult | EffectorResult:
     """Direct Temporal dispatch for golem tasks.
 
     Parameters
     ----------
     action : str
-        One of: dispatch, batch, status, list, cancel.
+        One of: dispatch, batch, status, list, running, failed, cancel.
     prompt : str
         Task prompt (dispatch only).
     provider : str
-        Provider name (default zhipu, dispatch only).
+        Provider name (default zhipu; also filters list/running/failed).
     max_turns : int
         Max agent turns (default 15, dispatch only).
     workflow_id : str
@@ -149,6 +157,8 @@ def golem_dispatch(
         JSON array of task specs (batch).
     limit : int
         Max workflows to return (list, default 10).
+    status_filter : str
+        Filter by workflow status: Running, Completed, Failed, etc. (list only).
     """
     action = action.lower().strip()
 
@@ -203,9 +213,28 @@ def golem_dispatch(
 
     # ── list ───────────────────────────────────────────────────────────────
     if action == "list":
-        workflows = asyncio.run(_list_workflows(limit=limit))
+        filter_provider = provider if provider != "zhipu" else ""
+        workflows = asyncio.run(
+            _list_workflows(limit=limit, status=status_filter, provider=filter_provider)
+        )
         return QueueResult(
             output=f"Found {len(workflows)} workflow(s)",
+            data={"workflows": workflows},
+        )
+
+    # ── running ───────────────────────────────────────────────────────────
+    if action == "running":
+        workflows = asyncio.run(_list_workflows(limit=limit, status="Running"))
+        return QueueResult(
+            output=f"{len(workflows)} running",
+            data={"workflows": workflows},
+        )
+
+    # ── failed ────────────────────────────────────────────────────────────
+    if action == "failed":
+        workflows = asyncio.run(_list_workflows(limit=limit, status="Failed"))
+        return QueueResult(
+            output=f"{len(workflows)} failed",
             data={"workflows": workflows},
         )
 
@@ -229,5 +258,5 @@ def golem_dispatch(
 
     return EffectorResult(
         success=False,
-        message="Unknown action. Valid: dispatch, batch, status, list, cancel",
+        message="Unknown action. Valid: dispatch, batch, status, list, running, failed, cancel",
     )
