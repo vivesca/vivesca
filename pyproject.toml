@@ -160,6 +160,18 @@ skip = [
 #   stilus      — Latin stylus (original meaning preserved)
 ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin"
 
+[tool.deptry]
+# cryptography: used by telethon/playwright at runtime, not imported directly
+# google-auth-oauthlib: used by circadian_clock at runtime via google.oauth2
+# hatchet-sdk: effectors/hatchet-golem (not in src/)
+# hypothesis: used in tests, not src
+# oghma: editable install, used at runtime
+# pygments: used by rich at runtime
+ignore = [ "DEP002" ]
+[tool.deptry.per_rule_ignores]
+DEP001 = [ "workflow", "nodriver", "pycookiecheat" ]
+DEP003 = [ "mcp", "httpx", "google", "langchain_core" ]
+
 [tool.pytest.ini_options]
 testpaths = [ "assays" ]
 asyncio_mode = "auto"

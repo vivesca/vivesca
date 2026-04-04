@@ -2,6 +2,7 @@
 
 Tests mock the Temporal client to avoid requiring a live server.
 """
+
 from __future__ import annotations
 
 import json
@@ -64,10 +65,12 @@ class TestBatchDispatch:
         """Batch dispatch starts one workflow with N specs."""
         from metabolon.enzymes.golem_dispatch import golem_dispatch
 
-        specs_json = json.dumps([
-            {"prompt": "Task A", "provider": "zhipu", "max_turns": 15},
-            {"prompt": "Task B", "provider": "zhipu", "max_turns": 20},
-        ])
+        specs_json = json.dumps(
+            [
+                {"prompt": "Task A", "provider": "zhipu", "max_turns": 15},
+                {"prompt": "Task B", "provider": "zhipu", "max_turns": 20},
+            ]
+        )
         with patch("metabolon.enzymes.golem_dispatch._start_workflow") as mock_start:
             mock_start.return_value = {
                 "workflow_id": "golem-zhipu-batch123",
@@ -178,13 +181,16 @@ class TestTemporalConnection:
 
     def test_host_configurable_via_env(self, monkeypatch):
         """TEMPORAL_HOST env var overrides default."""
-        monkeypatch.setenv("TEMPORAL_HOST", "localhost:7233")
-        # Re-import to pick up env
         import importlib
 
         import metabolon.enzymes.golem_dispatch as mod
+
+        monkeypatch.setenv("TEMPORAL_HOST", "localhost:7233")
         importlib.reload(mod)
         assert mod.TEMPORAL_HOST == "localhost:7233"
+        # Restore original state so other tests see the real default
+        monkeypatch.delenv("TEMPORAL_HOST")
+        importlib.reload(mod)
 
 
 # ── running / failed convenience actions ────────────────────────────────────
@@ -227,9 +233,7 @@ class TestListFilters:
         with patch("metabolon.enzymes.golem_dispatch._list_workflows") as mock_list:
             mock_list.return_value = []
             golem_dispatch(action="list", status_filter="Completed")
-            mock_list.assert_called_once_with(
-                limit=10, status="Completed", provider=""
-            )
+            mock_list.assert_called_once_with(limit=10, status="Completed", provider="")
 
     def test_list_with_provider_filter(self):
         from metabolon.enzymes.golem_dispatch import golem_dispatch
@@ -237,9 +241,7 @@ class TestListFilters:
         with patch("metabolon.enzymes.golem_dispatch._list_workflows") as mock_list:
             mock_list.return_value = []
             golem_dispatch(action="list", provider="volcano")
-            mock_list.assert_called_once_with(
-                limit=10, status="", provider="volcano"
-            )
+            mock_list.assert_called_once_with(limit=10, status="", provider="volcano")
 
 
 # ── result action ───────────────────────────────────────────────────────────
