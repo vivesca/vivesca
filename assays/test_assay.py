@@ -2,9 +2,8 @@ from __future__ import annotations
 
 """Tests for effectors/assay — life experiment tracker."""
 
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -258,8 +257,16 @@ def test_slugify_mixed_alphanumeric():
 def test_assay_summarise_period_basic():
     """Summarise period computes averages correctly."""
     data = {
-        "2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {"hrv_balance": 50}},
-        "2024-01-02": {"sleep_score": 82, "readiness_score": 72, "readiness_contributors": {"hrv_balance": 52}},
+        "2024-01-01": {
+            "sleep_score": 80,
+            "readiness_score": 70,
+            "readiness_contributors": {"hrv_balance": 50},
+        },
+        "2024-01-02": {
+            "sleep_score": 82,
+            "readiness_score": 72,
+            "readiness_contributors": {"hrv_balance": 52},
+        },
     }
     result = summarise_period(data)
     assert result["days"] == 2
@@ -271,8 +278,16 @@ def test_assay_summarise_period_basic():
 def test_summarise_period_range():
     """Summarise period computes ranges correctly."""
     data = {
-        "2024-01-01": {"sleep_score": 70, "readiness_score": 60, "readiness_contributors": {"hrv_balance": 40}},
-        "2024-01-02": {"sleep_score": 90, "readiness_score": 80, "readiness_contributors": {"hrv_balance": 60}},
+        "2024-01-01": {
+            "sleep_score": 70,
+            "readiness_score": 60,
+            "readiness_contributors": {"hrv_balance": 40},
+        },
+        "2024-01-02": {
+            "sleep_score": 90,
+            "readiness_score": 80,
+            "readiness_contributors": {"hrv_balance": 60},
+        },
     }
     result = summarise_period(data)
     assert result["sleep_range"] == "70-90"
@@ -292,7 +307,11 @@ def test_summarise_period_partial_data():
     """Summarise period handles partial data (missing scores)."""
     data = {
         "2024-01-01": {"sleep_score": 80, "readiness_score": None, "readiness_contributors": {}},
-        "2024-01-02": {"sleep_score": None, "readiness_score": 70, "readiness_contributors": {"hrv_balance": 50}},
+        "2024-01-02": {
+            "sleep_score": None,
+            "readiness_score": 70,
+            "readiness_contributors": {"hrv_balance": 50},
+        },
     }
     result = summarise_period(data)
     assert result["sleep_avg"] == 80.0  # Only one valid
@@ -314,9 +333,21 @@ def test_summarise_period_no_contributors():
 def test_summarise_period_rounding():
     """Summarise period rounds averages to 1 decimal place."""
     data = {
-        "2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {"hrv_balance": 50}},
-        "2024-01-02": {"sleep_score": 81, "readiness_score": 71, "readiness_contributors": {"hrv_balance": 51}},
-        "2024-01-03": {"sleep_score": 82, "readiness_score": 72, "readiness_contributors": {"hrv_balance": 52}},
+        "2024-01-01": {
+            "sleep_score": 80,
+            "readiness_score": 70,
+            "readiness_contributors": {"hrv_balance": 50},
+        },
+        "2024-01-02": {
+            "sleep_score": 81,
+            "readiness_score": 71,
+            "readiness_contributors": {"hrv_balance": 51},
+        },
+        "2024-01-03": {
+            "sleep_score": 82,
+            "readiness_score": 72,
+            "readiness_contributors": {"hrv_balance": 52},
+        },
     }
     result = summarise_period(data)
     assert result["sleep_avg"] == 81.0
@@ -326,7 +357,11 @@ def test_summarise_period_rounding():
 def test_assay_summarise_period_single_day():
     """Summarise period handles single day."""
     data = {
-        "2024-01-01": {"sleep_score": 85, "readiness_score": 75, "readiness_contributors": {"hrv_balance": 55}},
+        "2024-01-01": {
+            "sleep_score": 85,
+            "readiness_score": 75,
+            "readiness_contributors": {"hrv_balance": 55},
+        },
     }
     result = summarise_period(data)
     assert result["days"] == 1
@@ -386,7 +421,7 @@ def test_pull_oura_combines_data():
     """Pull oura combines sleep and readiness data."""
     mock_sleep = [{"day": "2024-01-01", "score": 80, "contributors": {"deep": 30}}]
     mock_readiness = [{"day": "2024-01-01", "score": 70, "contributors": {"hrv_balance": 50}}]
-    
+
     # Create a wrapper that uses mocked functions
     def mock_pull_oura(start, end):
         by_date = {}
@@ -399,7 +434,7 @@ def test_pull_oura_combines_data():
             by_date.setdefault(d, {})["readiness_score"] = r.get("score")
             by_date[d]["readiness_contributors"] = r.get("contributors", {})
         return dict(sorted(by_date.items()))
-    
+
     result = mock_pull_oura("2024-01-01", "2024-01-02")
     assert "2024-01-01" in result
     assert result["2024-01-01"]["sleep_score"] == 80
@@ -414,7 +449,7 @@ def test_pull_oura_sorted_by_date():
         {"day": "2024-01-02", "score": 82, "contributors": {}},
     ]
     mock_readiness = []
-    
+
     def mock_pull_oura(start, end):
         by_date = {}
         for s in mock_sleep:
@@ -426,7 +461,7 @@ def test_pull_oura_sorted_by_date():
             by_date.setdefault(d, {})["readiness_score"] = r.get("score")
             by_date[d]["readiness_contributors"] = r.get("contributors", {})
         return dict(sorted(by_date.items()))
-    
+
     result = mock_pull_oura("2024-01-01", "2024-01-03")
     dates = list(result.keys())
     assert dates == ["2024-01-01", "2024-01-02", "2024-01-03"]
@@ -434,9 +469,10 @@ def test_pull_oura_sorted_by_date():
 
 def test_pull_oura_empty_response():
     """Pull oura handles empty API responses."""
+
     def mock_pull_oura(start, end):
         return {}
-    
+
     result = mock_pull_oura("2024-01-01", "2024-01-02")
     assert result == {}
 
@@ -468,8 +504,8 @@ Some other content.
 
 def test_assay_pull_intake_matches_keywords(tmp_path):
     """Pull intake returns entries matching keywords."""
-    meal_plan = _make_meal_plan(tmp_path, _MEAL_PLAN_CONTENT)
-    
+    _make_meal_plan(tmp_path, _MEAL_PLAN_CONTENT)
+
     # Test the logic directly
     result = pull_intake("2024-01-01", ["coffee"])
     # The actual MEAL_PLAN path is different, so this tests with the real file
@@ -485,7 +521,7 @@ def test_pull_intake_empty_keywords():
 
 def test_pull_intake_missing_file(tmp_path):
     """Pull intake returns empty list when meal plan doesn't exist."""
-    missing = tmp_path / "nonexistent.md"
+    tmp_path / "nonexistent.md"
     # Test by verifying the function handles missing file
     # The actual path is hardcoded, so we just check it returns a list
     result = pull_intake("2024-01-01", ["coffee"])
@@ -499,7 +535,7 @@ def test_assay_is_active_true(tmp_path):
     """_is_active returns True for active experiment."""
     exp_file = tmp_path / "assay-test.md"
     exp_file.write_text("---\nstatus: active\n---\n")
-    
+
     assert _is_active(exp_file) is True
 
 
@@ -507,7 +543,7 @@ def test_assay_is_active_false_closed(tmp_path):
     """_is_active returns False for closed experiment."""
     exp_file = tmp_path / "assay-test.md"
     exp_file.write_text("---\nstatus: closed\n---\n")
-    
+
     assert _is_active(exp_file) is False
 
 
@@ -515,7 +551,7 @@ def test_assay_is_active_false_no_status(tmp_path):
     """_is_active returns False when no status in frontmatter."""
     exp_file = tmp_path / "assay-test.md"
     exp_file.write_text("---\nname: test\n---\n")
-    
+
     assert _is_active(exp_file) is False
 
 
@@ -534,7 +570,7 @@ def test_assay_find_experiment_by_name(tmp_path):
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-2024-01-01-caffeine-cut.md"
     exp_file.write_text("status: active\n")
-    
+
     # Temporarily override EXPERIMENT_DIR in the module
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
@@ -542,7 +578,7 @@ def test_assay_find_experiment_by_name(tmp_path):
         result = find_experiment("caffeine")
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result == exp_file
 
 
@@ -551,14 +587,14 @@ def test_find_experiment_no_match(tmp_path):
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-2024-01-01-sleep-test.md"
     exp_file.write_text("status: active\n")
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = find_experiment("caffeine")
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result is None
 
 
@@ -567,14 +603,14 @@ def test_find_experiment_single_active_no_name(tmp_path):
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-2024-01-01-test.md"
     exp_file.write_text("status: active\n")
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = find_experiment(None)
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result == exp_file
 
 
@@ -584,28 +620,28 @@ def test_find_experiment_multiple_active_no_name(tmp_path):
     for i, name in enumerate(["test-a", "test-b"]):
         exp_file = exp_dir / f"assay-2024-01-0{i}-{name}.md"
         exp_file.write_text("status: active\n")
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = find_experiment(None)
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result is None
 
 
 def test_find_experiment_empty_dir(tmp_path):
     """Find experiment returns None when directory is empty."""
     exp_dir = _make_experiment_dir(tmp_path)
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = find_experiment("test")
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result is None
 
 
@@ -614,14 +650,14 @@ def test_find_experiment_closed_not_returned_without_name(tmp_path):
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-2024-01-01-test.md"
     exp_file.write_text("status: closed\n")
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = find_experiment(None)
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result is None
 
 
@@ -634,14 +670,14 @@ def test_assay_list_experiments_returns_sorted(tmp_path):
     for name in ["zebra", "alpha", "middle"]:
         exp_file = exp_dir / f"assay-{name}.md"
         exp_file.write_text("status: active\n")
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = list_experiments()
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     names = [p.stem for p in result]
     assert names == sorted(names)
 
@@ -649,14 +685,14 @@ def test_assay_list_experiments_returns_sorted(tmp_path):
 def test_list_experiments_empty(tmp_path):
     """List experiments returns empty list for empty directory."""
     exp_dir = _make_experiment_dir(tmp_path)
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = list_experiments()
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert result == []
 
 
@@ -666,14 +702,14 @@ def test_list_experiments_only_assay_files(tmp_path):
     (exp_dir / "assay-test.md").write_text("status: active\n")
     (exp_dir / "other-file.md").write_text("content\n")
     (exp_dir / "assay-another.md").write_text("status: active\n")
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         result = list_experiments()
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     assert len(result) == 2
 
 
@@ -683,14 +719,14 @@ def test_list_experiments_only_assay_files(tmp_path):
 def test_cmd_list_empty(tmp_path, capsys):
     """cmd_list prints message when no experiments."""
     exp_dir = _make_experiment_dir(tmp_path)
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         cmd_list(MagicMock())
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     captured = capsys.readouterr()
     assert "No experiments found" in captured.out
 
@@ -700,14 +736,14 @@ def test_assay_cmd_list_shows_status(tmp_path, capsys):
     exp_dir = _make_experiment_dir(tmp_path)
     (exp_dir / "assay-active.md").write_text('status: active\nname: "Test Active"\n')
     (exp_dir / "assay-closed.md").write_text('status: closed\nname: "Test Closed"\n')
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         cmd_list(MagicMock())
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     captured = capsys.readouterr()
     assert "[active]" in captured.out
     assert "[closed]" in captured.out
@@ -719,14 +755,14 @@ def test_cmd_list_extracts_name(tmp_path, capsys):
     """cmd_list extracts name from frontmatter."""
     exp_dir = _make_experiment_dir(tmp_path)
     (exp_dir / "assay-test.md").write_text('---\nname: "My Experiment"\n---\n')
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     try:
         cmd_list(MagicMock())
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
-    
+
     captured = capsys.readouterr()
     assert "My Experiment" in captured.out
 
@@ -737,7 +773,7 @@ def test_cmd_list_extracts_name(tmp_path, capsys):
 def test_cmd_new_creates_file(tmp_path):
     """cmd_new creates experiment file."""
     exp_dir = _make_experiment_dir(tmp_path)
-    
+
     mock_baseline = {
         "days": 7,
         "sleep_avg": 78.5,
@@ -747,33 +783,33 @@ def test_cmd_new_creates_file(tmp_path):
         "hrv_balance_avg": 48.0,
         "hrv_balance_range": "40-55",
     }
-    
+
     args = MagicMock()
     args.name = "test experiment"
     args.hypothesis = "test hypothesis"
     args.intervention = "test intervention"
     args.days = 7
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     _mod["EXPERIMENT_DIR"] = exp_dir
-    
+
     # Mock pull_oura and summarise_period in the module dict
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_baseline
-    
+
     try:
         cmd_new(args)
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
-    
+
     # Check file was created
     files = list(exp_dir.glob("assay-*.md"))
     assert len(files) == 1
-    
+
     content = files[0].read_text()
     assert "status: active" in content
     assert "test experiment" in content
@@ -783,7 +819,7 @@ def test_cmd_new_creates_file(tmp_path):
 def test_cmd_new_uses_default_hypothesis(tmp_path):
     """cmd_new uses TBD when hypothesis not provided."""
     exp_dir = _make_experiment_dir(tmp_path)
-    
+
     mock_baseline = {
         "days": 7,
         "sleep_avg": 78.5,
@@ -793,27 +829,27 @@ def test_cmd_new_uses_default_hypothesis(tmp_path):
         "hrv_balance_avg": 48.0,
         "hrv_balance_range": "40-55",
     }
-    
+
     args = MagicMock()
     args.name = "test"
     args.hypothesis = None
     args.intervention = None
     args.days = 7
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_baseline
-    
+
     try:
         cmd_new(args)
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
-    
+
     files = list(exp_dir.glob("assay-*.md"))
     content = files[0].read_text()
     assert "TBD" in content
@@ -826,16 +862,16 @@ def test_cmd_check_no_experiment(capsys):
     """cmd_check exits when no active experiment found."""
     args = MagicMock()
     args.name = None
-    
+
     original_find = _mod["find_experiment"]
     _mod["find_experiment"] = lambda n: None
-    
+
     try:
         with pytest.raises(SystemExit) as exc:
             cmd_check(args)
     finally:
         _mod["find_experiment"] = original_find
-    
+
     assert exc.value.code == 1
 
 
@@ -857,7 +893,7 @@ watch_keywords: [caffeine]
 
 ## Check-ins
 """)
-    
+
     mock_summary = {
         "days": 1,
         "sleep_avg": 80.0,
@@ -867,22 +903,22 @@ watch_keywords: [caffeine]
         "hrv_balance_avg": 50.0,
         "hrv_balance_range": "50-50",
     }
-    
+
     args = MagicMock()
     args.name = "test"
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     original_find = _mod["find_experiment"]
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
     original_pull_intake = _mod["pull_intake"]
-    
+
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["find_experiment"] = lambda n: exp_file
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_summary
     _mod["pull_intake"] = lambda s, k: []
-    
+
     try:
         cmd_check(args)
     finally:
@@ -891,7 +927,7 @@ watch_keywords: [caffeine]
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
         _mod["pull_intake"] = original_pull_intake
-    
+
     content = exp_file.read_text()
     assert "### Day" in content
     assert "Sleep: avg" in content
@@ -914,7 +950,7 @@ name: "test"
 
 ## Check-ins
 """)
-    
+
     mock_summary = {
         "days": 1,
         "sleep_avg": 80.0,  # +1.5 from baseline
@@ -924,22 +960,22 @@ name: "test"
         "hrv_balance_avg": 50.0,  # +2.0 from baseline
         "hrv_balance_range": "50-50",
     }
-    
+
     args = MagicMock()
     args.name = "test"
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     original_find = _mod["find_experiment"]
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
     original_pull_intake = _mod["pull_intake"]
-    
+
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["find_experiment"] = lambda n: exp_file
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_summary
     _mod["pull_intake"] = lambda s, k: []
-    
+
     try:
         cmd_check(args)
     finally:
@@ -948,7 +984,7 @@ name: "test"
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
         _mod["pull_intake"] = original_pull_intake
-    
+
     content = exp_file.read_text()
     assert "+1.5" in content
 
@@ -960,16 +996,16 @@ def test_cmd_close_no_experiment(capsys):
     """cmd_close exits when no active experiment found."""
     args = MagicMock()
     args.name = None
-    
+
     original_find = _mod["find_experiment"]
     _mod["find_experiment"] = lambda n: None
-    
+
     try:
         with pytest.raises(SystemExit) as exc:
             cmd_close(args)
     finally:
         _mod["find_experiment"] = original_find
-    
+
     assert exc.value.code == 1
 
 
@@ -991,7 +1027,7 @@ name: "test"
 
 ## Check-ins
 """)
-    
+
     mock_summary = {
         "days": 14,
         "sleep_avg": 80.0,
@@ -1001,20 +1037,20 @@ name: "test"
         "hrv_balance_avg": 50.0,
         "hrv_balance_range": "40-60",
     }
-    
+
     args = MagicMock()
     args.name = "test"
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     original_find = _mod["find_experiment"]
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
-    
+
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["find_experiment"] = lambda n: exp_file
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_summary
-    
+
     try:
         cmd_close(args)
     finally:
@@ -1022,7 +1058,7 @@ name: "test"
         _mod["find_experiment"] = original_find
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
-    
+
     content = exp_file.read_text()
     assert "status: closed" in content
     assert "## Results" in content
@@ -1047,7 +1083,7 @@ name: "test"
 
 ## Check-ins
 """)
-    
+
     mock_summary = {
         "days": 14,
         "sleep_avg": 82.0,
@@ -1057,20 +1093,20 @@ name: "test"
         "hrv_balance_avg": 52.0,
         "hrv_balance_range": "45-60",
     }
-    
+
     args = MagicMock()
     args.name = "test"
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     original_find = _mod["find_experiment"]
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
-    
+
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["find_experiment"] = lambda n: exp_file
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_summary
-    
+
     try:
         cmd_close(args)
     finally:
@@ -1078,7 +1114,7 @@ name: "test"
         _mod["find_experiment"] = original_find
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
-    
+
     content = exp_file.read_text()
     assert "78.5 -> 82.0" in content
 
@@ -1103,7 +1139,7 @@ name: "test"
 
 > **Symptom logged:** 2024-01-06 headache
 """)
-    
+
     mock_summary = {
         "days": 14,
         "sleep_avg": 80.0,
@@ -1113,20 +1149,20 @@ name: "test"
         "hrv_balance_avg": 50.0,
         "hrv_balance_range": "40-60",
     }
-    
+
     args = MagicMock()
     args.name = "test"
-    
+
     original_dir = _mod["EXPERIMENT_DIR"]
     original_find = _mod["find_experiment"]
     original_pull_oura = _mod["pull_oura"]
     original_summarise = _mod["summarise_period"]
-    
+
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["find_experiment"] = lambda n: exp_file
     _mod["pull_oura"] = lambda s, e: {}
     _mod["summarise_period"] = lambda d: mock_summary
-    
+
     try:
         cmd_close(args)
     finally:
@@ -1134,7 +1170,7 @@ name: "test"
         _mod["find_experiment"] = original_find
         _mod["pull_oura"] = original_pull_oura
         _mod["summarise_period"] = original_summarise
-    
+
     content = exp_file.read_text()
     assert "## Cross-linked Events" in content
     assert "Intake logged" in content
@@ -1152,7 +1188,11 @@ def test_extract_keywords_empty_inputs():
 def test_summarise_period_zero_scores():
     """summarise_period filters out zero scores (0 is falsy in the filter)."""
     data = {
-        "2024-01-01": {"sleep_score": 0, "readiness_score": 0, "readiness_contributors": {"hrv_balance": 0}},
+        "2024-01-01": {
+            "sleep_score": 0,
+            "readiness_score": 0,
+            "readiness_contributors": {"hrv_balance": 0},
+        },
     }
     result = summarise_period(data)
     # Zero scores are filtered out by the "if v.get('sleep_score')" check
@@ -1166,7 +1206,7 @@ def test_slugify_unicode():
     result = slugify("café test")
     # Should not raise, result should be lowercase and hyphenated
     assert "café" not in result  # unicode stripped
-    assert result == "caf-test" or result == "test"  # depends on implementation
+    assert result == "calf-test" or result == "test"  # depends on implementation
 
 
 class TestAssayEdgeCases:
@@ -1177,14 +1217,14 @@ class TestAssayEdgeCases:
         exp_dir = _make_experiment_dir(tmp_path)
         exp_file = exp_dir / "assay-2024-01-01-caffeine-cut.md"
         exp_file.write_text("status: active\n")
-        
+
         original_dir = _mod["EXPERIMENT_DIR"]
         _mod["EXPERIMENT_DIR"] = exp_dir
         try:
             result = find_experiment("caffeine! @cut#")
         finally:
             _mod["EXPERIMENT_DIR"] = original_dir
-        
+
         # Should still match after slugifying
         assert result == exp_file
 
@@ -1193,22 +1233,22 @@ class TestAssayEdgeCases:
         exp_dir = _make_experiment_dir(tmp_path)
         exp_file = exp_dir / "assay-test.md"
         exp_file.write_text("status: active\n")  # No start_date
-        
+
         args = MagicMock()
         args.name = "test"
-        
+
         original_dir = _mod["EXPERIMENT_DIR"]
         original_find = _mod["find_experiment"]
         _mod["EXPERIMENT_DIR"] = exp_dir
         _mod["find_experiment"] = lambda n: exp_file
-        
+
         try:
             with pytest.raises(SystemExit) as exc:
                 cmd_check(args)
         finally:
             _mod["EXPERIMENT_DIR"] = original_dir
             _mod["find_experiment"] = original_find
-        
+
         assert exc.value.code == 1
 
     def test_cmd_close_missing_dates(self, tmp_path):
@@ -1216,35 +1256,35 @@ class TestAssayEdgeCases:
         exp_dir = _make_experiment_dir(tmp_path)
         exp_file = exp_dir / "assay-test.md"
         exp_file.write_text("status: active\n")  # No dates
-        
+
         args = MagicMock()
         args.name = "test"
-        
+
         original_dir = _mod["EXPERIMENT_DIR"]
         original_find = _mod["find_experiment"]
         _mod["EXPERIMENT_DIR"] = exp_dir
         _mod["find_experiment"] = lambda n: exp_file
-        
+
         try:
             with pytest.raises(SystemExit) as exc:
                 cmd_close(args)
         finally:
             _mod["EXPERIMENT_DIR"] = original_dir
             _mod["find_experiment"] = original_find
-        
+
         assert exc.value.code == 1
 
     def test_cmd_list_missing_name_in_frontmatter(self, tmp_path, capsys):
         """cmd_list uses filename when name not in frontmatter."""
         exp_dir = _make_experiment_dir(tmp_path)
         (exp_dir / "assay-my-test.md").write_text("status: active\n")  # No name field
-        
+
         original_dir = _mod["EXPERIMENT_DIR"]
         _mod["EXPERIMENT_DIR"] = exp_dir
         try:
             cmd_list(MagicMock())
         finally:
             _mod["EXPERIMENT_DIR"] = original_dir
-        
+
         captured = capsys.readouterr()
         assert "assay-my-test" in captured.out

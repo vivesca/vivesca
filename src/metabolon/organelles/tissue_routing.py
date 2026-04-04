@@ -1,10 +1,8 @@
-
 """tissue_routing — match the right symbiont strain to each subsystem.
 
 Muscle has more mitochondria than skin. Routing follows observed performance,
 not just cost tiers. Reads FROM mitophagy outcomes; never duplicates tracking.
 """
-
 
 _DEFAULTS: dict[str, str] = {
     "probe": "glm",  # mechanical checks, cheap

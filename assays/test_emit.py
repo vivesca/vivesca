@@ -1,19 +1,12 @@
 """Tests for metabolon.enzymes.emit."""
+
 from __future__ import annotations
 
 import json
-import os
 from datetime import date
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.emit import (
-    DAILY_DIR,
-    INTERPHASE_DAILY_DIR,
-    SPARKS_FILE,
-    TELEMETRY_FILE,
     EmitResult,
     PraxisResult,
     _append_to_file,
@@ -22,10 +15,10 @@ from metabolon.enzymes.emit import (
 )
 from metabolon.morphology import EffectorResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_emit(**overrides):
     """Build keyword arguments for emit(), filling sensible defaults."""
@@ -38,6 +31,7 @@ def _make_emit(**overrides):
 # _today_iso
 # ---------------------------------------------------------------------------
 
+
 class TestTodayIso:
     def test_returns_date_string(self):
         result = _today_iso()
@@ -47,12 +41,14 @@ class TestTodayIso:
 
     def test_format_is_yyyy_mm_dd(self):
         import re
+
         assert re.match(r"\d{4}-\d{2}-\d{2}$", _today_iso())
 
 
 # ---------------------------------------------------------------------------
 # _append_to_file
 # ---------------------------------------------------------------------------
+
 
 class TestAppendToFile:
     def test_creates_directory_and_appends(self, tmp_path):
@@ -66,6 +62,7 @@ class TestAppendToFile:
 # ---------------------------------------------------------------------------
 # spark action
 # ---------------------------------------------------------------------------
+
 
 class TestSpark:
     @patch("metabolon.enzymes.emit._append_to_file")
@@ -96,6 +93,7 @@ class TestSpark:
 # ---------------------------------------------------------------------------
 # daily_note action
 # ---------------------------------------------------------------------------
+
 
 class TestDailyNote:
     @patch("metabolon.enzymes.emit._append_to_file")
@@ -131,13 +129,17 @@ class TestDailyNote:
 # telemetry action
 # ---------------------------------------------------------------------------
 
+
 class TestTelemetry:
     @patch("metabolon.enzymes.emit._append_to_file")
     @patch("os.path.exists", return_value=True)
     def test_telemetry_success(self, mock_exists, mock_append):
         result = emit(
-            action="telemetry", channel="blog", title="Post Title",
-            source_skill="writing", tags="tech",
+            action="telemetry",
+            channel="blog",
+            title="Post Title",
+            source_skill="writing",
+            tags="tech",
         )
         assert result.success is True
         assert "blog" in result.message
@@ -150,7 +152,9 @@ class TestTelemetry:
     @patch("os.path.exists", return_value=False)
     def test_telemetry_creates_header_if_missing(self, mock_exists, mock_append):
         result = emit(
-            action="telemetry", channel="video", title="Vid",
+            action="telemetry",
+            channel="video",
+            title="Vid",
             source_skill="editing",
         )
         assert result.success is True
@@ -168,6 +172,7 @@ class TestTelemetry:
 # ---------------------------------------------------------------------------
 # telegram_text action
 # ---------------------------------------------------------------------------
+
 
 class TestTelegramText:
     @patch("metabolon.enzymes.emit._sv")
@@ -194,6 +199,7 @@ class TestTelegramText:
 # telegram_image action
 # ---------------------------------------------------------------------------
 
+
 class TestTelegramImage:
     @patch("metabolon.enzymes.emit._sv")
     @patch("os.path.isfile", return_value=True)
@@ -218,6 +224,7 @@ class TestTelegramImage:
 # reminder action
 # ---------------------------------------------------------------------------
 
+
 class TestReminder:
     @patch("metabolon.enzymes.emit._pacemaker")
     def test_reminder_success(self, mock_pm):
@@ -241,6 +248,7 @@ class TestReminder:
 # ---------------------------------------------------------------------------
 # praxis action
 # ---------------------------------------------------------------------------
+
 
 class TestPraxis:
     @patch("metabolon.enzymes.emit._praxis")
@@ -268,12 +276,15 @@ class TestPraxis:
 # knowledge_signal action
 # ---------------------------------------------------------------------------
 
+
 class TestKnowledgeSignal:
     @patch("metabolon.enzymes.emit.SensorySystem")
     def test_knowledge_signal_useful(self, mock_ss_cls):
         mock_collector = MagicMock()
         mock_ss_cls.return_value = mock_collector
-        result = emit(action="knowledge_signal", artifact="doc-42", useful=True, context="helped debugging")
+        result = emit(
+            action="knowledge_signal", artifact="doc-42", useful=True, context="helped debugging"
+        )
         assert result.success is True
         assert "useful" in result.message
         mock_collector.append.assert_called_once()
@@ -295,6 +306,7 @@ class TestKnowledgeSignal:
 # interphase_close action
 # ---------------------------------------------------------------------------
 
+
 class TestInterphaseClose:
     def test_interphase_close_writes_file(self, tmp_path):
         daily_dir = tmp_path / "Daily"
@@ -303,9 +315,12 @@ class TestInterphaseClose:
         with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", daily_dir):
             result = emit(
                 action="interphase_close",
-                shipped="tests", tomorrow="more tests",
-                open_threads="none", nudges="none",
-                day_score=4, note_date="2026-04-02",
+                shipped="tests",
+                tomorrow="more tests",
+                open_threads="none",
+                nudges="none",
+                day_score=4,
+                note_date="2026-04-02",
             )
         assert isinstance(result, EmitResult)
         assert "written" in result.output.lower() or "Interphase" in result.output
@@ -317,8 +332,12 @@ class TestInterphaseClose:
     def test_interphase_close_invalid_date(self):
         result = emit(
             action="interphase_close",
-            shipped="x", tomorrow="y", open_threads="z", nudges="w",
-            day_score=3, note_date="not-a-date",
+            shipped="x",
+            tomorrow="y",
+            open_threads="z",
+            nudges="w",
+            day_score=3,
+            note_date="not-a-date",
         )
         assert result.success is False
         assert "Invalid" in result.message
@@ -329,8 +348,12 @@ class TestInterphaseClose:
         with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", daily_dir):
             result = emit(
                 action="interphase_close",
-                shipped="x", tomorrow="y", open_threads="z", nudges="w",
-                day_score=0, note_date="2026-04-02",
+                shipped="x",
+                tomorrow="y",
+                open_threads="z",
+                nudges="w",
+                day_score=0,
+                note_date="2026-04-02",
             )
         assert result.success is False
         assert "day_score" in result.message
@@ -347,8 +370,12 @@ class TestInterphaseClose:
         with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", daily_dir):
             result = emit(
                 action="interphase_close",
-                shipped="x", tomorrow="y", open_threads="z", nudges="w",
-                day_score=3, note_date="2026-04-02",
+                shipped="x",
+                tomorrow="y",
+                open_threads="z",
+                nudges="w",
+                day_score=3,
+                note_date="2026-04-02",
             )
         assert isinstance(result, EmitResult)
         assert "already present" in result.output
@@ -357,6 +384,7 @@ class TestInterphaseClose:
 # ---------------------------------------------------------------------------
 # unknown action
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownAction:
     def test_unknown_action_returns_error(self):

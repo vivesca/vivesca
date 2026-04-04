@@ -1,26 +1,27 @@
 """Tests for metabolon.organelles.gmail: batch search, pagination, HTML stripping, send_email."""
+
 import base64
 import email
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from metabolon.organelles.gmail import search, send_email, _strip_html
-
+from metabolon.organelles.gmail import _strip_html, search, send_email
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_msg(msg_id, from_addr="a@b.com", subject="Sub", snippet="snip"):
     """Build a minimal message dict that _format_message can consume."""
     return {
         "id": msg_id,
         "internalDate": "1700000000000",
-        "payload": {"headers": [
-            {"name": "From", "value": from_addr},
-            {"name": "Subject", "value": subject},
-        ]},
+        "payload": {
+            "headers": [
+                {"name": "From", "value": from_addr},
+                {"name": "Subject", "value": subject},
+            ]
+        },
         "snippet": snippet,
     }
 
@@ -30,6 +31,7 @@ def _fake_batch_class(responses):
 
     *responses* maps ``request_id`` → ``(response_dict, exception_or_None)``.
     """
+
     class FakeBatch:
         def __init__(self, callback=None):
             self._callback = callback
@@ -49,6 +51,7 @@ def _fake_batch_class(responses):
 # ---------------------------------------------------------------------------
 # Existing tests — HTML stripping + send_email
 # ---------------------------------------------------------------------------
+
 
 def test_html_only_strips_tags():
     """Basic tags are stripped and entities are unescaped."""
@@ -105,10 +108,7 @@ def test_send_with_attachment(tmp_path):
 
     # Find the attachment part and verify its decoded content
     parts = list(mime_msg.walk())
-    attachment_parts = [
-        p for p in parts
-        if p.get_content_disposition() == "attachment"
-    ]
+    attachment_parts = [p for p in parts if p.get_content_disposition() == "attachment"]
     assert len(attachment_parts) == 1
     assert attachment_parts[0].get_filename() == "notes.txt"
     assert attachment_parts[0].get_payload(decode=True) == b"hello from attachment"
@@ -117,6 +117,7 @@ def test_send_with_attachment(tmp_path):
 # ---------------------------------------------------------------------------
 # Batch search tests — messages mode
 # ---------------------------------------------------------------------------
+
 
 def test_search_no_results():
     """search() returns 'No messages found.' when list() returns no messages."""
@@ -138,8 +139,10 @@ def test_search_single_page_messages():
         "0": (_mock_msg("m1", subject="Alpha"), None),
         "1": (_mock_msg("m2", subject="Beta"), None),
     }
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("subject:test")
 
     assert "m1" in result
@@ -166,8 +169,10 @@ def test_search_pagination_messages():
         "1": (_mock_msg("m2"), None),
         "2": (_mock_msg("m3"), None),
     }
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("query", max_results=10)
 
     assert "m1" in result
@@ -184,8 +189,10 @@ def test_search_truncates_to_max_results():
     }
     responses = {str(i): (_mock_msg(f"m{i}"), None) for i in range(5)}
 
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("q", max_results=3)
 
     assert "m0" in result
@@ -207,8 +214,10 @@ def test_search_batch_handles_errors():
         "2": (_mock_msg("m3", subject="OK3"), None),
     }
 
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("q")
 
     assert "OK1" in result
@@ -225,8 +234,10 @@ def test_search_over_100_uses_multiple_batches():
     }
     responses = {str(i): (_mock_msg(f"m{i}"), None) for i in range(150)}
 
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("q", max_results=150)
 
     lines = [ln for ln in result.split("\n") if ln.strip()]
@@ -238,6 +249,7 @@ def test_search_over_100_uses_multiple_batches():
 # ---------------------------------------------------------------------------
 # Batch search tests — threads mode
 # ---------------------------------------------------------------------------
+
 
 def test_search_threads_no_results():
     """threads=True returns 'No messages found.' when list is empty."""
@@ -258,8 +270,10 @@ def test_search_threads_single_page():
     t2_resp = {"messages": [_mock_msg("m3", subject="T2A")]}
     responses = {"0": (t1_resp, None), "1": (t2_resp, None)}
 
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("q", threads=True)
 
     assert "T1A" in result
@@ -283,8 +297,10 @@ def test_search_threads_pagination():
     t2_resp = {"messages": [_mock_msg("m2", subject="Page2")]}
     responses = {"0": (t1_resp, None), "1": (t2_resp, None)}
 
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("q", threads=True, max_results=10)
 
     assert "Page1" in result
@@ -303,8 +319,10 @@ def test_search_threads_batch_handles_errors():
         "1": ({}, Exception("thread-error")),
     }
 
-    with patch("metabolon.organelles.gmail.service", return_value=mock_svc), \
-         patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)):
+    with (
+        patch("metabolon.organelles.gmail.service", return_value=mock_svc),
+        patch("metabolon.organelles.gmail.BatchHttpRequest", _fake_batch_class(responses)),
+    ):
         result = search("q", threads=True)
 
     assert "ThreadOK" in result

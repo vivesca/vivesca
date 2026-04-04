@@ -8,9 +8,9 @@ porta is a script — loaded via exec(), never imported.
 import json
 import sqlite3
 import types
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -89,7 +89,7 @@ def _create_chrome_db(db_path: Path, cookies: list[dict]) -> None:
         )
         """
     )
-    key = _chrome_key()
+    _chrome_key()
     for c in cookies:
         # Store plaintext (no v10/v11 prefix) for simplicity in most tests
         enc_val = b""
@@ -242,7 +242,16 @@ class TestReadChromeCookies:
         with patch.object(_mod, "_chrome_base", return_value=chrome_db):
             cookies = read_chrome_cookies()
         c = cookies[0]
-        for key in ("domain", "name", "value", "path", "expires", "secure", "httponly", "samesite"):
+        for key in (
+            "domain",
+            "name",
+            "value",
+            "path",
+            "expires",
+            "secure",
+            "httponly",
+            "samesite",
+        ):
             assert key in c, f"Missing key: {key}"
 
     def test_missing_db_returns_empty(self, tmp_path):
@@ -513,8 +522,10 @@ class TestRunCLI:
         assert len(parsed) == 2
 
     def test_run_no_cookies_anywhere(self, session_dir, tmp_path):
-        with patch.object(_mod, "_chrome_base", return_value=tmp_path / "nope"), \
-             patch.object(_mod, "FIREFOX_BASE_LINUX", tmp_path / "nope2"):
+        with (
+            patch.object(_mod, "_chrome_base", return_value=tmp_path / "nope"),
+            patch.object(_mod, "FIREFOX_BASE_LINUX", tmp_path / "nope2"),
+        ):
             rc = main(["run", "--domain", "void.com"])
         assert rc == 1
 

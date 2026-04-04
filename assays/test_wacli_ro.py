@@ -7,12 +7,12 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path.home() / "germline" / "effectors" / "wacli-ro"
 
 
-def run_wacli_ro(*args: str, mock_wacli_dir: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run_wacli_ro(
+    *args: str, mock_wacli_dir: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run wacli-ro with optional PATH override pointing at mock wacli."""
     env = os.environ.copy()
     if mock_wacli_dir is not None:

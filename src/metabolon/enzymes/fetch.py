@@ -1,4 +1,3 @@
-
 """fetch — URL content extraction via pinocytosis effector.
 
 Parallel fast tier (defuddle + jina + microlink) → firecrawl → agent-browser.

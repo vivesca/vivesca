@@ -1,10 +1,8 @@
-
 """Techne — the organism's practiced capabilities.
 
 Resources:
   vivesca://techne — index of all active receptors (CC: skills) with metadata
 """
-
 
 from datetime import UTC, datetime
 from pathlib import Path

@@ -2,10 +2,7 @@ from __future__ import annotations
 
 """Tests for metabolon/metabolism/mismatch_repair.py."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.metabolism.mismatch_repair import (
     VOCABULARY_GAPS,
@@ -18,7 +15,6 @@ from metabolon.metabolism.mismatch_repair import (
     scan,
     summary,
 )
-
 
 # -- VocabularyGap dataclass -----------------------------------------------
 
@@ -42,8 +38,11 @@ class TestVocabularyGap:
 
     def test_exclude_file_defaults_empty(self):
         g = VocabularyGap(
-            old_term="A", new_term="B", layer="autonomic",
-            reason="r", grep_pattern=r"\bA\b",
+            old_term="A",
+            new_term="B",
+            layer="autonomic",
+            reason="r",
+            grep_pattern=r"\bA\b",
         )
         assert g.exclude_file == ""
 
@@ -158,10 +157,7 @@ class TestDetectStructuralGaps:
         )
         result = _detect_structural_gaps(src=tmp_path)
         assert len(result) >= 1
-        assert any(
-            "autonomic" in g.current_layer and "LLM" in g.actual_layer
-            for g in result
-        )
+        assert any("autonomic" in g.current_layer and "LLM" in g.actual_layer for g in result)
 
     def test_cortical_labelled_without_llm_substrate_exempt(self, tmp_path):
         self._make_file(
@@ -233,7 +229,9 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair.subprocess.run")
     @patch("metabolon.metabolism.mismatch_repair._detect_structural_gaps", return_value=[])
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps", return_value=[])
-    def test_vocabulary_grep_exception_reported(self, mock_orphan, mock_struct, mock_run, tmp_path):
+    def test_vocabulary_grep_exception_reported(
+        self, mock_orphan, mock_struct, mock_run, tmp_path
+    ):
         mock_run.side_effect = OSError("boom")
         reports = scan(src=tmp_path)
         vocab = [r for r in reports if r.kind == "vocabulary"]
@@ -264,9 +262,7 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps")
     def test_orphan_gaps_included(self, mock_orphan, mock_struct, mock_run, tmp_path):
         mock_run.return_value = MagicMock(stdout="", returncode=0)
-        mock_orphan.return_value = [
-            OrphanGap(uri="org://lost", source_file="lost.py")
-        ]
+        mock_orphan.return_value = [OrphanGap(uri="org://lost", source_file="lost.py")]
         reports = scan(src=tmp_path)
         orphan = [r for r in reports if r.kind == "orphan"]
         assert len(orphan) == 1
@@ -275,7 +271,9 @@ class TestScan:
     @patch("metabolon.metabolism.mismatch_repair.subprocess.run")
     @patch("metabolon.metabolism.mismatch_repair._detect_structural_gaps", return_value=[])
     @patch("metabolon.metabolism.mismatch_repair._detect_orphan_gaps", return_value=[])
-    def test_dormant_operons_included_if_importable(self, mock_orphan, mock_struct, mock_run, tmp_path):
+    def test_dormant_operons_included_if_importable(
+        self, mock_orphan, mock_struct, mock_run, tmp_path
+    ):
         mock_run.return_value = MagicMock(stdout="", returncode=0)
         fake_operon = MagicMock(reaction="glycolysis")
         with patch.dict(
@@ -293,6 +291,7 @@ class TestScan:
     def test_dormant_import_error_graceful(self, mock_orphan, mock_struct, mock_run, tmp_path):
         mock_run.return_value = MagicMock(stdout="", returncode=0)
         import builtins
+
         real_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):

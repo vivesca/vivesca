@@ -95,7 +95,7 @@ def scan_orphan_links() -> list[str]:
             if line.strip() and not line.strip().startswith("(")
         ]
         return orphans[:MAX_ORPHAN_REPORT]
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except subprocess.TimeoutExpired, FileNotFoundError:
         return []
 
 
@@ -187,7 +187,7 @@ def scan_prospective_memory() -> list[str]:
                             if len(action) > 100:
                                 action = action[:97] + "..."
                             triggered.append(action)
-            except (ValueError, KeyError):
+            except ValueError, KeyError:
                 pass
 
     # Deduplicate
@@ -285,12 +285,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="AKM Heartbeat — nightly chromatin health digest via Telegram."
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Print digest without sending."
-    )
-    parser.add_argument(
-        "--force", action="store_true", help="Send even if already sent today."
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Print digest without sending.")
+    parser.add_argument("--force", action="store_true", help="Send even if already sent today.")
     args = parser.parse_args()
 
     digest = build_digest()

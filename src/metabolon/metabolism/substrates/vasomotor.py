@@ -1,11 +1,9 @@
-
 """VasomotorSubstrate — metabolism of autonomous pacing/budgeting.
 
 Senses the vivesca-events JSONL log to assess respiration pacing health:
 daily burn vs budget, saturation rates, cost volatility, and process
 liveness. Proposes tuning actions when pacing drifts.
 """
-
 
 import contextlib
 import json
@@ -92,7 +90,7 @@ class VasomotorSubstrate:
 
             try:
                 ts = _parse_ts(ts_str)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
 
             if ts < cutoff:
@@ -196,7 +194,7 @@ class VasomotorSubstrate:
                     hours = (t1 - t0).total_seconds() / 3600
                     if hours > 0:
                         budget_climb_rate = (last["weekly"] - first["weekly"]) / hours
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     pass
 
             total_yield = sum(day["systole_yields"])
@@ -440,7 +438,7 @@ class VasomotorSubstrate:
         try:
             if self.config_path.exists():
                 conf = json.loads(self.config_path.read_text())
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             pass
 
         yield_history = conf.get("_efference_copy", [])
@@ -488,7 +486,7 @@ class VasomotorSubstrate:
         try:
             if self.config_path.exists():
                 conf = json.loads(self.config_path.read_text())
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             pass
 
         applied = False

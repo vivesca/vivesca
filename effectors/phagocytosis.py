@@ -25,7 +25,7 @@ def read_last_open_files() -> list[str]:
     try:
         data = json.loads(WORKSPACE.read_text())
         return data.get("lastOpenFiles", [])
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return []
 
 
@@ -57,7 +57,9 @@ def read_last_snapshot() -> list[str] | None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Snapshot Obsidian's lastOpenFiles to a JSONL consumption log.")
+    parser = argparse.ArgumentParser(
+        description="Snapshot Obsidian's lastOpenFiles to a JSONL consumption log."
+    )
     parser.parse_args()
 
     if not WORKSPACE.exists():

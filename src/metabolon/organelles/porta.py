@@ -1,4 +1,3 @@
-
 """porta — cookie bridge from Chrome to agent-browser Playwright context.
 
 Extracts Chrome cookies via cookie-bridge HTTP server on Mac (LaunchAgent
@@ -14,7 +13,6 @@ Constraints:
   - cookie-bridge must be running on Mac (LaunchAgent: com.terryli.cookie-bridge).
   - Falls back to local pycookiecheat if cookie-bridge unreachable.
 """
-
 
 import subprocess
 

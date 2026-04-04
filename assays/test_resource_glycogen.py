@@ -1,4 +1,5 @@
 """Tests for the glycogen resource module."""
+
 from metabolon.resources.glycogen import BINARY
 
 
@@ -12,8 +13,9 @@ def test_resource_glycogen_module_structure():
 def test_resource_glycogen_docstring_content():
     """Test that the module docstring contains expected information."""
     import metabolon.resources.glycogen as module
+
     docstring = module.__doc__
-    
+
     assert "Budget resource" in docstring
     assert "current Claude Code token usage" in docstring
     assert "vivesca://budget" in docstring

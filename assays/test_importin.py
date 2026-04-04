@@ -178,7 +178,7 @@ def test_load_keychain_env_skips_none_values():
 
     # Track which calls should return None
     call_count = [0]
-    
+
     def mock_run_returning_none_for_some(*args, **kwargs):
         mock_res = MagicMock()
         call_count[0] += 1
@@ -262,10 +262,7 @@ def test_cli_shell_escaping():
 # ── Integration test (macOS only) ─────────────────────────────────────────
 
 
-@pytest.mark.skipif(
-    sys.platform != "darwin",
-    reason="Keychain integration only works on macOS"
-)
+@pytest.mark.skipif(sys.platform != "darwin", reason="Keychain integration only works on macOS")
 def test_real_keychain_fetch():
     """Test actual keychain fetch on macOS."""
     # This test is skipped on Linux

@@ -3,10 +3,7 @@ from __future__ import annotations
 """Tests for conjugation_engine — CC→Gemini config replication."""
 
 import json
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from metabolon.organelles.conjugation_engine import (
     CC_TO_GEMINI_EVENT,
@@ -20,7 +17,6 @@ from metabolon.organelles.conjugation_engine import (
     transform_mcp_servers,
     transform_skills,
 )
-
 
 # ── Event mapping ────────────────────────────────────────────────────────────
 
@@ -46,7 +42,6 @@ class TestUnmappedEvents:
         assert "Notification" in _CC_UNMAPPED_EVENTS
 
     def test_pre_compact_silently_dropped(self):
-        from metabolon.organelles.conjugation_engine import _CC_UNMAPPED_EVENTS
 
         _, dropped, _ = transform_hooks(
             {"PreCompact": [{"hooks": [{"type": "command", "command": "echo"}]}]}
@@ -152,7 +147,11 @@ class TestTransformHooks:
 
     def test_preserves_matcher(self):
         gemini_hooks, _, _ = transform_hooks(
-            {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo"}]}]}
+            {
+                "PreToolUse": [
+                    {"matcher": "Bash", "hooks": [{"type": "command", "command": "echo"}]}
+                ]
+            }
         )
         assert gemini_hooks["BeforeTool"][0]["matcher"] == "Bash"
 
@@ -302,16 +301,12 @@ class TestMergeIntoGeminiSettings:
         assert "hooks" not in result
 
     def test_empty_mcp_not_written(self):
-        result = merge_into_gemini_settings(
-            {}, {"BeforeModel": [{"hooks": []}]}, {}
-        )
+        result = merge_into_gemini_settings({}, {"BeforeModel": [{"hooks": []}]}, {})
         assert "mcpServers" not in result
 
     def test_does_not_mutate_current(self):
         current = {"keep": 1}
-        result = merge_into_gemini_settings(
-            current, {"BeforeModel": []}, {"s": {"command": "c"}}
-        )
+        result = merge_into_gemini_settings(current, {"BeforeModel": []}, {"s": {"command": "c"}})
         assert "keep" not in result or result["keep"] == 1
         assert "hooks" not in current
         assert "mcpServers" not in current
@@ -334,8 +329,8 @@ class TestDiffSettings:
         current = {"a": 1}
         proposed = {"a": 2}
         result = diff_settings(current, proposed)
-        assert "-  \"a\": 1" in result
-        assert "+  \"a\": 2" in result
+        assert '-  "a": 1' in result
+        assert '+  "a": 2' in result
 
     def test_shows_file_labels(self):
         result = diff_settings({}, {"a": 1})
@@ -378,13 +373,9 @@ class TestReplicateToGemini:
             json.dumps(
                 {
                     "hooks": {
-                        "UserPromptSubmit": [
-                            {"hooks": [{"type": "command", "command": "run.sh"}]}
-                        ]
+                        "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "run.sh"}]}]
                     },
-                    "mcpServers": {
-                        "myserver": {"command": "uv", "args": ["run", "s.py"]}
-                    },
+                    "mcpServers": {"myserver": {"command": "uv", "args": ["run", "s.py"]}},
                 }
             )
         )
@@ -393,7 +384,7 @@ class TestReplicateToGemini:
     def test_dry_run_does_not_write(self, tmp_path):
         cc_path = self._cc_settings(tmp_path)
         gemini_path = tmp_path / "gemini_settings.json"
-        result, diff_text = replicate_to_gemini(
+        result, _diff_text = replicate_to_gemini(
             dry_run=True,
             cc_settings_path=cc_path,
             gemini_settings_path=gemini_path,
@@ -406,7 +397,7 @@ class TestReplicateToGemini:
     def test_writes_file_when_not_dry_run(self, tmp_path):
         cc_path = self._cc_settings(tmp_path)
         gemini_path = tmp_path / "gemini_settings.json"
-        result, _ = replicate_to_gemini(
+        _result, _ = replicate_to_gemini(
             dry_run=False,
             cc_settings_path=cc_path,
             gemini_settings_path=gemini_path,
@@ -477,7 +468,7 @@ class TestReplicateToGemini:
 
     def test_missing_cc_file(self, tmp_path):
         gemini_path = tmp_path / "gemini_settings.json"
-        result, diff_text = replicate_to_gemini(
+        result, _diff_text = replicate_to_gemini(
             cc_settings_path=tmp_path / "nonexistent.json",
             gemini_settings_path=gemini_path,
         )

@@ -6,9 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -134,13 +131,11 @@ class TestLogMeal:
     def test_inserts_before_next_section(self, tmp_path: Path):
         """Insert entry before next ## section."""
         meal_plan = tmp_path / "meal.md"
-        meal_plan.write_text(
-            "# Meal Plan\n## Order log\n- Existing\n\n## Notes\nSome notes\n"
-        )
+        meal_plan.write_text("# Meal Plan\n## Order log\n- Existing\n\n## Notes\nSome notes\n")
 
         fn = _fn()
         with patch("metabolon.enzymes.ingestion.MEAL_PLAN", meal_plan):
-            result = fn(
+            fn(
                 action="log_meal",
                 meal_date="2025-06-16",
                 restaurant="Sushi Bar",
@@ -229,9 +224,7 @@ class TestCrossLinkExperiment:
         exp_dir = tmp_path / "experiments"
         exp_dir.mkdir()
         exp_file = exp_dir / "assay-test.md"
-        exp_file.write_text(
-            "---\nstatus: active\nwatch_keywords: [pizza, pasta]\n---\nContent\n"
-        )
+        exp_file.write_text("---\nstatus: active\nwatch_keywords: [pizza, pasta]\n---\nContent\n")
 
         fn = _cross_link_fn()
         with patch("metabolon.enzymes.ingestion.EXPERIMENTS_DIR", exp_dir):
@@ -266,9 +259,7 @@ class TestCrossLinkExperiment:
         exp_dir = tmp_path / "experiments"
         exp_dir.mkdir()
         exp_file = exp_dir / "assay-test.md"
-        exp_file.write_text(
-            "---\nstatus: active\nwatch_keywords: [SUSHI]\n---\nContent\n"
-        )
+        exp_file.write_text("---\nstatus: active\nwatch_keywords: [SUSHI]\n---\nContent\n")
 
         fn = _cross_link_fn()
         with patch("metabolon.enzymes.ingestion.EXPERIMENTS_DIR", exp_dir):
@@ -295,9 +286,7 @@ class TestCrossLinkExperiment:
         exp_dir.mkdir()
         # Wrong filename pattern
         exp_file = exp_dir / "experiment-test.md"
-        exp_file.write_text(
-            "---\nstatus: active\nwatch_keywords: [sushi]\n---\nContent\n"
-        )
+        exp_file.write_text("---\nstatus: active\nwatch_keywords: [sushi]\n---\nContent\n")
 
         fn = _cross_link_fn()
         with patch("metabolon.enzymes.ingestion.EXPERIMENTS_DIR", exp_dir):
@@ -322,9 +311,7 @@ class TestLogMealWithCrossLink:
         exp_dir = tmp_path / "experiments"
         exp_dir.mkdir()
         exp_file = exp_dir / "assay-diet.md"
-        exp_file.write_text(
-            "---\nstatus: active\nwatch_keywords: [pizza]\n---\nDiet experiment\n"
-        )
+        exp_file.write_text("---\nstatus: active\nwatch_keywords: [pizza]\n---\nDiet experiment\n")
 
         fn = _fn()
         with (
@@ -349,9 +336,7 @@ class TestLogMealWithCrossLink:
         exp_dir = tmp_path / "experiments"
         exp_dir.mkdir()
         exp_file = exp_dir / "assay-diet.md"
-        exp_file.write_text(
-            "---\nstatus: active\nwatch_keywords: [kale]\n---\nDiet experiment\n"
-        )
+        exp_file.write_text("---\nstatus: active\nwatch_keywords: [kale]\n---\nDiet experiment\n")
 
         fn = _fn()
         with (

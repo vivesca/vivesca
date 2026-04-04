@@ -3,6 +3,7 @@
 Covers edge cases, error paths, cap enforcement details, and mocks
 external filesystem calls where appropriate.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,10 +14,10 @@ import pytest
 
 from metabolon.metabolism.variants import DEFAULT_ROOT, Genome
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_store(tmp_path: Path, allele_cap: int = 5) -> Genome:
     return Genome(germ_line=tmp_path, allele_cap=allele_cap)
@@ -36,9 +37,10 @@ def _seed_and_variants(store: Genome, tool: str, count: int) -> list[int]:
 # DEFAULT_ROOT sanity
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultRoot:
     def test_default_root_is_under_home(self):
-        assert DEFAULT_ROOT == Path.home() / ".local" / "share" / "vivesca" / "variants"
+        assert Path.home() / ".local" / "share" / "vivesca" / "variants" == DEFAULT_ROOT
 
     def test_default_root_instantiates(self):
         g = Genome()
@@ -49,6 +51,7 @@ class TestDefaultRoot:
 # ---------------------------------------------------------------------------
 # _read_meta / _write_meta edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestMetaIO:
     def test_read_meta_missing_file(self, tmp_path):
@@ -68,6 +71,7 @@ class TestMetaIO:
 # ---------------------------------------------------------------------------
 # seed_tool
 # ---------------------------------------------------------------------------
+
 
 class TestSeedTool:
     def test_creates_directory_and_v0(self, tmp_path):
@@ -101,6 +105,7 @@ class TestSeedTool:
 # active_allele / founding_allele
 # ---------------------------------------------------------------------------
 
+
 class TestActiveAllele:
     def test_active_after_seed_is_v0(self, tmp_path):
         store = _make_store(tmp_path)
@@ -125,6 +130,7 @@ class TestActiveAllele:
 # ---------------------------------------------------------------------------
 # express_variant
 # ---------------------------------------------------------------------------
+
 
 class TestExpressVariant:
     def test_returns_sequential_ids(self, tmp_path):
@@ -153,6 +159,7 @@ class TestExpressVariant:
 # promote errors
 # ---------------------------------------------------------------------------
 
+
 class TestPromoteErrors:
     def test_promote_nonexistent_raises(self, tmp_path):
         store = _make_store(tmp_path)
@@ -169,6 +176,7 @@ class TestPromoteErrors:
 # ---------------------------------------------------------------------------
 # allele_variants
 # ---------------------------------------------------------------------------
+
 
 class TestAlleleVariants:
     def test_returns_sorted_ids(self, tmp_path):
@@ -196,6 +204,7 @@ class TestAlleleVariants:
 # expressed_tools
 # ---------------------------------------------------------------------------
 
+
 class TestExpressedTools:
     def test_returns_tool_names(self, tmp_path):
         store = _make_store(tmp_path)
@@ -216,6 +225,7 @@ class TestExpressedTools:
 # ---------------------------------------------------------------------------
 # _enforce_cap (detailed eviction logic)
 # ---------------------------------------------------------------------------
+
 
 class TestEnforceCap:
     def test_cap_2_keeps_founder_and_active(self, tmp_path):
@@ -272,6 +282,7 @@ class TestEnforceCap:
 # Mocked filesystem: verify no real disk access when patched
 # ---------------------------------------------------------------------------
 
+
 class TestMockedFilesystem:
     def test_seed_tool_creates_locus_dir(self, tmp_path):
         """Verify seed_tool creates the locus directory."""
@@ -301,6 +312,7 @@ class TestMockedFilesystem:
 # ---------------------------------------------------------------------------
 # Integration: full lifecycle
 # ---------------------------------------------------------------------------
+
 
 class TestLifecycle:
     def test_full_lifecycle(self, tmp_path):
@@ -343,6 +355,7 @@ class TestLifecycle:
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     def test_promote_idempotent(self, tmp_path):

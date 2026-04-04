@@ -2720,7 +2720,7 @@ class TestPickDispatchProvider:
     def test_returns_none_when_all_cooled(self):
         """Returns None when every provider is in cooldown."""
         now = time.time() + 600
-        cooldowns = {p: now for p in PROVIDER_LIMITS}
+        cooldowns = dict.fromkeys(PROVIDER_LIMITS, now)
         assert _pick_dispatch_provider("infini", cooldowns, {}) is None
 
     def test_throttled_limit_reduces_capacity(self):

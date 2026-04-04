@@ -4,15 +4,14 @@ from __future__ import annotations
 
 
 import datetime
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fn():
     """Return the raw function behind the @tool decorator."""
@@ -24,6 +23,7 @@ def _fn():
 # ---------------------------------------------------------------------------
 # _count_sparks unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestCountSparks:
     """Tests for _count_sparks helper."""
@@ -66,6 +66,7 @@ class TestCountSparks:
 # _file_age_days unit tests
 # ---------------------------------------------------------------------------
 
+
 class TestFileAgeDays:
     """Tests for _file_age_days helper."""
 
@@ -91,6 +92,7 @@ class TestFileAgeDays:
         # Backdate mtime by 10 days
         old_ts = (datetime.datetime.now() - datetime.timedelta(days=10)).timestamp()
         import os
+
         os.utime(p, (old_ts, old_ts))
         age = _file_age_days(p)
         assert age is not None
@@ -100,6 +102,7 @@ class TestFileAgeDays:
 # ---------------------------------------------------------------------------
 # expression("preflight") tests
 # ---------------------------------------------------------------------------
+
 
 class TestPreflight:
     """Tests for the preflight action."""
@@ -131,6 +134,7 @@ class TestPreflight:
     def _patch_paths(self, paths):
         """Return a dict suitable for patch.multiple on the expression module."""
         import metabolon.enzymes.expression as mod
+
         return {
             f"{mod.__name__}._SPARKS": paths["_SPARKS"],
             f"{mod.__name__}._THALAMUS": paths["_THALAMUS"],
@@ -215,6 +219,7 @@ class TestPreflight:
 
     def test_preflight_stale_thalamus_warning(self, _setup_paths):
         import os
+
         import metabolon.enzymes.expression as mod
 
         paths = _setup_paths
@@ -254,6 +259,7 @@ class TestPreflight:
 # expression("library") tests
 # ---------------------------------------------------------------------------
 
+
 class TestLibrary:
     """Tests for the library action."""
 
@@ -280,6 +286,7 @@ class TestLibrary:
 
     def test_library_with_files(self, tmp_path):
         import os
+
         import metabolon.enzymes.expression as mod
 
         consulting = tmp_path / "Consulting"
@@ -300,9 +307,9 @@ class TestLibrary:
         lib_dirs = {
             "Policies": policies,
             "Architectures": consulting / "Architectures",  # doesn't exist
-            "Use Cases": consulting / "Use Cases",          # doesn't exist
-            "Experiments": consulting / "Experiments",       # doesn't exist
-            "Weekly": consulting / "_weekly",                # doesn't exist
+            "Use Cases": consulting / "Use Cases",  # doesn't exist
+            "Experiments": consulting / "Experiments",  # doesn't exist
+            "Weekly": consulting / "_weekly",  # doesn't exist
         }
 
         with patch.object(mod, "_LIBRARY_DIRS", lib_dirs):
@@ -350,6 +357,7 @@ class TestLibrary:
 # ---------------------------------------------------------------------------
 # expression unknown action
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownAction:
     """Tests for invalid action dispatch."""

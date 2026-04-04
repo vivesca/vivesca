@@ -12,14 +12,11 @@ import pytest
 
 from metabolon.enzymes.proprioception import (
     HKT,
-    _log_and_gradient,
-    _sensorium,
     _histone_store,
+    _sensorium,
     _skills,
     _timing,
-    proprioception,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -28,9 +25,7 @@ from metabolon.enzymes.proprioception import (
 def _isolate_gradient_log(tmp_path, monkeypatch):
     """Redirect gradient log to tmp so tests never touch the real file."""
     log = tmp_path / "proprioception.jsonl"
-    monkeypatch.setattr(
-        "metabolon.enzymes.proprioception._GRADIENT_LOG", str(log)
-    )
+    monkeypatch.setattr("metabolon.enzymes.proprioception._GRADIENT_LOG", str(log))
     return log
 
 
@@ -182,8 +177,12 @@ class TestSkillsOutput:
         # Upstream-only file
         (cache_version / "b.md").write_text("upstream addition")
 
-        registry = {"suite": {"local": str(local), "cache_pattern": str(tmp_path / "cache" / "suite")}}
-        with patch("metabolon.enzymes.proprioception._restore_fork_registry", return_value=registry):
+        registry = {
+            "suite": {"local": str(local), "cache_pattern": str(tmp_path / "cache" / "suite")}
+        }
+        with patch(
+            "metabolon.enzymes.proprioception._restore_fork_registry", return_value=registry
+        ):
             result = _skills()
         assert "suite" in result
         assert "2 change(s)" in result

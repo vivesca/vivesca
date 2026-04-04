@@ -7,8 +7,6 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
 
 
@@ -31,9 +29,7 @@ def _run(
             env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
         else:
             env["PATH"] = (
-                os.pathsep.join(str(p) for p in path_dirs)
-                + os.pathsep
-                + env.get("PATH", "")
+                os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
             )
     if env_extra:
         env.update(env_extra)
@@ -66,9 +62,7 @@ def _make_recording_bin(
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     script = bindir / name
-    script.write_text(
-        f'#!/bin/bash\necho "$@" >> {record_file}\nexit {exit_code}\n'
-    )
+    script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nexit {exit_code}\n')
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
 
@@ -165,9 +159,7 @@ class TestSuccessfulStart:
         # Chrome mock that sleeps briefly so kill -0 works
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
         chrome_script.parent.mkdir(exist_ok=True)
-        chrome_script.write_text(
-            '#!/bin/bash\nsleep 5\n'
-        )
+        chrome_script.write_text("#!/bin/bash\nsleep 5\n")
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run(tmp_path=tmp_path, path_dirs=[bindir])
         assert r.returncode == 0
@@ -176,7 +168,7 @@ class TestSuccessfulStart:
         bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
         chrome_script.parent.mkdir(exist_ok=True)
-        chrome_script.write_text('#!/bin/bash\nsleep 5\n')
+        chrome_script.write_text("#!/bin/bash\nsleep 5\n")
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run(tmp_path=tmp_path, path_dirs=[bindir])
         assert "Chrome started with remote debugging on port 9222" in r.stdout
@@ -188,9 +180,7 @@ class TestSuccessfulStart:
         bindir = _make_recording_bin(tmp_path, "google-chrome-stable", record_file)
         # Chrome needs to stay alive for the kill -0 check
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
-        chrome_script.write_text(
-            f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n'
-        )
+        chrome_script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n')
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run(tmp_path=tmp_path, path_dirs=[bindir])
         assert r.returncode == 0
@@ -208,9 +198,7 @@ class TestCustomPort:
         record_file = tmp_path / "chrome_invocations.txt"
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
         chrome_script.parent.mkdir(exist_ok=True)
-        chrome_script.write_text(
-            f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n'
-        )
+        chrome_script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n')
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run(args=["-p", "9333"], tmp_path=tmp_path, path_dirs=[bindir])
         assert r.returncode == 0
@@ -222,9 +210,7 @@ class TestCustomPort:
         record_file = tmp_path / "chrome_invocations.txt"
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
         chrome_script.parent.mkdir(exist_ok=True)
-        chrome_script.write_text(
-            f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n'
-        )
+        chrome_script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nsleep 5\n')
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run(args=["--port", "9444"], tmp_path=tmp_path, path_dirs=[bindir])
         assert r.returncode == 0

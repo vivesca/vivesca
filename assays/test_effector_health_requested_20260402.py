@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 EFFECTORS_DIR = Path.home() / "germline" / "effectors"
 TARGET_NAMES = [
     "rename-plists",

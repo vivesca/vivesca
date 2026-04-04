@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 from unittest.mock import MagicMock, patch
+
 from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
 
 
@@ -40,7 +41,9 @@ def test_substrate_tools_sense_with_data():
     ]
     mock_genome = MagicMock()
     mock_genome.expressed_tools.return_value = ["rheotaxis", "histone"]
-    mock_genome.allele_variants.side_effect = lambda tool: [f"{tool}_v1", f"{tool}_v2"] if tool == "rheotaxis" else []
+    mock_genome.allele_variants.side_effect = lambda tool: (
+        [f"{tool}_v1", f"{tool}_v2"] if tool == "rheotaxis" else []
+    )
 
     with patch("metabolon.metabolism.substrates.tools.sense_affect") as mock_affect:
         mock_emotion = MagicMock(valence=0.8, activations=5, success_rate=0.8)
@@ -118,6 +121,7 @@ def test_act_insufficient_stimuli():
     """Test act flags insufficient data."""
     s = PhenotypeSubstrate()
     from unittest.mock import MagicMock
+
     fitness = MagicMock(valence=None, activations=2)
     result = s.act({"tool": "new_tool", "emotion": fitness, "in_store": True})
     assert "mutation needed for new_tool: insufficient stimuli" in result
@@ -127,6 +131,7 @@ def test_act_valence_problem():
     """Test act reports valence value for mutation candidates."""
     s = PhenotypeSubstrate()
     from unittest.mock import MagicMock
+
     fitness = MagicMock(valence=0.123, activations=10)
     result = s.act({"tool": "bad_tool", "emotion": fitness, "in_store": True})
     assert "mutation needed for bad_tool: valence 0.123" in result
@@ -136,6 +141,7 @@ def test_substrate_tools_report_format():
     """Test report produces human-readable output."""
     s = PhenotypeSubstrate()
     from unittest.mock import MagicMock
+
     fitness = MagicMock(valence=0.5, activations=10, success_rate=0.9)
     sensed = [
         {"tool": "good_tool", "emotion": fitness, "variant_count": 3},

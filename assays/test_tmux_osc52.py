@@ -58,9 +58,7 @@ def _make_logging_tmux(work_dir: Path, log_file: Path) -> Path:
     bindir = work_dir / "bin"
     bindir.mkdir(exist_ok=True)
     fake = bindir / "tmux"
-    fake.write_text(
-        f"#!/bin/bash\necho \"$@\" > {log_file}\necho 'captured'\n"
-    )
+    fake.write_text(f"#!/bin/bash\necho \"$@\" > {log_file}\necho 'captured'\n")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     return bindir
 
@@ -78,9 +76,8 @@ def _run_with_fake_tmux(pane: str, tty_file: Path, bindir: Path) -> subprocess.C
 def _extract_payload(tty_file: Path) -> str:
     """Read the TTY file and return the base64 payload (no wrapper)."""
     content = tty_file.read_text()
-    payload = content[len("\033]52;c;"):]
-    if payload.endswith("\007"):
-        payload = payload[:-1]
+    payload = content[len("\033]52;c;") :]
+    payload = payload.removesuffix("\007")
     return payload
 
 

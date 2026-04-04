@@ -1,12 +1,12 @@
 """Tests for metabolon.enzymes.telegram_receptor and metabolon.organelles.telegram_receptor."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Organelle-layer unit tests (no network, no Telethon)
@@ -20,7 +20,7 @@ class TestFormatMessage:
         from metabolon.organelles.telegram_receptor import _format_message
 
         msg = MagicMock()
-        msg.date = datetime(2025, 6, 15, 9, 30, tzinfo=timezone.utc)
+        msg.date = datetime(2025, 6, 15, 9, 30, tzinfo=UTC)
         msg.out = True
         msg.text = "Hello world"
         assert _format_message(msg) == "2025-06-15 09:30  me: Hello world"
@@ -29,7 +29,7 @@ class TestFormatMessage:
         from metabolon.organelles.telegram_receptor import _format_message
 
         msg = MagicMock()
-        msg.date = datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc)
+        msg.date = datetime(2025, 1, 1, 0, 0, tzinfo=UTC)
         msg.out = False
         msg.text = "Hey"
         assert _format_message(msg) == "2025-01-01 00:00  them: Hey"
@@ -38,7 +38,7 @@ class TestFormatMessage:
         from metabolon.organelles.telegram_receptor import _format_message
 
         msg = MagicMock()
-        msg.date = datetime(2025, 3, 10, 12, 0, tzinfo=timezone.utc)
+        msg.date = datetime(2025, 3, 10, 12, 0, tzinfo=UTC)
         msg.out = True
         msg.text = None  # media / sticker / etc.
         assert _format_message(msg) == "2025-03-10 12:00  me: [media/non-text]"
@@ -86,22 +86,32 @@ class TestGetClient:
 
         with patch.dict(os.environ, {"TELEGRAM_API_HASH": "abc"}, clear=True):
             os.environ.pop("TELEGRAM_API_ID", None)
-            with pytest.raises(ValueError, match="TELEGRAM_API_ID and TELEGRAM_API_HASH must be set"):
+            with pytest.raises(
+                ValueError, match="TELEGRAM_API_ID and TELEGRAM_API_HASH must be set"
+            ):
                 _get_client()
 
     def test_missing_api_hash_raises(self):
         from metabolon.organelles.telegram_receptor import _get_client
 
-        with patch.dict(os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": ""}, clear=True):
-            with pytest.raises(ValueError, match="TELEGRAM_API_ID and TELEGRAM_API_HASH must be set"):
+        with patch.dict(
+            os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": ""}, clear=True
+        ):
+            with pytest.raises(
+                ValueError, match="TELEGRAM_API_ID and TELEGRAM_API_HASH must be set"
+            ):
                 _get_client()
 
     def test_valid_credentials_returns_client(self):
         from metabolon.organelles.telegram_receptor import _get_client
 
         mock_client_cls = MagicMock()
-        with patch.dict(os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "abcdef"}, clear=True):
-            with patch.dict("sys.modules", {"telethon": MagicMock(TelegramClient=mock_client_cls)}):
+        with patch.dict(
+            os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "abcdef"}, clear=True
+        ):
+            with patch.dict(
+                "sys.modules", {"telethon": MagicMock(TelegramClient=mock_client_cls)}
+            ):
                 # Need telethon imported inside _get_client via lazy import
                 # Patch the lazy import target
                 with patch("metabolon.organelles.telegram_receptor.os") as mock_os:
@@ -113,7 +123,9 @@ class TestGetClient:
                     # Actually simpler: just verify the env guard logic
                     pass
                 # Simpler approach: verify it doesn't raise with valid env
-                with patch.dict(os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "abcdef"}):
+                with patch.dict(
+                    os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "abcdef"}
+                ):
                     # The Telethon import will fail if not installed, but we can
                     # at least verify the env check passes (no ValueError raised).
                     # If telethon IS installed, we get a real client object.
@@ -134,6 +146,7 @@ class TestEnzymeDispatch:
 
     def _import_enzyme(self):
         from metabolon.enzymes.telegram_receptor import telegram_receptor
+
         return telegram_receptor
 
     def test_read_action(self):
@@ -145,7 +158,9 @@ class TestEnzymeDispatch:
 
     def test_read_defaults_to_chat_id(self):
         func = self._import_enzyme()
-        with patch("metabolon.organelles.telegram_receptor.read_chat", return_value="ok") as mock_rc:
+        with patch(
+            "metabolon.organelles.telegram_receptor.read_chat", return_value="ok"
+        ) as mock_rc:
             with patch("metabolon.organelles.telegram_receptor._chat_id", return_value=999):
                 func(action="read", chat="", limit=10)
         mock_rc.assert_called_once_with("", 10)
@@ -163,13 +178,18 @@ class TestEnzymeDispatch:
 
     def test_list_chats_action(self):
         func = self._import_enzyme()
-        with patch("metabolon.organelles.telegram_receptor.list_chats", return_value="Chat1\nChat2"):
+        with patch(
+            "metabolon.organelles.telegram_receptor.list_chats", return_value="Chat1\nChat2"
+        ):
             result = func(action="list_chats", limit=15)
         assert result.output == "Chat1\nChat2"
 
     def test_auth_status_action(self):
         func = self._import_enzyme()
-        with patch("metabolon.organelles.telegram_receptor.auth_status", return_value="Authenticated as: Terry"):
+        with patch(
+            "metabolon.organelles.telegram_receptor.auth_status",
+            return_value="Authenticated as: Terry",
+        ):
             result = func(action="auth_status")
         assert result.output == "Authenticated as: Terry"
 
@@ -184,5 +204,6 @@ class TestEnzymeDispatch:
             with patch("metabolon.organelles.telegram_receptor._chat_id", return_value=1):
                 result = func(action="read")
         from metabolon.morphology.base import Secretion
+
         assert isinstance(result, Secretion)
         assert hasattr(result, "output")

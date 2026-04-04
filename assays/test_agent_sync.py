@@ -80,8 +80,13 @@ def test_repo_with_git_dir_is_pulled(tmp_path):
         ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
         capture_output=True,
         check=True,
-        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        },
     )
     r = subprocess.run(
         [str(SCRIPT)],
@@ -248,8 +253,13 @@ def test_all_three_repo_dirs_are_iterated(tmp_path):
             ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
             capture_output=True,
             check=True,
-            env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-                 "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@t",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@t",
+            },
         )
 
     r = subprocess.run(
@@ -269,14 +279,21 @@ def test_epigenome_chromatin_nested_path(tmp_path):
     subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
     subprocess.run(
         ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
-        capture_output=True, check=True,
-        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+        capture_output=True,
+        check=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        },
     )
 
     r = subprocess.run(
         [str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(tmp_path)},
         timeout=10,
     )
@@ -294,7 +311,8 @@ def test_git_pull_failure_swallowed(tmp_path):
     # .git is a directory but NOT a valid repo — git pull will fail
     r = subprocess.run(
         [str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(tmp_path)},
         timeout=10,
     )
@@ -308,7 +326,8 @@ def test_unrecognized_args_run_normally(tmp_path):
     """Unknown args are silently ignored (script doesn't flag them)."""
     r = subprocess.run(
         [str(SCRIPT), "--unknown"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(tmp_path)},
         timeout=10,
     )
@@ -330,7 +349,8 @@ def test_memory_empty_file_copied(tmp_path):
 
     r = subprocess.run(
         [str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(tmp_path)},
         timeout=10,
     )
@@ -354,7 +374,8 @@ def test_memory_unicode_content_preserved(tmp_path):
 
     r = subprocess.run(
         [str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(tmp_path)},
         timeout=10,
     )
@@ -377,7 +398,8 @@ def test_memory_large_content(tmp_path):
 
     r = subprocess.run(
         [str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(tmp_path)},
         timeout=10,
     )
@@ -395,7 +417,8 @@ def test_script_is_valid_bash():
     """Script passes bash -n syntax check."""
     r = subprocess.run(
         ["bash", "-n", str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert r.returncode == 0, f"Syntax error: {r.stderr}"
 
@@ -421,7 +444,8 @@ def test_project_dash_deep_nested_home(tmp_path):
 
     r = subprocess.run(
         [str(SCRIPT)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "HOME": str(deep)},
         timeout=10,
     )

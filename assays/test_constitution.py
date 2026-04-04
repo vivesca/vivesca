@@ -1,4 +1,5 @@
 """Tests for ExecutiveSubstrate — constitution rule parsing and audit."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -43,6 +43,7 @@ def _make_signal(tool: str):
 # sense — file handling
 # ---------------------------------------------------------------------------
 
+
 class TestSenseFileHandling:
     def test_missing_file_returns_empty(self, tmp_path):
         s = ExecutiveSubstrate(constitution_path=tmp_path / "nope.md")
@@ -60,6 +61,7 @@ class TestSenseFileHandling:
 # ---------------------------------------------------------------------------
 # sense — rule parsing
 # ---------------------------------------------------------------------------
+
 
 class TestSenseRuleParsing:
     def test_parses_single_bold_rule(self, tmp_path):
@@ -100,6 +102,7 @@ class TestSenseRuleParsing:
 # sense — enzyme cross-referencing
 # ---------------------------------------------------------------------------
 
+
 class TestSenseEnzymeCrossRef:
     def test_no_signals_marks_no_evidence(self, tmp_path):
         s = _make_substrate(tmp_path, "**deploy_tool:** Use it wisely.\n", signals=[])
@@ -133,6 +136,7 @@ class TestSenseEnzymeCrossRef:
 # candidates
 # ---------------------------------------------------------------------------
 
+
 class TestCandidates:
     def test_empty_sensed_returns_empty(self):
         s = ExecutiveSubstrate()
@@ -162,6 +166,7 @@ class TestCandidates:
 # act
 # ---------------------------------------------------------------------------
 
+
 class TestAct:
     def test_prune_candidate_for_normal_rule(self):
         s = ExecutiveSubstrate()
@@ -170,11 +175,13 @@ class TestAct:
 
     def test_rename_action_for_precision_gap(self):
         s = ExecutiveSubstrate()
-        result = s.act({
-            "title": "Precision gap (naming): foo_bar should be foo_baz",
-            "precision_gap": True,
-            "references": ["file1.py", "file2.py", "file3.py"],
-        })
+        result = s.act(
+            {
+                "title": "Precision gap (naming): foo_bar should be foo_baz",
+                "precision_gap": True,
+                "references": ["file1.py", "file2.py", "file3.py"],
+            }
+        )
         assert result.startswith("rename:")
         assert "3 reference(s)" in result
 
@@ -182,6 +189,7 @@ class TestAct:
 # ---------------------------------------------------------------------------
 # report
 # ---------------------------------------------------------------------------
+
 
 class TestReport:
     def test_report_with_no_rules(self):
@@ -212,6 +220,7 @@ class TestReport:
 # ---------------------------------------------------------------------------
 # precision scan integration (re-enable the mock per-test)
 # ---------------------------------------------------------------------------
+
 
 class TestPrecisionScan:
     @patch(_SCAN_PATH)

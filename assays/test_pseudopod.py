@@ -9,10 +9,10 @@ import pytest
 from metabolon.enzymes import pseudopod
 from metabolon.morphology import EffectorResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _capture_dispatch_kwargs(mock_result: dict) -> dict:
     """Return a dict that captures kwargs passed to translocon.dispatch."""
@@ -116,7 +116,9 @@ class TestTransloconDispatch:
         }
         with patch("metabolon.organelles.translocon.dispatch", return_value=mock_result):
             result = pseudopod.translocon_dispatch(
-                "Explore this codebase", mode="explore", skill="python",
+                "Explore this codebase",
+                mode="explore",
+                skill="python",
             )
 
         assert isinstance(result, EffectorResult)
@@ -169,7 +171,10 @@ class TestTransloconDispatch:
 
         with patch("metabolon.organelles.translocon.dispatch", side_effect=mock_fn):
             pseudopod.translocon_dispatch(
-                "Test json", json_output=True, model="deepseek", backend="ark-code",
+                "Test json",
+                json_output=True,
+                model="deepseek",
+                backend="ark-code",
             )
 
         assert captured["json_output"] is True

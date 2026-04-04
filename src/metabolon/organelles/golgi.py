@@ -1,10 +1,8 @@
-
 """golgi — blog publishing pipeline (packages, sorts, exports posts).
 
 Manages Markdown posts in chromatin/Garden Posts/.
 Syncs to terryli.hm via ~/code/blog/sync-from-chromatin.sh.
 """
-
 
 import re
 import subprocess

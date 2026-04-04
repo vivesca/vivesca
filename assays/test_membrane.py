@@ -15,6 +15,7 @@ import pytest
 @pytest.fixture(scope="module")
 def mcp():
     from metabolon.membrane import mcp
+
     return mcp
 
 

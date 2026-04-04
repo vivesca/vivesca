@@ -3,9 +3,10 @@ from __future__ import annotations
 """Tests for pure functions in metabolon.organelles.moneo."""
 
 
-import pytest
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
+
+import pytest
 
 
 class TestResolveDateKeyword:
@@ -111,14 +112,14 @@ class TestParseDueString:
     def test_date_only(self):
         from metabolon.organelles.moneo import parse_due_string
 
-        time_str, date_str = parse_due_string("today")
+        time_str, _date_str = parse_due_string("today")
         assert time_str is None
         # date_str will be resolved
 
     def test_date_and_time(self):
         from metabolon.organelles.moneo import parse_due_string
 
-        time_str, date_str = parse_due_string("today 16:15")
+        time_str, _date_str = parse_due_string("today 16:15")
         assert time_str == "16:15"
 
     def test_invalid_raises(self):

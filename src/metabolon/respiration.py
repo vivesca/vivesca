@@ -1,4 +1,3 @@
-
 """respiration — metabolic conversion efficiency.
 
 In biology, respiration is the conversion of fuel into usable energy,
@@ -15,7 +14,6 @@ This is the true measure of whether the organism is breathing —
 not how much budget remains (vasomotor), not how well the heart
 pumps (pulse), but whether the oxygen is reaching the cells.
 """
-
 
 import datetime
 import json

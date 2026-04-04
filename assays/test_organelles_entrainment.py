@@ -5,11 +5,7 @@ from __future__ import annotations
 import datetime
 import json
 import sys
-import textwrap
-from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
-
-import pytest
 
 HKT = datetime.timezone(datetime.timedelta(hours=8))
 UTC = datetime.UTC
@@ -21,6 +17,7 @@ _MOD = "metabolon.organelles.entrainment"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fake_now(h: int, m: int = 0, day: int = 30, month: int = 3, year: int = 2026):
     """Build a fixed HKT datetime and the matching mock_dt patch dict."""
@@ -58,6 +55,7 @@ def _mock_module(name: str, **attrs):
 # TestZeitgebers
 # ---------------------------------------------------------------------------
 
+
 class TestZeitgebers:
     """Tests for zeitgebers() signal collection."""
 
@@ -68,8 +66,14 @@ class TestZeitgebers:
         with patch(f"{_MOD}.datetime", _patch_dt(now)):
             result = zeitgebers()
         for key in (
-            "hkt_hour", "weekday", "is_weekend", "is_night",
-            "asleep", "readiness", "budget_status", "rss_stale",
+            "hkt_hour",
+            "weekday",
+            "is_weekend",
+            "is_night",
+            "asleep",
+            "readiness",
+            "budget_status",
+            "rss_stale",
             "pending_signals",
         ):
             assert key in result, f"missing key: {key}"
@@ -127,9 +131,12 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.chemoreceptor": MagicMock(sense=fake_sense),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.chemoreceptor": MagicMock(sense=fake_sense),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["readiness"] == 72
@@ -141,9 +148,12 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.chemoreceptor": MagicMock(sense=fake_sense),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.chemoreceptor": MagicMock(sense=fake_sense),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["readiness"] is None
@@ -155,9 +165,12 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.chemoreceptor": MagicMock(sense=fake_sense),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.chemoreceptor": MagicMock(sense=fake_sense),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["readiness"] is None
@@ -168,9 +181,14 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.vasomotor": MagicMock(vasomotor_status=MagicMock(return_value="green")),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.vasomotor": MagicMock(
+                        vasomotor_status=MagicMock(return_value="green")
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["budget_status"] == "green"
@@ -181,9 +199,14 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.vasomotor": MagicMock(vasomotor_status=MagicMock(side_effect=ImportError)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.vasomotor": MagicMock(
+                        vasomotor_status=MagicMock(side_effect=ImportError)
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["budget_status"] == "unknown"
@@ -203,10 +226,17 @@ class TestZeitgebers:
         mock_dt.datetime.fromisoformat = datetime.datetime.fromisoformat
         with (
             patch(f"{_MOD}.datetime", mock_dt),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.endocytosis_rss.config": MagicMock(restore_config=MagicMock(return_value=fake_cfg)),
-                "metabolon.organelles.endocytosis_rss.state": MagicMock(restore_state=MagicMock(return_value=fake_state)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.endocytosis_rss.config": MagicMock(
+                        restore_config=MagicMock(return_value=fake_cfg)
+                    ),
+                    "metabolon.organelles.endocytosis_rss.state": MagicMock(
+                        restore_state=MagicMock(return_value=fake_state)
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["rss_stale"] is True
@@ -224,10 +254,17 @@ class TestZeitgebers:
         mock_dt.datetime.fromisoformat = datetime.datetime.fromisoformat
         with (
             patch(f"{_MOD}.datetime", mock_dt),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.endocytosis_rss.config": MagicMock(restore_config=MagicMock(return_value=fake_cfg)),
-                "metabolon.organelles.endocytosis_rss.state": MagicMock(restore_state=MagicMock(return_value=fake_state)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.endocytosis_rss.config": MagicMock(
+                        restore_config=MagicMock(return_value=fake_cfg)
+                    ),
+                    "metabolon.organelles.endocytosis_rss.state": MagicMock(
+                        restore_state=MagicMock(return_value=fake_state)
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["rss_stale"] is False
@@ -238,11 +275,14 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.endocytosis_rss.config": MagicMock(
-                    restore_config=MagicMock(side_effect=FileNotFoundError),
-                ),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.endocytosis_rss.config": MagicMock(
+                        restore_config=MagicMock(side_effect=FileNotFoundError),
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["rss_stale"] is None
@@ -254,9 +294,14 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.demethylase": MagicMock(read_signals=MagicMock(return_value=signals)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.demethylase": MagicMock(
+                        read_signals=MagicMock(return_value=signals)
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["pending_signals"] == signals
@@ -267,11 +312,14 @@ class TestZeitgebers:
         now = _fake_now(10)
         with (
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.demethylase": MagicMock(
-                    read_signals=MagicMock(side_effect=ImportError),
-                ),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.demethylase": MagicMock(
+                        read_signals=MagicMock(side_effect=ImportError),
+                    ),
+                },
+            ),
         ):
             result = zeitgebers()
         assert result["pending_signals"] == []
@@ -281,17 +329,28 @@ class TestZeitgebers:
 # TestOptimalSchedule
 # ---------------------------------------------------------------------------
 
+
 class TestOptimalSchedule:
     """Tests for optimal_schedule() advisory logic."""
 
     def test_budget_red_suppresses_pulse(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "red", "rss_stale": False,
-               "hkt_hour": 12, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "red",
+            "rss_stale": False,
+            "hkt_hour": 12,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["pulse"]
         assert rec["action"] == "suppress"
@@ -300,11 +359,21 @@ class TestOptimalSchedule:
     def test_night_suppresses_pulse(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": True, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 1, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": True,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 1,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["pulse"]
         assert rec["action"] == "suppress"
@@ -313,11 +382,21 @@ class TestOptimalSchedule:
     def test_green_daytime_accelerates_pulse(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 10, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 10,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["pulse"]
         assert rec["action"] == "accelerate"
@@ -326,11 +405,21 @@ class TestOptimalSchedule:
     def test_green_but_weekend_normal_pulse(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 10, "is_weekend": True}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 10,
+            "is_weekend": True,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["pulse"]
         assert rec["action"] == "normal"
@@ -338,11 +427,21 @@ class TestOptimalSchedule:
     def test_green_but_holiday_normal_pulse(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 10, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=True)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 10,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=True)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["pulse"]
         assert rec["action"] == "normal"
@@ -350,11 +449,21 @@ class TestOptimalSchedule:
     def test_yellow_budget_normal_pulse(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "yellow", "rss_stale": False,
-               "hkt_hour": 12, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "yellow",
+            "rss_stale": False,
+            "hkt_hour": 12,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["pulse"]
         assert rec["action"] == "normal"
@@ -362,11 +471,21 @@ class TestOptimalSchedule:
     def test_rss_stale_triggers_endocytosis(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": True,
-               "hkt_hour": 12, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": True,
+            "hkt_hour": 12,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["endocytosis"]
         assert rec["action"] == "trigger"
@@ -376,11 +495,21 @@ class TestOptimalSchedule:
         from metabolon.organelles.entrainment import optimal_schedule
 
         # rss_stale must be False/not-True to reach the night check
-        sig = {"is_night": True, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 1, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": True,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 1,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["endocytosis"]
         assert rec["action"] == "suppress"
@@ -389,11 +518,21 @@ class TestOptimalSchedule:
     def test_transduction_suppressed_at_night(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": True, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 1, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": True,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 1,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["transduction"]
         assert rec["action"] == "suppress"
@@ -402,11 +541,21 @@ class TestOptimalSchedule:
     def test_transduction_normal_daytime(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 14, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 14,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         rec = result["recommendations"]["transduction"]
         assert rec["action"] == "normal"
@@ -415,11 +564,21 @@ class TestOptimalSchedule:
     def test_summary_string_present(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 10, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 10,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         assert "summary" in result
         assert isinstance(result["summary"], str)
@@ -428,23 +587,47 @@ class TestOptimalSchedule:
         """optimal_schedule(None) should call zeitgebers() internally."""
         from metabolon.organelles.entrainment import optimal_schedule
 
-        with patch(f"{_MOD}.zeitgebers", return_value={
-            "is_night": False, "budget_status": "green", "rss_stale": False,
-            "hkt_hour": 10, "is_weekend": False,
-        }), patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        with (
+            patch(
+                f"{_MOD}.zeitgebers",
+                return_value={
+                    "is_night": False,
+                    "budget_status": "green",
+                    "rss_stale": False,
+                    "hkt_hour": 10,
+                    "is_weekend": False,
+                },
+            ),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                },
+            ),
+        ):
             result = optimal_schedule(None)
         assert result["recommendations"]["pulse"]["action"] == "accelerate"
 
     def test_green_daytime_boundary_9am(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 9, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 9,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         assert result["recommendations"]["pulse"]["action"] == "accelerate"
 
@@ -452,11 +635,21 @@ class TestOptimalSchedule:
         """Hour 18 (6pm) is still within 9 <= hour < 19."""
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 18, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 18,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         assert result["recommendations"]["pulse"]["action"] == "accelerate"
 
@@ -464,22 +657,42 @@ class TestOptimalSchedule:
         """Hour 19 is NOT in 9 <= hour < 19."""
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 19, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 19,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         assert result["recommendations"]["pulse"]["action"] == "normal"
 
     def test_three_agents_always_present(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": False, "budget_status": "green", "rss_stale": False,
-               "hkt_hour": 14, "is_weekend": False}
-        with patch.dict(sys.modules, {
-            "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-        }):
+        sig = {
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 14,
+            "is_weekend": False,
+        }
+        with patch.dict(
+            sys.modules,
+            {
+                "metabolon.organelles.circadian_clock": MagicMock(
+                    is_holiday=MagicMock(return_value=False)
+                ),
+            },
+        ):
             result = optimal_schedule(sig)
         assert set(result["recommendations"].keys()) == {"pulse", "endocytosis", "transduction"}
 
@@ -488,19 +701,28 @@ class TestOptimalSchedule:
 # TestEntrain
 # ---------------------------------------------------------------------------
 
+
 class TestEntrain:
     """Tests for entrain() — the action-dispatch function."""
 
     def _night_signals(self):
         return {
-            "is_night": True, "budget_status": "green", "rss_stale": False,
-            "hkt_hour": 1, "is_weekend": False, "pending_signals": [],
+            "is_night": True,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 1,
+            "is_weekend": False,
+            "pending_signals": [],
         }
 
     def _day_signals(self):
         return {
-            "is_night": False, "budget_status": "green", "rss_stale": False,
-            "hkt_hour": 10, "is_weekend": False, "pending_signals": [],
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": False,
+            "hkt_hour": 10,
+            "is_weekend": False,
+            "pending_signals": [],
         }
 
     def test_dry_run_returns_structure(self):
@@ -510,9 +732,14 @@ class TestEntrain:
         with (
             patch(f"{_MOD}.zeitgebers", return_value=self._night_signals()),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                },
+            ),
             patch("builtins.open", mock_open()),
         ):
             result = entrain(dry_run=True)
@@ -530,9 +757,14 @@ class TestEntrain:
         with (
             patch(f"{_MOD}.zeitgebers", return_value=self._night_signals()),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                },
+            ),
             patch("builtins.open", mock_open()),
         ):
             result = entrain(dry_run=True)
@@ -541,21 +773,26 @@ class TestEntrain:
         assert any("WOULD suppress" in d for d in result["actions_deferred"])
 
     def test_live_suppress_writes_skip_file(self, tmp_path):
-        from metabolon.organelles.entrainment import entrain, _SKIP_FILE
+        from metabolon.organelles.entrainment import entrain
 
         skip_file = tmp_path / ".entrainment-suppress"
         now = _fake_now(1)
-        mock_skip = MagicMock()
+        MagicMock()
         mock_vasomotor_skip = MagicMock()
 
         with (
             patch(f"{_MOD}.zeitgebers", return_value=self._night_signals()),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
             patch(f"{_MOD}._SKIP_FILE", skip_file),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-                "metabolon.vasomotor": MagicMock(SKIP_UNTIL_FILE=mock_vasomotor_skip),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                    "metabolon.vasomotor": MagicMock(SKIP_UNTIL_FILE=mock_vasomotor_skip),
+                },
+            ),
             patch("builtins.open", mock_open()),
         ):
             result = entrain(dry_run=False)
@@ -575,13 +812,18 @@ class TestEntrain:
             patch(f"{_MOD}.zeitgebers", return_value=self._night_signals()),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
             patch(f"{_MOD}._SKIP_FILE", skip_file),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-                "metabolon.vasomotor": MagicMock(SKIP_UNTIL_FILE=vaso_skip),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                    "metabolon.vasomotor": MagicMock(SKIP_UNTIL_FILE=vaso_skip),
+                },
+            ),
             patch("builtins.open", mock_open()),
         ):
-            result = entrain(dry_run=False)
+            entrain(dry_run=False)
         assert vaso_skip.exists()
         wake = datetime.datetime.fromisoformat(vaso_skip.read_text())
         # Night suppression → wake at 06:00 next day
@@ -594,8 +836,12 @@ class TestEntrain:
         skip_file = tmp_path / ".entrainment-suppress"
         vaso_skip = tmp_path / "skip-until"
         signals = {
-            "is_night": False, "budget_status": "red", "rss_stale": False,
-            "hkt_hour": 14, "is_weekend": False, "pending_signals": [],
+            "is_night": False,
+            "budget_status": "red",
+            "rss_stale": False,
+            "hkt_hour": 14,
+            "is_weekend": False,
+            "pending_signals": [],
         }
         now = _fake_now(14)
 
@@ -603,13 +849,18 @@ class TestEntrain:
             patch(f"{_MOD}.zeitgebers", return_value=signals),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
             patch(f"{_MOD}._SKIP_FILE", skip_file),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-                "metabolon.vasomotor": MagicMock(SKIP_UNTIL_FILE=vaso_skip),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                    "metabolon.vasomotor": MagicMock(SKIP_UNTIL_FILE=vaso_skip),
+                },
+            ),
             patch("builtins.open", mock_open()),
         ):
-            result = entrain(dry_run=False)
+            entrain(dry_run=False)
         assert vaso_skip.exists()
         wake = datetime.datetime.fromisoformat(vaso_skip.read_text())
         # Budget red → 1 hour from now
@@ -620,8 +871,12 @@ class TestEntrain:
 
         skip_file = tmp_path / ".entrainment-suppress"
         signals = {
-            "is_night": False, "budget_status": "green", "rss_stale": True,
-            "hkt_hour": 12, "is_weekend": False, "pending_signals": [],
+            "is_night": False,
+            "budget_status": "green",
+            "rss_stale": True,
+            "hkt_hour": 12,
+            "is_weekend": False,
+            "pending_signals": [],
         }
         now = _fake_now(12)
 
@@ -629,9 +884,14 @@ class TestEntrain:
             patch(f"{_MOD}.zeitgebers", return_value=signals),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
             patch(f"{_MOD}._SKIP_FILE", skip_file),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                },
+            ),
             patch("builtins.open", mock_open()),
         ):
             result = entrain(dry_run=True)
@@ -648,11 +908,16 @@ class TestEntrain:
             patch(f"{_MOD}.zeitgebers", return_value=self._day_signals()),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
             patch(f"{_MOD}._LOG", log_file),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                },
+            ),
         ):
-            result = entrain(dry_run=True)
+            entrain(dry_run=True)
 
         assert log_file.exists()
         line = log_file.read_text().strip()
@@ -670,9 +935,14 @@ class TestEntrain:
             patch(f"{_MOD}.zeitgebers", return_value=self._day_signals()),
             patch(f"{_MOD}.datetime", _patch_dt(now)),
             patch(f"{_MOD}._LOG", log_file),
-            patch.dict(sys.modules, {
-                "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
-            }),
+            patch.dict(
+                sys.modules,
+                {
+                    "metabolon.organelles.circadian_clock": MagicMock(
+                        is_holiday=MagicMock(return_value=False)
+                    ),
+                },
+            ),
         ):
             result = entrain(dry_run=True)
         sched = result["schedule"]

@@ -1,6 +1,4 @@
-
 """ergometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta"""
-
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations

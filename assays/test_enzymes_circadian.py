@@ -1,6 +1,7 @@
 from __future__ import annotations
-import pytest
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import MagicMock, patch
+
 from metabolon.enzymes.circadian import circadian
 
 
@@ -79,7 +80,9 @@ def test_circadian_heartrate():
     mock_hr_obj.summary = "Mock heartrate summary"
     with patch("metabolon.enzymes.interoception._heartrate_result") as mock_heartrate:
         mock_heartrate.return_value = mock_hr_obj
-        result = circadian("heartrate", start_datetime="2026-04-01T00:00", end_datetime="2026-04-01T23:59")
+        result = circadian(
+            "heartrate", start_datetime="2026-04-01T00:00", end_datetime="2026-04-01T23:59"
+        )
         assert result.output == "Mock heartrate summary"
         mock_heartrate.assert_called_once_with("2026-04-01T00:00", "2026-04-01T23:59")
 

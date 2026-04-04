@@ -1,4 +1,3 @@
-
 """circulation — autonomous overnight work loop via LangGraph.
 
 Circulation is the pump. It cycles through north star goals, dispatches work,
@@ -24,7 +23,6 @@ Usage:
     circulate(mode="overnight")   # runs unattended, persistent checkpoints
     circulate(mode="interactive") # pauses before dispatch for review
 """
-
 
 import json
 import operator
@@ -109,10 +107,10 @@ def preflight(state: CirculationState) -> dict:
 
     # Budget check — read from allostasis state
     budget = "green"
-    allo_state = Path.home() / ".claude" / "allostasis-state.json"
-    if allo_state.exists():
+    allow_state = Path.home() / ".claude" / "allostasis-state.json"
+    if allow_state.exists():
         try:
-            data = json.loads(allo_state.read_text())
+            data = json.loads(allow_state.read_text())
             tier = data.get("tier", "")
             if "catabolic" in tier or "autophagic" in tier:
                 budget = "red"
@@ -167,7 +165,7 @@ Return ONLY the JSON array, no other text."""
         end = result.rfind("]") + 1
         if start >= 0 and end > start:
             goals = json.loads(result[start:end])
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return {"errors": [f"Goal selection failed to parse: {result[:200]}"]}
 
     return {"selected_goals": goals[:max_goals]}
@@ -248,7 +246,7 @@ Return ONLY the JSON array."""
         if start >= 0 and end > start:
             evals = json.loads(eval_text[start:end])
             review = sum(1 for e in evals if e.get("classification") == "needs-review")
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
 
     return {
@@ -286,7 +284,7 @@ Return ONLY the JSON array."""
         end = result.rfind("]") + 1
         if start >= 0 and end > start:
             ideas = [item.get("idea", "") for item in json.loads(result[start:end])]
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
 
     return {"compound_ideas": ideas[:6]}

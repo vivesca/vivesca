@@ -12,9 +12,11 @@ Usage:
     python3 dispatch.py --status         # Show running workflows
     python3 dispatch.py --json           # JSON output mode
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fcntl
 import json
 import os
@@ -37,8 +39,10 @@ _inflight: dict[str, object] = {}
 # QueueLock — file-based mutex shared with golem-daemon
 # ---------------------------------------------------------------------------
 
+
 class QueueLock:
     """Exclusive file lock on the same lock file golem-daemon uses."""
+
     _lock_path = Path.home() / ".local" / "share" / "vivesca" / "golem-queue.lock"
 
     def __enter__(self):
@@ -84,19 +88,19 @@ PROVIDER_FALLBACK: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 RATE_LIMIT_PATTERNS = re.compile(
-    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit|quota will reset',
+    r"429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|"
+    r"request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|"
+    r"usage.?limit|hit your.*limit|quota will reset",
     re.IGNORECASE,
 )
 
 # Per-provider rate-limit windows (seconds) — used when provider is known to
 # have strict quotas and fast-exit patterns suggest rate-limiting.
 PROVIDER_RATE_WINDOWS: dict[str, int] = {
-    "infini": 18000,   # 1000 req / 5 hours
+    "infini": 18000,  # 1000 req / 5 hours
     "volcano": 18000,  # 5-hour quota window
-    "codex": 3600,     # ~hourly resets
-    "gemini": 1200,    # ~20 min resets
+    "codex": 3600,  # ~hourly resets
+    "gemini": 1200,  # ~20 min resets
 }
 
 
@@ -113,18 +117,18 @@ def parse_rate_limit_window(text: str) -> int | None:
     from datetime import datetime
 
     # 1. Exact reset timestamp
-    m = re.search(r'reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', text)
+    m = re.search(r"reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", text)
     if m:
         try:
             reset_time = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
             delta = (reset_time - datetime.now()).total_seconds()
             if delta > 0:
                 return int(delta)
-        except (ValueError, OverflowError):
+        except ValueError, OverflowError:
             pass
 
     # 2. "try again at H:MM PM"
-    m = re.search(r'try again at (\d{1,2}):(\d{2})\s*([AP]M)', text, re.IGNORECASE)
+    m = re.search(r"try again at (\d{1,2}):(\d{2})\s*([AP]M)", text, re.IGNORECASE)
     if m:
         try:
             hour = int(m.group(1))
@@ -140,19 +144,19 @@ def parse_rate_limit_window(text: str) -> int | None:
             delta = (reset_time - now).total_seconds()
             if 0 < delta < 86400:
                 return int(delta)
-        except (ValueError, OverflowError):
+        except ValueError, OverflowError:
             pass
 
     # 3. "quota will reset after NmNs"
-    m = re.search(r'quota will reset after (\d+)m(\d+)s', text)
+    m = re.search(r"quota will reset after (\d+)m(\d+)s", text)
     if m:
         return int(m.group(1)) * 60 + int(m.group(2))
 
     # 4. Duration patterns
-    m = re.search(r'(\d+)[- ]hour', text)
+    m = re.search(r"(\d+)[- ]hour", text)
     if m:
         return int(m.group(1)) * 3600
-    m = re.search(r'(\d+)[- ]minute', text)
+    m = re.search(r"(\d+)[- ]minute", text)
     if m:
         return int(m.group(1)) * 60
     return None
@@ -168,8 +172,8 @@ def is_rate_limited(text: str) -> bool:
 # ---------------------------------------------------------------------------
 
 RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion
-PROVIDER_COOLDOWN_SECONDS = 600      # 10 min cooldown after excessive failures
-PROVIDER_FAILURE_WINDOW = 600   # 10 min sliding window for failure counting
+PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after excessive failures
+PROVIDER_FAILURE_WINDOW = 600  # 10 min sliding window for failure counting
 PROVIDER_FAILURE_THRESHOLD = 3  # cooldown after N failures within the window
 
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
@@ -185,23 +189,26 @@ _provider_throttle: dict[str, int] = {}
 _provider_failure_times: dict[str, list[float]] = {}
 
 
-def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event: str = "burnout") -> None:
+def _log_cooldown(
+    provider: str, cooldown_until: float, reason: str = "", event: str = "burnout"
+) -> None:
     """Append cooldown event to persistent log for visibility."""
     entry = {
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
         "event": event,
         "provider": provider,
-        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)) if event == "burnout" else None,
+        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until))
+        if event == "burnout"
+        else None,
         "reason": reason[:100],
     }
     try:
         entries = json.loads(COOLDOWN_LOG.read_text()) if COOLDOWN_LOG.exists() else []
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         entries = []
     if entries:
         last_for_provider = [
-            e for e in entries
-            if e.get("provider") == provider and e.get("event") == "burnout"
+            e for e in entries if e.get("provider") == provider and e.get("event") == "burnout"
         ]
         if last_for_provider and last_for_provider[-1].get("resets_at") == entry.get("resets_at"):
             return
@@ -248,7 +255,6 @@ def _dispatch_candidates(provider: str) -> list[str]:
     return ordered
 
 
-
 def _pick_dispatch_provider(provider: str) -> str | None:
     """Pick the runtime provider, falling back if the preferred one is on cooldown."""
     if not _is_on_cooldown(provider):
@@ -283,6 +289,7 @@ def _unthrottle_provider(provider: str) -> None:
     current = _provider_throttle.get(provider, 0)
     if current > 0:
         _provider_throttle[provider] = current - 1
+
 
 _json_mode = False
 
@@ -345,11 +352,11 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
             modified = True
 
         # Strip golem prefix, task IDs, and known flags to extract bare prompt
-        prompt = re.sub(r'^golem\s+', '', cmd)
-        prompt = re.sub(r'\[t-[0-9a-fA-F]+\]\s*', '', prompt)
-        prompt = re.sub(r'(?:--provider|-b)\s+\S+\s*', '', prompt)
-        prompt = re.sub(r'--max-turns\s+\d+\s*', '', prompt)
-        prompt = re.sub(r'\s*\(retry\)\s*', '', prompt)
+        prompt = re.sub(r"^golem\s+", "", cmd)
+        prompt = re.sub(r"\[t-[0-9a-fA-F]+\]\s*", "", prompt)
+        prompt = re.sub(r"(?:--provider|-b)\s+\S+\s*", "", prompt)
+        prompt = re.sub(r"--max-turns\s+\d+\s*", "", prompt)
+        prompt = re.sub(r"\s*\(retry\)\s*", "", prompt)
         prompt = prompt.strip()
         # Strip surrounding quotes if present
         if len(prompt) >= 2 and prompt[0] == prompt[-1] and prompt[0] in ('"', "'"):
@@ -368,7 +375,7 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         try:
             with QueueLock():
                 QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except (PermissionError, OSError):
+        except PermissionError, OSError:
             pass
 
     # Sort: high priority (0) first, then normal (1); stable sort preserves file order
@@ -386,6 +393,7 @@ def _find_task_line(lines: list[str], line_num: int, task_id: str) -> int:
     line_num doesn't match, scan for the task_id to find the correct line.
     Returns -1 if not found.
     """
+
     def _is_task(s: str) -> bool:
         return any(s.startswith(p) for p in _PENDING_PREFIXES)
 
@@ -415,7 +423,7 @@ def mark_done(line_num: int, task_id: str = "") -> None:
             return
         try:
             lines = QUEUE_FILE.read_text().splitlines()
-        except (PermissionError, OSError, UnicodeDecodeError):
+        except PermissionError, OSError, UnicodeDecodeError:
             return
         actual_line = _find_task_line(lines, line_num, task_id)
         if actual_line < 0:
@@ -430,7 +438,7 @@ def mark_done(line_num: int, task_id: str = "") -> None:
             return
         try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except (PermissionError, OSError):
+        except PermissionError, OSError:
             return
 
 
@@ -448,7 +456,7 @@ def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
             return {"retried": False, "rate_limited": rate_limited}
         try:
             lines = QUEUE_FILE.read_text().splitlines()
-        except (PermissionError, OSError, UnicodeDecodeError):
+        except PermissionError, OSError, UnicodeDecodeError:
             return {"retried": False, "rate_limited": rate_limited}
         actual_line = _find_task_line(lines, line_num, task_id)
         if actual_line < 0:
@@ -459,7 +467,7 @@ def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
         if not is_high and not stripped.startswith("- [ ] "):
             return {"retried": False, "rate_limited": rate_limited}
 
-        cmd_match = re.search(r'`([^`]+)`', original)
+        cmd_match = re.search(r"`([^`]+)`", original)
         retried = False
 
         def _to_failed(line: str) -> str:
@@ -469,20 +477,20 @@ def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
 
         if not cmd_match:
             lines[actual_line] = _to_failed(original)
-        elif '(retry)' not in cmd_match.group(1):
+        elif "(retry)" not in cmd_match.group(1):
             old_cmd = cmd_match.group(1)
             if old_cmd.rstrip().endswith('"'):
                 new_cmd = old_cmd.rstrip()[:-1] + ' (retry)"'
             else:
-                new_cmd = old_cmd + ' (retry)'
-            lines[actual_line] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
+                new_cmd = old_cmd + " (retry)"
+            lines[actual_line] = original.replace(f"`{old_cmd}`", f"`{new_cmd}`", 1)
             retried = True
         else:
             lines[actual_line] = _to_failed(original)
 
         try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except (PermissionError, OSError):
+        except PermissionError, OSError:
             return {"retried": False, "rate_limited": rate_limited}
 
         return {"retried": retried, "rate_limited": rate_limited}
@@ -515,11 +523,15 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
         # Enforce test-file gate: prompt must reference a test file
         # Exception: tasks referencing a spec file (loci/plans/) have their own
         # verification section and don't need test file references.
-        has_test_ref = bool(re.search(r'(?:assays/test_\w+\.py|pytest\s+assays/|test_\w+\.py)', prompt))
-        has_spec_ref = bool(re.search(r'loci/plans/\S+\.md', prompt))
+        has_test_ref = bool(
+            re.search(r"(?:assays/test_\w+\.py|pytest\s+assays/|test_\w+\.py)", prompt)
+        )
+        has_spec_ref = bool(re.search(r"loci/plans/\S+\.md", prompt))
         if not has_test_ref and not has_spec_ref:
             skipped += 1
-            log(f"[SKIP] [{task_id}] no test file or spec referenced in prompt — CC must write tests first")
+            log(
+                f"[SKIP] [{task_id}] no test file or spec referenced in prompt — CC must write tests first"
+            )
             continue
 
         dispatch_provider = _pick_dispatch_provider(provider)
@@ -535,15 +547,19 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
         total_running = sum(_provider_running.values())
         if current_running >= limit or total_running >= MAX_TOTAL_CONCURRENT:
             skipped += 1
-            log(f"[SKIP] [{task_id}] {dispatch_provider} at concurrency limit ({current_running}/{limit})")
+            log(
+                f"[SKIP] [{task_id}] {dispatch_provider} at concurrency limit ({current_running}/{limit})"
+            )
             continue
 
-        specs.append({
-            "task": prompt,
-            "provider": dispatch_provider,
-            "max_turns": max_turns,
-            "mode": mode,
-        })
+        specs.append(
+            {
+                "task": prompt,
+                "provider": dispatch_provider,
+                "max_turns": max_turns,
+                "mode": mode,
+            }
+        )
         dispatched.append((line_num, task_id))
         _provider_running[dispatch_provider] = current_running + 1
         label = provider if dispatch_provider == provider else f"{provider}->{dispatch_provider}"
@@ -561,7 +577,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
 
     # Fire-and-forget: start workflows, store handles for async collection
     started = 0
-    for spec, (ln, tid) in zip(specs, dispatched):
+    for spec, (ln, tid) in zip(specs, dispatched, strict=False):
         if tid in _inflight:
             log(f"[SKIP] [{tid}] already in-flight")
             continue
@@ -614,7 +630,7 @@ async def collect_results() -> None:
         # Non-blocking check: try to get result with a very short timeout
         try:
             result = await asyncio.wait_for(handle.result(), timeout=1.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Still running — skip
             continue
         except Exception as exc:
@@ -667,7 +683,9 @@ async def collect_results() -> None:
 
             if has_commits and exit_code != 0:
                 mark_done(ln, task_id=tid)
-                log(f"[PARTIAL] [{tid}] {tr.get('provider', '?')} -- {reason} but commits landed, marking done")
+                log(
+                    f"[PARTIAL] [{tid}] {tr.get('provider', '?')} -- {reason} but commits landed, marking done"
+                )
                 flagged_count += 1
             else:
                 mark_failed(ln, task_id=tid, reason=reason)
@@ -684,15 +702,18 @@ async def collect_results() -> None:
         _inflight.pop(tid, None)
 
     if completed_tids:
-        log(f"Collected {len(completed_tids)} results: {approved_count} approved, {flagged_count} flagged, {rejected_count} rejected")
+        log(
+            f"Collected {len(completed_tids)} results: {approved_count} approved, {flagged_count} flagged, {rejected_count} rejected"
+        )
         _sync_reviews()
 
 
 def _auto_requeue(prompt: str, provider: str) -> None:
     """#9: Append a coached retry task to the queue."""
     import secrets as _secrets
+
     tid = f"t-{_secrets.token_hex(3)}"
-    entry = f'- [ ] `golem --provider {provider} [{tid}] {prompt}`\n'
+    entry = f"- [ ] `golem --provider {provider} [{tid}] {prompt}`\n"
     with QueueLock():
         lines = QUEUE_FILE.read_text().splitlines() if QUEUE_FILE.exists() else ["### Pending"]
         # Insert after "### Pending" line
@@ -708,18 +729,18 @@ def _auto_requeue(prompt: str, provider: str) -> None:
 def _sync_reviews() -> None:
     """Pull golem-reviews.jsonl from ganglion; sync germline via git."""
     import subprocess
+
     # Pull review log (not in git — ephemeral)
     review_src = "ganglion:~/germline/loci/golem-reviews.jsonl"
     review_dst = str(Path.home() / "germline" / "loci" / "golem-reviews.jsonl")
-    try:
+    with contextlib.suppress(Exception):
         subprocess.run(["rsync", "-az", review_src, review_dst], timeout=30, capture_output=True)
-    except Exception:
-        pass
     # Git pull on ganglion to sync skills + temporal-golem code
     try:
         subprocess.run(
             ["ssh", "ganglion", "cd ~/germline && git pull --ff-only 2>&1"],
-            timeout=30, capture_output=True,
+            timeout=30,
+            capture_output=True,
         )
         log("[SYNC] reviews pulled, ganglion git pulled")
     except Exception as e:
@@ -760,12 +781,15 @@ async def poll_loop(interval: int = 30) -> None:
             consecutive_conn_failures += 1
             log(f"[CONN] connection failure #{consecutive_conn_failures}: {exc}")
             if consecutive_conn_failures >= 5:
-                log(f"[CONN] CRITICAL: {consecutive_conn_failures} consecutive connection failures -- Temporal server unreachable")
+                log(
+                    f"[CONN] CRITICAL: {consecutive_conn_failures} consecutive connection failures -- Temporal server unreachable"
+                )
                 if not _conn_alert_sent:
-                    try:
+                    with contextlib.suppress(Exception):
                         subprocess.Popen(
                             [
-                                "python3", "-c",
+                                "python3",
+                                "-c",
                                 "from metabolon.organelles.telegram import send_message; "
                                 'send_message("[soma] temporal-dispatch: Temporal server unreachable after 5+ poll cycles")',
                             ],
@@ -773,8 +797,6 @@ async def poll_loop(interval: int = 30) -> None:
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
                         )
-                    except Exception:
-                        pass
                     _conn_alert_sent = True
         except Exception as exc:
             err_msg = str(exc)
@@ -784,7 +806,9 @@ async def poll_loop(interval: int = 30) -> None:
                 cooldown_applied = False
                 for prov in PROVIDER_LIMITS:
                     if prov in err_msg.lower():
-                        cooldown = window or PROVIDER_RATE_WINDOWS.get(prov, RATE_LIMIT_COOLDOWN_SECONDS)
+                        cooldown = window or PROVIDER_RATE_WINDOWS.get(
+                            prov, RATE_LIMIT_COOLDOWN_SECONDS
+                        )
                         _set_cooldown(prov, cooldown, reason=err_msg[:100])
                         _throttle_provider(prov)
                         log(f"RATE-LIMIT detected for {prov}, cooldown {cooldown}s")
@@ -795,7 +819,9 @@ async def poll_loop(interval: int = 30) -> None:
                     for prov, lim in PROVIDER_LIMITS.items():
                         if lim <= 2:
                             _set_cooldown(prov, cooldown, reason=err_msg[:100])
-                    log(f"RATE-LIMIT detected (unknown provider), cooldown applied to low-limit providers")
+                    log(
+                        "RATE-LIMIT detected (unknown provider), cooldown applied to low-limit providers"
+                    )
             else:
                 log(f"Error in poll loop: {exc}")
                 failed_prov = None
@@ -816,8 +842,14 @@ async def poll_loop(interval: int = 30) -> None:
                     if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
                         cooldown_end = now + PROVIDER_COOLDOWN_SECONDS
                         _provider_cooldown_until[failed_prov] = cooldown_end
-                        _log_cooldown(failed_prov, cooldown_end, f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW//60}min")
-                        log(f"COOLDOWN: {failed_prov} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window")
+                        _log_cooldown(
+                            failed_prov,
+                            cooldown_end,
+                            f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW // 60}min",
+                        )
+                        log(
+                            f"COOLDOWN: {failed_prov} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW // 60}min window"
+                        )
         await asyncio.sleep(interval)
 
 
@@ -830,11 +862,13 @@ async def show_status(json_output: bool = False) -> None:
         query="WorkflowType = 'GolemDispatchWorkflow'",
         page_size=20,
     ):
-        results.append({
-            "workflow_id": wf.id,
-            "status": wf.status.name if wf.status else "UNKNOWN",
-            "start_time": str(wf.start_time),
-        })
+        results.append(
+            {
+                "workflow_id": wf.id,
+                "status": wf.status.name if wf.status else "UNKNOWN",
+                "start_time": str(wf.start_time),
+            }
+        )
         if len(results) >= 20:
             break
 

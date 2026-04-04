@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import json
 import textwrap
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -34,7 +33,6 @@ from metabolon.organelles.quorum import (
     deliberate,
     main,
 )
-
 
 # ── fixtures ──────────────────────────────────────────────────────
 
@@ -150,7 +148,7 @@ def test_deliberation_save_creates_council_dir(tmp_path, monkeypatch):
 
 def test_deliberation_save_default_path_uses_council_dir(tmp_path):
     d = Deliberation(question="auto path test?", mode="quick", decision="D")
-    with patch.object(Deliberation, "save", wraps=d.save) as spy:
+    with patch.object(Deliberation, "save", wraps=d.save):
         # Just call save with no args — it writes to COUNCIL_DIR
         out = d.save()
         assert out.parent == COUNCIL_DIR
@@ -256,7 +254,7 @@ def test_parse_judge_dissent_none_values():
 
 def test_parse_judge_no_decision_fallback():
     text = "First line answer\nMore detail here\n"
-    decision, dissents = _parse_judge(text)
+    decision, _dissents = _parse_judge(text)
     assert decision == "First line answer"
 
 
@@ -268,7 +266,7 @@ def test_parse_judge_empty_string():
 
 def test_parse_judge_multiple_decisions_last_wins():
     text = "[DECISION] First\n[DECISION] Second\n"
-    decision, dissents = _parse_judge(text)
+    decision, _dissents = _parse_judge(text)
     assert decision == "Second"
 
 
@@ -276,8 +274,10 @@ def test_parse_judge_multiple_decisions_last_wins():
 
 
 def test_mode_quick(mock_transduce):
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.transduce") as t:
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = [("gemini", "ans1"), ("claude", "ans2")]
         t.return_value = "[DECISION] Use Redis.\n[REASONING]\n- Simple\n"
 
@@ -296,10 +296,11 @@ def test_mode_quick(mock_transduce):
 
 
 def test_mode_council(mock_transduce):
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm, \
-         patch("metabolon.organelles.quorum.transduce") as t:
-
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = [("gemini", "blind1"), ("claude", "blind2")]
         ptm.side_effect = [
             [("gemini", "debate1"), ("claude", "debate2")],  # round 1
@@ -323,10 +324,11 @@ def test_mode_council(mock_transduce):
 
 
 def test_mode_council_critic_failure_ok(mock_transduce):
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm, \
-         patch("metabolon.organelles.quorum.transduce") as t:
-
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = [("gemini", "b1")]
         ptm.side_effect = [
             [("gemini", "d1")],
@@ -348,9 +350,10 @@ def test_mode_council_critic_failure_ok(mock_transduce):
 
 
 def test_mode_redteam(mock_transduce):
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.transduce") as t:
-
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = [("claude", "attack1"), ("goose", "attack2")]
         t.side_effect = [
             "Initial position: use Go.",  # blind
@@ -374,10 +377,11 @@ def test_mode_redteam(mock_transduce):
 
 
 def test_mode_deep(mock_transduce):
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm, \
-         patch("metabolon.organelles.quorum.transduce") as t:
-
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = [("gemini", "b1"), ("claude", "b2")]
         ptm.side_effect = [
             [("gemini", "deb1"), ("claude", "deb2")],  # debate round 1
@@ -403,10 +407,11 @@ def test_mode_deep(mock_transduce):
 
 
 def test_mode_deep_critic_failure_ok(mock_transduce):
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm, \
-         patch("metabolon.organelles.quorum.transduce") as t:
-
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.parallel_transduce_multi") as ptm,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = [("gemini", "b1")]
         ptm.side_effect = [
             [("gemini", "d1")],
@@ -432,8 +437,10 @@ def test_deliberate_invalid_mode():
 
 
 def test_deliberate_quick_dispatch():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [100.0, 115.0]
         mq.return_value = Deliberation(question="Q?", mode="quick")
 
@@ -443,8 +450,10 @@ def test_deliberate_quick_dispatch():
 
 
 def test_deliberate_custom_panel():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [0.0, 1.0]
         mq.return_value = Deliberation(question="Q?", mode="quick")
 
@@ -453,8 +462,10 @@ def test_deliberate_custom_panel():
 
 
 def test_deliberate_save_true():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [0.0, 1.0]
         d = Deliberation(question="Q?", mode="quick")
         mq.return_value = d
@@ -465,8 +476,10 @@ def test_deliberate_save_true():
 
 
 def test_deliberate_save_false():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [0.0, 1.0]
         d = Deliberation(question="Q?", mode="quick")
         mq.return_value = d
@@ -478,10 +491,16 @@ def test_deliberate_save_false():
 
 def test_deliberate_all_modes_dispatch():
     """All four modes should dispatch without error."""
-    for mode_name, panel in [("quick", PANEL_QUICK), ("council", PANEL_COUNCIL),
-                              ("redteam", PANEL_REDTEAM), ("deep", PANEL_DEEP)]:
-        with patch(f"metabolon.organelles.quorum._mode_{mode_name}") as mm, \
-             patch("metabolon.organelles.quorum.time") as mock_time:
+    for mode_name, _panel in [
+        ("quick", PANEL_QUICK),
+        ("council", PANEL_COUNCIL),
+        ("redteam", PANEL_REDTEAM),
+        ("deep", PANEL_DEEP),
+    ]:
+        with (
+            patch(f"metabolon.organelles.quorum._mode_{mode_name}") as mm,
+            patch("metabolon.organelles.quorum.time") as mock_time,
+        ):
             mock_time.time.side_effect = [0.0, 1.0]
             mm.return_value = Deliberation(question="Q?", mode=mode_name)
 
@@ -490,8 +509,10 @@ def test_deliberate_all_modes_dispatch():
 
 
 def test_deliberate_passes_persona():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [0.0, 1.0]
         mq.return_value = Deliberation(question="Q?", mode="quick")
 
@@ -500,8 +521,10 @@ def test_deliberate_passes_persona():
 
 
 def test_deliberate_custom_timeout():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [0.0, 1.0]
         mq.return_value = Deliberation(question="Q?", mode="quick")
 
@@ -516,6 +539,7 @@ def test_main_text_output(capsys):
     d = Deliberation(question="Q?", mode="quick", decision="Yes")
     d.elapsed_s = 1.0
     import sys
+
     old_argv = sys.argv
     sys.argv = ["quorum", "Test question", "--mode", "quick", "--no-save"]
     try:
@@ -532,6 +556,7 @@ def test_main_json_output(capsys):
     d.elapsed_s = 2.0
     d.contributions.append(Contribution(model="gemini", content="hello", phase="blind"))
     import sys
+
     old_argv = sys.argv
     sys.argv = ["quorum", "Q?", "--mode", "quick", "--no-save", "--json"]
     try:
@@ -550,8 +575,19 @@ def test_main_json_output(capsys):
 def test_main_passes_args():
     d = Deliberation(question="Q?", mode="council", decision="D")
     import sys
+
     old_argv = sys.argv
-    sys.argv = ["quorum", "My Q", "--mode", "council", "--persona", "CTO", "--timeout", "60", "--no-save"]
+    sys.argv = [
+        "quorum",
+        "My Q",
+        "--mode",
+        "council",
+        "--persona",
+        "CTO",
+        "--timeout",
+        "60",
+        "--no-save",
+    ]
     try:
         with patch("metabolon.organelles.quorum.deliberate", return_value=d) as mock_del:
             main()
@@ -631,7 +667,7 @@ def test_deliberation_save_long_question_truncates(tmp_path):
 
 def test_parse_judge_whitespace_decision():
     text = "[DECISION]   \n[REASONING]\n- R\n"
-    decision, dissents = _parse_judge(text)
+    decision, _dissents = _parse_judge(text)
     # "[DECISION]" line stripped → tag present, content empty → stays ""
     # Fallback: first non-empty line is "[DECISION]" itself
     assert decision == "[DECISION]"
@@ -657,8 +693,10 @@ def test_parse_judge_dissent_empty_text():
 
 
 def test_mode_quick_empty_results():
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.transduce") as t:
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         pt.return_value = []
         t.return_value = "[DECISION] No panelists.\n"
 
@@ -672,8 +710,10 @@ def test_mode_quick_empty_results():
 
 
 def test_mode_redteam_single_model():
-    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
-         patch("metabolon.organelles.quorum.transduce") as t:
+    with (
+        patch("metabolon.organelles.quorum.parallel_transduce") as pt,
+        patch("metabolon.organelles.quorum.transduce") as t,
+    ):
         # No attackers (panel has 1 model, attackers = panel[1:] = [])
         pt.return_value = []  # no attack results
         t.side_effect = [
@@ -708,8 +748,10 @@ def test_deliberation_transcript_multiple_contributions():
 
 
 def test_deliberate_elapsed_s_set():
-    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
-         patch("metabolon.organelles.quorum.time") as mock_time:
+    with (
+        patch("metabolon.organelles.quorum._mode_quick") as mq,
+        patch("metabolon.organelles.quorum.time") as mock_time,
+    ):
         mock_time.time.side_effect = [50.0, 73.5]
         mq.return_value = Deliberation(question="Q?", mode="quick")
 
@@ -723,6 +765,7 @@ def test_deliberate_elapsed_s_set():
 def test_main_default_timeout():
     d = Deliberation(question="Q?", mode="quick", decision="D")
     import sys
+
     old_argv = sys.argv
     sys.argv = ["quorum", "Q?", "--mode", "quick", "--no-save"]
     try:
@@ -753,4 +796,4 @@ def test_deliberation_save_explicit_path(tmp_path):
 @pytest.fixture(autouse=True)
 def mock_transduce():
     """Marker fixture — actual patching done per-test for clarity."""
-    yield
+    return

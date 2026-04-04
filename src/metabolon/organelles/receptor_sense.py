@@ -1,4 +1,3 @@
-
 """receptor_sense — proprioceptive readiness sensing against long-lived goals.
 
 Biology: Proprioception is the body's ability to sense its own position and
@@ -15,7 +14,6 @@ Functions:
 Classes:
   ProprioceptiveStore  — append-only JSONL store for drill/prep signals
 """
-
 
 import datetime
 import json

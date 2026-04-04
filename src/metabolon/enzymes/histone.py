@@ -1,4 +1,3 @@
-
 """histone — memory database (FTS5 + vector embeddings)."""
 
 from fastmcp.tools.function_tool import tool

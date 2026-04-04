@@ -53,7 +53,7 @@ moneo snapshot                                                  # manual git sna
 
 `--recur daily|weekly|monthly|quarterly|yearly` — first occurrence = the date/time you specify. Quarterly = every 3 months.
 
-`--every <interval>` + `--until <date>` — expands to individual reminders. Intervals: `Nh` (hours), `Nm` (minutes), `Nd` (days). Skips 23:00–07:00 by default. Use `--no-skip-night` to include overnight. Requires `--until`.
+`--every <interval>` + `--until <date>` — expands to individual reminders. Intervals: `Nh` (hours), `Nm` (minutes), `And` (days). Skips 23:00–07:00 by default. Use `--no-skip-night` to include overnight. Requires `--until`.
 
 `--autosnooze <minutes>` — Due 3.2+. Valid: 1, 5, 10, 15, 30, 60.
 

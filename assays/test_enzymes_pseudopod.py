@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from metabolon.enzymes.pseudopod import porta_inject, translocon_dispatch
 from metabolon.morphology import EffectorResult

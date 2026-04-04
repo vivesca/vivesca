@@ -1,6 +1,6 @@
 """Tests for differentiation action-dispatch consolidation."""
-from unittest.mock import patch, MagicMock
-import pytest
+
+from unittest.mock import MagicMock, patch
 
 from metabolon.enzymes.differentiation import differentiation
 
@@ -187,7 +187,9 @@ class TestWriteLogAction:
         mock_target.__str__ = lambda self: "/home/test/Gym Log - 2026-03-30.md"
         mock_dir.__truediv__ = lambda self, name: mock_target
 
-        result = differentiation(action="write_log", session_date="2026-03-30", content="# Workout")
+        result = differentiation(
+            action="write_log", session_date="2026-03-30", content="# Workout"
+        )
 
         mock_target.write_text.assert_called_once_with("# Workout")
         assert "Gym log written" in result
@@ -203,7 +205,9 @@ class TestWriteLogAction:
 
         mock_dir.__truediv__ = lambda self, name: mock_target
 
-        result = differentiation(action="write_log", session_date="2026-03-30", content="Updated content")
+        result = differentiation(
+            action="write_log", session_date="2026-03-30", content="Updated content"
+        )
 
         mock_tmp.write_text.assert_called_once_with("Updated content")
         mock_tmp.replace.assert_called_once_with(mock_target)

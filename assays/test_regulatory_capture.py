@@ -3,11 +3,9 @@ from __future__ import annotations
 """Tests for regulatory-capture — mocked Playwright tests."""
 
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -88,9 +86,17 @@ def _mock_page(rows: list[dict]):
         date_el = _mock_element(r.get("date", ""))
         summary_el = _mock_element(r.get("summary", ""))
 
-        row_el.query_selector = MagicMock(side_effect=lambda sel, _t=title_el, _d=date_el, _s=summary_el: {
-            "a": _t,
-        }.get(sel, _s if "date" not in sel else _d) if sel == "a" else _d if "date" in sel else _s)
+        row_el.query_selector = MagicMock(
+            side_effect=lambda sel, _t=title_el, _d=date_el, _s=summary_el: (
+                {
+                    "a": _t,
+                }.get(sel, _s if "date" not in sel else _d)
+                if sel == "a"
+                else _d
+                if "date" in sel
+                else _s
+            )
+        )
 
         # More explicit dispatch
         def make_query_selector(t, d, s):
@@ -101,9 +107,12 @@ def _mock_page(rows: list[dict]):
                     return d
                 else:
                     return s
+
             return _qs
 
-        row_el.query_selector = MagicMock(side_effect=make_query_selector(title_el, date_el, summary_el))
+        row_el.query_selector = MagicMock(
+            side_effect=make_query_selector(title_el, date_el, summary_el)
+        )
         row_elements.append(row_el)
 
     page.query_selector_all = MagicMock(return_value=row_elements)
@@ -112,12 +121,16 @@ def _mock_page(rows: list[dict]):
 
 def test_extract_basic_row():
     config = REGULATOR_CONFIGS["hkma"]
-    page = _mock_page([{
-        "title": "Guideline on Credit Risk",
-        "href": "/eng/doc/circular-2026-01.pdf",
-        "date": "15 Jan 2026",
-        "summary": "Updated credit risk framework",
-    }])
+    page = _mock_page(
+        [
+            {
+                "title": "Guideline on Credit Risk",
+                "href": "/eng/doc/circular-2026-01.pdf",
+                "date": "15 Jan 2026",
+                "summary": "Updated credit risk framework",
+            }
+        ]
+    )
     results = extract_publications_from_page(page, config, None)
     assert len(results) == 1
     assert results[0]["title"] == "Guideline on Credit Risk"
@@ -127,34 +140,44 @@ def test_extract_basic_row():
 
 def test_extract_resolves_relative_url():
     config = REGULATOR_CONFIGS["hkma"]
-    page = _mock_page([{
-        "title": "Test Circular",
-        "href": "/eng/doc/test.pdf",
-        "date": "01 Mar 2026",
-        "summary": "",
-    }])
+    page = _mock_page(
+        [
+            {
+                "title": "Test Circular",
+                "href": "/eng/doc/test.pdf",
+                "date": "01 Mar 2026",
+                "summary": "",
+            }
+        ]
+    )
     results = extract_publications_from_page(page, config, None)
     assert results[0]["url"].startswith("https://")
 
 
 def test_extract_absolute_url_preserved():
     config = REGULATOR_CONFIGS["sfc"]
-    page = _mock_page([{
-        "title": "SFC Circular",
-        "href": "https://www.sfc.hk/circular/123",
-        "date": "2026-02-10",
-        "summary": "Licensing update",
-    }])
+    page = _mock_page(
+        [
+            {
+                "title": "SFC Circular",
+                "href": "https://www.sfc.hk/circular/123",
+                "date": "2026-02-10",
+                "summary": "Licensing update",
+            }
+        ]
+    )
     results = extract_publications_from_page(page, config, None)
     assert results[0]["url"] == "https://www.sfc.hk/circular/123"
 
 
 def test_extract_filters_by_since_date():
     config = REGULATOR_CONFIGS["hkma"]
-    page = _mock_page([
-        {"title": "Old Circular", "href": "/old", "date": "01 Jan 2025", "summary": ""},
-        {"title": "New Circular", "href": "/new", "date": "01 Mar 2026", "summary": ""},
-    ])
+    page = _mock_page(
+        [
+            {"title": "Old Circular", "href": "/old", "date": "01 Jan 2025", "summary": ""},
+            {"title": "New Circular", "href": "/new", "date": "01 Mar 2026", "summary": ""},
+        ]
+    )
     since = datetime(2026, 1, 1)
     results = extract_publications_from_page(page, config, since)
     assert len(results) == 1
@@ -163,9 +186,11 @@ def test_extract_filters_by_since_date():
 
 def test_extract_skips_rows_without_title():
     config = REGULATOR_CONFIGS["hkma"]
-    page = _mock_page([
-        {"title": "", "href": "/empty", "date": "01 Mar 2026", "summary": ""},
-    ])
+    page = _mock_page(
+        [
+            {"title": "", "href": "/empty", "date": "01 Mar 2026", "summary": ""},
+        ]
+    )
     # The mock returns empty string for title; title_el is non-None so it passes
     # but the inner_text is empty. This is fine — we return it.
     results = extract_publications_from_page(page, config, None)
@@ -175,12 +200,16 @@ def test_extract_skips_rows_without_title():
 
 def test_extract_includes_source_name():
     config = REGULATOR_CONFIGS["sfc"]
-    page = _mock_page([{
-        "title": "Test",
-        "href": "https://sfc.hk/t",
-        "date": "2026-03-01",
-        "summary": "desc",
-    }])
+    page = _mock_page(
+        [
+            {
+                "title": "Test",
+                "href": "https://sfc.hk/t",
+                "date": "2026-03-01",
+                "summary": "desc",
+            }
+        ]
+    )
     results = extract_publications_from_page(page, config, None)
     assert results[0]["source"] == "Securities and Futures Commission"
 
@@ -219,6 +248,7 @@ def _mock_playwright_context(publications: list[dict]):
                     return t
                 elif True:
                     return d if "date" in sel or "time" in sel else s
+
             return qs
 
         row_el.query_selector = MagicMock(side_effect=make_qs(title_el, date_el, summary_el))
@@ -236,12 +266,14 @@ def _mock_playwright_context(publications: list[dict]):
 
 
 def test_scrape_hkma_writes_json(tmp_path):
-    pubs = [{
-        "title": "HKMA Test Circular",
-        "href": "https://www.hkma.gov.hk/test.pdf",
-        "date": "2026-03-01",
-        "summary": "A test circular",
-    }]
+    pubs = [
+        {
+            "title": "HKMA Test Circular",
+            "href": "https://www.hkma.gov.hk/test.pdf",
+            "date": "2026-03-01",
+            "summary": "A test circular",
+        }
+    ]
     output = tmp_path / "hkma-test.json"
 
     mock_sp = MagicMock()
@@ -251,6 +283,7 @@ def test_scrape_hkma_writes_json(tmp_path):
         results = scrape_regulator("hkma", output_path=output)
     finally:
         from playwright.sync_api import sync_playwright as real_sp
+
         _mod["sync_playwright"] = real_sp
 
     assert len(results) == 1
@@ -266,12 +299,14 @@ def test_scrape_unknown_regulator_exits():
 
 
 def test_scrape_sfc_returns_results(tmp_path):
-    pubs = [{
-        "title": "SFC Licensing Update",
-        "href": "https://www.sfc.hk/circular/999",
-        "date": "15 Feb 2026",
-        "summary": "Updated licensing requirements",
-    }]
+    pubs = [
+        {
+            "title": "SFC Licensing Update",
+            "href": "https://www.sfc.hk/circular/999",
+            "date": "15 Feb 2026",
+            "summary": "Updated licensing requirements",
+        }
+    ]
     output = tmp_path / "sfc-test.json"
 
     mock_sp = MagicMock()
@@ -282,6 +317,7 @@ def test_scrape_sfc_returns_results(tmp_path):
         results = scrape_regulator("sfc", output_path=output)
     finally:
         from playwright.sync_api import sync_playwright as real_sp
+
         _mod["sync_playwright"] = real_sp
 
     assert len(results) == 1
@@ -293,15 +329,23 @@ def test_scrape_creates_output_dir(tmp_path):
     output = nested / "out.json"
 
     mock_sp = MagicMock()
-    mock_sp.return_value = _mock_playwright_context([{
-        "title": "T", "href": "https://x", "date": "2026-01-01", "summary": "s",
-    }])
+    mock_sp.return_value = _mock_playwright_context(
+        [
+            {
+                "title": "T",
+                "href": "https://x",
+                "date": "2026-01-01",
+                "summary": "s",
+            }
+        ]
+    )
 
     _mod["sync_playwright"] = mock_sp
     try:
         scrape_regulator("hkma", output_path=output)
     finally:
         from playwright.sync_api import sync_playwright as real_sp
+
         _mod["sync_playwright"] = real_sp
 
     assert output.exists()

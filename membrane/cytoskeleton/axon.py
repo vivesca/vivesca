@@ -247,10 +247,12 @@ def guard_bash(data):
     if re.search(r"\bagent-browser\b", cmd):
         if re.search(r"\blocalhost\b|127\.0\.0\.1|0\.0\.0\.0", cmd):
             deny("agent-browser on localhost blocked.", "bash-guard")
-        if re.search(r"[?&](key|token|password|secret|api_key)=", cmd, re.I):
+        if re.search(r"[?&](key|token|password|secret|api_key)=", cmd, re.IGNORECASE):
             deny("URL contains credentials in query params.", "bash-guard")
         if re.search(
-            r"\b(hsbc|citibank|chase|wellsfargo|paypal|venmo|wise|revolut)\.com\b", cmd, re.I
+            r"\b(hsbc|citibank|chase|wellsfargo|paypal|venmo|wise|revolut)\.com\b",
+            cmd,
+            re.IGNORECASE,
         ):
             deny("agent-browser on financial sites blocked.", "bash-guard")
 
@@ -403,7 +405,12 @@ def guard_glob(data):
 
 def guard_grep(data):
     path = data.get("tool_input", {}).get("path", "")
-    if f"{os.sep}notes" in path or f"notes{os.sep}" in path or f"{os.sep}chromatin" in path or f"chromatin{os.sep}" in path:
+    if (
+        f"{os.sep}notes" in path
+        or f"notes{os.sep}" in path
+        or f"{os.sep}chromatin" in path
+        or f"chromatin{os.sep}" in path
+    ):
         allow_msg(
             'Vault search detected. Consider: `ecphory "<query>"` for memory lookups. '
             "Grep is fine for exact strings, wikilinks, or file paths."
@@ -429,7 +436,7 @@ def guard_write(data):
         r"credentials\.json$",
         r"[/.]keychain\.(json|db|plist)$",
     ]
-    if any(re.search(p, fp, re.I) for p in sens):
+    if any(re.search(p, fp, re.IGNORECASE) for p in sens):
         deny(f"Write to sensitive file blocked: {fp}. Use Keychain.", "write-guard")
 
     # .venv in plists
@@ -474,7 +481,7 @@ def guard_write(data):
             ),
             (r"HK\$\d+", "HK dollar amount"),
         ]
-        hits = [label for pat, label in fact_pats if re.search(pat, nc, re.I)]
+        hits = [label for pat, label in fact_pats if re.search(pat, nc, re.IGNORECASE)]
         if hits:
             deny(
                 f"CLAUDE.md must not contain time-sensitive facts ({', '.join(hits)}). Use vault pointer.",
@@ -512,7 +519,9 @@ def guard_write(data):
     # Past daily notes immutable
     tool_name = data.get("tool", "")
     if tool_name in ("Write", "Edit", "MultiEdit"):
-        m = re.search(re.escape(os.sep).join(["", "chromatin", "Daily", r"(\d{4}-\d{2}-\d{2})\.md$"]), fp)
+        m = re.search(
+            re.escape(os.sep).join(["", "chromatin", "Daily", r"(\d{4}-\d{2}-\d{2})\.md$"]), fp
+        )
         if m:
             note_date = m.group(1)
             from datetime import timezone
@@ -585,8 +594,8 @@ def guard_agent(data):
     if subtype == "Explore":
         deny(
             "Explore subagents waste Opus tokens on search/read. "
-            "Use: translocon --build <dir> \"<prompt>\" (free GLM). "
-            "Or Bash: bud \"<prompt>\" for quick exploration.",
+            'Use: translocon --build <dir> "<prompt>" (free GLM). '
+            'Or Bash: bud "<prompt>" for quick exploration.',
             "metabolic-gate",
         )
 
@@ -606,7 +615,9 @@ def guard_agent(data):
 
     # Advisory: suggest droid for non-tool-dependent tasks
     prompt = ti.get("prompt", "")
-    tool_indicators = any(kw in prompt.lower() for kw in ["read file", "grep", "search code", "find file", "glob"])
+    tool_indicators = any(
+        kw in prompt.lower() for kw in ["read file", "grep", "search code", "find file", "glob"]
+    )
     if subtype in ("general-purpose", "translocon") and not tool_indicators:
         print(
             "[bud-nudge] This agent task may not need CC tools. "
@@ -660,14 +671,18 @@ def guard_efferent(data):
     if re.search(r"\.(md|toml|lock|gitignore|txt|json|yaml|yml|plist)$", fp):
         return
     # Skills, memory, genome — always CC territory
-    if f"{os.sep}receptors{os.sep}" in fp or f"{os.sep}marks{os.sep}" in fp or f"{os.sep}epigenome{os.sep}" in fp:
+    if (
+        f"{os.sep}receptors{os.sep}" in fp
+        or f"{os.sep}marks{os.sep}" in fp
+        or f"{os.sep}epigenome{os.sep}" in fp
+    ):
         return
 
     # Implementation code (.py, .sh, .rs, etc.) — delegate to droid
     deny(
-        f"CC must not write implementation code. Delegate: "
-        f"`sortase exec <plan> -p <dir> -b droid`. "
-        f"Write a spec file instead, then dispatch.",
+        "CC must not write implementation code. Delegate: "
+        "`sortase exec <plan> -p <dir> -b droid`. "
+        "Write a spec file instead, then dispatch.",
         "delegate-gate",
     )
 
@@ -675,7 +690,7 @@ def guard_efferent(data):
 # ── guard_bifurcation: from bifurcation.js ─────────────────
 
 BIFURC_STATE = Path("/tmp/delegate-history.json")
-BIFURC_DELEGATE_RE = re.compile(r"\b(gemini|codex exec|opencode run)\b", re.I)
+BIFURC_DELEGATE_RE = re.compile(r"\b(gemini|codex exec|opencode run)\b", re.IGNORECASE)
 
 
 def guard_bifurcation(data):
@@ -696,7 +711,9 @@ def guard_bifurcation(data):
 
     now = time.time() * 1000
     state["launches"] = [
-        launch for launch in state.get("launches", []) if now - launch.get("ts", 0) < 30 * 60 * 1000
+        launch
+        for launch in state.get("launches", [])
+        if now - launch.get("ts", 0) < 30 * 60 * 1000
     ]
 
     same = [
@@ -769,7 +786,7 @@ def surface_epistemics(data):
         except Exception:
             continue
         for tag in tags:
-            if f"situations:" in first_lines and tag in first_lines:
+            if "situations:" in first_lines and tag in first_lines:
                 # Extract title from first heading
                 for file_line in first_lines.split("\n"):
                     if file_line.startswith("# "):
@@ -815,15 +832,11 @@ def guard_pipeline_bypass(data):
 
     # Increment counter
     count = 0
-    try:
+    with contextlib.suppress(OSError, ValueError):
         count = int(_IMPL_READ_COUNT_FILE.read_text().strip())
-    except (OSError, ValueError):
-        pass
     count += 1
-    try:
+    with contextlib.suppress(OSError):
         _IMPL_READ_COUNT_FILE.write_text(str(count))
-    except OSError:
-        pass
 
     if count >= 3:
         allow_msg(
@@ -836,10 +849,8 @@ def reset_pipeline_counter(data):
     """Reset impl read counter when mitogen skill is invoked."""
     skill_name = data.get("tool_input", {}).get("skill", "")
     if skill_name == "mitogen":
-        try:
+        with contextlib.suppress(OSError):
             _IMPL_READ_COUNT_FILE.write_text("0")
-        except OSError:
-            pass
 
 
 def guard_rheotaxis(data):
@@ -881,7 +892,7 @@ def guard_rheotaxis_depth(data):
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         sys.exit(0)
 
     tool = data.get("tool", "")

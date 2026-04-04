@@ -10,7 +10,6 @@ import glob
 import os
 import plistlib
 import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -89,7 +88,7 @@ class TestRunCmd:
         assert err == ""
 
     def test_exec_nonzero_returns_rc(self, rp):
-        rc, err = rp["run_cmd"](["false"], dry_run=False)
+        rc, _err = rp["run_cmd"](["false"], dry_run=False)
         assert rc == 1
 
 
@@ -188,10 +187,12 @@ class TestRenameOne:
         plist_path = self.create_test_plist(oscillators, "com.terry.test-agent")
 
         # First call (bootout) returns error, second call (bootstrap) succeeds
-        mock_run = MagicMock(side_effect=[
-            (1, "Could not find service specified"),
-            (0, ""),
-        ])
+        mock_run = MagicMock(
+            side_effect=[
+                (1, "Could not find service specified"),
+                (0, ""),
+            ]
+        )
         with patch.dict(rp, {"run_cmd": mock_run}):
             errors = rp["rename_one"](plist_path, dry_run=False)
 
@@ -204,10 +205,12 @@ class TestRenameOne:
         plist_path = self.create_test_plist(oscillators, "com.terry.test-agent")
 
         # First call (bootout) returns other error, bootstrap will still be checked
-        mock_run = MagicMock(side_effect=[
-            (1, "Permission denied"),
-            (0, ""),
-        ])
+        mock_run = MagicMock(
+            side_effect=[
+                (1, "Permission denied"),
+                (0, ""),
+            ]
+        )
         with patch.dict(rp, {"run_cmd": mock_run}):
             errors = rp["rename_one"](plist_path, dry_run=False)
 
@@ -282,7 +285,9 @@ class TestCLISubprocess:
     def test_help_exits_zero(self):
         r = subprocess.run(
             ["uv", "run", "--script", str(RENAME_PLISTS_PATH), "--help"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "rename" in r.stdout.lower()
@@ -292,7 +297,9 @@ class TestCLISubprocess:
         # Without matching plists, the script exits non-zero
         r = subprocess.run(
             ["uv", "run", "--script", str(RENAME_PLISTS_PATH), "--execute"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode != 0
         assert "No plists found" in r.stdout

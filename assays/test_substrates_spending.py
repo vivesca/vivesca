@@ -1,14 +1,15 @@
 """Tests for metabolon.metabolism.substrates.spending."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from metabolon.metabolism.substrates.spending import SpendingSubstrate
 
 
-def _write_statement(tmp: Path, filename: str, categories: dict[str, float], meta: dict[str, str] | None = None) -> Path:
+def _write_statement(
+    tmp: Path, filename: str, categories: dict[str, float], meta: dict[str, str] | None = None
+) -> Path:
     """Helper to create a minimal statement markdown file."""
     if meta is None:
         meta = {"bank": "test", "statement_date": filename[:7]}
@@ -54,7 +55,9 @@ class TestSense:
 
     def test_extracts_meta_fields(self, tmp_path):
         _write_statement(
-            tmp_path, "2025-02-test.md", {"Food": -200.00},
+            tmp_path,
+            "2025-02-test.md",
+            {"Food": -200.00},
             meta={"bank": "hsbc", "statement_date": "2025-02-28"},
         )
         sub = SpendingSubstrate(spending_dir=tmp_path)

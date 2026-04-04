@@ -1,10 +1,8 @@
-
 """electroreception — read iMessage/SMS from macOS chat.db.
 
 Tools:
   electroreception_read   — fetch recent messages with optional filters
 """
-
 
 import os
 import re

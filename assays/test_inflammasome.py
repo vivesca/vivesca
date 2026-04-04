@@ -2,16 +2,12 @@ from __future__ import annotations
 
 """Tests for inflammasome — deterministic self-test probes."""
 
-import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
-
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ok_probe():
     return (True, "ok")
@@ -36,9 +32,12 @@ class TestRunAllProbes:
     def test_returns_list_of_dicts_with_expected_keys(self):
         from metabolon.organelles.inflammasome import run_all_probes
 
-        with patch("metabolon.organelles.inflammasome._PROBES", [
-            ("test_probe", _ok_probe),
-        ]):
+        with patch(
+            "metabolon.organelles.inflammasome._PROBES",
+            [
+                ("test_probe", _ok_probe),
+            ],
+        ):
             results = run_all_probes()
 
         assert isinstance(results, list)
@@ -52,9 +51,12 @@ class TestRunAllProbes:
         """A probe that raises must be captured, not propagated."""
         from metabolon.organelles.inflammasome import run_all_probes
 
-        with patch("metabolon.organelles.inflammasome._PROBES", [
-            ("crasher", _boom_probe),
-        ]):
+        with patch(
+            "metabolon.organelles.inflammasome._PROBES",
+            [
+                ("crasher", _boom_probe),
+            ],
+        ):
             results = run_all_probes()
 
         assert len(results) == 1
@@ -63,9 +65,12 @@ class TestRunAllProbes:
     def test_failed_probe_message_preserved(self):
         from metabolon.organelles.inflammasome import run_all_probes
 
-        with patch("metabolon.organelles.inflammasome._PROBES", [
-            ("broken", _fail_probe),
-        ]):
+        with patch(
+            "metabolon.organelles.inflammasome._PROBES",
+            [
+                ("broken", _fail_probe),
+            ],
+        ):
             results = run_all_probes()
 
         assert "something broke" in results[0]["message"]
@@ -74,11 +79,14 @@ class TestRunAllProbes:
         """One failure must not prevent other probes from running."""
         from metabolon.organelles.inflammasome import run_all_probes
 
-        with patch("metabolon.organelles.inflammasome._PROBES", [
-            ("first", _fail_probe),
-            ("second", _ok_probe),
-            ("third", _boom_probe),
-        ]):
+        with patch(
+            "metabolon.organelles.inflammasome._PROBES",
+            [
+                ("first", _fail_probe),
+                ("second", _ok_probe),
+                ("third", _boom_probe),
+            ],
+        ):
             results = run_all_probes()
 
         assert len(results) == 3
@@ -104,10 +112,13 @@ class TestProbeReport:
     def test_report_format(self):
         from metabolon.organelles.inflammasome import probe_report
 
-        with patch("metabolon.organelles.inflammasome._PROBES", [
-            ("alpha", _ok_probe),
-            ("beta", _fail_probe),
-        ]):
+        with patch(
+            "metabolon.organelles.inflammasome._PROBES",
+            [
+                ("alpha", _ok_probe),
+                ("beta", _fail_probe),
+            ],
+        ):
             report = probe_report()
 
         assert "[PASS] alpha" in report
@@ -147,7 +158,9 @@ class TestAdaptiveResponse:
         """First failure should set repair_attempted='priming'."""
         from metabolon.organelles.inflammasome import adaptive_response
 
-        results = self._make_results(passed=False, name="rss_state", message="state.json is stale: 52h")
+        results = self._make_results(
+            passed=False, name="rss_state", message="state.json is stale: 52h"
+        )
         with patch("metabolon.organelles.inflammasome._load_priming", return_value={}):
             out = adaptive_response(results)
 
@@ -157,15 +170,24 @@ class TestAdaptiveResponse:
         """Second consecutive failure triggers the repair pattern."""
         from metabolon.organelles.inflammasome import adaptive_response
 
-        results = self._make_results(passed=False, name="rss_state", message="state.json is stale: 52h")
+        results = self._make_results(
+            passed=False, name="rss_state", message="state.json is stale: 52h"
+        )
         mock_repair = MagicMock(return_value=(True, "dispatched fetch"))
 
-        with patch("metabolon.organelles.inflammasome._load_priming", return_value={"rss_state": 1}), \
-             patch("metabolon.organelles.inflammasome._save_priming"), \
-             patch("metabolon.organelles.inflammasome._REPAIR_PATTERNS", [
-                 ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch"),
-             ]), \
-             patch("metabolon.organelles.inflammasome._PROBES", []):
+        with (
+            patch(
+                "metabolon.organelles.inflammasome._load_priming", return_value={"rss_state": 1}
+            ),
+            patch("metabolon.organelles.inflammasome._save_priming"),
+            patch(
+                "metabolon.organelles.inflammasome._REPAIR_PATTERNS",
+                [
+                    ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch"),
+                ],
+            ),
+            patch("metabolon.organelles.inflammasome._PROBES", []),
+        ):
             out = adaptive_response(results)
 
         assert "rss_fetch" in out[0]["repair_attempted"]
@@ -176,15 +198,24 @@ class TestAdaptiveResponse:
         """Failed repair attempt is recorded in repair_attempted field."""
         from metabolon.organelles.inflammasome import adaptive_response
 
-        results = self._make_results(passed=False, name="rss_state", message="state.json is stale: 52h")
+        results = self._make_results(
+            passed=False, name="rss_state", message="state.json is stale: 52h"
+        )
         mock_repair = MagicMock(return_value=(False, "binary not found"))
 
-        with patch("metabolon.organelles.inflammasome._load_priming", return_value={"rss_state": 1}), \
-             patch("metabolon.organelles.inflammasome._save_priming"), \
-             patch("metabolon.organelles.inflammasome._REPAIR_PATTERNS", [
-                 ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch"),
-             ]), \
-             patch("metabolon.organelles.inflammasome._PROBES", []):
+        with (
+            patch(
+                "metabolon.organelles.inflammasome._load_priming", return_value={"rss_state": 1}
+            ),
+            patch("metabolon.organelles.inflammasome._save_priming"),
+            patch(
+                "metabolon.organelles.inflammasome._REPAIR_PATTERNS",
+                [
+                    ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch"),
+                ],
+            ),
+            patch("metabolon.organelles.inflammasome._PROBES", []),
+        ):
             out = adaptive_response(results)
 
         assert "rss_fetch:fail" in out[0]["repair_attempted"]
@@ -194,10 +225,15 @@ class TestAdaptiveResponse:
         from metabolon.organelles.inflammasome import adaptive_response
 
         results = self._make_results(passed=False, name="mystery_probe", message="weird error")
-        with patch("metabolon.organelles.inflammasome._load_priming", return_value={"mystery_probe": 1}), \
-             patch("metabolon.organelles.inflammasome._save_priming"), \
-             patch("metabolon.organelles.inflammasome._REPAIR_PATTERNS", []), \
-             patch("metabolon.organelles.inflammasome._CRITICAL_NO_REPAIR", {}):
+        with (
+            patch(
+                "metabolon.organelles.inflammasome._load_priming",
+                return_value={"mystery_probe": 1},
+            ),
+            patch("metabolon.organelles.inflammasome._save_priming"),
+            patch("metabolon.organelles.inflammasome._REPAIR_PATTERNS", []),
+            patch("metabolon.organelles.inflammasome._CRITICAL_NO_REPAIR", {}),
+        ):
             out = adaptive_response(results)
 
         assert out[0]["repair_attempted"] == "unknown"
@@ -207,15 +243,23 @@ class TestAdaptiveResponse:
         from metabolon.organelles.inflammasome import adaptive_response
 
         results = self._make_results(
-            passed=False, name="endocytosis",
+            passed=False,
+            name="endocytosis",
             message="sources.yaml not found: /path",
         )
-        with patch("metabolon.organelles.inflammasome._load_priming", return_value={"endocytosis": 1}), \
-             patch("metabolon.organelles.inflammasome._save_priming"), \
-             patch("metabolon.organelles.inflammasome._REPAIR_PATTERNS", []), \
-             patch("metabolon.organelles.inflammasome._CRITICAL_NO_REPAIR", {
-                 "endocytosis": "dangling symlink or not found — config issue",
-             }):
+        with (
+            patch(
+                "metabolon.organelles.inflammasome._load_priming", return_value={"endocytosis": 1}
+            ),
+            patch("metabolon.organelles.inflammasome._save_priming"),
+            patch("metabolon.organelles.inflammasome._REPAIR_PATTERNS", []),
+            patch(
+                "metabolon.organelles.inflammasome._CRITICAL_NO_REPAIR",
+                {
+                    "endocytosis": "dangling symlink or not found — config issue",
+                },
+            ),
+        ):
             out = adaptive_response(results)
 
         assert out[0]["repair_attempted"] == "critical"
@@ -277,7 +321,7 @@ class TestCheckPyroptosis:
         assert check_pyroptosis("probe_a", {"probe_a": 2}) is False
 
     def test_at_threshold(self):
-        from metabolon.organelles.inflammasome import check_pyroptosis, _PYROPTOSIS_THRESHOLD
+        from metabolon.organelles.inflammasome import _PYROPTOSIS_THRESHOLD, check_pyroptosis
 
         assert check_pyroptosis("probe_a", {"probe_a": _PYROPTOSIS_THRESHOLD}) is True
 

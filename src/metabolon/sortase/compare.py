@@ -1,10 +1,8 @@
-
 """Compare two overnight sessions for coaching effectiveness measurement.
 
 Loads entries for two dates, computes deltas for task count, success rate,
 duration, and identifies new/resolved failure reasons.
 """
-
 
 import json
 from dataclasses import dataclass, field

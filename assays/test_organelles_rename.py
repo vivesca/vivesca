@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import NamedTuple
 from unittest import mock
-
-import pytest
 
 from metabolon.organelles import rename
 
@@ -47,6 +44,7 @@ class TestScan:
 
             # Mock read_text to raise PermissionError
             original_read = Path.read_text
+
             def mock_read(self, **kwargs):
                 if self == test_file:
                     raise PermissionError
@@ -76,7 +74,7 @@ class TestRenameDirs:
         # Child should be renamed first (deepest first)
         # The paths returned are before renaming
         assert any(p[0].parent.parent == tmp_path for p in result)  # parent
-        assert any(p[0].parent.name == "old_name" for p in result)   # child
+        assert any(p[0].parent.name == "old_name" for p in result)  # child
 
     def test_rename_dirs_dry_run_no_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -166,7 +164,9 @@ class TestUpdateContents:
             existing.write_text("old_name")
             nonexistent = tmp_path / "nonexistent.py"
 
-            result = rename.update_contents("old_name", "new_name", [existing, nonexistent], dry_run=False)
+            result = rename.update_contents(
+                "old_name", "new_name", [existing, nonexistent], dry_run=False
+            )
 
             assert len(result) == 1
 
@@ -183,7 +183,7 @@ class TestUpdateContents:
 
 class TestUpdateLocus:
     def test_update_locus_updates_if_found(self, monkeypatch) -> None:
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
             f.write("contains old_name here")
             temp_path = Path(f.name)
 
@@ -196,7 +196,7 @@ class TestUpdateLocus:
         temp_path.unlink()
 
     def test_update_locus_dry_run_no_change(self, monkeypatch) -> None:
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
             f.write("contains old_name here")
             temp_path = Path(f.name)
 
@@ -209,7 +209,7 @@ class TestUpdateLocus:
         temp_path.unlink()
 
     def test_update_locus_returns_false_if_not_found(self, monkeypatch) -> None:
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
             f.write("no match here")
             temp_path = Path(f.name)
 

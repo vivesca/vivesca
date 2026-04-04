@@ -3,12 +3,10 @@
 Unit tests for internal helpers: _clean_merchant, _extract_metadata,
 _extract_purchases_total, _parse_transactions.
 """
+
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
-
-import pytest
 
 from metabolon.respirometry.parsers.scb import (
     _clean_merchant,
@@ -17,10 +15,10 @@ from metabolon.respirometry.parsers.scb import (
     _parse_transactions,
 )
 
-
 # ---------------------------------------------------------------------------
 # _clean_merchant
 # ---------------------------------------------------------------------------
+
 
 class TestCleanMerchant:
     def test_basic(self):
@@ -52,6 +50,7 @@ class TestCleanMerchant:
 # _extract_metadata
 # ---------------------------------------------------------------------------
 
+
 class TestExtractMetadata:
     def _make_text(self, **overrides: str) -> str:
         defaults = {
@@ -63,11 +62,11 @@ class TestExtractMetadata:
         }
         defaults.update(overrides)
         return textwrap.dedent(f"""\
-            {defaults['stmt']}
-            {defaults['due']}
-            {defaults['cl']}
-            {defaults['bal']}
-            {defaults['min']}
+            {defaults["stmt"]}
+            {defaults["due"]}
+            {defaults["cl"]}
+            {defaults["bal"]}
+            {defaults["min"]}
         """)
 
     def test_basic_metadata(self):
@@ -98,6 +97,7 @@ class TestExtractMetadata:
 # _extract_purchases_total
 # ---------------------------------------------------------------------------
 
+
 class TestExtractPurchasesTotal:
     def test_finds_purchases_column(self):
         text = "1,000.00 200.00 50.00 500.00 0.00 10.00 1,260.00"
@@ -116,6 +116,7 @@ class TestExtractPurchasesTotal:
 # ---------------------------------------------------------------------------
 # _parse_transactions
 # ---------------------------------------------------------------------------
+
 
 class TestParseTransactions:
     def test_parses_transaction_dates_and_amounts(self):

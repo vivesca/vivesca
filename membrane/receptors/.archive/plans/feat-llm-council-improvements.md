@@ -111,7 +111,7 @@ class ConsensusVote(BaseModel):
 
     @classmethod
     def from_raw_response(cls, text: str) -> "ConsensusVote | None":
-        """Parse from LLM response, returning None if unparseable."""
+        """Parse from LLM response, returning None if unparsable."""
         import json
         try:
             data = json.loads(text)

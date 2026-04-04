@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import io
 import json
 import urllib.error
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -128,7 +127,7 @@ class TestBuildWeatherLine:
         }
 
     @pytest.fixture
-    def sample_fnd(self):
+    def sample_find(self):
         today = datetime.now().strftime("%Y%m%d")
         return {
             "weatherForecast": [
@@ -145,109 +144,103 @@ class TestBuildWeatherLine:
     def sample_warn(self):
         return {}
 
-    def test_basic_weather_line(self, sample_now, sample_fnd, sample_warn):
+    def test_basic_weather_line(self, sample_now, sample_find, sample_warn):
         """Basic weather line without warnings or special conditions."""
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "22–28°C" in line
         assert "sunny periods" in line
 
-    def test_weather_line_with_rain(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_with_rain(self, sample_now, sample_find, sample_warn):
         """Weather line includes rainfall when present."""
-        sample_now["rainfall"]["data"] = [
-            {"place": "Eastern District", "max": 15.0}
-        ]
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        sample_now["rainfall"]["data"] = [{"place": "Eastern District", "max": 15.0}]
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "15mm rain" in line
 
-    def test_weather_line_chai_wan_fallback(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_chai_wan_fallback(self, sample_now, sample_find, sample_warn):
         """Rainfall falls back to Chai Wan if Eastern District unavailable."""
-        sample_now["rainfall"]["data"] = [
-            {"place": "Chai Wan", "max": 8.5}
-        ]
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        sample_now["rainfall"]["data"] = [{"place": "Chai Wan", "max": 8.5}]
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "8.5mm rain" in line
 
-    def test_weather_line_with_high_uv(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_with_high_uv(self, sample_now, sample_find, sample_warn):
         """Weather line includes UV index when >= 6."""
         sample_now["uvindex"]["data"] = [{"value": 8}]
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "UV 8" in line
 
-    def test_weather_line_uv_below_threshold(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_uv_below_threshold(self, sample_now, sample_find, sample_warn):
         """Weather line omits UV index when < 6."""
         sample_now["uvindex"]["data"] = [{"value": 3}]
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "UV" not in line
 
-    def test_weather_line_muggy(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_muggy(self, sample_now, sample_find, sample_warn):
         """Weather line includes 'muggy' when humidity >= 90."""
         sample_now["humidity"]["data"] = [{"value": 92}]
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "muggy" in line
 
-    def test_weather_line_typhoon_warning(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_typhoon_warning(self, sample_now, sample_find, sample_warn):
         """Typhoon warning is formatted correctly."""
         sample_warn["WTCSGNL"] = {"name": "Typhoon Signal", "code": "8"}
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "🌀 T8" in line
 
-    def test_weather_line_rain_warning(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_rain_warning(self, sample_now, sample_find, sample_warn):
         """Rain warning is formatted correctly."""
         sample_warn["WRAIN"] = {"name": "Rainstorm Warning Signal"}
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "⛈️ Rainstorm" in line
 
-    def test_weather_line_fire_warning_suppressed(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_fire_warning_suppressed(self, sample_now, sample_find, sample_warn):
         """Fire danger warning is suppressed."""
         sample_warn["WFIRE"] = {"name": "Fire Danger Warning"}
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "Fire" not in line
 
-    def test_weather_line_cold_warning(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_cold_warning(self, sample_now, sample_find, sample_warn):
         """Cold warning is formatted correctly."""
         sample_warn["WCOLD"] = {"name": "Cold Weather Warning"}
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "🥶 Cold Weather" in line
 
-    def test_weather_line_thunderstorm_forecast(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_thunderstorm_forecast(self, sample_now, sample_find, sample_warn):
         """Thunderstorm in forecast shows correct emoji."""
-        sample_fnd["weatherForecast"][0]["forecastWeather"] = "Thunderstorms"
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        sample_find["weatherForecast"][0]["forecastWeather"] = "Thunderstorms"
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "⛈️" in line
 
-    def test_weather_line_cloudy_forecast(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_cloudy_forecast(self, sample_now, sample_find, sample_warn):
         """Cloudy forecast shows correct emoji."""
-        sample_fnd["weatherForecast"][0]["forecastWeather"] = "Cloudy"
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        sample_find["weatherForecast"][0]["forecastWeather"] = "Cloudy"
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "☁️" in line
 
-    def test_weather_line_rain_forecast(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_rain_forecast(self, sample_now, sample_find, sample_warn):
         """Rain in forecast shows correct emoji."""
-        sample_fnd["weatherForecast"][0]["forecastWeather"] = "Light rain"
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        sample_find["weatherForecast"][0]["forecastWeather"] = "Light rain"
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "🌦️" in line
 
     def test_weather_line_missing_forecast_raises(self, sample_now, sample_warn):
         """Missing weatherForecast raises ValueError."""
-        fnd = {"weatherForecast": []}
+        find = {"weatherForecast": []}
         with pytest.raises(ValueError, match="missing weatherForecast"):
-            baroreceptor.build_weather_line(sample_now, fnd, sample_warn)
+            baroreceptor.build_weather_line(sample_now, find, sample_warn)
 
     def test_weather_line_missing_temp_raises(self, sample_now, sample_warn):
         """Missing temperature values raise ValueError."""
-        fnd = {
+        find = {
             "weatherForecast": [
                 {"forecastDate": datetime.now().strftime("%Y%m%d"), "forecastWeather": "Sunny"}
             ]
         }
         with pytest.raises(ValueError, match="missing forecastMintemp/forecastMaxtemp"):
-            baroreceptor.build_weather_line(sample_now, fnd, sample_warn)
+            baroreceptor.build_weather_line(sample_now, find, sample_warn)
 
-    def test_weather_line_uses_first_forecast_if_no_date_match(
-        self, sample_now, sample_warn
-    ):
+    def test_weather_line_uses_first_forecast_if_no_date_match(self, sample_now, sample_warn):
         """Uses first forecast entry when date doesn't match."""
-        fnd = {
+        find = {
             "weatherForecast": [
                 {
                     "forecastDate": "20000101",  # Old date
@@ -257,34 +250,30 @@ class TestBuildWeatherLine:
                 }
             ]
         }
-        line = baroreceptor.build_weather_line(sample_now, fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, find, sample_warn)
         assert "18–24°C" in line
 
-    def test_weather_line_no_humidity_data(self, sample_fnd, sample_warn):
+    def test_weather_line_no_humidity_data(self, sample_find, sample_warn):
         """Handles missing humidity data gracefully."""
         now = {"uvindex": {"data": [{"value": 3}]}, "rainfall": {"data": []}}
-        line = baroreceptor.build_weather_line(now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(now, sample_find, sample_warn)
         assert "muggy" not in line
 
-    def test_weather_line_no_uv_data(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_no_uv_data(self, sample_now, sample_find, sample_warn):
         """Handles missing UV data gracefully (defaults to 0)."""
         now = {"humidity": {"data": [{"value": 50}]}, "rainfall": {"data": []}}
-        line = baroreceptor.build_weather_line(now, sample_fnd, sample_warn)
+        line = baroreceptor.build_weather_line(now, sample_find, sample_warn)
         assert "UV" not in line
 
-    def test_weather_line_heavy_rain_emoji(self, sample_now, sample_fnd, sample_warn):
+    def test_weather_line_heavy_rain_emoji(self, sample_now, sample_find, sample_warn):
         """Heavy rain (>5mm) shows rain emoji."""
-        sample_now["rainfall"]["data"] = [
-            {"place": "Eastern District", "max": 10.0}
-        ]
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, sample_warn)
+        sample_now["rainfall"]["data"] = [{"place": "Eastern District", "max": 10.0}]
+        line = baroreceptor.build_weather_line(sample_now, sample_find, sample_warn)
         assert "🌧️" in line
 
-    def test_weather_line_falls_back_to_partial_sun_emoji(
-        self, sample_now, sample_warn
-    ):
+    def test_weather_line_falls_back_to_partial_sun_emoji(self, sample_now, sample_warn):
         """Unknown forecast defaults to partial sun emoji."""
-        fnd = {
+        find = {
             "weatherForecast": [
                 {
                     "forecastDate": datetime.now().strftime("%Y%m%d"),
@@ -294,7 +283,7 @@ class TestBuildWeatherLine:
                 }
             ]
         }
-        line = baroreceptor.build_weather_line(sample_now, fnd, sample_warn)
+        line = baroreceptor.build_weather_line(sample_now, find, sample_warn)
         assert "🌤️" in line
 
 
@@ -309,7 +298,7 @@ class TestSense:
             "rainfall": {"data": []},
         }
         today = datetime.now().strftime("%Y%m%d")
-        mock_fnd = {
+        mock_find = {
             "weatherForecast": [
                 {
                     "forecastDate": today,
@@ -325,8 +314,8 @@ class TestSense:
             resp = MagicMock()
             if "rhrread" in url:
                 resp.read.return_value = json.dumps(mock_now).encode()
-            elif "fnd" in url:
-                resp.read.return_value = json.dumps(mock_fnd).encode()
+            elif "find" in url:
+                resp.read.return_value = json.dumps(mock_find).encode()
             elif "warnsum" in url:
                 resp.read.return_value = json.dumps(mock_warn).encode()
             resp.__enter__ = MagicMock(return_value=resp)
@@ -350,7 +339,7 @@ class TestCLI:
             "rainfall": {"data": []},
         }
         today = datetime.now().strftime("%Y%m%d")
-        mock_fnd = {
+        mock_find = {
             "weatherForecast": [
                 {
                     "forecastDate": today,
@@ -366,8 +355,8 @@ class TestCLI:
             resp = MagicMock()
             if "rhrread" in url:
                 resp.read.return_value = json.dumps(mock_now).encode()
-            elif "fnd" in url:
-                resp.read.return_value = json.dumps(mock_fnd).encode()
+            elif "find" in url:
+                resp.read.return_value = json.dumps(mock_find).encode()
             elif "warnsum" in url:
                 resp.read.return_value = json.dumps(mock_warn).encode()
             resp.__enter__ = MagicMock(return_value=resp)
@@ -400,15 +389,15 @@ class TestWarnIcons:
         """All expected warning types have icons."""
         expected = {
             "WTCSGNL",  # Typhoon
-            "WRAIN",    # Rain
-            "WHOT",     # Hot
-            "WCOLD",    # Cold
-            "WFROST",   # Frost
-            "WMSGNL",   # Monsoon
-            "WTS",      # Thunderstorm
-            "WFIRE",    # Fire
-            "WL",       # Landslip
-            "WTMW",     # Tsunami
+            "WRAIN",  # Rain
+            "WHOT",  # Hot
+            "WCOLD",  # Cold
+            "WFROST",  # Frost
+            "WMSGNL",  # Monsoon
+            "WTS",  # Thunderstorm
+            "WFIRE",  # Fire
+            "WL",  # Landslip
+            "WTMW",  # Tsunami
         }
         assert set(baroreceptor.WARN_ICONS.keys()) == expected
 
@@ -422,18 +411,16 @@ class TestWarnIcons:
 class TestEdgeCases:
     """Edge case tests."""
 
-    def test_build_weather_line_warning_with_non_dict_value(
-        self, sample_now, sample_fnd
-    ):
+    def test_build_weather_line_warning_with_non_dict_value(self, sample_now, sample_find):
         """Handles warning with non-dict value gracefully."""
         warn = {"WRAIN": "not a dict"}
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, warn)
         assert "⚠️" not in line  # No warning added
 
-    def test_build_weather_line_warning_missing_name(self, sample_now, sample_fnd):
+    def test_build_weather_line_warning_missing_name(self, sample_now, sample_find):
         """Handles warning missing 'name' field gracefully."""
         warn = {"WRAIN": {"code": "AMBER"}}
-        line = baroreceptor.build_weather_line(sample_now, sample_fnd, warn)
+        line = baroreceptor.build_weather_line(sample_now, sample_find, warn)
         assert "⚠️" not in line
 
     @pytest.fixture
@@ -445,7 +432,7 @@ class TestEdgeCases:
         }
 
     @pytest.fixture
-    def sample_fnd(self):
+    def sample_find(self):
         today = datetime.now().strftime("%Y%m%d")
         return {
             "weatherForecast": [

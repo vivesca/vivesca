@@ -2,9 +2,8 @@ from __future__ import annotations
 
 """Tests for metabolon.metabolism.repair — immune system / metaprompt-driven healing."""
 
-import configparser
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,15 +11,14 @@ from metabolon.metabolism.gates import GateResult
 from metabolon.metabolism.repair import (
     ImmuneRequest,
     ImmuneResult,
-    _load_conf,
     _mutate,
     immune_response,
 )
 
-
 # ---------------------------------------------------------------------------
 # _load_conf
 # ---------------------------------------------------------------------------
+
 
 class TestLoadConf:
     def test_returns_defaults_when_no_conf_file(self, monkeypatch):
@@ -45,6 +43,7 @@ class TestLoadConf:
 # ---------------------------------------------------------------------------
 # ImmuneRequest
 # ---------------------------------------------------------------------------
+
 
 class TestImmuneRequest:
     def test_basic_construction(self):
@@ -74,6 +73,7 @@ class TestImmuneRequest:
 # ImmuneResult
 # ---------------------------------------------------------------------------
 
+
 class TestImmuneResult:
     def test_accepted_result(self):
         gr = GateResult(True, "OK")
@@ -102,6 +102,7 @@ class TestImmuneResult:
 # ---------------------------------------------------------------------------
 # _mutate
 # ---------------------------------------------------------------------------
+
 
 class TestMutate:
     @pytest.mark.asyncio
@@ -155,17 +156,18 @@ class TestMutate:
 # immune_response
 # ---------------------------------------------------------------------------
 
+
 class TestImmuneResponse:
     @pytest.mark.asyncio
     async def test_first_attempt_passes(self):
         """If the first mutation passes the gate, return immediately with attempts=1."""
-        req = ImmuneRequest(
-            tool="t", current_description="d", failure_reason="f"
-        )
+        req = ImmuneRequest(tool="t", current_description="d", failure_reason="f")
         long_desc = "This is a sufficiently long candidate description that passes all gate checks"
 
-        with patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate, \
-             patch("metabolon.metabolism.repair.reflex_check") as mock_gate:
+        with (
+            patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate,
+            patch("metabolon.metabolism.repair.reflex_check") as mock_gate,
+        ):
             mock_mutate.return_value = long_desc
             mock_gate.return_value = GateResult(True, "OK")
 
@@ -179,14 +181,14 @@ class TestImmuneResponse:
     @pytest.mark.asyncio
     async def test_second_attempt_passes(self):
         """First mutation fails the gate, second passes."""
-        req = ImmuneRequest(
-            tool="t", current_description="d", failure_reason="f"
-        )
+        req = ImmuneRequest(tool="t", current_description="d", failure_reason="f")
         short_desc = "short"
         long_desc = "This is a sufficiently long candidate description that passes all gate checks"
 
-        with patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate, \
-             patch("metabolon.metabolism.repair.reflex_check") as mock_gate:
+        with (
+            patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate,
+            patch("metabolon.metabolism.repair.reflex_check") as mock_gate,
+        ):
             mock_mutate.side_effect = [short_desc, long_desc]
             mock_gate.side_effect = [
                 GateResult(False, "Too short"),
@@ -202,12 +204,12 @@ class TestImmuneResponse:
     @pytest.mark.asyncio
     async def test_all_attempts_fail(self):
         """All adaptation cycles exhausted → rejected result with last gate result."""
-        req = ImmuneRequest(
-            tool="t", current_description="d", failure_reason="f"
-        )
+        req = ImmuneRequest(tool="t", current_description="d", failure_reason="f")
 
-        with patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate, \
-             patch("metabolon.metabolism.repair.reflex_check") as mock_gate:
+        with (
+            patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate,
+            patch("metabolon.metabolism.repair.reflex_check") as mock_gate,
+        ):
             mock_mutate.return_value = "short"
             mock_gate.return_value = GateResult(False, "Too short")
 
@@ -222,12 +224,12 @@ class TestImmuneResponse:
     @pytest.mark.asyncio
     async def test_custom_max_adaptation_cycles(self):
         """Explicit max_adaptation_cycles overrides the module-level default."""
-        req = ImmuneRequest(
-            tool="t", current_description="d", failure_reason="f"
-        )
+        req = ImmuneRequest(tool="t", current_description="d", failure_reason="f")
 
-        with patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate, \
-             patch("metabolon.metabolism.repair.reflex_check") as mock_gate:
+        with (
+            patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate,
+            patch("metabolon.metabolism.repair.reflex_check") as mock_gate,
+        ):
             mock_mutate.return_value = "short"
             mock_gate.return_value = GateResult(False, "Too short")
 
@@ -239,12 +241,12 @@ class TestImmuneResponse:
     @pytest.mark.asyncio
     async def test_uses_module_default_cycles_when_none(self):
         """When max_adaptation_cycles is None, use module-level default."""
-        req = ImmuneRequest(
-            tool="t", current_description="d", failure_reason="f"
-        )
+        req = ImmuneRequest(tool="t", current_description="d", failure_reason="f")
 
-        with patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate, \
-             patch("metabolon.metabolism.repair.reflex_check") as mock_gate:
+        with (
+            patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate,
+            patch("metabolon.metabolism.repair.reflex_check") as mock_gate,
+        ):
             mock_mutate.return_value = "short"
             mock_gate.return_value = GateResult(False, "Too short")
 
@@ -257,12 +259,12 @@ class TestImmuneResponse:
     @pytest.mark.asyncio
     async def test_last_gate_result_preserved_on_failure(self):
         """On rejection, the gate_result should be from the last attempt."""
-        req = ImmuneRequest(
-            tool="t", current_description="d", failure_reason="f"
-        )
+        req = ImmuneRequest(tool="t", current_description="d", failure_reason="f")
 
-        with patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate, \
-             patch("metabolon.metabolism.repair.reflex_check") as mock_gate:
+        with (
+            patch("metabolon.metabolism.repair._mutate", new_callable=AsyncMock) as mock_mutate,
+            patch("metabolon.metabolism.repair.reflex_check") as mock_gate,
+        ):
             mock_mutate.return_value = "short"
             mock_gate.side_effect = [
                 GateResult(False, "Too short"),

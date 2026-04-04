@@ -1,11 +1,8 @@
 """Tests for metabolon/organelles/endocytosis_rss/log.py — log utilities."""
+
 from __future__ import annotations
 
-import textwrap
 from datetime import UTC, datetime
-from pathlib import Path
-
-import pytest
 
 from metabolon.organelles.endocytosis_rss.log import (
     _sanitize_text,
@@ -17,10 +14,10 @@ from metabolon.organelles.endocytosis_rss.log import (
     serialize_markdown,
 )
 
-
 # ---------------------------------------------------------------------------
 # _title_prefix
 # ---------------------------------------------------------------------------
+
 
 class TestTitlePrefix:
     def test_basic(self):
@@ -49,6 +46,7 @@ class TestTitlePrefix:
 # is_noise
 # ---------------------------------------------------------------------------
 
+
 class TestIsNoise:
     def test_short_title(self):
         assert is_noise("short") is True
@@ -74,6 +72,7 @@ class TestIsNoise:
 # _sanitize_text
 # ---------------------------------------------------------------------------
 
+
 class TestSanitizeText:
     def test_strips_newlines(self):
         assert "\n" not in _sanitize_text("line1\nline2")
@@ -98,6 +97,7 @@ class TestSanitizeText:
 # serialize_markdown
 # ---------------------------------------------------------------------------
 
+
 class TestSerializeMarkdown:
     def test_basic(self):
         results = {
@@ -121,9 +121,7 @@ class TestSerializeMarkdown:
         assert "banking_angle" in md
 
     def test_no_star_for_low_score(self):
-        results = {
-            "Feed": [{"title": "Low", "link": "", "date": "", "summary": "", "score": 3}]
-        }
+        results = {"Feed": [{"title": "Low", "link": "", "date": "", "summary": "", "score": 3}]}
         md = serialize_markdown(results, "2025-01-15")
         assert "[★]" not in md
 
@@ -137,6 +135,7 @@ class TestSerializeMarkdown:
 # record_cargo
 # ---------------------------------------------------------------------------
 
+
 class TestRecordCargo:
     def test_creates_new_file(self, tmp_path):
         log = tmp_path / "news.md"
@@ -146,7 +145,7 @@ class TestRecordCargo:
 
     def test_appends_after_marker(self, tmp_path):
         log = tmp_path / "news.md"
-        log.write_text("# News\n\n<!-- News entries below, added by /lustro -->\nold entry\n")
+        log.write_text("# News\n\n<!-- News entries below, added by /endocytosis -->\nold entry\n")
         record_cargo(log, "## 2025-01-15\nnew entry")
         content = log.read_text()
         assert "new entry" in content
@@ -165,6 +164,7 @@ class TestRecordCargo:
 # recall_title_prefixes
 # ---------------------------------------------------------------------------
 
+
 class TestRecallTitlePrefixes:
     def test_nonexistent(self, tmp_path):
         assert recall_title_prefixes(tmp_path / "nope.md") == set()
@@ -179,6 +179,7 @@ class TestRecallTitlePrefixes:
 # ---------------------------------------------------------------------------
 # cycle_log
 # ---------------------------------------------------------------------------
+
 
 class TestCycleLog:
     def test_no_rotation_when_small(self, tmp_path):

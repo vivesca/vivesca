@@ -6,7 +6,6 @@ import pytest
 
 from metabolon.pinocytosis.ecdysis import intake, main
 
-
 # ── intake tests ───────────────────────────────────────────────────────
 
 
@@ -39,9 +38,7 @@ def test_pinocytosis_ecdysis_main_calls_intake_with_default_args(monkeypatch, ca
     import sys
 
     monkeypatch.setattr(sys, "argv", ["ecdysis"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.ecdysis.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.ecdysis.intake", mock_intake)
     main()
     captured = capsys.readouterr()
     # --json flag not passed, so as_json is False (default from argparse action="store_true")
@@ -60,9 +57,7 @@ def test_pinocytosis_ecdysis_main_with_json_flag(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["ecdysis", "--json"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.ecdysis.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.ecdysis.intake", mock_intake)
     main()
     assert called["as_json"] is True
 
@@ -78,9 +73,7 @@ def test_pinocytosis_ecdysis_main_without_json_flag(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["ecdysis"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.ecdysis.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.ecdysis.intake", mock_intake)
     main()
     # Default is True when --json is not passed
     assert called["as_json"] is False

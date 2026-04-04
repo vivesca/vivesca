@@ -1,6 +1,4 @@
-
 """Per-enzyme emotion computation from sensory aggregates."""
-
 
 import math
 from collections import defaultdict

@@ -3,8 +3,7 @@ from __future__ import annotations
 """Tests for ecphory enzyme."""
 
 
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 def test_ecphory_actions_unknown_action():
@@ -56,7 +55,9 @@ def test_chromatin_with_results():
     from metabolon.enzymes.ecphory import ecphory
 
     with patch("metabolon.organelles.chromatin.search") as mock:
-        mock.return_value = [{"name": "test-mem", "file": "marks/test.md", "content": "some memory"}]
+        mock.return_value = [
+            {"name": "test-mem", "file": "marks/test.md", "content": "some memory"}
+        ]
         result = ecphory(action="chromatin", query="test")
         assert "1 memory" in result.results
         assert "test-mem" in result.results
@@ -81,9 +82,11 @@ def test_logs_requires_query():
 def test_logs_no_matches():
     from metabolon.enzymes.ecphory import ecphory
 
-    with patch("metabolon.locus.meal_plan") as mock_mp, \
-         patch("metabolon.locus.symptom_log") as mock_sl, \
-         patch("metabolon.locus.experiments") as mock_exp:
+    with (
+        patch("metabolon.locus.meal_plan") as mock_mp,
+        patch("metabolon.locus.symptom_log") as mock_sl,
+        patch("metabolon.locus.experiments") as mock_exp,
+    ):
         mock_mp.exists.return_value = False
         mock_sl.exists.return_value = False
         mock_exp.is_dir.return_value = False

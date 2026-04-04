@@ -6,7 +6,6 @@ import base64
 import os
 import stat
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,9 +13,7 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "tmux-osc52.sh"
 
 
-def _run(
-    *args: str, env: dict[str, str] | None = None
-) -> subprocess.CompletedProcess:
+def _run(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", str(SCRIPT), *args],
         capture_output=True,
@@ -228,7 +225,7 @@ class TestTmuxFlags:
         tty_file = tmp_path / "tty"
         args_file = tmp_path / "tmux_args.txt"
         fake = tmp_path / "tmux"
-        fake.write_text(f"#!/bin/bash\necho \"$@\" > {args_file}\nexit 0\n")
+        fake.write_text(f'#!/bin/bash\necho "$@" > {args_file}\nexit 0\n')
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
         env = os.environ.copy()
         env["PATH"] = str(tmp_path) + ":" + env.get("PATH", "/usr/bin:/bin")

@@ -1,4 +1,3 @@
-
 """Photoreception gather — morning brief context.
 
 Sensing light: first input of the day.

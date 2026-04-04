@@ -10,7 +10,6 @@ import pytest
 
 import metabolon.organelles.mitophagy as mp
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -67,7 +66,7 @@ class TestEnsureCache:
 
 class TestLoadBlacklist:
     def test_missing_file_returns_empty(self, isolated):
-        _, _, bl_path = isolated
+        _, _, _bl_path = isolated
         assert mp._load_blacklist() == {}
 
     def test_valid_blacklist(self, isolated):
@@ -122,7 +121,7 @@ class TestSaveBlacklist:
 
 class TestLoadOutcomes:
     def test_missing_file(self, isolated):
-        _, outcomes, _ = isolated
+        _, _outcomes, _ = isolated
         assert mp._load_outcomes() == []
 
     def test_reads_all_rows(self, isolated):
@@ -140,10 +139,13 @@ class TestLoadOutcomes:
         _, outcomes, _ = isolated
         old = 1000.0
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": old, "model": "a", "task_type": "probe", "success": True},
-            {"ts": now, "model": "b", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": old, "model": "a", "task_type": "probe", "success": True},
+                {"ts": now, "model": "b", "task_type": "probe", "success": True},
+            ],
+        )
         result = mp._load_outcomes(since_ts=now - 1)
         assert len(result) == 1
         assert result[0]["model"] == "b"
@@ -152,9 +154,14 @@ class TestLoadOutcomes:
         _, outcomes, _ = isolated
         now = time.time()
         with outcomes.open("w") as f:
-            f.write(json.dumps({"ts": now, "model": "a", "task_type": "probe", "success": True}) + "\n")
+            f.write(
+                json.dumps({"ts": now, "model": "a", "task_type": "probe", "success": True}) + "\n"
+            )
             f.write("BROKEN LINE\n")
-            f.write(json.dumps({"ts": now, "model": "b", "task_type": "probe", "success": False}) + "\n")
+            f.write(
+                json.dumps({"ts": now, "model": "b", "task_type": "probe", "success": False})
+                + "\n"
+            )
         result = mp._load_outcomes()
         assert len(result) == 2
 
@@ -163,7 +170,9 @@ class TestLoadOutcomes:
         now = time.time()
         with outcomes.open("w") as f:
             f.write("\n")
-            f.write(json.dumps({"ts": now, "model": "a", "task_type": "probe", "success": True}) + "\n")
+            f.write(
+                json.dumps({"ts": now, "model": "a", "task_type": "probe", "success": True}) + "\n"
+            )
             f.write("   \n")
         result = mp._load_outcomes()
         assert len(result) == 1
@@ -181,7 +190,7 @@ class TestLoadOutcomes:
 
 class TestRecordOutcome:
     def test_writes_row_with_all_fields(self, isolated):
-        _, outcomes, bl_path = isolated
+        _, outcomes, _bl_path = isolated
         before = time.time()
         mp.record_outcome("glm", "probe", True, 1234)
         entry = json.loads(outcomes.read_text().strip())
@@ -200,7 +209,7 @@ class TestRecordOutcome:
 
     def test_auto_blacklist_triggers(self, isolated):
         """After 5+ failures with <50% success, model should be blacklisted."""
-        _, outcomes, bl_path = isolated
+        _, outcomes, _bl_path = isolated
         now = time.time()
         # Write 5 failures + 1 success = 16.7% success rate → auto-blacklist
         rows = [
@@ -217,11 +226,17 @@ class TestRecordOutcome:
 
     def test_auto_blacklist_does_not_trigger_above_threshold(self, isolated):
         """60% success rate should NOT trigger auto-blacklist."""
-        _, outcomes, bl_path = isolated
+        _, outcomes, _bl_path = isolated
         now = time.time()
         # 3 success + 2 fail = 60%
-        rows = [{"ts": now, "model": "okmodel", "task_type": "probe", "success": True} for _ in range(3)]
-        rows += [{"ts": now, "model": "okmodel", "task_type": "probe", "success": False} for _ in range(2)]
+        rows = [
+            {"ts": now, "model": "okmodel", "task_type": "probe", "success": True}
+            for _ in range(3)
+        ]
+        rows += [
+            {"ts": now, "model": "okmodel", "task_type": "probe", "success": False}
+            for _ in range(2)
+        ]
         _write_outcomes(outcomes, rows)
 
         mp.record_outcome("okmodel", "probe", True, 10)
@@ -229,9 +244,12 @@ class TestRecordOutcome:
 
     def test_auto_blacklist_needs_min_attempts(self, isolated):
         """Fewer than 5 attempts should not trigger auto-blacklist even at 0%."""
-        _, outcomes, bl_path = isolated
+        _, outcomes, _bl_path = isolated
         now = time.time()
-        rows = [{"ts": now, "model": "newmodel", "task_type": "coding", "success": False} for _ in range(3)]
+        rows = [
+            {"ts": now, "model": "newmodel", "task_type": "coding", "success": False}
+            for _ in range(3)
+        ]
         _write_outcomes(outcomes, rows)
 
         mp.record_outcome("newmodel", "coding", False, 10)
@@ -240,7 +258,7 @@ class TestRecordOutcome:
 
     def test_no_duplicate_blacklist_entry(self, isolated):
         """If already blacklisted, blacklist() should not duplicate the entry."""
-        _, outcomes, bl_path = isolated
+        _, _outcomes, bl_path = isolated
         _write_blacklist(bl_path, {"glm": ["probe"]})
         mp.blacklist("glm", "probe")
         bl = json.loads(bl_path.read_text())
@@ -275,15 +293,17 @@ class TestBlacklist:
 
     def test_graceful_when_infection_missing(self, isolated):
         """blacklist() must not raise even if infection module is unavailable."""
-        _, _, bl_path = isolated
+        _, _, _bl_path = isolated
         import sys
+
         sys.modules.pop("metabolon.metabolism.infection", None)
         mp.blacklist("glm", "probe")  # should not raise
         assert mp.is_blacklisted("glm", "probe")
 
     def test_infection_called_when_available(self, isolated):
-        _, _, bl_path = isolated
+        _, _, _bl_path = isolated
         import types
+
         fake_infection = types.ModuleType("metabolon.metabolism.infection")
         call_log = []
         fake_infection.record_infection = lambda **kw: call_log.append(kw)
@@ -338,11 +358,14 @@ class TestModelFitness:
     def test_basic_rate(self, isolated):
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "probe", "success": False},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "probe", "success": False},
+            ],
+        )
         results = mp.model_fitness(days=1)
         assert len(results) == 1
         r = results[0]
@@ -355,10 +378,13 @@ class TestModelFitness:
     def test_filter_by_model(self, isolated):
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
+            ],
+        )
         results = mp.model_fitness(model="glm", days=1)
         assert len(results) == 1
         assert results[0]["model"] == "glm"
@@ -366,10 +392,13 @@ class TestModelFitness:
     def test_filter_by_task_type(self, isolated):
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "coding", "success": False},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "coding", "success": False},
+            ],
+        )
         results = mp.model_fitness(task_type="coding", days=1)
         assert len(results) == 1
         assert results[0]["task_type"] == "coding"
@@ -377,37 +406,49 @@ class TestModelFitness:
     def test_blacklisted_flag(self, isolated):
         _, outcomes, bl_path = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": False},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": False},
+            ],
+        )
         _write_blacklist(bl_path, {"glm": ["probe"]})
         results = mp.model_fitness(days=1)
         assert results[0]["blacklisted"] is True
 
     def test_not_blacklisted_flag(self, isolated):
-        _, outcomes, bl_path = isolated
+        _, outcomes, _bl_path = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+            ],
+        )
         results = mp.model_fitness(days=1)
         assert results[0]["blacklisted"] is False
 
     def test_ignores_old_data(self, isolated):
         _, outcomes, _ = isolated
-        _write_outcomes(outcomes, [
-            {"ts": 1000.0, "model": "glm", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": 1000.0, "model": "glm", "task_type": "probe", "success": True},
+            ],
+        )
         results = mp.model_fitness(days=7)
         assert results == []
 
     def test_multiple_models_sorted(self, isolated):
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+            ],
+        )
         results = mp.model_fitness(days=1)
         models = [r["model"] for r in results]
         assert models == ["glm", "sonnet"]  # sorted by (model, task_type)
@@ -425,30 +466,39 @@ class TestRecommendModel:
     def test_picks_best_rate(self, isolated):
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "sonnet", "task_type": "probe", "success": False},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "sonnet", "task_type": "probe", "success": False},
+            ],
+        )
         assert mp.recommend_model("probe") == "glm"
 
     def test_skips_blacklisted(self, isolated):
         _, outcomes, bl_path = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "sonnet", "task_type": "probe", "success": False},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "sonnet", "task_type": "probe", "success": False},
+            ],
+        )
         _write_blacklist(bl_path, {"glm": ["probe"]})
         assert mp.recommend_model("probe") == "sonnet"
 
     def test_all_blacklisted_falls_back(self, isolated):
         _, outcomes, bl_path = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
+            ],
+        )
         _write_blacklist(bl_path, {"glm": ["probe"], "sonnet": ["probe"]})
         assert mp.recommend_model("probe") == "opus"
 
@@ -456,19 +506,25 @@ class TestRecommendModel:
         """When rates are equal, model with more attempts wins."""
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "glm", "task_type": "probe", "success": True},
-            {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "glm", "task_type": "probe", "success": True},
+                {"ts": now, "model": "sonnet", "task_type": "probe", "success": True},
+            ],
+        )
         # Both 100%, but glm has 3 attempts vs sonnet's 1
         assert mp.recommend_model("probe") == "glm"
 
     def test_no_outcome_for_different_task(self, isolated):
         _, outcomes, _ = isolated
         now = time.time()
-        _write_outcomes(outcomes, [
-            {"ts": now, "model": "glm", "task_type": "coding", "success": True},
-        ])
+        _write_outcomes(
+            outcomes,
+            [
+                {"ts": now, "model": "glm", "task_type": "coding", "success": True},
+            ],
+        )
         assert mp.recommend_model("probe") == "opus"

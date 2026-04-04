@@ -6,7 +6,6 @@ import pytest
 
 from metabolon.pinocytosis.photoreception import intake, main
 
-
 # ── intake tests ───────────────────────────────────────────────────────
 
 
@@ -48,9 +47,7 @@ def test_pinocytosis_photoreception_main_calls_intake_with_default_args(monkeypa
     import sys
 
     monkeypatch.setattr(sys, "argv", ["photoreception"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", mock_intake)
     main()
     captured = capsys.readouterr()
     # --json flag not passed, so as_json is False (default from argparse action="store_true")
@@ -70,9 +67,7 @@ def test_pinocytosis_photoreception_main_with_json_flag(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["photoreception", "--json"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", mock_intake)
     main()
     assert called["as_json"] is True
 
@@ -88,9 +83,7 @@ def test_main_with_send_flag(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["photoreception", "--send"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", mock_intake)
     main()
     assert called["send_weather"] is True
 
@@ -107,9 +100,7 @@ def test_main_with_both_flags(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["photoreception", "--json", "--send"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", mock_intake)
     main()
     assert called["as_json"] is True
     assert called["send_weather"] is True

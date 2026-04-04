@@ -13,16 +13,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.respirometry.parsers.mox import (
-    _extract_metadata,
     _parse_transactions,
     extract_mox,
 )
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_statement_page(
     period: str = "1 Nov 2025 - 30 Nov 2025",
@@ -79,8 +77,7 @@ class TestFullPipelineSinglePage:
         page_text = _make_statement_page(
             balance="-1,000.00",
             transactions=(
-                "03 Nov 03 NovELECTRONICS STORE\n-1,500.00\n"
-                "10 Nov 10 NovPARTIAL REFUND\n500.00\n"
+                "03 Nov 03 NovELECTRONICS STORE\n-1,500.00\n10 Nov 10 NovPARTIAL REFUND\n500.00\n"
             ),
         )
         mock_page = MagicMock()
@@ -89,7 +86,7 @@ class TestFullPipelineSinglePage:
         mock_reader.pages = [mock_page]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/mox.pdf"))
+        _meta, txns = extract_mox(Path("/fake/mox.pdf"))
         assert len(txns) == 2
         assert txns[0].hkd == -1500.00
         assert txns[0].is_charge
@@ -115,7 +112,7 @@ class TestFullPipelineMultiPage:
         mock_reader.pages = [p1, p2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/mox.pdf"))
+        _meta, txns = extract_mox(Path("/fake/mox.pdf"))
         assert len(txns) == 2
         assert txns[0].merchant == "STORE ALPHA"
         assert txns[1].merchant == "STORE BETA"
@@ -137,7 +134,7 @@ class TestFullPipelineMultiPage:
         mock_reader.pages = [p1, p2, p3]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/mox.pdf"))
+        _meta, txns = extract_mox(Path("/fake/mox.pdf"))
         assert len(txns) == 1  # page3 should be ignored
 
 
@@ -150,9 +147,7 @@ class TestForeignCurrencyIntegration:
         # In real PDFs: foreign amount + currency code line, then HKD amount
         page_text = _make_statement_page(
             balance="-779.22",
-            transactions=(
-                "12 Nov 12 NovAMAZON.COM\n99.99 USD\n-779.22\n"
-            ),
+            transactions=("12 Nov 12 NovAMAZON.COM\n99.99 USD\n-779.22\n"),
         )
         mock_page = MagicMock()
         mock_page.extract_text.return_value = page_text
@@ -226,7 +221,7 @@ class TestBalanceValidation:
         mock_pdf_reader.return_value = mock_reader
 
         # Should NOT raise — transfer excluded from balance check
-        meta, txns = extract_mox(Path("/fake/mox.pdf"))
+        _meta, txns = extract_mox(Path("/fake/mox.pdf"))
         assert len(txns) == 1
         assert txns[0].hkd == -500.00
 

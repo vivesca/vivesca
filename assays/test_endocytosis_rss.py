@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for endocytosis enzyme analytics wiring.
 
 Tests cover the inline JSONL analytics (stats and top) which are
-deterministic and don't require network or lustro binary access.
+deterministic and don't require network or endocytosis binary access.
 The fetch/status tools are CLI-delegating and tested via integration only.
 """
 
@@ -25,8 +25,7 @@ from metabolon.organelles.endocytosis_rss.relevance import _read_jsonl
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        for row in rows:
-            f.write(json.dumps(row) + "\n")
+        f.writelines(json.dumps(row) + "\n" for row in rows)
 
 
 def _ts(days_ago: int = 0) -> str:
@@ -78,9 +77,17 @@ class TestComputeStats:
         from metabolon.enzymes.endocytosis import _stats_result
 
         with (
-            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", tmp_path / "missing.jsonl"),
-            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "missing.jsonl"),
-            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", tmp_path / "eng.jsonl"),
+            patch(
+                "metabolon.enzymes.endocytosis.endocytosis_affinity", tmp_path / "missing.jsonl"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG",
+                tmp_path / "missing.jsonl",
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG",
+                tmp_path / "eng.jsonl",
+            ),
         ):
             result = _stats_result()
         assert result.status == "insufficient_data"
@@ -168,7 +175,10 @@ class TestGetTopItems:
     def test_returns_empty_when_no_data(self, tmp_path):
         from metabolon.enzymes.endocytosis import _top_result
 
-        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "missing.jsonl"):
+        with patch(
+            "metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG",
+            tmp_path / "missing.jsonl",
+        ):
             result = _top_result(limit=5, days=7)
         assert result.items == []
 
@@ -283,7 +293,9 @@ class TestToolSchemas:
     def test_top_tool_empty_returns_empty_result(self, tmp_path):
         from metabolon.enzymes.endocytosis import endocytosis
 
-        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "none.jsonl"):
+        with patch(
+            "metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "none.jsonl"
+        ):
             result = endocytosis(action="top")
 
         assert result.count == 0
@@ -294,8 +306,14 @@ class TestToolSchemas:
 
         with (
             patch("metabolon.enzymes.endocytosis.endocytosis_affinity", tmp_path / "none.jsonl"),
-            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "none.jsonl"),
-            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", tmp_path / "none2.jsonl"),
+            patch(
+                "metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG",
+                tmp_path / "none.jsonl",
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG",
+                tmp_path / "none2.jsonl",
+            ),
         ):
             result = endocytosis(action="stats")
 

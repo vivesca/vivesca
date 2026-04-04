@@ -1,19 +1,18 @@
 """Tests for metabolon.metabolism.substrates.constitution."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.metabolism.signals import SensorySystem, Stimulus
 from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_stimulus(tool: str, days_ago: int = 0) -> Stimulus:
     return Stimulus(
@@ -66,7 +65,8 @@ class TestSense:
         mock_collector = MagicMock(spec=SensorySystem)
         mock_collector.recall_since.return_value = []
         sub = ExecutiveSubstrate(
-            constitution_path=genome, collector=mock_collector,
+            constitution_path=genome,
+            collector=mock_collector,
         )
         rules = sub.sense()
         assert len(rules) >= 3
@@ -83,7 +83,8 @@ class TestSense:
             _make_stimulus("naming_check"),
         ]
         sub = ExecutiveSubstrate(
-            constitution_path=genome, collector=mock_collector,
+            constitution_path=genome,
+            collector=mock_collector,
         )
         rules = sub.sense()
         bio_rule = next(r for r in rules if r["title"] == "Use biological names")
@@ -97,7 +98,8 @@ class TestSense:
             _make_stimulus("totally_unrelated_tool"),
         ]
         sub = ExecutiveSubstrate(
-            constitution_path=genome, collector=mock_collector,
+            constitution_path=genome,
+            collector=mock_collector,
         )
         rules = sub.sense()
         for r in rules:
@@ -117,7 +119,8 @@ class TestSense:
         gap.references = ["file_a.py", "file_b.py"]
         mock_scan.return_value = [gap]
         sub = ExecutiveSubstrate(
-            constitution_path=genome, collector=mock_collector,
+            constitution_path=genome,
+            collector=mock_collector,
         )
         rules = sub.sense()
         gap_rules = [r for r in rules if r.get("precision_gap")]
@@ -134,7 +137,8 @@ class TestSense:
         gap.closed = True
         mock_scan.return_value = [gap]
         sub = ExecutiveSubstrate(
-            constitution_path=genome, collector=mock_collector,
+            constitution_path=genome,
+            collector=mock_collector,
         )
         rules = sub.sense()
         gap_rules = [r for r in rules if r.get("precision_gap")]

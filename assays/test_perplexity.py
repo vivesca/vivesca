@@ -36,7 +36,7 @@ def _run(
     if env_extra:
         env.update(env_extra)
     return subprocess.run(
-        [str(SCRIPT)] + list(args),
+        [str(SCRIPT), *list(args)],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -75,7 +75,9 @@ printf '%s' '{b64}' | base64 -d
 
 
 def _run_with_fake_curl(
-    mode: str, query: str, response_body: str,
+    mode: str,
+    query: str,
+    response_body: str,
 ) -> tuple[subprocess.CompletedProcess, dict]:
     """Run perplexity.sh with a fake curl; return (proc, captured_request).
 

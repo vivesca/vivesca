@@ -3,17 +3,17 @@ from __future__ import annotations
 """Tests for operons — dataclass, registry, and helper functions."""
 
 import pytest
+
 from metabolon.operons import (
-    Operon,
     OPERONS,
-    dormant,
-    expressed,
-    crystallised,
+    Operon,
     by_enzyme,
     co_regulated,
+    crystallised,
+    dormant,
+    expressed,
     unclaimed_enzymes,
 )
-
 
 # -- Operon dataclass --
 

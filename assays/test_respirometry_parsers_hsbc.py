@@ -14,7 +14,6 @@ from metabolon.respirometry.parsers.hsbc import (
     _parse_transactions,
     extract_hsbc,
 )
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 class TestExtractHsbcDate(unittest.TestCase):
@@ -188,9 +187,7 @@ Total minimum payment due  HKD
         mock_page.extract_text.return_value = mock_pdf_text
         mock_reader.pages = [mock_page]
 
-        with patch(
-            "metabolon.respirometry.parsers.hsbc.PdfReader", return_value=mock_reader
-        ):
+        with patch("metabolon.respirometry.parsers.hsbc.PdfReader", return_value=mock_reader):
             meta, txns = extract_hsbc(Path("/fake/statement.pdf"))
 
         self.assertEqual(meta.statement_date, "2025-03-07")
@@ -215,9 +212,7 @@ Total minimum payment due  HKD
         mock_page.extract_text.return_value = mock_pdf_text
         mock_reader.pages = [mock_page]
 
-        with patch(
-            "metabolon.respirometry.parsers.hsbc.PdfReader", return_value=mock_reader
-        ):
+        with patch("metabolon.respirometry.parsers.hsbc.PdfReader", return_value=mock_reader):
             with self.assertRaises(ValueError) as ctx:
                 extract_hsbc(Path("/fake/statement.pdf"))
 

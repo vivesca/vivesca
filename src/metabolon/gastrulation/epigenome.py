@@ -1,11 +1,9 @@
-
 """vivesca epigenome — scaffold a new epigenome (instance repo).
 
 The genome encodes structure; the epigenome expresses it.
 This command lays down the chromatin scaffold for a new instance:
 credentials, config, constitution, and automation hooks.
 """
-
 
 import subprocess
 from pathlib import Path
@@ -108,6 +106,6 @@ def _initialise_genome_repo(target: Path) -> None:
             capture_output=True,
             timeout=300,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except subprocess.CalledProcessError, FileNotFoundError:
         # git unavailable or failed — epigenome files are still written.
         pass

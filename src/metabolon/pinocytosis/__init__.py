@@ -1,4 +1,3 @@
-
 """Pinocytosis — deterministic context gathering for skills.
 
 Non-specific fluid-phase uptake: the cell drinks from its environment without
@@ -108,7 +107,7 @@ def _parse_todo_item(line: str, section: str) -> dict[str, Any] | None:
         return None
 
     done_marker = m.group("done").strip().lower()
-    done = done_marker in ("x",)
+    done = done_marker == "x"
     raw_text = m.group("text")
 
     tags: dict[str, str] = {}
@@ -495,7 +494,7 @@ def intake_context(
         "budget": sense_budget,
     }
 
-    result: dict[str, Any] = {k: None for k in ALL_SOURCES}
+    result: dict[str, Any] = dict.fromkeys(ALL_SOURCES)
 
     if "date" in include:
         result["date"] = current_date()

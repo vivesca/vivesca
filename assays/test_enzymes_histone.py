@@ -1,7 +1,8 @@
 from __future__ import annotations
-import pytest
+
 from unittest.mock import patch
-from metabolon.enzymes.histone import histone, HistoneResult, _format_search_results
+
+from metabolon.enzymes.histone import HistoneResult, _format_search_results, histone
 from metabolon.morphology import EffectorResult, Vital
 
 

@@ -1,4 +1,3 @@
-
 """Self-assessment of biological design precision.
 
 Three levels:
@@ -12,7 +11,6 @@ to a consumer — constitution, CLAUDE.md, or a skill trigger. Like an orphan
 receptor, the structure exists but nothing in the organism activates it.
 
 """
-
 
 import ast
 import subprocess
@@ -98,7 +96,7 @@ def _detect_orphan_gaps(
                 continue
             try:
                 tree = ast.parse(py_file.read_text())
-            except (SyntaxError, OSError):
+            except SyntaxError, OSError:
                 continue
             for node in ast.walk(tree):
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

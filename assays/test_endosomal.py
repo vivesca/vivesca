@@ -1,8 +1,8 @@
 """Tests for endosomal enzyme module."""
 
-from unittest.mock import patch, ANY
+from unittest.mock import patch
 
-from metabolon.enzymes.endosomal import endosomal, EndosomalResult, EffectorResult
+from metabolon.enzymes.endosomal import EffectorResult, EndosomalResult, endosomal
 from metabolon.organelles import endosomal as endosomal_organelle
 
 
@@ -12,7 +12,10 @@ def test_endosomal_endosomal_unknown_action():
     assert isinstance(result, EffectorResult)
     assert not result.success
     assert "Unknown action" in result.message
-    assert "Valid: search, thread, categorize, archive, mark_read, label, send, filter" in result.message
+    assert (
+        "Valid: search, thread, categorize, archive, mark_read, label, send, filter"
+        in result.message
+    )
 
 
 def test_endosomal_search_missing_query():
@@ -110,7 +113,9 @@ def test_endosomal_endosomal_search_success(mock_invoke):
 
     result = endosomal(action="search", query="meeting")
 
-    mock_invoke.assert_called_once_with("gog", ["gmail", "search", "meeting", "--plain"], timeout=30)
+    mock_invoke.assert_called_once_with(
+        "gog", ["gmail", "search", "meeting", "--plain"], timeout=30
+    )
     assert isinstance(result, EndosomalResult)
     assert result.output == "Found 5 messages"
 
@@ -122,7 +127,9 @@ def test_endosomal_endosomal_thread_success(mock_invoke):
 
     result = endosomal(action="thread", thread_id="12345")
 
-    mock_invoke.assert_called_once_with("gog", ["gmail", "thread", "get", "12345", "--full"], timeout=60)
+    mock_invoke.assert_called_once_with(
+        "gog", ["gmail", "thread", "get", "12345", "--full"], timeout=60
+    )
     assert isinstance(result, EndosomalResult)
     assert result.output == "Full thread content here"
 
@@ -187,7 +194,9 @@ def test_endosomal_endosomal_archive_success(mock_invoke):
 
     result = endosomal(action="archive", message_ids=["msg1", "msg2"])
 
-    mock_invoke.assert_called_once_with("gog", ["gmail", "archive", "--force", "msg1", "msg2"], timeout=30)
+    mock_invoke.assert_called_once_with(
+        "gog", ["gmail", "archive", "--force", "msg1", "msg2"], timeout=30
+    )
     assert isinstance(result, EffectorResult)
     assert result.success
     assert "Archived 2 messages" in result.message
@@ -212,7 +221,9 @@ def test_endosomal_endosomal_mark_read_success(mock_invoke):
 
     result = endosomal(action="mark_read", message_ids=["m1", "m2", "m3"])
 
-    mock_invoke.assert_called_once_with("gog", ["gmail", "mark-read", "--force", "m1", "m2", "m3"], timeout=30)
+    mock_invoke.assert_called_once_with(
+        "gog", ["gmail", "mark-read", "--force", "m1", "m2", "m3"], timeout=30
+    )
     assert isinstance(result, EffectorResult)
     assert result.success
     assert "Marked 3 messages as read" in result.message
@@ -242,17 +253,24 @@ def test_endosomal_endosomal_send_new_email_success(mock_invoke):
         subject="Test Subject",
         body="This is the body",
         cc="cc@example.com",
-        attach=["file1.txt", "file2.txt"]
+        attach=["file1.txt", "file2.txt"],
     )
 
     expected_args = [
-        "gmail", "send",
-        "--to", "recipient@example.com",
-        "--subject", "Test Subject",
-        "--body", "This is the body",
-        "--cc", "cc@example.com",
-        "--attach", "file1.txt",
-        "--attach", "file2.txt"
+        "gmail",
+        "send",
+        "--to",
+        "recipient@example.com",
+        "--subject",
+        "Test Subject",
+        "--body",
+        "This is the body",
+        "--cc",
+        "cc@example.com",
+        "--attach",
+        "file1.txt",
+        "--attach",
+        "file2.txt",
     ]
     mock_invoke.assert_called_once_with("gog", expected_args, timeout=60)
     assert isinstance(result, EffectorResult)
@@ -265,18 +283,17 @@ def test_endosomal_send_reply_success(mock_invoke):
     """Test send action as reply calls invoke_organelle correctly."""
     mock_invoke.return_value = "Reply sent"
 
-    result = endosomal(
-        action="send",
-        reply_to_message_id="msg123",
-        body="My reply here"
-    )
+    result = endosomal(action="send", reply_to_message_id="msg123", body="My reply here")
 
     expected_args = [
-        "gmail", "send",
-        "--reply-to-message-id", "msg123",
+        "gmail",
+        "send",
+        "--reply-to-message-id",
+        "msg123",
         "--reply-all",
         "--quote",
-        "--body", "My reply here"
+        "--body",
+        "My reply here",
     ]
     mock_invoke.assert_called_once_with("gog", expected_args, timeout=60)
     assert isinstance(result, EffectorResult)
@@ -296,17 +313,23 @@ def test_endosomal_filter_all_options(mock_invoke):
         add_label="News",
         archive=True,
         mark_read=True,
-        dry_run=True
+        dry_run=True,
     )
 
     expected_args = [
-        "gmail", "settings", "filters", "create",
-        "--from", "news@example.com",
-        "--subject", "Daily Update",
-        "--add-label", "News",
+        "gmail",
+        "settings",
+        "filters",
+        "create",
+        "--from",
+        "news@example.com",
+        "--subject",
+        "Daily Update",
+        "--add-label",
+        "News",
         "--archive",
         "--mark-read",
-        "--dry-run"
+        "--dry-run",
     ]
     mock_invoke.assert_called_once_with("gog", expected_args, timeout=15)
     assert isinstance(result, EffectorResult)
@@ -321,10 +344,7 @@ def test_endosomal_filter_no_dry_run(mock_invoke):
     mock_invoke.return_value = "Filter applied"
 
     result = endosomal(
-        action="filter",
-        from_sender="news@example.com",
-        archive=True,
-        dry_run=False
+        action="filter", from_sender="news@example.com", archive=True, dry_run=False
     )
 
     assert "[DRY RUN] " not in result.message
@@ -390,7 +410,10 @@ def test_extract_subject():
 
 def test_endosomal_classify_subject_action_required():
     """Test classify_subject detects action required."""
-    assert endosomal_organelle.classify_subject("[Action Required] Meeting today") == "action_required"
+    assert (
+        endosomal_organelle.classify_subject("[Action Required] Meeting today")
+        == "action_required"
+    )
     assert endosomal_organelle.classify_subject("[URGENT] Finish report") == "action_required"
 
 

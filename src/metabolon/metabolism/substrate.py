@@ -1,4 +1,3 @@
-
 """Substrate protocol — the contract any metabolism target must satisfy.
 
 Any artifact with three properties is a metabolism target:
@@ -9,7 +8,6 @@ Any artifact with three properties is a metabolism target:
 The Substrate protocol encodes these as four phases:
     sense → candidates → act → report
 """
-
 
 from typing import Protocol, runtime_checkable
 

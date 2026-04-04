@@ -4,7 +4,6 @@ Tools:
   assay — track life experiments: list, check, close
 """
 
-
 from pathlib import Path
 
 from fastmcp.tools.function_tool import tool

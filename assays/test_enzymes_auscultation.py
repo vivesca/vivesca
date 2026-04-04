@@ -6,12 +6,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fn():
     """Return the raw function behind the @tool decorator."""
@@ -24,6 +22,7 @@ def _fn():
 # ---------------------------------------------------------------------------
 # _read_log_lines unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestReadLogLines:
     """Tests for _read_log_lines helper."""
@@ -65,11 +64,12 @@ class TestReadLogLines:
 # _glob_logs unit tests
 # ---------------------------------------------------------------------------
 
+
 class TestGlobLogs:
     """Tests for _glob_logs helper."""
 
     def test_returns_matching_logs(self, tmp_path):
-        from metabolon.enzymes.auscultation import _glob_logs, _LOG_DIR, _TMP_DIR
+        from metabolon.enzymes.auscultation import _glob_logs
 
         log_dir = tmp_path / "logs"
         log_dir.mkdir()
@@ -105,6 +105,7 @@ class TestGlobLogs:
 # ---------------------------------------------------------------------------
 # auscultation — action: logs
 # ---------------------------------------------------------------------------
+
 
 class TestAuscultationLogs:
     """Tests for auscultation with action='logs'."""
@@ -154,7 +155,7 @@ class TestAuscultationLogs:
     def test_log_name_not_found(self, tmp_path):
         log_dir, tmp_dir = self._setup_logs(tmp_path)
         result = self._call(log_dir, tmp_dir, log_name="missing.log")
-        assert "Log not found: missing.log" == result
+        assert result == "Log not found: missing.log"
 
     def test_no_log_files(self, tmp_path):
         empty = tmp_path / "empty"
@@ -190,6 +191,7 @@ class TestAuscultationLogs:
 # ---------------------------------------------------------------------------
 # auscultation — action: errors
 # ---------------------------------------------------------------------------
+
 
 class TestAuscultationErrors:
     """Tests for auscultation with action='errors'."""
@@ -236,9 +238,7 @@ class TestAuscultationErrors:
     def test_no_normalization_when_disabled(self, tmp_path):
         log_dir = tmp_path / "logs"
         log_dir.mkdir()
-        (log_dir / "app.log").write_text(
-            "ERROR error 100\nERROR error 200\nERROR error 100\n"
-        )
+        (log_dir / "app.log").write_text("ERROR error 100\nERROR error 200\nERROR error 100\n")
         tmp_dir = tmp_path / "tmp"
         tmp_dir.mkdir()
         result = self._call_errors(log_dir, tmp_dir, normalize_numbers=False)
@@ -267,8 +267,12 @@ class TestAuscultationErrors:
         tmp_dir.mkdir()
         result = self._call_errors(log_dir, tmp_dir, top_n=2)
         data_lines = [
-            l for l in result.splitlines()
-            if l and not l.startswith("-") and not l.startswith("Error freq") and "Pattern" not in l
+            l
+            for l in result.splitlines()
+            if l
+            and not l.startswith("-")
+            and not l.startswith("Error freq")
+            and "Pattern" not in l
         ]
         # top_n=2 means only 2 most-frequent normalized patterns appear
         assert len(data_lines) == 2
@@ -292,6 +296,7 @@ class TestAuscultationErrors:
 # ---------------------------------------------------------------------------
 # auscultation — unknown action
 # ---------------------------------------------------------------------------
+
 
 class TestAuscultationUnknownAction:
     """Tests for unknown action handling."""

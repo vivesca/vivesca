@@ -35,7 +35,7 @@ def _load_ns(
     if eff_dir is not None:
         code = code.replace(
             'Path.home() / "germline" / "effectors"',
-            f"Path({repr(str(eff_dir))})",
+            f"Path({str(eff_dir)!r})",
         )
 
     # Always exec with __name__ != "__main__" so the main block is skipped
@@ -134,7 +134,9 @@ def test_doctype_plist_passes_validation(tmp_path):
     launch_dir = tmp_path / "Library" / "LaunchAgents"
     launch_dir.mkdir(parents=True)
     dt_plist = launch_dir / "com.terry.doctype.plist"
-    dt_plist.write_text('<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN">\n<plist><dict/></plist>')
+    dt_plist.write_text(
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN">\n<plist><dict/></plist>'
+    )
 
     ns = _load_ns(launch_dir, tmp_path / "nope", tmp_path / "test.log")
     issues = ns["check"]()
@@ -152,10 +154,14 @@ def test_drift_detected_when_source_differs(tmp_path):
     source_dir.mkdir(parents=True)
 
     deployed = launch_dir / "com.terry.drift.plist"
-    deployed.write_text('<?xml version="1.0"?>\n<plist><dict><key>A</key><string>1</string></dict></plist>')
+    deployed.write_text(
+        '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>1</string></dict></plist>'
+    )
 
     source = source_dir / "com.terry.drift.plist"
-    source.write_text('<?xml version="1.0"?>\n<plist><dict><key>A</key><string>2</string></dict></plist>')
+    source.write_text(
+        '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>2</string></dict></plist>'
+    )
 
     ns = _load_ns(launch_dir, source_dir, tmp_path / "test.log")
     issues = ns["check"]()
@@ -276,7 +282,7 @@ def test_binary_files_skipped(tmp_path):
     eff_dir = tmp_path / "germline" / "effectors"
     eff_dir.mkdir(parents=True)
     bin_file = eff_dir / "binary-tool"
-    bin_file.write_bytes(b'\x00\x00\x00sk-abcdefghijklmnopqrstuvwxyz123456\x00')
+    bin_file.write_bytes(b"\x00\x00\x00sk-abcdefghijklmnopqrstuvwxyz123456\x00")
 
     launch_dir = tmp_path / "Library" / "LaunchAgents"
     launch_dir.mkdir(parents=True)
@@ -312,7 +318,7 @@ def test_vivesca_plists_checked(tmp_path):
     source_dir.mkdir(parents=True)
 
     deployed = launch_dir / "com.vivesca.app.plist"
-    deployed.write_text('not xml at all')
+    deployed.write_text("not xml at all")
 
     mock_result = MagicMock()
     mock_result.returncode = 1
@@ -357,6 +363,7 @@ def test_main_exits_0_on_clean(capsys, tmp_path):
             log.parent.mkdir(exist_ok=True)
             with open(log, "a") as f:
                 from datetime import datetime
+
                 f.write(f"\n[{datetime.now().isoformat()}]\n{output}\n")
             ns["sys"].exit(1)
         else:
@@ -372,7 +379,7 @@ def test_main_exits_1_on_issues(capsys, tmp_path):
     launch_dir = tmp_path / "Library" / "LaunchAgents"
     launch_dir.mkdir(parents=True)
     bad_plist = launch_dir / "com.terry.bad.plist"
-    bad_plist.write_text('not-xml')
+    bad_plist.write_text("not-xml")
     eff_dir = tmp_path / "germline" / "effectors"
     eff_dir.mkdir(parents=True)
     log = tmp_path / "logs" / "test.log"
@@ -396,12 +403,13 @@ def test_main_exits_1_on_issues(capsys, tmp_path):
     sys_mock = ns["sys"]
     # Run main logic
     issues = ns["check"]()
-    assert len(issues) > 0, f"Expected issues but got none"
+    assert len(issues) > 0, "Expected issues but got none"
     output = "LaunchAgent health issues:\n" + "\n".join(f"  - {i}" for i in issues)
     print(output)
     log.parent.mkdir(exist_ok=True)
     with open(log, "a") as f:
         from datetime import datetime
+
         f.write(f"\n[{datetime.now().isoformat()}]\n{output}\n")
     sys_mock.exit(1)
 

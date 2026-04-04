@@ -1,6 +1,6 @@
 """Tests for morphology base models (Secretion, Pathology, Vesicle, Vital, EffectorResult)."""
 
-from metabolon.morphology.base import Secretion, Pathology, Vesicle, Vital, EffectorResult
+from metabolon.morphology.base import EffectorResult, Pathology, Secretion, Vesicle, Vital
 
 
 def test_secretion_basic():

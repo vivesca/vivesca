@@ -1,9 +1,9 @@
 from __future__ import annotations
-import pytest
-from unittest.mock import patch
+
+import builtins
 import sys
 import types
-import builtins
+from unittest.mock import patch
 
 from metabolon.resources.operons import express_operon_map
 
@@ -24,6 +24,7 @@ def test_express_operon_map_import_error():
 
 class MockOperon:
     """Mock operon for testing."""
+
     def __init__(self, reaction, product, expressed, precipitation, enzymes=None):
         self.reaction = reaction
         self.product = product
@@ -40,57 +41,59 @@ def test_express_operon_map_success():
             product="Glucose degradation pathway",
             expressed=True,
             precipitation="soluble",
-            enzymes=["hexokinase", "phosphofructokinase"]
+            enzymes=["hexokinase", "phosphofructokinase"],
         ),
         MockOperon(
             reaction="gluconeogenesis",
             product="Glucose synthesis from non-carbohydrate precursors",
             expressed=False,
-            precipitation="soluble"
+            precipitation="soluble",
         ),
         MockOperon(
             reaction="silica_biomineralization",
             product="Long protein that describes silica biomineralization process with really really long name that should get truncated",
             expressed=True,
             precipitation="crystallised",
-            enzymes=["silicatein"]
+            enzymes=["silicatein"],
         ),
     ]
-    
+
     # Create mock module
     mock_module = types.ModuleType("metabolon.operons")
     mock_module.OPERONS = mock_operons
-    
+
     # Save original module and inject mock
     original_module = sys.modules.pop("metabolon.operons", None)
     sys.modules["metabolon.operons"] = mock_module
-    
+
     try:
         result = express_operon_map()
-        
+
         # Check header
         assert "# Operon Map" in result
         assert "**3**" in result
         assert "2 expressed" in result
         assert "1 dormant" in result
         assert "1 crystallised" in result
-        
+
         # Check expressed section
         assert "## Expressed" in result
         assert "glycolysis" in result
         assert "hexokinase" in result
-        
+
         # Check that long product gets truncated to 60 chars + ...
-        product_length = len("Long protein that describes silica biomineralization process with really really long name that should get truncated")
+        product_length = len(
+            "Long protein that describes silica biomineralization process with really really long name that should get truncated"
+        )
         assert product_length > 60
         assert "..." in result
         # Truncated to 60 chars + "...", so total length of product in output is 63
         assert "should get truncated" not in result  # It's beyond 60 chars, so gets cut off
-        
+
         # Check dormant section
         assert "## Dormant" in result
         assert "gluconeogenesis" in result
-        
+
         # Check that crystallised is counted correctly
         crystallised_count = sum(1 for e in mock_operons if e.precipitation == "crystallised")
         assert crystallised_count == 1

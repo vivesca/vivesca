@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from metabolon.enzymes.sporulation import (
-    _gen_codename,
+    SporulationListResult,
+    SporulationLoadResult,
+    SporulationSaveResult,
     _checkpoint_path,
     _existing_codenames,
+    _gen_codename,
+    _list,
+    _load,
     _purge_stale,
     _save,
-    _load,
-    _list,
     sporulation,
-    SporulationSaveResult,
-    SporulationLoadResult,
-    SporulationListResult,
 )
 from metabolon.morphology import Secretion
 
@@ -61,6 +60,7 @@ def test_purge_stale_removes_old_files(tmp_path):
     # Set old_file mtime to 8 days ago
     eight_days_ago = (datetime.now(UTC) - timedelta(days=8)).timestamp()
     import os
+
     os.utime(old_file, (eight_days_ago, eight_days_ago))
 
     with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", checkpoint_dir):
@@ -262,7 +262,7 @@ def test_save_uses_context_prefix_when_no_summary(tmp_path):
         )
     content = Path(result.path).read_text()
     # The description line should contain a truncated version
-    desc_line = [l for l in content.splitlines() if l.startswith("description:")][0]
+    desc_line = next(l for l in content.splitlines() if l.startswith("description:"))
     assert "A" * 80 in desc_line
 
 
@@ -286,6 +286,7 @@ def test_save_reports_purged_checkpoints(tmp_path):
     stale.write_text("stale")
     eight_days_ago = (datetime.now(UTC) - timedelta(days=8)).timestamp()
     import os
+
     os.utime(stale, (eight_days_ago, eight_days_ago))
     with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
         result = _save(
@@ -339,9 +340,7 @@ def test_list_sorts_by_path(tmp_path):
 def test_sporulation_save_dispatch():
     """sporulation dispatches to _save on action='save'."""
     with patch("metabolon.enzymes.sporulation._save") as mock_save:
-        mock_save.return_value = SporulationSaveResult(
-            codename="x", path="/p", purged=[]
-        )
+        mock_save.return_value = SporulationSaveResult(codename="x", path="/p", purged=[])
         result = sporulation(
             action="save",
             context="c",
@@ -363,9 +362,7 @@ def test_sporulation_save_dispatch():
 def test_sporulation_load_dispatch():
     """sporulation dispatches to _load on action='load'."""
     with patch("metabolon.enzymes.sporulation._load") as mock_load:
-        mock_load.return_value = SporulationLoadResult(
-            codename="y", content="z", found=True
-        )
+        mock_load.return_value = SporulationLoadResult(codename="y", content="z", found=True)
         result = sporulation(action="load", codename="y", consume=False)
         mock_load.assert_called_once_with(codename="y", consume=False)
     assert isinstance(result, SporulationLoadResult)
@@ -374,9 +371,7 @@ def test_sporulation_load_dispatch():
 def test_sporulation_load_default_consume_true():
     """sporulation load passes consume=True by default."""
     with patch("metabolon.enzymes.sporulation._load") as mock_load:
-        mock_load.return_value = SporulationLoadResult(
-            codename="z", content="", found=False
-        )
+        mock_load.return_value = SporulationLoadResult(codename="z", content="", found=False)
         sporulation(action="load", codename="z")
         mock_load.assert_called_once_with(codename="z", consume=True)
 
@@ -403,6 +398,7 @@ def test_result_models_are_pydantic():
 def test_gen_codename_fallback_returns_something():
     """_gen_codename returns a valid name even when every combo is taken."""
     from metabolon.enzymes.sporulation import _ADJECTIVES, _NOUNS
+
     all_names = {f"{a}-{n}" for a in _ADJECTIVES for n in _NOUNS}
     name = _gen_codename(all_names)
     assert "-" in name
@@ -418,6 +414,7 @@ def test_gen_codename_empty_existing():
 def test_purge_stale_boundary_not_purged(tmp_path):
     """File just under 7 days old is NOT purged."""
     import os
+
     f = tmp_path / "checkpoint_fresh-fox.md"
     f.write_text("data")
     six_days = (datetime.now(UTC) - timedelta(days=6, hours=20)).timestamp()
@@ -430,9 +427,7 @@ def test_purge_stale_boundary_not_purged(tmp_path):
 
 def test_list_no_description_in_file(tmp_path):
     """_list returns empty description when file has no description line."""
-    (tmp_path / "checkpoint_plain-owl.md").write_text(
-        "---\nname: plain\n---\njust content\n"
-    )
+    (tmp_path / "checkpoint_plain-owl.md").write_text("---\nname: plain\n---\njust content\n")
     with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
         result = _list()
     assert len(result.checkpoints) == 1

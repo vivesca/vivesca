@@ -7,8 +7,6 @@ All CLI calls are mocked; no external binaries invoked.
 
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.enzymes.efferens import BINARY, efferens
 
 _CLI = "metabolon.enzymes.efferens.run_cli"
@@ -55,7 +53,7 @@ class TestPost:
 
     @patch(_CLI, return_value="ok")
     def test_custom_params(self, mock_cli):
-        result = efferens(
+        efferens(
             "post",
             message="urgent",
             sender="admin",
@@ -69,7 +67,7 @@ class TestPost:
 
     @patch(_CLI, return_value="ok")
     def test_with_subject(self, mock_cli):
-        result = efferens(
+        efferens(
             "post",
             message="body",
             sender="sys",
@@ -81,7 +79,7 @@ class TestPost:
 
     @patch(_CLI, return_value="ok")
     def test_without_subject_no_flag(self, mock_cli):
-        result = efferens("post", message="body", sender="sys")
+        efferens("post", message="body", sender="sys")
         args = mock_cli.call_args[0][1]
         assert "--subject" not in args
 

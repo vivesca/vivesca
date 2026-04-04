@@ -5,10 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.sortase.diff_viewer import find_task_commit, format_diff_summary, get_task_diff
-
 
 # ---------------------------------------------------------------------------
 # find_task_commit
@@ -52,10 +49,7 @@ class TestFindTaskCommit:
     def test_returns_first_match_when_multiple(self, mock_run):
         completed = MagicMock()
         completed.returncode = 0
-        completed.stdout = (
-            "bbb2222 sortase: widget parser v1\n"
-            "ccc3333 sortase: widget parser v2\n"
-        )
+        completed.stdout = "bbb2222 sortase: widget parser v1\nccc3333 sortase: widget parser v2\n"
         mock_run.return_value = completed
 
         result = find_task_commit("widget parser", Path("/proj"))
@@ -131,7 +125,10 @@ class TestFindTaskCommit:
         proj = Path("/some/project")
         find_task_commit("anything", proj)
         mock_run.assert_called_once()
-        assert mock_run.call_args.kwargs.get("cwd") == proj or mock_run.call_args[1].get("cwd") == proj
+        assert (
+            mock_run.call_args.kwargs.get("cwd") == proj
+            or mock_run.call_args[1].get("cwd") == proj
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -237,15 +234,12 @@ class TestFormatDiffSummary:
         assert "beta.py" in result
 
     def test_files_sorted_alphabetically(self):
-        diff = (
-            "diff --git b/zebra.py b/zebra.py\n"
-            "+z\n"
-            "diff --git a/apple.py b/apple.py\n"
-            "+a\n"
-        )
+        diff = "diff --git b/zebra.py b/zebra.py\n+z\ndiff --git a/apple.py b/apple.py\n+a\n"
         result = format_diff_summary(diff)
         lines = result.splitlines()
-        file_lines = [l for l in lines if l.strip() and not l.strip().startswith(("Files", "Lines"))]
+        file_lines = [
+            l for l in lines if l.strip() and not l.strip().startswith(("Files", "Lines"))
+        ]
         assert file_lines[0].strip().startswith("apple.py")
         assert file_lines[1].strip().startswith("zebra.py")
 
@@ -267,10 +261,7 @@ class TestFormatDiffSummary:
         assert "Lines: +0 / -0" in result
 
     def test_path_with_subdirectories(self):
-        diff = (
-            "diff --git a/src/deep/file.py b/src/deep/file.py\n"
-            "+x\n"
-        )
+        diff = "diff --git a/src/deep/file.py b/src/deep/file.py\n+x\n"
         result = format_diff_summary(diff)
         assert "src/deep/file.py" in result
         assert "Lines: +1 / -0" in result

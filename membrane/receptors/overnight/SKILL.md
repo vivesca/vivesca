@@ -29,7 +29,7 @@ Check results from the overnight legatus runs. Each task runs as its own LaunchA
 |------|------|------|
 | git-health | 00:30 | Daily |
 | vault-health-check | 01:00 | Daily |
-| lustro-digest | 01:30 | Daily |
+| endocytosis-digest | 01:30 | Daily |
 | solutions-dedup | 02:00 | Sunday |
 | todo-stale-sweep | 02:15 | Sunday |
 | notes-orphan-scan | 02:30 | Sunday |

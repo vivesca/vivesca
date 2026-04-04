@@ -5,10 +5,18 @@ from metabolon.metabolism.substrate import Substrate
 
 class ConcreteSubstrate:
     name = "test"
-    def sense(self, days=30): return [{"item": "a"}]
-    def candidates(self, sensed): return [s for s in sensed if s.get("item") == "a"]
-    def act(self, candidate): return f"acted on {candidate['item']}"
-    def report(self, sensed, acted): return f"{len(sensed)} sensed, {len(acted)} acted"
+
+    def sense(self, days=30):
+        return [{"item": "a"}]
+
+    def candidates(self, sensed):
+        return [s for s in sensed if s.get("item") == "a"]
+
+    def act(self, candidate):
+        return f"acted on {candidate['item']}"
+
+    def report(self, sensed, acted):
+        return f"{len(sensed)} sensed, {len(acted)} acted"
 
 
 def test_substrate_concrete_is_substrate():
@@ -55,16 +63,18 @@ def test_substrate_report_format():
 
 def test_non_substrate_does_not_match():
     """Verify incomplete implementations don't count as Substrate."""
+
     class NotASubstrate:
         pass
+
     assert not isinstance(NotASubstrate(), Substrate)
 
 
 def test_all_substrate_implementations_follow_protocol():
     """Verify all existing substrate implementations follow the protocol."""
     from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
-    from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
     from metabolon.metabolism.substrates.spending import SpendingSubstrate
+    from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
 
     assert isinstance(ExecutiveSubstrate(), Substrate)
     assert isinstance(PhenotypeSubstrate(), Substrate)

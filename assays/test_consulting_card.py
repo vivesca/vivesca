@@ -43,7 +43,13 @@ class TestGenerate:
         assert r.returncode == 0, r.stderr
         assert out.exists()
         content = out.read_text()
-        for section in ("## Problem", "## Why It Matters", "## Approach", "## Considerations", "## Capco Angle"):
+        for section in (
+            "## Problem",
+            "## Why It Matters",
+            "## Approach",
+            "## Considerations",
+            "## Capco Angle",
+        ):
             assert section in content, f"Missing section: {section}"
 
     def test_card_contains_todo_placeholders(self, tmp_path: Path):

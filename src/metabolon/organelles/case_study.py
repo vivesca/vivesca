@@ -1,4 +1,3 @@
-
 """case_study — package consulting use cases into presentation-ready formats.
 
 Takes a use case markdown file and generates:
@@ -7,7 +6,6 @@ Takes a use case markdown file and generates:
 - Key metrics extraction
 - Client-safe version (anonymised)
 """
-
 
 import re
 from dataclasses import dataclass, field

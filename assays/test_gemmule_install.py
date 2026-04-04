@@ -4,7 +4,6 @@ import os
 import subprocess
 from pathlib import Path
 
-
 INSTALL_SCRIPT = Path.home() / "germline" / "gemmule" / "install.sh"
 DOCKERFILE = Path.home() / "germline" / "Dockerfile"
 GEMMULE_DIR = Path.home() / "germline" / "gemmule"
@@ -59,7 +58,7 @@ def test_install_script_has_required_sections() -> None:
 
 def test_install_script_has_arch_mapping() -> None:
     source = INSTALL_SCRIPT.read_text()
-    assert 'MACHINE_ARCH=$(uname -m)' in source
+    assert "MACHINE_ARCH=$(uname -m)" in source
     assert "x86_64)  GO_ARCH=amd64; RUST_ARCH=x86_64; OP_ARCH=amd64 ;;" in source
     assert "aarch64) GO_ARCH=arm64; RUST_ARCH=aarch64; OP_ARCH=arm64 ;;" in source
 

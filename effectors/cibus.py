@@ -123,7 +123,7 @@ def resolve_id(name: str, table: dict[str, int], label: str) -> int | None:
         print(f"Ambiguous {label} '{name}'. Matches: {opts}", file=sys.stderr)
         return matches[0][1]
     print(
-        f"Unknown {label} '{name}'. Known: {', '.join(sorted(set(str(v) + ':' + k for k, v in table.items())))}",
+        f"Unknown {label} '{name}'. Known: {', '.join(sorted({str(v) + ':' + k for k, v in table.items()}))}",
         file=sys.stderr,
     )
     return None

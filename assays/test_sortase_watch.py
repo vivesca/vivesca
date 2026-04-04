@@ -18,6 +18,7 @@ def _make_plan(directory: Path, name: str, content: str = "# Plan\nDo the thing.
     plan_path.write_text(content, encoding="utf-8")
     return plan_path
 
+
 def test_watch_moves_done_on_success(tmp_path: Path) -> None:
     """Successful plans move to done/ subdirectory."""
     watch_dir = tmp_path / "watch"
@@ -37,12 +38,15 @@ def test_watch_moves_done_on_success(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-a", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-a", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir), "--interval", "5"],
             catch_exceptions=False,
@@ -72,12 +76,15 @@ def test_watch_moves_done_on_failure(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-b", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-b", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir)],
             catch_exceptions=False,
@@ -109,7 +116,10 @@ def test_watch_summary_line(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-c", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-c", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
@@ -143,7 +153,10 @@ def test_watch_summary_line_failure(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-d", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-d", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="gemini")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
@@ -180,19 +193,24 @@ def test_watch_log_file(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-e", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-e", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir), "--log-file", str(log_file)],
             catch_exceptions=False,
         )
 
     assert log_file.exists()
-    entries = [json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()]
+    entries = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()
+    ]
     assert len(entries) == 1
     entry = entries[0]
     assert entry["plan"] == "plan-e.md"
@@ -227,12 +245,15 @@ def test_watch_max_concurrent_flag(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-x", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-x", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", side_effect=fake_execute_tasks),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir), "--max-concurrent", "2"],
             catch_exceptions=False,
@@ -259,7 +280,7 @@ def test_watch_exception_moves_to_done(tmp_path: Path) -> None:
         patch("metabolon.sortase.cli.decompose_plan", side_effect=RuntimeError("boom")),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir), "--log-file", str(log_file)],
             catch_exceptions=False,
@@ -268,7 +289,9 @@ def test_watch_exception_moves_to_done(tmp_path: Path) -> None:
     done_dir = watch_dir / "done"
     assert (done_dir / "plan-f.md").exists()
     # Exception path should still write log entry
-    entries = [json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()]
+    entries = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()
+    ]
     assert len(entries) == 1
     assert entries[0]["success"] is False
     assert "boom" in entries[0].get("error", "")
@@ -289,13 +312,15 @@ def test_watch_log_file_with_exception(tmp_path: Path) -> None:
         patch("metabolon.sortase.cli.decompose_plan", side_effect=ValueError("parse error")),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir), "--log-file", str(log_file)],
             catch_exceptions=False,
         )
 
-    entries = [json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()]
+    entries = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()
+    ]
     entry = entries[0]
     assert entry["plan"] == "plan-g.md"
     assert entry["success"] is False
@@ -320,12 +345,15 @@ def test_watch_no_log_file_by_default(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with (
-        patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-h", description="do stuff")]),
+        patch(
+            "metabolon.sortase.cli.decompose_plan",
+            return_value=[MagicMock(name="plan-h", description="do stuff")],
+        ),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
-        result = runner.invoke(
+        runner.invoke(
             main,
             ["watch", str(watch_dir), "-p", str(project_dir)],
             catch_exceptions=False,

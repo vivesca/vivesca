@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from metabolon.enzymes.mitosis import mitosis
 from metabolon.morphology import EffectorResult, Vital
@@ -36,8 +35,7 @@ class TestMitosisEnzyme:
         # Mock fly_cmd output with recent timestamps (less than 30 minutes old)
         current_time = 1717200000  # epoch
         mock_fly_cmd.return_value = MagicMock(
-            stdout=f"{current_time}\n---\n{current_time}",
-            returncode=0
+            stdout=f"{current_time}\n---\n{current_time}", returncode=0
         )
 
         with patch("time.time", return_value=current_time + 600):  # 10 minutes later
@@ -56,8 +54,7 @@ class TestMitosisEnzyme:
         stale_time = 1717200000
         current_time = stale_time + 3600  # 1 hour later
         mock_fly_cmd.return_value = MagicMock(
-            stdout=f"{stale_time}\n---\n{stale_time}",
-            returncode=0
+            stdout=f"{stale_time}\n---\n{stale_time}", returncode=0
         )
 
         with patch("time.time", return_value=current_time):

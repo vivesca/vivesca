@@ -18,20 +18,12 @@ Usage:
 """
 
 import argparse
-import json
 import re
 import sys
 from datetime import date
 from pathlib import Path
 
-CARDS_DIR = (
-    Path.home()
-    / "epigenome"
-    / "chromatin"
-    / "euchromatin"
-    / "consulting"
-    / "cards"
-)
+CARDS_DIR = Path.home() / "epigenome" / "chromatin" / "euchromatin" / "consulting" / "cards"
 
 SYSTEM_PROMPT = """\
 You are a management consultant at a top-tier firm. Given a topic, produce a
@@ -125,9 +117,7 @@ def write_card(topic: str, body: str) -> Path:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate a structured consulting insight card."
-    )
+    parser = argparse.ArgumentParser(description="Generate a structured consulting insight card.")
     parser.add_argument(
         "topic",
         nargs="?",

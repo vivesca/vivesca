@@ -29,7 +29,7 @@ def load_state() -> dict:
     if STATE_FILE.exists():
         try:
             return json.loads(STATE_FILE.read_text())
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             pass
     return {"last_status": "ok"}
 
@@ -69,7 +69,9 @@ def check_service() -> tuple[bool, str]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Wechat2RSS health check — alerts via Telegram when service is unhealthy.")
+    parser = argparse.ArgumentParser(
+        description="Wechat2RSS health check — alerts via Telegram when service is unhealthy."
+    )
     parser.parse_args()
 
     state = load_state()
@@ -79,10 +81,7 @@ def main():
     prev = state.get("last_status", "ok")
 
     if current == "failing" and prev == "ok":
-        send_alert(
-            f"🔴 Wechat2RSS unhealthy — {detail}\n"
-            f"Re-auth: localhost:8001 → scan QR"
-        )
+        send_alert(f"🔴 Wechat2RSS unhealthy — {detail}\nRe-auth: localhost:8001 → scan QR")
     elif current == "ok" and prev == "failing":
         send_alert(f"✅ Wechat2RSS recovered — {detail}")
 

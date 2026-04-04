@@ -1,4 +1,5 @@
 """Tests for metabolon.pinocytosis.ecdysis."""
+
 from __future__ import annotations
 
 import subprocess
@@ -9,10 +10,10 @@ import pytest
 
 from metabolon.pinocytosis.ecdysis import intake, main
 
-
 # ---------------------------------------------------------------------------
 # intake()
 # ---------------------------------------------------------------------------
+
 
 def test_intake_raises_not_implemented():
     """intake() is a stub and must raise NotImplementedError."""
@@ -41,6 +42,7 @@ def test_intake_error_message_mentions_migration():
 # ---------------------------------------------------------------------------
 # main() CLI
 # ---------------------------------------------------------------------------
+
 
 def test_main_propagates_not_implemented(capsys):
     """main() calls intake() which raises, so the error propagates."""

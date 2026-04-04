@@ -25,7 +25,6 @@ from metabolon.respirometry.parsers.boc import (
 )
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
-
 # =============================================================================
 # Sample PDF text fixtures (mocked content)
 # =============================================================================
@@ -560,7 +559,7 @@ class TestExtractBoc:
         mock_reader.pages = [mock_page]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_boc(Path("/fake/path.pdf"))
+        _meta, txns = extract_boc(Path("/fake/path.pdf"))
 
         merchants = [t.merchant.upper() for t in txns]
         assert not any("PPS PAYMENT" in m for m in merchants)
@@ -574,7 +573,7 @@ class TestExtractBoc:
         mock_reader.pages = [mock_page]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_boc(Path("/fake/path.pdf"))
+        meta, _txns = extract_boc(Path("/fake/path.pdf"))
 
         assert meta.period_start == "03 Feb 2026"
 
@@ -630,7 +629,7 @@ CURRENT BALANCE           1,800.00
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_boc(Path("/fake/path.pdf"))
+        _meta, txns = extract_boc(Path("/fake/path.pdf"))
 
         assert len(txns) == 2
 
@@ -644,7 +643,7 @@ CURRENT BALANCE           1,800.00
         mock_pdf_reader.return_value = mock_reader
 
         # Should not raise
-        meta, txns = extract_boc(Path("/fake/path.pdf"))
+        meta, _txns = extract_boc(Path("/fake/path.pdf"))
         assert isinstance(meta, RespirogramMeta)
 
     @patch("metabolon.respirometry.parsers.boc.PdfReader")

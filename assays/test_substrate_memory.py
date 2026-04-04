@@ -1,12 +1,9 @@
 """Tests for metabolon/metabolism/substrates/memory.py — ConsolidationSubstrate."""
+
 from __future__ import annotations
 
 import textwrap
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 from metabolon.metabolism.substrates.memory import (
     CONSOLIDATION_PATHWAYS,
@@ -15,10 +12,10 @@ from metabolon.metabolism.substrates.memory import (
     _parse_frontmatter,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_md(name: str, mem_type: str, body: str = "") -> str:
     """Return a markdown string with frontmatter."""
@@ -35,6 +32,7 @@ def _make_md(name: str, mem_type: str, body: str = "") -> str:
 # ---------------------------------------------------------------------------
 # _parse_frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestParseFrontmatter:
     def test_basic(self):
@@ -53,6 +51,7 @@ class TestParseFrontmatter:
 # ---------------------------------------------------------------------------
 # _keyword_overlap
 # ---------------------------------------------------------------------------
+
 
 class TestKeywordOverlap:
     def test_shared_words(self):
@@ -75,6 +74,7 @@ class TestKeywordOverlap:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.sense
 # ---------------------------------------------------------------------------
+
 
 class TestSense:
     def test_empty_dir(self, tmp_path):
@@ -136,12 +136,13 @@ class TestSense:
 # ConsolidationSubstrate.candidates
 # ---------------------------------------------------------------------------
 
+
 class TestCandidates:
     def _make_sensed(self, mem_type: str, overlap_size: int = 0, signal: bool = False):
         return {
             "name": "test",
             "type": mem_type,
-            "constitution_overlap": set(f"word{i}" for i in range(overlap_size)),
+            "constitution_overlap": {f"word{i}" for i in range(overlap_size)},
             "signal_match": signal,
             "target": CONSOLIDATION_PATHWAYS.get(mem_type, ("Unknown", "")),
         }
@@ -192,6 +193,7 @@ class TestCandidates:
 # ConsolidationSubstrate.act
 # ---------------------------------------------------------------------------
 
+
 class TestAct:
     def test_prune(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
@@ -200,7 +202,9 @@ class TestAct:
 
     def test_already_promoted(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        msg = sub.act({"name": "x", "action": "already_promoted", "constitution_overlap": {"a", "b"}})
+        msg = sub.act(
+            {"name": "x", "action": "already_promoted", "constitution_overlap": {"a", "b"}}
+        )
         assert "already promoted" in msg
 
     def test_promote(self):
@@ -220,11 +224,13 @@ class TestAct:
 
     def test_migrate(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        msg = sub.act({
-            "name": "x",
-            "action": "migrate",
-            "target": ("Chromatin", "Project state"),
-        })
+        msg = sub.act(
+            {
+                "name": "x",
+                "action": "migrate",
+                "target": ("Chromatin", "Project state"),
+            }
+        )
         assert "migrate to Chromatin" in msg
 
     def test_unknown_action(self):
@@ -236,6 +242,7 @@ class TestAct:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.report
 # ---------------------------------------------------------------------------
+
 
 class TestReport:
     def test_report_format(self):

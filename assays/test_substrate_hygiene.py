@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from metabolon.metabolism.substrates.hygiene import (
-    _run,
     HygieneSubstrate,
+    _run,
 )
 
 
@@ -127,8 +125,8 @@ class TestSenseHooks:
                 stderr="",
             )
             # Patch Path.read_text to simulate the config change then restore
-            original_read = Path.read_text
             call_count = [0]
+
             def side_effect_read_text(self, *args, **kwargs):
                 call_count[0] += 1
                 if call_count[0] == 1:
@@ -137,6 +135,7 @@ class TestSenseHooks:
                     return "repos:\n  - repo: https://github.com/test\n    rev: v1.1\n"  # After autoupdate
                 else:
                     return original  # After restore
+
             with patch.object(Path, "read_text", side_effect_read_text):
                 result = sub._sense_hooks()
                 assert len(result) == 1
@@ -211,7 +210,10 @@ class TestSensePython:
         assert result[0]["kind"] == "python"
         assert "current" in result[0]
         import sys
-        assert result[0]["current"].startswith(f"{sys.version_info.major}.{sys.version_info.minor}")
+
+        assert result[0]["current"].startswith(
+            f"{sys.version_info.major}.{sys.version_info.minor}"
+        )
 
     def test_reads_requires_python(self, tmp_path: Path):
         pyproject = tmp_path / "pyproject.toml"
@@ -233,7 +235,9 @@ class TestSense:
 
         with patch.object(sub, "_sense_deps", return_value=[{"kind": "dep", "package": "foo"}]):
             with patch.object(sub, "_sense_hooks", return_value=[]):
-                with patch.object(sub, "_sense_tests", return_value=[{"kind": "tests", "healthy": True}]):
+                with patch.object(
+                    sub, "_sense_tests", return_value=[{"kind": "tests", "healthy": True}]
+                ):
                     with patch.object(sub, "_sense_python", return_value=[{"kind": "python"}]):
                         result = sub.sense()
                         assert len(result) == 3  # deps + tests + python (hooks empty)
@@ -343,7 +347,13 @@ class TestReport:
     def test_report_with_deps(self, tmp_path: Path):
         sub = HygieneSubstrate(project_root=tmp_path)
         sensed = [
-            {"kind": "dep", "package": "foo", "current": "1.0", "available": "1.1", "major": False},
+            {
+                "kind": "dep",
+                "package": "foo",
+                "current": "1.0",
+                "available": "1.1",
+                "major": False,
+            },
         ]
         report = sub.report(sensed, [])
         assert "Dependencies" in report

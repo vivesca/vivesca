@@ -8,8 +8,8 @@ from metabolon.organelles.endocytosis_rss.sorting import (
     FATE_STORE,
     FATE_TRANSCYTOSE,
     _cargo_score,
-    sort_by_fate,
     select_for_log,
+    sort_by_fate,
 )
 
 
@@ -82,11 +82,11 @@ def test_sort_by_fate_degrade():
 def test_sort_by_fate_default_thresholds():
     """Test sort_by_fate uses default thresholds (high=7, low=4)."""
     items = [
-        {"score": 8},   # transcytose
-        {"score": 6},   # store
-        {"score": 2},   # degrade
-        {"score": 7},   # transcytose (boundary)
-        {"score": 4},   # store (boundary)
+        {"score": 8},  # transcytose
+        {"score": 6},  # store
+        {"score": 2},  # degrade
+        {"score": 7},  # transcytose (boundary)
+        {"score": 4},  # store (boundary)
     ]
     result = sort_by_fate(items)
     assert len(result[FATE_TRANSCYTOSE]) == 2
@@ -97,11 +97,11 @@ def test_sort_by_fate_default_thresholds():
 def test_sort_by_fate_custom_thresholds():
     """Test sort_by_fate respects custom thresholds."""
     items = [{"score": 5}]
-    
+
     # Score 5 is transcytose with low threshold
     result = sort_by_fate(items, threshold_high=4, threshold_low=2)
     assert len(result[FATE_TRANSCYTOSE]) == 1
-    
+
     # Score 5 is degrade with high thresholds
     result = sort_by_fate(items, threshold_high=10, threshold_low=8)
     assert len(result[FATE_DEGRADE]) == 1
@@ -122,7 +122,7 @@ def test_select_for_log_excludes_degrade():
         {"score": 2, "name": "low"},
     ]
     result = select_for_log(items)
-    
+
     assert len(result) == 2
     names = {item["name"] for item in result}
     assert "high" in names
@@ -138,7 +138,7 @@ def test_select_for_log_preserves_order():
         {"score": 6, "order": 3},
     ]
     result = select_for_log(items)
-    
+
     # Transcytose items (score >= 7) come first
     assert result[0]["order"] == 2
     assert result[1]["order"] == 1
@@ -159,11 +159,11 @@ def test_select_for_log_all_degrade():
 def test_select_for_log_custom_thresholds():
     """Test select_for_log respects custom thresholds."""
     items = [{"score": 3}]
-    
+
     # With low threshold, item is included
     result = select_for_log(items, threshold_low=2)
     assert len(result) == 1
-    
+
     # With higher threshold, item is degraded
     result = select_for_log(items, threshold_low=5)
     assert len(result) == 0

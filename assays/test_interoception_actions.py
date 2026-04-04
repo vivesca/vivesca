@@ -4,10 +4,6 @@ from __future__ import annotations
 
 
 import os
-from pathlib import Path
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Import test
@@ -33,8 +29,6 @@ class TestResultTypes:
     """All result classes should be Secretion subclasses for structured output."""
 
     def test_result_types_are_secretion_subclasses(self) -> None:
-        from metabolon.morphology import Secretion
-
         from metabolon.enzymes.interoception import (
             AnabolismResult,
             AngiogenesisResult,
@@ -51,6 +45,7 @@ class TestResultTypes:
             RetrogradeResult,
             TissueRoutingResult,
         )
+        from metabolon.morphology import Secretion
 
         secretion_subclasses = [
             CircadianResult,
@@ -103,7 +98,7 @@ class TestConstants:
         from metabolon.enzymes.interoception import CODE_DIR
 
         expected = os.path.expanduser("~/code")
-        assert CODE_DIR == expected
+        assert expected == CODE_DIR
 
     def test_health_log_relative_constant(self) -> None:
         """HEALTH_LOG_RELATIVE should be a 2-tuple of strings."""
@@ -132,10 +127,12 @@ class TestSystemActionPlatformGuard:
         mock_result.stdout = "com.vivesca.mcp.service  loaded active running\n"
         mock_result.returncode = 0
 
-        with patch("metabolon.enzymes.interoception.platform.system", return_value="Linux"), \
-             patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result), \
-             patch("metabolon.metabolism.mismatch_repair.summary", return_value=""), \
-             patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold:
+        with (
+            patch("metabolon.enzymes.interoception.platform.system", return_value="Linux"),
+            patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result),
+            patch("metabolon.metabolism.mismatch_repair.summary", return_value=""),
+            patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold,
+        ):
             mock_threshold_inst = MagicMock()
             mock_threshold_inst.read.return_value = 15
             mock_threshold.return_value = mock_threshold_inst
@@ -153,10 +150,12 @@ class TestSystemActionPlatformGuard:
         mock_result.stdout = "1234  0  com.vivesca.mcp\n"
         mock_result.returncode = 0
 
-        with patch("metabolon.enzymes.interoception.platform.system", return_value="Darwin"), \
-             patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result), \
-             patch("metabolon.metabolism.mismatch_repair.summary", return_value=""), \
-             patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold:
+        with (
+            patch("metabolon.enzymes.interoception.platform.system", return_value="Darwin"),
+            patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result),
+            patch("metabolon.metabolism.mismatch_repair.summary", return_value=""),
+            patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold,
+        ):
             mock_threshold_inst = MagicMock()
             mock_threshold_inst.read.return_value = 15
             mock_threshold.return_value = mock_threshold_inst

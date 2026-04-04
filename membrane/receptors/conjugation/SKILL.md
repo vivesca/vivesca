@@ -28,7 +28,7 @@ Name it precisely:
 - What is the mechanism (not the implementation)?
 - Why does it work? (the principle, not the behavior)
 
-Example: "lustro's poll-then-extract loop solves high-volume intake without blocking. Mechanism: async fetch + synchronous extraction queue. Works because it decouples arrival rate from processing rate."
+Example: "endocytosis's poll-then-extract loop solves high-volume intake without blocking. Mechanism: async fetch + synchronous extraction queue. Works because it decouples arrival rate from processing rate."
 
 ### Step 2 — Identify the recipient gap
 
@@ -54,7 +54,7 @@ Once pilot works: identify all other sites where the same gap exists. Apply the 
 Keep a brief record of imported patterns:
 | Pattern | Donor system | Recipient site | Date | Outcome |
 |---------|-------------|---------------|------|---------|
-| Poll-then-extract | lustro | future intake | — | — |
+| Poll-then-extract | endocytosis | future intake | — | — |
 
 ## Anti-patterns
 

@@ -6,13 +6,10 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from metabolon.metabolism.substrates.vasomotor import (
-    _parse_ts,
     VasomotorSubstrate,
+    _parse_ts,
 )
 
 
@@ -91,8 +88,10 @@ class TestSense:
         ts = now.strftime("%Y-%m-%dT%H:%M:%S.%f")
 
         events.write_text(
-            json.dumps({"ts": ts, "event": "systole_start"}) + "\n"
-            + json.dumps({"ts": ts, "event": "systole_end", "exit_code": 0, "elapsed_s": 120.5}) + "\n"
+            json.dumps({"ts": ts, "event": "systole_start"})
+            + "\n"
+            + json.dumps({"ts": ts, "event": "systole_end", "exit_code": 0, "elapsed_s": 120.5})
+            + "\n"
         )
 
         sub = VasomotorSubstrate(
@@ -113,9 +112,12 @@ class TestSense:
         ts = now.strftime("%Y-%m-%dT%H:%M:%S")
 
         events.write_text(
-            json.dumps({"ts": ts, "event": "systole_start"}) + "\n"
-            + json.dumps({"ts": ts, "event": "saturation_detected"}) + "\n"
-            + json.dumps({"ts": ts, "event": "saturation_detected"}) + "\n"
+            json.dumps({"ts": ts, "event": "systole_start"})
+            + "\n"
+            + json.dumps({"ts": ts, "event": "saturation_detected"})
+            + "\n"
+            + json.dumps({"ts": ts, "event": "saturation_detected"})
+            + "\n"
         )
 
         sub = VasomotorSubstrate(
@@ -134,12 +136,15 @@ class TestSense:
         ts = now.strftime("%Y-%m-%dT%H:%M:%S")
 
         events.write_text(
-            json.dumps({
-                "ts": ts,
-                "event": "pacing_check",
-                "daily_budget": 10.5,
-                "estimated_burn": 8.2,
-            }) + "\n"
+            json.dumps(
+                {
+                    "ts": ts,
+                    "event": "pacing_check",
+                    "daily_budget": 10.5,
+                    "estimated_burn": 8.2,
+                }
+            )
+            + "\n"
         )
 
         sub = VasomotorSubstrate(
@@ -159,9 +164,12 @@ class TestSense:
         ts = now.strftime("%Y-%m-%dT%H:%M:%S")
 
         events.write_text(
-            json.dumps({"ts": ts, "event": "cost_measured", "cost": 0.5}) + "\n"
-            + json.dumps({"ts": ts, "event": "systole_usage", "weekly_delta": 1.2}) + "\n"
-            + json.dumps({"ts": ts, "event": "systole_yield", "secretion_count": 3}) + "\n"
+            json.dumps({"ts": ts, "event": "cost_measured", "cost": 0.5})
+            + "\n"
+            + json.dumps({"ts": ts, "event": "systole_usage", "weekly_delta": 1.2})
+            + "\n"
+            + json.dumps({"ts": ts, "event": "systole_yield", "secretion_count": 3})
+            + "\n"
         )
 
         sub = VasomotorSubstrate(
@@ -182,8 +190,10 @@ class TestSense:
         ts = now.strftime("%Y-%m-%dT%H:%M:%S")
 
         events.write_text(
-            json.dumps({"ts": ts, "event": "circuit_breaker"}) + "\n"
-            + json.dumps({"ts": ts, "event": "circuit_breaker"}) + "\n"
+            json.dumps({"ts": ts, "event": "circuit_breaker"})
+            + "\n"
+            + json.dumps({"ts": ts, "event": "circuit_breaker"})
+            + "\n"
         )
 
         sub = VasomotorSubstrate(
@@ -199,9 +209,7 @@ class TestSense:
         events = tmp_path / "events.jsonl"
         old_ts = (datetime.now(UTC) - timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%S")
 
-        events.write_text(
-            json.dumps({"ts": old_ts, "event": "systole_start"}) + "\n"
-        )
+        events.write_text(json.dumps({"ts": old_ts, "event": "systole_start"}) + "\n")
 
         sub = VasomotorSubstrate(
             events_path=events,
@@ -217,7 +225,8 @@ class TestSense:
 
         events.write_text(
             "not valid json\n"
-            + json.dumps({"ts": ts, "event": "systole_start"}) + "\n"
+            + json.dumps({"ts": ts, "event": "systole_start"})
+            + "\n"
             + "{ broken\n"
         )
 
@@ -248,10 +257,22 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "daily_budget": 10, "estimated_burn": 12,
-             "systole_count": 5, "saturated_count": 0, "apnea_window": 1.0},
-            {"date": "2025-03-02", "daily_budget": 10, "estimated_burn": 15,
-             "systole_count": 5, "saturated_count": 0, "apnea_window": 1.0},
+            {
+                "date": "2025-03-01",
+                "daily_budget": 10,
+                "estimated_burn": 12,
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+            },
+            {
+                "date": "2025-03-02",
+                "daily_budget": 10,
+                "estimated_burn": 15,
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+            },
         ]
         result = sub.candidates(sensed)
         overburn = [c for c in result if c["issue"] == "overburn"]
@@ -265,8 +286,14 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": f"2025-03-0{i}", "daily_budget": 10, "estimated_burn": 15,
-             "systole_count": 5, "saturated_count": 0, "apnea_window": 1.0}
+            {
+                "date": f"2025-03-0{i}",
+                "daily_budget": 10,
+                "estimated_burn": 15,
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+            }
             for i in range(1, 5)
         ]
         result = sub.candidates(sensed)
@@ -281,8 +308,14 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "systole_count": 10, "saturated_count": 5,
-             "daily_budget": None, "estimated_burn": None, "apnea_window": 1.0},
+            {
+                "date": "2025-03-01",
+                "systole_count": 10,
+                "saturated_count": 5,
+                "daily_budget": None,
+                "estimated_burn": None,
+                "apnea_window": 1.0,
+            },
         ]
         result = sub.candidates(sensed)
         sat = [c for c in result if c["issue"] == "saturation"]
@@ -296,10 +329,22 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "daily_budget": 10, "estimated_burn": 3,
-             "systole_count": 5, "saturated_count": 0, "apnea_window": 1.0},
-            {"date": "2025-03-02", "daily_budget": 10, "estimated_burn": 4,
-             "systole_count": 5, "saturated_count": 0, "apnea_window": 1.0},
+            {
+                "date": "2025-03-01",
+                "daily_budget": 10,
+                "estimated_burn": 3,
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+            },
+            {
+                "date": "2025-03-02",
+                "daily_budget": 10,
+                "estimated_burn": 4,
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+            },
         ]
         result = sub.candidates(sensed)
         starved = [c for c in result if c["issue"] == "starvation"]
@@ -312,8 +357,14 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "systole_count": 5, "saturated_count": 0,
-             "apnea_window": 5.5, "daily_budget": None, "estimated_burn": None},
+            {
+                "date": "2025-03-01",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 5.5,
+                "daily_budget": None,
+                "estimated_burn": None,
+            },
         ]
         result = sub.candidates(sensed)
         silence = [c for c in result if c["issue"] == "silence"]
@@ -326,9 +377,16 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": f"2025-03-0{i}", "failed_systoles": 2, "successful_systoles": 1,
-             "systole_count": 3, "saturated_count": 0, "apnea_window": 1.0,
-             "daily_budget": None, "estimated_burn": None}
+            {
+                "date": f"2025-03-0{i}",
+                "failed_systoles": 2,
+                "successful_systoles": 1,
+                "systole_count": 3,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+                "daily_budget": None,
+                "estimated_burn": None,
+            }
             for i in range(1, 8)
         ]
         result = sub.candidates(sensed)
@@ -343,9 +401,15 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "systole_count": 5, "saturated_count": 0,
-             "apnea_window": 1.0, "circuit_breakers": 2,
-             "daily_budget": None, "estimated_burn": None},
+            {
+                "date": "2025-03-01",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+                "circuit_breakers": 2,
+                "daily_budget": None,
+                "estimated_burn": None,
+            },
         ]
         result = sub.candidates(sensed)
         breaker = [c for c in result if c["issue"] == "circuit_breaker"]
@@ -359,9 +423,15 @@ class TestCandidates:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "systole_count": 5, "saturated_count": 0,
-             "apnea_window": 1.0, "budget_climb_rate": 6.5,
-             "daily_budget": None, "estimated_burn": None},
+            {
+                "date": "2025-03-01",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+                "budget_climb_rate": 6.5,
+                "daily_budget": None,
+                "estimated_burn": None,
+            },
         ]
         result = sub.candidates(sensed)
         fast = [c for c in result if c["issue"] == "fast_burn"]
@@ -375,9 +445,15 @@ class TestCandidates:
         )
         # Need stdev > mean: stdev([0.1, 0.2, 10.0]) ≈ 5.68 > mean ≈ 3.43
         sensed = [
-            {"date": "2025-03-01", "systole_costs": [0.1, 0.2, 10.0],
-             "systole_count": 3, "saturated_count": 0, "apnea_window": 1.0,
-             "daily_budget": None, "estimated_burn": None},
+            {
+                "date": "2025-03-01",
+                "systole_costs": [0.1, 0.2, 10.0],
+                "systole_count": 3,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+                "daily_budget": None,
+                "estimated_burn": None,
+            },
         ]
         result = sub.candidates(sensed)
         vol = [c for c in result if c["issue"] == "volatility"]
@@ -385,6 +461,7 @@ class TestCandidates:
 
     def test_detects_overproduction(self, tmp_path: Path):
         import time
+
         pulse_dir = tmp_path / "pulse"
         pulse_dir.mkdir()
 
@@ -411,10 +488,22 @@ class TestCandidates:
             pulse_dir=pulse_dir,
         )
         sensed = [
-            {"date": "2025-03-01", "systole_count": 5, "saturated_count": 0,
-             "apnea_window": 1.0, "daily_budget": None, "estimated_burn": None},
-            {"date": "2025-03-02", "systole_count": 5, "saturated_count": 0,
-             "apnea_window": 1.0, "daily_budget": None, "estimated_burn": None},
+            {
+                "date": "2025-03-01",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+                "daily_budget": None,
+                "estimated_burn": None,
+            },
+            {
+                "date": "2025-03-02",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "apnea_window": 1.0,
+                "daily_budget": None,
+                "estimated_burn": None,
+            },
         ]
         result = sub.candidates(sensed)
         overprod = [c for c in result if c["issue"] == "overproduction"]
@@ -490,7 +579,7 @@ class TestAct:
 
     def test_medium_overburn_proposes_only(self, tmp_path: Path):
         config = tmp_path / "vasomotor.conf"
-        config.write_text('{}')
+        config.write_text("{}")
 
         sub = VasomotorSubstrate(
             events_path=tmp_path / "events.jsonl",
@@ -561,8 +650,15 @@ class TestReport:
             pulse_dir=tmp_path / "pulse",
         )
         sensed = [
-            {"date": "2025-03-01", "systole_count": 10, "saturated_count": 2,
-             "daily_budget": 10.0, "estimated_burn": 8.0, "rq": 1.5, "apnea_window": 1.5},
+            {
+                "date": "2025-03-01",
+                "systole_count": 10,
+                "saturated_count": 2,
+                "daily_budget": 10.0,
+                "estimated_burn": 8.0,
+                "rq": 1.5,
+                "apnea_window": 1.5,
+            },
         ]
         report = sub.report(sensed, [])
         assert "1 day(s) sensed" in report
@@ -575,8 +671,17 @@ class TestReport:
             config_path=tmp_path / "config.conf",
             pulse_dir=tmp_path / "pulse",
         )
-        sensed = [{"date": "2025-03-01", "systole_count": 5, "saturated_count": 0,
-                   "daily_budget": None, "estimated_burn": None, "rq": None, "apnea_window": 1.0}]
+        sensed = [
+            {
+                "date": "2025-03-01",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "daily_budget": None,
+                "estimated_burn": None,
+                "rq": None,
+                "apnea_window": 1.0,
+            }
+        ]
         acted = ["[high] APPLIED: basal_rate 0.5 -> 0.45"]
         report = sub.report(sensed, acted)
         assert "Issues" in report

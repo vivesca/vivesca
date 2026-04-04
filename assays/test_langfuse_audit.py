@@ -7,7 +7,7 @@ tool name, arguments, result, latency, and outcome metadata.
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -28,29 +28,34 @@ class TestLangfuseAuditTracing:
 
     def test_langfuse_client_initializes_from_env(self):
         """Client reads LANGFUSE_SECRET_KEY + LANGFUSE_PUBLIC_KEY from env."""
-        with patch.dict("os.environ", {
-            "LANGFUSE_SECRET_KEY": "sk-test-secret",
-            "LANGFUSE_PUBLIC_KEY": "pk-test-public",
-            "LANGFUSE_HOST": "https://cloud.langfuse.com",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "LANGFUSE_SECRET_KEY": "sk-test-secret",
+                "LANGFUSE_PUBLIC_KEY": "pk-test-public",
+                "LANGFUSE_HOST": "https://cloud.langfuse.com",
+            },
+        ):
             from metabolon.audit import get_langfuse_client
+
             client = get_langfuse_client()
             assert client is not None
 
     def test_langfuse_client_returns_none_without_keys(self):
         """Gracefully returns None when Langfuse is not configured."""
         with patch.dict("os.environ", {}, clear=True):
-            from metabolon.audit import get_langfuse_client
             # Force reimport to pick up cleared env
             import importlib
+
             import metabolon.audit
+
             importlib.reload(metabolon.audit)
             client = metabolon.audit.get_langfuse_client()
             assert client is None
 
     def test_trace_created_on_tool_call(self, mock_langfuse):
         """A Langfuse trace is created for each tool call."""
-        client, trace, span = mock_langfuse
+        client, _trace, _span = mock_langfuse
 
         from metabolon.audit import record_tool_trace
 
@@ -71,7 +76,7 @@ class TestLangfuseAuditTracing:
 
     def test_trace_includes_tool_args(self, mock_langfuse):
         """Tool arguments are recorded in the trace span."""
-        client, trace, span = mock_langfuse
+        client, trace, _span = mock_langfuse
 
         from metabolon.audit import record_tool_trace
 
@@ -92,7 +97,7 @@ class TestLangfuseAuditTracing:
 
     def test_trace_records_latency(self, mock_langfuse):
         """Latency is recorded as metadata on the span."""
-        client, trace, span = mock_langfuse
+        client, trace, _span = mock_langfuse
 
         from metabolon.audit import record_tool_trace
 
@@ -111,7 +116,7 @@ class TestLangfuseAuditTracing:
 
     def test_trace_records_error_outcome(self, mock_langfuse):
         """Error outcomes are recorded with error details."""
-        client, trace, span = mock_langfuse
+        client, trace, _span = mock_langfuse
 
         from metabolon.audit import record_tool_trace
 
@@ -146,7 +151,7 @@ class TestLangfuseAuditTracing:
 
     def test_flush_called_after_trace(self, mock_langfuse):
         """Langfuse flush is called to ensure trace is sent."""
-        client, trace, span = mock_langfuse
+        client, _trace, _span = mock_langfuse
 
         from metabolon.audit import record_tool_trace
 
@@ -165,7 +170,7 @@ class TestLangfuseAuditTracing:
 
     def test_pii_args_not_logged(self, mock_langfuse):
         """Arguments containing PII patterns are redacted."""
-        client, trace, span = mock_langfuse
+        client, trace, _span = mock_langfuse
 
         from metabolon.audit import record_tool_trace
 

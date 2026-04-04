@@ -14,7 +14,6 @@ import pytest
 import metabolon.server as server_mod
 from metabolon.server import DEFAULT_REQUEST_LOG, RequestLogger
 
-
 # --- Module-level constants and objects ---
 
 

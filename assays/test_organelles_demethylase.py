@@ -10,13 +10,13 @@ External calls (subprocess, datetime) are mocked where needed.
 import json
 import os
 import subprocess
-import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
+import metabolon.organelles.demethylase as dm
 from metabolon.organelles.demethylase import (
     ConsolidationReport,
     DemethylaseReport,
@@ -42,12 +42,11 @@ from metabolon.organelles.demethylase import (
     sweep,
     transduce,
 )
-import metabolon.organelles.demethylase as dm
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def marks_dir(tmp_path):
@@ -71,7 +70,7 @@ def _patch_paths(marks_dir, signals_dir, tmp_path):
     dm.MARKS_DIR = marks_dir
     dm.SIGNALS_DIR = signals_dir
     dm.SIGNAL_HISTORY_PATH = tmp_path / "signal-history.jsonl"
-    yield
+    return
 
 
 def _write_mark(directory, name, frontmatter=None, body=""):
@@ -96,9 +95,14 @@ def _write_mark_with_age(directory, filename, age_days, frontmatter=None):
 def _make_mark(path, age_days=10, access_count=0, **overrides):
     """Create a MarkAnalysis with sensible defaults."""
     defaults = dict(
-        path=path, name=path.stem, mark_type="feedback",
-        durability="methyl", protected=False, source="cc",
-        age_days=age_days, last_modified_days=age_days,
+        path=path,
+        name=path.stem,
+        mark_type="feedback",
+        durability="methyl",
+        protected=False,
+        source="cc",
+        age_days=age_days,
+        last_modified_days=age_days,
         access_count=access_count,
     )
     defaults.update(overrides)
@@ -109,8 +113,8 @@ def _make_mark(path, age_days=10, access_count=0, **overrides):
 # _parse_frontmatter
 # ===================================================================
 
-class TestParseFrontmatter:
 
+class TestParseFrontmatter:
     def test_basic_frontmatter(self, tmp_path):
         p = tmp_path / "test.md"
         p.write_text("---\nname: foo\ntype: bar\n---\nbody\n")
@@ -147,8 +151,8 @@ class TestParseFrontmatter:
 # _validate_downstream_command
 # ===================================================================
 
-class TestValidateDownstreamCommand:
 
+class TestValidateDownstreamCommand:
     def test_safe_command(self):
         assert _validate_downstream_command("echo hello") == ["echo", "hello"]
 
@@ -178,8 +182,8 @@ class TestValidateDownstreamCommand:
 # _parse_downstream
 # ===================================================================
 
-class TestParseDownstream:
 
+class TestParseDownstream:
     def test_extracts_commands(self, tmp_path):
         p = tmp_path / "s.md"
         p.write_text("---\nname: test\ndownstream:\n  - echo hello\n  - ls /tmp\n---\nbody\n")
@@ -210,8 +214,8 @@ class TestParseDownstream:
 # _infer_durability
 # ===================================================================
 
-class TestInferDurability:
 
+class TestInferDurability:
     def test_from_frontmatter(self, tmp_path):
         p = tmp_path / "mymark.md"
         assert _infer_durability({"durability": "acetyl"}, p) == "acetyl"
@@ -233,8 +237,8 @@ class TestInferDurability:
 # _infer_source
 # ===================================================================
 
-class TestInferSource:
 
+class TestInferSource:
     def test_from_frontmatter(self):
         assert _infer_source({"source": "gemini"}) == "gemini"
 
@@ -246,8 +250,8 @@ class TestInferSource:
 # _infer_protected
 # ===================================================================
 
-class TestInferProtected:
 
+class TestInferProtected:
     def test_frontmatter_true(self, tmp_path):
         p = tmp_path / "custom.md"
         assert _infer_protected({"protected": "true"}, p) is True
@@ -262,8 +266,10 @@ class TestInferProtected:
 
     def test_core_pattern_protected(self, tmp_path):
         for name in [
-            "feedback_keep_digging", "feedback_hold_position",
-            "feedback_pull_the_thread", "feedback_more_autonomous",
+            "feedback_keep_digging",
+            "feedback_hold_position",
+            "feedback_pull_the_thread",
+            "feedback_more_autonomous",
             "feedback_stop_asking_obvious",
         ]:
             p = tmp_path / f"{name}.md"
@@ -278,8 +284,8 @@ class TestInferProtected:
 # _effective_threshold
 # ===================================================================
 
-class TestEffectiveThreshold:
 
+class TestEffectiveThreshold:
     def test_zero_accesses(self):
         assert _effective_threshold(90, 0) == 90
 
@@ -303,8 +309,8 @@ class TestEffectiveThreshold:
 # _detect_staleness
 # ===================================================================
 
-class TestDetectStaleness:
 
+class TestDetectStaleness:
     def test_protected_never_stale(self):
         m = _make_mark(Path("/dummy"), age_days=999, protected=True)
         result = _detect_staleness(m)
@@ -340,13 +346,17 @@ class TestDetectStaleness:
 
     def test_project_type_faster_decay(self):
         # project marks decay at base 30 days
-        m = _make_mark(Path("/dummy"), age_days=50, mark_type="project", durability="methyl", access_count=0)
+        m = _make_mark(
+            Path("/dummy"), age_days=50, mark_type="project", durability="methyl", access_count=0
+        )
         result = _detect_staleness(m)
         assert result.stale is True
         assert "project" in result.reason
 
     def test_project_not_stale_when_young(self):
-        m = _make_mark(Path("/dummy"), age_days=20, mark_type="project", durability="methyl", access_count=0)
+        m = _make_mark(
+            Path("/dummy"), age_days=20, mark_type="project", durability="methyl", access_count=0
+        )
         result = _detect_staleness(m)
         assert result.stale is False
 
@@ -360,8 +370,8 @@ class TestDetectStaleness:
 # _cluster_marks
 # ===================================================================
 
-class TestClusterMarks:
 
+class TestClusterMarks:
     def test_clusters_by_prefix(self, tmp_path):
         marks = [
             _make_mark(tmp_path / "feedback_keep_digging.md"),
@@ -398,13 +408,19 @@ class TestClusterMarks:
 # analyze_mark
 # ===================================================================
 
-class TestAnalyzeMark:
 
+class TestAnalyzeMark:
     def test_basic_analysis(self, marks_dir):
-        p = _write_mark(marks_dir, "feedback_test.md", {
-            "name": "test_mark", "type": "feedback",
-            "source": "cc", "durability": "methyl",
-        })
+        p = _write_mark(
+            marks_dir,
+            "feedback_test.md",
+            {
+                "name": "test_mark",
+                "type": "feedback",
+                "source": "cc",
+                "durability": "methyl",
+            },
+        )
         m = analyze_mark(p)
         assert m.name == "test_mark"
         assert m.mark_type == "feedback"
@@ -419,10 +435,16 @@ class TestAnalyzeMark:
         assert m.name == "my_special_mark"
 
     def test_access_count_parsed(self, marks_dir):
-        p = _write_mark(marks_dir, "counted.md", {
-            "name": "counted", "type": "feedback",
-            "source": "cc", "access_count": "3",
-        })
+        p = _write_mark(
+            marks_dir,
+            "counted.md",
+            {
+                "name": "counted",
+                "type": "feedback",
+                "source": "cc",
+                "access_count": "3",
+            },
+        )
         m = analyze_mark(p)
         assert m.access_count == 3
 
@@ -431,8 +453,8 @@ class TestAnalyzeMark:
 # consolidate
 # ===================================================================
 
-class TestConsolidate:
 
+class TestConsolidate:
     def test_empty_directory(self, marks_dir):
         report = consolidate(marks_dir)
         assert isinstance(report, ConsolidationReport)
@@ -452,18 +474,30 @@ class TestConsolidate:
         assert len(report.today_marks) == 1
 
     def test_strengthens_accessed_marks(self, marks_dir):
-        _write_mark(marks_dir, "accessed.md", {
-            "name": "accessed", "type": "feedback",
-            "source": "cc", "access_count": "2",
-        })
+        _write_mark(
+            marks_dir,
+            "accessed.md",
+            {
+                "name": "accessed",
+                "type": "feedback",
+                "source": "cc",
+                "access_count": "2",
+            },
+        )
         report = consolidate(marks_dir)
         assert len(report.strengthened) == 1
         assert report.strengthened[0].access_count == 2
 
     def test_no_strengthen_without_access(self, marks_dir):
-        _write_mark(marks_dir, "unaccessed.md", {
-            "name": "unaccessed", "type": "feedback", "source": "cc",
-        })
+        _write_mark(
+            marks_dir,
+            "unaccessed.md",
+            {
+                "name": "unaccessed",
+                "type": "feedback",
+                "source": "cc",
+            },
+        )
         report = consolidate(marks_dir)
         assert report.strengthened == []
 
@@ -477,36 +511,71 @@ class TestConsolidate:
 # sweep
 # ===================================================================
 
-class TestSweep:
 
+class TestSweep:
     def test_empty_directory(self, marks_dir):
         report = sweep(marks_dir)
         assert report.total_marks == 0
         assert report.stale_candidates == []
 
     def test_counts_marks(self, marks_dir):
-        _write_mark(marks_dir, "m1.md", {"name": "m1", "type": "feedback", "source": "cc", "durability": "methyl"})
-        _write_mark(marks_dir, "a1.md", {"name": "a1", "type": "feedback", "source": "cc", "durability": "acetyl"})
+        _write_mark(
+            marks_dir,
+            "m1.md",
+            {"name": "m1", "type": "feedback", "source": "cc", "durability": "methyl"},
+        )
+        _write_mark(
+            marks_dir,
+            "a1.md",
+            {"name": "a1", "type": "feedback", "source": "cc", "durability": "acetyl"},
+        )
         report = sweep(marks_dir)
         assert report.total_marks == 2
         assert report.methyl_marks == 1
         assert report.acetyl_marks == 1
 
     def test_stale_detected(self, marks_dir):
-        p = _write_mark_with_age(marks_dir, "old_mark.md", age_days=100,
-                                 frontmatter={"name": "old_mark", "type": "feedback", "source": "cc", "durability": "methyl"})
+        _write_mark_with_age(
+            marks_dir,
+            "old_mark.md",
+            age_days=100,
+            frontmatter={
+                "name": "old_mark",
+                "type": "feedback",
+                "source": "cc",
+                "durability": "methyl",
+            },
+        )
         report = sweep(marks_dir, threshold_days=90)
         assert len(report.stale_candidates) >= 1
 
     def test_dry_run_does_not_delete(self, marks_dir):
-        p = _write_mark_with_age(marks_dir, "stale.md", age_days=200,
-                                 frontmatter={"name": "stale", "type": "feedback", "source": "cc", "durability": "acetyl"})
+        p = _write_mark_with_age(
+            marks_dir,
+            "stale.md",
+            age_days=200,
+            frontmatter={
+                "name": "stale",
+                "type": "feedback",
+                "source": "cc",
+                "durability": "acetyl",
+            },
+        )
         sweep(marks_dir, dry_run=True)
         assert p.exists()
 
     def test_non_dry_run_deletes_stale(self, marks_dir):
-        p = _write_mark_with_age(marks_dir, "stale.md", age_days=200,
-                                 frontmatter={"name": "stale", "type": "feedback", "source": "cc", "durability": "acetyl"})
+        p = _write_mark_with_age(
+            marks_dir,
+            "stale.md",
+            age_days=200,
+            frontmatter={
+                "name": "stale",
+                "type": "feedback",
+                "source": "cc",
+                "durability": "acetyl",
+            },
+        )
         sweep(marks_dir, dry_run=False)
         assert not p.exists()
 
@@ -550,12 +619,15 @@ class TestSweep:
 # format_report
 # ===================================================================
 
-class TestFormatReport:
 
+class TestFormatReport:
     def test_basic_report(self):
         report = DemethylaseReport(
-            total_marks=10, methyl_marks=7, acetyl_marks=3,
-            protected_marks=2, stale_candidates=[],
+            total_marks=10,
+            methyl_marks=7,
+            acetyl_marks=3,
+            protected_marks=2,
+            stale_candidates=[],
             source_distribution={"cc": 5, "gemini": 5},
             type_distribution={"feedback": 8, "finding": 2},
         )
@@ -576,10 +648,16 @@ class TestFormatReport:
 
     def test_with_stale_candidates(self):
         m = MarkAnalysis(
-            path=Path("/dummy/old.md"), name="old", mark_type="feedback",
-            durability="acetyl", protected=False, source="cc",
-            age_days=100, last_modified_days=100,
-            stale=True, reason="too old",
+            path=Path("/dummy/old.md"),
+            name="old",
+            mark_type="feedback",
+            durability="acetyl",
+            protected=False,
+            source="cc",
+            age_days=100,
+            last_modified_days=100,
+            stale=True,
+            reason="too old",
         )
         report = DemethylaseReport(stale_candidates=[m])
         text = format_report(report)
@@ -591,8 +669,8 @@ class TestFormatReport:
 # record_access
 # ===================================================================
 
-class TestRecordAccess:
 
+class TestRecordAccess:
     def test_increments_existing(self, tmp_path):
         p = tmp_path / "mark.md"
         p.write_text("---\nname: test\naccess_count: 3\n---\nbody\n")
@@ -626,8 +704,8 @@ class TestRecordAccess:
 # emit_signal
 # ===================================================================
 
-class TestEmitSignal:
 
+class TestEmitSignal:
     def test_creates_signal_file(self, signals_dir):
         path = emit_signal("test_sig", "hello world", source="cc")
         assert path.exists()
@@ -685,8 +763,8 @@ class TestEmitSignal:
 # read_signals
 # ===================================================================
 
-class TestReadSignals:
 
+class TestReadSignals:
     def test_empty_directory(self, signals_dir):
         assert read_signals() == []
 
@@ -743,7 +821,9 @@ class TestReadSignals:
 
     def test_execute_cascade_handles_failure(self, signals_dir):
         emit_signal("bad_cmd", "body", downstream=["false"])
-        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "false")):
+        with patch.object(
+            subprocess, "run", side_effect=subprocess.CalledProcessError(1, "false")
+        ):
             result = read_signals(execute_cascade=True)
         assert len(result) == 1
         assert result[0]["cascades_fired"][0].startswith("FAILED")
@@ -753,8 +833,8 @@ class TestReadSignals:
 # resensitize
 # ===================================================================
 
-class TestResensitize:
 
+class TestResensitize:
     def test_resensitize_desensitized_signal(self, signals_dir):
         for _ in range(6):
             emit_signal("recoverable", "body")
@@ -783,8 +863,8 @@ class TestResensitize:
 # transduce
 # ===================================================================
 
-class TestTransduce:
 
+class TestTransduce:
     def test_transduce_with_downstream(self, signals_dir):
         emit_signal("trans_test", "body", downstream=["echo trans"])
         result = transduce()
@@ -809,8 +889,8 @@ class TestTransduce:
 # signal_history
 # ===================================================================
 
-class TestSignalHistory:
 
+class TestSignalHistory:
     def test_empty_history(self):
         assert signal_history() == []
 
@@ -851,8 +931,8 @@ class TestSignalHistory:
 # _update_frontmatter_field
 # ===================================================================
 
-class TestUpdateFrontmatterField:
 
+class TestUpdateFrontmatterField:
     def test_updates_existing_field(self, tmp_path):
         p = tmp_path / "test.md"
         p.write_text("---\nname: old\n---\nbody\n")

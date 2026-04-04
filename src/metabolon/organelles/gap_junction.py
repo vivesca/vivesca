@@ -1,4 +1,3 @@
-
 """gap_junction — WhatsApp via wacli.
 
 wacli CLI knowhow (Go binary, /opt/homebrew/bin/wacli):

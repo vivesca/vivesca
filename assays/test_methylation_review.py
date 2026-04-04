@@ -7,7 +7,7 @@ It is loaded via exec() so that module-level constants can be patched per test.
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -56,7 +56,7 @@ class TestRunCmd:
     def test_nonzero_returns_code_stderr(self, mr):
         mock_result = MagicMock(returncode=1, stdout="", stderr="bad")
         with patch.object(mr["subprocess"], "run", return_value=mock_result):
-            code, out, err = mr["run_cmd"](["false"])
+            code, _out, err = mr["run_cmd"](["false"])
         assert code == 1
         assert err == "bad"
 
@@ -82,7 +82,7 @@ class TestGatherJsonlObservations:
         assert "(no recent observations)" in result
 
     def test_includes_recent_excludes_old(self, mr):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_ts = (now - timedelta(days=3)).isoformat().replace("+00:00", "Z")
         old_ts = (now - timedelta(days=10)).isoformat().replace("+00:00", "Z")
 
@@ -96,19 +96,21 @@ class TestGatherJsonlObservations:
         assert "skill-b" not in result
 
     def test_handles_z_suffix_timestamps(self, mr):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts = (now - timedelta(days=1)).isoformat().replace("+00:00", "Z")
         mr["METHYLATION_JSONL"].write_text(
-            json.dumps({"ts": ts, "event": "test-z"}) + "\n", encoding="utf-8",
+            json.dumps({"ts": ts, "event": "test-z"}) + "\n",
+            encoding="utf-8",
         )
         result = mr["gather_jsonl_observations"](days=7)
         assert "test-z" in result
 
     def test_handles_naive_timestamps(self, mr):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts = (now - timedelta(days=3)).isoformat()  # no Z, no timezone
         mr["METHYLATION_JSONL"].write_text(
-            json.dumps({"ts": ts, "event": "naive-ts"}) + "\n", encoding="utf-8",
+            json.dumps({"ts": ts, "event": "naive-ts"}) + "\n",
+            encoding="utf-8",
         )
         result = mr["gather_jsonl_observations"](days=7)
         assert "naive-ts" in result
@@ -129,7 +131,7 @@ class TestGatherJsonlObservations:
         assert "(error reading jsonl:" in result
 
     def test_days_parameter_filters(self, mr):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         five_ago = (now - timedelta(days=5)).isoformat().replace("+00:00", "Z")
         two_ago = (now - timedelta(days=2)).isoformat().replace("+00:00", "Z")
 
@@ -269,11 +271,17 @@ class TestMain:
         def mock_synthesize(p, o):
             return "# Final Review\n\n- Done"
 
-        with patch.dict(mr, {
-            "gather_effector_proposals": mock_gather_effector,
-            "gather_jsonl_observations": mock_gather_obs,
-            "synthesize_review": mock_synthesize,
-        }), patch.object(mr["sys"], "argv", ["methylation-review"]):
+        with (
+            patch.dict(
+                mr,
+                {
+                    "gather_effector_proposals": mock_gather_effector,
+                    "gather_jsonl_observations": mock_gather_obs,
+                    "synthesize_review": mock_synthesize,
+                },
+            ),
+            patch.object(mr["sys"], "argv", ["methylation-review"]),
+        ):
             mr["main"]()
 
         out = capsys.readouterr().out
@@ -295,11 +303,17 @@ class TestMain:
         def mock_synthesize(p, o):
             return "line1\nline2\nline3"
 
-        with patch.dict(mr, {
-            "gather_effector_proposals": mock_gather_effector,
-            "gather_jsonl_observations": mock_gather_obs,
-            "synthesize_review": mock_synthesize,
-        }), patch.object(mr["sys"], "argv", ["methylation-review"]):
+        with (
+            patch.dict(
+                mr,
+                {
+                    "gather_effector_proposals": mock_gather_effector,
+                    "gather_jsonl_observations": mock_gather_obs,
+                    "synthesize_review": mock_synthesize,
+                },
+            ),
+            patch.object(mr["sys"], "argv", ["methylation-review"]),
+        ):
             mr["main"]()
 
         out = capsys.readouterr().out
@@ -308,11 +322,17 @@ class TestMain:
         assert "line1" in out
 
     def test_review_path_contains_date(self, mr, capsys):
-        with patch.dict(mr, {
-            "gather_effector_proposals": lambda: "",
-            "gather_jsonl_observations": lambda: "",
-            "synthesize_review": lambda p, o: "review body",
-        }), patch.object(mr["sys"], "argv", ["methylation-review"]):
+        with (
+            patch.dict(
+                mr,
+                {
+                    "gather_effector_proposals": lambda: "",
+                    "gather_jsonl_observations": lambda: "",
+                    "synthesize_review": lambda p, o: "review body",
+                },
+            ),
+            patch.object(mr["sys"], "argv", ["methylation-review"]),
+        ):
             mr["main"]()
 
         date_str = datetime.now().strftime("%Y-%m-%d")

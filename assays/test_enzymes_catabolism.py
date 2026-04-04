@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.enzymes.catabolism import (
     CatabolismConfirmResult,
     CatabolismResult,
@@ -24,15 +22,14 @@ _PAYMENTS = "metabolon.respirometry.payments"
 # _spending
 # ---------------------------------------------------------------------------
 
+
 class TestSpending:
     """Tests for _spending helper."""
 
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR, return_value=[])
-    def test_no_statements_no_alerts(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_no_statements_no_alerts(self, mock_metabolize, mock_flag, mock_missing):
         result = _spending()
 
         assert isinstance(result, CatabolismResult)
@@ -44,9 +41,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR)
-    def test_digested_statements(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_digested_statements(self, mock_metabolize, mock_flag, mock_missing):
         mock_metabolize.return_value = [
             {
                 "card": "SCB",
@@ -69,9 +64,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR)
-    def test_degraded_statements_show_errors(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_degraded_statements_show_errors(self, mock_metabolize, mock_flag, mock_missing):
         mock_metabolize.return_value = [
             {"error": "Failed to parse PDF"},
         ]
@@ -84,9 +77,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR)
-    def test_mixed_digested_and_degraded(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_mixed_digested_and_degraded(self, mock_metabolize, mock_flag, mock_missing):
         mock_metabolize.return_value = [
             {
                 "card": "MOX",
@@ -107,9 +98,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments")
     @patch(_RESPIR, return_value=[])
-    def test_payment_alerts_included(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_payment_alerts_included(self, mock_metabolize, mock_flag, mock_missing):
         mock_flag.return_value = ["SCB payment overdue!"]
 
         result = _spending()
@@ -121,9 +110,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements")
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR, return_value=[])
-    def test_missing_statements_included(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_missing_statements_included(self, mock_metabolize, mock_flag, mock_missing):
         mock_missing.return_value = ["HSBC March statement missing"]
 
         result = _spending()
@@ -134,9 +121,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR)
-    def test_payment_action_included(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_payment_action_included(self, mock_metabolize, mock_flag, mock_missing):
         mock_metabolize.return_value = [
             {
                 "card": "CCBA",
@@ -155,9 +140,7 @@ class TestSpending:
     @patch(f"{_PAYMENTS}.assess_missing_statements", return_value=[])
     @patch(f"{_PAYMENTS}.flag_overdue_payments", return_value=[])
     @patch(_RESPIR)
-    def test_multiple_statements_counted(
-        self, mock_metabolize, mock_flag, mock_missing
-    ):
+    def test_multiple_statements_counted(self, mock_metabolize, mock_flag, mock_missing):
         mock_metabolize.return_value = [
             {
                 "card": "SCB",
@@ -186,6 +169,7 @@ class TestSpending:
 # ---------------------------------------------------------------------------
 # _confirm
 # ---------------------------------------------------------------------------
+
 
 class TestConfirm:
     """Tests for _confirm helper."""
@@ -232,14 +216,13 @@ class TestConfirm:
 # catabolism dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestCatabolismDispatch:
     """Tests for the top-level catabolism tool dispatch."""
 
     @patch("metabolon.enzymes.catabolism._spending")
     def test_spending_action(self, mock_spend):
-        mock_spend.return_value = CatabolismResult(
-            summary="ok", statements_processed=1
-        )
+        mock_spend.return_value = CatabolismResult(summary="ok", statements_processed=1)
 
         result = catabolism(action="spending", days=60)
 
@@ -248,9 +231,7 @@ class TestCatabolismDispatch:
 
     @patch("metabolon.enzymes.catabolism._confirm")
     def test_confirm_action(self, mock_conf):
-        mock_conf.return_value = CatabolismConfirmResult(
-            success=True, message="done"
-        )
+        mock_conf.return_value = CatabolismConfirmResult(success=True, message="done")
 
         result = catabolism(action="confirm", bank="mox")
 

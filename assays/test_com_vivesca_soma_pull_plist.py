@@ -71,14 +71,14 @@ def test_top_level_is_dict():
 def test_label_key_present():
     """Label key exists in the dict."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "Label") is not None
 
 
 def test_label_value():
     """Label matches com.vivesca.soma-pull."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "Label").text == "com.vivesca.soma-pull"
 
 
@@ -88,7 +88,7 @@ def test_label_value():
 def test_program_arguments_present():
     """ProgramArguments key exists."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     val = _dict_value(d, "ProgramArguments")
     assert val is not None
     assert val.tag == "array"
@@ -97,7 +97,7 @@ def test_program_arguments_present():
 def test_program_arguments_has_two_entries():
     """ProgramArguments contains exactly python3 path and soma-pull script."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     args = _array_strings(_dict_value(d, "ProgramArguments"))
     assert len(args) == 2
 
@@ -105,7 +105,7 @@ def test_program_arguments_has_two_entries():
 def test_program_arguments_first_is_python():
     """First argument ends with python3."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     args = _array_strings(_dict_value(d, "ProgramArguments"))
     assert args[0].endswith("python3")
 
@@ -113,7 +113,7 @@ def test_program_arguments_first_is_python():
 def test_program_arguments_second_is_soma_pull():
     """Second argument points to soma-pull effector."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     args = _array_strings(_dict_value(d, "ProgramArguments"))
     assert args[1].endswith("effectors/soma-pull")
 
@@ -124,7 +124,7 @@ def test_program_arguments_second_is_soma_pull():
 def test_start_interval_present():
     """StartInterval key exists."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     val = _dict_value(d, "StartInterval")
     assert val is not None
 
@@ -132,7 +132,7 @@ def test_start_interval_present():
 def test_start_interval_900_seconds():
     """StartInterval is 900 seconds (15 minutes)."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     val = _dict_value(d, "StartInterval")
     assert val.text == "900"
     assert int(val.text) == 900
@@ -144,28 +144,28 @@ def test_start_interval_900_seconds():
 def test_stdout_path_present():
     """StandardOutPath key exists."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "StandardOutPath") is not None
 
 
 def test_stderr_path_present():
     """StandardErrorPath key exists."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "StandardErrorPath") is not None
 
 
 def test_stdout_path_is_log():
     """StandardOutPath ends with soma-pull-stdout.log."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "StandardOutPath").text.endswith("soma-pull-stdout.log")
 
 
 def test_stderr_path_is_log():
     """StandardErrorPath ends with soma-pull-stderr.log."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "StandardErrorPath").text.endswith("soma-pull-stderr.log")
 
 
@@ -175,14 +175,14 @@ def test_stderr_path_is_log():
 def test_run_at_load_present():
     """RunAtLoad key exists."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     assert _dict_value(d, "RunAtLoad") is not None
 
 
 def test_run_at_load_is_true():
     """RunAtLoad is set to true."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     val = _dict_value(d, "RunAtLoad")
     assert val.tag == "true"
 
@@ -193,9 +193,15 @@ def test_run_at_load_is_true():
 def test_dict_has_expected_key_count():
     """Top-level dict has exactly 6 keys."""
     root = _parse_plist()
-    d = list(root)[0]
+    d = next(iter(root))
     keys = [c.text for c in d.findall("key")]
     assert len(keys) == 6
-    expected = {"Label", "ProgramArguments", "StartInterval",
-                "StandardOutPath", "StandardErrorPath", "RunAtLoad"}
+    expected = {
+        "Label",
+        "ProgramArguments",
+        "StartInterval",
+        "StandardOutPath",
+        "StandardErrorPath",
+        "RunAtLoad",
+    }
     assert set(keys) == expected

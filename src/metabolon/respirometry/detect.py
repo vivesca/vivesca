@@ -1,6 +1,4 @@
-
 """Detect which bank issued a credit card statement."""
-
 
 import re
 

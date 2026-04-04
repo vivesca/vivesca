@@ -11,7 +11,7 @@ def run_queue_gen(args: list[str]) -> subprocess.CompletedProcess:
     """Run queue-gen with given arguments."""
 
     return subprocess.run(
-        [Path.home() / "germline" / "effectors" / "queue-gen"] + args,
+        [Path.home() / "germline" / "effectors" / "queue-gen", *args],
         capture_output=True,
         text=True,
     )
@@ -34,10 +34,12 @@ def test_missing_directory():
 
 def test_dry_run_effectors():
     """Test dry-run on effectors directory."""
-    result = run_queue_gen([
-        str(Path.home() / "germline" / "effectors"),
-        "--dry-run",
-    ])
+    result = run_queue_gen(
+        [
+            str(Path.home() / "germline" / "effectors"),
+            "--dry-run",
+        ]
+    )
     assert result.returncode == 0
     # Should contain golem commands
     assert "golem --provider" in result.stdout
@@ -47,21 +49,27 @@ def test_dry_run_effectors():
 
 def test_provider_option():
     """Test --provider changes provider in output."""
-    result = run_queue_gen([
-        str(Path.home() / "germline" / "effectors"),
-        "--dry-run",
-        "--provider", "zhipu",
-    ])
+    result = run_queue_gen(
+        [
+            str(Path.home() / "germline" / "effectors"),
+            "--dry-run",
+            "--provider",
+            "zhipu",
+        ]
+    )
     assert "golem --provider zhipu" in result.stdout
 
 
 def test_max_turns_option():
     """Test --max-turns changes turn limit."""
-    result = run_queue_gen([
-        str(Path.home() / "germline" / "effectors"),
-        "--dry-run",
-        "--max-turns", "50",
-    ])
+    result = run_queue_gen(
+        [
+            str(Path.home() / "germline" / "effectors"),
+            "--dry-run",
+            "--max-turns",
+            "50",
+        ]
+    )
     assert "--max-turns 50" in result.stdout
 
 
@@ -71,10 +79,13 @@ def test_queue_gen_output_to_file():
         output_path = f.name
 
     try:
-        result = run_queue_gen([
-            str(Path.home() / "germline" / "effectors"),
-            "--output", output_path,
-        ])
+        result = run_queue_gen(
+            [
+                str(Path.home() / "germline" / "effectors"),
+                "--output",
+                output_path,
+            ]
+        )
         assert result.returncode == 0
         content = Path(output_path).read_text()
         assert "golem --provider" in content
@@ -93,14 +104,16 @@ def test_empty_directory():
 
 def test_batches_large_files_solo():
     """Test that large files get their own batch."""
-    result = run_queue_gen([
-        str(Path.home() / "germline" / "effectors"),
-        "--dry-run",
-    ])
+    result = run_queue_gen(
+        [
+            str(Path.home() / "germline" / "effectors"),
+            "--dry-run",
+        ]
+    )
     # cytokinesis (1068 lines) should be a solo entry
     lines = result.stdout.split("\n")
     # Find any entry that mentions cytokinesis
-    cytokinesis_found = any("cytokinesis" in line for line in lines)
+    any("cytokinesis" in line for line in lines)
     # If it's in the queue, it should be alone in its batch
     # (or may already have a test)
     assert True  # Just check the script runs without error
@@ -109,6 +122,7 @@ def test_batches_large_files_solo():
 def test_file_to_test_name():
     """Test the name normalization logic."""
     import sys
+
     sys.path.insert(0, str(Path.home() / "germline" / "effectors"))
 
     # Load the module
@@ -126,6 +140,7 @@ def test_file_to_test_name():
 def test_has_test():
     """Test test file detection."""
     import sys
+
     sys.path.insert(0, str(Path.home() / "germline" / "effectors"))
 
     ns = {}
@@ -141,6 +156,7 @@ def test_has_test():
 def test_get_file_lines():
     """Test line counting."""
     import sys
+
     sys.path.insert(0, str(Path.home() / "germline" / "effectors"))
 
     ns = {}
@@ -157,6 +173,7 @@ def test_get_file_lines():
 def test_batch_entries():
     """Test batching logic."""
     import sys
+
     sys.path.insert(0, str(Path.home() / "germline" / "effectors"))
 
     ns = {}
@@ -192,6 +209,7 @@ def test_batch_entries():
 def test_scan_directory_excludes_tests():
     """Test that files with existing tests are excluded."""
     import sys
+
     sys.path.insert(0, str(Path.home() / "germline" / "effectors"))
 
     ns = {}

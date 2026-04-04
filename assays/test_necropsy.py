@@ -1,18 +1,17 @@
 """Tests for metabolon.enzymes.necropsy — dead session forensics."""
+
 from __future__ import annotations
 
 import json
-import textwrap
-from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Synthetic JSONL fixtures
 # ---------------------------------------------------------------------------
+
 
 def _ts(hour: int, minute: int = 0) -> str:
     """ISO timestamp helper for 2026-04-03 HKT."""
@@ -169,20 +168,18 @@ def _permission_mode_record(session_id: str, mode: str = "bypassPermissions") ->
     return {"type": "permission-mode", "permissionMode": mode, "sessionId": session_id}
 
 
-def _write_session(
-    project_dir: Path, session_id: str, records: list[dict]
-) -> Path:
+def _write_session(project_dir: Path, session_id: str, records: list[dict]) -> Path:
     """Write a synthetic session JSONL file."""
     path = project_dir / f"{session_id}.jsonl"
     with open(path, "w") as fh:
-        for record in records:
-            fh.write(json.dumps(record) + "\n")
+        fh.writelines(json.dumps(record) + "\n" for record in records)
     return path
 
 
 # ---------------------------------------------------------------------------
 # Fixture: synthetic .claude/projects layout
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def claude_projects(tmp_path: Path):
@@ -196,59 +193,121 @@ def claude_projects(tmp_path: Path):
 
     # Session A: full session with text, tools, agents, duration
     session_a = "aaaa1111-0000-0000-0000-000000000000"
-    _write_session(home_terry, session_a, [
-        _last_prompt_record(session_a, "build the thing"),
-        _permission_mode_record(session_a),
-        _user_record(session_a, "build the feature", uuid="ua1", timestamp=_ts(10, 0)),
-        _assistant_text_record(
-            session_a, "I'll build this for you.",
-            uuid="aa1", parent_uuid="ua1", timestamp=_ts(10, 1),
-            input_tokens=500, output_tokens=1000,
-        ),
-        _assistant_tool_use_record(
-            session_a, "Bash", {"command": "ls -la"},
-            uuid="aa2", timestamp=_ts(10, 2),
-        ),
-        _tool_result_record(session_a, "file1.py\nfile2.py", uuid="ua2", timestamp=_ts(10, 3)),
-        _assistant_text_record(
-            session_a, "Done. Created two files.",
-            uuid="aa3", parent_uuid="ua2", timestamp=_ts(10, 10),
-            input_tokens=600, output_tokens=300,
-        ),
-        _queue_operation_record(session_a, "enqueue", "task_x", "Agent research OCI"),
-        _queue_operation_record(session_a, "dequeue", "task_x", "Agent research OCI completed"),
-        _turn_duration_record(session_a, 30000, 7, slug="brave-dancing-fox", timestamp=_ts(10, 11)),
-        _turn_duration_record(session_a, 15000, 3, slug="brave-dancing-fox", timestamp=_ts(10, 15)),
-    ])
+    _write_session(
+        home_terry,
+        session_a,
+        [
+            _last_prompt_record(session_a, "build the thing"),
+            _permission_mode_record(session_a),
+            _user_record(session_a, "build the feature", uuid="ua1", timestamp=_ts(10, 0)),
+            _assistant_text_record(
+                session_a,
+                "I'll build this for you.",
+                uuid="aa1",
+                parent_uuid="ua1",
+                timestamp=_ts(10, 1),
+                input_tokens=500,
+                output_tokens=1000,
+            ),
+            _assistant_tool_use_record(
+                session_a,
+                "Bash",
+                {"command": "ls -la"},
+                uuid="aa2",
+                timestamp=_ts(10, 2),
+            ),
+            _tool_result_record(session_a, "file1.py\nfile2.py", uuid="ua2", timestamp=_ts(10, 3)),
+            _assistant_text_record(
+                session_a,
+                "Done. Created two files.",
+                uuid="aa3",
+                parent_uuid="ua2",
+                timestamp=_ts(10, 10),
+                input_tokens=600,
+                output_tokens=300,
+            ),
+            _queue_operation_record(session_a, "enqueue", "task_x", "Agent research OCI"),
+            _queue_operation_record(
+                session_a, "dequeue", "task_x", "Agent research OCI completed"
+            ),
+            _turn_duration_record(
+                session_a, 30000, 7, slug="brave-dancing-fox", timestamp=_ts(10, 11)
+            ),
+            _turn_duration_record(
+                session_a, 15000, 3, slug="brave-dancing-fox", timestamp=_ts(10, 15)
+            ),
+        ],
+    )
 
     # Session B: short session, different project
     session_b = "bbbb2222-0000-0000-0000-000000000000"
-    _write_session(germline, session_b, [
-        _user_record(session_b, "fix the tests", uuid="ub1", timestamp=_ts(11, 0)),
-        _assistant_text_record(
-            session_b, "Tests are green now.",
-            uuid="ab1", parent_uuid="ub1", timestamp=_ts(11, 5),
-            input_tokens=200, output_tokens=150,
-        ),
-        _turn_duration_record(session_b, 5000, 2, slug="quiet-silver-moon", timestamp=_ts(11, 6)),
-    ])
+    _write_session(
+        germline,
+        session_b,
+        [
+            _user_record(session_b, "fix the tests", uuid="ub1", timestamp=_ts(11, 0)),
+            _assistant_text_record(
+                session_b,
+                "Tests are green now.",
+                uuid="ab1",
+                parent_uuid="ub1",
+                timestamp=_ts(11, 5),
+                input_tokens=200,
+                output_tokens=150,
+            ),
+            _turn_duration_record(
+                session_b, 5000, 2, slug="quiet-silver-moon", timestamp=_ts(11, 6)
+            ),
+        ],
+    )
 
     # Session C: dead session (no turn_duration, no slug — crashed)
     session_c = "cccc3333-0000-0000-0000-000000000000"
-    _write_session(home_terry, session_c, [
-        _user_record(session_c, "investigate disk", uuid="uc1", timestamp=_ts(12, 0)),
-        _assistant_text_record(
-            session_c, "Disk is at 80%.",
-            uuid="ac1", parent_uuid="uc1", timestamp=_ts(12, 1),
-        ),
-    ])
+    _write_session(
+        home_terry,
+        session_c,
+        [
+            _user_record(session_c, "investigate disk", uuid="uc1", timestamp=_ts(12, 0)),
+            _assistant_text_record(
+                session_c,
+                "Disk is at 80%.",
+                uuid="ac1",
+                parent_uuid="uc1",
+                timestamp=_ts(12, 1),
+            ),
+        ],
+    )
 
     # Also write history.jsonl
     history = tmp_path / ".claude" / "history.jsonl"
     history.write_text(
-        json.dumps({"display": "build the feature", "timestamp": 1775170800000, "sessionId": session_a, "project": "/home/terry"}) + "\n"
-        + json.dumps({"display": "fix the tests", "timestamp": 1775174400000, "sessionId": session_b, "project": "/home/terry/germline"}) + "\n"
-        + json.dumps({"display": "investigate disk", "timestamp": 1775178000000, "sessionId": session_c, "project": "/home/terry"}) + "\n"
+        json.dumps(
+            {
+                "display": "build the feature",
+                "timestamp": 1775170800000,
+                "sessionId": session_a,
+                "project": "/home/terry",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "display": "fix the tests",
+                "timestamp": 1775174400000,
+                "sessionId": session_b,
+                "project": "/home/terry/germline",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "display": "investigate disk",
+                "timestamp": 1775178000000,
+                "sessionId": session_c,
+                "project": "/home/terry",
+            }
+        )
+        + "\n"
     )
 
     return tmp_path
@@ -257,6 +316,7 @@ def claude_projects(tmp_path: Path):
 # ===========================================================================
 # Tests: list_sessions
 # ===========================================================================
+
 
 class TestListSessions:
     """necropsy.list_sessions(claude_home) -> list of session summaries."""
@@ -275,10 +335,19 @@ class TestListSessions:
         from metabolon.enzymes.necropsy import list_sessions
 
         sessions = list_sessions(claude_projects / ".claude")
-        required = {"session_id", "project", "first_timestamp", "last_timestamp", "user_turns", "assistant_turns"}
+        required = {
+            "session_id",
+            "project",
+            "first_timestamp",
+            "last_timestamp",
+            "user_turns",
+            "assistant_turns",
+        }
 
         for session in sessions:
-            assert required.issubset(session.keys()), f"Missing fields: {required - session.keys()}"
+            assert required.issubset(session.keys()), (
+                f"Missing fields: {required - session.keys()}"
+            )
 
     def test_session_counts_turns(self, claude_projects: Path):
         from metabolon.enzymes.necropsy import list_sessions
@@ -323,6 +392,7 @@ class TestListSessions:
 # ===========================================================================
 # Tests: extract_session
 # ===========================================================================
+
 
 class TestExtractSession:
     """necropsy.extract_session(jsonl_path, session_id) -> structured content."""
@@ -408,6 +478,7 @@ class TestExtractSession:
 # Tests: timeline (formatted output)
 # ===========================================================================
 
+
 class TestTimeline:
     """necropsy.timeline(jsonl_path, session_id) -> human-readable timeline."""
 
@@ -455,11 +526,13 @@ class TestTimeline:
 # Tests: MCP tool interface
 # ===========================================================================
 
+
 class TestMcpTool:
     """The necropsy MCP tool should be importable and callable."""
 
     def test_importable(self):
         from metabolon.enzymes.necropsy import necropsy
+
         assert callable(necropsy)
 
     def test_list_action(self, claude_projects: Path):

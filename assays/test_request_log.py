@@ -5,14 +5,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_context(tool_name: str, arguments: dict | None = None):
     """Build a minimal MiddlewareContext-like object for on_call_tool."""
@@ -27,6 +27,7 @@ def _make_context(tool_name: str, arguments: dict | None = None):
 # ---------------------------------------------------------------------------
 # Tests: log_request_to_jsonl
 # ---------------------------------------------------------------------------
+
 
 def test_log_request_success(tmp_path: Path):
     """A successful tool call appends a JSONL line with success=True."""
@@ -146,12 +147,14 @@ def test_log_request_has_iso_timestamp(tmp_path: Path):
     entry = json.loads(log_path.read_text().strip())
     # Should parse without error
     from datetime import datetime
+
     datetime.fromisoformat(entry["ts"])
 
 
 # ---------------------------------------------------------------------------
 # Tests: middleware integration — on_call_tool writes to JSONL
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_middleware_writes_jsonl_on_success(tmp_path: Path):

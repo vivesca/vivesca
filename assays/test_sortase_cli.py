@@ -7,15 +7,14 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
-from metabolon.sortase.cli import main, _percentile
-
+from metabolon.sortase.cli import _percentile, main
 
 # ---------------------------------------------------------------------------
 # _percentile unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestPercentile:
     def test_empty_list(self) -> None:
@@ -66,7 +65,9 @@ class TestSpeedPercentiles:
     @patch("metabolon.sortase.logger.read_logs")
     @patch("metabolon.organelles.tachometer.read_logs")
     @patch("metabolon.sortase.cli.read_logs")
-    def test_speed_percentiles_flag(self, mock_cli_read: object, mock_tach_read: object, mock_logger_read: object) -> None:
+    def test_speed_percentiles_flag(
+        self, mock_cli_read: object, mock_tach_read: object, mock_logger_read: object
+    ) -> None:
         """The --percentiles flag is accepted by the speed command."""
         # All three callers need sample data so metrics don't crash.
         # - mock_cli_read: currently unused by speed but patched for completeness
@@ -85,7 +86,9 @@ class TestSpeedPercentiles:
 
     @patch("metabolon.sortase.cli.read_logs")
     @patch("metabolon.organelles.tachometer.read_logs")
-    def test_speed_without_percentiles(self, mock_tach_read: object, mock_cli_read: object) -> None:
+    def test_speed_without_percentiles(
+        self, mock_tach_read: object, mock_cli_read: object
+    ) -> None:
         """Speed command works without --percentiles (no Backend Percentiles output)."""
         mock_tach_read.return_value = SAMPLE_LOG_ENTRIES
         mock_cli_read.return_value = SAMPLE_LOG_ENTRIES
@@ -111,7 +114,9 @@ class TestSpeedPercentiles:
     @patch("metabolon.sortase.logger.read_logs")
     @patch("metabolon.sortase.cli.read_logs")
     @patch("metabolon.organelles.tachometer.read_logs")
-    def test_speed_percentiles_empty_log(self, mock_tach_read: object, mock_cli_read: object, mock_logger_read: object) -> None:
+    def test_speed_percentiles_empty_log(
+        self, mock_tach_read: object, mock_cli_read: object, mock_logger_read: object
+    ) -> None:
         """Percentiles with empty log does not crash."""
         mock_tach_read.return_value = []
         mock_cli_read.return_value = []
@@ -126,12 +131,14 @@ class TestSpeedPercentiles:
 # exec argument acceptance
 # ---------------------------------------------------------------------------
 
+
 class TestExecAcceptance:
     @patch("metabolon.sortase.cli.execute_tasks")
     @patch("metabolon.sortase.cli.decompose_plan")
     def test_exec_accepts_arguments(self, mock_decompose: object, mock_execute: object) -> None:
         """exec command accepts its arguments without error (no actual dispatch)."""
         from dataclasses import dataclass
+
         from metabolon.sortase.decompose import TaskSpec
         from metabolon.sortase.router import RouteDecision
 
@@ -169,17 +176,25 @@ class TestExecAcceptance:
 
         mock_execute.return_value = [FakeResult()]
 
-        with patch("metabolon.sortase.cli.route_description") as mock_route, \
-             patch("metabolon.sortase.cli.validate_execution") as mock_validate, \
-             patch("metabolon.sortase.cli.append_log"):
+        with (
+            patch("metabolon.sortase.cli.route_description") as mock_route,
+            patch("metabolon.sortase.cli.validate_execution") as mock_validate,
+            patch("metabolon.sortase.cli.append_log"),
+        ):
             mock_route.return_value = RouteDecision(tool="goose", reason="test", pattern=None)
             mock_validate.return_value = []
 
             # Use the sortase plans dir as a dummy project dir (exists=True check)
             project_dir = Path(__file__).resolve().parent.parent / "loci"
             runner = CliRunner()
-            result = runner.invoke(main, [
-                "exec", str(project_dir / "plans"), "-p", str(project_dir),
-                "--dry-run",
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "exec",
+                    str(project_dir / "plans"),
+                    "-p",
+                    str(project_dir),
+                    "--dry-run",
+                ],
+            )
             assert result.exit_code == 0, f"exit_code={result.exit_code}\noutput:\n{result.output}"

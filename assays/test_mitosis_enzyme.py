@@ -2,14 +2,11 @@ from __future__ import annotations
 
 """Tests for metabolon.enzymes.mitosis — DR sync MCP tool."""
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.enzymes.mitosis import mitosis
 from metabolon.morphology import EffectorResult, Vital
 from metabolon.organelles.mitosis import FidelityReport, ReplicationResult
-
 
 # ── Fixtures / helpers ────────────────────────────────────────────────
 
@@ -24,10 +21,12 @@ def _make_report(results: list[ReplicationResult]) -> FidelityReport:
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_returns_effector_result_on_success(mock_sync):
-    report = _make_report([
-        ReplicationResult("germline", True, 1.2, "pushed"),
-        ReplicationResult("epigenome", True, 0.8, "up-to-date"),
-    ])
+    report = _make_report(
+        [
+            ReplicationResult("germline", True, 1.2, "pushed"),
+            ReplicationResult("epigenome", True, 0.8, "up-to-date"),
+        ]
+    )
     mock_sync.return_value = report
 
     result = mitosis(action="sync")
@@ -42,9 +41,11 @@ def test_sync_returns_effector_result_on_success(mock_sync):
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_passes_targets(mock_sync):
-    mock_sync.return_value = _make_report([
-        ReplicationResult("germline", True, 0.5, "pushed"),
-    ])
+    mock_sync.return_value = _make_report(
+        [
+            ReplicationResult("germline", True, 0.5, "pushed"),
+        ]
+    )
 
     mitosis(action="sync", targets=["germline"])
 
@@ -53,9 +54,11 @@ def test_sync_passes_targets(mock_sync):
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_passes_none_targets(mock_sync):
-    mock_sync.return_value = _make_report([
-        ReplicationResult("germline", True, 0.5, "pushed"),
-    ])
+    mock_sync.return_value = _make_report(
+        [
+            ReplicationResult("germline", True, 0.5, "pushed"),
+        ]
+    )
 
     mitosis(action="sync")
 
@@ -64,9 +67,11 @@ def test_sync_passes_none_targets(mock_sync):
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_reports_failure(mock_sync):
-    report = _make_report([
-        ReplicationResult("germline", False, 2.0, "push: failed"),
-    ])
+    report = _make_report(
+        [
+            ReplicationResult("germline", False, 2.0, "push: failed"),
+        ]
+    )
     mock_sync.return_value = report
 
     result = mitosis(action="sync")
@@ -78,9 +83,11 @@ def test_sync_reports_failure(mock_sync):
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_elapsed_s_is_rounded(mock_sync):
-    report = _make_report([
-        ReplicationResult("germline", True, 1.2345, "ok"),
-    ])
+    report = _make_report(
+        [
+            ReplicationResult("germline", True, 1.2345, "ok"),
+        ]
+    )
     mock_sync.return_value = report
 
     result = mitosis(action="sync")
@@ -90,9 +97,11 @@ def test_sync_elapsed_s_is_rounded(mock_sync):
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_result_error_field_populated(mock_sync):
-    mock_sync.return_value = _make_report([
-        ReplicationResult("germline", False, 1.0, "pull failed: timeout"),
-    ])
+    mock_sync.return_value = _make_report(
+        [
+            ReplicationResult("germline", False, 1.0, "pull failed: timeout"),
+        ]
+    )
 
     result = mitosis(action="sync")
 
@@ -221,10 +230,12 @@ def test_sync_empty_results(mock_sync):
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_individual_result_elapsed_s_rounded(mock_sync):
     """Each result's elapsed_s should be rounded to 1 decimal in output."""
-    mock_sync.return_value = _make_report([
-        ReplicationResult("germline", True, 3.14159, "ok"),
-        ReplicationResult("epigenome", True, 2.71828, "ok"),
-    ])
+    mock_sync.return_value = _make_report(
+        [
+            ReplicationResult("germline", True, 3.14159, "ok"),
+            ReplicationResult("epigenome", True, 2.71828, "ok"),
+        ]
+    )
 
     result = mitosis(action="sync")
 
@@ -245,11 +256,13 @@ def test_sync_with_empty_targets_list(mock_sync):
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_mixed_success_and_failure(mock_sync):
     """Results with a mix of success/failure produce correct per-item data."""
-    mock_sync.return_value = _make_report([
-        ReplicationResult("germline", True, 1.0, "pushed"),
-        ReplicationResult("epigenome", False, 2.0, "timeout"),
-        ReplicationResult("chromatin", True, 0.5, "up-to-date"),
-    ])
+    mock_sync.return_value = _make_report(
+        [
+            ReplicationResult("germline", True, 1.0, "pushed"),
+            ReplicationResult("epigenome", False, 2.0, "timeout"),
+            ReplicationResult("chromatin", True, 0.5, "up-to-date"),
+        ]
+    )
 
     result = mitosis(action="sync")
 

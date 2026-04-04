@@ -3,8 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.organelles.telegram_receptor."""
 
 import asyncio
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,7 +25,6 @@ from metabolon.organelles.telegram_receptor import (
     search_messages,
 )
 
-
 # ---------------------------------------------------------------------------
 # _format_message
 # ---------------------------------------------------------------------------
@@ -37,7 +35,7 @@ class TestFormatMessage:
 
     def test_outgoing_message(self):
         msg = SimpleNamespace(
-            date=datetime(2025, 3, 14, 9, 30, tzinfo=timezone.utc),
+            date=datetime(2025, 3, 14, 9, 30, tzinfo=UTC),
             out=True,
             text="Hello world",
         )
@@ -45,7 +43,7 @@ class TestFormatMessage:
 
     def test_incoming_message(self):
         msg = SimpleNamespace(
-            date=datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc),
+            date=datetime(2025, 1, 1, 0, 0, tzinfo=UTC),
             out=False,
             text="Reply",
         )
@@ -57,7 +55,7 @@ class TestFormatMessage:
 
     def test_media_non_text(self):
         msg = SimpleNamespace(
-            date=datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc),
+            date=datetime(2025, 6, 15, 12, 0, tzinfo=UTC),
             out=False,
             text=None,
         )
@@ -65,7 +63,7 @@ class TestFormatMessage:
 
     def test_empty_text(self):
         msg = SimpleNamespace(
-            date=datetime(2025, 7, 4, 18, 30, tzinfo=timezone.utc),
+            date=datetime(2025, 7, 4, 18, 30, tzinfo=UTC),
             out=True,
             text="",
         )
@@ -85,14 +83,20 @@ class TestGetClient:
     @patch("metabolon.organelles.telegram_receptor.SESSION_DIR", new_callable=lambda: MagicMock)
     def test_raises_on_missing_api_id(self, mock_dir, mock_env):
         """ValueError when TELEGRAM_API_ID is unset or zero."""
-        mock_env.side_effect = lambda k, d="": {"TELEGRAM_API_ID": "0", "TELEGRAM_API_HASH": "abc"}.get(k, d)
+        mock_env.side_effect = lambda k, d="": {
+            "TELEGRAM_API_ID": "0",
+            "TELEGRAM_API_HASH": "abc",
+        }.get(k, d)
         with pytest.raises(ValueError, match="TELEGRAM_API_ID"):
             _get_client()
 
     @patch("metabolon.organelles.telegram_receptor.os.environ.get")
     def test_raises_on_missing_api_hash(self, mock_env):
         """ValueError when TELEGRAM_API_HASH is empty."""
-        mock_env.side_effect = lambda k, d="": {"TELEGRAM_API_ID": "12345", "TELEGRAM_API_HASH": ""}.get(k, d)
+        mock_env.side_effect = lambda k, d="": {
+            "TELEGRAM_API_ID": "12345",
+            "TELEGRAM_API_HASH": "",
+        }.get(k, d)
         with pytest.raises(ValueError, match="TELEGRAM_API_HASH"):
             _get_client()
 
@@ -165,12 +169,12 @@ class TestReadChatAsync:
     def test_returns_formatted_messages(self, mock_get_client):
         msgs = [
             SimpleNamespace(
-                date=datetime(2025, 3, 14, 9, 0, tzinfo=timezone.utc),
+                date=datetime(2025, 3, 14, 9, 0, tzinfo=UTC),
                 out=False,
                 text="Hi",
             ),
             SimpleNamespace(
-                date=datetime(2025, 3, 14, 9, 1, tzinfo=timezone.utc),
+                date=datetime(2025, 3, 14, 9, 1, tzinfo=UTC),
                 out=True,
                 text="Hello",
             ),
@@ -196,7 +200,10 @@ class TestReadChatAsync:
         mock_get_client.return_value = client
         asyncio.run(_read_chat_async("chat", limit=5))
         client.get_messages.assert_called_once()
-        assert client.get_messages.call_args.kwargs.get("limit") == 5 or client.get_messages.call_args[1].get("limit") == 5
+        assert (
+            client.get_messages.call_args.kwargs.get("limit") == 5
+            or client.get_messages.call_args[1].get("limit") == 5
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +226,7 @@ class TestSearchAsync:
     def test_search_with_chat_scope(self, mock_get_client):
         msgs = [
             SimpleNamespace(
-                date=datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc),
+                date=datetime(2025, 1, 1, 0, 0, tzinfo=UTC),
                 out=True,
                 text="found it",
             ),
@@ -234,7 +241,7 @@ class TestSearchAsync:
     def test_search_without_chat_scope(self, mock_get_client):
         msgs = [
             SimpleNamespace(
-                date=datetime(2025, 2, 1, 0, 0, tzinfo=timezone.utc),
+                date=datetime(2025, 2, 1, 0, 0, tzinfo=UTC),
                 out=False,
                 text="global result",
             ),
@@ -330,7 +337,7 @@ class TestAuthCheckAsync:
         client = self._make_mock_client(me)
         mock_get_client.return_value = client
         result = asyncio.run(_auth_check_async())
-        assert "Authenticated as: Terry (+15551234567)" == result
+        assert result == "Authenticated as: Terry (+15551234567)"
 
     @patch("metabolon.organelles.telegram_receptor._get_client")
     def test_not_authenticated(self, mock_get_client):

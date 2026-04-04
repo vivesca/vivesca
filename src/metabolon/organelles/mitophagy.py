@@ -1,10 +1,8 @@
-
 """mitophagy — selective removal of underperforming LLM models.
 
 Auto-blacklist threshold: <50% success over >=5 attempts in last 7 days.
 Blacklist is advisory — always logged, never silently dropped.
 """
-
 
 import json
 import time

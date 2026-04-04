@@ -4,11 +4,8 @@ from __future__ import annotations
 """Tests for effectors/git-activity — git pulse across repos."""
 
 import json
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 def _load():
@@ -106,7 +103,9 @@ class TestGatherCommits:
         assert commits[1]["message_kind"] == "golem"
 
     def test_malformed_line_skipped(self):
-        log_output = "bad-line-without-pipes\nabc123456789|Terry|t@t.dev|2026-03-31T10:00:00+00:00|ok\n"
+        log_output = (
+            "bad-line-without-pipes\nabc123456789|Terry|t@t.dev|2026-03-31T10:00:00+00:00|ok\n"
+        )
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout=log_output)
             commits = gather_commits(Path("/fake"), "2026-03-31")
@@ -194,12 +193,13 @@ class TestBuildReport:
     def test_with_mock_repo(self):
         _mod["REPOS"].clear()
         _mod["REPOS"]["test-repo"] = Path("/fake")
-        log_output = "abc123456789|Terry Li|terry@terryli.dev|2026-03-31T10:00:00+00:00|feat: add X\n"
+        log_output = (
+            "abc123456789|Terry Li|terry@terryli.dev|2026-03-31T10:00:00+00:00|feat: add X\n"
+        )
         file_output = "effectors/git-activity\n"
         stat_output = "abc1234 feat: add X\n 2 files changed, 30 insertions(+)\n"
 
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("subprocess.run") as mock_run:
+        with patch("pathlib.Path.exists", return_value=True), patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
                 MagicMock(stdout=log_output),
                 MagicMock(stdout=file_output),
@@ -219,8 +219,7 @@ class TestBuildReport:
             "def123456789|Terry Li|t@t.dev|2026-03-31T09:00:00+00:00|feat: real work\n"
         )
 
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("subprocess.run") as mock_run:
+        with patch("pathlib.Path.exists", return_value=True), patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
                 MagicMock(stdout=log_output),
                 MagicMock(stdout=""),

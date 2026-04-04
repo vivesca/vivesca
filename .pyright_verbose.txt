@@ -139,5 +139,5 @@ Heap stats: total_memory_size=32097MB, total_free_size=21448MB, total_heap_size=
 Heap stats: total_memory_size=32097MB, total_free_size=21421MB, total_heap_size=806MB, used_heap_size=756MB, cross_worker_used_heap_size=756MB, total_physical_size=806MB, total_available_size=3373MB, heap_size_limit=4144MB
 Heap stats: total_memory_size=32097MB, total_free_size=21341MB, total_heap_size=814MB, used_heap_size=771MB, cross_worker_used_heap_size=771MB, total_physical_size=814MB, total_available_size=3358MB, heap_size_limit=4144MB
 pyright 1.1.408
-0 errors, 0 warnings, 0 informations
+0 errors, 0 warnings, 0 information
 Completed in 60.693sec

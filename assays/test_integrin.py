@@ -12,7 +12,6 @@ import pytest
 # Import the module under test
 from metabolon.enzymes import integrin as mod
 
-
 # ── Test fixtures ────────────────────────────────────────────────────────────
 
 
@@ -197,9 +196,7 @@ class TestReadSkillUsage:
         log_file = tmp_path / "usage.tsv"
         now = datetime.now()
         earlier = now - timedelta(hours=1)
-        log_file.write_text(
-            f"{earlier.isoformat()}\tskill-one\n{now.isoformat()}\tskill-one\n"
-        )
+        log_file.write_text(f"{earlier.isoformat()}\tskill-one\n{now.isoformat()}\tskill-one\n")
         with patch.object(mod, "SKILL_USAGE_LOG", log_file):
             result = mod._read_skill_usage()
             assert result["skill-one"].isoformat() == now.isoformat()
@@ -231,7 +228,7 @@ class TestCheckPhenotypeSymlinks:
             patch.object(mod, "PLATFORM_SYMLINKS", [mock_symlink]),
             patch.object(mod, "_KNOWN_PLATFORM_DIRS", set()),
         ):
-            issues, unknown = mod._check_phenotype_symlinks()
+            issues, _unknown = mod._check_phenotype_symlinks()
             assert len(issues) == 1
             assert issues[0]["problem"] == "missing"
 
@@ -243,7 +240,7 @@ class TestCheckPhenotypeSymlinks:
             patch.object(mod, "PLATFORM_SYMLINKS", [mock_symlink]),
             patch.object(mod, "_KNOWN_PLATFORM_DIRS", set()),
         ):
-            issues, unknown = mod._check_phenotype_symlinks()
+            issues, _unknown = mod._check_phenotype_symlinks()
             assert len(issues) == 1
             assert issues[0]["problem"] == "not_symlink"
 
@@ -259,7 +256,7 @@ class TestCheckPhenotypeSymlinks:
             patch.object(mod, "phenotype_md", mock_phenotype),
             patch.object(mod, "_KNOWN_PLATFORM_DIRS", set()),
         ):
-            issues, unknown = mod._check_phenotype_symlinks()
+            issues, _unknown = mod._check_phenotype_symlinks()
             assert len(issues) == 1
             assert "wrong_target" in issues[0]["problem"]
 
@@ -276,7 +273,7 @@ class TestCheckPhenotypeSymlinks:
             patch.object(mod, "_KNOWN_PLATFORM_DIRS", set()),
             patch.object(Path, "iterdir", return_value=[]),
         ):
-            issues, unknown = mod._check_phenotype_symlinks()
+            issues, _unknown = mod._check_phenotype_symlinks()
             assert issues == []
 
 
@@ -322,11 +319,13 @@ class TestCheckUntestedCode:
                     if not py_file.name.startswith(("_", "test_", ".")):
                         expected_test = assays_dir / f"test_{py_file.stem}.py"
                         if not expected_test.exists():
-                            result.append({
-                                "module": f"enzymes/{py_file.name}",
-                                "expected_test": f"assays/test_{py_file.stem}.py",
-                                "problem": "missing",
-                            })
+                            result.append(
+                                {
+                                    "module": f"enzymes/{py_file.name}",
+                                    "expected_test": f"assays/test_{py_file.stem}.py",
+                                    "problem": "missing",
+                                }
+                            )
             assert len(result) == 1
             assert "myenzyme" in result[0]["module"]
 
@@ -520,7 +519,7 @@ class TestExtractBudMcpToolRefs:
 class TestExtractBudCliRefs:
     def test_extracts_cli_refs(self):
         text = "```bash\ngit status\nnpm test\n```"
-        result = mod._extract_bud_cli_refs(text)
+        mod._extract_bud_cli_refs(text)
         # git and npm are in BUILTINS, so filtered
         # Let's use non-builtin commands
         text2 = "```bash\nmytool --help\nanother-tool run\n```"

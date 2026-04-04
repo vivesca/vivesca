@@ -4,6 +4,7 @@
 Replaces 17 hooks (7 JS + 10 Python) with a single process.
 Routes by tool name and file path internally.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -71,11 +72,13 @@ def chaperone_py(data):
         # Nudge for organelles and enzymes — these MUST have tests
         if "/organelles/" in fp or "/enzymes/" in fp:
             print(
-                json.dumps({
-                    "output": f"[assay-missing] No test file for `{basename}.py`. "
-                    f"Genome rule: assays ship with code. "
-                    f"Expected: `assays/test_{basename}.py`"
-                })
+                json.dumps(
+                    {
+                        "output": f"[assay-missing] No test file for `{basename}.py`. "
+                        f"Genome rule: assays ship with code. "
+                        f"Expected: `assays/test_{basename}.py`"
+                    }
+                )
             )
         return
 
@@ -101,7 +104,9 @@ def chaperone_py(data):
         )
         if "FAILED" in r.stdout or "ERROR" in r.stdout:
             lines = [
-                line for line in r.stdout.split("\n") if "FAILED" in line or "ERROR" in line or "assert" in line
+                line
+                for line in r.stdout.split("\n")
+                if "FAILED" in line or "ERROR" in line or "assert" in line
             ][:5]
             print(
                 f"[chaperone-py] Test regression in {os.path.basename(test_file)}:\n"
@@ -180,9 +185,11 @@ def chaperone_ts(data):
         return
 
     if r.returncode != 0:
-        errors = [line for line in (r.stdout or "").split("\n") if fp in line or os.path.basename(fp) in line][
-            :5
-        ]
+        errors = [
+            line
+            for line in (r.stdout or "").split("\n")
+            if fp in line or os.path.basename(fp) in line
+        ][:5]
         if errors:
             print(f"[TypeCheck] Errors in {os.path.basename(fp)}:", file=sys.stderr)
             for e in errors:
@@ -460,7 +467,7 @@ def mod_bash_post(data):
             pass
 
     # Dep pollution after delegate
-    if re.search(r"\b(gemini|codex exec|opencode run)\b", cmd, re.I):
+    if re.search(r"\b(gemini|codex exec|opencode run)\b", cmd, re.IGNORECASE):
         cd_match = re.search(r"cd\s+([^\s&;]+)", cmd)
         if cd_match:
             proj_dir = cd_match.group(1).replace("~", str(HOME))
@@ -683,7 +690,7 @@ def mod_ligation(data):
             if time.time() - last < 60:
                 subprocess.run(["git", "-C", repo_root, "add", "-A"], capture_output=True)
                 return
-    except (ValueError, OSError):
+    except ValueError, OSError:
         pass
 
     try:
@@ -1105,6 +1112,8 @@ def mod_assay_nudge(data):
 
 
 _PROPAGATION_DIRS = ("enzymes/", "organelles/", "effectors/")
+
+
 def mod_chaperone_propagation(data):
     """After editing tool/enzyme/organelle/effector code, remind to update skills + memories."""
     fp = data.get("tool_input", {}).get("file_path", "")
@@ -1411,7 +1420,7 @@ def mod_antisera_discovery(data):
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         sys.exit(0)
 
     tool = data.get("tool", "")
@@ -1490,7 +1499,12 @@ def main():
         modules.append(mod_recipe_sync)
 
     # Ideal? nudge (Edit/Write on germline code, non-skill — skills handled by ligation)
-    if tool in ("Edit", "Write") and "/germline/" in fp and "/skills/" not in fp and fp.endswith(".py"):
+    if (
+        tool in ("Edit", "Write")
+        and "/germline/" in fp
+        and "/skills/" not in fp
+        and fp.endswith(".py")
+    ):
         modules.append(mod_ideal_code)
 
     # Retrograde signal logging (Edit/Write on memory files)

@@ -1,10 +1,8 @@
-
 """Reflexes — automatic responses to lifecycle stimuli.
 
 Resources:
   vivesca://reflexes — inventory of all CC lifecycle hooks
 """
-
 
 import json
 from pathlib import Path
@@ -36,7 +34,7 @@ def express_reflex_inventory(settings_path: Path | None = None) -> str:
 
     try:
         data = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return "Could not parse settings.json."
 
     hooks = data.get("hooks", {})

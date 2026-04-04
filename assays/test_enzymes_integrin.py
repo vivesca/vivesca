@@ -8,16 +8,17 @@ from __future__ import annotations
 
 import subprocess
 import textwrap
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.enzymes.integrin import (
     ApoptosisResult,
     ColonyProbeResult,
     IntegrinResult,
+    _collect_bud_names,
+    _collect_receptor_names,
+    _collect_registered_tool_names,
     _extract_bash_commands,
     _extract_bud_cli_refs,
     _extract_bud_mcp_tool_refs,
@@ -36,17 +37,14 @@ from metabolon.enzymes.integrin import (
     _run_colony_probe,
     _run_probe,
     _strip_frontmatter,
-    _collect_receptor_names,
-    _collect_bud_names,
-    _collect_registered_tool_names,
     diff_fork,
     find_latest_cache_version,
     integrin,
     restore_fork_registry,
 )
 
-
 # ── Pure: _extract_bash_commands ─────────────────────────────────────
+
 
 class TestExtractBashCommands:
     def test_simple_bash_block(self):
@@ -91,6 +89,7 @@ class TestExtractBashCommands:
 
 # ── Pure: _is_real_command ───────────────────────────────────────────
 
+
 class TestIsRealCommand:
     def test_builtin_excluded(self):
         for b in ("echo", "cd", "ls", "grep", "cat", "git"):
@@ -103,7 +102,7 @@ class TestIsRealCommand:
 
     def test_too_short(self):
         assert not _is_real_command("ab")  # len 2, excluded
-        assert _is_real_command("abc")     # len 3, passes
+        assert _is_real_command("abc")  # len 3, passes
 
     def test_uppercase_excluded(self):
         assert not _is_real_command("Docker")
@@ -114,6 +113,7 @@ class TestIsRealCommand:
 
 
 # ── Pure: _parse_frontmatter ────────────────────────────────────────
+
 
 class TestParseFrontmatter:
     def test_scalar(self):
@@ -149,6 +149,7 @@ class TestParseFrontmatter:
 
 # ── Pure: _strip_frontmatter ────────────────────────────────────────
 
+
 class TestStripFrontmatter:
     def test_strips_frontmatter(self):
         text = "---\nname: x\n---\nbody content"
@@ -160,6 +161,7 @@ class TestStripFrontmatter:
 
 
 # ── Pure: colony/bud/skill extraction helpers ────────────────────────
+
 
 class TestExtractColonyBudRefs:
     def test_invokes(self):
@@ -246,6 +248,7 @@ class TestExtractSkillMcpToolRefs:
 
 # ── Pure: _extract_tool_cross_imports ────────────────────────────────
 
+
 class TestExtractToolCrossImports:
     def test_finds_cross_imports(self, tmp_path):
         # tool_a.py imports from tool_b
@@ -277,6 +280,7 @@ class TestExtractToolCrossImports:
 
 # ── I/O: _probe_responsiveness ───────────────────────────────────────
 
+
 class TestProbeResponsiveness:
     @patch("metabolon.enzymes.integrin.shutil.which", return_value="/usr/bin/docker")
     @patch("metabolon.enzymes.integrin.subprocess.run")
@@ -301,7 +305,10 @@ class TestProbeResponsiveness:
         assert _probe_responsiveness("nonexistent") is False
 
     @patch("metabolon.enzymes.integrin.shutil.which", return_value="/usr/bin/slow")
-    @patch("metabolon.enzymes.integrin.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="slow", timeout=5))
+    @patch(
+        "metabolon.enzymes.integrin.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="slow", timeout=5),
+    )
     def test_timeout(self, mock_run, mock_which):
         assert _probe_responsiveness("slow") is False
 
@@ -313,14 +320,13 @@ class TestProbeResponsiveness:
 
 # ── I/O: _read_skill_usage ──────────────────────────────────────────
 
+
 class TestReadSkillUsage:
     @patch("metabolon.enzymes.integrin.SKILL_USAGE_LOG")
     def test_parses_tsv(self, mock_log):
         mock_log.exists.return_value = True
         mock_log.read_text.return_value = (
-            "2025-12-01T10:00:00\talpha\n"
-            "2025-12-15T10:00:00\talpha\n"
-            "2025-12-10T10:00:00\tbeta\n"
+            "2025-12-01T10:00:00\talpha\n2025-12-15T10:00:00\talpha\n2025-12-10T10:00:00\tbeta\n"
         )
         result = _read_skill_usage()
         assert result["alpha"] == datetime(2025, 12, 15, 10, 0, 0)
@@ -348,6 +354,7 @@ class TestReadSkillUsage:
 
 # ── I/O: _log_anoikis_candidates ────────────────────────────────────
 
+
 class TestLogAnoikisCandidates:
     def test_writes_candidates(self, tmp_path):
         log = tmp_path / "retirement.md"
@@ -370,6 +377,7 @@ class TestLogAnoikisCandidates:
 
 
 # ── I/O: _collect_receptor_names ────────────────────────────────────
+
 
 class TestCollectReceptorNames:
     def test_collects_skill_dirs(self, tmp_path):
@@ -408,13 +416,16 @@ class TestCollectRegisteredToolNames:
 
 # ── I/O: _run_probe ─────────────────────────────────────────────────
 
+
 class TestRunProbe:
     @patch("metabolon.enzymes.integrin._check_skill_paths", return_value=[])
     @patch("metabolon.enzymes.integrin._check_untested_code", return_value=[])
     @patch("metabolon.enzymes.integrin._check_launchagent_paths", return_value=[])
     @patch("metabolon.enzymes.integrin._check_phenotype_symlinks", return_value=([], []))
     @patch("metabolon.enzymes.integrin.SKILLS_DIR")
-    def test_no_skills_dir(self, mock_skills, mock_pheno, mock_launch, mock_untested, mock_skill_paths):
+    def test_no_skills_dir(
+        self, mock_skills, mock_pheno, mock_launch, mock_untested, mock_skill_paths
+    ):
         mock_skills.is_dir.return_value = False
         result = _run_probe()
         assert isinstance(result, IntegrinResult)
@@ -429,8 +440,17 @@ class TestRunProbe:
     @patch("metabolon.enzymes.integrin._check_launchagent_paths", return_value=[])
     @patch("metabolon.enzymes.integrin._check_phenotype_symlinks", return_value=([], []))
     @patch("metabolon.enzymes.integrin.SKILLS_DIR")
-    def test_with_skills(self, mock_skills, mock_pheno, mock_launch, mock_untested,
-                         mock_skill_paths, mock_usage, mock_which, mock_probe):
+    def test_with_skills(
+        self,
+        mock_skills,
+        mock_pheno,
+        mock_launch,
+        mock_untested,
+        mock_skill_paths,
+        mock_usage,
+        mock_which,
+        mock_probe,
+    ):
         # Create a mock skill dir structure
         skill_dir = MagicMock()
         skill_dir.name = "my-skill"
@@ -440,7 +460,9 @@ class TestRunProbe:
         skill_file.is_file.return_value = True
         skill_file.read_text.return_value = "```bash\ndocker ps\n```\n"
 
-        skill_dir.__truediv__ = lambda self, key: skill_file if key == "SKILL.md" else Path(str(self) + "/" + key)
+        skill_dir.__truediv__ = lambda self, key: (
+            skill_file if key == "SKILL.md" else Path(str(self) + "/" + key)
+        )
         # Also need to support iterdir on skill_dir for activation state scan
         mock_skills.iterdir.return_value = [skill_dir]
         mock_skills.is_dir.return_value = True
@@ -459,6 +481,7 @@ class TestRunProbe:
 
 
 # ── I/O: _run_apoptosis_check ────────────────────────────────────────
+
 
 class TestRunApoptosisCheck:
     @patch("metabolon.enzymes.integrin._log_anoikis_candidates", return_value=True)
@@ -524,6 +547,7 @@ class TestRunApoptosisCheck:
 
 # ── I/O: _run_colony_probe ──────────────────────────────────────────
 
+
 class TestRunColonyProbe:
     def test_empty_dirs(self, tmp_path):
         colonies = tmp_path / "colonies"
@@ -580,9 +604,7 @@ class TestRunColonyProbe:
         skills.mkdir()
         tools.mkdir()
 
-        (buds / "auditor.md").write_text(
-            "---\nskills: [missing-skill]\n---\nbody\n"
-        )
+        (buds / "auditor.md").write_text("---\nskills: [missing-skill]\n---\nbody\n")
 
         result = _run_colony_probe(
             colonies_dir=colonies,
@@ -685,6 +707,7 @@ class TestRunColonyProbe:
 
 # ── Fork utilities ──────────────────────────────────────────────────
 
+
 class TestRestoreForkRegistry:
     def test_loads_yaml(self, tmp_path):
         reg = tmp_path / "forks.yaml"
@@ -764,15 +787,25 @@ class TestDiffFork:
 
 # ── integrin() dispatch ─────────────────────────────────────────────
 
+
 class TestIntegrinDispatch:
     @patch("metabolon.enzymes.integrin._run_probe")
     def test_probe_action(self, mock_probe):
         mock_probe.return_value = IntegrinResult(
-            total_receptors=0, total_references=0, attached=0,
-            detached=[], mechanically_silent=[], focal_adhesions=[],
-            anoikis=[], activation_state=[], adhesion_dependence=[],
-            phenotype_issues=[], unknown_platforms=[], launchagent_broken=[],
-            skill_path_broken=[], untested_code=[],
+            total_receptors=0,
+            total_references=0,
+            attached=0,
+            detached=[],
+            mechanically_silent=[],
+            focal_adhesions=[],
+            anoikis=[],
+            activation_state=[],
+            adhesion_dependence=[],
+            phenotype_issues=[],
+            unknown_platforms=[],
+            launchagent_broken=[],
+            skill_path_broken=[],
+            untested_code=[],
         )
         result = integrin(action="probe")
         assert isinstance(result, IntegrinResult)
@@ -781,9 +814,15 @@ class TestIntegrinDispatch:
     @patch("metabolon.enzymes.integrin._run_apoptosis_check")
     def test_apoptosis_action(self, mock_apoptosis):
         mock_apoptosis.return_value = ApoptosisResult(
-            open_count=0, extended_count=0, bent_count=0,
-            anoikis_candidate_count=0, anoikis_candidates=[], quiescent=[],
-            extended=[], retirement_log_updated=False, summary="",
+            open_count=0,
+            extended_count=0,
+            bent_count=0,
+            anoikis_candidate_count=0,
+            anoikis_candidates=[],
+            quiescent=[],
+            extended=[],
+            retirement_log_updated=False,
+            summary="",
         )
         result = integrin(action="apoptosis")
         assert isinstance(result, ApoptosisResult)
@@ -792,12 +831,20 @@ class TestIntegrinDispatch:
     @patch("metabolon.enzymes.integrin._run_colony_probe")
     def test_colony_probe_action(self, mock_colony):
         mock_colony.return_value = ColonyProbeResult(
-            colony_count=0, bud_count=0, skill_count=0, registered_tool_count=0,
-            detached_colony_bud_refs=[], detached_colony_skill_refs=[],
-            detached_bud_skill_refs=[], detached_bud_tool_refs=[],
-            detached_bud_cli_refs=[], detached_skill_skill_refs=[],
-            detached_skill_tool_refs=[], detached_tool_tool_refs=[],
-            orphan_buds=[], total_detached=0,
+            colony_count=0,
+            bud_count=0,
+            skill_count=0,
+            registered_tool_count=0,
+            detached_colony_bud_refs=[],
+            detached_colony_skill_refs=[],
+            detached_bud_skill_refs=[],
+            detached_bud_tool_refs=[],
+            detached_bud_cli_refs=[],
+            detached_skill_skill_refs=[],
+            detached_skill_tool_refs=[],
+            detached_tool_tool_refs=[],
+            orphan_buds=[],
+            total_detached=0,
         )
         result = integrin(action="colony_probe")
         assert isinstance(result, ColonyProbeResult)
@@ -811,11 +858,20 @@ class TestIntegrinDispatch:
     @patch("metabolon.enzymes.integrin._run_probe")
     def test_case_insensitive(self, mock_probe):
         mock_probe.return_value = IntegrinResult(
-            total_receptors=0, total_references=0, attached=0,
-            detached=[], mechanically_silent=[], focal_adhesions=[],
-            anoikis=[], activation_state=[], adhesion_dependence=[],
-            phenotype_issues=[], unknown_platforms=[], launchagent_broken=[],
-            skill_path_broken=[], untested_code=[],
+            total_receptors=0,
+            total_references=0,
+            attached=0,
+            detached=[],
+            mechanically_silent=[],
+            focal_adhesions=[],
+            anoikis=[],
+            activation_state=[],
+            adhesion_dependence=[],
+            phenotype_issues=[],
+            unknown_platforms=[],
+            launchagent_broken=[],
+            skill_path_broken=[],
+            untested_code=[],
         )
         integrin(action="PROBE")
         mock_probe.assert_called_once()
@@ -823,11 +879,20 @@ class TestIntegrinDispatch:
     @patch("metabolon.enzymes.integrin._run_probe")
     def test_whitespace_stripped(self, mock_probe):
         mock_probe.return_value = IntegrinResult(
-            total_receptors=0, total_references=0, attached=0,
-            detached=[], mechanically_silent=[], focal_adhesions=[],
-            anoikis=[], activation_state=[], adhesion_dependence=[],
-            phenotype_issues=[], unknown_platforms=[], launchagent_broken=[],
-            skill_path_broken=[], untested_code=[],
+            total_receptors=0,
+            total_references=0,
+            attached=0,
+            detached=[],
+            mechanically_silent=[],
+            focal_adhesions=[],
+            anoikis=[],
+            activation_state=[],
+            adhesion_dependence=[],
+            phenotype_issues=[],
+            unknown_platforms=[],
+            launchagent_broken=[],
+            skill_path_broken=[],
+            untested_code=[],
         )
         integrin(action="  probe  ")
         mock_probe.assert_called_once()

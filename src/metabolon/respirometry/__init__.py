@@ -1,6 +1,4 @@
-
 """Spending metabolism -- credit card statement parsing and monitoring."""
-
 
 import re
 from datetime import datetime, timedelta, timezone

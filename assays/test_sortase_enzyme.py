@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,7 +15,6 @@ from metabolon.enzymes.sortase import (
     StatsResult,
     sortase,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -184,7 +182,9 @@ def test_sortase_dispatch_success(
             fallbacks=[],
         )
     ]
-    mock_subprocess_run.return_value = MagicMock(stdout="file1.py\nfile2.py\n", stderr="", returncode=0)
+    mock_subprocess_run.return_value = MagicMock(
+        stdout="file1.py\nfile2.py\n", stderr="", returncode=0
+    )
 
     result = sortase(
         action="dispatch",
@@ -327,9 +327,7 @@ def test_sortase_dispatch_with_timeout_parameter(
 
 def test_sortase_route_with_description(mock_route_description):
     """sortase route uses description parameter."""
-    mock_route_description.return_value = MagicMock(
-        tool="gemini", reason="Algorithmic -> Gemini"
-    )
+    mock_route_description.return_value = MagicMock(tool="gemini", reason="Algorithmic -> Gemini")
 
     result = sortase(action="route", description="Implement sorting algorithm")
 
@@ -340,9 +338,7 @@ def test_sortase_route_with_description(mock_route_description):
 
 def test_sortase_route_uses_prompt_as_description(mock_route_description):
     """sortase route falls back to prompt if no description."""
-    mock_route_description.return_value = MagicMock(
-        tool="codex", reason="Multi-file -> Codex"
-    )
+    mock_route_description.return_value = MagicMock(tool="codex", reason="Multi-file -> Codex")
 
     result = sortase(action="route", prompt="Refactor across multiple files")
 
@@ -377,8 +373,18 @@ def test_sortase_status_empty(mock_list_running):
 def test_sortase_status_with_running_tasks(mock_list_running):
     """sortase status returns running tasks."""
     mock_list_running.return_value = [
-        {"task_name": "task-1", "tool": "goose", "project_dir": "/proj1", "started_at": "2024-01-01T10:00:00"},
-        {"task_name": "task-2", "tool": "gemini", "project_dir": "/proj2", "started_at": "2024-01-01T11:00:00"},
+        {
+            "task_name": "task-1",
+            "tool": "goose",
+            "project_dir": "/proj1",
+            "started_at": "2024-01-01T10:00:00",
+        },
+        {
+            "task_name": "task-2",
+            "tool": "gemini",
+            "project_dir": "/proj2",
+            "started_at": "2024-01-01T11:00:00",
+        },
     ]
 
     result = sortase(action="status")
@@ -444,7 +450,12 @@ def test_sortase_stats_with_entries(mock_read_logs, mock_aggregate_stats):
 def test_sortase_stats_respects_last_n(mock_read_logs, mock_aggregate_stats):
     """sortase stats limits entries to last_n."""
     mock_read_logs.return_value = [
-        {"timestamp": f"2024-01-01T{h:02d}:00:00", "plan": f"plan-{h}", "tool": "goose", "success": True}
+        {
+            "timestamp": f"2024-01-01T{h:02d}:00:00",
+            "plan": f"plan-{h}",
+            "tool": "goose",
+            "success": True,
+        }
         for h in range(20)
     ]
     mock_aggregate_stats.return_value = {"per_tool": {}}
@@ -458,7 +469,12 @@ def test_sortase_stats_respects_last_n(mock_read_logs, mock_aggregate_stats):
 def test_sortase_stats_default_last_n(mock_read_logs, mock_aggregate_stats):
     """sortase stats uses default last_n of 10."""
     mock_read_logs.return_value = [
-        {"timestamp": f"2024-01-01T{h:02d}:00:00", "plan": f"plan-{h}", "tool": "goose", "success": True}
+        {
+            "timestamp": f"2024-01-01T{h:02d}:00:00",
+            "plan": f"plan-{h}",
+            "tool": "goose",
+            "success": True,
+        }
         for h in range(25)
     ]
     mock_aggregate_stats.return_value = {"per_tool": {}}

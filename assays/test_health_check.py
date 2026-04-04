@@ -1,22 +1,21 @@
 """Tests for effectors/health-check — subprocess-based, as per effector convention."""
+
 from __future__ import annotations
 
 import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "health-check"
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(args: list[str] | None = None, env: dict | None = None) -> subprocess.CompletedProcess:
     """Run health-check as a subprocess (the correct effector test pattern)."""
@@ -32,6 +31,7 @@ def _run(args: list[str] | None = None, env: dict | None = None) -> subprocess.C
 # ---------------------------------------------------------------------------
 # No data source available
 # ---------------------------------------------------------------------------
+
 
 class TestNoDataSource:
     def test_unknown_when_no_data(self, tmp_path, monkeypatch):
@@ -58,6 +58,7 @@ class TestNoDataSource:
 # ---------------------------------------------------------------------------
 # Data from oura cache
 # ---------------------------------------------------------------------------
+
 
 class TestOuraCache:
     def test_green_status_from_cache(self, tmp_path, monkeypatch):
@@ -168,6 +169,7 @@ class TestOuraCache:
 # ---------------------------------------------------------------------------
 # classify() unit tests (import-free via exec)
 # ---------------------------------------------------------------------------
+
 
 class TestClassifyUnit:
     """Test classify() directly by exec-loading the effector source."""

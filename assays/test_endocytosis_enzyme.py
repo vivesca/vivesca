@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import metabolon.enzymes.endocytosis as mod
 from metabolon.enzymes.endocytosis import (
     EndocytosisResult,
     _stats_result,
@@ -19,7 +18,6 @@ from metabolon.enzymes.endocytosis import (
     endocytosis,
 )
 from metabolon.morphology import EffectorResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,8 +31,7 @@ def _ts(days_ago: int = 0) -> str:
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        for row in rows:
-            f.write(json.dumps(row) + "\n")
+        f.writelines(json.dumps(row) + "\n" for row in rows)
 
 
 # ---------------------------------------------------------------------------
@@ -60,9 +57,7 @@ class TestStatusResult:
             article_cache_dir=Path("/fake/cfg/cache"),
         )
         mock_restore_config.return_value = fake_config
-        mock_dt.now.return_value.astimezone.return_value = datetime(
-            2025, 6, 15, 12, 0, tzinfo=UTC
-        )
+        mock_dt.now.return_value.astimezone.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=UTC)
 
         with patch.object(Path, "exists", return_value=False):
             result = _status_result()
@@ -94,9 +89,7 @@ class TestStatusResult:
         }
         # _parse_aware returns a datetime for the state values
         mock_parse.side_effect = lambda s: datetime.fromisoformat(s) if s else None
-        mock_dt.now.return_value.astimezone.return_value = datetime(
-            2025, 6, 15, 12, 0, tzinfo=UTC
-        )
+        mock_dt.now.return_value.astimezone.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=UTC)
 
         with patch.object(Path, "exists", return_value=False):
             result = _status_result()
@@ -125,9 +118,7 @@ class TestStatusResult:
             article_cache_dir=cache_dir,
         )
         mock_restore_config.return_value = fake_config
-        mock_dt.now.return_value.astimezone.return_value = datetime(
-            2025, 6, 15, 12, 0, tzinfo=UTC
-        )
+        mock_dt.now.return_value.astimezone.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=UTC)
 
         result = _status_result()
         assert "Article cache: 2 files" in result.output
@@ -147,9 +138,7 @@ class TestStatusResult:
             article_cache_dir=Path("/nonexistent/cache"),
         )
         mock_restore_config.return_value = fake_config
-        mock_dt.now.return_value.astimezone.return_value = datetime(
-            2025, 6, 15, 12, 0, tzinfo=UTC
-        )
+        mock_dt.now.return_value.astimezone.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=UTC)
 
         result = _status_result()
         assert "missing" in result.output
@@ -315,9 +304,7 @@ class TestEndocytosisDispatch:
 
     @patch("metabolon.enzymes.endocytosis._status_result")
     def test_status_action(self, mock_status):
-        mock_status.return_value = EndocytosisResult(
-            output="status ok", status="ok"
-        )
+        mock_status.return_value = EndocytosisResult(output="status ok", status="ok")
         result = endocytosis(action="status")
         assert result.status == "ok"
         mock_status.assert_called_once()
@@ -331,7 +318,10 @@ class TestEndocytosisDispatch:
         mock_lock.__exit__ = MagicMock(return_value=False)
 
         with (
-            patch("metabolon.organelles.endocytosis_rss.config.restore_config", return_value=mock_config),
+            patch(
+                "metabolon.organelles.endocytosis_rss.config.restore_config",
+                return_value=mock_config,
+            ),
             patch("metabolon.organelles.endocytosis_rss.state.lockfile", return_value=mock_lock),
             patch("metabolon.organelles.endocytosis_rss.cli._fetch_locked") as mock_fetch,
         ):
@@ -352,7 +342,10 @@ class TestEndocytosisDispatch:
         mock_lock.__exit__ = MagicMock(return_value=False)
 
         with (
-            patch("metabolon.organelles.endocytosis_rss.config.restore_config", return_value=mock_config),
+            patch(
+                "metabolon.organelles.endocytosis_rss.config.restore_config",
+                return_value=mock_config,
+            ),
             patch("metabolon.organelles.endocytosis_rss.state.lockfile", return_value=mock_lock),
             patch("metabolon.organelles.endocytosis_rss.cli._fetch_locked") as mock_fetch,
         ):
@@ -363,9 +356,7 @@ class TestEndocytosisDispatch:
 
     @patch("metabolon.enzymes.endocytosis._stats_result")
     def test_stats_action(self, mock_stats):
-        mock_stats.return_value = EndocytosisResult(
-            output="stats ok", status="ok", total_scored=5
-        )
+        mock_stats.return_value = EndocytosisResult(output="stats ok", status="ok", total_scored=5)
         result = endocytosis(action="stats")
         assert result.status == "ok"
         assert result.total_scored == 5
@@ -373,9 +364,7 @@ class TestEndocytosisDispatch:
 
     @patch("metabolon.enzymes.endocytosis._top_result")
     def test_top_action(self, mock_top):
-        mock_top.return_value = EndocytosisResult(
-            output="top ok", status="ok", count=3
-        )
+        mock_top.return_value = EndocytosisResult(output="top ok", status="ok", count=3)
         result = endocytosis(action="top", limit=5, days=7)
         assert result.count == 3
         mock_top.assert_called_once_with(limit=5, days=7)

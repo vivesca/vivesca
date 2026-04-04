@@ -1,6 +1,4 @@
-
 """Stimulus collection and JSONL persistence."""
-
 
 from datetime import UTC, datetime
 from enum import StrEnum

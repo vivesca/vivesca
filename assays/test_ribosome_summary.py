@@ -11,8 +11,7 @@ def create_test_log(entries: list[dict], tmp_path: Path) -> Path:
 
     log_file = tmp_path / "ribosome.jsonl"
     with open(log_file, "w") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
     return log_file
 
 

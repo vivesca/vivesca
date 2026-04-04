@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import plistlib
 import subprocess
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-
-import pytest
+from unittest.mock import Mock, patch
 
 from metabolon.resources import oscillators
 
@@ -21,7 +18,11 @@ def test_scan_pacemaker_plists(tmp_path):
 
         result = oscillators._scan_pacemaker_plists()
         # Should only match vivesca and terry plists, sorted by name
-        expected_names = ["com.terry.test2.plist", "com.vivesca.test1.plist", "com.vivesca.testA.plist"]
+        expected_names = [
+            "com.terry.test2.plist",
+            "com.vivesca.test1.plist",
+            "com.vivesca.testA.plist",
+        ]
         assert [p.name for p in result] == expected_names
 
 
@@ -29,10 +30,10 @@ def test_launchctl_status_success():
     with patch("metabolon.resources.oscillators.subprocess.run") as mock_run:
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = '''{
+        mock_result.stdout = """{
             "PID" = 1234;
             "LastExitStatus" = 0;
-        }'''
+        }"""
         mock_run.return_value = mock_result
 
         status = oscillators._launchctl_status("com.vivesca.test")
@@ -77,7 +78,10 @@ def test_format_calendar_interval():
     assert oscillators._format_calendar_interval({"Hour": 9, "Minute": 30}) == "09:30"
     assert oscillators._format_calendar_interval({"Hour": 14}) == "14:xx"
     assert oscillators._format_calendar_interval({"Minute": 0}) == "xx:00"
-    assert oscillators._format_calendar_interval({"Weekday": 5, "Hour": 18, "Minute": 0}) == "Fri 18:00"
+    assert (
+        oscillators._format_calendar_interval({"Weekday": 5, "Hour": 18, "Minute": 0})
+        == "Fri 18:00"
+    )
     assert oscillators._format_calendar_interval({}) == "scheduled"
 
 
@@ -106,7 +110,9 @@ def test_parse_schedule():
 def test_status_label():
     assert oscillators._status_label({"loaded": False}) == "unloaded"
     assert oscillators._status_label({"loaded": True, "running": True}) == "running"
-    assert oscillators._status_label({"loaded": True, "running": False, "last_exit": None}) == "idle"
+    assert (
+        oscillators._status_label({"loaded": True, "running": False, "last_exit": None}) == "idle"
+    )
     assert oscillators._status_label({"loaded": True, "running": False, "last_exit": 0}) == "idle"
     assert oscillators._status_label({"loaded": True, "running": False, "last_exit": 1}) == "error"
 
@@ -138,12 +144,11 @@ def test_express_pacemaker_status_with_plists(tmp_path):
         plistlib.dump(plist_data, f)
 
     with patch.object(oscillators, "_scan_pacemaker_plists", return_value=[plist_path]):
-        with patch.object(oscillators, "_launchctl_status", return_value={
-            "loaded": True,
-            "running": False,
-            "last_exit": 0,
-            "pid": None
-        }):
+        with patch.object(
+            oscillators,
+            "_launchctl_status",
+            return_value={"loaded": True, "running": False, "last_exit": 0, "pid": None},
+        ):
             with patch.object(oscillators, "_plist_type", return_value="copy"):
                 result = oscillators.express_pacemaker_status()
                 assert "com.vivesca.test" in result

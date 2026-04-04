@@ -1,4 +1,3 @@
-
 """Operon map resource — the organism's catalytic repertoire.
 
 Resources:

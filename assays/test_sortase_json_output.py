@@ -68,7 +68,9 @@ def _make_results() -> list[TaskExecutionResult]:
 
 def _make_validation_issues() -> list[ValidationIssue]:
     return [
-        ValidationIssue(check="placeholder-scan", message="Found TODO in foo.py", severity="warning"),
+        ValidationIssue(
+            check="placeholder-scan", message="Found TODO in foo.py", severity="warning"
+        ),
         ValidationIssue(check="ast-check", message="Syntax error in bar.py", severity="error"),
     ]
 
@@ -254,7 +256,14 @@ class TestJsonOutputFormat:
         assert len(task["attempts"]) == 1
 
         attempt = task["attempts"][0]
-        for key in ("tool", "exit_code", "duration_s", "failure_reason", "cost_estimate", "output"):
+        for key in (
+            "tool",
+            "exit_code",
+            "duration_s",
+            "failure_reason",
+            "cost_estimate",
+            "output",
+        ):
             assert key in attempt, f"Missing attempt key: {key}"
         assert attempt["tool"] == "goose"
         assert attempt["exit_code"] == 0
@@ -339,5 +348,12 @@ class TestJsonOutputFormat:
 
         # Per-attempt keys
         attempt = task["attempts"][0]
-        for key in ("tool", "exit_code", "duration_s", "failure_reason", "cost_estimate", "output"):
+        for key in (
+            "tool",
+            "exit_code",
+            "duration_s",
+            "failure_reason",
+            "cost_estimate",
+            "output",
+        ):
             assert key in attempt, f"Missing attempt key: {key}"

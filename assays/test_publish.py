@@ -5,7 +5,6 @@ from __future__ import annotations
 
 
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -31,6 +30,7 @@ class TestSarcioSymlink:
             if not target.exists():
                 # Check it's a valid symlink pointing to expected location
                 import os
+
                 link_target = os.readlink(SARCIO_PATH)
                 assert "mise" in link_target or "publish" in link_target.lower()
 
@@ -56,7 +56,7 @@ class TestSarcioSymlink:
 class TestSarcioExecution:
     @pytest.mark.skipif(
         not SARCIO_PATH.resolve().exists(),
-        reason="publish CLI not installed or symlink broken on this platform"
+        reason="publish CLI not installed or symlink broken on this platform",
     )
     def test_publish_help_runs(self):
         """Test publish --help runs without error."""
@@ -67,11 +67,15 @@ class TestSarcioExecution:
             timeout=30,
         )
         # Either succeeds or shows help
-        assert result.returncode == 0 or "usage" in result.stdout.lower() or "usage" in result.stderr.lower()
+        assert (
+            result.returncode == 0
+            or "usage" in result.stdout.lower()
+            or "usage" in result.stderr.lower()
+        )
 
     @pytest.mark.skipif(
         not SARCIO_PATH.resolve().exists(),
-        reason="publish CLI not installed or symlink broken on this platform"
+        reason="publish CLI not installed or symlink broken on this platform",
     )
     def test_publish_executable_runs(self):
         """Test publish runs as executable."""
@@ -107,6 +111,7 @@ class TestSymlinkAttributes:
             # File should exist OR symlink points to expected location
             if not target.exists():
                 import os
+
                 link_target = os.readlink(SARCIO_PATH)
                 # Cross-platform broken symlinks are OK
                 assert "mise" in link_target or "publish" in link_target.lower()
@@ -120,7 +125,7 @@ class TestSymlinkAttributes:
 class TestSarcioIntegration:
     @pytest.mark.skipif(
         not SARCIO_PATH.resolve().exists(),
-        reason="publish CLI not installed or symlink broken on this platform"
+        reason="publish CLI not installed or symlink broken on this platform",
     )
     def test_can_execute_via_symlink(self):
         """Test that we can execute publish through the symlink."""

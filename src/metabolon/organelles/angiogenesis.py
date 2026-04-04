@@ -1,4 +1,3 @@
-
 """angiogenesis — detect underserved subsystem connections and propose new integrations.
 
 Angiogenesis = growing new blood vessels to supply hypoxic tissue.
@@ -8,7 +7,6 @@ the integration (vessel) that would connect them.
 Detection is pure Python — no LLM. Proposals are logged for crystallization.
 Registry lives at ~/.cache/angiogenesis/vessels.json.
 """
-
 
 import json
 from collections import Counter
@@ -125,5 +123,5 @@ def vessel_registry() -> list[dict]:
         return []
     try:
         return json.loads(VESSEL_REGISTRY.read_text())
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return []

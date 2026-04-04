@@ -20,6 +20,7 @@ Examples:
 """
 
 import argparse
+import contextlib
 import html
 import json
 import os
@@ -28,7 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -81,14 +82,14 @@ Be thorough. Extract every non-trivial insight. Better to include too much than 
 # Source loading
 # ---------------------------------------------------------------------------
 
+
 def load_sources(filter_name: str | None = None) -> list[dict]:
     with open(SOURCES_FILE) as f:
         sources = yaml.safe_load(f)
     if filter_name:
         q = filter_name.lower()
         sources = [
-            s for s in sources
-            if q in s["name"].lower() or q in s.get("vault_path", "").lower()
+            s for s in sources if q in s["name"].lower() or q in s.get("vault_path", "").lower()
         ]
     return sources
 
@@ -97,14 +98,19 @@ def load_sources(filter_name: str | None = None) -> list[dict]:
 # YouTube video listing (yt-dlp)
 # ---------------------------------------------------------------------------
 
+
 def list_youtube_videos(handle: str, max_items: int = 15) -> list[dict]:
     """List recent videos from a YouTube channel using yt-dlp."""
     url = f"https://www.youtube.com/{handle}/videos"
     cmd = [
-        sys.executable, "-m", "yt_dlp",
+        sys.executable,
+        "-m",
+        "yt_dlp",
         "--no-download",
-        "--playlist-items", f"1-{max_items}",
-        "--print", '{"id":"%(id)s","title":"%(title)s","upload_date":"%(upload_date)s","duration":"%(duration)s"}',
+        "--playlist-items",
+        f"1-{max_items}",
+        "--print",
+        '{"id":"%(id)s","title":"%(title)s","upload_date":"%(upload_date)s","duration":"%(duration)s"}',
         "--no-warnings",
         url,
     ]
@@ -118,11 +124,11 @@ def list_youtube_videos(handle: str, max_items: int = 15) -> list[dict]:
             data = json.loads(line)
             upload_date = data.get("upload_date")
             if upload_date and upload_date != "NA":
-                data["date"] = datetime.strptime(upload_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+                data["date"] = datetime.strptime(upload_date, "%Y%m%d").replace(tzinfo=UTC)
             else:
                 data["date"] = None
             videos.append(data)
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError, ValueError:
             continue
     return videos
 
@@ -130,6 +136,7 @@ def list_youtube_videos(handle: str, max_items: int = 15) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Podcast RSS listing
 # ---------------------------------------------------------------------------
+
 
 def list_podcast_episodes(rss_url: str, max_items: int = 15) -> list[dict]:
     """List recent episodes from a podcast RSS feed."""
@@ -158,7 +165,8 @@ def list_podcast_episodes(rss_url: str, max_items: int = 15) -> list[dict]:
             parsed = entry.get(date_field)
             if parsed:
                 from time import mktime
-                date = datetime.fromtimestamp(mktime(parsed), tz=timezone.utc)
+
+                date = datetime.fromtimestamp(mktime(parsed), tz=UTC)
                 break
 
         # Parse duration
@@ -176,14 +184,16 @@ def list_podcast_episodes(rss_url: str, max_items: int = 15) -> list[dict]:
             except ValueError:
                 pass
 
-        episodes.append({
-            "id": entry.get("id", audio_url),
-            "title": entry.get("title", "Unknown"),
-            "date": date,
-            "duration": duration_s,
-            "audio_url": audio_url,
-            "episode_url": entry.get("link"),
-        })
+        episodes.append(
+            {
+                "id": entry.get("id", audio_url),
+                "title": entry.get("title", "Unknown"),
+                "date": date,
+                "duration": duration_s,
+                "audio_url": audio_url,
+                "episode_url": entry.get("link"),
+            }
+        )
 
     return episodes
 
@@ -197,10 +207,8 @@ def _match_podcast_episode(yt_ep: dict, podcast_eps: list[dict]) -> dict | None:
 
     # Parse YouTube duration
     yt_dur = 0
-    try:
+    with contextlib.suppress(ValueError, TypeError):
         yt_dur = int(float(yt_ep.get("duration", 0)))
-    except (ValueError, TypeError):
-        pass
 
     best_match = None
     best_score = 0
@@ -226,10 +234,8 @@ def _match_podcast_episode(yt_ep: dict, podcast_eps: list[dict]) -> dict | None:
 
         # Duration penalty — reject when duration ratio > 3x
         pod_dur = 0
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             pod_dur = int(float(pep.get("duration", 0)))
-        except (ValueError, TypeError):
-            pass
 
         if yt_dur > 0 and pod_dur > 0:
             ratio = max(yt_dur, pod_dur) / min(yt_dur, pod_dur)
@@ -254,7 +260,7 @@ def _deduplicate_audio_matches(episodes: list[dict], podcast_eps: list[dict]) ->
     for pep in podcast_eps:
         try:
             pod_dur_by_url[pep["audio_url"]] = int(float(pep.get("duration", 0)))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pod_dur_by_url[pep["audio_url"]] = 0
 
     # Group episodes by audio_url
@@ -274,7 +280,7 @@ def _deduplicate_audio_matches(episodes: list[dict], podcast_eps: list[dict]) ->
         for idx in indices:
             try:
                 yt_dur = int(float(episodes[idx].get("duration", 0)))
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 yt_dur = 0
             diff = abs(yt_dur - pod_dur) if yt_dur and pod_dur else float("inf")
             if diff < best_diff:
@@ -283,13 +289,17 @@ def _deduplicate_audio_matches(episodes: list[dict], podcast_eps: list[dict]) ->
         # Clear audio_url from losers
         for idx in indices:
             if idx != best_idx:
-                print(f"  Dedup: skipping RSS fallback for '{episodes[idx]['title'][:50]}' (duplicate audio)", file=sys.stderr)
+                print(
+                    f"  Dedup: skipping RSS fallback for '{episodes[idx]['title'][:50]}' (duplicate audio)",
+                    file=sys.stderr,
+                )
                 episodes[idx]["audio_url"] = None
 
 
 # ---------------------------------------------------------------------------
 # Audio transcription via mlx-whisper (Apple Silicon local)
 # ---------------------------------------------------------------------------
+
 
 def transcribe_audio(audio_url: str) -> str:
     """Download podcast audio and transcribe with mlx-whisper."""
@@ -310,7 +320,11 @@ def transcribe_audio(audio_url: str) -> str:
                     downloaded += len(chunk)
                     if total:
                         pct = downloaded * 100 // total
-                        print(f"\r  Downloaded: {downloaded // (1024*1024)}MB / {total // (1024*1024)}MB ({pct}%)", end="", file=sys.stderr)
+                        print(
+                            f"\r  Downloaded: {downloaded // (1024 * 1024)}MB / {total // (1024 * 1024)}MB ({pct}%)",
+                            end="",
+                            file=sys.stderr,
+                        )
             print(file=sys.stderr)
 
         # Transcribe with mlx-whisper
@@ -329,6 +343,7 @@ def transcribe_audio(audio_url: str) -> str:
 # Web transcript extraction (scrape from episode pages)
 # ---------------------------------------------------------------------------
 
+
 def _transcript_from_web(episode_url: str, transcript_url_suffix: str | None = None) -> str | None:
     """Fetch transcript from episode webpage using trafilatura for content extraction."""
     import httpx
@@ -341,8 +356,12 @@ def _transcript_from_web(episode_url: str, transcript_url_suffix: str | None = N
 
     print(f"  Fetching web transcript from {url}...", file=sys.stderr)
     try:
-        resp = httpx.get(url, follow_redirects=True, timeout=30,
-                         headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+        resp = httpx.get(
+            url,
+            follow_redirects=True,
+            timeout=30,
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"},
+        )
         resp.raise_for_status()
         text = trafilatura.extract(resp.text, include_comments=False, include_tables=False)
         if text and len(text) > 500:  # minimum viable transcript length
@@ -356,6 +375,7 @@ def _transcript_from_web(episode_url: str, transcript_url_suffix: str | None = N
 # ---------------------------------------------------------------------------
 # Whisper API transcription (OpenAI, ~$0.006/min)
 # ---------------------------------------------------------------------------
+
 
 def _transcribe_whisper_api(audio_url: str) -> str:
     """Download audio and transcribe via OpenAI Whisper API."""
@@ -373,8 +393,7 @@ def _transcribe_whisper_api(audio_url: str) -> str:
         with httpx.stream("GET", audio_url, follow_redirects=True, timeout=300) as resp:
             resp.raise_for_status()
             with open(audio_path, "wb") as f:
-                for chunk in resp.iter_bytes(chunk_size=1024 * 1024):
-                    f.write(chunk)
+                f.writelines(resp.iter_bytes(chunk_size=1024 * 1024))
 
         # Transcribe via OpenAI Whisper API
         file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
@@ -396,9 +415,13 @@ def _transcribe_whisper_api(audio_url: str) -> str:
 # Transcript extraction (inlined — no external script dependency)
 # ---------------------------------------------------------------------------
 
-def extract_transcript(video_id: str, audio_url: str | None = None,
-                       episode_url: str | None = None,
-                       transcript_url_suffix: str | None = None) -> str:
+
+def extract_transcript(
+    video_id: str,
+    audio_url: str | None = None,
+    episode_url: str | None = None,
+    transcript_url_suffix: str | None = None,
+) -> str:
     """Extract transcript. Fallback chain:
     1. youtube-transcript-api (free, instant)
     2. yt-dlp subtitles (free, instant)
@@ -471,16 +494,22 @@ def _transcript_via_ytdlp(video_id: str) -> str | None:
     with tempfile.TemporaryDirectory() as tmpdir:
         output_template = os.path.join(tmpdir, "transcript")
         cmd = [
-            sys.executable, "-m", "yt_dlp",
+            sys.executable,
+            "-m",
+            "yt_dlp",
             "--skip-download",
-            "--write-subs", "--write-auto-subs",
-            "--sub-lang", "en",
-            "--sub-format", "vtt",
-            "-o", output_template,
+            "--write-subs",
+            "--write-auto-subs",
+            "--sub-lang",
+            "en",
+            "--sub-format",
+            "vtt",
+            "-o",
+            output_template,
             "--no-warnings",
             url,
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
         # Find VTT file
         vtt_files = list(Path(tmpdir).glob("*.vtt"))
@@ -555,6 +584,7 @@ def _deduplicate_transcript(text: str) -> str:
 # LLM insight extraction
 # ---------------------------------------------------------------------------
 
+
 def extract_insights(transcript: str, title: str, model: str) -> str:
     """Run LLM insight extraction on a transcript via OpenRouter."""
     client = OpenAI(
@@ -577,6 +607,7 @@ def extract_insights(transcript: str, title: str, model: str) -> str:
 # Vault output
 # ---------------------------------------------------------------------------
 
+
 def write_digest(source: dict, episodes_insights: list[dict], month_str: str) -> Path:
     """Write digest note to vault."""
     vault_path = VAULT_DIR / source["vault_path"]
@@ -598,7 +629,7 @@ def write_digest(source: dict, episodes_insights: list[dict], month_str: str) ->
             try:
                 mins = int(float(duration_s)) // 60
                 duration_str = f" ({mins} min)"
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 duration_str = ""
         else:
             duration_str = ""
@@ -612,17 +643,19 @@ def write_digest(source: dict, episodes_insights: list[dict], month_str: str) ->
         else:
             link_line = f"**Video:** https://youtube.com/watch?v={ep_id}"
 
-        lines.extend([
-            "---",
-            "",
-            f"## {ep['title']}",
-            "",
-            f"**Published:** {date_str}{duration_str}",
-            link_line,
-            "",
-            ep["insights"],
-            "",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                f"## {ep['title']}",
+                "",
+                f"**Published:** {date_str}{duration_str}",
+                link_line,
+                "",
+                ep["insights"],
+                "",
+            ]
+        )
 
     digest_file.write_text("\n".join(lines), encoding="utf-8")
     return digest_file
@@ -631,6 +664,7 @@ def write_digest(source: dict, episodes_insights: list[dict], month_str: str) ->
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -641,9 +675,18 @@ def main():
     parser.add_argument("source", nargs="?", help="Source name filter (partial match)")
     parser.add_argument("--days", type=int, default=30, help="Look back N days (default: 30)")
     parser.add_argument("--dry-run", action="store_true", help="List episodes without processing")
-    parser.add_argument("--model", default="google/gemini-3-flash-preview", help="OpenRouter model ID")
-    parser.add_argument("--max-videos", type=int, default=15, help="Max videos to fetch per channel")
-    parser.add_argument("--delay", type=int, default=5, help="Seconds between episodes to avoid YouTube rate limits (default: 5)")
+    parser.add_argument(
+        "--model", default="google/gemini-3-flash-preview", help="OpenRouter model ID"
+    )
+    parser.add_argument(
+        "--max-videos", type=int, default=15, help="Max videos to fetch per channel"
+    )
+    parser.add_argument(
+        "--delay",
+        type=int,
+        default=5,
+        help="Seconds between episodes to avoid YouTube rate limits (default: 5)",
+    )
     args = parser.parse_args()
 
     if not args.dry_run and not os.environ.get("OPENROUTER_API_KEY"):
@@ -655,7 +698,7 @@ def main():
         print(f"No sources found matching '{args.source}'", file=sys.stderr)
         sys.exit(1)
 
-    since = datetime.now(timezone.utc) - timedelta(days=args.days)
+    since = datetime.now(UTC) - timedelta(days=args.days)
     month_str = datetime.now().strftime("%Y-%m")
 
     for source_idx, source in enumerate(sources):
@@ -681,7 +724,9 @@ def main():
             # Attach podcast audio URLs for fallback if rss_url configured
             if source.get("rss_url"):
                 try:
-                    podcast_eps = list_podcast_episodes(source["rss_url"], max_items=args.max_videos * 2)
+                    podcast_eps = list_podcast_episodes(
+                        source["rss_url"], max_items=args.max_videos * 2
+                    )
                     for ep in episodes:
                         match = _match_podcast_episode(ep, podcast_eps)
                         if match:
@@ -718,7 +763,7 @@ def main():
             duration_s = ep.get("duration", "0")
             try:
                 mins = int(float(duration_s)) // 60
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 mins = 0
             date_str = ep["date"].strftime("%Y-%m-%d") if ep.get("date") else "?"
             print(f"  [{date_str}] {ep['title']} ({mins}m)", file=sys.stderr)
@@ -749,7 +794,8 @@ def main():
                         transcript = transcribe_audio(audio_url)
                 else:
                     transcript = extract_transcript(
-                        ep["id"], audio_url=audio_url,
+                        ep["id"],
+                        audio_url=audio_url,
                         episode_url=episode_url,
                         transcript_url_suffix=transcript_url_suffix,
                     )
@@ -759,10 +805,12 @@ def main():
                 print(f"  Extracting insights ({args.model})...", file=sys.stderr)
                 insights = extract_insights(transcript, ep["title"], model=args.model)
 
-                episodes_insights.append({
-                    **ep,
-                    "insights": insights,
-                })
+                episodes_insights.append(
+                    {
+                        **ep,
+                        "insights": insights,
+                    }
+                )
                 print("  Done.", file=sys.stderr)
             except Exception as e:
                 print(f"  ERROR: {e}", file=sys.stderr)

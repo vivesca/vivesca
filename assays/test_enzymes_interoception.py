@@ -3,28 +3,25 @@ from __future__ import annotations
 """Deeper tests for metabolon/enzymes/interoception.py — edge cases and branches
 not covered by test_interoception.py or test_interoception_actions.py."""
 
-import datetime
 import json
-import os
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _fn():
     """Return the raw interoception function (behind @tool decorator)."""
     from metabolon.enzymes import interoception as mod
+
     return mod.interoception
 
 
 def _module():
     from metabolon.enzymes import interoception as mod
+
     return mod
 
 
@@ -32,21 +29,25 @@ def _module():
 # _format_duration edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestFormatDurationEdges:
     """Additional _format_duration edge cases."""
 
     def test_float_seconds_input(self):
         from metabolon.enzymes.interoception import _format_duration
+
         # 90 * 60 = 5400 seconds = 1h30m
         assert _format_duration(5400.7) == "1h30m"
 
     def test_large_hours(self):
         from metabolon.enzymes.interoception import _format_duration
+
         # 48h
         assert _format_duration(48 * 3600) == "48h00m"
 
     def test_one_hour_exactly(self):
         from metabolon.enzymes.interoception import _format_duration
+
         assert _format_duration(3600) == "1h00m"
 
 
@@ -54,11 +55,13 @@ class TestFormatDurationEdges:
 # _cross_link_experiment_symptom
 # ---------------------------------------------------------------------------
 
+
 class TestCrossLinkExperimentSymptom:
     """Tests for _cross_link_experiment_symptom helper."""
 
     def test_no_experiments_dir_returns_none(self):
         from metabolon.enzymes.interoception import _cross_link_experiment_symptom
+
         with patch("metabolon.locus.experiments") as mock_exp:
             mock_exp.exists.return_value = False
             result = _cross_link_experiment_symptom("headache", "mild", "test")
@@ -66,6 +69,7 @@ class TestCrossLinkExperimentSymptom:
 
     def test_matching_keyword_appends_to_experiment(self):
         from metabolon.enzymes.interoception import _cross_link_experiment_symptom
+
         mock_file = MagicMock()
         mock_file.name = "assay-caffeine.md"
         mock_file.read_text.return_value = (
@@ -84,6 +88,7 @@ class TestCrossLinkExperimentSymptom:
 
     def test_inactive_experiment_skipped(self):
         from metabolon.enzymes.interoception import _cross_link_experiment_symptom
+
         mock_file = MagicMock()
         mock_file.name = "assay-sleep.md"
         mock_file.read_text.return_value = (
@@ -97,6 +102,7 @@ class TestCrossLinkExperimentSymptom:
 
     def test_no_matching_keyword_returns_none(self):
         from metabolon.enzymes.interoception import _cross_link_experiment_symptom
+
         mock_file = MagicMock()
         mock_file.name = "assay-caffeine.md"
         mock_file.read_text.return_value = (
@@ -110,6 +116,7 @@ class TestCrossLinkExperimentSymptom:
 
     def test_no_watch_keywords_field_skipped(self):
         from metabolon.enzymes.interoception import _cross_link_experiment_symptom
+
         mock_file = MagicMock()
         mock_file.name = "assay-sleep.md"
         mock_file.read_text.return_value = "---\nstatus: active\n---\nNo keywords\n"
@@ -124,11 +131,13 @@ class TestCrossLinkExperimentSymptom:
 # _clean_build_artifacts edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestCleanBuildArtifactsEdges:
     """Additional tests for _clean_build_artifacts."""
 
     def test_code_dir_not_exists(self):
         from metabolon.enzymes.interoception import _clean_build_artifacts
+
         with (
             patch("metabolon.enzymes.interoception.CODE_DIR", "/tmp/nonexistent_dir_xyz"),
             patch("os.path.isdir", return_value=False),
@@ -142,8 +151,9 @@ class TestCleanBuildArtifactsEdges:
         assert logs == []
 
     def test_stale_node_modules_cleaned(self):
-        from metabolon.enzymes.interoception import _clean_build_artifacts
         import time
+
+        from metabolon.enzymes.interoception import _clean_build_artifacts
 
         mock_entry = MagicMock()
         mock_entry.is_dir.return_value = True
@@ -154,27 +164,28 @@ class TestCleanBuildArtifactsEdges:
             patch("metabolon.enzymes.interoception.CODE_DIR", "/tmp/fakecode"),
             patch("os.path.isdir") as mock_isdir,
             patch("os.scandir", return_value=[mock_entry]),
-            patch("shutil.rmtree") as mock_rmtree,
+            patch("shutil.rmtree"),
             patch("os.path.getmtime", return_value=time.time() - 10 * 86400),  # stale
             patch("shutil.disk_usage") as mock_disk,
             patch("subprocess.run", side_effect=FileNotFoundError),
         ):
+
             def isdir_side_effect(path):
                 if path == "/tmp/fakecode":
                     return True
-                if path == "/tmp/fakecode/myproject/node_modules":
-                    return True
-                return False
+                return path == "/tmp/fakecode/myproject/node_modules"
+
             mock_isdir.side_effect = isdir_side_effect
             mock_usage = MagicMock()
             mock_usage.free = 100 * (1024**3)
             mock_disk.side_effect = [mock_usage, mock_usage]
-            freed, logs = _clean_build_artifacts()
+            _freed, logs = _clean_build_artifacts()
         assert any("myproject" in line and "stale" in line for line in logs)
 
     def test_fresh_node_modules_not_cleaned(self):
-        from metabolon.enzymes.interoception import _clean_build_artifacts
         import time
+
+        from metabolon.enzymes.interoception import _clean_build_artifacts
 
         mock_entry = MagicMock()
         mock_entry.is_dir.return_value = True
@@ -185,28 +196,29 @@ class TestCleanBuildArtifactsEdges:
             patch("metabolon.enzymes.interoception.CODE_DIR", "/tmp/fakecode"),
             patch("os.path.isdir") as mock_isdir,
             patch("os.scandir", return_value=[mock_entry]),
-            patch("shutil.rmtree") as mock_rmtree,
+            patch("shutil.rmtree"),
             patch("os.path.getmtime", return_value=time.time() - 1 * 86400),  # fresh
             patch("shutil.disk_usage") as mock_disk,
             patch("subprocess.run", side_effect=FileNotFoundError),
         ):
+
             def isdir_side_effect(path):
                 if path == "/tmp/fakecode":
                     return True
-                if path == "/tmp/fakecode/freshproject/node_modules":
-                    return True
-                return False
+                return path == "/tmp/fakecode/freshproject/node_modules"
+
             mock_isdir.side_effect = isdir_side_effect
             mock_usage = MagicMock()
             mock_usage.free = 100 * (1024**3)
             mock_disk.side_effect = [mock_usage, mock_usage]
-            freed, logs = _clean_build_artifacts()
+            _freed, logs = _clean_build_artifacts()
         assert not any("freshproject" in line for line in logs)
 
 
 # ---------------------------------------------------------------------------
 # Sleep action — low-score alerts
 # ---------------------------------------------------------------------------
+
 
 class TestSleepAlerts:
     """Test sleep action generates alerts for low scores."""
@@ -249,6 +261,7 @@ class TestSleepAlerts:
 # ---------------------------------------------------------------------------
 # Sleep action — optional sections
 # ---------------------------------------------------------------------------
+
 
 class TestSleepOptionalSections:
     """Test sleep action renders optional sections when data is present."""
@@ -368,11 +381,13 @@ class TestSleepOptionalSections:
         assert "350 kcal" in result.summary
 
     def test_optional_sections_absent_when_no_data(self):
-        mock_sense = MagicMock(return_value={
-            "sleep_score": 80,
-            "readiness_score": 75,
-            "average_hrv": 40,
-        })
+        mock_sense = MagicMock(
+            return_value={
+                "sleep_score": 80,
+                "readiness_score": 75,
+                "average_hrv": 40,
+            }
+        )
         with patch("metabolon.organelles.chemoreceptor.sense", mock_sense):
             result = _fn()(action="sleep")
         assert "--- Hypnogram" not in result.summary
@@ -389,6 +404,7 @@ class TestSleepOptionalSections:
 # Sleep action — experiment parsing
 # ---------------------------------------------------------------------------
 
+
 class TestSleepExperiments:
     """Test sleep action includes active experiment summaries."""
 
@@ -403,11 +419,13 @@ class TestSleepExperiments:
             "---\n"
             "Baseline: Readiness: avg 72.3\n"
         )
-        mock_sense = MagicMock(return_value={
-            "sleep_score": 80,
-            "readiness_score": 75,
-            "average_hrv": 40,
-        })
+        mock_sense = MagicMock(
+            return_value={
+                "sleep_score": 80,
+                "readiness_score": 75,
+                "average_hrv": 40,
+            }
+        )
         mock_file = MagicMock()
         mock_file.stem = "assay-caffeine"
         mock_file.read_text.return_value = experiment_content
@@ -423,11 +441,13 @@ class TestSleepExperiments:
         assert "Caffeine Fast" in result.summary
 
     def test_no_experiments_no_section(self):
-        mock_sense = MagicMock(return_value={
-            "sleep_score": 80,
-            "readiness_score": 75,
-            "average_hrv": 40,
-        })
+        mock_sense = MagicMock(
+            return_value={
+                "sleep_score": 80,
+                "readiness_score": 75,
+                "average_hrv": 40,
+            }
+        )
         with (
             patch("metabolon.organelles.chemoreceptor.sense", mock_sense),
             patch("metabolon.locus") as mock_locus,
@@ -440,6 +460,7 @@ class TestSleepExperiments:
 # ---------------------------------------------------------------------------
 # System action — gate logic
 # ---------------------------------------------------------------------------
+
 
 class TestSystemGateLogic:
     """Test system action gate decisions (PASS/WARN/BLOCK)."""
@@ -460,7 +481,9 @@ class TestSystemGateLogic:
         proc = self._make_proc("12345  0  com.vivesca.daemon\n")
         with (
             patch("metabolon.enzymes.interoception.subprocess.run", return_value=proc),
-            patch("metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk()),
+            patch(
+                "metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk()
+            ),
             patch("builtins.open", side_effect=FileNotFoundError),
             patch("metabolon.metabolism.infection.infection_summary", return_value=""),
             patch("metabolon.metabolism.mismatch_repair.summary", return_value=""),
@@ -472,7 +495,9 @@ class TestSystemGateLogic:
         proc = self._make_proc("some output vivesca_service NOT FOUND\n")
         with (
             patch("metabolon.enzymes.interoception.subprocess.run", return_value=proc),
-            patch("metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk()),
+            patch(
+                "metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk()
+            ),
             patch("builtins.open", side_effect=FileNotFoundError),
             patch("metabolon.enzymes.interoception.contextlib.suppress"),
         ):
@@ -482,8 +507,13 @@ class TestSystemGateLogic:
 
     def test_gate_block_when_disk_low(self):
         with (
-            patch("metabolon.enzymes.interoception.subprocess.run", return_value=self._make_proc()),
-            patch("metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk(free_gb=8)),
+            patch(
+                "metabolon.enzymes.interoception.subprocess.run", return_value=self._make_proc()
+            ),
+            patch(
+                "metabolon.enzymes.interoception.shutil.disk_usage",
+                return_value=self._mock_disk(free_gb=8),
+            ),
             patch("builtins.open", side_effect=FileNotFoundError),
             patch("metabolon.enzymes.interoception.contextlib.suppress"),
         ):
@@ -500,8 +530,12 @@ class TestSystemGateLogic:
             raise FileNotFoundError
 
         with (
-            patch("metabolon.enzymes.interoception.subprocess.run", return_value=self._make_proc()),
-            patch("metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk()),
+            patch(
+                "metabolon.enzymes.interoception.subprocess.run", return_value=self._make_proc()
+            ),
+            patch(
+                "metabolon.enzymes.interoception.shutil.disk_usage", return_value=self._mock_disk()
+            ),
             patch("builtins.open", side_effect=open_side_effect),
             patch("metabolon.enzymes.interoception.contextlib.suppress"),
         ):
@@ -514,6 +548,7 @@ class TestSystemGateLogic:
 # Financial action — edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestFinancialEdgeCases:
     """Financial action edge cases."""
 
@@ -521,7 +556,10 @@ class TestFinancialEdgeCases:
         with (
             patch("metabolon.locus"),
             patch("builtins.open", MagicMock()),
-            patch("metabolon.cytosol.synthesize", return_value="OVERDUE: tax filing\nURGENT: insurance renewal"),
+            patch(
+                "metabolon.cytosol.synthesize",
+                return_value="OVERDUE: tax filing\nURGENT: insurance renewal",
+            ),
         ):
             result = _fn()(action="financial")
         assert result.flagged_count >= 2
@@ -540,16 +578,25 @@ class TestFinancialEdgeCases:
 # Log symptom — cross-link integration
 # ---------------------------------------------------------------------------
 
+
 class TestLogSymptomCrossLink:
     """Test log_symptom integrates with cross-link."""
 
     def test_log_symptom_with_cross_link(self):
         with (
-            patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/test_xlog.md"),
-            patch("metabolon.enzymes.interoception._cross_link_experiment_symptom", return_value="Cross-linked to experiment: assay-caffeine.md"),
+            patch(
+                "metabolon.enzymes.interoception._health_log_path",
+                return_value="/tmp/test_xlog.md",
+            ),
+            patch(
+                "metabolon.enzymes.interoception._cross_link_experiment_symptom",
+                return_value="Cross-linked to experiment: assay-caffeine.md",
+            ),
             patch("builtins.open", MagicMock()),
         ):
-            result = _fn()(action="log_symptom", symptom="jitters", severity="mild", notes="coffee")
+            result = _fn()(
+                action="log_symptom", symptom="jitters", severity="mild", notes="coffee"
+            )
         assert result.success is True
         assert "Cross-linked to experiment" in result.message
 
@@ -564,12 +611,19 @@ class TestLogSymptomCrossLink:
             return MagicMock()
 
         with (
-            patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/test_xlog2.md"),
-            patch("metabolon.enzymes.interoception._cross_link_experiment_symptom", return_value=None),
+            patch(
+                "metabolon.enzymes.interoception._health_log_path",
+                return_value="/tmp/test_xlog2.md",
+            ),
+            patch(
+                "metabolon.enzymes.interoception._cross_link_experiment_symptom", return_value=None
+            ),
             patch("os.makedirs"),
             patch("builtins.open", side_effect=mock_open_fn),
         ):
-            result = _fn()(action="log_symptom", symptom="headache", severity="moderate", notes="after lunch")
+            result = _fn()(
+                action="log_symptom", symptom="headache", severity="moderate", notes="after lunch"
+            )
         assert result.success is True
 
 
@@ -577,21 +631,26 @@ class TestLogSymptomCrossLink:
 # Glycolysis — trend data
 # ---------------------------------------------------------------------------
 
+
 class TestGlycolysisTrend:
     """Test glycolysis action with trend data."""
 
     def test_trend_with_two_data_points(self):
-        mock_snapshot = MagicMock(return_value={
-            "glycolysis_pct": 70.0,
-            "deterministic_count": 140,
-            "symbiont_count": 20,
-            "hybrid_count": 5,
-            "total": 165,
-        })
-        mock_trend = MagicMock(return_value=[
-            {"date": "2024-01-01", "glycolysis_pct": 60.0},
-            {"date": "2024-01-15", "glycolysis_pct": 70.0},
-        ])
+        mock_snapshot = MagicMock(
+            return_value={
+                "glycolysis_pct": 70.0,
+                "deterministic_count": 140,
+                "symbiont_count": 20,
+                "hybrid_count": 5,
+                "total": 165,
+            }
+        )
+        mock_trend = MagicMock(
+            return_value=[
+                {"date": "2024-01-01", "glycolysis_pct": 60.0},
+                {"date": "2024-01-15", "glycolysis_pct": 70.0},
+            ]
+        )
         with (
             patch("metabolon.organelles.glycolysis_rate.snapshot", mock_snapshot),
             patch("metabolon.organelles.glycolysis_rate.trend", mock_trend),
@@ -600,17 +659,21 @@ class TestGlycolysisTrend:
         assert "Trend (30d): +10.0%" in result.summary
 
     def test_trend_negative_delta(self):
-        mock_snapshot = MagicMock(return_value={
-            "glycolysis_pct": 55.0,
-            "deterministic_count": 100,
-            "symbiont_count": 40,
-            "hybrid_count": 10,
-            "total": 150,
-        })
-        mock_trend = MagicMock(return_value=[
-            {"date": "2024-01-01", "glycolysis_pct": 60.0},
-            {"date": "2024-01-15", "glycolysis_pct": 55.0},
-        ])
+        mock_snapshot = MagicMock(
+            return_value={
+                "glycolysis_pct": 55.0,
+                "deterministic_count": 100,
+                "symbiont_count": 40,
+                "hybrid_count": 10,
+                "total": 150,
+            }
+        )
+        mock_trend = MagicMock(
+            return_value=[
+                {"date": "2024-01-01", "glycolysis_pct": 60.0},
+                {"date": "2024-01-15", "glycolysis_pct": 55.0},
+            ]
+        )
         with (
             patch("metabolon.organelles.glycolysis_rate.snapshot", mock_snapshot),
             patch("metabolon.organelles.glycolysis_rate.trend", mock_trend),
@@ -622,6 +685,7 @@ class TestGlycolysisTrend:
 # ---------------------------------------------------------------------------
 # CRISPR — with spacers file
 # ---------------------------------------------------------------------------
+
 
 class TestCrisprWithSpacers:
     """Test crispr action when spacers file exists."""
@@ -653,16 +717,19 @@ class TestCrisprWithSpacers:
 # Retrograde — zero retrograde
 # ---------------------------------------------------------------------------
 
+
 class TestRetrogradeZeroRetrograde:
     """Test retrograde action with zero retrograde count."""
 
     def test_zero_retrograde_count(self):
-        mock_balance = MagicMock(return_value={
-            "anterograde_count": 5,
-            "retrograde_count": 0,
-            "ratio": 0.0,
-            "assessment": "unidirectional",
-        })
+        mock_balance = MagicMock(
+            return_value={
+                "anterograde_count": 5,
+                "retrograde_count": 0,
+                "ratio": 0.0,
+                "assessment": "unidirectional",
+            }
+        )
         with patch("metabolon.organelles.retrograde.signal_balance", mock_balance):
             result = _fn()(action="retrograde", days=14)
 
@@ -675,14 +742,17 @@ class TestRetrogradeZeroRetrograde:
 # Probe — all pass / all fail
 # ---------------------------------------------------------------------------
 
+
 class TestProbeAllPassAllFail:
     """Test probe action with all passing or all failing probes."""
 
     def test_all_probes_pass(self):
-        mock_run = MagicMock(return_value=[
-            {"name": "p1", "passed": True, "message": "ok", "duration_ms": 5},
-            {"name": "p2", "passed": True, "message": "ok", "duration_ms": 3},
-        ])
+        mock_run = MagicMock(
+            return_value=[
+                {"name": "p1", "passed": True, "message": "ok", "duration_ms": 5},
+                {"name": "p2", "passed": True, "message": "ok", "duration_ms": 3},
+            ]
+        )
         with patch("metabolon.organelles.inflammasome.run_all_probes", mock_run):
             result = _fn()(action="probe")
         assert result.passed == 2
@@ -690,9 +760,11 @@ class TestProbeAllPassAllFail:
         assert "2/2 passed" in result.report
 
     def test_all_probes_fail(self):
-        mock_run = MagicMock(return_value=[
-            {"name": "p1", "passed": False, "message": "err", "duration_ms": 10},
-        ])
+        mock_run = MagicMock(
+            return_value=[
+                {"name": "p1", "passed": False, "message": "err", "duration_ms": 10},
+            ]
+        )
         with patch("metabolon.organelles.inflammasome.run_all_probes", mock_run):
             result = _fn()(action="probe")
         assert result.passed == 0
@@ -704,25 +776,30 @@ class TestProbeAllPassAllFail:
 # Heartrate — edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestHeartRateEdges:
     """Heartrate action edge cases."""
 
     def test_records_with_none_bpm_skipped(self):
-        mock_heartrate = MagicMock(return_value=[
-            {"timestamp": "2024-01-01T10:00", "bpm": 60},
-            {"timestamp": "2024-01-01T10:00", "bpm": None},
-            {"timestamp": "2024-01-01T10:30", "bpm": 70},
-        ])
+        mock_heartrate = MagicMock(
+            return_value=[
+                {"timestamp": "2024-01-01T10:00", "bpm": 60},
+                {"timestamp": "2024-01-01T10:00", "bpm": None},
+                {"timestamp": "2024-01-01T10:30", "bpm": 70},
+            ]
+        )
         with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
             result = _fn()(action="heartrate")
         assert "2 readings" in result.summary
         assert "avg 65" in result.summary
 
     def test_empty_timestamp_skipped(self):
-        mock_heartrate = MagicMock(return_value=[
-            {"timestamp": "", "bpm": 60},
-            {"timestamp": "2024-01-01T10:00", "bpm": 70},
-        ])
+        mock_heartrate = MagicMock(
+            return_value=[
+                {"timestamp": "", "bpm": 60},
+                {"timestamp": "2024-01-01T10:00", "bpm": 70},
+            ]
+        )
         with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
             result = _fn()(action="heartrate")
         assert "1 buckets" in result.summary
@@ -732,14 +809,21 @@ class TestHeartRateEdges:
 # Disk clean — mo clean timeout
 # ---------------------------------------------------------------------------
 
+
 class TestDiskCleanTimeout:
     """Test disk_clean action handles mo clean timeout."""
 
     def test_mo_clean_timeout_handled(self):
         import subprocess
+
         with (
-            patch("metabolon.enzymes.interoception.subprocess.run", side_effect=subprocess.TimeoutExpired("mo", 300)),
-            patch("metabolon.enzymes.interoception._clean_build_artifacts", return_value=(0.0, [])),
+            patch(
+                "metabolon.enzymes.interoception.subprocess.run",
+                side_effect=subprocess.TimeoutExpired("mo", 300),
+            ),
+            patch(
+                "metabolon.enzymes.interoception._clean_build_artifacts", return_value=(0.0, [])
+            ),
             patch("metabolon.enzymes.interoception.shutil.disk_usage") as mock_disk,
             patch("metabolon.metabolism.setpoint.Threshold"),
         ):
@@ -756,15 +840,31 @@ class TestDiskCleanTimeout:
 # _ACTIONS constant validation
 # ---------------------------------------------------------------------------
 
+
 class TestActionsConstant:
     """Test _ACTIONS constant includes all expected actions."""
 
     def test_actions_string_contains_core_actions(self):
         from metabolon.enzymes.interoception import _ACTIONS
-        expected = ["system", "financial", "sleep", "readiness", "heartrate",
-                     "log_symptom", "flywheel", "disk_clean", "glycolysis",
-                     "tissue_routing", "crispr", "retrograde", "mitophagy",
-                     "angiogenesis", "membrane", "probe"]
+
+        expected = [
+            "system",
+            "financial",
+            "sleep",
+            "readiness",
+            "heartrate",
+            "log_symptom",
+            "flywheel",
+            "disk_clean",
+            "glycolysis",
+            "tissue_routing",
+            "crispr",
+            "retrograde",
+            "mitophagy",
+            "angiogenesis",
+            "membrane",
+            "probe",
+        ]
         for action in expected:
             assert action in _ACTIONS, f"'{action}' missing from _ACTIONS"
 
@@ -773,17 +873,26 @@ class TestActionsConstant:
 # Wrapper functions edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestWrapperEdges:
     """Additional wrapper function tests."""
 
     def test_sleep_result_default_period(self):
-        from metabolon.enzymes.interoception import _sleep_result, CircadianResult
-        with patch("metabolon.enzymes.interoception.interoception", return_value=CircadianResult(summary="default")) as mock_fn:
-            result = _sleep_result()
+        from metabolon.enzymes.interoception import CircadianResult, _sleep_result
+
+        with patch(
+            "metabolon.enzymes.interoception.interoception",
+            return_value=CircadianResult(summary="default"),
+        ) as mock_fn:
+            _sleep_result()
         mock_fn.assert_called_once_with(action="sleep", period="today")
 
     def test_heartrate_result_default_params(self):
-        from metabolon.enzymes.interoception import _heartrate_result, HeartRateResult
-        with patch("metabolon.enzymes.interoception.interoception", return_value=HeartRateResult(summary="hr")) as mock_fn:
-            result = _heartrate_result()
+        from metabolon.enzymes.interoception import HeartRateResult, _heartrate_result
+
+        with patch(
+            "metabolon.enzymes.interoception.interoception",
+            return_value=HeartRateResult(summary="hr"),
+        ) as mock_fn:
+            _heartrate_result()
         mock_fn.assert_called_once_with(action="heartrate", start_datetime="", end_datetime="")

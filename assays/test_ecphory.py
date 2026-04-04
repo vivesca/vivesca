@@ -1,17 +1,16 @@
 """Tests for metabolon.enzymes.ecphory."""
+
 from __future__ import annotations
 
 import textwrap
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.ecphory import EcphoryResult, ecphory
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_trace(date="2025-01-01", time_str="12:00", role="user", snippet="hello"):
     """Build a lightweight TraceFragment-like object."""
@@ -73,7 +72,9 @@ class TestEngramAction:
 
     def test_engram_returns_formatted_results(self):
         fragments = [
-            _make_trace(date="2025-03-10", time_str="09:15", role="assistant", snippet="deployed v2"),
+            _make_trace(
+                date="2025-03-10", time_str="09:15", role="assistant", snippet="deployed v2"
+            ),
             _make_trace(date="2025-03-11", time_str="14:30", role="user", snippet="check logs"),
         ]
         with patch("metabolon.organelles.engram.search", return_value=fragments):
@@ -130,11 +131,13 @@ class TestLogsAction:
 
     def test_logs_finds_matches_in_meal_plan(self, tmp_path):
         meal_plan = tmp_path / "meal.md"
-        meal_plan.write_text(textwrap.dedent("""\
+        meal_plan.write_text(
+            textwrap.dedent("""\
             Week 1 Plan
             Monday: avocado toast
             Tuesday: salmon bowl
-        """))
+        """)
+        )
         symptom_log = tmp_path / "symptom.md"
         symptom_log.write_text("all good\n")
         mock_locus = MagicMock()

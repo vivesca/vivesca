@@ -6,8 +6,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "gemmation-env"
 
 

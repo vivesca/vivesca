@@ -15,6 +15,7 @@ Usage:
     python3 dispatch.py --status --json  # Workflow runs as JSON
     python3 dispatch.py --json           # Dispatch results as JSON
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,7 +34,7 @@ from hatchet_sdk import Hatchet
 
 # Import the task references from worker
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from worker import golem_zhipu, golem_infini, golem_volcano, golem_gemini
+from worker import golem_gemini, golem_infini, golem_volcano, golem_zhipu
 
 QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
 LOG_FILE = Path.home() / ".local" / "share" / "vivesca" / "hatchet-dispatch.log"
@@ -75,18 +76,18 @@ def parse_queue() -> list[tuple[int, str, str, str]]:
         if not (stripped.startswith("- [ ] ") or stripped.startswith("- [!!] ")):
             continue
 
-        cmd_match = re.search(r'`([^`]+)`', line)
+        cmd_match = re.search(r"`([^`]+)`", line)
         if not cmd_match:
             continue
 
         cmd = cmd_match.group(1)
 
         # Extract provider
-        provider_match = re.search(r'--provider\s+(\w+)', cmd)
+        provider_match = re.search(r"--provider\s+(\w+)", cmd)
         provider = provider_match.group(1) if provider_match else "zhipu"
 
         # Extract task ID
-        tid_match = re.search(r'\[t-([0-9a-fA-F]+)\]', cmd)
+        tid_match = re.search(r"\[t-([0-9a-fA-F]+)\]", cmd)
         task_id = f"t-{tid_match.group(1)}" if tid_match else f"t-{i:04x}"
 
         # Extract the actual task prompt (everything after the flags)
@@ -94,7 +95,7 @@ def parse_queue() -> list[tuple[int, str, str, str]]:
         prompt = prompt_match.group(1) if prompt_match else cmd
 
         # Extract max-turns
-        turns_match = re.search(r'--max-turns\s+(\d+)', cmd)
+        turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
         max_turns = int(turns_match.group(1)) if turns_match else 50
 
         pending.append((i, prompt, provider, task_id, max_turns))
@@ -132,10 +133,12 @@ async def _run_one(task_ref, line_num, prompt, provider, task_id, max_turns):
     """Run a single task and handle result."""
     info = {"task_id": task_id, "provider": provider, "prompt": prompt[:200], "status": "pending"}
     try:
-        run_ref = await task_ref.aio_run_no_wait({
-            "task": prompt,
-            "max_turns": max_turns,
-        })
+        run_ref = await task_ref.aio_run_no_wait(
+            {
+                "task": prompt,
+                "max_turns": max_turns,
+            }
+        )
         mark_done(line_num, f"hatchet:dispatched:{run_ref.workflow_run_id}")
         log(f"[DISPATCHED] [{task_id}] {provider}: {prompt[:60]}...")
         info["status"] = "dispatched"
@@ -246,7 +249,9 @@ def main() -> None:
         print(json.dumps({"total": len(tasks), "tasks": tasks}, indent=2))
     elif json_mode:
         count = asyncio.run(dispatch_all(dry_run=dry_run))
-        print(json.dumps({"dispatched": count, "total": count, "tasks": _dispatch_results}, indent=2))
+        print(
+            json.dumps({"dispatched": count, "total": count, "tasks": _dispatch_results}, indent=2)
+        )
     else:
         asyncio.run(dispatch_all(dry_run=dry_run))
 

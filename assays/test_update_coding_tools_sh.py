@@ -7,8 +7,6 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "update-coding-tools.sh"
 
 
@@ -25,7 +23,9 @@ def _run_help(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-def _run_with_fake_home(tmp_path: Path, extra_env: dict | None = None) -> subprocess.CompletedProcess:
+def _run_with_fake_home(
+    tmp_path: Path, extra_env: dict | None = None
+) -> subprocess.CompletedProcess:
     """Run the script with HOME=tmp_path and optional extra env vars."""
     env = os.environ.copy()
     env["HOME"] = str(tmp_path)
@@ -124,4 +124,3 @@ class TestScriptPermissions:
 
     def test_script_file_not_directory(self):
         assert SCRIPT.is_file()
-

@@ -14,7 +14,7 @@ NOW_PATH = os.path.expanduser("~/epigenome/chromatin/Tonus.md")
 try:
     with open(MARKER) as f:
         count = int(f.read().strip())
-except (FileNotFoundError, ValueError):
+except FileNotFoundError, ValueError:
     count = 0
 
 count += 1

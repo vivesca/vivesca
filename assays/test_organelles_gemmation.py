@@ -2,18 +2,15 @@ from __future__ import annotations
 
 """Tests for metabolon.organelles.gemmation — background AI agent job queue."""
 
-import os
-import textwrap
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
 
 from metabolon.organelles.gemmation import (
     BACKENDS,
-    QUEUE_PATH,
     RUNS_DIR,
     _build_cmd,
     _find_task,
@@ -29,7 +26,6 @@ from metabolon.organelles.gemmation import (
     list_tasks,
     run_task,
 )
-
 
 # ── fixtures ──────────────────────────────────────────────────────────────
 

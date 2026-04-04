@@ -7,7 +7,6 @@ stats_by_backend, and format_report with emphasis on edge cases."""
 import json
 from datetime import timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -19,7 +18,6 @@ from metabolon.organelles.translocon_metrics import (
     stats_by_backend,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
@@ -29,9 +27,7 @@ from metabolon.organelles.translocon_metrics import (
 def tmp_metrics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect METRICS_PATH to a temp file for every test."""
     fake = tmp_path / "metrics.jsonl"
-    monkeypatch.setattr(
-        "metabolon.organelles.translocon_metrics.METRICS_PATH", fake
-    )
+    monkeypatch.setattr("metabolon.organelles.translocon_metrics.METRICS_PATH", fake)
     return fake
 
 
@@ -64,9 +60,7 @@ class TestRecord:
     def test_creates_parent_directory(self, tmp_path: Path, monkeypatch) -> None:
         """record() should mkdir -p the parent of METRICS_PATH."""
         deep = tmp_path / "a" / "b" / "c" / "metrics.jsonl"
-        monkeypatch.setattr(
-            "metabolon.organelles.translocon_metrics.METRICS_PATH", deep
-        )
+        monkeypatch.setattr("metabolon.organelles.translocon_metrics.METRICS_PATH", deep)
         record(**_entry())
         assert deep.exists()
         assert deep.parent.is_dir()
@@ -77,8 +71,9 @@ class TestRecord:
         assert entry["duration_s"] == 1.235
 
     def test_default_mode_is_empty_string(self, tmp_metrics: Path) -> None:
-        record(backend="x", model="m", prompt_length=1, output_length=1,
-               duration_s=1.0, success=True)
+        record(
+            backend="x", model="m", prompt_length=1, output_length=1, duration_s=1.0, success=True
+        )
         entry = json.loads(tmp_metrics.read_text().strip())
         assert entry["mode"] == ""
 
@@ -88,6 +83,7 @@ class TestRecord:
         ts = entry["timestamp"]
         # Should parse without error
         from datetime import datetime
+
         datetime.fromisoformat(ts)
 
     def test_append_does_not_overwrite(self, tmp_metrics: Path) -> None:
@@ -107,9 +103,7 @@ class TestRecord:
 class TestLoadEntries:
     def test_missing_file_returns_empty(self, tmp_path: Path, monkeypatch) -> None:
         gone = tmp_path / "nonexistent.jsonl"
-        monkeypatch.setattr(
-            "metabolon.organelles.translocon_metrics.METRICS_PATH", gone
-        )
+        monkeypatch.setattr("metabolon.organelles.translocon_metrics.METRICS_PATH", gone)
         assert _load_entries() == []
 
     def test_skips_blank_lines(self, tmp_metrics: Path) -> None:
@@ -131,16 +125,12 @@ class TestLoadEntries:
         assert entries[0]["backend"] == "good"
         assert entries[1]["backend"] == "also-good"
 
-    def test_days_filter_excludes_old_entries(
-        self, tmp_metrics: Path
-    ) -> None:
+    def test_days_filter_excludes_old_entries(self, tmp_metrics: Path) -> None:
         """Inject an entry with an old timestamp; days=1 should exclude it."""
         from datetime import datetime
 
         old_entry = {
-            "timestamp": (datetime.now() - timedelta(days=10)).isoformat(
-                timespec="seconds"
-            ),
+            "timestamp": (datetime.now() - timedelta(days=10)).isoformat(timespec="seconds"),
             "backend": "old",
             "model": "m",
             "prompt_length": 1,
@@ -160,9 +150,7 @@ class TestLoadEntries:
         from datetime import datetime
 
         old_entry = {
-            "timestamp": (datetime.now() - timedelta(days=365)).isoformat(
-                timespec="seconds"
-            ),
+            "timestamp": (datetime.now() - timedelta(days=365)).isoformat(timespec="seconds"),
             "backend": "ancient",
             "model": "m",
             "prompt_length": 1,
@@ -175,13 +163,9 @@ class TestLoadEntries:
         entries = _load_entries(days=None)
         assert len(entries) == 2
 
-    def test_unparseable_timestamp_included_even_with_filter(
-        self, tmp_metrics: Path
-    ) -> None:
+    def test_unparsable_timestamp_included_even_with_filter(self, tmp_metrics: Path) -> None:
         """Entries with bad timestamps are kept (not excluded by day filter)."""
-        tmp_metrics.write_text(
-            json.dumps({"timestamp": "not-a-date", "backend": "x"}) + "\n"
-        )
+        tmp_metrics.write_text(json.dumps({"timestamp": "not-a-date", "backend": "x"}) + "\n")
         entries = _load_entries(days=1)
         assert len(entries) == 1
 
@@ -253,9 +237,7 @@ class TestStatsByBackend:
 
     def test_entries_with_missing_duration(self, tmp_metrics: Path) -> None:
         """Entry missing duration_s should be treated as 0."""
-        tmp_metrics.write_text(
-            json.dumps({"backend": "goose", "success": True}) + "\n"
-        )
+        tmp_metrics.write_text(json.dumps({"backend": "goose", "success": True}) + "\n")
         result = stats_by_backend()
         assert result["goose"]["avg_duration"] == 0.0
         assert result["goose"]["p50_duration"] == 0.0
@@ -270,9 +252,7 @@ class TestStatsByBackend:
         from datetime import datetime
 
         old = {
-            "timestamp": (datetime.now() - timedelta(days=10)).isoformat(
-                timespec="seconds"
-            ),
+            "timestamp": (datetime.now() - timedelta(days=10)).isoformat(timespec="seconds"),
             "backend": "old",
             "model": "m",
             "prompt_length": 1,
@@ -296,7 +276,7 @@ class TestStatsByBackend:
 class TestFormatReport:
     def test_empty_all_time(self) -> None:
         report = format_report()
-        assert "No translocon metrics recorded (all time)." == report
+        assert report == "No translocon metrics recorded (all time)."
 
     def test_empty_with_days(self) -> None:
         report = format_report(days=7)

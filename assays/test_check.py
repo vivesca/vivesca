@@ -1,4 +1,5 @@
 """Tests for metabolon.gastrulation.check."""
+
 from __future__ import annotations
 
 import textwrap
@@ -13,7 +14,6 @@ from metabolon.gastrulation.check import (
     _detect_module,
     probe_gastrulation,
 )
-
 
 # ---------------------------------------------------------------------------
 # _detect_module
@@ -192,23 +192,29 @@ class TestProbeGastrulation:
         (pkg / "resources").mkdir(parents=True)
 
         # Bad tool — missing return type and annotations
-        (pkg / "enzymes" / "bad_tool.py").write_text(textwrap.dedent("""\
+        (pkg / "enzymes" / "bad_tool.py").write_text(
+            textwrap.dedent("""\
             @tool(description="d")
             def bad(x: int):
                 return x
-        """))
+        """)
+        )
         # Bad prompt — missing description
-        (pkg / "codons" / "bad_prompt.py").write_text(textwrap.dedent("""\
+        (pkg / "codons" / "bad_prompt.py").write_text(
+            textwrap.dedent("""\
             @prompt()
             def bad_prompt() -> str:
                 return "hi"
-        """))
+        """)
+        )
         # Bad resource — missing URI
-        (pkg / "resources" / "bad_res.py").write_text(textwrap.dedent("""\
+        (pkg / "resources" / "bad_res.py").write_text(
+            textwrap.dedent("""\
             @resource()
             def bad_res() -> str:
                 return "data"
-        """))
+        """)
+        )
 
         issues = probe_gastrulation(tmp_path)
         assert len(issues) >= 3
@@ -220,10 +226,12 @@ class TestProbeGastrulation:
         pkg = tmp_path / "src" / "myapp"
         (pkg / "enzymes").mkdir(parents=True)
 
-        (pkg / "enzymes" / "good_tool.py").write_text(textwrap.dedent("""\
+        (pkg / "enzymes" / "good_tool.py").write_text(
+            textwrap.dedent("""\
             @tool(description="d", annotations=ToolAnnotations())
             def good(x: int) -> str:
                 return str(x)
-        """))
+        """)
+        )
 
         assert probe_gastrulation(tmp_path) == []

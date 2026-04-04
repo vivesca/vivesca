@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── Load effector via exec (scripts aren't importable modules) ───────
+
 
 def _load_module():
     """Load soma-scale by exec-ing, with urlopen mocked."""
@@ -40,13 +39,15 @@ mock_urlopen = _mod["urlopen"]
 
 # ── reset mock before each test ──────────────────────────────────────
 
+
 @pytest.fixture(autouse=True)
 def _reset_urlopen():
     mock_urlopen.reset_mock()
-    yield
+    return
 
 
 # ── helpers ──────────────────────────────────────────────────────────
+
 
 def _mock_response(body):
     """Create a fake urllib response usable as context manager."""
@@ -116,9 +117,9 @@ def test_api_sets_auth_header():
         _api("GET", "/v1/apps/soma/machines")
     req = mock_urlopen.call_args[0][0]
     # Request._headers is a list of (name, value) tuples
-    assert any("Authorization" in h and "Bearer secret" in v
-               for h, v in req.header_items()), \
+    assert any("Authorization" in h and "Bearer secret" in v for h, v in req.header_items()), (
         f"Auth header not found in {list(req.header_items())}"
+    )
 
 
 # ── _fmt_guest ───────────────────────────────────────────────────────
@@ -126,7 +127,10 @@ def test_api_sets_auth_header():
 
 def test_fmt_guest_standard():
     """_fmt_guest renders cpus, kind, and memory."""
-    assert _fmt_guest({"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768}) == "8 CPU (shared), 32768 MB"
+    assert (
+        _fmt_guest({"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768})
+        == "8 CPU (shared), 32768 MB"
+    )
 
 
 def test_fmt_guest_missing_fields():

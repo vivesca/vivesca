@@ -7,6 +7,7 @@ Usage:
     temporal-golem status <workflow-id>
     temporal-golem list [-n 10]
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,8 +17,7 @@ import uuid
 from pathlib import Path
 
 import click
-from temporalio.client import Client, WorkflowFailureError
-
+from temporalio.client import Client
 from workflow import GolemDispatchWorkflow
 
 
@@ -38,7 +38,13 @@ def main():
 @click.option("-f", "--file", "filepath", default=None, help="Read tasks from file")
 @click.option("--max-turns", default=50, type=int, help="Max turns per task")
 @click.argument("tasks", nargs=-1)
-def submit(provider: str, workflow_id: str | None, filepath: str | None, max_turns: int, tasks: tuple[str, ...]):
+def submit(
+    provider: str,
+    workflow_id: str | None,
+    filepath: str | None,
+    max_turns: int,
+    tasks: tuple[str, ...],
+):
     """Submit one or more golem tasks as a Temporal workflow."""
     task_list = list(tasks)
 
@@ -53,10 +59,7 @@ def submit(provider: str, workflow_id: str | None, filepath: str | None, max_tur
         click.echo(json.dumps({"error": "no tasks provided"}))
         sys.exit(1)
 
-    specs = [
-        {"task": t, "provider": provider, "max_turns": max_turns}
-        for t in task_list
-    ]
+    specs = [{"task": t, "provider": provider, "max_turns": max_turns} for t in task_list]
 
     wf_id = workflow_id or f"golem-{provider}-{uuid.uuid4().hex[:8]}"
 
@@ -71,17 +74,22 @@ def submit(provider: str, workflow_id: str | None, filepath: str | None, max_tur
         return handle
 
     handle = asyncio.run(_run())
-    click.echo(json.dumps({
-        "workflow_id": handle.id,
-        "tasks_submitted": len(specs),
-        "provider": provider,
-    }))
+    click.echo(
+        json.dumps(
+            {
+                "workflow_id": handle.id,
+                "tasks_submitted": len(specs),
+                "provider": provider,
+            }
+        )
+    )
 
 
 @main.command()
 @click.argument("workflow_id")
 def status(workflow_id: str):
     """Show the status of a golem workflow."""
+
     async def _run():
         client = await _get_client()
         handle = client.get_workflow_handle(workflow_id)
@@ -105,6 +113,7 @@ def status(workflow_id: str):
 @click.option("-n", "--limit", default=10, type=int, help="Max workflows to show")
 def list_workflows(limit: int):
     """List recent golem workflows."""
+
     async def _run():
         client = await _get_client()
         results = []
@@ -112,11 +121,13 @@ def list_workflows(limit: int):
             query="WorkflowId STARTS_WITH 'golem-'",
             page_size=limit,
         ):
-            results.append({
-                "workflow_id": wf.id,
-                "status": wf.status.name,
-                "start_time": str(wf.start_time),
-            })
+            results.append(
+                {
+                    "workflow_id": wf.id,
+                    "status": wf.status.name,
+                    "start_time": str(wf.start_time),
+                }
+            )
             if len(results) >= limit:
                 break
         return results

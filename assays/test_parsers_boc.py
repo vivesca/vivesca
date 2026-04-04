@@ -1,26 +1,28 @@
 """Tests for metabolon.respirometry.parsers.boc."""
+
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from metabolon.respirometry.parsers.boc import (
-    extract_boc,
-    _extract_metadata,
-    _parse_transactions,
-    _parse_short_date,
-    _extract_balance_bf,
-    _extract_payments,
-    _extract_odd_cents,
     _clean_merchant,
+    _extract_balance_bf,
+    _extract_metadata,
+    _extract_odd_cents,
+    _extract_payments,
+    _parse_short_date,
+    _parse_transactions,
+    extract_boc,
 )
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_pdf_text(overrides: str | None = None) -> str:
     """Return a minimal but valid BOC statement text block."""
@@ -58,6 +60,7 @@ def _mock_pdf_reader(text: str) -> MagicMock:
 # Tests: _clean_merchant
 # ---------------------------------------------------------------------------
 
+
 class TestCleanMerchant:
     def test_strips_trailing_location(self):
         assert _clean_merchant("STARBUCKS HONG KONG     HKG") == "STARBUCKS"
@@ -79,6 +82,7 @@ class TestCleanMerchant:
 # Tests: _parse_short_date
 # ---------------------------------------------------------------------------
 
+
 class TestParseShortDate:
     def test_same_year(self):
         result = _parse_short_date("15-MAR", 2025, "2025-03-15")
@@ -97,6 +101,7 @@ class TestParseShortDate:
 # ---------------------------------------------------------------------------
 # Tests: _extract_balance_bf / _extract_odd_cents / _extract_payments
 # ---------------------------------------------------------------------------
+
 
 class TestExtractionHelpers:
     def test_balance_bf_found(self):
@@ -127,6 +132,7 @@ class TestExtractionHelpers:
 # Tests: _extract_metadata
 # ---------------------------------------------------------------------------
 
+
 class TestExtractMetadata:
     def test_parses_payment_slip_values(self):
         text = _make_pdf_text()
@@ -144,6 +150,7 @@ class TestExtractMetadata:
 # Tests: _parse_transactions
 # ---------------------------------------------------------------------------
 
+
 class TestParseTransactions:
     def test_excludes_pps_payment(self):
         text = _make_pdf_text()
@@ -156,7 +163,7 @@ class TestParseTransactions:
     def test_amounts_negative_for_debits(self):
         text = _make_pdf_text()
         txns = _parse_transactions(text, "2025-03-15")
-        starbucks = [t for t in txns if "STARBUCKS" in t.merchant][0]
+        starbucks = next(t for t in txns if "STARBUCKS" in t.merchant)
         assert starbucks.hkd == -48.0
         assert starbucks.date == "2025-03-01"
         assert starbucks.currency == "HKD"
@@ -165,6 +172,7 @@ class TestParseTransactions:
 # ---------------------------------------------------------------------------
 # Tests: extract_boc (integration with mocked PdfReader)
 # ---------------------------------------------------------------------------
+
 
 class TestExtractBoc:
     @patch("metabolon.respirometry.parsers.boc.PdfReader")
@@ -187,7 +195,7 @@ class TestExtractBoc:
         bad_text = (
             "Payment Slip\n"
             "HKD 80,000.00\n"
-            "HKD 99,999.00\n"   # wildly wrong balance
+            "HKD 99,999.00\n"  # wildly wrong balance
             "HKD 500.00\n"
             "15-MAR-2025\n"
             "05-APR-2025\n"

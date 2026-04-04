@@ -28,6 +28,7 @@ class TestTaobaoSymlink:
             if not target.exists():
                 # Check it's a valid symlink pointing to expected location
                 import os
+
                 link_target = os.readlink(TAOBAO_PATH)
                 assert "taobao" in link_target.lower()
 
@@ -51,7 +52,7 @@ class TestTaobaoSymlink:
 class TestTaobaoExecution:
     @pytest.mark.skipif(
         not TAOBAO_PATH.resolve().exists(),
-        reason="taobao CLI not installed or symlink broken on this platform"
+        reason="taobao CLI not installed or symlink broken on this platform",
     )
     def test_taobao_help_runs(self):
         """Test taobao --help runs without error."""
@@ -62,11 +63,15 @@ class TestTaobaoExecution:
             timeout=30,
         )
         # Either succeeds or shows help
-        assert result.returncode == 0 or "usage" in result.stdout.lower() or "usage" in result.stderr.lower()
+        assert (
+            result.returncode == 0
+            or "usage" in result.stdout.lower()
+            or "usage" in result.stderr.lower()
+        )
 
     @pytest.mark.skipif(
         not TAOBAO_PATH.resolve().exists(),
-        reason="taobao CLI not installed or symlink broken on this platform"
+        reason="taobao CLI not installed or symlink broken on this platform",
     )
     def test_taobao_version_or_help_available(self):
         """Test taobao has version or help option."""

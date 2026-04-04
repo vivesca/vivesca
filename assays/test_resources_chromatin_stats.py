@@ -1,12 +1,13 @@
 """Tests for metabolon.resources.chromatin_stats — memory statistics resource."""
-from pathlib import Path
-import pytest
+
 import importlib
+from pathlib import Path
 
 
 def test_module_import_succeeds():
     """Test that the chromatin_stats module can be imported successfully."""
     from metabolon.resources import chromatin_stats
+
     assert chromatin_stats is not None
     assert chromatin_stats.__doc__ is not None
 
@@ -14,6 +15,7 @@ def test_module_import_succeeds():
 def test_module_docstring_contains_expected_metadata():
     """Test that the module docstring contains the expected resource declaration."""
     from metabolon.resources import chromatin_stats
+
     doc = chromatin_stats.__doc__
 
     assert "Hippocampus" in doc
@@ -25,6 +27,7 @@ def test_module_docstring_contains_expected_metadata():
 def test_chromatin_stats_module_is_in_package():
     """Test that chromatin_stats module is properly in the metabolon.resources package."""
     import metabolon.resources
+
     package_path = Path(metabolon.resources.__file__).parent
     module_path = package_path / "chromatin_stats.py"
 
@@ -47,5 +50,6 @@ def test_import_module_via_importlib():
 def test_binary_constant_exists_and_is_correct():
     """Test that BINARY constant exists and has the correct value."""
     from metabolon.resources.chromatin_stats import BINARY
+
     assert isinstance(BINARY, str)
     assert BINARY == "oghma"

@@ -6,10 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.demethylase import demethylase
-
 
 # ---------------------------------------------------------------------------
 # TestDemethylase
@@ -24,7 +21,9 @@ class TestDemethylase:
     def test_unknown_action_returns_error(self) -> None:
         result = demethylase(action="invalid")
         assert "Unknown action 'invalid'" in result.results
-        assert "emit, read, history, transduce, resensitize, sweep, record_access" in result.results
+        assert (
+            "emit, read, history, transduce, resensitize, sweep, record_access" in result.results
+        )
 
     def test_action_is_case_insensitive(self) -> None:
         result = demethylase(action="EMIT")

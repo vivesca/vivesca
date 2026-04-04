@@ -1,10 +1,8 @@
-
 """Pacemakers — live state of all vivesca LaunchAgent oscillators.
 
 Resources:
   vivesca://oscillators — schedule, status, exit code, and type for each pacemaker
 """
-
 
 import platform
 import plistlib
@@ -49,7 +47,7 @@ def _launchctl_status(label: str) -> dict:
             "last_exit": last_exit,
             "loaded": True,
         }
-    except (subprocess.TimeoutExpired, OSError):
+    except subprocess.TimeoutExpired, OSError:
         return {"running": False, "pid": None, "last_exit": None, "loaded": False}
 
 

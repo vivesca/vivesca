@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.organelles.sporulation import (
-    PUBLISHED_DIR,
     _now_iso,
     _parse_frontmatter,
     _scan_content,
@@ -118,7 +117,7 @@ def test_organelles_sporulation_germinate_post_creates_file(mock_published_dir):
             assert result["created"] is True
             assert (tmp_path / "test-new-post.md").exists()
             content = (tmp_path / "test-new-post.md").read_text()
-            assert "title: \"Test New Post\"" in content
+            assert 'title: "Test New Post"' in content
             assert "draft: true" in content
 
 
@@ -268,9 +267,9 @@ draft: false
 Body
 """)
         with patch("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path):
-            before = datetime.now(UTC)
+            datetime.now(UTC)
             result = mutate_post("test-post", "Fixed typo")
-            after = datetime.now(UTC)
+            datetime.now(UTC)
             assert result["revised"] is True
             content = post.read_text()
             assert 'revisionNote: "Fixed typo"' in content

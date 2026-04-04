@@ -7,10 +7,10 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "compound-engineering-test"
-AUTO_UPDATE_SCRIPT = Path(__file__).parent.parent / "effectors" / "auto-update-compound-engineering.sh"
+AUTO_UPDATE_SCRIPT = (
+    Path(__file__).parent.parent / "effectors" / "auto-update-compound-engineering.sh"
+)
 
 
 # ── helpers ─────────────────────────────────────────────────────────────
@@ -31,7 +31,12 @@ def _run_script(
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
     return subprocess.run(
-        cmd, capture_output=True, text=True, input=input_text, env=env, timeout=10,
+        cmd,
+        capture_output=True,
+        text=True,
+        input=input_text,
+        env=env,
+        timeout=10,
     )
 
 

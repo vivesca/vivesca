@@ -1,4 +1,4 @@
-
+import contextlib
 import datetime
 import json
 import re
@@ -45,40 +45,44 @@ PHANTOM_TRACKER = phantoms_db
 # Terry's name/voice/presence — they are phantom unless Terry asked.
 _PHANTOM_PATTERNS: list[re.Pattern] = [
     # External commitments
-    re.compile(r"\b(conference|abstract|submission|application|proposal|nomination)\b", re.I),
-    re.compile(r"\b(submit|apply|register|enroll|enrol)\b.*\b(terry|you)\b", re.I),
+    re.compile(
+        r"\b(conference|abstract|submission|application|proposal|nomination)\b", re.IGNORECASE
+    ),
+    re.compile(r"\b(submit|apply|register|enroll|enrol)\b.*\b(terry|you)\b", re.IGNORECASE),
     # Writing in Terry's voice
     re.compile(
         r"\b(linkedin|twitter|tweet|blog post|about page|bio|biography)\b"
         r".*\b(draft|write|post|publish)\b",
-        re.I,
+        re.IGNORECASE,
     ),
-    re.compile(r"\b(draft|write|compose)\b.*\b(linkedin|bio|about|profile)\b", re.I),
-    re.compile(r"\bin terry[''s]* voice\b", re.I),
-    re.compile(r"\bpersonal statement\b", re.I),
+    re.compile(r"\b(draft|write|compose)\b.*\b(linkedin|bio|about|profile)\b", re.IGNORECASE),
+    re.compile(r"\bin terry[''s]* voice\b", re.IGNORECASE),
+    re.compile(r"\bpersonal statement\b", re.IGNORECASE),
     # Self-referential system audits filed as review items
     re.compile(
         r"\b(audit|review|inspect)\b.*\b(yourself|itself|this system|vivesca|poiesis|pulse)\b",
-        re.I,
+        re.IGNORECASE,
     ),
-    re.compile(r"\bself.?audit\b", re.I),
+    re.compile(r"\bself.?audit\b", re.IGNORECASE),
     # Reports for self-caused problems
-    re.compile(r"\b(rescue report|path audit|routing error|merge plan)\b", re.I),
+    re.compile(r"\b(rescue report|path audit|routing error|merge plan)\b", re.IGNORECASE),
     # External commitment verbs without explicit sourcing
-    re.compile(r"\b(reach out to|cold email|message|pitch)\b.*\b(on behalf|for terry)\b", re.I),
+    re.compile(
+        r"\b(reach out to|cold email|message|pitch)\b.*\b(on behalf|for terry)\b", re.IGNORECASE
+    ),
 ]
 
 # Tasks matching these patterns are Presence/Sharpening/Collaborative,
 # not Automated — wrong category regardless of sourcing.
 _NON_AUTOMATED_PATTERNS: list[re.Pattern] = [
     # Presence
-    re.compile(r"\b(theo|tara|family|kids?|partner|spouse)\b", re.I),
-    re.compile(r"\b(attend|be there|show up|client meeting|in.?person)\b", re.I),
+    re.compile(r"\b(theo|tara|family|kids?|partner|spouse)\b", re.IGNORECASE),
+    re.compile(r"\b(attend|be there|show up|client meeting|in.?person)\b", re.IGNORECASE),
     # Sharpening — Terry keeps these to stay sharp
-    re.compile(r"\b(drill|anki|flashcard|memoris[ez]|study from memory)\b", re.I),
-    re.compile(r"\b(form.*view|form.*opinion|read.*source)\b", re.I),
+    re.compile(r"\b(drill|anki|flashcard|memoris[ez]|study from memory)\b", re.IGNORECASE),
+    re.compile(r"\b(form.*view|form.*opinion|read.*source)\b", re.IGNORECASE),
     # Collaborative — needs Terry at keyboard
-    re.compile(r"\b(brainstorm|probe|strategic.?thinking)\b.*\bwith terry\b", re.I),
+    re.compile(r"\b(brainstorm|probe|strategic.?thinking)\b.*\bwith terry\b", re.IGNORECASE),
 ]
 
 # These signal the task is Automated (research, synthesis, code, monitoring).
@@ -87,9 +91,9 @@ _AUTOMATED_SIGNALS: list[re.Pattern] = [
     re.compile(
         r"\b(research|synthesize|synthesis|summarize|analyse|analyze|"
         r"monitor|fetch|compile|draft for review)\b",
-        re.I,
+        re.IGNORECASE,
     ),
-    re.compile(r"\b(code|script|tool|automate|generate|extract)\b", re.I),
+    re.compile(r"\b(code|script|tool|automate|generate|extract)\b", re.IGNORECASE),
 ]
 
 # Max agent:terry tags per systole (hard limit from feedback_poiesis_dispatch_rule.md)
@@ -133,7 +137,7 @@ def should_suppress(task: dict) -> tuple[bool, str]:
         return False, f"wrong category: '{category}' — only Automated tasks are dispatched"
 
     # Non-automated pattern heuristic (only when category not explicit)
-    if not category or category not in ("automated",):
+    if not category or category != "automated":
         for pat in _NON_AUTOMATED_PATTERNS:
             if pat.search(description):
                 return (
@@ -218,10 +222,8 @@ def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
     """
     tracker = {}
     if PHANTOM_TRACKER.exists():
-        try:
+        with contextlib.suppress(Exception):
             tracker = json.loads(PHANTOM_TRACKER.read_text())
-        except Exception:
-            pass
 
     today = datetime.date.today()
     results = []
@@ -299,8 +301,10 @@ def _phantom_reason(description: str) -> str:
 def _is_study_or_action(description: str) -> bool:
     """Return True if this looks like a study task or physical action, not review."""
     _study_or_action: list[re.Pattern] = [
-        re.compile(r"\b(study|learn|read|memoris[ez]|drill|flashcard)\b", re.I),
-        re.compile(r"\b(go to|call|visit|pick up|drop off|sign|attend)\b", re.I),
-        re.compile(r"\b(verify|check|confirm|validate)\b.*\b(complete|done|ready|pass)\b", re.I),
+        re.compile(r"\b(study|learn|read|memoris[ez]|drill|flashcard)\b", re.IGNORECASE),
+        re.compile(r"\b(go to|call|visit|pick up|drop off|sign|attend)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(verify|check|confirm|validate)\b.*\b(complete|done|ready|pass)\b", re.IGNORECASE
+        ),
     ]
     return any(pat.search(description) for pat in _study_or_action)

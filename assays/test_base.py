@@ -1,10 +1,9 @@
 """Tests for metabolon.morphology.base — Pydantic secretion models."""
-import pytest
 
 from metabolon.morphology.base import EffectorResult, Pathology, Secretion, Vesicle, Vital
 
-
 # --- Secretion (base) ---
+
 
 class TestSecretion:
     def test_allows_extra_fields(self):
@@ -19,6 +18,7 @@ class TestSecretion:
 
 
 # --- Pathology ---
+
 
 class TestPathology:
     def test_defaults(self):
@@ -39,6 +39,7 @@ class TestPathology:
 
 # --- Vesicle ---
 
+
 class TestVesicle:
     def test_auto_count(self):
         v = Vesicle(items=[{"a": 1}, {"b": 2}, {"c": 3}])
@@ -58,6 +59,7 @@ class TestVesicle:
 
 # --- Vital ---
 
+
 class TestVital:
     def test_ok_status(self):
         v = Vital(status="ok", message="all good")
@@ -73,6 +75,7 @@ class TestVital:
 
 
 # --- EffectorResult ---
+
 
 class TestEffectorResult:
     def test_success(self):

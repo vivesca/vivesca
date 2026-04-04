@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import patch
-
-import pytest
 
 from metabolon.organelles.crispr import (
     _regexify,
@@ -19,10 +17,10 @@ from metabolon.organelles.crispr import (
     spacer_count,
 )
 
-
 # ---------------------------------------------------------------------------
 # Test _regexify
 # ---------------------------------------------------------------------------
+
 
 class TestRegexify:
     def test_replaces_paths(self):
@@ -45,7 +43,7 @@ class TestRegexify:
         assert '"{str}"' in pattern
         compiled = re.compile(regex, re.IGNORECASE)
         assert compiled.search('Error: "different message"')
-        assert compiled.search("Error: \"\"")  # empty string
+        assert compiled.search('Error: ""')  # empty string
 
     def test_replaces_strings_single_quotes(self):
         pattern, regex = _regexify("Error: 'something went wrong'")
@@ -79,6 +77,7 @@ class TestRegexify:
 # Test is_self_test
 # ---------------------------------------------------------------------------
 
+
 class TestIsSelfTest:
     def test_inflammasome(self):
         assert is_self_test("inflammasome:probe_x") is True
@@ -99,11 +98,14 @@ class TestIsSelfTest:
 # Test acquire_spacer
 # ---------------------------------------------------------------------------
 
+
 class TestAcquireSpacer:
     def test_acquires_and_returns(self, tmp_path):
         spacer_file = tmp_path / "spacers.jsonl"
-        with patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path), \
-             patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path),
+            patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file),
+        ):
             result = acquire_spacer("ImportError: no module named foo", "goose")
         assert result["tool"] == "goose"
         assert "pattern" in result
@@ -124,9 +126,11 @@ class TestAcquireSpacer:
     def test_handles_write_error(self, tmp_path):
         spacer_file = tmp_path / "spacers.jsonl"
         # Make directory read-only to cause write error? Simpler: mock open to raise Exception
-        with patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path), \
-             patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file), \
-             patch("builtins.open", side_effect=Exception("disk full")):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path),
+            patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file),
+            patch("builtins.open", side_effect=Exception("disk full")),
+        ):
             result = acquire_spacer("error", "tool")
         # Should still return spacer dict (since exception is caught)
         assert result["tool"] == "tool"
@@ -134,9 +138,11 @@ class TestAcquireSpacer:
     def test_timestamp_is_utc(self, tmp_path):
         spacer_file = tmp_path / "spacers.jsonl"
         fake_now = datetime(2026, 4, 1, 12, 0, 0, tzinfo=UTC)
-        with patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path), \
-             patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file), \
-             patch("metabolon.organelles.crispr.datetime") as mock_dt:
+        with (
+            patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path),
+            patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file),
+            patch("metabolon.organelles.crispr.datetime") as mock_dt,
+        ):
             mock_dt.now.return_value = fake_now
             result = acquire_spacer("error", "tool")
         assert result["ts"] == fake_now.isoformat()
@@ -146,16 +152,19 @@ class TestAcquireSpacer:
 # Test compile_guides
 # ---------------------------------------------------------------------------
 
+
 class TestCompileGuides:
     def test_compiles_from_file(self, tmp_path):
         _, regex = _regexify("ImportError: no module")
-        entry = json.dumps({
-            "tool": "goose",
-            "pattern": "test",
-            "regex": regex,
-            "ts": "2026-01-01T00:00:00+00:00",
-            "raw_error": "ImportError: no module",
-        })
+        entry = json.dumps(
+            {
+                "tool": "goose",
+                "pattern": "test",
+                "regex": regex,
+                "ts": "2026-01-01T00:00:00+00:00",
+                "raw_error": "ImportError: no module",
+            }
+        )
         spacer_file = tmp_path / "spacers.jsonl"
         spacer_file.write_text(entry + "\n")
         with patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file):
@@ -179,13 +188,15 @@ class TestCompileGuides:
         assert guides == []
 
     def test_invalid_regex_skipped(self, tmp_path):
-        entry = json.dumps({
-            "tool": "x",
-            "regex": "[invalid",
-            "pattern": "",
-            "ts": "",
-            "raw_error": "",
-        })
+        entry = json.dumps(
+            {
+                "tool": "x",
+                "regex": "[invalid",
+                "pattern": "",
+                "ts": "",
+                "raw_error": "",
+            }
+        )
         spacer_file = tmp_path / "spacers.jsonl"
         spacer_file.write_text(entry + "\n")
         with patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file):
@@ -194,8 +205,10 @@ class TestCompileGuides:
 
     def test_read_error_returns_empty(self, tmp_path):
         spacer_file = tmp_path / "spacers.jsonl"
-        with patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file), \
-             patch("pathlib.Path.read_text", side_effect=Exception("permission")):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file),
+            patch("pathlib.Path.read_text", side_effect=Exception("permission")),
+        ):
             guides = compile_guides()
         assert guides == []
 
@@ -204,11 +217,14 @@ class TestCompileGuides:
 # Test scan
 # ---------------------------------------------------------------------------
 
+
 class TestScan:
     def test_matches_known_pattern(self, tmp_path):
         spacer_file = tmp_path / "spacers.jsonl"
-        with patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path), \
-             patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path),
+            patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file),
+        ):
             acquire_spacer("Error at /tmp/foo.py line 10", "goose")
             result = scan("Error at /var/bar.py line 99")
         assert result is not None
@@ -231,8 +247,10 @@ class TestScan:
 
     def test_matching_tool_name_not_self(self, tmp_path):
         spacer_file = tmp_path / "spacers.jsonl"
-        with patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path), \
-             patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_DIR", tmp_path),
+            patch("metabolon.organelles.crispr._SPACER_FILE", spacer_file),
+        ):
             acquire_spacer("Error at /tmp/foo.py line 10", "goose")
             result = scan("Error at /var/bar.py line 99", tool_name="goose")
         assert result is not None
@@ -241,6 +259,7 @@ class TestScan:
 # ---------------------------------------------------------------------------
 # Test spacer_count
 # ---------------------------------------------------------------------------
+
 
 class TestSpacerCount:
     def test_counts(self, tmp_path):
@@ -261,14 +280,17 @@ class TestSpacerCount:
 
     def test_read_error_returns_zero(self, tmp_path):
         f = tmp_path / "spacers.jsonl"
-        with patch("metabolon.organelles.crispr._SPACER_FILE", f), \
-             patch("pathlib.Path.read_text", side_effect=Exception("io")):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_FILE", f),
+            patch("pathlib.Path.read_text", side_effect=Exception("io")),
+        ):
             assert spacer_count() == 0
 
 
 # ---------------------------------------------------------------------------
 # Test prune_spacers
 # ---------------------------------------------------------------------------
+
 
 class TestPruneSpacers:
     def test_prunes_old(self, tmp_path):
@@ -289,15 +311,19 @@ class TestPruneSpacers:
 
     def test_read_error_returns_zero(self, tmp_path):
         f = tmp_path / "spacers.jsonl"
-        with patch("metabolon.organelles.crispr._SPACER_FILE", f), \
-             patch("pathlib.Path.read_text", side_effect=Exception("io")):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_FILE", f),
+            patch("pathlib.Path.read_text", side_effect=Exception("io")),
+        ):
             assert prune_spacers() == 0
 
     def test_write_error_returns_zero(self, tmp_path):
         f = tmp_path / "spacers.jsonl"
         f.write_text('{"ts": "2020-01-01T00:00:00+00:00", "tool": "old"}\n')
-        with patch("metabolon.organelles.crispr._SPACER_FILE", f), \
-             patch("pathlib.Path.write_text", side_effect=Exception("write")):
+        with (
+            patch("metabolon.organelles.crispr._SPACER_FILE", f),
+            patch("pathlib.Path.write_text", side_effect=Exception("write")),
+        ):
             pruned = prune_spacers(max_age_days=90)
         assert pruned == 0  # error caught, pruned reset to 0
 

@@ -7,12 +7,11 @@ defaults, return values, and error propagation.
 """
 
 from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import pytest
 
 from metabolon.enzymes.efferens import BINARY, efferens
-
 
 # ── BINARY constant ──────────────────────────────────────────────────────────
 
@@ -89,11 +88,16 @@ class TestPostAction:
         mock_run.assert_called_once_with(
             BINARY,
             [
-                "post", "urgent task",
-                "--from", "system",
-                "--to", "admin",
-                "--severity", "warning",
-                "--subject", "alert",
+                "post",
+                "urgent task",
+                "--from",
+                "system",
+                "--to",
+                "admin",
+                "--severity",
+                "warning",
+                "--subject",
+                "alert",
             ],
         )
 

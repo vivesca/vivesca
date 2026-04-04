@@ -1,20 +1,19 @@
 """Tests for fetcher.py"""
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
-import tempfile
-import json
-import time
 
-import pytest
+import json
+import tempfile
+import time
+from datetime import UTC, datetime
+from pathlib import Path
 
 from metabolon.organelles.endocytosis_rss.fetcher import (
-    _is_safe_url,
-    _parse_feed_datetime,
-    _parse_feed_date,
     _extract_summary,
-    archive_cargo,
+    _is_safe_url,
+    _parse_feed_date,
+    _parse_feed_datetime,
     _slug,
     _title_hash,
+    archive_cargo,
 )
 
 
@@ -56,20 +55,25 @@ class TestParseFeedDate:
     def test_parses_struct_date(self):
         """Structured tm_year/tm_mon/tm_mday is parsed"""
         from types import SimpleNamespace
-        entry = SimpleNamespace(published_parsed=type(
-            'obj', (), {'tm_year': 2024, 'tm_mon': 3, 'tm_mday': 15})())
+
+        entry = SimpleNamespace(
+            published_parsed=type("obj", (), {"tm_year": 2024, "tm_mon": 3, "tm_mday": 15})()
+        )
         assert _parse_feed_date(entry) == "2024-03-15"
 
     def test_falls_back_to_updated_parsed(self):
         """Uses updated_parsed if published_parsed missing"""
         from types import SimpleNamespace
-        entry = SimpleNamespace(updated_parsed=type(
-            'obj', (), {'tm_year': 2024, 'tm_mon': 3, 'tm_mday': 15})())
+
+        entry = SimpleNamespace(
+            updated_parsed=type("obj", (), {"tm_year": 2024, "tm_mon": 3, "tm_mday": 15})()
+        )
         assert _parse_feed_date(entry) == "2024-03-15"
 
     def test_returns_empty_string_when_no_date(self):
         """No date fields → empty string"""
         from types import SimpleNamespace
+
         entry = SimpleNamespace()
         assert _parse_feed_date(entry) == ""
 
@@ -79,8 +83,8 @@ class TestParseFeedDatetime:
 
     def test_parses_struct_datetime(self):
         """Structured parsed struct_time is converted to ISO 8601 UTC"""
-        import calendar
         from types import SimpleNamespace
+
         # 2024-03-15 10:30:00 UTC → timestamp
         dt = datetime(2024, 3, 15, 10, 30, 0, tzinfo=UTC)
         ts = dt.timestamp()
@@ -97,6 +101,7 @@ class TestParseFeedDatetime:
     def test_returns_empty_string_when_no_datetime(self):
         """No datetime → empty string"""
         from types import SimpleNamespace
+
         entry = SimpleNamespace()
         assert _parse_feed_datetime(entry) == ""
 
@@ -107,20 +112,20 @@ class TestExtractSummary:
     def test_extracts_first_sentence(self):
         """Strips HTML and takes first sentence"""
         html = "<p>OpenAI launches new GPT-4o model. It's faster and cheaper.</p>"
-        result = _extract_summary(type('entry', (), {'summary': html})())
+        result = _extract_summary(type("entry", (), {"summary": html})())
         assert "OpenAI launches new GPT-4o model" in result
         assert "." not in result  # only first sentence
 
     def test_handles_empty_summary(self):
         """Empty summary → empty output"""
-        result = _extract_summary(type('entry', (), {'summary': ''})())
+        result = _extract_summary(type("entry", (), {"summary": ""})())
         assert result == ""
 
     def test_truncates_long_summary(self):
         """Truncates to 120 chars"""
         long_text = "x" * 200
         html = f"<p>{long_text}</p>"
-        result = _extract_summary(type('entry', (), {'summary': html})())
+        result = _extract_summary(type("entry", (), {"summary": html})())
         assert len(result) <= 120
 
 

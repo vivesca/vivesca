@@ -3,34 +3,48 @@ from __future__ import annotations
 """Tests for metabolon.sortase.graph DOT visualization."""
 
 
-import subprocess
-import sys
-
 import pytest
 
-
 # ── import helper ──────────────────────────────────────────────
+
 
 @pytest.fixture()
 def graph_mod():
     from metabolon.sortase import graph as g
+
     return g
 
 
 # ── sample data ────────────────────────────────────────────────
 
+
 def _sample_tasks():
     """Three tasks: a is standalone, b depends on a, c depends on b."""
     return [
-        {"name": "add-model", "description": "Add model class",
-         "spec": "", "files": ["model.py"], "signal": "default",
-         "prerequisite": None},
-        {"name": "add-routes", "description": "Add routes",
-         "spec": "", "files": ["routes.py"], "signal": "default",
-         "prerequisite": "add-model"},
-        {"name": "add-tests", "description": "Add tests",
-         "spec": "", "files": ["tests/test_app.py"], "signal": "default",
-         "prerequisite": "add-routes"},
+        {
+            "name": "add-model",
+            "description": "Add model class",
+            "spec": "",
+            "files": ["model.py"],
+            "signal": "default",
+            "prerequisite": None,
+        },
+        {
+            "name": "add-routes",
+            "description": "Add routes",
+            "spec": "",
+            "files": ["routes.py"],
+            "signal": "default",
+            "prerequisite": "add-model",
+        },
+        {
+            "name": "add-tests",
+            "description": "Add tests",
+            "spec": "",
+            "files": ["tests/test_app.py"],
+            "signal": "default",
+            "prerequisite": "add-routes",
+        },
     ]
 
 
@@ -48,6 +62,7 @@ def _sample_state():
 
 # ── task dependency DOT ────────────────────────────────────────
 
+
 class TestTaskDependencyDot:
     """to_dot() produces valid DOT for the task dependency graph."""
 
@@ -61,11 +76,15 @@ class TestTaskDependencyDot:
     def test_edges_reflect_prerequisites(self, graph_mod):
         dot = graph_mod.to_dot(_sample_state())
         # b -> a (add-routes depends on add-model)
-        assert '"add-model" -> "add-routes"' in dot or \
-               '"add-model" -> "add-routes"' in dot.replace("\n", "")
+        assert (
+            '"add-model" -> "add-routes"' in dot
+            or '"add-model" -> "add-routes"' in dot.replace("\n", "")
+        )
         # c -> b (add-tests depends on add-routes)
-        assert '"add-routes" -> "add-tests"' in dot or \
-               '"add-routes" -> "add-tests"' in dot.replace("\n", "")
+        assert (
+            '"add-routes" -> "add-tests"' in dot
+            or '"add-routes" -> "add-tests"' in dot.replace("\n", "")
+        )
 
     def test_includes_tool_labels(self, graph_mod):
         dot = graph_mod.to_dot(_sample_state())
@@ -82,10 +101,22 @@ class TestTaskDependencyDot:
     def test_independent_tasks_no_edges(self, graph_mod):
         """Tasks with no prerequisites should have no incoming edges."""
         tasks = [
-            {"name": "task-a", "description": "A", "spec": "",
-             "files": [], "signal": "default", "prerequisite": None},
-            {"name": "task-b", "description": "B", "spec": "",
-             "files": [], "signal": "default", "prerequisite": None},
+            {
+                "name": "task-a",
+                "description": "A",
+                "spec": "",
+                "files": [],
+                "signal": "default",
+                "prerequisite": None,
+            },
+            {
+                "name": "task-b",
+                "description": "B",
+                "spec": "",
+                "files": [],
+                "signal": "default",
+                "prerequisite": None,
+            },
         ]
         state = {"tasks": tasks, "tool_by_task": {}, "route_decisions": []}
         dot = graph_mod.to_dot(state)
@@ -107,8 +138,7 @@ class TestTaskDependencyDot:
 
     def test_tasks_without_routing(self, graph_mod):
         """to_dot should work even when tool_by_task is empty."""
-        state = {"tasks": _sample_tasks(), "tool_by_task": {},
-                 "route_decisions": []}
+        state = {"tasks": _sample_tasks(), "tool_by_task": {}, "route_decisions": []}
         dot = graph_mod.to_dot(state)
         assert "add-model" in dot
         # Tool label should show "unrouted" or similar
@@ -117,8 +147,14 @@ class TestTaskDependencyDot:
     def test_name_sanitization(self, graph_mod):
         """Node names with special chars should be quoted safely."""
         tasks = [
-            {"name": "task:with:colons", "description": "D", "spec": "",
-             "files": [], "signal": "default", "prerequisite": None},
+            {
+                "name": "task:with:colons",
+                "description": "D",
+                "spec": "",
+                "files": [],
+                "signal": "default",
+                "prerequisite": None,
+            },
         ]
         state = {"tasks": tasks, "tool_by_task": {}, "route_decisions": []}
         dot = graph_mod.to_dot(state)
@@ -126,6 +162,7 @@ class TestTaskDependencyDot:
 
 
 # ── pipeline DOT ───────────────────────────────────────────────
+
 
 class TestPipelineDot:
     """pipeline_dot() renders the LangGraph node graph."""
@@ -144,11 +181,14 @@ class TestPipelineDot:
         assert "decompose" in dot
         assert "route" in dot
         # Edge sequence: decompose->route->execute->validate->log_results->END
-        for a, b in [("decompose", "route"), ("route", "execute"),
-                      ("execute", "validate"), ("validate", "log_results"),
-                      ("log_results", "END")]:
-            assert f'"{a}" -> "{b}"' in dot or f"{a} -> {b}" in dot, \
-                f"Missing edge: {a} -> {b}"
+        for a, b in [
+            ("decompose", "route"),
+            ("route", "execute"),
+            ("execute", "validate"),
+            ("validate", "log_results"),
+            ("log_results", "END"),
+        ]:
+            assert f'"{a}" -> "{b}"' in dot or f"{a} -> {b}" in dot, f"Missing edge: {a} -> {b}"
 
     def test_valid_dot_structure(self, graph_mod):
         dot = graph_mod.pipeline_dot()

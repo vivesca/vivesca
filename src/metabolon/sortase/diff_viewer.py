@@ -1,6 +1,4 @@
-
 """Show what a completed sortase task changed via git history."""
-
 
 import re
 import subprocess

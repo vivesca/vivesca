@@ -6,7 +6,7 @@ snapshot logic, resolve_target, schedule expansion, and side-effect functions
 
 import gzip
 import json
-from datetime import UTC, date, datetime, time as dt_time, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
@@ -21,6 +21,7 @@ HKT = ZoneInfo("Asia/Hong_Kong")
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _ts(year: int, month: int, day: int, hour: int = 9, minute: int = 0) -> int:
     """Convenience: build a unix timestamp in HKT."""
@@ -39,6 +40,7 @@ def _db(reminders: list[dict] | None = None, **kw: object) -> dict:
 # ---------------------------------------------------------------------------
 # fatal, home_dir, path helpers
 # ---------------------------------------------------------------------------
+
 
 class TestFatal:
     def test_raises_moneo_error(self):
@@ -70,6 +72,7 @@ class TestPaths:
 # ---------------------------------------------------------------------------
 # Time helpers
 # ---------------------------------------------------------------------------
+
 
 class TestHktNow:
     def test_returns_hkt_datetime(self):
@@ -103,6 +106,7 @@ class TestHktFromTs:
 # ---------------------------------------------------------------------------
 # resolve_local_timestamp, parse_time
 # ---------------------------------------------------------------------------
+
 
 class TestResolveLocalTimestamp:
     def test_default_time_is_9am(self):
@@ -148,6 +152,7 @@ class TestParseTime:
 # fmt_ts
 # ---------------------------------------------------------------------------
 
+
 class TestFmtTs:
     @patch.object(m, "hkt_now")
     def test_today(self, mock_now):
@@ -173,6 +178,7 @@ class TestFmtTs:
 # Accessors: reminder_due_ts, reminder_title, reminder_uuid
 # ---------------------------------------------------------------------------
 
+
 class TestAccessors:
     def test_reminder_due_ts(self):
         assert m.reminder_due_ts({"d": 12345}) == 12345
@@ -193,6 +199,7 @@ class TestAccessors:
 # ---------------------------------------------------------------------------
 # reminders_slice, reminders_mut, sorted_reminders
 # ---------------------------------------------------------------------------
+
 
 class TestRemindersSlice:
     def test_returns_list(self):
@@ -239,6 +246,7 @@ class TestSortedReminders:
 # active_reminders (logbook cross-reference)
 # ---------------------------------------------------------------------------
 
+
 class TestActiveReminders:
     def test_no_logbook_returns_all(self):
         data = _db([_reminder("A", 100)])
@@ -268,11 +276,18 @@ class TestActiveReminders:
 # Recur helpers
 # ---------------------------------------------------------------------------
 
+
 class TestRecurHelpers:
-    @pytest.mark.parametrize("code,expected", [
-        ("d", "daily"), ("w", "weekly"), ("m", "monthly"),
-        ("q", "quarterly"), ("y", "yearly"),
-    ])
+    @pytest.mark.parametrize(
+        "code,expected",
+        [
+            ("d", "daily"),
+            ("w", "weekly"),
+            ("m", "monthly"),
+            ("q", "quarterly"),
+            ("y", "yearly"),
+        ],
+    )
     def test_recur_label(self, code, expected):
         assert m.recur_label(code) == expected
 
@@ -307,6 +322,7 @@ class TestRecurHelpers:
 # generate_uuid
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateUuid:
     def test_returns_string(self):
         uid = m.generate_uuid()
@@ -320,6 +336,7 @@ class TestGenerateUuid:
 # ---------------------------------------------------------------------------
 # make_reminder
 # ---------------------------------------------------------------------------
+
 
 class TestMakeReminder:
     @patch.object(m, "now_ts", return_value=9999)
@@ -370,6 +387,7 @@ class TestMakeReminder:
 # find_duplicate
 # ---------------------------------------------------------------------------
 
+
 class TestFindDuplicate:
     def test_finds_duplicate_same_day_hour_minute(self):
         ts = _ts(2026, 3, 20, 10, 0)
@@ -396,6 +414,7 @@ class TestFindDuplicate:
 # make_snapshot, comparable_snapshot
 # ---------------------------------------------------------------------------
 
+
 class TestSnapshots:
     @patch.object(m, "hkt_now")
     def test_make_snapshot(self, mock_now):
@@ -421,6 +440,7 @@ class TestSnapshots:
 # git_snapshot (mocked subprocess + filesystem)
 # ---------------------------------------------------------------------------
 
+
 class TestGitSnapshot:
     @patch.object(m.subprocess, "run")
     def test_writes_json_and_commits(self, mock_run):
@@ -438,6 +458,7 @@ class TestGitSnapshot:
 # ---------------------------------------------------------------------------
 # read_db
 # ---------------------------------------------------------------------------
+
 
 class TestReadDb:
     @patch.object(m, "due_db_path")
@@ -476,6 +497,7 @@ class TestReadDb:
 # due_pid, run_best_effort
 # ---------------------------------------------------------------------------
 
+
 class TestDuePid:
     @patch.object(m.subprocess, "run")
     def test_found(self, mock_run):
@@ -504,6 +526,7 @@ class TestRunBestEffort:
 # ---------------------------------------------------------------------------
 # write_db (heavily mocked)
 # ---------------------------------------------------------------------------
+
 
 class TestWriteDb:
     @patch.object(m, "git_snapshot")
@@ -540,6 +563,7 @@ class TestWriteDb:
 # set_tombstone
 # ---------------------------------------------------------------------------
 
+
 class TestSetTombstone:
     def test_sets_dl(self):
         data: dict = {}
@@ -560,6 +584,7 @@ class TestSetTombstone:
 # ---------------------------------------------------------------------------
 # get_reminder
 # ---------------------------------------------------------------------------
+
 
 class TestGetReminder:
     def test_valid_index(self):
@@ -586,6 +611,7 @@ class TestGetReminder:
 # ---------------------------------------------------------------------------
 # short_uuid, is_uuid_prefix, is_numeric
 # ---------------------------------------------------------------------------
+
 
 class TestShortUuid:
     def test_normal(self):
@@ -631,6 +657,7 @@ class TestIsNumeric:
 # find_by_uuid_prefix
 # ---------------------------------------------------------------------------
 
+
 class TestFindByUuidPrefix:
     def test_finds_match(self):
         r = _reminder("A", 100, uuid="abcdef1234")
@@ -646,6 +673,7 @@ class TestFindByUuidPrefix:
 # ---------------------------------------------------------------------------
 # confirm_action
 # ---------------------------------------------------------------------------
+
 
 class TestConfirmAction:
     def test_yes(self):
@@ -667,6 +695,7 @@ class TestConfirmAction:
 # ---------------------------------------------------------------------------
 # resolve_target
 # ---------------------------------------------------------------------------
+
 
 class TestResolveTarget:
     def _db_with(self, reminders):
@@ -709,6 +738,7 @@ class TestResolveTarget:
 # add_direct
 # ---------------------------------------------------------------------------
 
+
 class TestAddDirect:
     @patch.object(m, "now_ts", return_value=100)
     @patch.object(m, "generate_uuid", return_value="new-uuid")
@@ -724,6 +754,7 @@ class TestAddDirect:
 # expand_schedule
 # ---------------------------------------------------------------------------
 
+
 class TestExpandSchedule:
     def test_basic_expansion(self):
         base = _ts(2026, 3, 16, 9, 0)
@@ -735,15 +766,13 @@ class TestExpandSchedule:
 
     def test_skip_night(self):
         base = _ts(2026, 3, 16, 22, 0)
-        result = m.expand_schedule(base, timedelta(hours=1), "2026-03-17",
-                                   skip_night=True)
+        result = m.expand_schedule(base, timedelta(hours=1), "2026-03-17", skip_night=True)
         hours = [datetime.fromtimestamp(ts, tz=HKT).hour for ts in result]
         assert all(7 <= h < 23 for h in hours)
 
     def test_no_skip_night(self):
         base = _ts(2026, 3, 16, 22, 0)
-        result = m.expand_schedule(base, timedelta(hours=1), "2026-03-17",
-                                   skip_night=False)
+        result = m.expand_schedule(base, timedelta(hours=1), "2026-03-17", skip_night=False)
         hours = [datetime.fromtimestamp(ts, tz=HKT).hour for ts in result]
         assert any(h >= 23 or h < 7 for h in hours)
 
@@ -751,6 +780,7 @@ class TestExpandSchedule:
 # ---------------------------------------------------------------------------
 # ensure_no_duplicates
 # ---------------------------------------------------------------------------
+
 
 class TestEnsureNoDuplicates:
     def test_no_duplicates_passes(self):
@@ -768,6 +798,7 @@ class TestEnsureNoDuplicates:
 # ---------------------------------------------------------------------------
 # ChangeSet dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestChangeSet:
     def test_fields(self):
@@ -787,9 +818,10 @@ class TestChangeSet:
 # Constants
 # ---------------------------------------------------------------------------
 
+
 class TestConstants:
     def test_valid_autosnooze(self):
-        assert m.VALID_AUTOSNOOZE == {1, 5, 10, 15, 30, 60}
+        assert {1, 5, 10, 15, 30, 60} == m.VALID_AUTOSNOOZE
 
     def test_recur_choices(self):
-        assert m.RECUR_CHOICES == {"daily", "weekly", "monthly", "quarterly", "yearly"}
+        assert {"daily", "weekly", "monthly", "quarterly", "yearly"} == m.RECUR_CHOICES

@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from metabolon.sortase.linter import LintIssue, format_lint_report, lint_plan
 
-
 # ---------------------------------------------------------------------------
 # Fixtures as helpers
 # ---------------------------------------------------------------------------
+
 
 def _clean_plan() -> str:
     return """\
@@ -38,6 +38,7 @@ def _minimal_plan() -> str:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestCleanPlanNoIssues:
     def test_clean_plan_no_issues(self) -> None:

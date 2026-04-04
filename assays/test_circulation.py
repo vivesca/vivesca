@@ -4,9 +4,8 @@ from __future__ import annotations
 
 
 import json
-import textwrap
 from pathlib import Path
-from typing import Annotated, get_type_hints
+from typing import get_type_hints
 
 import pytest
 
@@ -27,7 +26,6 @@ from metabolon.organelles.circulation import (
     preflight,
     should_continue,
 )
-
 
 # ── 1. CirculationState TypedDict keys ──────────────────────
 
@@ -160,10 +158,8 @@ class TestCheckpointNode:
     @pytest.fixture(autouse=True)
     def _tmp_manifest(self, tmp_path: Path, monkeypatch):
         manifest = tmp_path / "circulation-manifest.md"
-        monkeypatch.setattr(
-            "metabolon.organelles.circulation.MANIFEST_PATH", manifest
-        )
-        yield manifest
+        monkeypatch.setattr("metabolon.organelles.circulation.MANIFEST_PATH", manifest)
+        return manifest
 
     def _make_state(self, **overrides) -> dict:
         base: dict = {
@@ -218,19 +214,17 @@ class TestPreflight:
     def _mock_paths(self, tmp_path: Path, monkeypatch):
         north_star = tmp_path / "North Star.md"
         north_star.write_text("## North Star\nGrow the organism.")
-        monkeypatch.setattr(
-            "metabolon.organelles.circulation.NORTH_STAR_PATH", north_star
-        )
+        monkeypatch.setattr("metabolon.organelles.circulation.NORTH_STAR_PATH", north_star)
 
         praxis_file = tmp_path / "praxis.md"
         praxis_file.write_text("- task 1\n- task 2\n")
         monkeypatch.setattr("metabolon.organelles.circulation.praxis", praxis_file)
 
-        # preflight constructs allo_state as Path.home() / ".claude" / ...
+        # preflight constructs allow_state as Path.home() / ".claude" / ...
         # so we mock Path.home to return tmp_path, then build the expected path
-        allo = tmp_path / ".claude" / "allostasis-state.json"
+        allow = tmp_path / ".claude" / "allostasis-state.json"
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-        yield (tmp_path, allo)
+        return (tmp_path, allow)
 
     def _make_state(self, **overrides) -> dict:
         base: dict = {"systole_num": 0, "mode": "overnight"}
@@ -238,22 +232,22 @@ class TestPreflight:
         return base
 
     def test_budget_green_by_default(self, _mock_paths):
-        _, allo = _mock_paths
+        _, _allow = _mock_paths
         # No allostasis file → default green
         result = preflight(self._make_state())
         assert result["budget_status"] == "green"
 
     def test_budget_red_on_catabolic(self, _mock_paths):
-        _, allo = _mock_paths
-        allo.parent.mkdir(parents=True, exist_ok=True)
-        allo.write_text(json.dumps({"tier": "catabolic"}))
+        _, allow = _mock_paths
+        allow.parent.mkdir(parents=True, exist_ok=True)
+        allow.write_text(json.dumps({"tier": "catabolic"}))
         result = preflight(self._make_state())
         assert result["budget_status"] == "red"
 
     def test_budget_yellow_on_homeostatic(self, _mock_paths):
-        _, allo = _mock_paths
-        allo.parent.mkdir(parents=True, exist_ok=True)
-        allo.write_text(json.dumps({"tier": "homeostatic"}))
+        _, allow = _mock_paths
+        allow.parent.mkdir(parents=True, exist_ok=True)
+        allow.write_text(json.dumps({"tier": "homeostatic"}))
         result = preflight(self._make_state())
         assert result["budget_status"] == "yellow"
 

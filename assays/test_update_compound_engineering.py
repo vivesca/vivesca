@@ -102,10 +102,12 @@ def test_update_compound_engineering_exits_1_when_no_bunx_or_npx(tmp_path):
 
     r = subprocess.run(
         [
-            "env", "-i",
+            "env",
+            "-i",
             f"PATH={empty_bin}",
             f"HOME={fake_home}",
-            "/bin/bash", str(SCRIPT),
+            "/bin/bash",
+            str(SCRIPT),
         ],
         capture_output=True,
         text=True,
@@ -229,7 +231,7 @@ def test_update_compound_engineering_invokes_compound_plugin_for_opencode(tmp_pa
     bindir = tmp_path / "bin"
     bindir.mkdir()
     bunx = bindir / "bunx"
-    bunx.write_text("#!/bin/bash\necho \"$@\" >> /tmp/test_invocations.txt\nexit 0\n")
+    bunx.write_text('#!/bin/bash\necho "$@" >> /tmp/test_invocations.txt\nexit 0\n')
     bunx.chmod(bunx.stat().st_mode | 0o111)
     env = os.environ.copy()
     env["PATH"] = f"{bindir}:/bin:/usr/bin"
@@ -257,7 +259,7 @@ def test_update_compound_engineering_invokes_compound_plugin_for_codex(tmp_path)
     bindir = tmp_path / "bin"
     bindir.mkdir()
     bunx = bindir / "bunx"
-    bunx.write_text("#!/bin/bash\necho \"$@\" >> /tmp/test_codex_invocations.txt\nexit 0\n")
+    bunx.write_text('#!/bin/bash\necho "$@" >> /tmp/test_codex_invocations.txt\nexit 0\n')
     bunx.chmod(bunx.stat().st_mode | 0o111)
     env = os.environ.copy()
     env["PATH"] = f"{bindir}:/bin:/usr/bin"
@@ -292,10 +294,12 @@ def test_error_message_on_missing_runner(tmp_path):
 
     r = subprocess.run(
         [
-            "env", "-i",
+            "env",
+            "-i",
             f"PATH={empty_bin}",
             f"HOME={fake_home}",
-            "/bin/bash", str(SCRIPT),
+            "/bin/bash",
+            str(SCRIPT),
         ],
         capture_output=True,
         text=True,

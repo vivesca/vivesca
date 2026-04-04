@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
-
 
 def test_today_iso_format():
     """_today_iso returns YYYY-MM-DD string."""

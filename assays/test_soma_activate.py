@@ -9,8 +9,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SOMA_ACTIVATE = Path.home() / "germline" / "effectors" / "soma-activate"
 
 
@@ -31,7 +29,10 @@ def _run_soma_activate(home: Path, env_extra: dict | None = None, timeout: int =
     )
 
 
-def _make_env_fly(home: Path, content: str = 'export OP_SERVICE_ACCOUNT_TOKEN="test"\nexport GITHUB_TOKEN="test"\nexport ANTHROPIC_API_KEY="test"\n'):
+def _make_env_fly(
+    home: Path,
+    content: str = 'export OP_SERVICE_ACCOUNT_TOKEN="test"\nexport GITHUB_TOKEN="test"\nexport ANTHROPIC_API_KEY="test"\n',
+):
     """Write a minimal .env.fly in the fake home."""
     env_file = home / ".env.fly"
     env_file.write_text(content)
@@ -97,7 +98,11 @@ class TestRepoCloning:
         # Either skip or warn about repos
         combined = r.stdout + r.stderr
         # The script uses `|| true` on git pull and `|| echo ...` on clone failure
-        assert "germline" in combined.lower() or "warn" in combined.lower() or "skip" in combined.lower()
+        assert (
+            "germline" in combined.lower()
+            or "warn" in combined.lower()
+            or "skip" in combined.lower()
+        )
 
     def test_existing_repo_shows_skip(self, tmp_path):
         """Already-cloned repos show [skip] message."""
@@ -347,7 +352,7 @@ class TestGracefulDegradation:
         _make_env_fly(tmp_path)
         r = _run_soma_activate(tmp_path)
         # op is almost certainly not installed in test env
-        combined = r.stdout.lower()
+        r.stdout.lower()
         # Either skip or warn — the script is tolerant
         assert r.returncode == 0
 
@@ -420,7 +425,9 @@ exit 1
         assert result.returncode == 0
         assert (tmp_path / ".claude" / "credentials.json").read_text() == '{"claude":"ok"}\n'
         assert (tmp_path / ".gemini" / "oauth_creds.json").read_text() == '{"gemini":"ok"}\n'
-        assert (tmp_path / ".gemini" / "google_accounts.json").read_text() == '{"accounts":["a@example.com"]}\n'
+        assert (
+            tmp_path / ".gemini" / "google_accounts.json"
+        ).read_text() == '{"accounts":["a@example.com"]}\n'
         assert (tmp_path / ".codex" / "auth.json").read_text() == '{"codex":"ok"}\n'
 
     def test_existing_oauth_files_are_not_overwritten(self, tmp_path):
@@ -722,7 +729,9 @@ class TestCredentialEdgeCases:
 
     def test_no_op_token_shows_skip(self, tmp_path):
         """No OP_SERVICE_ACCOUNT_TOKEN shows skip in credentials section."""
-        _make_env_fly(tmp_path, content='export GITHUB_TOKEN="test"\nexport ANTHROPIC_API_KEY="test"\n')
+        _make_env_fly(
+            tmp_path, content='export GITHUB_TOKEN="test"\nexport ANTHROPIC_API_KEY="test"\n'
+        )
         env_extra = {"PATH": "/usr/bin:/bin"}
         r = _run_soma_activate(tmp_path, env_extra=env_extra)
         assert r.returncode == 0

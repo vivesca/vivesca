@@ -1,4 +1,3 @@
-
 """OperonSubstrate — heartbeat monitor for the organism's behavioural repertoire.
 
 Scans signal history for enzyme activity, maps back to operons, and flags
@@ -8,7 +7,6 @@ The city audit revealed this gap: operons are maps without a heartbeat.
 Nothing noticed "we haven't done monitor in 72 hours." This substrate
 closes that gap — pure sensing, no mutation.
 """
-
 
 from datetime import UTC, datetime, timedelta
 

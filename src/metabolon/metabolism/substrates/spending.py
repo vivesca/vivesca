@@ -1,10 +1,8 @@
-
 """Spending substrate -- periodic trend analysis over parsed statement data.
 
 Primarily a reporter: reads statement markdown files and surfaces insights about
 spending trends, category drift, and subscription cost creep.
 """
-
 
 import re
 from pathlib import Path

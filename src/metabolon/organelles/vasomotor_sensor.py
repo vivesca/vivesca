@@ -1,4 +1,3 @@
-
 """vasomotor_sensor — Claude Code Max plan token budget usage (formerly respirometry).
 
 Endosymbiosis: standalone Python script (~/.local/bin/respirometry) → Python organelle.
@@ -141,7 +140,7 @@ def _read_fallback() -> tuple[dict | None, int | None]:
         try:
             ts = datetime.fromisoformat(ts_str)
             age = (datetime.now(UTC) - ts.astimezone(UTC)).total_seconds()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             age = -1
         return entry, int(age) if age >= 0 else None
     return None, None

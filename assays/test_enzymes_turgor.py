@@ -2,20 +2,14 @@ from __future__ import annotations
 
 """Tests for metabolon.enzymes.turgor — tonus tool (mark/status)."""
 
-import re
 from unittest.mock import patch
-
-import pytest
 
 # We test the inner logic directly, bypassing the @tool decorator.
 # Import the module and access the wrapped function.
 from metabolon.enzymes.turgor import (
     ITEM_RE,
-    _read_tonus,
-    _write_tonus,
     tonus,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures — sample Tonus.md content
@@ -40,6 +34,7 @@ TONUS_EMPTY = ""
 # Helper — patch _read_tonus / _write_tonus so no real files are touched
 # ---------------------------------------------------------------------------
 
+
 def _patch_io(read_return: str):
     """Return a patcher that stubs _read_tonus and captures _write_tonus calls."""
     return patch.object(
@@ -52,6 +47,7 @@ def _patch_io(read_return: str):
 # ---------------------------------------------------------------------------
 # Tests — ITEM_RE
 # ---------------------------------------------------------------------------
+
 
 class TestItemRegex:
     def test_matches_standard_item(self):
@@ -76,6 +72,7 @@ class TestItemRegex:
 # ---------------------------------------------------------------------------
 # Tests — status action
 # ---------------------------------------------------------------------------
+
 
 class TestStatus:
     @_patch_io(SAMPLE_TONUS)
@@ -113,7 +110,7 @@ class TestStatus:
         for i in range(2):
             lines.append(f"- [done] **Done {i}.** desc")
         content = "\n".join(lines) + "\n"
-        with _patch_io(content) as mock_read:
+        with _patch_io(content):
             result = tonus("status")
         assert result["turgor"] == "HIGH — too many items in-progress, finish before starting"
 
@@ -124,7 +121,7 @@ class TestStatus:
         for i in range(1):
             lines.append(f"- [queued] **Queued {i}.** desc")
         content = "\n".join(lines) + "\n"
-        with _patch_io(content) as mock_read:
+        with _patch_io(content):
             result = tonus("status")
         assert result["turgor"] == "LOW — wilting, pick up pace or reduce scope"
 
@@ -132,6 +129,7 @@ class TestStatus:
 # ---------------------------------------------------------------------------
 # Tests — mark action
 # ---------------------------------------------------------------------------
+
 
 class TestMark:
     @_patch_io(SAMPLE_TONUS)
@@ -166,13 +164,13 @@ class TestMark:
 
     @_patch_io(SAMPLE_TONUS)
     def test_fuzzy_match_case_insensitive(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
+        with patch("metabolon.enzymes.turgor._write_tonus"):
             result = tonus("mark", label="write tests", item_status="done")
         assert result["success"] is True
 
     @_patch_io(SAMPLE_TONUS)
     def test_partial_label_match(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
+        with patch("metabolon.enzymes.turgor._write_tonus"):
             result = tonus("mark", label="refactor", item_status="done")
         assert result["success"] is True
 
@@ -200,7 +198,7 @@ class TestMark:
     @_patch_io(TONUS_NO_CHECKPOINT)
     def test_mark_no_checkpoint_in_file(self, mock_read):
         """When there is no checkpoint comment, new item appended (no crash)."""
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
+        with patch("metabolon.enzymes.turgor._write_tonus"):
             result = tonus("mark", label="Write tests", item_status="done", description="done")
         assert result["success"] is True
 
@@ -219,6 +217,7 @@ class TestMark:
 # ---------------------------------------------------------------------------
 # Tests — unknown action
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownAction:
     def test_unknown_action_returns_error(self):

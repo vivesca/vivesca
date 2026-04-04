@@ -78,7 +78,7 @@ def summarize(days: int = 7) -> dict:
                 stats[hook] = {"total": 0, "predictions": {}}
             stats[hook]["total"] += 1
             stats[hook]["predictions"][pred] = stats[hook]["predictions"].get(pred, 0) + 1
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError, ValueError:
             continue
 
     return stats

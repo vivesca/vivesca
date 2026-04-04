@@ -1,6 +1,4 @@
-
 """rheotaxis — web search. Default: all cheap backends + synthesis. Named modes for expensive ones."""
-
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations

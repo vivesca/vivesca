@@ -1,4 +1,3 @@
-
 """EngramScanSubstrate -- cross-session transcript pattern recognition.
 
 The forgetting/synthesis layer. Senses engram transcripts for repeated
@@ -9,7 +8,6 @@ cross-session pattern detection.
 Design: ~/germline/loci/poiesis/cross-session-scanner-design-2026-03-23.md
 Architecture: ~/germline/loci/pulse/transcript-scan-architecture-2026-03-24.md
 """
-
 
 import subprocess
 import sys
@@ -71,7 +69,7 @@ class AnamScanSubstrate:
                 try:
                     count = int(line.split(":")[1].strip())
                     signals.append({"kind": "sessions", "count": count})
-                except (ValueError, IndexError):
+                except ValueError, IndexError:
                     pass
             elif line.startswith("Corrections:"):
                 parts = line.split("across")
@@ -85,13 +83,13 @@ class AnamScanSubstrate:
                             "sessions": sessions,
                         }
                     )
-                except (ValueError, IndexError):
+                except ValueError, IndexError:
                     pass
             elif line.startswith("Session prompts:"):
                 try:
                     count = int(line.split(":")[1].strip())
                     signals.append({"kind": "session_prompts", "count": count})
-                except (ValueError, IndexError):
+                except ValueError, IndexError:
                     pass
 
         return signals if signals else [{"kind": "no_data", "message": "No sessions found"}]

@@ -2,25 +2,23 @@ from __future__ import annotations
 
 """Tests for metabolon/enzymes/endocytosis.py — RSS ingestion and status tools."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from metabolon.enzymes.endocytosis import (
     EndocytosisResult,
-    _status_result,
     _stats_result,
+    _status_result,
     _top_result,
     endocytosis,
 )
 from metabolon.morphology import EffectorResult
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config():
     """Build a lightweight config mock."""
@@ -36,6 +34,7 @@ def _make_config():
 # ---------------------------------------------------------------------------
 # EndocytosisResult dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestEndocytosisResult:
     def test_defaults(self):
@@ -75,6 +74,7 @@ class TestEndocytosisResult:
 # _status_result
 # ---------------------------------------------------------------------------
 
+
 class TestStatusResult:
     @patch("metabolon.enzymes.endocytosis.datetime")
     @patch("metabolon.organelles.endocytosis_rss.state.restore_state")
@@ -83,7 +83,7 @@ class TestStatusResult:
         cfg = _make_config()
         mock_restore_config.return_value = cfg
         mock_restore_state.return_value = {}
-        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         with patch("metabolon.organelles.endocytosis_rss.cli._file_age", return_value="2h ago"):
@@ -104,7 +104,7 @@ class TestStatusResult:
             "src1": "2026-01-15T10:00:00+00:00",
             "src2": "2026-01-14T08:00:00+00:00",
         }
-        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         with patch("metabolon.organelles.endocytosis_rss.cli._file_age", return_value="ok"):
@@ -123,7 +123,7 @@ class TestStatusResult:
         cfg = _make_config()
         mock_restore_config.return_value = cfg
         mock_restore_state.return_value = {}
-        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         mock_cache_file = MagicMock()
@@ -144,7 +144,7 @@ class TestStatusResult:
         cfg = _make_config()
         mock_restore_config.return_value = cfg
         mock_restore_state.return_value = {}
-        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+        mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
         with patch("metabolon.organelles.endocytosis_rss.cli._file_age", return_value="ok"):
@@ -157,6 +157,7 @@ class TestStatusResult:
 # ---------------------------------------------------------------------------
 # _stats_result
 # ---------------------------------------------------------------------------
+
 
 class TestStatsResult:
     @patch("metabolon.organelles.endocytosis_rss.relevance.affinity_stats")
@@ -240,6 +241,7 @@ class TestStatsResult:
 # _top_result
 # ---------------------------------------------------------------------------
 
+
 class TestTopResult:
     @patch("metabolon.organelles.endocytosis_rss.relevance.top_cargo")
     def test_empty(self, mock_top):
@@ -282,6 +284,7 @@ class TestTopResult:
 # ---------------------------------------------------------------------------
 # endocytosis dispatch
 # ---------------------------------------------------------------------------
+
 
 class TestEndocytosisDispatch:
     @patch("metabolon.enzymes.endocytosis._status_result")
@@ -352,4 +355,8 @@ class TestEndocytosisDispatch:
         # status is dispatched (will fail due to no mock, but action IS recognized)
         # It will try to run _status_result which imports real modules —
         # so we just check it didn't return "unknown action"
-        assert not isinstance(result, EffectorResult) or result.success is True or "Unknown" not in result.message
+        assert (
+            not isinstance(result, EffectorResult)
+            or result.success is True
+            or "Unknown" not in result.message
+        )

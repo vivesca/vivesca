@@ -1,4 +1,3 @@
-
 """pulse — the organism's heartbeat.
 
 Each systole is a heartbeat: respiration regulates the rate, pulse is the
@@ -14,7 +13,6 @@ Safety nets:
 6. Systole timeout with stall/churn detection
 7. Cardiac lock prevents concurrent instances
 """
-
 
 import atexit
 import datetime
@@ -129,7 +127,7 @@ def acquire_cardiac_lock():
     if CARDIAC_LOCK.exists():
         try:
             existing_pid = int(CARDIAC_LOCK.read_text().strip())
-        except (ValueError, OSError):
+        except ValueError, OSError:
             existing_pid = None
 
         if existing_pid is not None:
@@ -241,7 +239,7 @@ def atrial_systole() -> dict:
                             d = datetime.datetime.strptime(match.group(), fmt).date()
                             if 0 <= (d - today).days <= 7:
                                 urgent_items.append(line.strip())
-                except (ValueError, AttributeError):
+                except ValueError, AttributeError:
                     pass
     context["urgent"] = urgent_items[:10]
 

@@ -205,7 +205,7 @@ def summarize_cost_estimates(cost_estimates: list[str]) -> str:
     if not cost_estimates:
         return "N/A"
 
-    total_cost = Decimal("0")
+    total_cost = Decimal(0)
     saw_flat_rate = False
     saw_unknown_pricing = False
 

@@ -1,4 +1,5 @@
 """Tests for metabolon.gastrulation.add."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,10 +16,10 @@ from metabolon.gastrulation.add import (
     graft_tool,
 )
 
-
 # ---------------------------------------------------------------------------
 # _to_class_name
 # ---------------------------------------------------------------------------
+
 
 class TestToClassName:
     def test_single_word(self):
@@ -38,6 +39,7 @@ class TestToClassName:
 # ---------------------------------------------------------------------------
 # _detect_module
 # ---------------------------------------------------------------------------
+
 
 class TestDetectModule:
     def test_finds_single_module(self, tmp_path: Path):
@@ -69,6 +71,7 @@ class TestDetectModule:
 # ---------------------------------------------------------------------------
 # graft_tool
 # ---------------------------------------------------------------------------
+
 
 class TestGraftTool:
     @patch("metabolon.gastrulation.add._env")
@@ -120,6 +123,7 @@ class TestGraftTool:
 # graft_prompt
 # ---------------------------------------------------------------------------
 
+
 class TestGraftPrompt:
     @patch("metabolon.gastrulation.add._env")
     def test_creates_prompt_and_test(self, mock_env: MagicMock, tmp_path: Path):
@@ -164,6 +168,7 @@ class TestGraftPrompt:
 # ---------------------------------------------------------------------------
 # graft_resource
 # ---------------------------------------------------------------------------
+
 
 class TestGraftResource:
     @patch("metabolon.gastrulation.add._env")

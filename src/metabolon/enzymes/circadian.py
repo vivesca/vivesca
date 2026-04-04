@@ -1,6 +1,5 @@
 """circadian — calendar management plus sleep and heart-rate sensing."""
 
-
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 

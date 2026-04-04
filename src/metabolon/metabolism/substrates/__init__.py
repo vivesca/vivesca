@@ -1,6 +1,4 @@
-
 """Substrate implementations — one per metabolism target."""
-
 
 # Lazy imports to avoid circular dependencies and keep startup fast.
 _RECEPTOR_CATALOG: dict[str, type] | None = None

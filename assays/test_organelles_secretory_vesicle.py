@@ -3,10 +3,8 @@ from __future__ import annotations
 """Tests for secretory_vesicle — Telegram export organelle."""
 
 import json
-import subprocess
 import urllib.parse
 import urllib.request
-from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -206,16 +204,14 @@ class TestSecreteImage:
         mock_kc.side_effect = ["TOKEN", "CHATID"]
         img = tmp_path / "photo.png"
         img.write_bytes(b"\x89PNG\r\n")
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"ok": True})
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps({"ok": True}))
         fake_lock = tmp_path / "deltos.lock"
         with patch.object(sv, "_LOCK", fake_lock):
             result = sv.secrete_image(str(img))
         assert result == "photo sent"
         cmd = mock_run.call_args[0][0]
         assert cmd[0] == "curl"
-        assert f"chat_id=CHATID" in cmd
+        assert "chat_id=CHATID" in cmd
         assert f"photo=@{img}" in cmd
         assert cmd[-1] == f"{sv._API_BASE}/botTOKEN/sendPhoto"
 
@@ -226,9 +222,7 @@ class TestSecreteImage:
         mock_kc.side_effect = ["TOKEN", "CHATID"]
         img = tmp_path / "photo.jpg"
         img.write_bytes(b"\xff\xd8\xff")
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"ok": True})
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps({"ok": True}))
         fake_lock = tmp_path / "deltos.lock"
         with patch.object(sv, "_LOCK", fake_lock):
             result = sv.secrete_image(str(img), caption="My caption")
@@ -281,9 +275,7 @@ class TestSecreteImage:
         mock_kc.side_effect = ["TOKEN", "CHATID"]
         img = tmp_path / "photo.png"
         img.write_bytes(b"\x89PNG")
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"ok": True})
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps({"ok": True}))
         fake_lock = tmp_path / "deltos.lock"
         with patch.object(sv, "_LOCK", fake_lock):
             sv.secrete_image(str(img))
@@ -294,9 +286,7 @@ class TestSecreteImage:
     @patch("metabolon.organelles.secretory_vesicle._keychain")
     def test_expands_tilde_in_path(self, mock_kc, mock_rl, mock_run, tmp_path):
         mock_kc.side_effect = ["TOKEN", "CHATID"]
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"ok": True})
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps({"ok": True}))
         fake_lock = tmp_path / "deltos.lock"
         # Create a file we can reference with ~-style path
         img = tmp_path / "photo.png"

@@ -68,9 +68,11 @@ def test_screenshot_success():
     """screenshot action with mocked _run_ab returns output_path."""
     from metabolon.enzymes.chemotaxis import chemotaxis
 
-    with patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab, patch(
-        "subprocess.run"
-    ), patch("time.sleep"):
+    with (
+        patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab,
+        patch("subprocess.run"),
+        patch("time.sleep"),
+    ):
         mock_ab.side_effect = [
             (True, "navigated"),  # open
             (True, "captured"),  # screenshot
@@ -161,9 +163,10 @@ def test_extract_with_wait_ms():
     """extract calls time.sleep with correct duration."""
     from metabolon.enzymes.chemotaxis import chemotaxis
 
-    with patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab, patch(
-        "metabolon.enzymes.chemotaxis.time.sleep"
-    ) as mock_sleep:
+    with (
+        patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab,
+        patch("metabolon.enzymes.chemotaxis.time.sleep") as mock_sleep,
+    ):
         mock_ab.side_effect = [
             (True, "ok"),
             (True, "Title"),
@@ -230,16 +233,16 @@ def test_screenshot_auto_temp_path():
     """screenshot without output_path generates a temp path and registers it."""
     from metabolon.enzymes.chemotaxis import _pending_screenshots, chemotaxis
 
-    with patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab, patch(
-        "subprocess.run"
-    ), patch("time.sleep"):
+    with (
+        patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab,
+        patch("subprocess.run"),
+        patch("time.sleep"),
+    ):
         mock_ab.side_effect = [
             (True, "navigated"),
             (True, "captured"),
         ]
-        result = chemotaxis(
-            action="screenshot", url="https://x.com", wait_ms=0
-        )
+        result = chemotaxis(action="screenshot", url="https://x.com", wait_ms=0)
         assert result.success is True
         assert "output_path" in result.data
         assert result.data["output_path"].endswith(".png")
@@ -251,9 +254,11 @@ def test_screenshot_navigation_failure():
     """screenshot when open fails returns error."""
     from metabolon.enzymes.chemotaxis import chemotaxis
 
-    with patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab, patch(
-        "subprocess.run"
-    ), patch("time.sleep"):
+    with (
+        patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab,
+        patch("subprocess.run"),
+        patch("time.sleep"),
+    ):
         mock_ab.return_value = (False, "timeout")
         result = chemotaxis(action="screenshot", url="https://x.com")
         assert result.success is False
@@ -264,16 +269,16 @@ def test_screenshot_capture_failure():
     """screenshot when screenshot command fails returns error."""
     from metabolon.enzymes.chemotaxis import chemotaxis
 
-    with patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab, patch(
-        "subprocess.run"
-    ), patch("time.sleep"):
+    with (
+        patch("metabolon.enzymes.chemotaxis._run_ab") as mock_ab,
+        patch("subprocess.run"),
+        patch("time.sleep"),
+    ):
         mock_ab.side_effect = [
             (True, "navigated"),
             (False, "capture failed"),
         ]
-        result = chemotaxis(
-            action="screenshot", url="https://x.com", output_path="/tmp/out.png"
-        )
+        result = chemotaxis(action="screenshot", url="https://x.com", output_path="/tmp/out.png")
         assert result.success is False
         assert "capture failed" in result.error
 

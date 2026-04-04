@@ -11,15 +11,13 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
-
 EFFECTOR = Path.home() / "germline" / "effectors" / "transduction-daily-run"
 
 
 def _run(*args, timeout=30):
     """Run the effector with optional args, capturing output."""
     return subprocess.run(
-        [str(EFFECTOR)] + list(args),
+        [str(EFFECTOR), *list(args)],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -28,18 +26,14 @@ def _run(*args, timeout=30):
 
 
 def _run_with_mocks(x_feed_rc=0, transduction_rc=0, timeout=30):
-    """Run the effector with mock x-feed-to-lustro and uv commands."""
+    """Run the effector with mock x-feed-to-endocytosis and uv commands."""
     tmpdir = tempfile.mkdtemp()
-    mock_x_feed = Path(tmpdir) / "x-feed-to-lustro"
+    mock_x_feed = Path(tmpdir) / "x-feed-to-endocytosis"
     mock_x_feed.write_text(f"#!/bin/bash\necho 'mock x-feed ok'\nexit {x_feed_rc}\n")
     mock_x_feed.chmod(0o755)
 
     mock_uv = Path(tmpdir) / "uv"
-    mock_uv.write_text(
-        f"#!/bin/bash\n"
-        f"echo 'mock uv run: \"$@\"'\n"
-        f"exit {transduction_rc}\n"
-    )
+    mock_uv.write_text(f"#!/bin/bash\necho 'mock uv run: \"$@\"'\nexit {transduction_rc}\n")
     mock_uv.chmod(0o755)
 
     env = os.environ.copy()
@@ -81,20 +75,20 @@ class TestHelp:
 
 class TestNormalExecution:
     def test_successful_run_exits_zero(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
         assert r.returncode == 0
         assert "Done." in r.stdout
 
     def test_prints_date_header(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
         assert "===" in r.stdout
 
     def test_calls_x_feed(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
         assert "Fetching X feed" in r.stdout
 
     def test_calls_transduction(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
         assert "Running transduction daily" in r.stdout
 
 
@@ -103,12 +97,12 @@ class TestNormalExecution:
 
 class TestXFeedFailure:
     def test_x_feed_failure_does_not_abort(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=1, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=1, transduction_rc=0)
         assert r.returncode == 0
         assert "Done." in r.stdout
 
     def test_x_feed_failure_prints_non_fatal_message(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=1, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=1, transduction_rc=0)
         assert "non-fatal" in r.stdout.lower() or "failed" in r.stdout.lower()
 
 
@@ -117,11 +111,11 @@ class TestXFeedFailure:
 
 class TestTransductionFailure:
     def test_transduction_failure_exits_nonzero(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=1)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=1)
         assert r.returncode != 0
 
     def test_transduction_failure_shows_error(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=1)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=1)
         # The script propagates the error via set -e
         assert r.returncode != 0
 
@@ -132,7 +126,7 @@ class TestTransductionFailure:
 class TestOutputFormat:
     def test_output_order(self):
         """Steps appear in correct order: date, fetch, transduction, done."""
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
         lines = r.stdout.strip().split("\n")
         # Find key lines
         date_idx = next(i for i, l in enumerate(lines) if "===" in l)
@@ -142,5 +136,5 @@ class TestOutputFormat:
         assert date_idx < fetch_idx < transduction_idx < done_idx
 
     def test_done_on_success(self):
-        r, tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
+        r, _tmpdir = _run_with_mocks(x_feed_rc=0, transduction_rc=0)
         assert "Done." in r.stdout

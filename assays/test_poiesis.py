@@ -8,8 +8,6 @@ from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 
 def _load_module():
     module_path = Path(__file__).resolve().parents[1] / "effectors" / "poiesis"
@@ -127,7 +125,9 @@ class TestExcerpt:
 class TestSearch:
     def test_search_finds_matches(self, capsys):
         mod = _load_module()
-        fake_text = "## AI Strategy\nArtificial intelligence strategy for banking.\n## Other\nUnrelated."
+        fake_text = (
+            "## AI Strategy\nArtificial intelligence strategy for banking.\n## Other\nUnrelated."
+        )
         with patch.dict(mod.FILES, {"cases": Path("/fake/cases.md")}):
             with patch.object(Path, "exists", return_value=True):
                 with patch.object(Path, "read_text", return_value=fake_text):

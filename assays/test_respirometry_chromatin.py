@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from metabolon.respirometry.chromatin import (
+    _format_date_short,
     archive_pdf,
     file_hash,
     is_processed,
@@ -15,14 +16,13 @@ from metabolon.respirometry.chromatin import (
     secrete_statement,
     serialize_markdown,
     stamp_processed,
-    _format_date_short,
 )
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def meta() -> RespirogramMeta:
@@ -73,6 +73,7 @@ def transactions() -> list[ConsumptionEvent]:
 # _format_date_short
 # ---------------------------------------------------------------------------
 
+
 class TestFormatDateShort:
     def test_basic(self):
         assert _format_date_short("2025-01-02") == "02 Jan"
@@ -88,6 +89,7 @@ class TestFormatDateShort:
 # ---------------------------------------------------------------------------
 # serialize_markdown
 # ---------------------------------------------------------------------------
+
 
 class TestSerializeMarkdown:
     def test_contains_frontmatter(self, meta, transactions):
@@ -143,6 +145,7 @@ class TestSerializeMarkdown:
 # file_hash
 # ---------------------------------------------------------------------------
 
+
 class TestFileHash:
     def test_computes_sha256(self, tmp_path):
         f = tmp_path / "sample.txt"
@@ -164,6 +167,7 @@ class TestFileHash:
 # ---------------------------------------------------------------------------
 # is_processed / stamp_processed
 # ---------------------------------------------------------------------------
+
 
 class TestLedger:
     def test_not_processed_when_no_ledger(self, tmp_path):
@@ -205,6 +209,7 @@ class TestLedger:
 # secrete_statement
 # ---------------------------------------------------------------------------
 
+
 class TestSecreteStatement:
     def test_creates_file(self, meta, transactions, tmp_path):
         out = secrete_statement(meta, transactions, tmp_path)
@@ -231,6 +236,7 @@ class TestSecreteStatement:
 # archive_pdf
 # ---------------------------------------------------------------------------
 
+
 class TestArchivePdf:
     def test_moves_pdf(self, meta, tmp_path):
         pdf = tmp_path / "source.pdf"
@@ -253,14 +259,13 @@ class TestArchivePdf:
 # secrete_monthly_summary
 # ---------------------------------------------------------------------------
 
+
 class TestSecreteMonthlySummary:
     def _write_statement(
         self, spending_dir: Path, stem: str, bank: str, card: str, body: str
     ) -> Path:
         p = spending_dir / f"{stem}.md"
-        p.write_text(
-            f"---\nbank: {bank}\ncard: {card}\n---\n\n{body}\n"
-        )
+        p.write_text(f"---\nbank: {bank}\ncard: {card}\n---\n\n{body}\n")
         return p
 
     def test_single_card(self, tmp_path):

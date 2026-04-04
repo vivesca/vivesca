@@ -1,4 +1,3 @@
-
 """One-time migration: markdown news log -> JSONL cargo store."""
 
 import re

@@ -21,6 +21,7 @@ def test_migrate_markdown_to_jsonl(tmp_path):
     assert count == 2
 
     from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
+
     entries = recall_cargo(cargo_path)
     assert len(entries) == 2
     assert entries[0]["title"] == "Banking AI"
@@ -61,6 +62,7 @@ def test_migrate_preserves_transcytose_flag(tmp_path):
     assert count == 2
 
     from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
+
     entries = recall_cargo(cargo_path)
     transcytose = [e for e in entries if e["fate"] == "transcytose"]
     store = [e for e in entries if e["fate"] == "store"]

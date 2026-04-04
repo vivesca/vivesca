@@ -10,7 +10,6 @@ default field values.
 
 import asyncio
 import tempfile
-import threading
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -22,7 +21,6 @@ from metabolon.enzymes.sortase import (
     StatsResult,
     sortase,
 )
-
 
 # ── Helpers & Fixtures ─────────────────────────────────────────────────────
 
@@ -122,9 +120,17 @@ def test_dispatch_log_entry_fields(full_dispatch_mocks):
     entry = m["log"].call_args[0][0]
 
     expected_keys = {
-        "timestamp", "plan", "project", "tasks", "tool",
-        "fallbacks", "duration_s", "success", "failure_reason",
-        "files_changed", "tests_passed",
+        "timestamp",
+        "plan",
+        "project",
+        "tasks",
+        "tool",
+        "fallbacks",
+        "duration_s",
+        "success",
+        "failure_reason",
+        "files_changed",
+        "tests_passed",
     }
     assert set(entry.keys()) == expected_keys
     assert entry["plan"] == "mcp-dispatch"
@@ -402,9 +408,11 @@ def test_dispatch_forced_backend(full_dispatch_mocks):
 
     m["route"].assert_called_once()
     call_kwargs = m["route"].call_args
-    assert call_kwargs[1].get("forced_backend") == "codex" or (
-        len(call_kwargs[0]) > 1 and call_kwargs[0][1] == "codex"
-    ) or call_kwargs == call(m["route"].call_args[0][0], forced_backend="codex")
+    assert (
+        call_kwargs[1].get("forced_backend") == "codex"
+        or (len(call_kwargs[0]) > 1 and call_kwargs[0][1] == "codex")
+        or call_kwargs == call(m["route"].call_args[0][0], forced_backend="codex")
+    )
 
 
 def test_dispatch_backend_empty_string_uses_none(full_dispatch_mocks):

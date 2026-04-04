@@ -6,7 +6,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -549,7 +548,7 @@ def test_search_cards_full_mode_read_error(cards_dir, patch_cards_dir, capsys):
     p.chmod(0o000)
     try:
         search_cards("Bad", full=True)
-        err = capsys.readouterr().err
+        capsys.readouterr().err
         # The grep subprocess may still find the file in the directory listing
         # if it checks by name; either way, reading should handle the error
         # gracefully (error printed to stderr or no crash).
@@ -563,7 +562,7 @@ def test_search_cards_summary_mode_read_error(cards_dir, patch_cards_dir, capsys
     p.chmod(0o000)
     try:
         search_cards("Bad", full=False)
-        err = capsys.readouterr().err
+        capsys.readouterr().err
     finally:
         p.chmod(0o644)
 

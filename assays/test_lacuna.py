@@ -4,38 +4,38 @@ from __future__ import annotations
 
 
 import os
-import re
+
+# Add the effectors directory to path so we can import lacuna
+import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import httpx
 import pytest
 import typer
 
-# Add the effectors directory to path so we can import lacuna
-import sys
 sys.path.insert(0, str(Path.home() / "germline/effectors"))
 
 # Import the module functions we need to test
 import lacuna
 from lacuna import (
-    _client,
-    s,
-    resolve,
-    validate_doc_id,
-    handle_request_error,
+    _UUID_RE,
     ALIASES,
+    BASE_URL,
     BASELINES,
     DISPLAY_NAMES,
-    _UUID_RE,
-    BASE_URL,
     TIMEOUT,
+    _client,
+    handle_request_error,
+    resolve,
+    s,
+    validate_doc_id,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constant and static data tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_alias_uuid_format():
     """Test all aliases resolve to valid UUID format."""
@@ -66,7 +66,7 @@ def test_uuid_regex_pattern():
     ]
     for uuid_val in valid_uuids:
         assert _UUID_RE.match(uuid_val), f"Should match valid UUID: {uuid_val}"
-    
+
     # Invalid UUIDs
     invalid_uuids = [
         "not-a-uuid",
@@ -83,7 +83,7 @@ def test_default_base_url_from_env():
     """Test BASE_URL defaults correctly when env var not set."""
     # The module already loaded, if LACUNA_API_URL wasn't set, should default to https://lacuna.sh
     expected = os.getenv("LACUNA_API_URL", "https://lacuna.sh")
-    assert BASE_URL == expected
+    assert expected == BASE_URL
 
 
 def test_timeout_value():
@@ -96,6 +96,7 @@ def test_timeout_value():
 # ─────────────────────────────────────────────────────────────────────────────
 # _client tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @patch.dict(os.environ, {}, clear=True)
 def test_client_no_api_key():
@@ -127,6 +128,7 @@ def test_client_custom_timeout():
 # s (escape) function tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_s_escape_rich_markup():
     """Test Rich markup is escaped."""
     text = "[bold]Hello[/bold]"
@@ -155,6 +157,7 @@ def test_s_plain_text():
 # resolve function tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_resolve_alias():
     """Test known aliases resolve to their UUIDs."""
     assert resolve("demo-baseline") == ALIASES["demo-baseline"]
@@ -171,7 +174,10 @@ def test_resolve_uuid():
 def test_resolve_strips_whitespace():
     """Test whitespace is stripped from input."""
     assert resolve("  demo-baseline  ") == ALIASES["demo-baseline"]
-    assert resolve("\n33432979-fcf8-4388-837c-4e51b82cfe2b\n") == "33432979-fcf8-4388-837c-4e51b82cfe2b"
+    assert (
+        resolve("\n33432979-fcf8-4388-837c-4e51b82cfe2b\n")
+        == "33432979-fcf8-4388-837c-4e51b82cfe2b"
+    )
 
 
 def test_resolve_unknown():
@@ -182,6 +188,7 @@ def test_resolve_unknown():
 # ─────────────────────────────────────────────────────────────────────────────
 # validate_doc_id tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_validate_valid_uuid():
     """Test valid UUID (after alias resolution) passes."""
@@ -200,6 +207,7 @@ def test_validate_invalid_exits():
 # ─────────────────────────────────────────────────────────────────────────────
 # handle_request_error tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_handle_timeout_exception():
     """Test timeout exception handled correctly."""
@@ -235,7 +243,8 @@ def test_handle_generic_exception():
 # docs command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('lacuna._client')
+
+@patch("lacuna._client")
 def test_docs_success(mock_client_factory):
     """Test docs command with successful API response."""
     mock_client = MagicMock()
@@ -253,21 +262,21 @@ def test_docs_success(mock_client_factory):
     mock_response.raise_for_status.return_value = None
     mock_client.get.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should not raise
     lacuna.docs()
-    
+
     # Verify API called correctly
     mock_client.get.assert_called_once_with(f"{BASE_URL}/documents")
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_docs_api_error_handled(mock_client_factory):
     """Test docs command handles API errors correctly."""
     mock_client = MagicMock()
     mock_client.get.side_effect = httpx.RequestError("Connection failed", request=Mock())
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     with pytest.raises((typer.Exit, SystemExit)):
         lacuna.docs()
 
@@ -276,7 +285,8 @@ def test_docs_api_error_handled(mock_client_factory):
 # gap command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('lacuna._client')
+
+@patch("lacuna._client")
 def test_gap_analysis_success(mock_client_factory):
     """Test gap analysis command with successful API response."""
     mock_client = MagicMock()
@@ -287,21 +297,21 @@ def test_gap_analysis_success(mock_client_factory):
         "findings": [
             {"status": "Full", "description": "All requirements covered"},
             {"status": "Gap", "description": "Missing consumer protection disclosure"},
-        ]
+        ],
     }
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should not raise
     lacuna.gap(
         circular="hkma-cp",
         baseline="demo-baseline",
         verbose=False,
         amendments=False,
-        interactive=False
+        interactive=False,
     )
-    
+
     # Verify API called with correct payload
     mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
@@ -313,7 +323,7 @@ def test_gap_analysis_success(mock_client_factory):
     assert payload["interactive"] is False
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_gap_analysis_invalid_circular(mock_client_factory):
     """Test gap analysis exits on invalid circular ID."""
     with pytest.raises((typer.Exit, SystemExit)):
@@ -322,13 +332,13 @@ def test_gap_analysis_invalid_circular(mock_client_factory):
             baseline="demo-baseline",
             verbose=False,
             amendments=False,
-            interactive=False
+            interactive=False,
         )
     # Should not have made any API calls
     mock_client_factory.assert_not_called()
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_gap_analysis_invalid_baseline(mock_client_factory):
     """Test gap analysis exits on invalid baseline ID."""
     with pytest.raises((typer.Exit, SystemExit)):
@@ -337,7 +347,7 @@ def test_gap_analysis_invalid_baseline(mock_client_factory):
             baseline="invalid-baseline",
             verbose=False,
             amendments=False,
-            interactive=False
+            interactive=False,
         )
     # Should not have made any API calls
     mock_client_factory.assert_not_called()
@@ -347,7 +357,8 @@ def test_gap_analysis_invalid_baseline(mock_client_factory):
 # query command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('lacuna._client')
+
+@patch("lacuna._client")
 def test_query_success(mock_client_factory):
     """Test natural language query succeeds."""
     mock_client = MagicMock()
@@ -357,17 +368,17 @@ def test_query_success(mock_client_factory):
         "results": [
             {
                 "document": "Relevant text segment from regulatory document",
-                "metadata": {"filename": "hkma-genai.pdf"}
+                "metadata": {"filename": "hkma-genai.pdf"},
             }
-        ]
+        ],
     }
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should not raise
     lacuna.query("What are the GenAI governance requirements?", jurisdiction=None)
-    
+
     mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
     assert call_args[0][0] == f"{BASE_URL}/query"
@@ -376,7 +387,7 @@ def test_query_success(mock_client_factory):
     assert "jurisdiction" not in payload
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_query_with_jurisdiction_filter(mock_client_factory):
     """Test query with jurisdiction filtering works."""
     mock_client = MagicMock()
@@ -385,13 +396,13 @@ def test_query_with_jurisdiction_filter(mock_client_factory):
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     lacuna.query("What are the requirements?", jurisdiction="hk")
-    
+
     call_args = mock_client.post.call_args
     payload = call_args[1]["json"]
     assert payload["jurisdiction"] == "Hong Kong"
-    
+
     # Test another jurisdiction
     mock_client.post.reset_mock()
     lacuna.query("What are the requirements?", jurisdiction="sg")
@@ -404,21 +415,20 @@ def test_query_with_jurisdiction_filter(mock_client_factory):
 # warmup command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('lacuna._client')
+
+@patch("lacuna._client")
 def test_warmup_success(mock_client_factory):
     """Test warmup command succeeds with valid response."""
     mock_client = MagicMock()
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "summary": {"full": 5, "partial": 3, "gap": 1}
-    }
+    mock_response.json.return_value = {"summary": {"full": 5, "partial": 3, "gap": 1}}
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should not raise
     lacuna.warmup()
-    
+
     # Verify it uses the default demo pair
     mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
@@ -427,7 +437,7 @@ def test_warmup_success(mock_client_factory):
     assert payload["baseline_id"] == ALIASES["demo-baseline"]
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_warmup_empty_summary_fails(mock_client_factory):
     """Test warmup fails when backend returns empty summary."""
     mock_client = MagicMock()
@@ -436,7 +446,7 @@ def test_warmup_empty_summary_fails(mock_client_factory):
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     with pytest.raises((typer.Exit, SystemExit)):
         lacuna.warmup()
 
@@ -445,21 +455,22 @@ def test_warmup_empty_summary_fails(mock_client_factory):
 # upload command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('pathlib.Path.exists')
+
+@patch("pathlib.Path.exists")
 def test_upload_file_not_found(mock_exists):
     """Test upload exits when file not found."""
     mock_exists.return_value = False
-    
+
     with pytest.raises((typer.Exit, SystemExit)):
         lacuna.upload(file="/nonexistent/file.pdf", name="Test Document", no_llm=False)
 
 
-@patch('pathlib.Path.exists')
+@patch("pathlib.Path.exists")
 def test_upload_unsupported_format(mock_exists):
     """Test upload exits on unsupported file format."""
     mock_exists.return_value = True
-    
-    with patch('pathlib.Path.suffix', ".zip"):
+
+    with patch("pathlib.Path.suffix", ".zip"):
         with pytest.raises((typer.Exit, SystemExit)):
             lacuna.upload(file="file.zip", name="Test", no_llm=False)
 
@@ -468,13 +479,14 @@ def test_upload_unsupported_format(mock_exists):
 # multi_gap command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_multi_gap_invalid_jurisdiction():
     """Test multi_gap exits on invalid jurisdiction."""
     with pytest.raises((typer.Exit, SystemExit)):
         lacuna.multi_gap(baseline="demo-baseline", jurisdiction="invalid")
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_multi_gap_all_jurisdictions(mock_client_factory):
     """Test multi_gap runs for all jurisdictions when jurisdiction='all'."""
     mock_client = MagicMock()
@@ -483,10 +495,10 @@ def test_multi_gap_all_jurisdictions(mock_client_factory):
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should not raise (even if every request succeeds, it should render the table)
     lacuna.multi_gap(baseline="demo-baseline", jurisdiction="all")
-    
+
     # Should have made multiple calls - one for each circular in all jurisdictions
     assert mock_client.post.call_count > 1
 
@@ -495,8 +507,9 @@ def test_multi_gap_all_jurisdictions(mock_client_factory):
 # export command tests (Markdown export)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('lacuna._client')
-@patch('builtins.open', new_callable=MagicMock)
+
+@patch("lacuna._client")
+@patch("builtins.open", new_callable=MagicMock)
 def test_export_markdown_to_file(mock_open, mock_client_factory, tmp_path):
     """Test exporting gap analysis to Markdown file."""
     mock_client = MagicMock()
@@ -505,26 +518,27 @@ def test_export_markdown_to_file(mock_open, mock_client_factory, tmp_path):
         "summary": {"full": 10, "partial": 5, "gap": 2},
         "findings": [
             {"status": "Full", "description": "All good", "reasoning": "Everything covered"},
-            {"status": "Gap", "description": "Missing requirement", "reasoning": "Not covered anywhere"},
-        ]
+            {
+                "status": "Gap",
+                "description": "Missing requirement",
+                "reasoning": "Not covered anywhere",
+            },
+        ],
     }
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     output_file = tmp_path / "report.md"
     lacuna.export(
-        circular="hkma-cp",
-        baseline="demo-baseline",
-        output=str(output_file),
-        format="md"
+        circular="hkma-cp", baseline="demo-baseline", output=str(output_file), format="md"
     )
-    
+
     # Verify file was written
     mock_open.assert_called_once()
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_export_pdf_handles_binary_response(mock_client_factory):
     """Test PDF export handles binary response."""
     mock_client = MagicMock()
@@ -533,13 +547,10 @@ def test_export_pdf_handles_binary_response(mock_client_factory):
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
-    with patch('builtins.open', MagicMock()) as mock_open:
+
+    with patch("builtins.open", MagicMock()) as mock_open:
         lacuna.export(
-            circular="hkma-cp",
-            baseline="demo-baseline",
-            output="/tmp/report.pdf",
-            format="pdf"
+            circular="hkma-cp", baseline="demo-baseline", output="/tmp/report.pdf", format="pdf"
         )
         mock_open.assert_called_once()
         # Verify content was written
@@ -551,46 +562,45 @@ def test_export_pdf_handles_binary_response(mock_client_factory):
 # preflight command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('lacuna._client')
+
+@patch("lacuna._client")
 def test_preflight_all_checks_pass(mock_client_factory):
     """Test preflight passes when all checks succeed."""
     mock_client = MagicMock()
     # First call: /documents
     docs_response = MagicMock()
-    docs_response.json.return_value = {
-        "documents": [{"doc_id": uid} for uid in ALIASES.values()]
-    }
+    docs_response.json.return_value = {"documents": [{"doc_id": uid} for uid in ALIASES.values()]}
     docs_response.raise_for_status.return_value = None
-    
+
     # Second call: gap-analysis warmup
     gap_response = MagicMock()
     gap_response.json.return_value = {"summary": {"full": 5, "partial": 3, "gap": 1}}
     gap_response.raise_for_status.return_value = None
-    
+
     # Third call: decompose
     decompose_response = MagicMock()
     decompose_response.json.return_value = {"total": 42}
     decompose_response.raise_for_status.return_value = None
-    
+
     mock_client.get.side_effect = [docs_response]
     mock_client.post.side_effect = [gap_response, decompose_response]
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should pass (not raise)
     lacuna.preflight()
-    
+
     # Verify all three endpoints were called
     mock_client.get.assert_called_once_with(f"{BASE_URL}/documents")
     assert mock_client.post.call_count == 2
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_preflight_api_unreachable_fails(mock_client_factory):
     """Test preflight fails when API is unreachable."""
     mock_client = MagicMock()
     mock_client.get.side_effect = httpx.RequestError("Connection failed", request=Mock())
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     with pytest.raises((typer.Exit, SystemExit)):
         lacuna.preflight()
 
@@ -599,13 +609,14 @@ def test_preflight_api_unreachable_fails(mock_client_factory):
 # synthesize command tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_synthesize_invalid_circular_exits():
     """Test synthesize exits when any circular is invalid."""
     with pytest.raises((typer.Exit, SystemExit)):
         lacuna.synthesize(
             circulars=["hkma-cp", "invalid-circular"],
             baseline="demo-baseline",
-            include_amendments=False
+            include_amendments=False,
         )
 
 
@@ -615,11 +626,11 @@ def test_synthesize_invalid_baseline_exits():
         lacuna.synthesize(
             circulars=["hkma-cp", "mas-mrmf"],
             baseline="invalid-baseline",
-            include_amendments=False
+            include_amendments=False,
         )
 
 
-@patch('lacuna._client')
+@patch("lacuna._client")
 def test_lacuna_synthesize_success(mock_client_factory):
     """Test cross-jurisdiction synthesis succeeds."""
     mock_client = MagicMock()
@@ -629,27 +640,25 @@ def test_lacuna_synthesize_success(mock_client_factory):
             {
                 "circular_id": ALIASES["hkma-cp"],
                 "jurisdiction": "Hong Kong",
-                "summary": {"Full": 10, "Partial": 3, "Gap": 2}
+                "summary": {"Full": 10, "Partial": 3, "Gap": 2},
             },
             {
                 "circular_id": ALIASES["mas-mrmf"],
                 "jurisdiction": "Singapore",
-                "summary": {"Full": 8, "Partial": 4, "Gap": 1}
-            }
+                "summary": {"Full": 8, "Partial": 4, "Gap": 1},
+            },
         ],
-        "cross_jurisdiction_summary": "This is a cross-jurisdictional summary of the gaps..."
+        "cross_jurisdiction_summary": "This is a cross-jurisdictional summary of the gaps...",
     }
     mock_response.raise_for_status.return_value = None
     mock_client.post.return_value = mock_response
     mock_client_factory.return_value.__enter__.return_value = mock_client
-    
+
     # Should not raise
     lacuna.synthesize(
-        circulars=["hkma-cp", "mas-mrmf"],
-        baseline="demo-baseline",
-        include_amendments=True
+        circulars=["hkma-cp", "mas-mrmf"], baseline="demo-baseline", include_amendments=True
     )
-    
+
     mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
     assert call_args[0][0] == f"{BASE_URL}/synthesis"
@@ -662,6 +671,7 @@ def test_lacuna_synthesize_success(mock_client_factory):
 # ─────────────────────────────────────────────────────────────────────────────
 # Edge cases
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_s_handles_none():
     """Test s() handles None correctly."""

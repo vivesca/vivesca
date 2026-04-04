@@ -43,11 +43,14 @@ def check_and_heal() -> None:
     # But transient API blips happen — wait and re-check once before alerting.
     if not info["reachable"]:
         import time
+
         time.sleep(15)
         info = status()
         if not info["reachable"]:
-            _alert("Soma UNREACHABLE — fly machine may be stopped.",
-                   cooldown_key="mitosis-unreachable")
+            _alert(
+                "Soma UNREACHABLE — fly machine may be stopped.",
+                cooldown_key="mitosis-unreachable",
+            )
             return
 
     # Find stale or missing targets
@@ -66,11 +69,7 @@ def check_and_heal() -> None:
     if report.ok and all(r.success for r in report.results if r.target in sick):
         # Verify with a fresh status check
         info2 = status()
-        still_sick = [
-            name
-            for name in sick
-            if info2["targets"].get(name, {}).get("state") not in ("ok",)
-        ]
+        still_sick = [name for name in sick if info2["targets"].get(name, {}).get("state") != "ok"]
         if not still_sick:
             return  # Healed silently
 
@@ -82,8 +81,10 @@ def check_and_heal() -> None:
     else:
         failed = [r for r in report.results if not r.success]
         details = "; ".join(f"{r.target}: {r.message}" for r in failed[:3])
-        _alert(f"Mitosis checkpoint: sync repair failed — {details}",
-               cooldown_key="mitosis-sync-failed")
+        _alert(
+            f"Mitosis checkpoint: sync repair failed — {details}",
+            cooldown_key="mitosis-sync-failed",
+        )
 
 
 def _alert(message: str, cooldown_key: str = "") -> None:

@@ -1,4 +1,3 @@
-
 """browser — headless page fetcher using Playwright.
 
 Single public async function:

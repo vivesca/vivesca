@@ -5,8 +5,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path, PurePosixPath
 
-import pytest
-
 
 def _load_module() -> dict:
     """Load conftest-gen via exec (effector pattern)."""
@@ -29,7 +27,7 @@ MAC_HOME = PurePosixPath("/", "Users", "terry")
 class TestScanFile:
     def test_no_paths_returns_empty(self, tmp_path: Path):
         p = tmp_path / "clean.py"
-        p.write_text('x = 1\n')
+        p.write_text("x = 1\n")
         assert scan_file(p) == []
 
     def test_detects_linux_path(self, tmp_path: Path):
@@ -79,9 +77,9 @@ class TestScanFile:
 class TestApplyFix:
     def test_no_changes_returns_0(self, tmp_path: Path):
         p = tmp_path / "clean.py"
-        p.write_text('x = 1\n')
+        p.write_text("x = 1\n")
         assert apply_fix(p, []) == 0
-        assert p.read_text() == 'x = 1\n'
+        assert p.read_text() == "x = 1\n"
 
     def test_applies_single_fix(self, tmp_path: Path):
         p = tmp_path / "fix.py"
@@ -125,10 +123,16 @@ class TestSubprocessCLI:
         script = str(Path.home() / "germline/effectors/conftest-gen")
         result = subprocess.run(
             [script, "--assays-dir", str(tmp_path)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
-        assert "line 1" in result.stdout or "hardcoded" in result.stdout.lower() or "/home/terry" in result.stdout
+        assert (
+            "line 1" in result.stdout
+            or "hardcoded" in result.stdout.lower()
+            or "/home/terry" in result.stdout
+        )
         # Should NOT modify file
         assert "/home/terry" in p.read_text()
 
@@ -139,7 +143,9 @@ class TestSubprocessCLI:
         script = str(Path.home() / "germline/effectors/conftest-gen")
         result = subprocess.run(
             [script, "--fix", "--assays-dir", str(tmp_path)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         assert "Fixed" in result.stdout

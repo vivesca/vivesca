@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import pytest
-from metabolon.respirometry.schema import ConsumptionEvent
 from metabolon.respirometry.monitors import (
-    flag_anomalies,
-    flag_duplicates,
+    activate_monitors,
     assess_budget,
     assess_subscriptions,
-    activate_monitors,
+    flag_anomalies,
+    flag_duplicates,
 )
+from metabolon.respirometry.schema import ConsumptionEvent
 
 
 def test_flag_anomalies_no_flags():

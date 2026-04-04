@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _fn():
     """Return the raw function behind the @tool decorator."""
     from metabolon.enzymes import chemotaxis as mod
@@ -25,6 +26,7 @@ def _result_class():
 # ---------------------------------------------------------------------------
 # _run_ab unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestRunAb:
     """Tests for _run_ab helper."""
@@ -85,6 +87,7 @@ class TestRunAb:
 # ---------------------------------------------------------------------------
 # chemotaxis — extract action
 # ---------------------------------------------------------------------------
+
 
 class TestExtract:
     """Tests for the extract action."""
@@ -152,14 +155,13 @@ class TestExtract:
         # sleep should not be called (open succeeds, then get-title etc succeed)
         # Actually sleep IS called in extract only if wait_ms > 0
         # With wait_ms=0, no sleep calls for the wait
-        assert all(
-            call.args[0] != 0 for call in mock_sleep.call_args_list
-        )
+        assert all(call.args[0] != 0 for call in mock_sleep.call_args_list)
 
 
 # ---------------------------------------------------------------------------
 # chemotaxis — screenshot action
 # ---------------------------------------------------------------------------
+
 
 class TestScreenshot:
     """Tests for the screenshot action."""
@@ -189,7 +191,9 @@ class TestScreenshot:
             patch("metabolon.enzymes.chemotaxis.subprocess.run"),
             patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
-            result = _fn()(action="screenshot", url="https://example.com", output_path="/tmp/x.png")
+            result = _fn()(
+                action="screenshot", url="https://example.com", output_path="/tmp/x.png"
+            )
 
         assert result.success is False
         assert "Screenshot failed" in result.error
@@ -248,6 +252,7 @@ class TestScreenshot:
 # ---------------------------------------------------------------------------
 # chemotaxis — check_auth action
 # ---------------------------------------------------------------------------
+
 
 class TestCheckAuth:
     """Tests for the check_auth action."""
@@ -396,6 +401,7 @@ class TestCheckAuth:
 # chemotaxis — unknown action
 # ---------------------------------------------------------------------------
 
+
 class TestUnknownAction:
     """Tests for invalid actions."""
 
@@ -419,6 +425,7 @@ class TestUnknownAction:
 # Result type
 # ---------------------------------------------------------------------------
 
+
 class TestResultType:
     """Tests for ChemotaxisResult."""
 
@@ -435,6 +442,7 @@ class TestResultType:
 # ---------------------------------------------------------------------------
 # Cleanup
 # ---------------------------------------------------------------------------
+
 
 class TestCleanup:
     """Tests for temp screenshot cleanup."""
@@ -459,11 +467,13 @@ class TestCleanup:
 # chemotaxis — navigate action (primary name for extract)
 # ---------------------------------------------------------------------------
 
+
 class TestNavigate:
     """Tests for the navigate action (extract is an alias)."""
 
     def test_navigate_is_primary_name(self):
         """navigate action works identically to extract."""
+
         def mock_run_ab(args):
             if args[0] == "open":
                 return (True, "ok")
@@ -492,6 +502,7 @@ class TestNavigate:
 
     def test_extract_still_works_as_alias(self):
         """extract action is an alias for navigate — backward compat."""
+
         def mock_run_ab(args):
             if args[0] == "open":
                 return (True, "ok")
@@ -517,12 +528,14 @@ class TestNavigate:
 # helper functions — _set_viewport, _set_device
 # ---------------------------------------------------------------------------
 
+
 class TestHelpers:
     """Tests for _set_viewport and _set_device helpers."""
 
     @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_viewport_basic(self, mock_run):
         from metabolon.enzymes.chemotaxis import _set_viewport
+
         ok, out = _set_viewport(1920, 1080)
         assert ok is True
         assert out == "ok"
@@ -531,15 +544,15 @@ class TestHelpers:
     @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_viewport_with_scale(self, mock_run):
         from metabolon.enzymes.chemotaxis import _set_viewport
+
         ok, _out = _set_viewport(1280, 720, scale=2.0)
         assert ok is True
-        mock_run.assert_called_once_with(
-            ["set", "viewport", "1280", "720", "--scale", "2.0"]
-        )
+        mock_run.assert_called_once_with(["set", "viewport", "1280", "720", "--scale", "2.0"])
 
     @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_viewport_scale_zero_omits_flag(self, mock_run):
         from metabolon.enzymes.chemotaxis import _set_viewport
+
         _set_viewport(800, 600, scale=0)
         call_args = mock_run.call_args[0][0]
         assert "--scale" not in call_args
@@ -547,6 +560,7 @@ class TestHelpers:
     @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_device(self, mock_run):
         from metabolon.enzymes.chemotaxis import _set_device
+
         ok, _out = _set_device("iPhone 14")
         assert ok is True
         mock_run.assert_called_once_with(["set", "device", "iPhone 14"])
@@ -554,6 +568,7 @@ class TestHelpers:
     @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "no such device"))
     def test_set_device_failure(self, mock_run):
         from metabolon.enzymes.chemotaxis import _set_device
+
         ok, out = _set_device("FakeDevice")
         assert ok is False
         assert "no such device" in out
@@ -562,6 +577,7 @@ class TestHelpers:
 # ---------------------------------------------------------------------------
 # chemotaxis — screenshot with viewport/device params
 # ---------------------------------------------------------------------------
+
 
 class TestScreenshotViewportDevice:
     """Tests for screenshot action with viewport and device parameters."""
@@ -714,6 +730,7 @@ class TestScreenshotViewportDevice:
 # chemotaxis — click action
 # ---------------------------------------------------------------------------
 
+
 class TestClick:
     """Tests for the click action."""
 
@@ -747,6 +764,7 @@ class TestClick:
 # ---------------------------------------------------------------------------
 # chemotaxis — fill action
 # ---------------------------------------------------------------------------
+
 
 class TestFill:
     """Tests for the fill action."""
@@ -788,6 +806,7 @@ class TestFill:
 # chemotaxis — eval action
 # ---------------------------------------------------------------------------
 
+
 class TestEval:
     """Tests for the eval action."""
 
@@ -822,6 +841,7 @@ class TestEval:
 # chemotaxis — resize action
 # ---------------------------------------------------------------------------
 
+
 class TestResize:
     """Tests for the resize action."""
 
@@ -839,9 +859,7 @@ class TestResize:
         result = _fn()(action="resize", width=1280, height=720, scale=2.0)
         assert result.success is True
         assert result.data["scale"] == 2.0
-        mock_run.assert_called_once_with(
-            ["set", "viewport", "1280", "720", "--scale", "2.0"]
-        )
+        mock_run.assert_called_once_with(["set", "viewport", "1280", "720", "--scale", "2.0"])
 
     def test_resize_missing_width(self):
         result = _fn()(action="resize", height=1080)
@@ -879,6 +897,7 @@ class TestResize:
 # chemotaxis — snapshot action
 # ---------------------------------------------------------------------------
 
+
 class TestSnapshot:
     """Tests for the snapshot action."""
 
@@ -907,6 +926,7 @@ class TestSnapshot:
 # chemotaxis — updated unknown action message
 # ---------------------------------------------------------------------------
 
+
 class TestUpdatedUnknownAction:
     """Tests that unknown action error includes all valid actions."""
 
@@ -915,5 +935,15 @@ class TestUpdatedUnknownAction:
         assert result.success is False
         assert "Unknown action" in result.error
         assert "foobar" in result.error
-        for act in ["navigate", "extract", "screenshot", "click", "fill", "eval", "resize", "snapshot", "check_auth"]:
+        for act in [
+            "navigate",
+            "extract",
+            "screenshot",
+            "click",
+            "fill",
+            "eval",
+            "resize",
+            "snapshot",
+            "check_auth",
+        ]:
             assert act in result.error

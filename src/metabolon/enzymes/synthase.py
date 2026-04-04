@@ -1,4 +1,3 @@
-
 """synthase — spawn headless CC with full organism access.
 
 Tools:

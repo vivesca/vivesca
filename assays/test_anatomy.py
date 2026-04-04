@@ -3,10 +3,7 @@ from __future__ import annotations
 """Comprehensive tests for metabolon/resources/anatomy.py."""
 
 
-import ast
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -28,7 +25,6 @@ from metabolon.resources.anatomy import (
     _substrate_map,
     express_anatomy,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -150,7 +146,7 @@ def _private_func():
 @pytest.fixture
 def sample_design_md() -> str:
     """Sample DESIGN.md content."""
-    return '''# Design Document
+    return """# Design Document
 
 ## The Theory
 
@@ -194,31 +190,31 @@ There are two types: primary and secondary.
 ## Three Knowledge Artifacts
 
 The three artifacts are: genome, proteome, and metabolome.
-'''
+"""
 
 
 @pytest.fixture
 def sample_plan_md() -> str:
     """Sample plan with frontmatter."""
-    return '''---
+    return """---
 status: active
 title: "Fix the bug"
 ---
 
 This plan addresses a critical bug in the system.
-'''
+"""
 
 
 @pytest.fixture
 def sample_plan_inactive_md() -> str:
     """Sample inactive plan."""
-    return '''---
+    return """---
 status: completed
 title: "Done task"
 ---
 
 This task is done.
-'''
+"""
 
 
 # ── Tests for _extract_decorated_names ───────────────────────────────────
@@ -231,9 +227,9 @@ class TestExtractDecoratedNames:
         """Test extracting function decorated with @tool("name")."""
         module_path = tmp_path / "test_tool.py"
         module_path.write_text(sample_tool_module)
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         assert len(results) >= 2
         names = [r["decorator_arg"] for r in results]
         assert "my_tool" in names
@@ -243,9 +239,9 @@ class TestExtractDecoratedNames:
         """Test extracting function with bare @tool decorator."""
         module_path = tmp_path / "test_tool.py"
         module_path.write_text(sample_tool_module)
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         # bare_tool should use function name as decorator_arg
         bare = next((r for r in results if r["func_name"] == "bare_tool"), None)
         assert bare is not None
@@ -255,9 +251,9 @@ class TestExtractDecoratedNames:
         """Test that other decorators are ignored."""
         module_path = tmp_path / "test_tool.py"
         module_path.write_text(sample_tool_module)
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         func_names = [r["func_name"] for r in results]
         assert "not_a_tool" not in func_names
 
@@ -265,9 +261,9 @@ class TestExtractDecoratedNames:
         """Test extracting @resource decorated functions."""
         module_path = tmp_path / "test_resource.py"
         module_path.write_text(sample_resource_module)
-        
+
         results = _extract_decorated_names(module_path, "resource")
-        
+
         assert len(results) == 2
         args = [r["decorator_arg"] for r in results]
         assert "my_resource" in args
@@ -277,31 +273,31 @@ class TestExtractDecoratedNames:
         """Test graceful handling of syntax errors."""
         module_path = tmp_path / "bad.py"
         module_path.write_text("def broken(")
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         assert results == []
 
     def test_handles_file_not_found(self):
         """Test graceful handling of missing files."""
         results = _extract_decorated_names(Path("/nonexistent/path.py"), "tool")
-        
+
         assert results == []
 
     def test_handles_attribute_decorator(self, tmp_path: Path):
         """Test handling @module.tool style decorators."""
-        code = '''
+        code = """
 from some_module import decorators
 
 @decorators.tool("attr_tool")
 def my_func():
     pass
-'''
+"""
         module_path = tmp_path / "attr_dec.py"
         module_path.write_text(code)
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         assert len(results) == 1
         assert results[0]["decorator_arg"] == "attr_tool"
 
@@ -315,9 +311,9 @@ async def async_func():
 '''
         module_path = tmp_path / "async_tool.py"
         module_path.write_text(code)
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         assert len(results) == 1
         assert results[0]["func_name"] == "async_func"
         assert results[0]["decorator_arg"] == "async_tool"
@@ -332,34 +328,34 @@ class TestScanDirectory:
     def test_empty_directory(self, tmp_path: Path):
         """Test scanning empty directory."""
         lines = _scan_directory(tmp_path, "tool", "test")
-        
+
         assert lines == ["  _(no test modules)_"]
 
     def test_nonexistent_directory(self, tmp_path: Path):
         """Test scanning nonexistent directory."""
         lines = _scan_directory(tmp_path / "nonexistent", "tool", "test")
-        
+
         assert lines == ["  _(no test directory)_"]
 
     def test_scans_modules(self, tmp_path: Path):
         """Test scanning modules with decorated functions."""
         tools_dir = tmp_path / "tools"
         tools_dir.mkdir()
-        
-        (tools_dir / "mod_a.py").write_text('''
+
+        (tools_dir / "mod_a.py").write_text("""
 @tool("tool_a")
 def func_a(): pass
-''')
-        (tools_dir / "mod_b.py").write_text('''
+""")
+        (tools_dir / "mod_b.py").write_text("""
 @tool("tool_b")
 def func_b(): pass
 @tool("tool_c")
 def func_c(): pass
-''')
+""")
         (tools_dir / "__init__.py").write_text("")
-        
+
         lines = _scan_directory(tools_dir, "tool", "tools")
-        
+
         assert len(lines) == 2
         assert any("mod_a.py" in line and "`tool_a`" in line for line in lines)
         assert any("mod_b.py" in line and "tool_b" in line and "tool_c" in line for line in lines)
@@ -369,9 +365,9 @@ def func_c(): pass
         tools_dir = tmp_path / "tools"
         tools_dir.mkdir()
         (tools_dir / "__init__.py").write_text('@tool("init_tool")\ndef init_func(): pass')
-        
+
         lines = _scan_directory(tools_dir, "tool", "tools")
-        
+
         assert lines == ["  _(no tools modules)_"]
 
     def test_handles_no_decorators_found(self, tmp_path: Path):
@@ -379,9 +375,9 @@ def func_c(): pass
         tools_dir = tmp_path / "tools"
         tools_dir.mkdir()
         (tools_dir / "plain.py").write_text("def plain(): pass")
-        
+
         lines = _scan_directory(tools_dir, "tool", "tools")
-        
+
         assert len(lines) == 1
         assert "no @tool found" in lines[0]
 
@@ -400,33 +396,33 @@ def func(): pass
 '''
         module_path = tmp_path / "mod.py"
         module_path.write_text(code)
-        
+
         result = _extract_module_docstring(module_path)
-        
+
         assert result == "Module docstring here."
 
     def test_no_docstring(self, tmp_path: Path):
         """Test module without docstring."""
         module_path = tmp_path / "mod.py"
         module_path.write_text("def func(): pass")
-        
+
         result = _extract_module_docstring(module_path)
-        
+
         assert result == ""
 
     def test_syntax_error(self, tmp_path: Path):
         """Test handling syntax error."""
         module_path = tmp_path / "bad.py"
         module_path.write_text("def broken(")
-        
+
         result = _extract_module_docstring(module_path)
-        
+
         assert result == ""
 
     def test_file_not_found(self):
         """Test handling missing file."""
         result = _extract_module_docstring(Path("/nonexistent.py"))
-        
+
         assert result == ""
 
 
@@ -451,9 +447,9 @@ def my_func(arg1: str, arg2: int) -> str:
 '''
         module_path = tmp_path / "tools.py"
         module_path.write_text(code)
-        
+
         results = _extract_tool_details(module_path)
-        
+
         assert len(results) == 1
         assert results[0]["name"] == "my_tool"
         assert results[0]["doc"] == "First line of docstring."
@@ -470,9 +466,9 @@ class Handler:
 '''
         module_path = tmp_path / "handler.py"
         module_path.write_text(code)
-        
+
         results = _extract_tool_details(module_path)
-        
+
         assert len(results) == 1
         assert "self" not in results[0]["params"]
         assert results[0]["params"] == ["data"]
@@ -487,9 +483,9 @@ def my_func(x):
 '''
         module_path = tmp_path / "named.py"
         module_path.write_text(code)
-        
+
         results = _extract_tool_details(module_path)
-        
+
         assert len(results) == 1
         assert results[0]["name"] == "named_tool"
 
@@ -503,24 +499,24 @@ def bare_tool():
 '''
         module_path = tmp_path / "bare.py"
         module_path.write_text(code)
-        
+
         results = _extract_tool_details(module_path)
-        
+
         assert len(results) == 1
         assert results[0]["name"] == "bare_tool"
 
     def test_no_docstring(self, tmp_path: Path):
         """Test tool without docstring."""
-        code = '''
+        code = """
 @tool("no_doc")
 def no_doc(x):
     pass
-'''
+"""
         module_path = tmp_path / "no_doc.py"
         module_path.write_text(code)
-        
+
         results = _extract_tool_details(module_path)
-        
+
         assert len(results) == 1
         assert results[0]["doc"] == ""
 
@@ -528,9 +524,9 @@ def no_doc(x):
         """Test handling syntax error."""
         module_path = tmp_path / "bad.py"
         module_path.write_text("def broken(")
-        
+
         results = _extract_tool_details(module_path)
-        
+
         assert results == []
 
 
@@ -543,14 +539,14 @@ class TestOrganDescriptions:
     def test_no_enzymes_directory(self, tmp_path: Path):
         """Test when enzymes directory doesn't exist."""
         lines = _organ_descriptions(tmp_path)
-        
+
         assert lines == ["_(no enzymes directory)_"]
 
     def test_organ_descriptions(self, tmp_path: Path):
         """Test generating organ descriptions."""
         enzymes_dir = tmp_path / "enzymes"
         enzymes_dir.mkdir()
-        
+
         (enzymes_dir / "tools.py").write_text('''
 """Tools for data processing."""
 
@@ -559,9 +555,9 @@ def process_data(input: str):
     """Process the input data."""
     pass
 ''')
-        
+
         lines = _organ_descriptions(tmp_path)
-        
+
         assert any("tools" in line for line in lines)
         assert any("process" in line for line in lines)
 
@@ -600,9 +596,9 @@ class AutoSubstrate:
 '''
         module_path = tmp_path / "auto.py"
         module_path.write_text(code)
-        
+
         info = _extract_substrate_info(module_path)
-        
+
         assert info is not None
         assert info["layer"] == "autonomic"
 
@@ -616,18 +612,18 @@ class RegularClass:
 '''
         module_path = tmp_path / "no_sub.py"
         module_path.write_text(code)
-        
+
         info = _extract_substrate_info(module_path)
-        
+
         assert info is None
 
     def test_syntax_error(self, tmp_path: Path):
         """Test handling syntax error."""
         module_path = tmp_path / "bad.py"
         module_path.write_text("def broken(")
-        
+
         info = _extract_substrate_info(module_path)
-        
+
         assert info is None
 
 
@@ -640,23 +636,23 @@ class TestSubstrateMap:
     def test_no_substrates_directory(self, tmp_path: Path):
         """Test when substrates directory doesn't exist."""
         lines = _substrate_map(tmp_path)
-        
+
         assert lines == ["_(no substrates directory)_"]
 
     def test_empty_substrates_directory(self, tmp_path: Path):
         """Test empty substrates directory."""
         substrates_dir = tmp_path / "metabolism" / "substrates"
         substrates_dir.mkdir(parents=True)
-        
+
         lines = _substrate_map(tmp_path)
-        
+
         assert lines == ["_(no substrate modules)_"]
 
     def test_substrate_map(self, tmp_path: Path):
         """Test generating substrate map."""
         substrates_dir = tmp_path / "metabolism" / "substrates"
         substrates_dir.mkdir(parents=True)
-        
+
         (substrates_dir / "test_sub.py").write_text('''
 """Test substrate module."""
 
@@ -679,9 +675,9 @@ class TestSubstrate:
         """Report."""
         pass
 ''')
-        
+
         lines = _substrate_map(tmp_path)
-        
+
         assert any("TestSubstrate" in line for line in lines)
         assert any("cortical" in line for line in lines)
 
@@ -726,23 +722,23 @@ class TestMetabolismModules:
     def test_no_metabolism_directory(self, tmp_path: Path):
         """Test when metabolism directory doesn't exist."""
         lines = _metabolism_modules(tmp_path)
-        
+
         assert lines == ["_(no metabolism directory)_"]
 
     def test_empty_metabolism_directory(self, tmp_path: Path):
         """Test empty metabolism directory."""
         met_dir = tmp_path / "metabolism"
         met_dir.mkdir()
-        
+
         lines = _metabolism_modules(tmp_path)
-        
+
         assert lines == ["_(no metabolism modules)_"]
 
     def test_metabolism_modules(self, tmp_path: Path):
         """Test generating metabolism modules summary."""
         met_dir = tmp_path / "metabolism"
         met_dir.mkdir()
-        
+
         (met_dir / "fitness.py").write_text('''
 """Fitness evaluation module."""
 
@@ -753,9 +749,9 @@ def evaluate():
     pass
 ''')
         (met_dir / "__init__.py").write_text("")
-        
+
         lines = _metabolism_modules(tmp_path)
-        
+
         assert any("fitness" in line.lower() for line in lines)
         assert any("Evaluator" in line for line in lines)
 
@@ -815,25 +811,25 @@ class TestOrganismTheory:
     def test_no_design_md(self, tmp_path: Path):
         """Test when design.md doesn't exist."""
         lines = _organism_theory(tmp_path)
-        
+
         assert lines == ["_(DESIGN.md not found)_"]
 
     def test_unreadable_design_md(self, tmp_path: Path):
         """Test handling unreadable design.md."""
         design_path = tmp_path / "design.md"
         design_path.mkdir()  # Make it a directory to trigger OSError
-        
+
         lines = _organism_theory(tmp_path)
-        
+
         assert any("unreadable" in line.lower() for line in lines)
 
     def test_extracts_theory(self, tmp_path: Path, sample_design_md: str):
         """Test extracting theory sections."""
         design_path = tmp_path / "design.md"
         design_path.write_text(sample_design_md)
-        
+
         lines = _organism_theory(tmp_path)
-        
+
         # Should extract section summaries
         assert any("Theory" in line for line in lines)
         assert any("Three Bodies" in line for line in lines)
@@ -841,7 +837,7 @@ class TestOrganismTheory:
     def test_ignores_code_blocks(self, tmp_path: Path):
         """Test that code blocks are ignored in summaries."""
         # Use a heading that's in section_keys
-        design = '''## The Theory
+        design = """## The Theory
 
 First paragraph here.
 
@@ -850,7 +846,7 @@ code here
 ```
 
 Second paragraph.
-'''
+"""
         design_path = tmp_path / "design.md"
         design_path.write_text(design)
 
@@ -863,7 +859,7 @@ Second paragraph.
     def test_ignores_tables(self, tmp_path: Path):
         """Test that tables are ignored in summaries."""
         # Use a heading that's in section_keys
-        design = '''## The Theory
+        design = """## The Theory
 
 First paragraph here.
 
@@ -872,7 +868,7 @@ First paragraph here.
 | 1 | 2 |
 
 Second paragraph.
-'''
+"""
         design_path = tmp_path / "design.md"
         design_path.write_text(design)
 
@@ -891,91 +887,85 @@ class TestKnownLesions:
     def test_no_plans_directory(self, tmp_path: Path):
         """Test when plans directory doesn't exist."""
         lines = _known_lesions(tmp_path)
-        
+
         assert any("no plans directory" in line for line in lines)
 
     def test_no_active_plans(self, tmp_path: Path):
         """Test when there are no active plans."""
         plans_dir = tmp_path / "plans"
         plans_dir.mkdir()
-        
-        (plans_dir / "done.md").write_text('''---
+
+        (plans_dir / "done.md").write_text("""---
 status: completed
 title: "Done"
 ---
 
 Done task.
-''')
-        
+""")
+
         lines = _known_lesions(tmp_path)
-        
+
         assert any("no active plans" in line for line in lines)
 
     def test_active_plans(self, tmp_path: Path):
         """Test with active plans."""
         plans_dir = tmp_path / "plans"
         plans_dir.mkdir()
-        
-        (plans_dir / "active.md").write_text('''---
+
+        (plans_dir / "active.md").write_text("""---
 status: active
 title: "Active Task"
 ---
 
 This is an active plan.
-''')
-        
+""")
+
         with patch("metabolon.resources.anatomy.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="5 passed", stderr="")
             lines = _known_lesions(tmp_path)
-        
+
         assert any("Active Task" in line for line in lines)
 
     def test_test_results_healthy(self, tmp_path: Path):
         """Test healthy test results."""
         with patch("metabolon.resources.anatomy.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                stdout="10 passed in 1.0s",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(stdout="10 passed in 1.0s", stderr="")
             lines = _known_lesions(tmp_path)
-        
+
         assert any("healthy" in line.lower() for line in lines)
         assert any("10 passed" in line for line in lines)
 
     def test_test_results_unhealthy(self, tmp_path: Path):
         """Test unhealthy test results."""
         with patch("metabolon.resources.anatomy.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                stdout="8 passed, 2 failed, 1 error",
-                stderr=""
-            )
+            mock_run.return_value = MagicMock(stdout="8 passed, 2 failed, 1 error", stderr="")
             lines = _known_lesions(tmp_path)
-        
+
         assert any("UNHEALTHY" in line for line in lines)
 
     def test_test_results_exception(self, tmp_path: Path):
         """Test handling test run exception."""
         with patch("metabolon.resources.anatomy.subprocess.run", side_effect=Exception("boom")):
             lines = _known_lesions(tmp_path)
-        
+
         assert any("could not run" in line for line in lines)
 
     def test_malformed_frontmatter(self, tmp_path: Path):
         """Test handling malformed frontmatter."""
         plans_dir = tmp_path / "plans"
         plans_dir.mkdir()
-        
-        (plans_dir / "bad.md").write_text('''---
+
+        (plans_dir / "bad.md").write_text("""---
 title: "Missing Status"
 ---
 
 No status field.
-''')
-        
+""")
+
         with patch("metabolon.resources.anatomy.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="", stderr="")
             lines = _known_lesions(tmp_path)
-        
+
         assert any("no active plans" in line for line in lines)
 
 
@@ -1002,14 +992,19 @@ class TestOperonHeartbeat:
         assert any("**1** stale" in line for line in lines)
         assert any("stale_op" in line for line in lines)
 
-    @patch("metabolon.metabolism.substrates.operon_monitor.OperonSubstrate", side_effect=ImportError)
+    @patch(
+        "metabolon.metabolism.substrates.operon_monitor.OperonSubstrate", side_effect=ImportError
+    )
     def test_heartbeat_import_error(self, mock_substrate: Mock):
         """Test handling import error."""
         lines = _operon_heartbeat()
 
         assert any("unavailable" in line for line in lines)
 
-    @patch("metabolon.metabolism.substrates.operon_monitor.OperonSubstrate", side_effect=Exception("boom"))
+    @patch(
+        "metabolon.metabolism.substrates.operon_monitor.OperonSubstrate",
+        side_effect=Exception("boom"),
+    )
     def test_heartbeat_exception(self, mock_substrate: Mock):
         """Test handling general exception."""
         lines = _operon_heartbeat()
@@ -1076,6 +1071,7 @@ class TestOperonSummary:
         """Test handling import error."""
         # Simulate ImportError by patching the module to raise on import
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -1101,14 +1097,14 @@ class TestExpressAnatomy:
         metabolon = tmp_path / "metabolon"
         metabolon.mkdir()
         (metabolon / "__init__.py").write_text("")
-        
+
         # Create resources directory
         resources = metabolon / "resources"
         resources.mkdir()
         (resources / "__init__.py").write_text("")
-        
+
         result = express_anatomy(metabolon)
-        
+
         assert "# vivesca — Anatomy" in result
         assert "## Organism Theory" in result
         assert "## Registered Tools" in result
@@ -1118,7 +1114,7 @@ class TestExpressAnatomy:
         """Test anatomy generation with tools."""
         metabolon = tmp_path / "metabolon"
         metabolon.mkdir()
-        
+
         enzymes = metabolon / "enzymes"
         enzymes.mkdir()
         (enzymes / "my_tools.py").write_text('''
@@ -1129,24 +1125,25 @@ def my_func(x: int) -> int:
     """A tool."""
     return x
 ''')
-        
+
         result = express_anatomy(metabolon)
-        
+
         assert "## Organ Descriptions" in result
         assert "my_tools" in result
 
     def test_express_anatomy_uses_default_src(self):
         """Test that express_anatomy uses default src when None provided."""
-        with patch("metabolon.resources.anatomy._organism_theory") as mock_theory, \
-             patch("metabolon.resources.anatomy._organ_descriptions") as mock_organs, \
-             patch("metabolon.resources.anatomy._substrate_map") as mock_substrate, \
-             patch("metabolon.resources.anatomy._metabolism_modules") as mock_met, \
-             patch("metabolon.resources.anatomy._scan_directory") as mock_scan, \
-             patch("metabolon.resources.anatomy._operon_summary") as mock_operon, \
-             patch("metabolon.resources.anatomy._operon_heartbeat") as mock_heartbeat, \
-             patch("metabolon.resources.anatomy._metabolism_summary") as mock_met_sum, \
-             patch("metabolon.resources.anatomy._known_lesions") as mock_lesions:
-            
+        with (
+            patch("metabolon.resources.anatomy._organism_theory") as mock_theory,
+            patch("metabolon.resources.anatomy._organ_descriptions") as mock_organs,
+            patch("metabolon.resources.anatomy._substrate_map") as mock_substrate,
+            patch("metabolon.resources.anatomy._metabolism_modules") as mock_met,
+            patch("metabolon.resources.anatomy._scan_directory") as mock_scan,
+            patch("metabolon.resources.anatomy._operon_summary") as mock_operon,
+            patch("metabolon.resources.anatomy._operon_heartbeat") as mock_heartbeat,
+            patch("metabolon.resources.anatomy._metabolism_summary") as mock_met_sum,
+            patch("metabolon.resources.anatomy._known_lesions") as mock_lesions,
+        ):
             mock_theory.return_value = []
             mock_organs.return_value = []
             mock_substrate.return_value = []
@@ -1156,9 +1153,9 @@ def my_func(x: int) -> int:
             mock_heartbeat.return_value = []
             mock_met_sum.return_value = []
             mock_lesions.return_value = []
-            
+
             result = express_anatomy()
-            
+
             assert "vivesca — Anatomy" in result
 
 
@@ -1172,7 +1169,7 @@ class TestEdgeCases:
         """Test handling empty file."""
         module_path = tmp_path / "empty.py"
         module_path.write_text("")
-        
+
         assert _extract_decorated_names(module_path, "tool") == []
         assert _extract_module_docstring(module_path) == ""
         assert _extract_tool_details(module_path) == []
@@ -1190,29 +1187,29 @@ def func():
 '''
         module_path = tmp_path / "unicode.py"
         module_path.write_text(code)
-        
+
         docstring = _extract_module_docstring(module_path)
         assert "émojis" in docstring
-        
+
         details = _extract_tool_details(module_path)
         assert len(details) == 1
         assert "中文" in details[0]["doc"]
 
     def test_multiline_decorator(self, tmp_path: Path):
         """Test handling multiline decorators."""
-        code = '''
+        code = """
 @tool(
     "multiline_tool",
     description="A tool with many args"
 )
 def func():
     pass
-'''
+"""
         module_path = tmp_path / "multiline.py"
         module_path.write_text(code)
-        
+
         results = _extract_decorated_names(module_path, "tool")
-        
+
         assert len(results) == 1
         assert results[0]["decorator_arg"] == "multiline_tool"
 
@@ -1228,9 +1225,9 @@ class Outer:
 '''
         module_path = tmp_path / "nested.py"
         module_path.write_text(code)
-        
+
         info = _extract_substrate_info(module_path)
-        
+
         # Should find InnerSubstrate
         assert info is not None
         assert info["class_name"] == "InnerSubstrate"
@@ -1239,8 +1236,8 @@ class Outer:
         """Test plan with multiline body."""
         plans_dir = tmp_path / "plans"
         plans_dir.mkdir()
-        
-        (plans_dir / "complex.md").write_text('''---
+
+        (plans_dir / "complex.md").write_text("""---
 status: active
 title: "Complex Plan"
 ---
@@ -1252,10 +1249,10 @@ This is a complex plan with multiple sections.
 ## Details
 
 More details here.
-''')
-        
+""")
+
         with patch("metabolon.resources.anatomy.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="", stderr="")
             lines = _known_lesions(tmp_path)
-        
+
         assert any("Complex Plan" in line for line in lines)

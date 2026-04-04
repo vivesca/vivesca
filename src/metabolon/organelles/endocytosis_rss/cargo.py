@@ -1,4 +1,3 @@
-
 """JSONL canonical cargo store for endocytosis.
 
 Biology: the early endosome collects all internalized cargo in one lumen.

@@ -31,7 +31,7 @@ def main():
     if STATE_FILE.exists():
         try:
             state = json.loads(STATE_FILE.read_text())
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             state = {}
 
     # Detect new session: no session_id in state means first prompt

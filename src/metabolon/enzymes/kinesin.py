@@ -1,10 +1,8 @@
-
 """kinesin — session-independent agent dispatcher.
 
 Tool:
   translocation — async tasks. Actions: list|run|cancel|results
 """
-
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations

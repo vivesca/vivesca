@@ -1,6 +1,6 @@
 ---
 name: auceps
-description: Smart wrapper for the bird X/Twitter CLI. Use instead of bare bird — auto-routes URLs, handles, and search; adds --vault and --lustro output modes.
+description: Smart wrapper for the bird X/Twitter CLI. Use instead of bare bird — auto-routes URLs, handles, and search; adds --vault and --endocytosis output modes.
 user_invocable: false
 ---
 
@@ -31,11 +31,11 @@ auceps post "tweet text"           # post a tweet (see Posting section below)
 
 ```bash
 auceps @handle --vault      # Obsidian markdown: # @handle (Name), bio, tweets
-auceps @handle --lustro     # JSON for lustro x_accounts ingestion
+auceps @handle --endocytosis     # JSON for endocytosis x_accounts ingestion
 auceps @handle -n 5         # limit tweets (default: 20)
 ```
 
-## Lustro JSON schema
+## Endocytosis JSON schema
 
 ```json
 {
@@ -88,7 +88,7 @@ end tell
 - **SSH/tmux:** If env vars not injected, bird fails with keychain exit 36. Fix: ensure `AUTH_TOKEN`/`CT0` are in `~/.zshenv.tpl` and shell was started after `op inject`. The old `security unlock-keychain` workaround is obsolete.
 - **`-n` not `-l`:** short flag for limit is `-n`, long is `--limit`
 - **`about` not `profile`:** auceps uses the correct bird subcommand internally — callers never need to know
-- **focus field:** `--lustro` leaves focus blank; bio isn't available from bird. Fill it manually or from context.
+- **focus field:** `--endocytosis` leaves focus blank; bio isn't available from bird. Fill it manually or from context.
 - **Thread depth:** `auceps thread` follows quoted tweet URLs via regex. Stops early if no quoted tweet found.
 
 ## Binary

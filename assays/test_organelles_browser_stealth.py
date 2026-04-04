@@ -11,17 +11,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.organelles.browser_stealth import (
-    CHROME_USER_AGENTS,
-    _WEBDRIVER_PATCH_JS,
     _CHROME_RUNTIME_PATCH_JS,
-    _PLUGINS_PATCH_JS,
     _PERMISSIONS_PATCH_JS,
+    _PLUGINS_PATCH_JS,
+    _WEBDRIVER_PATCH_JS,
+    CHROME_USER_AGENTS,
     human_delay,
     patch_navigator,
     set_realistic_headers,
     stealth_context,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -143,7 +142,9 @@ class TestHumanDelay:
     @pytest.mark.asyncio
     @patch("metabolon.organelles.browser_stealth.random.uniform")
     @patch("metabolon.organelles.browser_stealth.asyncio.sleep")
-    async def test_calls_random_uniform(self, mock_sleep: MagicMock, mock_uniform: MagicMock) -> None:
+    async def test_calls_random_uniform(
+        self, mock_sleep: MagicMock, mock_uniform: MagicMock
+    ) -> None:
         """human_delay should call random.uniform with given range."""
         mock_sleep.return_value = None
         mock_uniform.return_value = 1.5

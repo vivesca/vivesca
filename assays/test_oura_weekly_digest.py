@@ -6,16 +6,12 @@ Effectors are scripts — loaded via exec(open(path).read(), ns), never imported
 All function calls use dict-style access: ns["func"]().
 """
 
-import os
 import subprocess
-import types
 import sys
-import textwrap
-from datetime import date, timedelta
+import types
+from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
 
@@ -23,6 +19,7 @@ EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_script(name: str) -> dict:
     """Load a Python effector into a namespace dict."""
@@ -47,6 +44,7 @@ def _load_script(name: str) -> dict:
 
 class ns_proxy:
     """Proxy that wraps a dict so ns.func() works via dict access."""
+
     def __init__(self, d: dict):
         self.__dict__["_d"] = d
 
@@ -70,6 +68,7 @@ def _load(name: str) -> ns_proxy:
 # ===================================================================
 # strip_ansi
 # ===================================================================
+
 
 class TestStripAnsi:
     def test_removes_color_codes(self):
@@ -95,6 +94,7 @@ class TestStripAnsi:
 # parse_trend_table
 # ===================================================================
 
+
 class TestParseTrendTable:
     def test_basic_rows(self):
         ns = _load("oura-weekly-digest")
@@ -106,7 +106,12 @@ class TestParseTrendTable:
         )
         rows = ns.parse_trend_table(raw)
         assert len(rows) == 3
-        assert rows[0] == {"date": "Mon Mar 24", "sleep": "85", "readiness": "90", "activity": "78"}
+        assert rows[0] == {
+            "date": "Mon Mar 24",
+            "sleep": "85",
+            "readiness": "90",
+            "activity": "78",
+        }
         assert rows[2]["sleep"] == "90"
 
     def test_skips_header_and_average(self):
@@ -143,6 +148,7 @@ class TestParseTrendTable:
 # ===================================================================
 # compute_avg
 # ===================================================================
+
 
 class TestComputeAvg:
     def test_normal_values(self):
@@ -181,6 +187,7 @@ class TestComputeAvg:
 # trend_arrow
 # ===================================================================
 
+
 class TestTrendArrow:
     def test_trending_up(self):
         ns = _load("oura-weekly-digest")
@@ -217,6 +224,7 @@ class TestTrendArrow:
 # format_section
 # ===================================================================
 
+
 class TestFormatSection:
     def test_normal_text(self):
         ns = _load("oura-weekly-digest")
@@ -242,6 +250,7 @@ class TestFormatSection:
 # run (subprocess mock)
 # ===================================================================
 
+
 class TestRun:
     def test_replaces_oura_binary(self):
         ns = _load("oura-weekly-digest")
@@ -259,9 +268,12 @@ class TestRun:
     def test_strips_ansi_from_output(self):
         ns = _load("oura-weekly-digest")
 
-        with patch("subprocess.run", return_value=subprocess.CompletedProcess(
-            [], 0, stdout="\x1b[32mhello\x1b[0m", stderr=""
-        )):
+        with patch(
+            "subprocess.run",
+            return_value=subprocess.CompletedProcess(
+                [], 0, stdout="\x1b[32mhello\x1b[0m", stderr=""
+            ),
+        ):
             result = ns.run(["some_cmd"])
         assert result == "hello"
 
@@ -280,6 +292,7 @@ class TestRun:
 # ===================================================================
 # main (integration with mocks)
 # ===================================================================
+
 
 class TestMain:
     @staticmethod
@@ -366,8 +379,15 @@ class TestMain:
         note_path = tmp_path / "notes" / "Daily" / f"Oura Weekly - {today.strftime('%Y-%m-%d')}.md"
         content = note_path.read_text()
         # Should have 7 data rows
-        for d in ["Mon Mar 24", "Tue Mar 25", "Wed Mar 26", "Thu Mar 27",
-                   "Fri Mar 28", "Sat Mar 29", "Sun Mar 30"]:
+        for d in [
+            "Mon Mar 24",
+            "Tue Mar 25",
+            "Wed Mar 26",
+            "Thu Mar 27",
+            "Fri Mar 28",
+            "Sat Mar 29",
+            "Sun Mar 30",
+        ]:
             assert d in content
 
     def test_main_averages(self, tmp_path, monkeypatch):

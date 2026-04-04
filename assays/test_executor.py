@@ -3,40 +3,33 @@ from __future__ import annotations
 """Tests for metabolon.sortase.executor module."""
 
 
-import asyncio
-import json
 import os
-import tempfile
-from dataclasses import asdict
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from metabolon.sortase.decompose import TaskSpec
 from metabolon.sortase.executor import (
-    DEFAULT_TIMEOUT_SEC,
     FALLBACK_ORDER,
     ExecutionAttempt,
     FallbackStep,
     TaskExecutionResult,
     _clean_env,
     _compute_adaptive_timeout,
+    _legacy_tombstone,
+    _read_status_entries,
+    _status_path,
     _tool_chain,
     _validate_backend,
+    _write_status_entries,
     classify_failure,
     estimate_cost,
     execute_task,
     execute_tasks,
-    list_running,
     register_running,
     summarize_cost_estimates,
     unregister_running,
-    _legacy_tombstone,
-    _read_status_entries,
-    _write_status_entries,
-    _status_path,
 )
 
 
@@ -119,7 +112,7 @@ class TestEstimateCost:
     def test_gemini_cost_estimation(self):
         """Gemini cost estimation based on token approximation."""
         prompt = "x" * 4000  # ~1000 tokens
-        output = "y" * 400   # ~100 tokens
+        output = "y" * 400  # ~100 tokens
         result = estimate_cost("gemini", prompt, output)
         assert result.startswith("$")
         # 1000 input tokens * $2/M = $0.002
@@ -153,10 +146,12 @@ class TestSummarizeCostEstimates:
 
     def test_mixed_costs(self):
         """Mixed costs are summed with notes."""
-        result = summarize_cost_estimates([
-            "$0.0050",
-            "$0.00 (flat-rate)",
-        ])
+        result = summarize_cost_estimates(
+            [
+                "$0.0050",
+                "$0.00 (flat-rate)",
+            ]
+        )
         assert "$0.0050" in result
         assert "flat-rate" in result
 
@@ -299,43 +294,43 @@ class TestStatusManagement:
             {"task_name": "task1", "tool": "gemini"},
             {"task_name": "task2", "tool": "codex"},
         ]
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
             _write_status_entries(entries)
             result = _read_status_entries()
-        
+
         assert result == entries
 
     def test_read_status_missing_file(self, tmp_path):
         """Reading missing status file returns empty list."""
         status_file = tmp_path / "missing.json"
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
             result = _read_status_entries()
-        
+
         assert result == []
 
     def test_read_status_invalid_json(self, tmp_path):
         """Reading invalid JSON returns empty list."""
         status_file = tmp_path / "invalid.json"
         status_file.write_text("not valid json")
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
             result = _read_status_entries()
-        
+
         assert result == []
 
     def test_register_unregister_running(self, tmp_path):
         """Register and unregister running tasks."""
         status_file = tmp_path / "status.json"
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
             register_running("task1", "gemini", Path("/project"))
             entries = _read_status_entries()
             assert len(entries) == 1
             assert entries[0]["task_name"] == "task1"
             assert entries[0]["tool"] == "gemini"
-            
+
             unregister_running("task1", Path("/project"))
             entries = _read_status_entries()
             assert len(entries) == 0
@@ -375,7 +370,7 @@ class TestExecuteTask:
             spec="Do something",
             files=[],
         )
-        
+
         mock_attempt = ExecutionAttempt(
             tool="gemini",
             exit_code=0,
@@ -384,11 +379,15 @@ class TestExecuteTask:
             failure_reason=None,
             cost_estimate="$0.001",
         )
-        
+
         status_file = tmp_path / "status.json"
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
-            with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, return_value=mock_attempt):
+            with patch(
+                "metabolon.sortase.executor._run_command",
+                new_callable=AsyncMock,
+                return_value=mock_attempt,
+            ):
                 with patch("metabolon.sortase.executor._validate_backend"):
                     result = await execute_task(
                         task,
@@ -396,7 +395,7 @@ class TestExecuteTask:
                         "gemini",
                         timeout_sec=60,
                     )
-        
+
         assert result.success is True
         assert result.task_name == "test-task"
         assert result.tool == "gemini"
@@ -433,7 +432,11 @@ class TestExecuteTask:
         status_file = tmp_path / "status.json"
 
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
-            with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail_attempt, success_attempt]):
+            with patch(
+                "metabolon.sortase.executor._run_command",
+                new_callable=AsyncMock,
+                side_effect=[fail_attempt, success_attempt],
+            ):
                 with patch("metabolon.sortase.executor._validate_backend"):
                     result = await execute_task(
                         task,
@@ -457,7 +460,7 @@ class TestExecuteTasks:
             TaskSpec(name="task1", description="Task 1", spec="Do 1", files=[]),
             TaskSpec(name="task2", description="Task 2", spec="Do 2", files=[]),
         ]
-        
+
         mock_attempt = ExecutionAttempt(
             tool="gemini",
             exit_code=0,
@@ -466,12 +469,16 @@ class TestExecuteTasks:
             failure_reason=None,
             cost_estimate="$0.001",
         )
-        
+
         tool_by_task = {"task1": "gemini", "task2": "gemini"}
         status_file = tmp_path / "status.json"
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
-            with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, return_value=mock_attempt):
+            with patch(
+                "metabolon.sortase.executor._run_command",
+                new_callable=AsyncMock,
+                return_value=mock_attempt,
+            ):
                 with patch("metabolon.sortase.executor._validate_backend"):
                     results = await execute_tasks(
                         tasks,
@@ -480,7 +487,7 @@ class TestExecuteTasks:
                         serial=True,
                         timeout_sec=60,
                     )
-        
+
         assert len(results) == 2
         assert all(r.success for r in results)
 
@@ -491,7 +498,7 @@ class TestExecuteTasks:
             TaskSpec(name="task1", description="Task 1", spec="Do 1", files=[]),
             TaskSpec(name="task2", description="Task 2", spec="Do 2", files=[]),
         ]
-        
+
         mock_attempt = ExecutionAttempt(
             tool="gemini",
             exit_code=0,
@@ -500,12 +507,16 @@ class TestExecuteTasks:
             failure_reason=None,
             cost_estimate="$0.001",
         )
-        
+
         tool_by_task = {"task1": "gemini", "task2": "gemini"}
         status_file = tmp_path / "status.json"
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
-            with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, return_value=mock_attempt):
+            with patch(
+                "metabolon.sortase.executor._run_command",
+                new_callable=AsyncMock,
+                return_value=mock_attempt,
+            ):
                 with patch("metabolon.sortase.executor._validate_backend"):
                     with patch("metabolon.sortase.executor._is_git_repo", return_value=False):
                         results = await execute_tasks(
@@ -515,6 +526,6 @@ class TestExecuteTasks:
                             serial=False,
                             timeout_sec=60,
                         )
-        
+
         assert len(results) == 2
         assert all(r.success for r in results)

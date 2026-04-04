@@ -1,4 +1,3 @@
-
 """mitosis — asymmetric cell division for disaster recovery.
 
 Soma (fly.io, nrt) is the primary. The iMac is the standby — kept
@@ -9,7 +8,6 @@ No direct SSH or rsync needed — all remote commands go through `fly ssh consol
 
 Core functions: sync, status, setup.
 """
-
 
 import subprocess
 import time
@@ -119,7 +117,7 @@ def _is_soma_reachable(retries: int = 3, backoff: float = 5.0) -> bool:
             )
             if result.returncode == 0 and "started" in result.stdout:
                 return True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except subprocess.TimeoutExpired, FileNotFoundError:
             pass
         if attempt < retries - 1:
             time.sleep(backoff * (attempt + 1))

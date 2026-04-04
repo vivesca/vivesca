@@ -132,7 +132,7 @@ class TestPathBlocking:
 
     @pytest.mark.skipif(
         os.path.expanduser("~").startswith("/home"),
-        reason="Downloads blocking uses macOS-specific path"
+        reason="Downloads blocking uses macOS-specific path",
     )
     def test_blocks_downloads_directory(self):
         """Test that Downloads directory is blocked as too large."""
@@ -147,7 +147,7 @@ class TestPathBlocking:
 
     @pytest.mark.skipif(
         os.path.expanduser("~").startswith("/home"),
-        reason="Pictures blocking uses macOS-specific path"
+        reason="Pictures blocking uses macOS-specific path",
     )
     def test_blocks_pictures_directory(self):
         """Test that Pictures directory is blocked as too large."""
@@ -237,8 +237,7 @@ class TestBlockingLogic:
         assert "BLOCKED" in out
 
     @pytest.mark.skipif(
-        os.path.expanduser("~").startswith("/home"),
-        reason="~/Library blocking is macOS-specific"
+        os.path.expanduser("~").startswith("/home"), reason="~/Library blocking is macOS-specific"
     )
     def test_blocks_macos_library_via_mock(self, sg):
         """Test macOS Library path blocking via mock."""

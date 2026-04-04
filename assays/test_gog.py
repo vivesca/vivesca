@@ -117,12 +117,20 @@ class TestParser:
 
     def test_read_all_flags(self):
         parser = build_parser()
-        args = parser.parse_args([
-            "gmail", "read", "--full", "--unread",
-            "--from", "alice@example.com",
-            "--after", "2025/01/01",
-            "--max", "50",
-        ])
+        args = parser.parse_args(
+            [
+                "gmail",
+                "read",
+                "--full",
+                "--unread",
+                "--from",
+                "alice@example.com",
+                "--after",
+                "2025/01/01",
+                "--max",
+                "50",
+            ]
+        )
         assert args.full is True
         assert args.unread is True
         assert args.from_ == "alice@example.com"
@@ -131,21 +139,34 @@ class TestParser:
 
     def test_send_flags(self):
         parser = build_parser()
-        args = parser.parse_args([
-            "gmail", "send",
-            "--to", "bob@example.com",
-            "--subject", "Hello",
-            "--body", "World",
-        ])
+        args = parser.parse_args(
+            [
+                "gmail",
+                "send",
+                "--to",
+                "bob@example.com",
+                "--subject",
+                "Hello",
+                "--body",
+                "World",
+            ]
+        )
         assert args.to == "bob@example.com"
         assert args.subject == "Hello"
         assert args.body == "World"
 
     def test_reply_flags(self):
         parser = build_parser()
-        args = parser.parse_args([
-            "gmail", "reply", "--id", "msg123", "--body", "reply text",
-        ])
+        args = parser.parse_args(
+            [
+                "gmail",
+                "reply",
+                "--id",
+                "msg123",
+                "--body",
+                "reply text",
+            ]
+        )
         assert args.id == "msg123"
         assert args.body == "reply text"
 
@@ -167,10 +188,19 @@ class TestParser:
 
     def test_batch_modify_flags(self):
         parser = build_parser()
-        args = parser.parse_args([
-            "gmail", "batch", "modify", "id1", "id2",
-            "--remove", "UNREAD", "--remove", "INBOX",
-        ])
+        args = parser.parse_args(
+            [
+                "gmail",
+                "batch",
+                "modify",
+                "id1",
+                "id2",
+                "--remove",
+                "UNREAD",
+                "--remove",
+                "INBOX",
+            ]
+        )
         assert args.ids == ["id1", "id2"]
         assert args.remove == ["UNREAD", "INBOX"]
 
@@ -214,11 +244,13 @@ class TestHelpers:
 
     def test_decode_body_plain(self):
         import base64
+
         payload = {"body": {"data": base64.urlsafe_b64encode(b"Hello body").decode()}}
         assert _decode_body(payload) == "Hello body"
 
     def test_decode_body_multipart(self):
         import base64
+
         text_part = {
             "mimeType": "text/plain",
             "body": {"data": base64.urlsafe_b64encode(b"Plain part").decode()},
@@ -233,8 +265,6 @@ class TestHelpers:
 # ── Functional tests (mocked API) ────────────────────────────────────
 
 from io import StringIO
-
-import pytest
 
 
 def _mock_msg(
@@ -278,9 +308,7 @@ class TestCmdRead:
 
     def test_read_inbox(self, mock_service):
         svc = mock_service
-        svc.users().messages().list().execute.return_value = {
-            "messages": [{"id": "m1"}]
-        }
+        svc.users().messages().list().execute.return_value = {"messages": [{"id": "m1"}]}
         svc.users().messages().get().execute.return_value = _mock_msg()
 
         args = argparse.Namespace(
@@ -314,8 +342,7 @@ class TestCmdSend:
         svc.users().messages().send().execute.return_value = {"id": "sent1"}
 
         args = argparse.Namespace(
-            to="bob@test.com", subject="Hi", body="Hello",
-            reply_to_message_id=None, quote=False
+            to="bob@test.com", subject="Hi", body="Hello", reply_to_message_id=None, quote=False
         )
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_send"](args)
@@ -328,9 +355,11 @@ class TestCmdSend:
         svc.users().messages().send().execute.return_value = {"id": "sent2"}
 
         args = argparse.Namespace(
-            to="bob@test.com", subject="Re: Test",
+            to="bob@test.com",
+            subject="Re: Test",
             body="Reply body",
-            reply_to_message_id="orig1", quote=False
+            reply_to_message_id="orig1",
+            quote=False,
         )
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_send"](args)
@@ -365,13 +394,11 @@ class TestCmdArchive:
             _mod["cmd_archive"](args)
         assert "Archived: m1" in out.getvalue()
         # Verify the modify call was made with correct kwargs
-        modify_calls = [
-            c for c in svc.users().messages().modify.call_args_list
-            if c.kwargs
-        ]
+        modify_calls = [c for c in svc.users().messages().modify.call_args_list if c.kwargs]
         assert len(modify_calls) == 1
         assert modify_calls[0].kwargs == {
-            "userId": "me", "id": "m1",
+            "userId": "me",
+            "id": "m1",
             "body": {"removeLabelIds": ["INBOX"]},
         }
 
@@ -381,9 +408,7 @@ class TestCmdSearch:
 
     def test_search(self, mock_service):
         svc = mock_service
-        svc.users().messages().list().execute.return_value = {
-            "messages": [{"id": "s1"}]
-        }
+        svc.users().messages().list().execute.return_value = {"messages": [{"id": "s1"}]}
         svc.users().messages().get().execute.return_value = _mock_msg("s1")
 
         args = argparse.Namespace(query="from:alice", max=20, limit=None)
@@ -408,9 +433,7 @@ class TestCmdBatchModify:
         svc = mock_service
         svc.users().messages().batchModify().execute.return_value = {}
 
-        args = argparse.Namespace(
-            ids=["m1", "m2"], add=None, remove=["UNREAD", "INBOX"]
-        )
+        args = argparse.Namespace(ids=["m1", "m2"], add=None, remove=["UNREAD", "INBOX"])
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_batch_modify"](args)
         assert "Modified 2 messages" in out.getvalue()
@@ -433,8 +456,12 @@ class TestCmdDrafts:
         svc.users().drafts().create().execute.return_value = {"id": "d1"}
 
         args = argparse.Namespace(
-            to="bob@test.com", cc=None, subject="Draft",
-            body="Draft body", reply_to_message_id=None, attach=None
+            to="bob@test.com",
+            cc=None,
+            subject="Draft",
+            body="Draft body",
+            reply_to_message_id=None,
+            attach=None,
         )
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_drafts_create"](args)

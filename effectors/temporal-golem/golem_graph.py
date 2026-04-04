@@ -6,6 +6,7 @@ Replaces raw `claude --print` subprocess with a structured agent graph:
 
 Uses provider's Anthropic-compatible API (ZhiPu, etc.) via langchain-anthropic.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,7 +42,11 @@ def run_shell(command: str) -> str:
     """Run a shell command and return stdout+stderr. Use for file ops, git, etc."""
     try:
         result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=60,
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
             cwd=str(Path.home()),
         )
         output = result.stdout + result.stderr
@@ -120,16 +125,22 @@ def _get_llm(provider: str) -> ChatZhipuAI:
 def plan_node(state: GolemState) -> dict:
     """Plan the task execution."""
     llm = _get_llm(state["provider"])
-    response = llm.invoke([
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=f"Plan the execution of this task step by step. Be concise.\n\nTask: {state['task']}"),
-    ])
+    response = llm.invoke(
+        [
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(
+                content=f"Plan the execution of this task step by step. Be concise.\n\nTask: {state['task']}"
+            ),
+        ]
+    )
     plan = response.content if isinstance(response.content, str) else str(response.content)
     return {
         "plan": plan,
         "messages": [
             SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=f"Execute this task. Follow your plan.\n\nTask: {state['task']}\n\nPlan:\n{plan}"),
+            HumanMessage(
+                content=f"Execute this task. Follow your plan.\n\nTask: {state['task']}\n\nPlan:\n{plan}"
+            ),
         ],
     }
 
@@ -153,7 +164,9 @@ def execute_node(state: GolemState) -> dict:
                 tool_messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
                 tool_calls_count += 1
             else:
-                tool_messages.append(ToolMessage(content=f"Unknown tool: {tc['name']}", tool_call_id=tc["id"]))
+                tool_messages.append(
+                    ToolMessage(content=f"Unknown tool: {tc['name']}", tool_call_id=tc["id"])
+                )
         messages.extend(tool_messages)
 
     return {"messages": messages, "tool_calls_count": tool_calls_count}
@@ -180,10 +193,12 @@ def verify_node(state: GolemState) -> dict:
     """Verify the work was done correctly."""
     llm = _get_llm(state["provider"])
     messages = list(state["messages"])
-    messages.append(HumanMessage(
-        content="Verify your work. Read back any files you modified. "
-                "Report: (1) what was done, (2) what changed, (3) any concerns. Be concise."
-    ))
+    messages.append(
+        HumanMessage(
+            content="Verify your work. Read back any files you modified. "
+            "Report: (1) what was done, (2) what changed, (3) any concerns. Be concise."
+        )
+    )
     response = llm.bind_tools(TOOLS).invoke(messages)
     messages.append(response)
 
@@ -198,9 +213,13 @@ def verify_node(state: GolemState) -> dict:
         # Get final verification summary
         response2 = llm.invoke(messages)
         messages.append(response2)
-        verification = response2.content if isinstance(response2.content, str) else str(response2.content)
+        verification = (
+            response2.content if isinstance(response2.content, str) else str(response2.content)
+        )
     else:
-        verification = response.content if isinstance(response.content, str) else str(response.content)
+        verification = (
+            response.content if isinstance(response.content, str) else str(response.content)
+        )
 
     return {"messages": messages, "verification": verification}
 
@@ -233,7 +252,9 @@ def review_node(state: GolemState) -> dict:
         flags.append(f"thin_execution: {tool_calls} tools for {task_words}-word task")
 
     approved = not any(f.startswith("destruction") for f in flags) and tool_calls > 0
-    verdict = "approved" if approved and not flags else "approved_with_flags" if approved else "rejected"
+    verdict = (
+        "approved" if approved and not flags else "approved_with_flags" if approved else "rejected"
+    )
 
     review = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -271,7 +292,9 @@ def build_golem_graph():
 
     graph.set_entry_point("plan")
     graph.add_edge("plan", "execute")
-    graph.add_conditional_edges("execute", should_continue, {"execute": "execute", "verify": "verify"})
+    graph.add_conditional_edges(
+        "execute", should_continue, {"execute": "execute", "verify": "verify"}
+    )
     graph.add_edge("verify", "review")
     graph.add_edge("review", END)
 
@@ -285,15 +308,17 @@ def run_golem_graph(task: str, provider: str = "zhipu") -> dict:
     """Run the golem graph synchronously. Called from Temporal activity."""
     graph = build_golem_graph()
 
-    result = graph.invoke({
-        "task": task,
-        "provider": provider,
-        "messages": [],
-        "plan": "",
-        "verification": "",
-        "review": {},
-        "tool_calls_count": 0,
-    })
+    result = graph.invoke(
+        {
+            "task": task,
+            "provider": provider,
+            "messages": [],
+            "plan": "",
+            "verification": "",
+            "review": {},
+            "tool_calls_count": 0,
+        }
+    )
 
     review = result.get("review", {})
     verification = result.get("verification", "")

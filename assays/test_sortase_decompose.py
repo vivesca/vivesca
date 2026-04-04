@@ -50,7 +50,7 @@ YAML_SINGLE_TASK = """\
 tasks:
   - name: fix-typo
     description: Fix typo in README
-    spec: Change "helo world" to "hello world" in README.md.
+    spec: Change "hello world" to "hello world" in README.md.
     files:
       - README.md
 """
@@ -87,6 +87,7 @@ tasks:
 # Tests: TaskSpec dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestTaskSpec:
     def test_fields(self):
         ts = TaskSpec(
@@ -121,6 +122,7 @@ class TestTaskSpec:
 # ---------------------------------------------------------------------------
 # Tests: _parse_yaml_tasks
 # ---------------------------------------------------------------------------
+
 
 class TestParseYamlTasks:
     def test_dict_with_tasks_key(self):
@@ -179,6 +181,7 @@ class TestParseYamlTasks:
 # Tests: _write_temp_specs
 # ---------------------------------------------------------------------------
 
+
 class TestWriteTempSpecs:
     def test_writes_temp_files(self):
         tasks = [
@@ -217,6 +220,7 @@ class TestWriteTempSpecs:
 # ---------------------------------------------------------------------------
 # Tests: decompose_plan integration
 # ---------------------------------------------------------------------------
+
 
 class TestDecomposePlan:
     def test_markdown_single_task(self, tmp_path: Path):
@@ -295,7 +299,7 @@ class TestDecomposePlan:
 # Tests: estimate_complexity
 # ---------------------------------------------------------------------------
 
-SIMPLE_SPEC = "Fix the typo in README.md: change 'helo' to 'hello'."
+SIMPLE_SPEC = "Fix the typo in README.md: change 'hello' to 'hello'."
 
 MEDIUM_SPEC = """\
 Modify two files to add logging:
@@ -361,8 +365,11 @@ class TestComplexityScore:
 
     def test_frozen(self):
         cs = ComplexityScore(
-            level="simple", files_referenced=1, code_blocks=0,
-            verification_commands=0, estimated_lines=5,
+            level="simple",
+            files_referenced=1,
+            code_blocks=0,
+            verification_commands=0,
+            estimated_lines=5,
         )
         with pytest.raises(AttributeError):
             cs.level = "complex"
@@ -721,7 +728,7 @@ class TestLintPlan:
 
     def test_no_output_path_warning(self):
         warnings = lint_plan(LINT_NO_OUTPUT_PLAN)
-        messages = " ".join(warnings)
+        " ".join(warnings)
         assert any("output path" in w.lower() for w in warnings)
 
     def test_no_constraints_warning(self):

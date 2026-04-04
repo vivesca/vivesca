@@ -39,11 +39,11 @@ Run every Friday or on demand.
 
 ### Step 1: Gather
 
-**Anchor source: Evident Banking Brief** (published Thursdays, auto-fetched to lustro cache).
+**Anchor source: Evident Banking Brief** (published Thursdays, auto-fetched to endocytosis cache).
 - Run `evident-brief --save` if not already saved this week, or read from `~/epigenome/chromatin/euchromatin/evident/`
 - Read the full brief deeply — this is the primary input, not a supplement
 - Then check `[[AI News Log]]` entries from the past 7 days for items Evident didn't cover (Chinese AI, pure tech shifts, regulatory)
-- Check `/lustro` state: `~/.cache/lustro-state.json` for last scan
+- Check `/endocytosis` state: `~/.cache/endocytosis-state.json` for last scan
 - If Evident + log leave gaps, supplement with 1-2 WebSearches:
   - "HKMA AI regulation [month] [year]"
   - "major AI announcements [date range]"
@@ -168,7 +168,7 @@ Append the full monthly review under `## Monthly Reviews`:
 ## Integration with Other Skills
 
 - `/weekly` should suggest `/dialexis` on Fridays
-- `/lustro` feeds the raw material; this skill synthesizes it
+- `/endocytosis` feeds the raw material; this skill synthesizes it
 - `/meeting-prep` can reference `[[Theoria]]` for talking points
 
 ## Anti-Patterns

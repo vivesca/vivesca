@@ -69,7 +69,7 @@ Use nodriver with a persistent profile:
 cd /tmp && uv run --python 3.13 --with nodriver python3 -c "
 import asyncio, nodriver as uc
 from pathlib import Path
-PROFILE = Path.home() / '.config/lustro/nodriver-profile'
+PROFILE = Path.home() / '.config/endocytosis/nodriver-profile'
 PROFILE.mkdir(parents=True, exist_ok=True)
 async def main():
     b = await uc.start(headless=False, user_data_dir=str(PROFILE))
@@ -80,7 +80,7 @@ async def main():
 asyncio.run(main())
 "
 ```
-Session persists in `~/.config/lustro/nodriver-profile/` for future headless use.
+Session persists in `~/.config/endocytosis/nodriver-profile/` for future headless use.
 Confirmed working: **quaily.com** (Mar 2026). Full reference: `browser-automation-comparison.md`.
 
 **Decision flow:**

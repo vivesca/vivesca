@@ -5,14 +5,13 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def sample_cli_dir(tmp_path: Path) -> Path:
@@ -42,7 +41,8 @@ def sample_tools_dir(tmp_path: Path) -> Path:
     tools = tmp_path / "tools"
     tools.mkdir()
     mod = tools / "example.py"
-    mod.write_text(textwrap.dedent("""\
+    mod.write_text(
+        textwrap.dedent("""\
         from some_sdk import tool
 
         @tool
@@ -57,7 +57,8 @@ def sample_tools_dir(tmp_path: Path) -> Path:
 
         def helper():
             pass
-    """))
+    """)
+    )
     return tools
 
 
@@ -65,13 +66,16 @@ def sample_tools_dir(tmp_path: Path) -> Path:
 def sample_routing(tmp_path: Path) -> Path:
     """Create a minimal routing table file."""
     rp = tmp_path / "proteome.md"
-    rp.write_text("# Signal Routing\n| Trigger | Tool |\n|---------|------|\n| email  | endosomal |")
+    rp.write_text(
+        "# Signal Routing\n| Trigger | Tool |\n|---------|------|\n| email  | endosomal |"
+    )
     return rp
 
 
 # ---------------------------------------------------------------------------
 # _scan_effector_dir
 # ---------------------------------------------------------------------------
+
 
 class TestScanEffectorDir:
     def test_finds_executables(self, sample_cli_dir: Path) -> None:
@@ -100,6 +104,7 @@ class TestScanEffectorDir:
 # ---------------------------------------------------------------------------
 # _scan_organelle_tools
 # ---------------------------------------------------------------------------
+
 
 class TestScanOrganelleTools:
     def test_extracts_tools(self, sample_tools_dir: Path) -> None:
@@ -130,6 +135,7 @@ class TestScanOrganelleTools:
 # ---------------------------------------------------------------------------
 # _read_signal_routing
 # ---------------------------------------------------------------------------
+
 
 class TestReadSignalRouting:
     def test_reads_file(self, sample_routing: Path) -> None:
@@ -174,8 +180,11 @@ class TestReadSignalRouting:
 # express_effector_index (public API)
 # ---------------------------------------------------------------------------
 
+
 class TestExpressEffectorIndex:
-    def test_full_output(self, sample_cli_dir: Path, sample_tools_dir: Path, sample_routing: Path) -> None:
+    def test_full_output(
+        self, sample_cli_dir: Path, sample_tools_dir: Path, sample_routing: Path
+    ) -> None:
         from metabolon.resources.proteome import express_effector_index
 
         output = express_effector_index(
@@ -236,7 +245,7 @@ class TestExpressEffectorIndex:
         mod = tools / "long.py"
         long_doc = "A" * 120
         mod.write_text(
-            f'from sdk import tool\n\n@tool\ndef vivesca__long_tool(x: int) -> int:\n    \'\'\'{long_doc}\'\'\'\n    return x\n'
+            f"from sdk import tool\n\n@tool\ndef vivesca__long_tool(x: int) -> int:\n    '''{long_doc}'''\n    return x\n"
         )
         output = express_effector_index(
             bin_dir=tmp_path / "nb",

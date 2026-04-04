@@ -5,7 +5,6 @@ checks signal correlation and constitution overlap, then proposes
 promote/migrate/prune actions. Short-term → long-term.
 """
 
-
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path

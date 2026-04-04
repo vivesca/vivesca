@@ -1,4 +1,3 @@
-
 """nociceptor — unified error detection and pain signaling.
 
 Fuses infection log, signal bus, and hook fire log into a unified
@@ -12,12 +11,11 @@ Pain taxonomy:
   chronic   — any type seen >CHRONIC_THRESHOLD times (escalate)
 """
 
-
 import json
-from pathlib import Path
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Literal
 
 from metabolon.locus import infections_log, logs_dir, signals_log
@@ -98,7 +96,7 @@ def _read_jsonl(path: Path, max_age_hours: float = 24) -> list[dict]:
                             ts = ts.replace(tzinfo=HKT)
                         if ts < cutoff:
                             continue
-                    except (ValueError, TypeError):
+                    except ValueError, TypeError:
                         pass
                 entries.append(entry)
             except json.JSONDecodeError:

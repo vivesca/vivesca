@@ -53,10 +53,15 @@ class TestBasics:
 
 class TestModulePath:
     def test_simple(self, ns, fake_root):
-        assert ns["module_path"](fake_root / "metabolon" / "alpha.py", fake_root) == "metabolon.alpha"
+        assert (
+            ns["module_path"](fake_root / "metabolon" / "alpha.py", fake_root) == "metabolon.alpha"
+        )
 
     def test_nested(self, ns, fake_root):
-        assert ns["module_path"](fake_root / "metabolon" / "org" / "nuc.py", fake_root) == "metabolon.org.nuc"
+        assert (
+            ns["module_path"](fake_root / "metabolon" / "org" / "nuc.py", fake_root)
+            == "metabolon.org.nuc"
+        )
 
 
 # ── collect_metabolon_modules ──────────────────────────────────────────────
@@ -66,7 +71,10 @@ class TestCollectModules:
     def test_finds_py(self, ns, fake_root):
         _write(fake_root / "metabolon" / "alpha.py")
         _write(fake_root / "metabolon" / "beta.py")
-        assert ns["collect_metabolon_modules"](fake_root / "metabolon") == {"metabolon.alpha", "metabolon.beta"}
+        assert ns["collect_metabolon_modules"](fake_root / "metabolon") == {
+            "metabolon.alpha",
+            "metabolon.beta",
+        }
 
     def test_excludes_init(self, ns, fake_root):
         _write(fake_root / "metabolon" / "__init__.py")
@@ -231,12 +239,19 @@ class TestMain:
 
 class TestCLI:
     def test_runs(self):
-        r = subprocess.run([sys.executable, str(ORPHAN_SCAN_PATH)], capture_output=True, text=True, timeout=60)
+        r = subprocess.run(
+            [sys.executable, str(ORPHAN_SCAN_PATH)], capture_output=True, text=True, timeout=60
+        )
         assert r.returncode == 0
         assert r.stdout.strip()
 
     def test_json_valid(self):
-        r = subprocess.run([sys.executable, str(ORPHAN_SCAN_PATH), "--json"], capture_output=True, text=True, timeout=60)
+        r = subprocess.run(
+            [sys.executable, str(ORPHAN_SCAN_PATH), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         assert r.returncode == 0
         data = json.loads(r.stdout)
         assert isinstance(data, list)

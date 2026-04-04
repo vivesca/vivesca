@@ -9,8 +9,6 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "auto-update-compound-engineering.sh"
 
 
@@ -58,12 +56,18 @@ def _run_script(
             # This ensures bash is still found but any system-level
             # bunx/npx comes AFTER our mocks and only gets used if
             # we don't provide a mock
-            env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
+            env["PATH"] = (
+                os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
+            )
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
     return subprocess.run(
-        cmd, capture_output=True, text=True, env=env, timeout=10,
+        cmd,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
     )
 
 
@@ -82,11 +86,7 @@ def _make_recording_bin(tmp_path: Path, name: str, record_file: Path, exit_code:
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     script = bindir / name
-    script.write_text(
-        "#!/bin/bash\n"
-        f'echo "$@" >> {record_file}\n'
-        f"exit {exit_code}\n"
-    )
+    script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nexit {exit_code}\n')
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
 
@@ -613,18 +613,18 @@ class TestMixedResults:
         count_file.write_text("0")
         script = bindir / "bunx"
         script.write_text(
-            '#!/bin/bash\n'
+            "#!/bin/bash\n"
             f'COUNT_FILE="{count_file}"\n'
             'COUNT=$(cat "$COUNT_FILE")\n'
-            'COUNT=$((COUNT + 1))\n'
+            "COUNT=$((COUNT + 1))\n"
             'echo $COUNT > "$COUNT_FILE"\n'
             'if [ "$COUNT" -eq 1 ]; then\n'
             '    echo "success"\n'
-            '    exit 0\n'
-            'else\n'
+            "    exit 0\n"
+            "else\n"
             '    echo "failure"\n'
-            '    exit 1\n'
-            'fi\n'
+            "    exit 1\n"
+            "fi\n"
         )
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
         return bindir
@@ -788,18 +788,18 @@ class TestFlakyRunnerReversed:
         count_file.write_text("0")
         script = bindir / "bunx"
         script.write_text(
-            '#!/bin/bash\n'
+            "#!/bin/bash\n"
             f'COUNT_FILE="{count_file}"\n'
             'COUNT=$(cat "$COUNT_FILE")\n'
-            'COUNT=$((COUNT + 1))\n'
+            "COUNT=$((COUNT + 1))\n"
             'echo $COUNT > "$COUNT_FILE"\n'
             'if [ "$COUNT" -eq 1 ]; then\n'
             '    echo "failure"\n'
-            '    exit 1\n'
-            'else\n'
+            "    exit 1\n"
+            "else\n"
             '    echo "success"\n'
-            '    exit 0\n'
-            'fi\n'
+            "    exit 0\n"
+            "fi\n"
         )
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
         return bindir

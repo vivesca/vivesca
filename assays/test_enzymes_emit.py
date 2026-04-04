@@ -4,9 +4,6 @@ from __future__ import annotations
 
 
 import json
-import os
-from datetime import date, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -147,7 +144,7 @@ class TestDailyNote:
         daily_dir.mkdir(parents=True, exist_ok=True)
         (daily_dir / "2026-03-31.md").write_text("# 2026-03-31\n")
         with patch("metabolon.enzymes.emit._today_iso", return_value="2026-03-31"):
-            result = fn(action="daily_note", section="Evening", content="Wrap-up")
+            fn(action="daily_note", section="Evening", content="Wrap-up")
         text = (daily_dir / "2026-03-31.md").read_text()
         assert "## Evening" in text
         assert "Wrap-up" in text
@@ -259,7 +256,9 @@ class TestPublish:
     @patch("metabolon.organelles.golgi.publish")
     @patch("metabolon.organelles.golgi.list_posts")
     @patch("metabolon.organelles.golgi.new")
-    def test_publish_unknown_subcommand(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
+    def test_publish_unknown_subcommand(
+        self, mock_new, mock_list, mock_publish, mock_index, mock_push
+    ):
         fn = _fn()
         result = fn(action="publish", subcommand="bogus")
         assert result.success is False
@@ -325,7 +324,11 @@ class TestTelemetry:
         tfile = tmp_path / "notes" / "telemetry.md"
         lines = tfile.read_text().splitlines()
         # header + separator + data rows => at least 2 data rows
-        data_rows = [l for l in lines if l.startswith("|") and "blog" not in l and "channel" not in l and "---" not in l]
+        data_rows = [
+            l
+            for l in lines
+            if l.startswith("|") and "blog" not in l and "channel" not in l and "---" not in l
+        ]
         assert len(data_rows) >= 2
 
     def test_telemetry_missing_channel(self):
@@ -484,7 +487,7 @@ class TestInterphaseClose:
         ip_dir.mkdir(parents=True)
         (ip_dir / "2026-03-31.md").write_text("# 2026-03-31\n\nSome existing content.\n")
         fn = _fn()
-        result = fn(
+        fn(
             action="interphase_close",
             shipped="X",
             tomorrow="Y",
@@ -517,8 +520,12 @@ class TestInterphaseClose:
         fn = _fn()
         result = fn(
             action="interphase_close",
-            shipped="X", tomorrow="Y", open_threads="Z", nudges="N",
-            day_score=3, note_date="not-a-date",
+            shipped="X",
+            tomorrow="Y",
+            open_threads="Z",
+            nudges="N",
+            day_score=3,
+            note_date="not-a-date",
         )
         assert result.success is False
         assert "Invalid date" in result.message
@@ -527,7 +534,10 @@ class TestInterphaseClose:
         fn = _fn()
         result = fn(
             action="interphase_close",
-            shipped="X", tomorrow="Y", open_threads="Z", nudges="N",
+            shipped="X",
+            tomorrow="Y",
+            open_threads="Z",
+            nudges="N",
             day_score=0,
         )
         assert result.success is False
@@ -537,7 +547,10 @@ class TestInterphaseClose:
         fn = _fn()
         result = fn(
             action="interphase_close",
-            shipped="X", tomorrow="Y", open_threads="Z", nudges="N",
+            shipped="X",
+            tomorrow="Y",
+            open_threads="Z",
+            nudges="N",
             day_score=6,
         )
         assert result.success is False
@@ -547,7 +560,11 @@ class TestInterphaseClose:
         fn = _fn()
         result = fn(
             action="interphase_close",
-            shipped="", tomorrow="Y", open_threads="Z", nudges="N", day_score=3,
+            shipped="",
+            tomorrow="Y",
+            open_threads="Z",
+            nudges="N",
+            day_score=3,
         )
         assert result.success is False
         assert "requires" in result.message.lower()

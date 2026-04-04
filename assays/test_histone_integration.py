@@ -40,9 +40,10 @@ def tmp_marks(tmp_path: Path):
 # Tests
 # ---------------------------------------------------------------------------
 
+
 def test_mark_saves_file_to_disk(tmp_marks):
     """Saving a mark should create a .md file with the right content."""
-    marks_dir, _ = tmp_marks
+    _marks_dir, _ = tmp_marks
 
     result = histone(action="mark", content="integration test memory", category="test")
 
@@ -61,7 +62,7 @@ def test_mark_saves_file_to_disk(tmp_marks):
 
 def test_recall_finds_saved_mark(tmp_marks):
     """A mark saved via histone should be findable via search."""
-    marks_dir, index = tmp_marks
+    _marks_dir, _index = tmp_marks
 
     # Save
     histone(action="mark", content="recall target alpha", category="test")

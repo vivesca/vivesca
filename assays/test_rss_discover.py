@@ -1,12 +1,11 @@
 """Tests for metabolon/organelles/endocytosis_rss/discover.py — X Discovery."""
+
 from __future__ import annotations
 
 import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.organelles.endocytosis_rss.discover import (
@@ -43,6 +42,7 @@ def _make_cfg(tmp_path: Path, **overrides) -> EndocytosisConfig:
 # _compile_keywords
 # ---------------------------------------------------------------------------
 
+
 class TestCompileKeywords:
     def test_valid_pattern(self):
         result = _compile_keywords([r"banking", r"finance"])
@@ -60,14 +60,17 @@ class TestCompileKeywords:
 # has_affinity
 # ---------------------------------------------------------------------------
 
+
 class TestHasAffinity:
     def test_match(self):
         import re
+
         compiled = [re.compile(r"banking", re.IGNORECASE)]
         assert has_affinity("Banking sector news", compiled) is True
 
     def test_no_match(self):
         import re
+
         compiled = [re.compile(r"quantum", re.IGNORECASE)]
         assert has_affinity("Banking sector news", compiled) is False
 
@@ -78,6 +81,7 @@ class TestHasAffinity:
 # ---------------------------------------------------------------------------
 # _normalize_handle
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizeHandle:
     def test_strips_at(self):
@@ -94,6 +98,7 @@ class TestNormalizeHandle:
 # ---------------------------------------------------------------------------
 # _extract_handle
 # ---------------------------------------------------------------------------
+
 
 class TestExtractHandle:
     def test_from_author_dict(self):
@@ -119,6 +124,7 @@ class TestExtractHandle:
 # _sample
 # ---------------------------------------------------------------------------
 
+
 class TestSample:
     def test_short_text(self):
         assert _sample("hello") == "hello"
@@ -137,41 +143,72 @@ class TestSample:
 # scout_sources
 # ---------------------------------------------------------------------------
 
+
 class TestScoutSources:
     def test_no_bird_cli(self, tmp_path):
         cfg = _make_cfg(tmp_path)
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value=None):
+        with patch(
+            "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value=None
+        ):
             result = scout_sources(cfg)
         assert result == 0
 
     def test_timeout(self, tmp_path):
         cfg = _make_cfg(tmp_path)
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", side_effect=subprocess.TimeoutExpired("bird", 45)):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                side_effect=subprocess.TimeoutExpired("bird", 45),
+            ),
+        ):
             result = scout_sources(cfg)
         assert result == 1
 
     def test_bird_failure(self, tmp_path):
         cfg = _make_cfg(tmp_path)
         mock_proc = MagicMock(returncode=1, stderr="error")
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                return_value=mock_proc,
+            ),
+        ):
             result = scout_sources(cfg)
         assert result == 1
 
     def test_invalid_json(self, tmp_path):
         cfg = _make_cfg(tmp_path)
         mock_proc = MagicMock(returncode=0, stdout="not json", stderr="")
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                return_value=mock_proc,
+            ),
+        ):
             result = scout_sources(cfg)
         assert result == 1
 
     def test_non_list_json(self, tmp_path):
         cfg = _make_cfg(tmp_path)
         mock_proc = MagicMock(returncode=0, stdout='{"key": "value"}', stderr="")
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                return_value=mock_proc,
+            ),
+        ):
             result = scout_sources(cfg)
         assert result == 1
 
@@ -179,27 +216,44 @@ class TestScoutSources:
         cfg = _make_cfg(tmp_path, sources_data={"x_discovery": {"keywords": ["banking"]}})
         tweets = [{"text": "random sports tweet", "author": {"handle": "sportsfan"}}]
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(tweets), stderr="")
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc), \
-             patch("metabolon.organelles.endocytosis_rss.discover.record_cargo"), \
-             patch("metabolon.organelles.endocytosis_rss.cargo.append_cargo"):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                return_value=mock_proc,
+            ),
+            patch("metabolon.organelles.endocytosis_rss.discover.record_cargo"),
+            patch("metabolon.organelles.endocytosis_rss.cargo.append_cargo"),
+        ):
             result = scout_sources(cfg)
         assert result == 0
 
     def test_successful_scan_with_matches(self, tmp_path):
-        cfg = _make_cfg(tmp_path, sources_data={
-            "x_discovery": {"keywords": ["banking"]},
-            "x_accounts": [],
-        })
+        cfg = _make_cfg(
+            tmp_path,
+            sources_data={
+                "x_discovery": {"keywords": ["banking"]},
+                "x_accounts": [],
+            },
+        )
         tweets = [
             {"text": "banking sector update", "author": {"handle": "newuser"}},
             {"text": "sports score", "author": {"handle": "sportsfan"}},
         ]
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(tweets), stderr="")
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc), \
-             patch("metabolon.organelles.endocytosis_rss.discover.record_cargo"), \
-             patch("metabolon.organelles.endocytosis_rss.cargo.append_cargo"):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                return_value=mock_proc,
+            ),
+            patch("metabolon.organelles.endocytosis_rss.discover.record_cargo"),
+            patch("metabolon.organelles.endocytosis_rss.cargo.append_cargo"),
+        ):
             result = scout_sources(cfg)
         assert result == 0
 
@@ -207,7 +261,14 @@ class TestScoutSources:
         cfg = _make_cfg(tmp_path, sources_data={"x_discovery": {}})
         tweets = [{"text": "anything", "author": {"handle": "user"}}]
         mock_proc = MagicMock(returncode=0, stdout=json.dumps(tweets), stderr="")
-        with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc):
+        with (
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"
+            ),
+            patch(
+                "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
+                return_value=mock_proc,
+            ),
+        ):
             result = scout_sources(cfg)
         assert result == 0

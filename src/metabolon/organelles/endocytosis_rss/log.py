@@ -1,4 +1,3 @@
-
 import os
 import re
 import sys
@@ -126,7 +125,7 @@ def generate_daily_markdown(cargo_path: Path, date_str: str) -> str:
 def record_cargo(log_path: Path, markdown: str) -> None:
     """Deprecated: write markdown to the news log. Use cargo.py for canonical writes."""
     markers = [
-        "<!-- News entries below, added by /lustro -->",
+        "<!-- News entries below, added by /endocytosis -->",
         "<!-- News entries below -->",
     ]
     if not log_path.exists():

@@ -9,15 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
+from metabolon.sortase.decompose import TaskSpec
 from metabolon.sortase.executor import (
     _create_worktree,
     _merge_worktree,
     _remove_worktree,
-    execute_task,
     execute_tasks,
 )
-from metabolon.sortase.decompose import TaskSpec
-
 
 # ── helpers ──────────────────────────────────────────────────
 
@@ -27,18 +25,24 @@ def _init_git_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
-        cwd=tmp_path, capture_output=True, check=True,
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=tmp_path, capture_output=True, check=True,
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
     )
     readme = tmp_path / "README.md"
     readme.write_text("initial\n")
     subprocess.run(["git", "add", "-A"], cwd=tmp_path, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "initial"],
-        cwd=tmp_path, capture_output=True, check=True,
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
     )
     return tmp_path
 
@@ -55,7 +59,8 @@ def test_create_worktree_creates_directory(tmp_path: Path):
     # Clean up
     subprocess.run(
         ["git", "worktree", "remove", "--force", str(worktree_path)],
-        cwd=repo, capture_output=True,
+        cwd=repo,
+        capture_output=True,
     )
 
 
@@ -68,7 +73,8 @@ def test_create_worktree_has_committed_files(tmp_path: Path):
     # Clean up
     subprocess.run(
         ["git", "worktree", "remove", "--force", str(worktree_path)],
-        cwd=repo, capture_output=True,
+        cwd=repo,
+        capture_output=True,
     )
 
 
@@ -85,10 +91,12 @@ def test_merge_worktree_merges_changes(tmp_path: Path):
     subprocess.run(["git", "add", "-A"], cwd=worktree_path, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "worktree change"],
-        cwd=worktree_path, capture_output=True, check=True,
+        cwd=worktree_path,
+        capture_output=True,
+        check=True,
     )
 
-    success, detail = _merge_worktree(repo, worktree_path)
+    success, _detail = _merge_worktree(repo, worktree_path)
     assert success is True
     # Verify the change landed in the main repo
     assert (repo / "README.md").read_text() == "changed by worktree\n"
@@ -113,16 +121,18 @@ def test_remove_worktree_cleans_up(tmp_path: Path):
     # Find the branch name before removal
     result = subprocess.run(
         ["git", "worktree", "list", "--porcelain"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     branch = None
     found_path = False
     resolved_wt = str(worktree_path.resolve())
     for line in result.stdout.splitlines():
         if line.startswith("worktree "):
-            found_path = Path(line[len("worktree "):]).resolve() == Path(resolved_wt)
+            found_path = Path(line[len("worktree ") :]).resolve() == Path(resolved_wt)
         if found_path and line.startswith("branch refs/heads/"):
-            branch = line[len("branch refs/heads/"):]
+            branch = line[len("branch refs/heads/") :]
             break
     assert branch is not None
 
@@ -132,7 +142,9 @@ def test_remove_worktree_cleans_up(tmp_path: Path):
     # Branch should be gone
     branches = subprocess.run(
         ["git", "branch", "--list", branch],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     assert branches.stdout.strip() == ""
 
@@ -165,7 +177,9 @@ def test_merge_worktree_conflict_both_sides_modified(tmp_path: Path):
     subprocess.run(["git", "add", "-A"], cwd=worktree_path, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "worktree change"],
-        cwd=worktree_path, capture_output=True, check=True,
+        cwd=worktree_path,
+        capture_output=True,
+        check=True,
     )
 
     # Modify the same file on main branch
@@ -174,7 +188,9 @@ def test_merge_worktree_conflict_both_sides_modified(tmp_path: Path):
     subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "main change"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
 
     success, detail = _merge_worktree(repo, worktree_path)
@@ -196,7 +212,9 @@ def test_merge_worktree_different_files_no_conflict(tmp_path: Path):
     subprocess.run(["git", "add", "-A"], cwd=worktree_path, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "worktree change"],
-        cwd=worktree_path, capture_output=True, check=True,
+        cwd=worktree_path,
+        capture_output=True,
+        check=True,
     )
 
     # Add a NEW file on main (not modifying README)
@@ -205,10 +223,12 @@ def test_merge_worktree_different_files_no_conflict(tmp_path: Path):
     subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "main new file"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
 
-    success, detail = _merge_worktree(repo, worktree_path)
+    success, _detail = _merge_worktree(repo, worktree_path)
     assert success is True
     assert (repo / "README.md").read_text() == "changed by worktree\n"
     assert (repo / "main_only.txt").read_text() == "main addition\n"
@@ -350,7 +370,9 @@ async def test_execute_tasks_worktree_failure_cleans_up(tmp_path: Path):
     # Verify no leftover worktrees
     wt_list = subprocess.run(
         ["git", "worktree", "list"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     # Should only have the main worktree
     lines = [l for l in wt_list.stdout.splitlines() if l.strip()]
@@ -360,7 +382,7 @@ async def test_execute_tasks_worktree_failure_cleans_up(tmp_path: Path):
 # ── clean command ───────────────────────────────────────────
 
 
-from metabolon.sortase.cli import clean_command, main as sortase_main
+from metabolon.sortase.cli import main as sortase_main
 
 
 def test_clean_no_stale(tmp_path: Path) -> None:
@@ -379,7 +401,9 @@ def test_clean_dry_run_shows_but_preserves(tmp_path: Path) -> None:
     # Create a sortase/* branch (without a real worktree — just the branch)
     subprocess.run(
         ["git", "branch", "sortase/test-task-abc123"],
-        cwd=repo, capture_output=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        check=True,
     )
 
     # Create a worktree for it via _create_worktree so git knows about it
@@ -393,10 +417,14 @@ def test_clean_dry_run_shows_but_preserves(tmp_path: Path) -> None:
     # Verify branches still exist (dry-run must not delete)
     branches = subprocess.run(
         ["git", "branch", "--list", "sortase/*"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     branch_lines = [l.strip() for l in branches.stdout.splitlines() if l.strip()]
-    assert len(branch_lines) >= 1, f"Branches should still exist after dry-run, got: {branch_lines}"
+    assert len(branch_lines) >= 1, (
+        f"Branches should still exist after dry-run, got: {branch_lines}"
+    )
 
     # Verify worktree still exists
     assert worktree_path.exists(), "Worktree directory should still exist after dry-run"
@@ -404,7 +432,8 @@ def test_clean_dry_run_shows_but_preserves(tmp_path: Path) -> None:
     # Cleanup
     subprocess.run(
         ["git", "worktree", "remove", "--force", str(worktree_path)],
-        cwd=repo, capture_output=True,
+        cwd=repo,
+        capture_output=True,
     )
 
 
@@ -416,7 +445,9 @@ def test_clean_removes_stale_worktree(tmp_path: Path) -> None:
     # Confirm the branch exists
     branches_before = subprocess.run(
         ["git", "branch", "--list", "sortase/*"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     assert "sortase/test-task-cleanup" in branches_before.stdout
 
@@ -432,7 +463,9 @@ def test_clean_removes_stale_worktree(tmp_path: Path) -> None:
     # Branch should be gone
     branches_after = subprocess.run(
         ["git", "branch", "--list", "sortase/*"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     assert branches_after.stdout.strip() == ""
 
@@ -444,6 +477,7 @@ def test_clean_prunes_missing_worktree_directory(tmp_path: Path) -> None:
 
     # Manually delete the worktree directory (simulating external removal)
     import shutil
+
     shutil.rmtree(worktree_path, ignore_errors=True)
     assert not worktree_path.exists()
 
@@ -456,6 +490,8 @@ def test_clean_prunes_missing_worktree_directory(tmp_path: Path) -> None:
     # Branch should be gone
     branches_after = subprocess.run(
         ["git", "branch", "--list", "sortase/*"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
     )
     assert branches_after.stdout.strip() == ""

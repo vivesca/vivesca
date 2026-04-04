@@ -5,27 +5,23 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.sortase.logger import (
     DEFAULT_LOG_PATH,
-    DEFAULT_COACHING_PATH,
-    resolve_log_path,
-    append_log,
-    read_logs,
-    _parse_iso_timestamp,
-    _strip_frontmatter,
-    _failure_reason_terms,
     _extract_coaching_notes,
     _failure_has_relevant_coaching,
+    _failure_reason_terms,
     _file_count,
+    _parse_iso_timestamp,
+    _strip_frontmatter,
     aggregate_stats,
     analyze_logs,
+    append_log,
+    read_logs,
+    resolve_log_path,
 )
 
 
@@ -56,24 +52,24 @@ class TestAppendLog:
     def test_append_creates_file(self, tmp_path):
         """Append creates log file if it doesn't exist."""
         log_file = tmp_path / "log.jsonl"
-        
+
         entry = {"tool": "gemini", "success": True}
         result = append_log(entry, log_file)
-        
+
         assert log_file.exists()
         assert result == log_file
 
     def test_append_entry(self, tmp_path):
         """Append writes entry to log file."""
         log_file = tmp_path / "log.jsonl"
-        
+
         entry = {"tool": "gemini", "success": True, "timestamp": "2024-01-01T00:00:00"}
         append_log(entry, log_file)
-        
+
         content = log_file.read_text()
         lines = content.strip().split("\n")
         assert len(lines) == 1
-        
+
         loaded = json.loads(lines[0])
         assert loaded["tool"] == "gemini"
         assert loaded["success"] is True
@@ -81,10 +77,10 @@ class TestAppendLog:
     def test_append_multiple_entries(self, tmp_path):
         """Multiple appends create multiple lines."""
         log_file = tmp_path / "log.jsonl"
-        
+
         append_log({"tool": "gemini", "success": True}, log_file)
         append_log({"tool": "codex", "success": False}, log_file)
-        
+
         content = log_file.read_text()
         lines = content.strip().split("\n")
         assert len(lines) == 2
@@ -92,9 +88,9 @@ class TestAppendLog:
     def test_creates_parent_directory(self, tmp_path):
         """Parent directory is created if it doesn't exist."""
         log_file = tmp_path / "nested" / "dir" / "log.jsonl"
-        
+
         append_log({"test": "data"}, log_file)
-        
+
         assert log_file.parent.exists()
         assert log_file.exists()
 
@@ -112,9 +108,9 @@ class TestReadLogs:
         """Reading single entry returns list with one dict."""
         log_file = tmp_path / "log.jsonl"
         log_file.write_text('{"tool": "gemini", "success": true}\n')
-        
+
         result = read_logs(log_file)
-        
+
         assert len(result) == 1
         assert result[0]["tool"] == "gemini"
 
@@ -122,9 +118,9 @@ class TestReadLogs:
         """Reading multiple entries returns all."""
         log_file = tmp_path / "log.jsonl"
         log_file.write_text('{"tool": "gemini"}\n{"tool": "codex"}\n')
-        
+
         result = read_logs(log_file)
-        
+
         assert len(result) == 2
         assert result[0]["tool"] == "gemini"
         assert result[1]["tool"] == "codex"
@@ -133,9 +129,9 @@ class TestReadLogs:
         """Empty lines are skipped."""
         log_file = tmp_path / "log.jsonl"
         log_file.write_text('{"tool": "gemini"}\n\n{"tool": "codex"}\n\n')
-        
+
         result = read_logs(log_file)
-        
+
         assert len(result) == 2
 
 
@@ -241,9 +237,9 @@ GLM sometimes invents imports.
 
 GLM flattens return types.
 """)
-        
+
         result = _extract_coaching_notes(coaching_file)
-        
+
         assert len(result) == 2
         assert any("import hallucination" in note["text"] for note in result)
         assert any("return type flattening" in note["text"] for note in result)
@@ -257,9 +253,9 @@ GLM flattens return types.
 
 Some pattern description.
 """)
-        
+
         result = _extract_coaching_notes(coaching_file)
-        
+
         assert len(result) == 1
         # The timestamp should be parsed and stored as added_at
         assert result[0]["added_at"] == datetime(2024, 1, 15, 10, 30)
@@ -273,9 +269,12 @@ class TestFailureHasRelevantCoaching:
         failure_reason = "unknown error"
         failure_time = datetime.now()
         coaching_notes = [
-            {"text": "import hallucination pattern", "added_at": datetime.now() - timedelta(days=1)},
+            {
+                "text": "import hallucination pattern",
+                "added_at": datetime.now() - timedelta(days=1),
+            },
         ]
-        
+
         result = _failure_has_relevant_coaching(failure_reason, failure_time, coaching_notes)
         assert result is False
 
@@ -284,9 +283,12 @@ class TestFailureHasRelevantCoaching:
         failure_reason = "test failure"
         failure_time = datetime.now()
         coaching_notes = [
-            {"text": "tests sometimes fail due to x", "added_at": datetime.now() - timedelta(days=1)},
+            {
+                "text": "tests sometimes fail due to x",
+                "added_at": datetime.now() - timedelta(days=1),
+            },
         ]
-        
+
         result = _failure_has_relevant_coaching(failure_reason, failure_time, coaching_notes)
         assert result is True
 
@@ -297,7 +299,7 @@ class TestFailureHasRelevantCoaching:
         coaching_notes = [
             {"text": "tests pattern", "added_at": datetime(2024, 1, 2, 12, 0)},  # After failure
         ]
-        
+
         result = _failure_has_relevant_coaching(failure_reason, failure_time, coaching_notes)
         assert result is False
 
@@ -343,11 +345,16 @@ class TestAggregateStats:
     def test_single_entry(self):
         """Single entry is aggregated."""
         entries = [
-            {"tool": "gemini", "success": True, "duration_s": 1.5, "timestamp": datetime.now().isoformat()},
+            {
+                "tool": "gemini",
+                "success": True,
+                "duration_s": 1.5,
+                "timestamp": datetime.now().isoformat(),
+            },
         ]
-        
+
         result = aggregate_stats(entries)
-        
+
         assert result["total_runs"] == 1
         assert result["per_tool"]["gemini"]["runs"] == 1
         assert result["per_tool"]["gemini"]["success_rate"] == 1.0
@@ -355,13 +362,28 @@ class TestAggregateStats:
     def test_multiple_entries(self):
         """Multiple entries are aggregated correctly."""
         entries = [
-            {"tool": "gemini", "success": True, "duration_s": 1.0, "timestamp": datetime.now().isoformat()},
-            {"tool": "gemini", "success": False, "duration_s": 2.0, "timestamp": datetime.now().isoformat()},
-            {"tool": "codex", "success": True, "duration_s": 1.5, "timestamp": datetime.now().isoformat()},
+            {
+                "tool": "gemini",
+                "success": True,
+                "duration_s": 1.0,
+                "timestamp": datetime.now().isoformat(),
+            },
+            {
+                "tool": "gemini",
+                "success": False,
+                "duration_s": 2.0,
+                "timestamp": datetime.now().isoformat(),
+            },
+            {
+                "tool": "codex",
+                "success": True,
+                "duration_s": 1.5,
+                "timestamp": datetime.now().isoformat(),
+            },
         ]
-        
+
         result = aggregate_stats(entries)
-        
+
         assert result["total_runs"] == 3
         assert result["per_tool"]["gemini"]["runs"] == 2
         assert result["per_tool"]["gemini"]["success_rate"] == 0.5
@@ -374,9 +396,9 @@ class TestAggregateStats:
             {"tool": "gemini", "success": False, "failure_reason": "quota"},
             {"tool": "codex", "success": False, "failure_reason": "auth"},
         ]
-        
+
         result = aggregate_stats(entries)
-        
+
         assert result["failure_reasons"]["quota"] == 2
         assert result["failure_reasons"]["auth"] == 1
 
@@ -386,9 +408,9 @@ class TestAggregateStats:
             {"tool": "gemini", "success": True, "fallbacks": ["goose", "codex"]},
             {"tool": "gemini", "success": True, "fallbacks": ["goose"]},
         ]
-        
+
         result = aggregate_stats(entries)
-        
+
         assert result["fallback_frequency"]["goose"] == 2
         assert result["fallback_frequency"]["codex"] == 1
 
@@ -399,9 +421,9 @@ class TestAnalyzeLogs:
     def test_empty_logs(self, tmp_path):
         """Empty logs return default analysis."""
         log_file = tmp_path / "log.jsonl"
-        
+
         result = analyze_logs(log_file)
-        
+
         assert result["total_entries"] == 0
         assert result["success_rate_by_backend"] == {}
         assert result["coaching_coverage"] is None
@@ -409,14 +431,24 @@ class TestAnalyzeLogs:
     def test_analyze_success_rates(self, tmp_path):
         """Success rates are calculated."""
         log_file = tmp_path / "log.jsonl"
-        log_file.write_text('\n'.join([
-            json.dumps({"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:00:00"}),
-            json.dumps({"tool": "gemini", "success": False, "timestamp": "2024-01-01T11:00:00"}),
-            json.dumps({"tool": "codex", "success": True, "timestamp": "2024-01-01T12:00:00"}),
-        ]))
-        
+        log_file.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:00:00"}
+                    ),
+                    json.dumps(
+                        {"tool": "gemini", "success": False, "timestamp": "2024-01-01T11:00:00"}
+                    ),
+                    json.dumps(
+                        {"tool": "codex", "success": True, "timestamp": "2024-01-01T12:00:00"}
+                    ),
+                ]
+            )
+        )
+
         result = analyze_logs(log_file)
-        
+
         assert result["success_rate_by_backend"]["gemini"] == 0.5
         assert result["success_rate_by_backend"]["codex"] == 1.0
         assert result["total_entries"] == 3
@@ -424,38 +456,78 @@ class TestAnalyzeLogs:
     def test_analyze_by_hour(self, tmp_path):
         """Hour-by-hour analysis."""
         log_file = tmp_path / "log.jsonl"
-        log_file.write_text('\n'.join([
-            json.dumps({"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:00:00"}),
-            json.dumps({"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:30:00"}),
-            json.dumps({"tool": "gemini", "success": False, "timestamp": "2024-01-01T14:00:00"}),
-        ]))
-        
+        log_file.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:00:00"}
+                    ),
+                    json.dumps(
+                        {"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:30:00"}
+                    ),
+                    json.dumps(
+                        {"tool": "gemini", "success": False, "timestamp": "2024-01-01T14:00:00"}
+                    ),
+                ]
+            )
+        )
+
         result = analyze_logs(log_file)
-        
+
         assert "10" in result["success_rate_by_hour"]
         assert "14" in result["success_rate_by_hour"]
 
     def test_coaching_coverage_no_failures(self, tmp_path):
         """No failures means no coaching coverage calculation."""
         log_file = tmp_path / "log.jsonl"
-        log_file.write_text(json.dumps({"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:00:00"}))
-        
+        log_file.write_text(
+            json.dumps({"tool": "gemini", "success": True, "timestamp": "2024-01-01T10:00:00"})
+        )
+
         result = analyze_logs(log_file)
-        
+
         assert result["coaching_coverage"] is None
         assert result["coaching_gap"] is None
 
     def test_plan_complexity_duration(self, tmp_path):
         """Duration by plan complexity (file count)."""
         log_file = tmp_path / "log.jsonl"
-        log_file.write_text('\n'.join([
-            json.dumps({"tool": "gemini", "success": True, "duration_s": 1.0, "files_changed": 1, "timestamp": "2024-01-01T10:00:00"}),
-            json.dumps({"tool": "gemini", "success": True, "duration_s": 2.0, "files_changed": 1, "timestamp": "2024-01-01T11:00:00"}),
-            json.dumps({"tool": "gemini", "success": True, "duration_s": 5.0, "files_changed": 3, "timestamp": "2024-01-01T12:00:00"}),
-        ]))
-        
+        log_file.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "tool": "gemini",
+                            "success": True,
+                            "duration_s": 1.0,
+                            "files_changed": 1,
+                            "timestamp": "2024-01-01T10:00:00",
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "tool": "gemini",
+                            "success": True,
+                            "duration_s": 2.0,
+                            "files_changed": 1,
+                            "timestamp": "2024-01-01T11:00:00",
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "tool": "gemini",
+                            "success": True,
+                            "duration_s": 5.0,
+                            "files_changed": 3,
+                            "timestamp": "2024-01-01T12:00:00",
+                        }
+                    ),
+                ]
+            )
+        )
+
         result = analyze_logs(log_file)
-        
+
         assert 1 in result["avg_duration_by_plan_complexity"]
         assert 3 in result["avg_duration_by_plan_complexity"]
         # avg of 1.0 and 2.0 = 1.5

@@ -1,6 +1,4 @@
-
 """efferens — shared notice board for inter-process messages."""
-
 
 from pathlib import Path
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 """Autonomic thresholds with calibration.
 
 A threshold is a pain level that triggers an autonomic response (clean disk,

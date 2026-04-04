@@ -13,8 +13,6 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 _MAIN_PY = Path(__file__).resolve().parent.parent / "metabolon" / "__main__.py"
 
 
@@ -39,8 +37,17 @@ def test_help_flag_exits_zero():
 def test_http_host_port_flags_recognized():
     """`python -m metabolon --http --host 127.0.0.1 --port 9999 --help` parses without error."""
     result = subprocess.run(
-        [sys.executable, "-m", "metabolon", "--http", "--host", "127.0.0.1",
-         "--port", "9999", "--help"],
+        [
+            sys.executable,
+            "-m",
+            "metabolon",
+            "--http",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "9999",
+            "--help",
+        ],
         capture_output=True,
         text=True,
         timeout=15,
@@ -162,4 +169,5 @@ def test_import_calls_membrane_main():
             # Remove cached module so it re-imports
             sys.modules.pop("metabolon.__main__", None)
             import metabolon.__main__  # noqa: F401
+
             mock_main.assert_called_once()

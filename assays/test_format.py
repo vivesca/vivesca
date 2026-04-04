@@ -1,9 +1,8 @@
 """Tests for metabolon.lysin.format."""
+
 from __future__ import annotations
 
 import json
-
-import pytest
 
 from metabolon.lysin.fetch import BioArticle
 from metabolon.lysin.format import format_json, format_text

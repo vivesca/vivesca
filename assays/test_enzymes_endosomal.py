@@ -15,6 +15,7 @@ from metabolon.morphology import EffectorResult
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _patch_cytosol(monkeypatch):
     """Mock gmail organelle and synthesize for every test."""
@@ -37,6 +38,7 @@ def fn():
 # ---------------------------------------------------------------------------
 # Validation / missing-arg tests
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     """Each action validates its required parameters."""
@@ -122,8 +124,8 @@ class TestValidation:
 # search
 # ---------------------------------------------------------------------------
 
-class TestSearch:
 
+class TestSearch:
     def test_search_returns_endosomal_result(self, fn, monkeypatch):
         monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "msg1\nmsg2")
         res = fn(action="search", query="from:boss")
@@ -133,7 +135,8 @@ class TestSearch:
     def test_search_passes_query_to_invoke(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "")[1],
         )
         fn(action="search", query="is:unread")
@@ -144,8 +147,8 @@ class TestSearch:
 # thread
 # ---------------------------------------------------------------------------
 
-class TestThread:
 
+class TestThread:
     def test_thread_returns_content(self, fn, monkeypatch):
         monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "thread-body")
         res = fn(action="thread", thread_id="t123")
@@ -155,7 +158,8 @@ class TestThread:
     def test_thread_passes_thread_id(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "")[1],
         )
         fn(action="thread", thread_id="t456")
@@ -166,49 +170,35 @@ class TestThread:
 # categorize
 # ---------------------------------------------------------------------------
 
-class TestCategorize:
 
+class TestCategorize:
     def test_categorize_uses_deterministic_classify(self, fn, monkeypatch):
         """If the organelle classify() returns a category, use it directly."""
-        monkeypatch.setattr(
-            mod.endosomal_organelle, "classify", lambda text: "action_required"
-        )
+        monkeypatch.setattr(mod.endosomal_organelle, "classify", lambda text: "action_required")
         res = fn(action="categorize", email_text="urgent please review")
         assert isinstance(res, mod.EndosomalResult)
         assert res.output == "action_required"
 
     def test_categorize_falls_back_to_synthesize(self, fn, monkeypatch):
         """If classify() returns empty, fall back to LLM via synthesize."""
-        monkeypatch.setattr(
-            mod.endosomal_organelle, "classify", lambda text: ""
-        )
-        monkeypatch.setattr(
-            mod, "synthesize", lambda prompt, **kw: "  action_required  "
-        )
+        monkeypatch.setattr(mod.endosomal_organelle, "classify", lambda text: "")
+        monkeypatch.setattr(mod, "synthesize", lambda prompt, **kw: "  action_required  ")
         res = fn(action="categorize", email_text="some ambiguous email")
         assert isinstance(res, mod.EndosomalResult)
         assert res.output == "action_required"
 
     def test_categorize_unclassified_from_synthesize(self, fn, monkeypatch):
         """If synthesize returns something not in CATEGORIES, mark unclassified."""
-        monkeypatch.setattr(
-            mod.endosomal_organelle, "classify", lambda text: ""
-        )
-        monkeypatch.setattr(
-            mod, "synthesize", lambda prompt, **kw: "gibberish_category"
-        )
+        monkeypatch.setattr(mod.endosomal_organelle, "classify", lambda text: "")
+        monkeypatch.setattr(mod, "synthesize", lambda prompt, **kw: "gibberish_category")
         res = fn(action="categorize", email_text="some email")
         assert isinstance(res, mod.EndosomalResult)
         assert "Unclassified" in res.output
 
     def test_categorize_normalizes_synthesize_output(self, fn, monkeypatch):
         """synthesize output is stripped, lowered, dashes→underscores."""
-        monkeypatch.setattr(
-            mod.endosomal_organelle, "classify", lambda text: ""
-        )
-        monkeypatch.setattr(
-            mod, "synthesize", lambda prompt, **kw: "  ACTION-REQUIRED \n"
-        )
+        monkeypatch.setattr(mod.endosomal_organelle, "classify", lambda text: "")
+        monkeypatch.setattr(mod, "synthesize", lambda prompt, **kw: "  ACTION-REQUIRED \n")
         res = fn(action="categorize", email_text="email text")
         assert res.output == "action_required"
 
@@ -217,8 +207,8 @@ class TestCategorize:
 # archive
 # ---------------------------------------------------------------------------
 
-class TestArchive:
 
+class TestArchive:
     def test_archive_success(self, fn, monkeypatch):
         monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "Archived 2 messages.")
         res = fn(action="archive", message_ids=["m1", "m2"])
@@ -235,7 +225,8 @@ class TestArchive:
     def test_archive_passes_force_flag(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "")[1],
         )
         fn(action="archive", message_ids=["id1", "id2"])
@@ -246,8 +237,8 @@ class TestArchive:
 # mark_read
 # ---------------------------------------------------------------------------
 
-class TestMarkRead:
 
+class TestMarkRead:
     def test_mark_read_success(self, fn, monkeypatch):
         monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "Marked 3 read.")
         res = fn(action="mark_read", message_ids=["m1", "m2", "m3"])
@@ -264,8 +255,8 @@ class TestMarkRead:
 # label
 # ---------------------------------------------------------------------------
 
-class TestLabel:
 
+class TestLabel:
     def test_label_create(self, fn, monkeypatch):
         monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "Created: ProjectX")
         res = fn(action="label", name="ProjectX")
@@ -276,19 +267,20 @@ class TestLabel:
     def test_label_default_message(self, fn, monkeypatch):
         monkeypatch.setattr(mod, "invoke_organelle", lambda *a, **kw: "")
         res = fn(action="label", name="foo")
-        assert "Label created: foo" == res.message
+        assert res.message == "Label created: foo"
 
 
 # ---------------------------------------------------------------------------
 # send
 # ---------------------------------------------------------------------------
 
-class TestSend:
 
+class TestSend:
     def test_send_new_email(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "sent-ok")[1],
         )
         res = fn(
@@ -298,12 +290,22 @@ class TestSend:
             body="world",
         )
         assert res.success is True
-        assert calls[0] == ["gmail", "send", "--to", "a@b.com", "--subject", "hello", "--body", "world"]
+        assert calls[0] == [
+            "gmail",
+            "send",
+            "--to",
+            "a@b.com",
+            "--subject",
+            "hello",
+            "--body",
+            "world",
+        ]
 
     def test_send_reply(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "")[1],
         )
         res = fn(action="send", reply_to_message_id="mid42", body="thanks")
@@ -316,7 +318,8 @@ class TestSend:
     def test_send_with_cc_and_attach(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "")[1],
         )
         res = fn(
@@ -343,12 +346,13 @@ class TestSend:
 # filter
 # ---------------------------------------------------------------------------
 
-class TestFilter:
 
+class TestFilter:
     def test_filter_dry_run(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "preview")[1],
         )
         res = fn(
@@ -364,7 +368,8 @@ class TestFilter:
     def test_filter_live(self, fn, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mod, "invoke_organelle",
+            mod,
+            "invoke_organelle",
             lambda gog, args, **kw: (calls.append(args), "created")[1],
         )
         res = fn(

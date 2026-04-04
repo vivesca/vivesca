@@ -3,14 +3,11 @@ from __future__ import annotations
 """Tests for skill-sync — SKILL.md → recipe.yaml → config.yaml sync."""
 
 
-import os
-from pathlib import Path
-
-import pytest
-import yaml
-
 # Import the module by exec-ing it (it has no .py extension)
 import types
+from pathlib import Path
+
+import yaml
 
 _SCRIPT = Path.home() / "germline" / "effectors" / "skill-sync"
 skill_sync = types.ModuleType("skill_sync")
@@ -20,6 +17,7 @@ skill_sync.__file__ = str(_SCRIPT)
 _source = _SCRIPT.read_text()
 # Strip everything up to and including the closing # /// marker
 import re
+
 _source = re.sub(r"\A.*?# ///\s*\n", "", _source, count=1, flags=re.DOTALL)
 exec(compile(_source, str(_SCRIPT), "exec"), skill_sync.__dict__)
 
@@ -28,10 +26,13 @@ exec(compile(_source, str(_SCRIPT), "exec"), skill_sync.__dict__)
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _write_skill_md(directory: Path, name: str, description: str, extra_meta: str = "", body: str = "") -> Path:
+
+def _write_skill_md(
+    directory: Path, name: str, description: str, extra_meta: str = "", body: str = ""
+) -> Path:
     """Create a SKILL.md in directory, return its path."""
     directory.mkdir(parents=True, exist_ok=True)
-    frontmatter = f"name: {name}\ndescription: \"{description}\""
+    frontmatter = f'name: {name}\ndescription: "{description}"'
     if extra_meta:
         frontmatter += "\n" + extra_meta
     content = f"---\n{frontmatter}\n---\n{body}\n"
@@ -54,6 +55,7 @@ def _write_goose_config(config_path: Path, slash_commands: list[dict] | None = N
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestParseFrontmatter:
     def test_extracts_name_and_description(self):
         content = '---\nname: folding\ndescription: "Execute a plan"\n---\nBody text\n'
@@ -69,15 +71,18 @@ class TestParseFrontmatter:
         assert content in body
 
     def test_extra_metadata_fields(self):
-        content = '---\nname: test\nmodel: sonnet\nepistemics: [build]\n---\nBody\n'
-        meta, body = skill_sync.parse_frontmatter(content)
+        content = "---\nname: test\nmodel: sonnet\nepistemics: [build]\n---\nBody\n"
+        meta, _body = skill_sync.parse_frontmatter(content)
         assert meta["model"] == "sonnet"
         assert meta["epistemics"] == ["build"]
 
 
 class TestExtractTitle:
     def test_first_heading(self):
-        assert skill_sync.extract_title("# /folding — Execute the Plan\nMore text") == "/folding — Execute the Plan"
+        assert (
+            skill_sync.extract_title("# /folding — Execute the Plan\nMore text")
+            == "/folding — Execute the Plan"
+        )
 
     def test_strips_bold_markers(self):
         assert skill_sync.extract_title("# **Bold Title**") == "Bold Title"
@@ -120,7 +125,7 @@ class TestSkipWhenFresh:
     def test_does_not_regenerate_when_recipe_newer(self, tmp_path):
         """recipe.yaml mtime >= SKILL.md mtime → skip."""
         skill_dir = tmp_path / "receptors" / "my-skill"
-        skill_md = _write_skill_md(skill_dir, "my-skill", "desc", body="# Title\n")
+        _write_skill_md(skill_dir, "my-skill", "desc", body="# Title\n")
         config_path = tmp_path / "config" / "config.yaml"
         _write_goose_config(config_path)
 
@@ -175,9 +180,9 @@ class TestRegisterConfig:
         _write_skill_md(skill_dir, "beta", "Beta skill", body="# Beta\n")
         config_path = tmp_path / "config" / "config.yaml"
         recipe_path = str((skill_dir / "recipe.yaml").resolve())
-        _write_goose_config(config_path, slash_commands=[
-            {"command": "beta", "recipe_path": recipe_path}
-        ])
+        _write_goose_config(
+            config_path, slash_commands=[{"command": "beta", "recipe_path": recipe_path}]
+        )
 
         skill_sync.sync(tmp_path / "receptors", config_path)
 
@@ -189,10 +194,13 @@ class TestRegisterConfig:
 class TestCleanStaleCommands:
     def test_removes_entries_with_no_recipe(self, tmp_path):
         config_path = tmp_path / "config" / "config.yaml"
-        _write_goose_config(config_path, slash_commands=[
-            {"command": "gone-skill", "recipe_path": "/nonexistent/recipe.yaml"},
-            {"command": "also-gone", "recipe_path": "/nowhere/recipe.yaml"},
-        ])
+        _write_goose_config(
+            config_path,
+            slash_commands=[
+                {"command": "gone-skill", "recipe_path": "/nonexistent/recipe.yaml"},
+                {"command": "also-gone", "recipe_path": "/nowhere/recipe.yaml"},
+            ],
+        )
 
         # Sync with no skills → stale entries removed
         skill_sync.sync(tmp_path / "receptors", config_path)

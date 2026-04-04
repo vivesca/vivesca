@@ -6,8 +6,6 @@ import os
 import time
 from pathlib import Path
 
-import pytest
-
 
 def _load_module() -> dict:
     source = Path(str(Path.home() / "germline/effectors/soma-clean")).read_text()
@@ -27,6 +25,7 @@ UV_CACHE_CUTOFF = _mod["UV_CACHE_CUTOFF"]
 
 
 # ── helpers ──────────────────────────────────────────────
+
 
 def _make_old_file(path: Path, age_seconds: float, size: int = 100) -> Path:
     """Create a file with given size and mtime set age_seconds in the past."""
@@ -52,6 +51,7 @@ NOW = time.time()
 
 # ── _fmt_bytes ───────────────────────────────────────────
 
+
 class TestFmtBytes:
     def test_bytes(self):
         assert _fmt_bytes(500) == "500.0 B"
@@ -64,6 +64,7 @@ class TestFmtBytes:
 
 
 # ── _dir_size ────────────────────────────────────────────
+
 
 class TestDirSize:
     def test_empty_dir(self, tmp_path: Path):
@@ -90,6 +91,7 @@ class TestDirSize:
 
 
 # ── clean_tmp_claude ─────────────────────────────────────
+
 
 class TestCleanTmpClaude:
     def test_removes_old_claude_dir(self, tmp_path: Path):
@@ -122,6 +124,7 @@ class TestCleanTmpClaude:
 
 
 # ── clean_uv_archive ─────────────────────────────────────
+
 
 class TestCleanUvArchive:
     def _make_cache(self, tmp_path: Path) -> Path:
@@ -166,6 +169,7 @@ class TestCleanUvArchive:
 
 
 # ── clean_pycache ────────────────────────────────────────
+
 
 class TestCleanPycache:
     def test_removes_pycache_dirs(self, tmp_path: Path):

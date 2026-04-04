@@ -1,4 +1,5 @@
 """Tests for metabolon.metabolism.substrates.operon_monitor."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -14,8 +15,8 @@ from metabolon.metabolism.substrates.operon_monitor import (
 )
 from metabolon.operons import Operon
 
-
 # ── helpers ────────────────────────────────────────────────────────
+
 
 def _make_operon(
     reaction: str = "test_reaction",
@@ -46,6 +47,7 @@ def _mock_collector(stimuli: list[Stimulus]) -> MagicMock:
 
 
 # ── _infer_cadence ─────────────────────────────────────────────────
+
 
 class TestInferCadence:
     def test_daily_keyword(self):
@@ -79,14 +81,17 @@ class TestInferCadence:
 
 # ── sense ──────────────────────────────────────────────────────────
 
+
 class TestSense:
     @patch("metabolon.metabolism.substrates.operon_monitor.OPERONS")
     def test_skips_unexpressed_operons(self, mock_operons):
         """Unexpressed operons should not appear in sensed output."""
-        mock_operons.__iter__ = lambda self_: iter([
-            _make_operon(reaction="active", enzymes=["e1"], expressed=True),
-            _make_operon(reaction="dormant", enzymes=["e2"], expressed=False),
-        ])
+        mock_operons.__iter__ = lambda self_: iter(
+            [
+                _make_operon(reaction="active", enzymes=["e1"], expressed=True),
+                _make_operon(reaction="dormant", enzymes=["e2"], expressed=False),
+            ]
+        )
         collector = _mock_collector([])
         sub = OperonSubstrate(collector)
         sensed = sub.sense()
@@ -100,13 +105,15 @@ class TestSense:
         now = datetime.now(UTC)
         old_ts = now - timedelta(days=5)
         recent_ts = now - timedelta(days=1)
-        mock_operons.__iter__ = lambda self_: iter([
-            _make_operon(
-                reaction="multi",
-                enzymes=["e_old", "e_recent"],
-                substrates=["daily"],
-            ),
-        ])
+        mock_operons.__iter__ = lambda self_: iter(
+            [
+                _make_operon(
+                    reaction="multi",
+                    enzymes=["e_old", "e_recent"],
+                    substrates=["daily"],
+                ),
+            ]
+        )
         stimuli = [
             Stimulus(tool="e_old", ts=old_ts, outcome="success"),
             Stimulus(tool="e_recent", ts=recent_ts, outcome="success"),
@@ -121,9 +128,11 @@ class TestSense:
     @patch("metabolon.metabolism.substrates.operon_monitor.OPERONS")
     def test_stale_when_no_signals(self, mock_operons):
         """An operon with no enzyme activity is stale."""
-        mock_operons.__iter__ = lambda self_: iter([
-            _make_operon(reaction="quiet", enzymes=["e1"], substrates=["daily"]),
-        ])
+        mock_operons.__iter__ = lambda self_: iter(
+            [
+                _make_operon(reaction="quiet", enzymes=["e1"], substrates=["daily"]),
+            ]
+        )
         collector = _mock_collector([])
         sub = OperonSubstrate(collector)
         sensed = sub.sense()
@@ -135,9 +144,11 @@ class TestSense:
     @patch("metabolon.metabolism.substrates.operon_monitor.OPERONS")
     def test_healthy_when_within_cadence(self, mock_operons):
         """An operon fired within its cadence window is not stale."""
-        mock_operons.__iter__ = lambda self_: iter([
-            _make_operon(reaction="fresh", enzymes=["e1"], substrates=["daily"]),
-        ])
+        mock_operons.__iter__ = lambda self_: iter(
+            [
+                _make_operon(reaction="fresh", enzymes=["e1"], substrates=["daily"]),
+            ]
+        )
         stimuli = [_make_stimulus("e1", hours_ago=12)]  # 0.5 days < 2-day cadence
         collector = _mock_collector(stimuli)
         sub = OperonSubstrate(collector)
@@ -146,6 +157,7 @@ class TestSense:
 
 
 # ── candidates ─────────────────────────────────────────────────────
+
 
 class TestCandidates:
     def test_filters_stale_only(self):
@@ -169,30 +181,36 @@ class TestCandidates:
 
 # ── act ────────────────────────────────────────────────────────────
 
+
 class TestAct:
     def test_stale_message_with_days(self):
         sub = OperonSubstrate()
-        msg = sub.act({
-            "reaction": "review",
-            "days_since": 20,
-            "cadence_days": 10,
-        })
+        msg = sub.act(
+            {
+                "reaction": "review",
+                "days_since": 20,
+                "cadence_days": 10,
+            }
+        )
         assert "stale: review" in msg
         assert "20d since last fire" in msg
         assert "cadence: 10d" in msg
 
     def test_dormant_message_when_no_activity(self):
         sub = OperonSubstrate()
-        msg = sub.act({
-            "reaction": "silent_op",
-            "days_since": None,
-            "cadence_days": 7,
-        })
+        msg = sub.act(
+            {
+                "reaction": "silent_op",
+                "days_since": None,
+                "cadence_days": 7,
+            }
+        )
         assert "dormant signal" in msg
         assert "silent_op" in msg
 
 
 # ── report ─────────────────────────────────────────────────────────
+
 
 class TestReport:
     def test_report_includes_healthy_and_stale(self):

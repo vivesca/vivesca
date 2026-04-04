@@ -8,8 +8,6 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent / "synaptic"))
 
 
@@ -19,15 +17,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "synaptic"))
 def test_main_writes_entry(tmp_path: Path) -> None:
     """Valid JSON on stdin writes a tab-separated log line."""
     log_file = tmp_path / "context-audit.log"
-    stdin_data = json.dumps({
-        "file_path": "/some/path.md",
-        "memory_type": "skill",
-        "load_reason": "auto",
-    })
+    stdin_data = json.dumps(
+        {
+            "file_path": "/some/path.md",
+            "memory_type": "skill",
+            "load_reason": "auto",
+        }
+    )
     with patch("sys.stdin", StringIO(stdin_data)):
         # Import fresh so main() picks up patched LOG
-        import importlib
         import morphogen
+
         with patch.object(morphogen, "LOG", log_file):
             morphogen.main()
 
@@ -45,6 +45,7 @@ def test_main_handles_invalid_json(tmp_path: Path) -> None:
     log_file = tmp_path / "context-audit.log"
     with patch("sys.stdin", StringIO("not json at all")):
         import morphogen
+
         with patch.object(morphogen, "LOG", log_file):
             morphogen.main()
     assert not log_file.exists()
@@ -56,6 +57,7 @@ def test_main_missing_fields(tmp_path: Path) -> None:
     stdin_data = json.dumps({})
     with patch("sys.stdin", StringIO(stdin_data)):
         import morphogen
+
         with patch.object(morphogen, "LOG", log_file):
             morphogen.main()
 
@@ -70,6 +72,7 @@ def test_main_appends_multiple(tmp_path: Path) -> None:
     """Multiple calls append lines."""
     log_file = tmp_path / "context-audit.log"
     import morphogen
+
     for label in ("first", "second", "third"):
         stdin_data = json.dumps({"file_path": label, "memory_type": "t", "load_reason": "r"})
         with patch("sys.stdin", StringIO(stdin_data)):

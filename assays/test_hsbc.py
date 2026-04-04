@@ -1,18 +1,19 @@
 """Tests for HSBC statement parser."""
 
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 
 from metabolon.respirometry.parsers.hsbc import (
-    extract_hsbc,
-    _extract_metadata,
-    _extract_hsbc_date,
-    _parse_transactions,
     _clean_merchant,
+    _extract_hsbc_date,
+    _extract_metadata,
+    _parse_transactions,
+    extract_hsbc,
 )
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
+from metabolon.respirometry.schema import ConsumptionEvent
 
 
 class TestExtractHsbcDate:
@@ -312,7 +313,7 @@ Total minimum payment due  HKD
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_hsbc(Path("test.pdf"))
+        _meta, txns = extract_hsbc(Path("test.pdf"))
         assert len(txns) == 2
         assert sum(t.hkd for t in txns) == pytest.approx(-178.45)
 

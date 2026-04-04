@@ -9,8 +9,6 @@ and the full scan pipeline.
 """
 
 
-import json
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -38,6 +36,7 @@ RECEPTORS = _ns["RECEPTORS"]
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def tmp_receptor(tmp_path: Path) -> Path:
@@ -67,6 +66,7 @@ def _write_recipe(rec_dir: Path, data: dict) -> Path:
 # parse_frontmatter tests
 # ---------------------------------------------------------------------------
 
+
 class TestParseFrontmatter:
     def test_valid_frontmatter(self) -> None:
         text = "---\nname: foo\ndescription: bar\n---\nBody here."
@@ -77,31 +77,31 @@ class TestParseFrontmatter:
 
     def test_no_opening_delimiter(self) -> None:
         text = "name: foo\n---\nbody"
-        fm, body, errors = parse_frontmatter(text)
+        fm, _body, errors = parse_frontmatter(text)
         assert fm is None
         assert any("opening" in e for e in errors)
 
     def test_no_closing_delimiter(self) -> None:
         text = "---\nname: foo\nbody continues"
-        fm, body, errors = parse_frontmatter(text)
+        fm, _body, errors = parse_frontmatter(text)
         assert fm is None
         assert any("closing" in e for e in errors)
 
     def test_invalid_yaml(self) -> None:
         text = "---\n: invalid: [yaml: content\n---\nbody"
-        fm, body, errors = parse_frontmatter(text)
+        fm, _body, errors = parse_frontmatter(text)
         assert fm is None
         assert any("YAML parse error" in e for e in errors)
 
     def test_frontmatter_is_list(self) -> None:
         text = "---\n- item1\n- item2\n---\nbody"
-        fm, body, errors = parse_frontmatter(text)
+        fm, _body, errors = parse_frontmatter(text)
         assert fm is None
         assert any("list" in e.lower() or "mapping" in e.lower() for e in errors)
 
     def test_empty_body(self) -> None:
         text = "---\nname: x\ndescription: y\n---\n"
-        fm, body, errors = parse_frontmatter(text)
+        fm, _body, errors = parse_frontmatter(text)
         assert errors == []
         assert fm is not None
 
@@ -109,6 +109,7 @@ class TestParseFrontmatter:
 # ---------------------------------------------------------------------------
 # check_skill_md tests
 # ---------------------------------------------------------------------------
+
 
 class TestCheckSkillMd:
     def test_healthy_skill(self, tmp_receptor: Path) -> None:
@@ -161,14 +162,18 @@ class TestCheckSkillMd:
 # check_recipe_yaml tests
 # ---------------------------------------------------------------------------
 
+
 class TestCheckRecipeYaml:
     def test_valid_recipe(self, tmp_receptor: Path) -> None:
-        _write_recipe(tmp_receptor, {
-            "name": "test",
-            "description": "A test recipe.",
-            "instructions": "do stuff",
-            "extensions": [{"type": "builtin", "name": "developer"}],
-        })
+        _write_recipe(
+            tmp_receptor,
+            {
+                "name": "test",
+                "description": "A test recipe.",
+                "instructions": "do stuff",
+                "extensions": [{"type": "builtin", "name": "developer"}],
+            },
+        )
         v = check_recipe_yaml(tmp_receptor / "recipe.yaml", "test-receptor")
         assert v == []
 
@@ -197,20 +202,26 @@ class TestCheckRecipeYaml:
         assert any(vi.check == "recipe-yaml" and "mapping" in vi.detail for vi in v)
 
     def test_extension_uri_missing_file(self, tmp_receptor: Path) -> None:
-        _write_recipe(tmp_receptor, {
-            "name": "test",
-            "description": "ok",
-            "extensions": [{"type": "local", "uri": "nonexistent.py"}],
-        })
+        _write_recipe(
+            tmp_receptor,
+            {
+                "name": "test",
+                "description": "ok",
+                "extensions": [{"type": "local", "uri": "nonexistent.py"}],
+            },
+        )
         v = check_recipe_yaml(tmp_receptor / "recipe.yaml", "test-receptor")
         assert any(vi.check == "reference-broken" for vi in v)
 
     def test_extension_uri_http_ok(self, tmp_receptor: Path) -> None:
-        _write_recipe(tmp_receptor, {
-            "name": "test",
-            "description": "ok",
-            "extensions": [{"type": "streamable_http", "uri": "http://127.0.0.1:8741/mcp"}],
-        })
+        _write_recipe(
+            tmp_receptor,
+            {
+                "name": "test",
+                "description": "ok",
+                "extensions": [{"type": "streamable_http", "uri": "http://127.0.0.1:8741/mcp"}],
+            },
+        )
         v = check_recipe_yaml(tmp_receptor / "recipe.yaml", "test-receptor")
         assert not any(vi.check == "reference-broken" for vi in v)
 
@@ -218,6 +229,7 @@ class TestCheckRecipeYaml:
 # ---------------------------------------------------------------------------
 # check_directory tests
 # ---------------------------------------------------------------------------
+
 
 class TestCheckDirectory:
     def test_clean_directory(self, tmp_receptor: Path) -> None:
@@ -257,6 +269,7 @@ class TestCheckDirectory:
 # Violation + format_report tests
 # ---------------------------------------------------------------------------
 
+
 class TestFormatReport:
     def test_no_violations(self) -> None:
         report = format_report([])
@@ -290,6 +303,7 @@ class TestViolation:
 # ---------------------------------------------------------------------------
 # Integration: scan_receptors on real repo
 # ---------------------------------------------------------------------------
+
 
 class TestScanReceptors:
     def test_scan_real_repo_finds_something(self) -> None:

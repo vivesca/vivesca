@@ -3,17 +3,15 @@ from __future__ import annotations
 """Tests for metabolon/enzymes/ecphory.py"""
 
 
-import textwrap
 from dataclasses import dataclass
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Minimal stubs for TraceFragment (mirrors engram.TraceFragment)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class _TraceFragment:
@@ -32,6 +30,7 @@ class _TraceFragment:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _patch_locus(tmp_path):
@@ -57,6 +56,7 @@ def fn():
 # Action dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestDispatch:
     def test_unknown_action(self, fn):
         res = fn(action="bogus", query="x")
@@ -69,10 +69,17 @@ class TestDispatch:
             # engram branch — will fail validation but proves dispatch
             with patch(
                 "metabolon.organelles.engram.search",
-                return_value=[_TraceFragment(
-                    date="2025-01-01", time_str="12:00", timestamp_ms=0,
-                    session="s", role="user", snippet="hi", tool="t",
-                )],
+                return_value=[
+                    _TraceFragment(
+                        date="2025-01-01",
+                        time_str="12:00",
+                        timestamp_ms=0,
+                        session="s",
+                        role="user",
+                        snippet="hi",
+                        tool="t",
+                    )
+                ],
             ):
                 res = fn(action="Engram", query="hi")
                 assert "1 match(es)" in res.results
@@ -81,6 +88,7 @@ class TestDispatch:
 # ---------------------------------------------------------------------------
 # Engram action
 # ---------------------------------------------------------------------------
+
 
 class TestEngram:
     def test_missing_query(self, fn):
@@ -121,8 +129,15 @@ class TestEngram:
     @patch("metabolon.organelles.engram.search")
     def test_multiple_fragments(self, mock_search, fn):
         frags = [
-            _TraceFragment(date="2025-01-01", time_str="10:00", timestamp_ms=i * 1000,
-                           session="s", role="user", snippet=f"snippet {i}", tool="t")
+            _TraceFragment(
+                date="2025-01-01",
+                time_str="10:00",
+                timestamp_ms=i * 1000,
+                session="s",
+                role="user",
+                snippet=f"snippet {i}",
+                tool="t",
+            )
             for i in range(3)
         ]
         mock_search.return_value = frags
@@ -133,6 +148,7 @@ class TestEngram:
 # ---------------------------------------------------------------------------
 # Chromatin action
 # ---------------------------------------------------------------------------
+
 
 class TestChromatin:
     def test_missing_query(self, fn):
@@ -167,7 +183,11 @@ class TestChromatin:
             accessibility="closed",
         )
         mock_search.assert_called_once_with(
-            "q", category="gotcha", limit=5, mode="semantic", chromatin="closed",
+            "q",
+            category="gotcha",
+            limit=5,
+            mode="semantic",
+            chromatin="closed",
         )
 
     @patch("metabolon.organelles.chromatin.search")
@@ -186,6 +206,7 @@ class TestChromatin:
 # ---------------------------------------------------------------------------
 # Logs action
 # ---------------------------------------------------------------------------
+
 
 class TestLogs:
     def test_missing_query(self, fn):
@@ -242,6 +263,7 @@ class TestLogs:
     def test_experiments_dir_missing(self, fn, _patch_locus, tmp_path):
         """If experiments dir doesn't exist, only meal_plan and symptom_log are checked."""
         import shutil
+
         exp_dir = tmp_path / "experiments"
         if exp_dir.exists():
             shutil.rmtree(exp_dir)
@@ -255,9 +277,11 @@ class TestLogs:
 # Return type
 # ---------------------------------------------------------------------------
 
+
 class TestReturnType:
     def test_returns_ecphory_result(self, fn):
         from metabolon.enzymes.ecphory import EcphoryResult
+
         res = fn(action="bogus", query="x")
         assert isinstance(res, EcphoryResult)
 

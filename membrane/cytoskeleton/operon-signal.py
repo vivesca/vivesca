@@ -22,7 +22,7 @@ SIGNALS_FILE = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         return
 
     skill_name = data.get("tool_input", {}).get("skill", "") or data.get("tool_input", {}).get(

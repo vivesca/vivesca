@@ -1,10 +1,11 @@
 """Tests for polarization action-dispatch consolidation."""
+
 from unittest.mock import patch
-import pytest
 
 
 def test_polarization_actions_unknown_action():
-    from metabolon.enzymes.polarization import polarization, EffectorResult
+    from metabolon.enzymes.polarization import EffectorResult, polarization
+
     result = polarization(action="nonexistent")
     assert isinstance(result, EffectorResult)
     assert not result.success
@@ -13,7 +14,8 @@ def test_polarization_actions_unknown_action():
 
 @patch("metabolon.enzymes.polarization.subprocess.run")
 def test_preflight_action(mock_run):
-    from metabolon.enzymes.polarization import polarization, PolarizationPreflightResult
+    from metabolon.enzymes.polarization import PolarizationPreflightResult, polarization
+
     mock_run.return_value.returncode = 0
     mock_run.return_value.stdout = '{"budget": "ok"}'
     result = polarization(action="preflight")
@@ -22,7 +24,8 @@ def test_preflight_action(mock_run):
 
 @patch("metabolon.enzymes.polarization.subprocess.run")
 def test_guard_action(mock_run):
-    from metabolon.enzymes.polarization import polarization, EffectorResult
+    from metabolon.enzymes.polarization import EffectorResult, polarization
+
     mock_run.return_value.returncode = 0
     mock_run.return_value.stdout = "guard activated"
     result = polarization(action="guard", guard_action="on")

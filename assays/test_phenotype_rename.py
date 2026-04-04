@@ -1,5 +1,6 @@
 """Tests for phenotype_rename — tmux window labeling from prompts."""
 
+import contextlib
 import pathlib
 import runpy
 import sys
@@ -17,10 +18,8 @@ def _label(prompt: str) -> str:
     """Run phenotype_rename.py and capture the tmux rename-window label."""
     with patch("subprocess.run") as mock_run:
         with patch.object(sys, "argv", ["phenotype_rename.py", prompt, "@99"]):
-            try:
+            with contextlib.suppress(SystemExit):
                 runpy.run_path(SCRIPT, run_name="__main__")
-            except SystemExit:
-                pass
 
         if mock_run.called:
             args = mock_run.call_args[0][0]
@@ -115,7 +114,5 @@ class TestQuotedStrings:
 
 class TestTruncation:
     def test_max_20_chars(self):
-        label = _label(
-            "refactor the extremely complicated authentication middleware system"
-        )
+        label = _label("refactor the extremely complicated authentication middleware system")
         assert len(label) <= 20

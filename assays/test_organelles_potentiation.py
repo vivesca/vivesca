@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import patch
 
 import pytest
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -17,6 +15,7 @@ import pytest
 def potentiation():
     """Import potentiation module (no mock). Use when testing pure functions."""
     from metabolon.organelles import potentiation
+
     return potentiation
 
 
@@ -41,6 +40,7 @@ def mock_chromatin(tmp_path):
 def potentiation_module(mock_chromatin):
     """Import potentiation module with mocked chromatin path."""
     from metabolon.organelles import potentiation
+
     return potentiation
 
 
@@ -58,11 +58,11 @@ def test_fsrs_forgetting_curve_normal(potentiation):
     # At day 0, retrievability should be 1.0
     r0 = potentiation._fsrs_forgetting_curve(0, 10)
     assert abs(r0 - 1.0) < 0.01
-    
+
     # After 10 days with stability 10, R should be < 1.0
     r10 = potentiation._fsrs_forgetting_curve(10, 10)
     assert 0.5 < r10 < 1.0
-    
+
     # More elapsed days = lower retrievability
     r20 = potentiation._fsrs_forgetting_curve(20, 10)
     assert r20 < r10
@@ -134,10 +134,10 @@ def test_fsrs_interval_higher_stability_longer(potentiation):
 def test_fsrs_next_states_returns_all_ratings(potentiation):
     """fsrs_next_states returns states for all 4 ratings."""
     states = potentiation.fsrs_next_states(None, 0.9, 0)
-    assert hasattr(states, 'again')
-    assert hasattr(states, 'hard')
-    assert hasattr(states, 'good')
-    assert hasattr(states, 'easy')
+    assert hasattr(states, "again")
+    assert hasattr(states, "hard")
+    assert hasattr(states, "good")
+    assert hasattr(states, "easy")
     assert states.again.memory.stability > 0
     assert states.good.memory.stability > 0
 
@@ -145,7 +145,7 @@ def test_fsrs_next_states_returns_all_ratings(potentiation):
 def test_fsrs_next_states_new_card(potentiation):
     """New card (prev=None) gets initial stability and difficulty."""
     states = potentiation.fsrs_next_states(None, 0.9, 0)
-    
+
     # Easy rating should have lower difficulty than Again
     assert states.again.memory.difficulty > states.easy.memory.difficulty
 
@@ -153,10 +153,10 @@ def test_fsrs_next_states_new_card(potentiation):
 def test_fsrs_next_states_review_card(potentiation):
     """Review card uses elapsed days for retrievability."""
     from metabolon.organelles.potentiation import _MemoryState
-    
+
     prev = _MemoryState(stability=10.0, difficulty=5.0)
     states = potentiation.fsrs_next_states(prev, 0.9, 5)
-    
+
     # All states should have valid memory
     assert states.again.memory.stability > 0
     assert states.good.memory.stability > 0
@@ -279,19 +279,19 @@ def test_module_weight(potentiation):
 def test_get_phase_dates(potentiation):
     """Phase determination based on date."""
     from datetime import date
-    
+
     # Cruise phase (until March 13)
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 10)):
         phase, name = potentiation._get_phase()
         assert phase == 1
         assert name == "Cruise"
-    
+
     # Ramp phase (March 14-28)
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 20)):
         phase, name = potentiation._get_phase()
         assert phase == 2
         assert name == "Ramp"
-    
+
     # Peak phase (after March 28)
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 4, 1)):
         phase, name = potentiation._get_phase()
@@ -302,15 +302,15 @@ def test_get_phase_dates(potentiation):
 def test_daily_quota(potentiation):
     """Daily quota depends on phase."""
     from datetime import date
-    
+
     # Phase 1 (Cruise): 10
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 10)):
         assert potentiation._daily_quota() == 10
-    
+
     # Phase 2 (Ramp): 15
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 3, 20)):
         assert potentiation._daily_quota() == 15
-    
+
     # Phase 3 (Peak): 20
     with patch("metabolon.organelles.potentiation._today_hkt", return_value=date(2026, 4, 1)):
         assert potentiation._daily_quota() == 20
@@ -322,7 +322,7 @@ def test_daily_quota(potentiation):
 def test_new_card(potentiation_module, mock_now):
     """New card has required fields."""
     card = potentiation_module._new_card(mock_now)
-    
+
     assert "card_id" in card
     assert card["state"] == 1
     assert card["step"] == 0
@@ -336,7 +336,7 @@ def test_schedule_card_new_again(potentiation_module, mock_now):
     """Scheduling new card with Again rating."""
     card = potentiation_module._new_card(mock_now)
     result = potentiation_module._schedule_card(card, "again", mock_now)
-    
+
     assert result["state"] == 1  # Learning
     assert result["step"] == 0
     assert result["stability"] > 0
@@ -347,7 +347,7 @@ def test_schedule_card_new_good(potentiation_module, mock_now):
     """Scheduling new card with Good rating."""
     card = potentiation_module._new_card(mock_now)
     result = potentiation_module._schedule_card(card, "good", mock_now)
-    
+
     assert result["state"] == 2  # Review
     assert result["stability"] > 0
     assert result["difficulty"] > 0
@@ -364,7 +364,7 @@ def test_schedule_card_review(potentiation_module, mock_now):
         "last_review": "2026-03-15T12:00:00+00:00",
     }
     result = potentiation_module._schedule_card(card, "good", mock_now)
-    
+
     assert result["state"] == 2  # Still review
     assert result["card_id"] == 12345
 
@@ -373,11 +373,11 @@ def test_schedule_card_caps_at_exam(potentiation_module, mock_now):
     """Scheduled due date is capped at 2 days before exam."""
     card = potentiation_module._new_card(mock_now)
     result = potentiation_module._schedule_card(card, "easy", mock_now)
-    
+
     # Parse the due date
     due = potentiation_module._parse_datetime(result["due"])
     exam_cutoff = potentiation_module.EXAM_DATE - timedelta(days=2)
-    
+
     assert due <= exam_cutoff
 
 
@@ -385,7 +385,7 @@ def test_card_due_hkt(potentiation):
     """_card_due_hkt converts due string to HKT datetime."""
     card = {"due": "2026-03-25T12:00:00+00:00"}
     due_hkt = potentiation._card_due_hkt(card)
-    
+
     assert due_hkt is not None
     assert due_hkt.tzinfo == potentiation.HKT
 
@@ -402,7 +402,7 @@ def test_card_due_hkt_missing(potentiation):
 def test_load_state_missing_file(potentiation_module, mock_chromatin):
     """Loading state when file doesn't exist returns empty state."""
     state = potentiation_module._load_state()
-    
+
     assert state == {"cards": {}, "review_log": []}
 
 
@@ -410,21 +410,23 @@ def test_load_state_existing_file(potentiation_module, mock_chromatin):
     """Loading state from existing file."""
     state_data = {
         "cards": {
-            "M1-ai-risks": json.dumps({
-                "card_id": 1,
-                "stability": 5.0,
-                "difficulty": 3.0,
-                "due": "2026-03-25T12:00:00+00:00",
-                "last_review": "2026-03-20T12:00:00+00:00",
-            })
+            "M1-ai-risks": json.dumps(
+                {
+                    "card_id": 1,
+                    "stability": 5.0,
+                    "difficulty": 3.0,
+                    "due": "2026-03-25T12:00:00+00:00",
+                    "last_review": "2026-03-20T12:00:00+00:00",
+                }
+            )
         },
-        "review_log": []
+        "review_log": [],
     }
     state_file = mock_chromatin / ".garp-fsrs-state.json"
     state_file.write_text(json.dumps(state_data))
-    
+
     state = potentiation_module._load_state()
-    
+
     assert "M1-ai-risks" in state["cards"]
     assert state["cards"]["M1-ai-risks"]["stability"] == 5.0
 
@@ -433,9 +435,9 @@ def test_load_state_corrupt_file(potentiation_module, mock_chromatin):
     """Loading state from corrupt file returns empty state."""
     state_file = mock_chromatin / ".garp-fsrs-state.json"
     state_file.write_text("not valid json{{{")
-    
+
     state = potentiation_module._load_state()
-    
+
     assert state == {"cards": {}, "review_log": []}
 
 
@@ -449,14 +451,14 @@ def test_save_state(potentiation_module, mock_chromatin, mock_now):
                 "difficulty": 3.0,
             }
         },
-        "review_log": []
+        "review_log": [],
     }
-    
+
     potentiation_module._save_state(state)
-    
+
     state_file = mock_chromatin / ".garp-fsrs-state.json"
     assert state_file.exists()
-    
+
     loaded = json.loads(state_file.read_text())
     assert "M1-ai-risks" in loaded["cards"]
 
@@ -465,20 +467,20 @@ def test_save_state_prunes_old_log(potentiation_module, mock_chromatin, mock_now
     """Saving state prunes review_log entries older than 90 days."""
     old_date = (mock_now - timedelta(days=100)).isoformat()
     recent_date = (mock_now - timedelta(days=10)).isoformat()
-    
+
     state = {
         "cards": {},
         "review_log": [
             {"topic": "old", "date": old_date},
             {"topic": "recent", "date": recent_date},
-        ]
+        ],
     }
-    
+
     potentiation_module._save_state(state)
-    
+
     state_file = mock_chromatin / ".garp-fsrs-state.json"
     loaded = json.loads(state_file.read_text())
-    
+
     assert len(loaded["review_log"]) == 1
     assert loaded["review_log"][0]["topic"] == "recent"
 
@@ -489,13 +491,13 @@ def test_save_state_prunes_old_log(potentiation_module, mock_chromatin, mock_now
 def test_parse_tracker_missing_file(potentiation_module, mock_chromatin):
     """Parsing tracker when file doesn't exist returns empty."""
     result = potentiation_module._parse_tracker()
-    
+
     assert result == {"summary": {}, "topics": {}, "recent_misses": []}
 
 
 def test_parse_tracker_with_content(potentiation_module, mock_chromatin):
     """Parsing tracker with valid content."""
-    tracker_content = '''
+    tracker_content = """
 # GARP RAI Quiz Tracker
 
 ## Summary
@@ -521,38 +523,38 @@ def test_parse_tracker_with_content(potentiation_module, mock_chromatin):
 |------|-------|---------|
 | 2026-03-24 | M1-ai-risks | GOFAI limitations |
 | 2026-03-23 | M2-clustering | K-means initialization |
-'''
+"""
     tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
     tracker_file.write_text(tracker_content)
-    
+
     result = potentiation_module._parse_tracker()
-    
+
     assert result["summary"]["total"] == 42
     assert result["summary"]["correct"] == 35
     assert result["summary"]["rate"] == 83
     assert result["summary"]["sessions"] == 5
-    
+
     assert "M1-ai-risks" in result["topics"]
     assert result["topics"]["M1-ai-risks"]["attempts"] == 5
     assert result["topics"]["M1-ai-risks"]["correct"] == 4
     assert abs(result["topics"]["M1-ai-risks"]["rate"] - 0.8) < 0.01
-    
+
     assert len(result["recent_misses"]) == 2
     assert result["recent_misses"][0]["topic"] == "M1-ai-risks"
 
 
 def test_parse_tracker_dash_rate(potentiation_module, mock_chromatin):
     """Parsing tracker handles dash (—) for no attempts."""
-    tracker_content = '''
+    tracker_content = """
 | Topic | Attempts | Correct | Rate |
 |-------|----------|---------|------|
 | M4-ethics-principles | 0 | 0 | — |
-'''
+"""
     tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
     tracker_file.write_text(tracker_content)
-    
+
     result = potentiation_module._parse_tracker()
-    
+
     assert result["topics"]["M4-ethics-principles"]["rate"] == 0.0
 
 
@@ -562,7 +564,7 @@ def test_parse_tracker_dash_rate(potentiation_module, mock_chromatin):
 def test_resolve_topic_exact_match(potentiation):
     """Resolve topic with exact match."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
-    
+
     result = potentiation._resolve_topic("M1-ai-risks", tracker)
     assert result == "M1-ai-risks"
 
@@ -570,7 +572,7 @@ def test_resolve_topic_exact_match(potentiation):
 def test_resolve_topic_case_insensitive(potentiation, capsys):
     """Resolve topic case-insensitively."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
-    
+
     result = potentiation._resolve_topic("m1-ai-risks", tracker)
     assert result == "M1-ai-risks"
 
@@ -578,7 +580,7 @@ def test_resolve_topic_case_insensitive(potentiation, capsys):
 def test_resolve_topic_partial_match(potentiation, capsys):
     """Resolve topic with partial match."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
-    
+
     result = potentiation._resolve_topic("ai-risks", tracker)
     assert result == "M1-ai-risks"
 
@@ -586,18 +588,20 @@ def test_resolve_topic_partial_match(potentiation, capsys):
 def test_resolve_topic_not_found(potentiation, capsys):
     """Resolve topic not found returns None."""
     tracker = {"topics": {"M1-ai-risks": {"attempts": 5}}}
-    
+
     result = potentiation._resolve_topic("nonexistent", tracker)
     assert result is None
 
 
 def test_resolve_topic_ambiguous(potentiation, capsys):
     """Ambiguous topic prints options and returns None."""
-    tracker = {"topics": {
-        "M2-clustering": {},
-        "M2-classification": {},
-    }}
-    
+    tracker = {
+        "topics": {
+            "M2-clustering": {},
+            "M2-classification": {},
+        }
+    }
+
     result = potentiation._resolve_topic("cluster", tracker)
     # Should match M2-clustering uniquely
     assert result == "M2-clustering" or result is None
@@ -625,13 +629,13 @@ def test_topics_with_drills_missing_file(potentiation_module, mock_chromatin):
 def test_topics_with_drills(potentiation_module, mock_chromatin):
     """Topics with drills parses drill file."""
     # The regex pattern looks for (M\d-[\w-]+) in lines starting with "## "
-    drill_content = '''
+    drill_content = """
 ## Definition Drills (M1-ai-risks)
 Some content
 
 ## Definition Drills (M2-clustering)
 More content
-'''
+"""
     drill_file = mock_chromatin / "GARP RAI Definition Drills.md"
     drill_file.write_text(drill_content)
 
@@ -683,16 +687,16 @@ def test_get_today_reviews(potentiation, mock_now):
     """_get_today_reviews filters by today's date."""
     today_str = mock_now.strftime("%Y-%m-%d")
     yesterday_str = (mock_now - timedelta(days=1)).strftime("%Y-%m-%d")
-    
+
     state = {
         "review_log": [
             {"topic": "M1-ai-risks", "date": today_str + "T10:00:00+08:00"},
             {"topic": "M2-clustering", "date": yesterday_str + "T10:00:00+08:00"},
         ]
     }
-    
+
     result = potentiation._get_today_reviews(state)
-    
+
     assert len(result) == 1
     assert result[0]["topic"] == "M1-ai-risks"
 
@@ -704,7 +708,7 @@ def test_atomic_write(potentiation_module, mock_chromatin):
     """_atomic_write creates file atomically."""
     target = mock_chromatin / "test.txt"
     potentiation_module._atomic_write(target, "test content")
-    
+
     assert target.exists()
     assert target.read_text() == "test content"
 
@@ -714,88 +718,131 @@ def test_atomic_write(potentiation_module, mock_chromatin):
 
 def test_cmd_today_no_reviews(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_today handles no reviews."""
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
-        with patch("metabolon.organelles.potentiation._parse_tracker", return_value={"summary": {}, "topics": {}}):
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
+        with patch(
+            "metabolon.organelles.potentiation._parse_tracker",
+            return_value={"summary": {}, "topics": {}},
+        ):
             potentiation_module.cmd_today()
-    
+
     captured = capsys.readouterr()
     assert "No reviews today" in captured.out or "Today" in captured.out
 
 
 def test_cmd_stats(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_stats outputs stats."""
-    with patch("metabolon.organelles.potentiation._parse_tracker", return_value={
-        "summary": {"total": 10, "correct": 8, "rate": 80, "sessions": 2},
-        "topics": {}
-    }):
-        with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
-            with patch("metabolon.organelles.potentiation._topics_with_drills", return_value=set()):
+    with patch(
+        "metabolon.organelles.potentiation._parse_tracker",
+        return_value={
+            "summary": {"total": 10, "correct": 8, "rate": 80, "sessions": 2},
+            "topics": {},
+        },
+    ):
+        with patch(
+            "metabolon.organelles.potentiation._load_state",
+            return_value={"cards": {}, "review_log": []},
+        ):
+            with patch(
+                "metabolon.organelles.potentiation._topics_with_drills", return_value=set()
+            ):
                 potentiation_module.cmd_stats()
-    
+
     captured = capsys.readouterr()
     assert "Stats" in captured.out
 
 
 def test_cmd_topics_empty(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_topics handles empty state."""
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
-        with patch("metabolon.organelles.potentiation._parse_tracker", return_value={"summary": {}, "topics": {}}):
-            with patch("metabolon.organelles.potentiation._topics_with_drills", return_value=set()):
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
+        with patch(
+            "metabolon.organelles.potentiation._parse_tracker",
+            return_value={"summary": {}, "topics": {}},
+        ):
+            with patch(
+                "metabolon.organelles.potentiation._topics_with_drills", return_value=set()
+            ):
                 potentiation_module.cmd_topics()
-    
+
     captured = capsys.readouterr()
     assert "All topics" in captured.out
 
 
 def test_cmd_due_no_due(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_due handles no due topics."""
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
         potentiation_module.cmd_due()
-    
+
     captured = capsys.readouterr()
     assert "due" in captured.out.lower()
 
 
 def test_cmd_record_invalid_rating(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_record handles invalid rating."""
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
-        with patch("metabolon.organelles.potentiation._parse_tracker", return_value={"summary": {}, "topics": {}}):
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
+        with patch(
+            "metabolon.organelles.potentiation._parse_tracker",
+            return_value={"summary": {}, "topics": {}},
+        ):
             potentiation_module.cmd_record("M1-ai-risks", "invalid")
-    
+
     captured = capsys.readouterr()
     assert "Unknown rating" in captured.out
 
 
 def test_cmd_record_unknown_topic(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_record handles unknown topic."""
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
-        with patch("metabolon.organelles.potentiation._parse_tracker", return_value={"summary": {}, "topics": {}}):
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
+        with patch(
+            "metabolon.organelles.potentiation._parse_tracker",
+            return_value={"summary": {}, "topics": {}},
+        ):
             with patch("metabolon.organelles.potentiation._resolve_topic", return_value=None):
                 potentiation_module.cmd_record("nonexistent", "good")
-    
+
     # Should exit early due to unresolved topic
 
 
 def test_cmd_void_no_history(potentiation_module, mock_chromatin, mock_now):
     """cmd_void exits when no review history."""
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
         with pytest.raises(SystemExit):
             potentiation_module.cmd_void("M1-ai-risks")
 
 
 def test_cmd_end(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_end increments session count."""
-    tracker_content = '''
+    tracker_content = """
 | Sessions |
 |----------|
 | 5 |
-'''
+"""
     tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
     tracker_file.write_text(tracker_content)
-    
-    with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
+
+    with patch(
+        "metabolon.organelles.potentiation._load_state",
+        return_value={"cards": {}, "review_log": []},
+    ):
         potentiation_module.cmd_end()
-    
+
     captured = capsys.readouterr()
     # Session count should be incremented
     assert "Session" in captured.out
@@ -803,15 +850,18 @@ def test_cmd_end(potentiation_module, mock_chromatin, mock_now, capsys):
 
 def test_cmd_coverage(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_coverage outputs coverage info."""
-    with patch("metabolon.organelles.potentiation._parse_tracker", return_value={
-        "summary": {},
-        "topics": {
-            "M1-ai-risks": {"attempts": 5, "correct": 4, "rate": 0.8},
-            "M2-clustering": {"attempts": 2, "correct": 2, "rate": 1.0},
-        }
-    }):
+    with patch(
+        "metabolon.organelles.potentiation._parse_tracker",
+        return_value={
+            "summary": {},
+            "topics": {
+                "M1-ai-risks": {"attempts": 5, "correct": 4, "rate": 0.8},
+                "M2-clustering": {"attempts": 2, "correct": 2, "rate": 1.0},
+            },
+        },
+    ):
         potentiation_module.cmd_coverage()
-    
+
     captured = capsys.readouterr()
     assert "Coverage" in captured.out
 
@@ -820,7 +870,7 @@ def test_cmd_reconcile_in_sync(potentiation_module, mock_chromatin, mock_now, ca
     """cmd_reconcile reports in-sync when summary matches topic totals."""
     # Need 10+ topics for reconcile to work
     # Summary total=10, correct=8 matches topic totals
-    tracker_content = '''
+    tracker_content = """
 # GARP RAI Quiz Tracker
 
 ## Summary
@@ -852,7 +902,7 @@ def test_cmd_reconcile_in_sync(potentiation_module, mock_chromatin, mock_now, ca
 | M4-regulatory | 0 | 0 | — |
 | M5-data-governance | 0 | 0 | — |
 | M5-model-governance | 0 | 0 | — |
-'''
+"""
     tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
     tracker_file.write_text(tracker_content)
 
@@ -865,7 +915,7 @@ def test_cmd_reconcile_in_sync(potentiation_module, mock_chromatin, mock_now, ca
 def test_cmd_reconcile_out_of_sync(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_reconcile updates summary when out of sync."""
     # Summary says 10, but topic totals = 15
-    tracker_content = '''
+    tracker_content = """
 # GARP RAI Quiz Tracker
 
 ## Summary
@@ -897,7 +947,7 @@ def test_cmd_reconcile_out_of_sync(potentiation_module, mock_chromatin, mock_now
 | M4-regulatory | 0 | 0 | — |
 | M5-data-governance | 0 | 0 | — |
 | M5-model-governance | 0 | 0 | — |
-'''
+"""
     tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
     tracker_file.write_text(tracker_content)
 
@@ -914,7 +964,7 @@ def test_cli_no_args(potentiation, capsys):
     """CLI with no args prints help."""
     with patch("sys.argv", ["melete"]):
         potentiation._cli()
-    
+
     captured = capsys.readouterr()
     assert "melete" in captured.out
 
@@ -929,9 +979,15 @@ def test_cli_unknown_command(potentiation, capsys):
 def test_cli_session(potentiation_module, mock_chromatin, mock_now, capsys):
     """CLI session command works."""
     with patch("sys.argv", ["melete", "session", "5"]):
-        with patch("metabolon.organelles.potentiation._load_state", return_value={"cards": {}, "review_log": []}):
-            with patch("metabolon.organelles.potentiation._parse_tracker", return_value={"summary": {}, "topics": {}}):
+        with patch(
+            "metabolon.organelles.potentiation._load_state",
+            return_value={"cards": {}, "review_log": []},
+        ):
+            with patch(
+                "metabolon.organelles.potentiation._parse_tracker",
+                return_value={"summary": {}, "topics": {}},
+            ):
                 potentiation_module._cli()
-    
-    captured = capsys.readouterr()
+
+    capsys.readouterr()
     # Should output session plan

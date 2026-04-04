@@ -1,10 +1,9 @@
 """Tests for metabolon.respirometry.parsers.hsbc — edge cases and skip-line handling."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.respirometry.parsers.hsbc import (
     _clean_merchant,
@@ -14,10 +13,10 @@ from metabolon.respirometry.parsers.hsbc import (
 )
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
-
 # ---------------------------------------------------------------------------
 # _clean_merchant — location suffixes not covered by the sibling test file
 # ---------------------------------------------------------------------------
+
 
 class TestCleanMerchantExtraLocations:
     def test_removes_quarry_bay(self) -> None:
@@ -42,6 +41,7 @@ class TestCleanMerchantExtraLocations:
 # ---------------------------------------------------------------------------
 # _parse_transactions — comma-formatted amounts and skip-line filtering
 # ---------------------------------------------------------------------------
+
 
 class TestParseTransactionsCommasAndSkips:
     def test_comma_formatted_amount(self) -> None:
@@ -72,6 +72,7 @@ class TestParseTransactionsCommasAndSkips:
 # _parse_transactions — foreign-currency edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestParseTransactionsFx:
     def test_gbp_transaction(self) -> None:
         text = "01MAR05MARHOTEL GBP 200.00 1,980.00"
@@ -93,6 +94,7 @@ class TestParseTransactionsFx:
 # ---------------------------------------------------------------------------
 # Schema property coverage
 # ---------------------------------------------------------------------------
+
 
 class TestSchemaProperties:
     def test_consumption_event_is_charge(self) -> None:
@@ -124,6 +126,7 @@ class TestSchemaProperties:
 # extract_hsbc — multi-page PDF
 # ---------------------------------------------------------------------------
 
+
 class TestExtractHsbcMultiPage:
     def test_multi_page_statement(self) -> None:
         page1 = """Statementdate  Statementbalance
@@ -152,6 +155,7 @@ Total minimum payment due  HKD
 # ---------------------------------------------------------------------------
 # _extract_metadata — period derivation from transaction dates
 # ---------------------------------------------------------------------------
+
 
 class TestExtractMetadataPeriod:
     def test_derives_period_from_transactions(self) -> None:

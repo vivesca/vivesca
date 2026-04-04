@@ -6,8 +6,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path.home() / "germline" / "effectors" / "chromatin-backup.sh"
 
 
@@ -1135,7 +1133,9 @@ class TestConflictResolution:
             capture_output=True,
             text=True,
         )
-        assert "local change" in log.stdout or "extra" in log.stdout or "merge" in log.stdout.lower()
+        assert (
+            "local change" in log.stdout or "extra" in log.stdout or "merge" in log.stdout.lower()
+        )
 
 
 # ── Bare repo sync edge case ──────────────────────────────────────────
@@ -1422,7 +1422,7 @@ class TestDetachedHEAD:
         """Script handles detached HEAD by committing and pushing."""
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
-        remote_path = _init_git_repo(chromatin, with_remote=True)
+        _init_git_repo(chromatin, with_remote=True)
 
         # Put repo in detached HEAD state
         subprocess.run(

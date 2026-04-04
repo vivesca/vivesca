@@ -1,6 +1,6 @@
 ---
 name: priming
-description: "Context-triggered reminders — check at session start and when entering matching context. Internal agent procedure, not user-invokable."
+description: "Context-triggered reminders — check at session start and when entering matching context. Internal agent procedure, not user-invocable."
 user_invocable: false
 ---
 

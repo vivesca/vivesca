@@ -4,38 +4,37 @@ from __future__ import annotations
 
 
 from unittest.mock import MagicMock, patch
-from datetime import date
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _fn():
     """Return the raw function behind the @tool decorator."""
     from metabolon.enzymes import interoception as mod
+
     return mod.interoception
 
 
 def _result_classes():
     from metabolon.enzymes.interoception import (
-        CircadianResult,
-        HeartRateResult,
-        MembranePotentialResult,
-        HomeostasisResult,
-        HomeostasisFinancialResult,
-        LysosomeResult,
         AnabolismResult,
         AngiogenesisResult,
-        MitophagyResult,
-        GlycolysisResult,
-        TissueRoutingResult,
+        CircadianResult,
         CrisprResult,
-        RetrogradeResult,
+        GlycolysisResult,
+        HeartRateResult,
+        HomeostasisFinancialResult,
+        HomeostasisResult,
         InflammasomeResult,
+        LysosomeResult,
+        MembranePotentialResult,
+        MitophagyResult,
+        RetrogradeResult,
+        TissueRoutingResult,
     )
+
     return {
         "CircadianResult": CircadianResult,
         "HeartRateResult": HeartRateResult,
@@ -58,33 +57,40 @@ def _result_classes():
 # Format duration tests
 # ---------------------------------------------------------------------------
 
+
 class TestFormatDuration:
     """Tests for _format_duration helper."""
 
     def test_none_returns_na(self):
         from metabolon.enzymes.interoception import _format_duration
+
         assert _format_duration(None) == "n/a"
 
     def test_zero_minutes(self):
         from metabolon.enzymes.interoception import _format_duration
+
         assert _format_duration(0) == "0m"
 
     def test_only_minutes(self):
         from metabolon.enzymes.interoception import _format_duration
+
         assert _format_duration(45 * 60) == "45m"
 
     def test_hours_and_minutes(self):
         from metabolon.enzymes.interoception import _format_duration
+
         assert _format_duration((7 * 60 + 5) * 60) == "7h05m"
 
     def test_hours_and_minutes_padded(self):
         from metabolon.enzymes.interoception import _format_duration
+
         assert _format_duration((2 * 60 + 9) * 60) == "2h09m"
 
 
 # ---------------------------------------------------------------------------
 # Unknown action tests
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownAction:
     """Tests for unknown actions."""
@@ -101,6 +107,7 @@ class TestUnknownAction:
             with patch("metabolon.enzymes.interoception.shutil.disk_usage"):
                 result = _fn()(action="  SYSTEM  ")
         from metabolon.enzymes.interoception import HomeostasisResult
+
         assert isinstance(result, HomeostasisResult)
         assert hasattr(result, "sections")
 
@@ -108,6 +115,7 @@ class TestUnknownAction:
 # ---------------------------------------------------------------------------
 # System action tests
 # ---------------------------------------------------------------------------
+
 
 class TestSystemAction:
     """Tests for system action."""
@@ -128,6 +136,7 @@ class TestSystemAction:
             result = _fn()(action="system")
 
         from metabolon.enzymes.interoception import HomeostasisResult
+
         assert isinstance(result, HomeostasisResult)
         assert isinstance(result.sections, list)
         assert len(result.sections) > 0
@@ -137,20 +146,26 @@ class TestSystemAction:
 # Sleep action tests
 # ---------------------------------------------------------------------------
 
+
 class TestSleepAction:
     """Tests for sleep action."""
 
     def test_sleep_returns_circadian_result(self):
-        mock_sense = MagicMock(return_value={
-            "sleep_score": 85,
-            "readiness_score": 75,
-            "average_hrv": 45,
-        })
+        mock_sense = MagicMock(
+            return_value={
+                "sleep_score": 85,
+                "readiness_score": 75,
+                "average_hrv": 45,
+            }
+        )
         with patch("metabolon.organelles.chemoreceptor.sense", mock_sense):
-            with patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/fake"):
+            with patch(
+                "metabolon.enzymes.interoception._health_log_path", return_value="/tmp/fake"
+            ):
                 result = _fn()(action="sleep")
 
         from metabolon.enzymes.interoception import CircadianResult
+
         assert isinstance(result, CircadianResult)
         assert isinstance(result.summary, str)
         assert "85" in result.summary
@@ -162,6 +177,7 @@ class TestSleepAction:
             result = _fn()(action="sleep")
 
         from metabolon.enzymes.interoception import CircadianResult
+
         assert isinstance(result, CircadianResult)
         assert "Error: API unavailable" in result.summary
 
@@ -171,6 +187,7 @@ class TestSleepAction:
             result = _fn()(action="sleep", period="week")
 
         from metabolon.enzymes.interoception import CircadianResult
+
         assert isinstance(result, CircadianResult)
         assert result.summary == "Weekly summary"
         mock_week.assert_called_once()
@@ -179,6 +196,7 @@ class TestSleepAction:
 # ---------------------------------------------------------------------------
 # Membrane/readiness action tests
 # ---------------------------------------------------------------------------
+
 
 class TestMembraneAction:
     """Tests for membrane/readiness action."""
@@ -189,6 +207,7 @@ class TestMembraneAction:
             result = _fn()(action="membrane")
 
         from metabolon.enzymes.interoception import MembranePotentialResult
+
         assert isinstance(result, MembranePotentialResult)
         assert "82" in result.summary
         assert "Exercise guidance" in result.guidance
@@ -199,12 +218,14 @@ class TestMembraneAction:
             result = _fn()(action="readiness")
 
         from metabolon.enzymes.interoception import MembranePotentialResult
+
         assert isinstance(result, MembranePotentialResult)
 
 
 # ---------------------------------------------------------------------------
 # Heartrate action tests
 # ---------------------------------------------------------------------------
+
 
 class TestHeartRateAction:
     """Tests for heartrate action."""
@@ -215,19 +236,23 @@ class TestHeartRateAction:
             result = _fn()(action="heartrate")
 
         from metabolon.enzymes.interoception import HeartRateResult
+
         assert isinstance(result, HeartRateResult)
         assert "No heart rate data available" in result.summary
 
     def test_with_data_aggregates_correctly(self):
-        mock_heartrate = MagicMock(return_value=[
-            {"timestamp": "2024-01-01T10:00", "bpm": 60},
-            {"timestamp": "2024-01-01T10:00", "bpm": 62},
-            {"timestamp": "2024-01-01T10:30", "bpm": 65},
-        ])
+        mock_heartrate = MagicMock(
+            return_value=[
+                {"timestamp": "2024-01-01T10:00", "bpm": 60},
+                {"timestamp": "2024-01-01T10:00", "bpm": 62},
+                {"timestamp": "2024-01-01T10:30", "bpm": 65},
+            ]
+        )
         with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
             result = _fn()(action="heartrate")
 
         from metabolon.enzymes.interoception import HeartRateResult
+
         assert isinstance(result, HeartRateResult)
         assert "3 readings" in result.summary
         assert "avg 62" in result.summary
@@ -236,6 +261,7 @@ class TestHeartRateAction:
 # ---------------------------------------------------------------------------
 # log_symptom tests
 # ---------------------------------------------------------------------------
+
 
 class TestLogSymptom:
     """Tests for log_symptom action."""
@@ -247,11 +273,18 @@ class TestLogSymptom:
 
     def test_log_symptom_success(self):
         with (
-            patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/test_health_log.md"),
-            patch("metabolon.enzymes.interoception._cross_link_experiment_symptom", return_value=None),
+            patch(
+                "metabolon.enzymes.interoception._health_log_path",
+                return_value="/tmp/test_health_log.md",
+            ),
+            patch(
+                "metabolon.enzymes.interoception._cross_link_experiment_symptom", return_value=None
+            ),
             patch("builtins.open", MagicMock()) as mock_open,
         ):
-            result = _fn()(action="log_symptom", symptom="headache", severity="moderate", notes="after lunch")
+            result = _fn()(
+                action="log_symptom", symptom="headache", severity="moderate", notes="after lunch"
+            )
 
         assert result.success is True
         assert "Logged: headache (moderate)" in result.message
@@ -262,6 +295,7 @@ class TestLogSymptom:
 # flywheel action tests
 # ---------------------------------------------------------------------------
 
+
 class TestFlywheelAction:
     """Tests for flywheel action."""
 
@@ -271,8 +305,13 @@ class TestFlywheelAction:
             patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
             patch("builtins.open", MagicMock()),
             patch("metabolon.enzymes.interoception.os.path.exists", return_value=False),
-            patch("metabolon.organelles.chemoreceptor.today", side_effect=Exception("unavailable")),
-            patch("metabolon.organelles.circadian_clock.scheduled_events", side_effect=Exception("unavailable")),
+            patch(
+                "metabolon.organelles.chemoreceptor.today", side_effect=Exception("unavailable")
+            ),
+            patch(
+                "metabolon.organelles.circadian_clock.scheduled_events",
+                side_effect=Exception("unavailable"),
+            ),
         ):
             mock_proc1 = MagicMock()
             mock_proc1.stdout = ""
@@ -282,6 +321,7 @@ class TestFlywheelAction:
             result = _fn()(action="flywheel")
 
         from metabolon.enzymes.interoception import AnabolismResult
+
         assert isinstance(result, AnabolismResult)
         assert len(result.links) == 5
         assert len(result.blind_spots) > 0
@@ -291,13 +331,17 @@ class TestFlywheelAction:
 # disk_clean action tests
 # ---------------------------------------------------------------------------
 
+
 class TestDiskCleanAction:
     """Tests for disk_clean action."""
 
     def test_disk_clean_returns_lysosome_result(self):
         with (
             patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
-            patch("metabolon.enzymes.interoception._clean_build_artifacts", return_value=(0.5, ["cleaned something"])),
+            patch(
+                "metabolon.enzymes.interoception._clean_build_artifacts",
+                return_value=(0.5, ["cleaned something"]),
+            ),
             patch("metabolon.enzymes.interoception.shutil.disk_usage") as mock_disk,
             patch("metabolon.metabolism.setpoint.Threshold"),
         ):
@@ -313,6 +357,7 @@ class TestDiskCleanAction:
             result = _fn()(action="disk_clean")
 
         from metabolon.enzymes.interoception import LysosomeResult
+
         assert isinstance(result, LysosomeResult)
         assert result.before_gb == 10.0
         assert result.after_gb == 12.0
@@ -324,11 +369,13 @@ class TestDiskCleanAction:
 # _clean_build_artifacts tests
 # ---------------------------------------------------------------------------
 
+
 class TestCleanBuildArtifacts:
     """Tests for _clean_build_artifacts helper."""
 
     def test_cargo_sweep_not_installed(self):
         from metabolon.enzymes.interoception import _clean_build_artifacts
+
         with (
             patch("metabolon.enzymes.interoception.CODE_DIR", "/tmp/fake"),
             patch("os.path.isdir", return_value=True),
@@ -351,17 +398,20 @@ class TestCleanBuildArtifacts:
 # glycolysis action tests
 # ---------------------------------------------------------------------------
 
+
 class TestGlycolysisAction:
     """Tests for glycolysis action."""
 
     def test_glycolysis_returns_glycolysis_result(self):
-        mock_snapshot = MagicMock(return_value={
-            "glycolysis_pct": 65.5,
-            "deterministic_count": 120,
-            "symbiont_count": 30,
-            "hybrid_count": 10,
-            "total": 160,
-        })
+        mock_snapshot = MagicMock(
+            return_value={
+                "glycolysis_pct": 65.5,
+                "deterministic_count": 120,
+                "symbiont_count": 30,
+                "hybrid_count": 10,
+                "total": 160,
+            }
+        )
         mock_trend = MagicMock(return_value=[])
         with (
             patch("metabolon.organelles.glycolysis_rate.snapshot", mock_snapshot),
@@ -370,6 +420,7 @@ class TestGlycolysisAction:
             result = _fn()(action="glycolysis")
 
         from metabolon.enzymes.interoception import GlycolysisResult
+
         assert isinstance(result, GlycolysisResult)
         assert result.glycolysis_pct == 65.5
         assert result.deterministic_count == 120
@@ -380,6 +431,7 @@ class TestGlycolysisAction:
 # ---------------------------------------------------------------------------
 # tissue_routing action tests
 # ---------------------------------------------------------------------------
+
 
 class TestTissueRoutingAction:
     """Tests for tissue_routing action."""
@@ -394,6 +446,7 @@ class TestTissueRoutingAction:
             result = _fn()(action="tissue_routing")
 
         from metabolon.enzymes.interoception import TissueRoutingResult
+
         assert isinstance(result, TissueRoutingResult)
         assert result.routes == {"a": "path-a", "b": "path-b"}
         assert result.report == "Routing report here"
@@ -402,6 +455,7 @@ class TestTissueRoutingAction:
 # ---------------------------------------------------------------------------
 # crispr action tests
 # ---------------------------------------------------------------------------
+
 
 class TestCrisprAction:
     """Tests for crispr action."""
@@ -417,6 +471,7 @@ class TestCrisprAction:
             result = _fn()(action="crispr")
 
         from metabolon.enzymes.interoception import CrisprResult
+
         assert isinstance(result, CrisprResult)
         assert result.spacer_count == 127
         assert result.guide_count == 2
@@ -428,22 +483,26 @@ class TestCrisprAction:
 # retrograde action tests
 # ---------------------------------------------------------------------------
 
+
 class TestRetrogradeAction:
     """Tests for retrograde action."""
 
     def test_retrograde_returns_result(self):
-        mock_balance = MagicMock(return_value={
-            "anterograde_count": 10,
-            "retrograde_count": 5,
-            "ratio": 2.0,
-            "assessment": "balanced",
-        })
+        mock_balance = MagicMock(
+            return_value={
+                "anterograde_count": 10,
+                "retrograde_count": 5,
+                "ratio": 2.0,
+                "assessment": "balanced",
+            }
+        )
         with (
             patch("metabolon.organelles.retrograde.signal_balance", mock_balance),
         ):
             result = _fn()(action="retrograde", days=7)
 
         from metabolon.enzymes.interoception import RetrogradeResult
+
         assert isinstance(result, RetrogradeResult)
         assert result.anterograde_count == 10
         assert result.retrograde_count == 5
@@ -454,6 +513,7 @@ class TestRetrogradeAction:
 # ---------------------------------------------------------------------------
 # mitophagy action tests
 # ---------------------------------------------------------------------------
+
 
 class TestMitophagyAction:
     """Tests for mitophagy action."""
@@ -468,6 +528,7 @@ class TestMitophagyAction:
             result = _fn()(action="mitophagy")
 
         from metabolon.enzymes.interoception import MitophagyResult
+
         assert isinstance(result, MitophagyResult)
         assert len(result.fitness) == 1
         assert "model1" in result.blacklist
@@ -477,12 +538,15 @@ class TestMitophagyAction:
 # angiogenesis action tests
 # ---------------------------------------------------------------------------
 
+
 class TestAngiogenesisAction:
     """Tests for angiogenesis action."""
 
     def test_angiogenesis_returns_result(self):
         mock_detect = MagicMock(return_value=[{"source": "a", "target": "b"}])
-        mock_propose = MagicMock(return_value={"source": "a", "target": "b", "proposal": "build corridor"})
+        mock_propose = MagicMock(
+            return_value={"source": "a", "target": "b", "proposal": "build corridor"}
+        )
         mock_registry = MagicMock(return_value=[{"name": "existing-vessel-1"}])
         with (
             patch("metabolon.organelles.angiogenesis.detect_hypoxia", mock_detect),
@@ -492,6 +556,7 @@ class TestAngiogenesisAction:
             result = _fn()(action="angiogenesis")
 
         from metabolon.enzymes.interoception import AngiogenesisResult
+
         assert isinstance(result, AngiogenesisResult)
         assert len(result.hypoxic_pairs) == 1
         assert len(result.proposals) == 1
@@ -502,20 +567,24 @@ class TestAngiogenesisAction:
 # probe action tests
 # ---------------------------------------------------------------------------
 
+
 class TestProbeAction:
     """Tests for probe (inflammasome) action."""
 
     def test_probe_returns_result(self):
-        mock_run_all = MagicMock(return_value=[
-            {"name": "probe1", "passed": True, "message": "ok", "duration_ms": 10},
-            {"name": "probe2", "passed": False, "message": "fail", "duration_ms": 20},
-        ])
+        mock_run_all = MagicMock(
+            return_value=[
+                {"name": "probe1", "passed": True, "message": "ok", "duration_ms": 10},
+                {"name": "probe2", "passed": False, "message": "fail", "duration_ms": 20},
+            ]
+        )
         with (
             patch("metabolon.organelles.inflammasome.run_all_probes", mock_run_all),
         ):
             result = _fn()(action="probe")
 
         from metabolon.enzymes.interoception import InflammasomeResult
+
         assert isinstance(result, InflammasomeResult)
         assert result.passed == 1
         assert result.total == 2
@@ -525,6 +594,7 @@ class TestProbeAction:
 # ---------------------------------------------------------------------------
 # financial action tests
 # ---------------------------------------------------------------------------
+
 
 class TestFinancialAction:
     """Tests for financial action."""
@@ -538,6 +608,7 @@ class TestFinancialAction:
             result = _fn()(action="financial")
 
         from metabolon.enzymes.interoception import HomeostasisFinancialResult
+
         assert isinstance(result, HomeostasisFinancialResult)
         assert "Summary" in result.summary
         assert isinstance(result.flagged_count, int)
@@ -547,11 +618,13 @@ class TestFinancialAction:
 # Result classes all subclass Secretion
 # ---------------------------------------------------------------------------
 
+
 class TestResultTypes:
     """Verify all result types inherit from Secretion."""
 
     def test_all_result_types_are_secretion_subclasses(self):
         from metabolon.morphology import Secretion
+
         classes = _result_classes()
         for name, cls in classes.items():
             assert issubclass(cls, Secretion), f"{name} is not a subclass of Secretion"
@@ -561,19 +634,28 @@ class TestResultTypes:
 # Wrappers tests
 # ---------------------------------------------------------------------------
 
+
 class TestWrappers:
     """Tests for the wrapper functions _sleep_result and _heartrate_result."""
 
     def test_sleep_result_wrapper(self):
-        from metabolon.enzymes.interoception import _sleep_result, CircadianResult
-        with patch("metabolon.enzymes.interoception.interoception", return_value=CircadianResult(summary="test")):
+        from metabolon.enzymes.interoception import CircadianResult, _sleep_result
+
+        with patch(
+            "metabolon.enzymes.interoception.interoception",
+            return_value=CircadianResult(summary="test"),
+        ):
             result = _sleep_result("week")
         assert isinstance(result, CircadianResult)
         assert result.summary == "test"
 
     def test_heartrate_result_wrapper(self):
-        from metabolon.enzymes.interoception import _heartrate_result, HeartRateResult
-        with patch("metabolon.enzymes.interoception.interoception", return_value=HeartRateResult(summary="hr test")):
+        from metabolon.enzymes.interoception import HeartRateResult, _heartrate_result
+
+        with patch(
+            "metabolon.enzymes.interoception.interoception",
+            return_value=HeartRateResult(summary="hr test"),
+        ):
             result = _heartrate_result("2024-01-01", "2024-01-02")
         assert isinstance(result, HeartRateResult)
         assert result.summary == "hr test"

@@ -7,7 +7,6 @@ import os
 import shutil
 import stat
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -34,7 +33,7 @@ def mock_tmux(tmp_path: Path):
         f'cmd = " ".join(sys.argv[1:])\n'
         f'with open("{log_file}", "a") as f:\n'
         f'    f.write(cmd + "\\n")\n'
-        f'try:\n'
+        f"try:\n"
         f'    cfg = json.loads(open("{config_file}").read())\n'
         f"except Exception:\n"
         f"    cfg = {{}}\n"
@@ -43,7 +42,7 @@ def mock_tmux(tmp_path: Path):
         f"        continue\n"
         f"    if pattern in cmd:\n"
         f'        sys.stdout.write(val.get("stdout", ""))\n'
-        f"        sys.exit(val.get(\"exitcode\", 0))\n"
+        f'        sys.exit(val.get("exitcode", 0))\n'
         f'__default = cfg.get("__default__", {{"exitcode": 0, "stdout": ""}})\n'
         f'sys.stdout.write(__default.get("stdout", ""))\n'
         f"sys.exit(__default.get('exitcode', 0))\n"
@@ -81,7 +80,7 @@ def mock_tmux(tmp_path: Path):
                 self.log.unlink()
 
     helper = _Helper()
-    yield helper
+    return helper
 
 
 def _run_tm(args: list[str], mock, **kwargs) -> subprocess.CompletedProcess:
@@ -89,7 +88,7 @@ def _run_tm(args: list[str], mock, **kwargs) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["PATH"] = str(mock.bin_dir) + os.pathsep + env.get("PATH", "")
     return subprocess.run(
-        ["bash", str(TM_SCRIPT)] + args,
+        ["bash", str(TM_SCRIPT), *args],
         capture_output=True,
         text=True,
         env=env,
@@ -209,9 +208,11 @@ def test_killall(mock_tmux):
 
 def test_attach_existing_session(mock_tmux):
     """tm <name> attaches when session already exists."""
-    mock_tmux.configure({
-        "has-session": {"stdout": "", "exitcode": 0},
-    })
+    mock_tmux.configure(
+        {
+            "has-session": {"stdout": "", "exitcode": 0},
+        }
+    )
     r = _run_tm(["work"], mock_tmux)
     assert r.returncode == 0
     calls = mock_tmux.calls()

@@ -1,9 +1,8 @@
 """Tests for metabolon.__init__."""
+
 import importlib
 import re
 from pathlib import Path
-
-import pytest
 
 import metabolon
 
@@ -39,9 +38,7 @@ def test_key_subpackages_exist():
     pkg_dir = Path(metabolon.__file__).parent
     expected = ["organelles", "pinocytosis", "enzymes", "sortase"]
     for sub in expected:
-        assert (pkg_dir / sub / "__init__.py").exists(), (
-            f"Subpackage metabolon.{sub} is missing"
-        )
+        assert (pkg_dir / sub / "__init__.py").exists(), f"Subpackage metabolon.{sub} is missing"
 
 
 def test_pyproject_version_matches():

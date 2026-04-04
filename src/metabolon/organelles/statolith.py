@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 """statolith — AI model benchmark aggregator (statolith = gravity-sensing dense body)."""
 
 # /// script
@@ -455,7 +454,7 @@ def _parse_arena_from_snapshot(text: str) -> list[tuple[str, float]]:
                     elo = float(elo_str)
                     if elo > 500.0 and model_name and not _is_image_or_video_model(model_name):
                         results.setdefault(model_name, elo)
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     pass
 
             i = j
@@ -847,7 +846,7 @@ def _fetch_openrouter(cache: Cache, client: httpx.Client) -> SourceResult:
         try:
             prompt_per_token = float(prompt_str)
             completion_per_token = float(completion_str)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
         if prompt_per_token == 0.0 and completion_per_token == 0.0:
             continue
@@ -891,7 +890,7 @@ def _parse_openrouter_cached(data: Any, fetched_at: datetime | None, status: str
                     },
                 )
             )
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pass
     return SourceResult(source="openrouter", fetched_at=fetched_at, status=status, scores=scores)
 
@@ -1881,7 +1880,7 @@ def cmd_sources(
         timestamp=datetime.now(UTC),
         query=QueryInfo(query_type="sources"),
         sources=results,
-        source_tags={k: v for k, v in source_tags.items()},
+        source_tags=dict(source_tags.items()),
     )
     print(render_output(output, output_format))
 

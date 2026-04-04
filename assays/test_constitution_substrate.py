@@ -1,6 +1,7 @@
 """Tests for ExecutiveSubstrate (constitution)."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+
 from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
 
 

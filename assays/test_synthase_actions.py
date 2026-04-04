@@ -10,14 +10,13 @@ import pytest
 
 import metabolon.enzymes.synthase as mod
 
-
 # ── Module constants ────────────────────────────────────────────────────────
 
 
 class TestConstants:
     def test_channel_path(self):
         """CHANNEL should point to ~/germline/effectors/channel."""
-        assert mod.CHANNEL == str(Path.home() / "germline" / "effectors" / "channel")
+        assert str(Path.home() / "germline" / "effectors" / "channel") == mod.CHANNEL
 
     def test_timeout_value(self):
         """_TIMEOUT should be 300 seconds."""

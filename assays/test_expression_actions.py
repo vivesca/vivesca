@@ -3,11 +3,7 @@ from __future__ import annotations
 """Comprehensive tests for metabolon.enzymes.expression."""
 
 import datetime
-import textwrap
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.enzymes.expression import (
     ForgeLibraryResult,
@@ -17,10 +13,10 @@ from metabolon.enzymes.expression import (
     expression,
 )
 
-
 # ---------------------------------------------------------------------------
 # _count_sparks
 # ---------------------------------------------------------------------------
+
 
 class TestCountSparks:
     def test_missing_file_returns_zero(self, tmp_path):
@@ -51,6 +47,7 @@ class TestCountSparks:
 # _file_age_days
 # ---------------------------------------------------------------------------
 
+
 class TestFileAgeDays:
     def test_missing_file_returns_none(self, tmp_path):
         assert _file_age_days(tmp_path / "nope") is None
@@ -66,6 +63,7 @@ class TestFileAgeDays:
 # ---------------------------------------------------------------------------
 # preflight action
 # ---------------------------------------------------------------------------
+
 
 def _preflight_patches(**overrides):
     """Return a dict of standard mock patches for preflight tests."""
@@ -166,6 +164,7 @@ class TestPreflight:
 # library action
 # ---------------------------------------------------------------------------
 
+
 class TestLibrary:
     """Tests for expression(action='library')."""
 
@@ -196,13 +195,14 @@ class TestLibrary:
         recent_ts = (now - datetime.timedelta(days=1)).timestamp()
 
         lib_dirs = {}
-        for label, _ in mod._LIBRARY_DIRS.items():
+        for label in mod._LIBRARY_DIRS:
             d = tmp_path / label
             d.mkdir()
             # Create one old and one recent file
             old_f = d / "old.md"
             old_f.write_text("old")
             import os
+
             os.utime(old_f, (old_ts, old_ts))
 
             recent_f = d / "recent.md"
@@ -230,6 +230,7 @@ class TestLibrary:
 # ---------------------------------------------------------------------------
 # unknown action
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownAction:
     def test_returns_error_string(self):

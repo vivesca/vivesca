@@ -8,11 +8,10 @@ It should be loaded via exec() or subprocess.run, NEVER imported.
 """
 
 
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 

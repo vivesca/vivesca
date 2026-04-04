@@ -8,11 +8,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.organelles.gradient_sense import (
     GradientReport,
-    GradientVector,
     build_gradient_report,
     score_text,
     sense_endocytosis,
@@ -111,9 +108,7 @@ class TestSenseEndocytosis:
             },
         ]
         log_file = tmp_path / "relevance.jsonl"
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries), encoding="utf-8"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
         # Override the path constant by patching _read_jsonl to read our file
         with patch(
             "metabolon.organelles.gradient_sense._read_jsonl",
@@ -196,10 +191,12 @@ class TestSenseSignals:
 class TestSenseRheotaxis:
     def test_reads_domain_hits_and_queries(self, tmp_path: Path) -> None:
         log_file = tmp_path / "rheotaxis.jsonl"
-        entry = json.dumps({
-            "ts": _recent_timestamp(),
-            "query": "HKMA regulatory framework for AI governance",
-        })
+        entry = json.dumps(
+            {
+                "ts": _recent_timestamp(),
+                "query": "HKMA regulatory framework for AI governance",
+            }
+        )
         log_file.write_text(entry + "\n", encoding="utf-8")
 
         with patch("metabolon.organelles.gradient_sense._RHEOTAXIS_LOG", log_file):

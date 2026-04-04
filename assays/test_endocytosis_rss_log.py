@@ -89,20 +89,23 @@ def test_generate_daily_markdown(tmp_path):
     from metabolon.organelles.endocytosis_rss.cargo import append_cargo
 
     cargo_path = tmp_path / "cargo.jsonl"
-    append_cargo(cargo_path, [
-        {
-            "timestamp": "2026-03-29T14:00:00+00:00",
-            "date": "2026-03-29",
-            "title": "Banking AI Update",
-            "source": "FT",
-            "link": "https://ft.com/article",
-            "summary": "Banks adopt AI",
-            "score": 8,
-            "banking_angle": "Direct impact",
-            "talking_point": "Meeting line",
-            "fate": "transcytose",
-        },
-    ])
+    append_cargo(
+        cargo_path,
+        [
+            {
+                "timestamp": "2026-03-29T14:00:00+00:00",
+                "date": "2026-03-29",
+                "title": "Banking AI Update",
+                "source": "FT",
+                "link": "https://ft.com/article",
+                "summary": "Banks adopt AI",
+                "score": 8,
+                "banking_angle": "Direct impact",
+                "talking_point": "Meeting line",
+                "fate": "transcytose",
+            },
+        ],
+    )
 
     md = generate_daily_markdown(cargo_path, "2026-03-29")
     assert "## 2026-03-29" in md

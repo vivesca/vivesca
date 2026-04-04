@@ -1,4 +1,5 @@
 """Tests for metabolon.metabolism.substrates.vasomotor."""
+
 from __future__ import annotations
 
 import json
@@ -9,10 +10,10 @@ import pytest
 
 from metabolon.metabolism.substrates.vasomotor import VasomotorSubstrate, _parse_ts
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_event(event: str, ts: datetime, **extra) -> str:
     """Build a single JSONL line."""
@@ -39,6 +40,7 @@ def _default_substrate(tmp_path: Path) -> VasomotorSubstrate:
 # _parse_ts
 # ---------------------------------------------------------------------------
 
+
 class TestParseTs:
     def test_microsecond_format(self):
         ts = _parse_ts("2025-06-15T10:30:00.123456")
@@ -59,6 +61,7 @@ class TestParseTs:
 # ---------------------------------------------------------------------------
 # sense
 # ---------------------------------------------------------------------------
+
 
 class TestSense:
     def test_missing_events_file_returns_empty(self, tmp_path):
@@ -87,10 +90,13 @@ class TestSense:
         sub = _default_substrate(tmp_path)
         now = datetime.now(UTC)
         old = now - timedelta(days=60)
-        _write_events(sub.events_path, [
-            _make_event("systole_start", old),
-            _make_event("systole_start", now),
-        ])
+        _write_events(
+            sub.events_path,
+            [
+                _make_event("systole_start", old),
+                _make_event("systole_start", now),
+            ],
+        )
         result = sub.sense(days=30)
         assert len(result) == 1
         assert result[0]["systole_count"] == 1
@@ -156,9 +162,12 @@ class TestSense:
     def test_failed_systole_counted(self, tmp_path):
         sub = _default_substrate(tmp_path)
         now = datetime.now(UTC)
-        _write_events(sub.events_path, [
-            _make_event("systole_end", now, exit_code=1),
-        ])
+        _write_events(
+            sub.events_path,
+            [
+                _make_event("systole_end", now, exit_code=1),
+            ],
+        )
         result = sub.sense()
         assert result[0]["failed_systoles"] == 1
         assert result[0]["successful_systoles"] == 0
@@ -166,9 +175,12 @@ class TestSense:
     def test_pacing_check_extracts_budget(self, tmp_path):
         sub = _default_substrate(tmp_path)
         now = datetime.now(UTC)
-        _write_events(sub.events_path, [
-            _make_event("pacing_check", now, daily_budget=15, estimated_burn=10),
-        ])
+        _write_events(
+            sub.events_path,
+            [
+                _make_event("pacing_check", now, daily_budget=15, estimated_burn=10),
+            ],
+        )
         result = sub.sense()
         assert result[0]["daily_budget"] == 15
         assert result[0]["estimated_burn"] == 10
@@ -178,6 +190,7 @@ class TestSense:
 # candidates
 # ---------------------------------------------------------------------------
 
+
 class TestCandidates:
     def test_empty_sensed_returns_empty(self, tmp_path):
         sub = _default_substrate(tmp_path)
@@ -186,10 +199,19 @@ class TestCandidates:
     def test_overburn_detected(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": f"2025-06-{i:02d}", "systole_count": 5, "saturated_count": 0,
-             "daily_budget": 10, "estimated_burn": 15, "apnea_window": 1.0,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 5, "circuit_breakers": 0}
+            {
+                "date": f"2025-06-{i:02d}",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "daily_budget": 10,
+                "estimated_burn": 15,
+                "apnea_window": 1.0,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 5,
+                "circuit_breakers": 0,
+            }
             for i in range(10, 13)
         ]
         result = sub.candidates(days)
@@ -202,10 +224,19 @@ class TestCandidates:
     def test_saturation_detected(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 10, "saturated_count": 5,
-             "daily_budget": None, "estimated_burn": None, "apnea_window": 0.5,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 10, "circuit_breakers": 0}
+            {
+                "date": "2025-06-10",
+                "systole_count": 10,
+                "saturated_count": 5,
+                "daily_budget": None,
+                "estimated_burn": None,
+                "apnea_window": 0.5,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 10,
+                "circuit_breakers": 0,
+            }
         ]
         result = sub.candidates(days)
         issues = [d["issue"] for d in result]
@@ -214,10 +245,19 @@ class TestCandidates:
     def test_silence_detected(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 2, "saturated_count": 0,
-             "daily_budget": 10, "estimated_burn": 5, "apnea_window": 5.5,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 2, "circuit_breakers": 0}
+            {
+                "date": "2025-06-10",
+                "systole_count": 2,
+                "saturated_count": 0,
+                "daily_budget": 10,
+                "estimated_burn": 5,
+                "apnea_window": 5.5,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 2,
+                "circuit_breakers": 0,
+            }
         ]
         result = sub.candidates(days)
         issues = [d["issue"] for d in result]
@@ -226,18 +266,45 @@ class TestCandidates:
     def test_volatility_detected(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 1, "saturated_count": 0,
-             "daily_budget": 100, "estimated_burn": 50, "apnea_window": 0.5,
-             "systole_costs": [1.0], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 1, "circuit_breakers": 0},
-            {"date": "2025-06-11", "systole_count": 1, "saturated_count": 0,
-             "daily_budget": 100, "estimated_burn": 50, "apnea_window": 0.5,
-             "systole_costs": [50.0], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 1, "circuit_breakers": 0},
-            {"date": "2025-06-12", "systole_count": 1, "saturated_count": 0,
-             "daily_budget": 100, "estimated_burn": 50, "apnea_window": 0.5,
-             "systole_costs": [1.0], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 1, "circuit_breakers": 0},
+            {
+                "date": "2025-06-10",
+                "systole_count": 1,
+                "saturated_count": 0,
+                "daily_budget": 100,
+                "estimated_burn": 50,
+                "apnea_window": 0.5,
+                "systole_costs": [1.0],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 1,
+                "circuit_breakers": 0,
+            },
+            {
+                "date": "2025-06-11",
+                "systole_count": 1,
+                "saturated_count": 0,
+                "daily_budget": 100,
+                "estimated_burn": 50,
+                "apnea_window": 0.5,
+                "systole_costs": [50.0],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 1,
+                "circuit_breakers": 0,
+            },
+            {
+                "date": "2025-06-12",
+                "systole_count": 1,
+                "saturated_count": 0,
+                "daily_budget": 100,
+                "estimated_burn": 50,
+                "apnea_window": 0.5,
+                "systole_costs": [1.0],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 1,
+                "circuit_breakers": 0,
+            },
         ]
         result = sub.candidates(days)
         issues = [d["issue"] for d in result]
@@ -246,10 +313,19 @@ class TestCandidates:
     def test_failure_ratio_detected(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 5, "saturated_count": 0,
-             "daily_budget": 10, "estimated_burn": 5, "apnea_window": 1.0,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 4,
-             "successful_systoles": 1, "circuit_breakers": 0}
+            {
+                "date": "2025-06-10",
+                "systole_count": 5,
+                "saturated_count": 0,
+                "daily_budget": 10,
+                "estimated_burn": 5,
+                "apnea_window": 1.0,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 4,
+                "successful_systoles": 1,
+                "circuit_breakers": 0,
+            }
         ]
         result = sub.candidates(days)
         issues = [d["issue"] for d in result]
@@ -258,10 +334,19 @@ class TestCandidates:
     def test_circuit_breaker_detected(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 2, "saturated_count": 0,
-             "daily_budget": 10, "estimated_burn": 5, "apnea_window": 0.5,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 2, "circuit_breakers": 3}
+            {
+                "date": "2025-06-10",
+                "systole_count": 2,
+                "saturated_count": 0,
+                "daily_budget": 10,
+                "estimated_burn": 5,
+                "apnea_window": 0.5,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 2,
+                "circuit_breakers": 3,
+            }
         ]
         result = sub.candidates(days)
         issues = [d["issue"] for d in result]
@@ -274,10 +359,19 @@ class TestCandidates:
         sub.config_path.parent.mkdir(parents=True, exist_ok=True)
         sub.config_path.write_text(json.dumps(conf))
         days = [
-            {"date": "2025-06-10", "systole_count": 2, "saturated_count": 0,
-             "daily_budget": 10, "estimated_burn": 5, "apnea_window": 0.5,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 2, "circuit_breakers": 0}
+            {
+                "date": "2025-06-10",
+                "systole_count": 2,
+                "saturated_count": 0,
+                "daily_budget": 10,
+                "estimated_burn": 5,
+                "apnea_window": 0.5,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 2,
+                "circuit_breakers": 0,
+            }
         ]
         result = sub.candidates(days)
         issues = [d["issue"] for d in result]
@@ -288,14 +382,19 @@ class TestCandidates:
 # act
 # ---------------------------------------------------------------------------
 
+
 class TestAct:
     def test_overburn_high_reduces_basal_rate(self, tmp_path):
         sub = _default_substrate(tmp_path)
         sub.config_path.parent.mkdir(parents=True, exist_ok=True)
         sub.config_path.write_text(json.dumps({"basal_rate": 0.5}))
-        result = sub.act({
-            "issue": "overburn", "severity": "high", "count": 3,
-        })
+        result = sub.act(
+            {
+                "issue": "overburn",
+                "severity": "high",
+                "count": 3,
+            }
+        )
         assert "APPLIED" in result
         conf = json.loads(sub.config_path.read_text())
         assert conf["basal_rate"] == 0.45
@@ -312,9 +411,13 @@ class TestAct:
         sub = _default_substrate(tmp_path)
         sub.config_path.parent.mkdir(parents=True, exist_ok=True)
         sub.config_path.write_text(json.dumps({"saturation_penalty": 1.5}))
-        result = sub.act({
-            "issue": "saturation", "severity": "high", "count": 3,
-        })
+        result = sub.act(
+            {
+                "issue": "saturation",
+                "severity": "high",
+                "count": 3,
+            }
+        )
         assert "APPLIED" in result
         conf = json.loads(sub.config_path.read_text())
         assert conf["saturation_penalty"] == 2.0
@@ -331,9 +434,13 @@ class TestAct:
         sub = _default_substrate(tmp_path)
         sub.config_path.parent.mkdir(parents=True, exist_ok=True)
         sub.config_path.write_text(json.dumps({"basal_rate": 0.4}))
-        result = sub.act({
-            "issue": "starvation", "severity": "medium", "count": 3,
-        })
+        result = sub.act(
+            {
+                "issue": "starvation",
+                "severity": "medium",
+                "count": 3,
+            }
+        )
         assert "APPLIED" in result
         conf = json.loads(sub.config_path.read_text())
         assert conf["basal_rate"] > 0.4
@@ -377,9 +484,13 @@ class TestAct:
         sub = _default_substrate(tmp_path)
         sub.config_path.parent.mkdir(parents=True, exist_ok=True)
         sub.config_path.write_text(json.dumps({"basal_rate": 0.5}))
-        result = sub.act({
-            "issue": "overproduction", "severity": "high", "count": 3,
-        })
+        result = sub.act(
+            {
+                "issue": "overproduction",
+                "severity": "high",
+                "count": 3,
+            }
+        )
         assert "APPLIED" in result
         conf = json.loads(sub.config_path.read_text())
         assert conf["basal_rate"] < 0.5
@@ -396,6 +507,7 @@ class TestAct:
 # report
 # ---------------------------------------------------------------------------
 
+
 class TestReport:
     def test_empty_sensed(self, tmp_path):
         sub = _default_substrate(tmp_path)
@@ -406,10 +518,20 @@ class TestReport:
     def test_report_with_data(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 5, "saturated_count": 1,
-             "daily_budget": 10.0, "estimated_burn": 8, "apnea_window": 1.2,
-             "systole_costs": [2.0], "systole_yields": [5], "rq": 2.5,
-             "failed_systoles": 0, "successful_systoles": 5, "circuit_breakers": 0},
+            {
+                "date": "2025-06-10",
+                "systole_count": 5,
+                "saturated_count": 1,
+                "daily_budget": 10.0,
+                "estimated_burn": 8,
+                "apnea_window": 1.2,
+                "systole_costs": [2.0],
+                "systole_yields": [5],
+                "rq": 2.5,
+                "failed_systoles": 0,
+                "successful_systoles": 5,
+                "circuit_breakers": 0,
+            },
         ]
         r = sub.report(days, ["[high] something"])
         assert "Total systoles: 5" in r
@@ -419,10 +541,19 @@ class TestReport:
     def test_report_no_issues(self, tmp_path):
         sub = _default_substrate(tmp_path)
         days = [
-            {"date": "2025-06-10", "systole_count": 3, "saturated_count": 0,
-             "daily_budget": None, "estimated_burn": None, "apnea_window": 0.5,
-             "systole_costs": [], "systole_yields": [], "failed_systoles": 0,
-             "successful_systoles": 3, "circuit_breakers": 0},
+            {
+                "date": "2025-06-10",
+                "systole_count": 3,
+                "saturated_count": 0,
+                "daily_budget": None,
+                "estimated_burn": None,
+                "apnea_window": 0.5,
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 3,
+                "circuit_breakers": 0,
+            },
         ]
         r = sub.report(days, [])
         assert "No pacing issues detected" in r
@@ -431,6 +562,7 @@ class TestReport:
 # ---------------------------------------------------------------------------
 # Default paths
 # ---------------------------------------------------------------------------
+
 
 class TestDefaults:
     def test_default_name(self):

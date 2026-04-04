@@ -28,7 +28,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - fingo
 - fiscus
 - gist
-- graphis
+- graphics
 - hypha
 - iter
 - judex
@@ -202,7 +202,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - waking-up
 
 ## Detached References
-- agent-cli: `graphis`
+- agent-cli: `graphics`
 - agoras: `cerno`
 - amicus: `amicus`
 - anam: `claude-history`
@@ -222,7 +222,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - fiscus: `import`
 - fiscus: `result`
 - gist: `tg-clip`
-- graphis: `graphis`
+- graphics: `graphics`
 - hemostasis: `launchctl`
 - heuretes: `lucus`
 - horizo: `horizo`

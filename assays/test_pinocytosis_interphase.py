@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.pinocytosis.interphase import (
+    _SCRIPT_GATHERERS,
+    SECTION_ORDER,
+    intake,
+    intake_email_threads,
     intake_emails,
     intake_emails_archived,
-    intake_whatsapp,
-    intake_reminders,
-    intake_email_threads,
     intake_prospective,
-    intake,
-    SECTION_ORDER,
-    _SCRIPT_GATHERERS,
+    intake_reminders,
+    intake_whatsapp,
 )
 
 
@@ -34,7 +32,14 @@ def test_intake_emails_first_try_fails_second_succeeds():
         result = intake_emails()
         assert result["ok"] is True
         assert mock_run.call_count == 2
-        assert mock_run.call_args_list[1][0][0] == ["gog", "gmail", "search", "in:inbox", "--limit", "20"]
+        assert mock_run.call_args_list[1][0][0] == [
+            "gog",
+            "gmail",
+            "search",
+            "in:inbox",
+            "--limit",
+            "20",
+        ]
 
 
 def test_intake_emails_timeout_returns_first_failure():
@@ -144,25 +149,25 @@ def test_intake_json_output_mocked():
         "now": {"available": True, "raw": ""},
         "budget": {"available": True, "raw": ""},
     }
-    
+
     with patch("metabolon.pinocytosis.interphase.intake_context") as mock_intake_ctx:
         mock_intake_ctx.return_value = mock_ctx
-        
+
         with patch("metabolon.pinocytosis.interphase.sense_calendar") as mock_sense:
             mock_sense.return_value = {"available": True, "raw": "9:00 Meeting"}
-            
+
             with patch("metabolon.pinocytosis.interphase.transduce") as mock_transduce:
                 mock_transduce.return_value = {
                     "datetime": {"label": "Current Date", "ok": True, "content": "..."},
                     "emails": {"label": "Unread Emails", "ok": True, "content": "test"},
                 }
-                
+
                 with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
                     mock_run.return_value = (True, "test content")
-                    
+
                     result = intake(as_json=True)
                     data = json.loads(result)
-                    
+
                     assert isinstance(data, dict)
                     assert "datetime" in data
                     mock_intake_ctx.assert_called_once()
@@ -176,21 +181,21 @@ def test_intake_text_output_mocked():
         "now": {"available": True, "raw": ""},
         "budget": {"available": True, "raw": ""},
     }
-    
+
     with patch("metabolon.pinocytosis.interphase.intake_context") as mock_intake_ctx:
         mock_intake_ctx.return_value = mock_ctx
-        
+
         with patch("metabolon.pinocytosis.interphase.sense_calendar") as mock_sense:
             mock_sense.return_value = {"available": True, "raw": "9:00 Meeting"}
-            
+
             with patch("metabolon.pinocytosis.interphase.transduce") as mock_transduce:
                 mock_transduce.return_value = {
                     "datetime": {"label": "Current Date", "ok": True, "content": "..."},
                 }
-                
+
                 with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
                     mock_run.return_value = (True, "test content")
-                    
+
                     result = intake(as_json=False)
                     assert isinstance(result, str)
                     assert "INTERPHASE" in result
@@ -205,18 +210,18 @@ def test_gatherer_exception_handling():
         "now": {"available": True, "raw": ""},
         "budget": {"available": True, "raw": ""},
     }
-    
+
     with patch("metabolon.pinocytosis.interphase.intake_context") as mock_intake_ctx:
         mock_intake_ctx.return_value = mock_ctx
-        
+
         with patch("metabolon.pinocytosis.interphase.sense_calendar") as mock_sense:
             mock_sense.return_value = {"available": True, "raw": ""}
-            
+
             with patch("metabolon.pinocytosis.interphase.transduce") as mock_transduce:
                 mock_transduce.return_value = {}
-                
+
                 # Make one of the gatherers raise an exception
-                with patch.dict(_SCRIPT_GATHERERS, {"emails": lambda: 1/0}):
+                with patch.dict(_SCRIPT_GATHERERS, {"emails": lambda: 1 / 0}):
                     result = intake(as_json=True)
                     data = json.loads(result)
                     assert "emails" in data

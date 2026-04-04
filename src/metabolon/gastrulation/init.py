@@ -1,4 +1,3 @@
-
 """vivesca init — scaffold a new MCP server project."""
 
 from pathlib import Path

@@ -4,11 +4,8 @@ from __future__ import annotations
 """Tests for effectors/tmux-workspace.py — tmux workspace layout manager."""
 
 import os
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "tmux-workspace.py"
 
@@ -78,12 +75,18 @@ class TestLayouts:
 
 class TestRun:
     def test_run_calls_subprocess(self):
-        with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="", stderr="")) as mock:
-            result = run("echo hello")
-            mock.assert_called_once_with("echo hello", shell=True, capture_output=True, text=True, check=True, timeout=30)
+        with patch(
+            "subprocess.run", return_value=MagicMock(returncode=0, stdout="", stderr="")
+        ) as mock:
+            run("echo hello")
+            mock.assert_called_once_with(
+                "echo hello", shell=True, capture_output=True, text=True, check=True, timeout=30
+            )
 
     def test_run_no_check(self):
-        with patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="", stderr="err")) as mock:
+        with patch(
+            "subprocess.run", return_value=MagicMock(returncode=1, stdout="", stderr="err")
+        ):
             result = run("false", check=False)
             assert result.returncode == 1
 
@@ -153,7 +156,9 @@ class TestSetupWindows:
     def test_selects_first_window(self, monkeypatch):
         mock_run = MagicMock()
         monkeypatch.setitem(_mod, "run", mock_run)
-        monkeypatch.setitem(_mod, "get_existing_windows", MagicMock(return_value=["main", "light"]))
+        monkeypatch.setitem(
+            _mod, "get_existing_windows", MagicMock(return_value=["main", "light"])
+        )
         setup_windows("sess", "default")
         select_calls = [c for c in mock_run.call_args_list if "select-window" in str(c)]
         assert len(select_calls) == 1
@@ -164,7 +169,9 @@ class TestSetupWindows:
         monkeypatch.setitem(_mod, "run", mock_run)
         monkeypatch.setitem(_mod, "get_existing_windows", MagicMock(return_value=["main", "old"]))
         setup_windows("sess", "default")
-        assert any("rename-window" in str(c) and "sess:2" in str(c) for c in mock_run.call_args_list)
+        assert any(
+            "rename-window" in str(c) and "sess:2" in str(c) for c in mock_run.call_args_list
+        )
 
 
 # ── create_and_attach tests ─────────────────────────────────────────────────
@@ -189,13 +196,16 @@ class TestCreateAndAttach:
 
         create_and_attach("dev-sess", "dev")
 
-        new_win_calls = [c for c in mock_run.call_args_list if "new-window" in str(c) and "dev-sess" in str(c)]
+        new_win_calls = [
+            c for c in mock_run.call_args_list if "new-window" in str(c) and "dev-sess" in str(c)
+        ]
         assert len(new_win_calls) == 2  # light + shell
 
     def test_attaches_to_session(self, monkeypatch):
-        mock_sp_run = MagicMock()
+        MagicMock()
         monkeypatch.setitem(_mod, "run", MagicMock())
         import subprocess as sp_mod
+
         monkeypatch.setitem(_mod, "subprocess", sp_mod)
 
         with patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_sp:

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 """Tests for complement — convergent detection and resolution."""
 
-import json
 import importlib
-from datetime import datetime, UTC
-from pathlib import Path
-from unittest.mock import Mock, patch
+import json
+from datetime import datetime
+from unittest.mock import Mock
 
 import pytest
 
@@ -30,6 +29,7 @@ def complement_module(mock_home, monkeypatch):
     # However, the module may have already been imported earlier (top of file).
     # We'll force reload to recompute module-level constants.
     import metabolon.organelles.complement as comp_module
+
     importlib.reload(comp_module)
     # Now the constants _PRIMING_PATH and _COMPLEMENT_STATE are based on mocked home.
     # Ensure parent directories exist
@@ -42,8 +42,10 @@ def complement_module(mock_home, monkeypatch):
 def mock_infections(monkeypatch):
     """Mock recall_infections in complement module."""
     events = []
+
     def mock_recall():
         return events
+
     monkeypatch.setattr("metabolon.organelles.complement.recall_infections", mock_recall)
     return events
 
@@ -53,10 +55,13 @@ def mock_vasomotor(monkeypatch):
     """Mock log and record_event in complement module."""
     logged = []
     recorded = []
+
     def mock_log(msg: str):
         logged.append(msg)
+
     def mock_record(event: str, **kwargs):
         recorded.append((event, kwargs))
+
     monkeypatch.setattr("metabolon.organelles.complement.log", mock_log)
     monkeypatch.setattr("metabolon.organelles.complement.record_event", mock_record)
     return {"logged": logged, "recorded": recorded}
@@ -66,10 +71,12 @@ def mock_vasomotor(monkeypatch):
 def mock_datetime_now(monkeypatch):
     """Mock datetime.datetime.now to return a fixed time."""
     fixed_now = datetime(2025, 1, 1, 12, 0, 0)
+
     class MockDatetime:
         @classmethod
         def now(cls, tz=None):
             return fixed_now
+
     monkeypatch.setattr("metabolon.organelles.complement.datetime.datetime", MockDatetime)
     return fixed_now
 
@@ -100,11 +107,31 @@ def test_assemble_mac_probe_only(complement_module, mock_infections, mock_home):
 
 def test_assemble_mac_infection_only(complement_module, mock_infections, mock_datetime_now):
     """Only infections (no probe failures) → hits with probe_consecutive_fails=0."""
-    mock_infections.extend([
-        {"ts": "2025-01-01T12:00:00Z", "tool": "toolC", "error": "err", "fingerprint": "fp1", "healed": False},
-        {"ts": "2025-01-01T13:00:00Z", "tool": "toolC", "error": "err2", "fingerprint": "fp2", "healed": False},
-        {"ts": "2025-01-01T14:00:00Z", "tool": "toolD", "error": "err3", "fingerprint": "fp3", "healed": False},
-    ])
+    mock_infections.extend(
+        [
+            {
+                "ts": "2025-01-01T12:00:00Z",
+                "tool": "toolC",
+                "error": "err",
+                "fingerprint": "fp1",
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T13:00:00Z",
+                "tool": "toolC",
+                "error": "err2",
+                "fingerprint": "fp2",
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T14:00:00Z",
+                "tool": "toolD",
+                "error": "err3",
+                "fingerprint": "fp3",
+                "healed": False,
+            },
+        ]
+    )
     hits = complement_module.assemble_mac()
     assert len(hits) == 2
     for hit in hits:
@@ -123,9 +150,17 @@ def test_assemble_mac_convergent(complement_module, mock_infections, mock_home):
     """Both probe failures and infections for same key → convergent."""
     priming_path = mock_home / ".cache" / "inflammasome" / "priming.json"
     priming_path.write_text(json.dumps({"toolE": 5}))
-    mock_infections.extend([
-        {"ts": "2025-01-01T12:00:00Z", "tool": "toolE", "error": "err", "fingerprint": "fp", "healed": False},
-    ])
+    mock_infections.extend(
+        [
+            {
+                "ts": "2025-01-01T12:00:00Z",
+                "tool": "toolE",
+                "error": "err",
+                "fingerprint": "fp",
+                "healed": False,
+            },
+        ]
+    )
     hits = complement_module.assemble_mac()
     assert len(hits) == 1
     hit = hits[0]
@@ -140,9 +175,17 @@ def test_assemble_mac_suppression(complement_module, mock_infections, mock_home)
     """Keys in SUPPRESSIONS get resolution 'suppress' and reason from dict."""
     priming_path = mock_home / ".cache" / "inflammasome" / "priming.json"
     priming_path.write_text(json.dumps({"rheotaxis": 2}))
-    mock_infections.extend([
-        {"ts": "2025-01-01T12:00:00Z", "tool": "rheotaxis", "error": "err", "fingerprint": "fp", "healed": False},
-    ])
+    mock_infections.extend(
+        [
+            {
+                "ts": "2025-01-01T12:00:00Z",
+                "tool": "rheotaxis",
+                "error": "err",
+                "fingerprint": "fp",
+                "healed": False,
+            },
+        ]
+    )
     hits = complement_module.assemble_mac()
     assert len(hits) == 1
     hit = hits[0]
@@ -155,9 +198,17 @@ def test_assemble_mac_prefixed_key(complement_module, mock_infections, mock_home
     """Probe failures with 'self_test_failure:' prefix are matched."""
     priming_path = mock_home / ".cache" / "inflammasome" / "priming.json"
     priming_path.write_text(json.dumps({"self_test_failure:toolF": 4}))
-    mock_infections.extend([
-        {"ts": "2025-01-01T12:00:00Z", "tool": "toolF", "error": "err", "fingerprint": "fp", "healed": False},
-    ])
+    mock_infections.extend(
+        [
+            {
+                "ts": "2025-01-01T12:00:00Z",
+                "tool": "toolF",
+                "error": "err",
+                "fingerprint": "fp",
+                "healed": False,
+            },
+        ]
+    )
     hits = complement_module.assemble_mac()
     # Expect two hits: one for prefixed key (probe only), one for normalized key (convergent)
     assert len(hits) == 2
@@ -188,10 +239,24 @@ def test_resolve_with_hits(complement_module, mock_infections, mock_vasomotor, m
     """Hits are categorized into suppressed, resolved, escalated."""
     priming_path = mock_home / ".cache" / "inflammasome" / "priming.json"
     priming_path.write_text(json.dumps({"toolA": 1, "rheotaxis": 2, "toolB": 3}))
-    mock_infections.extend([
-        {"ts": "2025-01-01T12:00:00Z", "tool": "toolA", "error": "err", "fingerprint": "fp", "healed": False},
-        {"ts": "2025-01-01T12:00:00Z", "tool": "toolB", "error": "err", "fingerprint": "fp", "healed": False},
-    ])
+    mock_infections.extend(
+        [
+            {
+                "ts": "2025-01-01T12:00:00Z",
+                "tool": "toolA",
+                "error": "err",
+                "fingerprint": "fp",
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T12:00:00Z",
+                "tool": "toolB",
+                "error": "err",
+                "fingerprint": "fp",
+                "healed": False,
+            },
+        ]
+    )
     result = complement_module.resolve()
     assert result["status"] == "active"
     assert result["hits"] == 3
@@ -226,6 +291,7 @@ def test_amplify(complement_module, monkeypatch):
 def test_coverage_summary_empty(tmp_path):
     """No metabolon directory -> empty summary."""
     import metabolon.organelles.complement as comp_module
+
     # Temporarily monkeypatch Path.home? Not needed because coverage_summary uses project_root.
     result = comp_module.coverage_summary(project_root=tmp_path)
     assert result["total_modules"] == 0
@@ -237,6 +303,7 @@ def test_coverage_summary_empty(tmp_path):
 def test_coverage_summary_with_modules(tmp_path):
     """Mock a metabolon directory with some Python files and test files."""
     import metabolon.organelles.complement as comp_module
+
     project_root = tmp_path / "proj"
     metabolon_dir = project_root / "metabolon"
     assays_dir = project_root / "assays"
@@ -271,6 +338,7 @@ def test_coverage_summary_with_modules(tmp_path):
 def test_coverage_summary_secondary_pattern(tmp_path):
     """Test secondary pattern test_{subdir}_{module}.py."""
     import metabolon.organelles.complement as comp_module
+
     project_root = tmp_path / "proj"
     metabolon_dir = project_root / "metabolon"
     assays_dir = project_root / "assays"

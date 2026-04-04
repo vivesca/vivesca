@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,13 +17,14 @@ BROWSE_PATH = Path(__file__).resolve().parent.parent / "effectors" / "browse"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _load_browse_ns():
     """Load the browse effector into an isolated namespace."""
     ns = {
         "__name__": "browse_test",
         "__file__": str(BROWSE_PATH),
     }
-    exec(open(BROWSE_PATH).read(), ns)  # noqa: S102
+    exec(open(BROWSE_PATH).read(), ns)
     return ns
 
 
@@ -47,6 +47,7 @@ def _failed_run(side_effect=None):
 # ---------------------------------------------------------------------------
 # Tests: run_command helper
 # ---------------------------------------------------------------------------
+
 
 class TestRunCommand:
     """Unit tests for the run_command helper function."""
@@ -79,6 +80,7 @@ class TestRunCommand:
 # ---------------------------------------------------------------------------
 # Tests: CLI argument handling
 # ---------------------------------------------------------------------------
+
 
 class TestCLIArgs:
     """Tests for argument parsing and help output."""
@@ -123,6 +125,7 @@ class TestCLIArgs:
 # ---------------------------------------------------------------------------
 # Tests: fallback chain
 # ---------------------------------------------------------------------------
+
 
 class TestFallbackChain:
     """Tests for the defuddle → curl+html2text → NEEDS_BROWSER chain."""
@@ -278,6 +281,7 @@ class TestFallbackChain:
 # Tests: subprocess invocation
 # ---------------------------------------------------------------------------
 
+
 class TestSubprocessCalls:
     """Verify that subprocess.run is called with the right arguments."""
 
@@ -339,6 +343,7 @@ class TestSubprocessCalls:
 # ---------------------------------------------------------------------------
 # Tests: subprocess.run parameters
 # ---------------------------------------------------------------------------
+
 
 class TestRunCommandParams:
     """Verify subprocess.run is called with proper parameters."""
@@ -597,14 +602,18 @@ class TestCLISubprocess:
     def test_no_args_exits_nonzero(self):
         r = subprocess.run(
             [sys.executable, str(BROWSE_PATH)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode != 0
 
     def test_no_args_shows_usage(self):
         r = subprocess.run(
             [sys.executable, str(BROWSE_PATH)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         output = r.stdout + r.stderr
         assert "Usage: browse URL" in output
@@ -612,7 +621,9 @@ class TestCLISubprocess:
     def test_help_flag_exits_zero(self):
         r = subprocess.run(
             [sys.executable, str(BROWSE_PATH), "--help"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "Usage: browse URL" in r.stdout
@@ -631,7 +642,7 @@ class TestNameGuard:
 
     def test_main_guard_present(self):
         source = BROWSE_PATH.read_text()
-        assert '__name__' in source
+        assert "__name__" in source
         assert '"__main__"' in source or "'__main__'" in source
 
     def test_main_called_from_guard(self):

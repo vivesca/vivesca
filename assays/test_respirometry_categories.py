@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
 
 from metabolon.respirometry.categories import categorise, restore_categories
-
 
 # ── restore_categories ────────────────────────────────────────────────
 

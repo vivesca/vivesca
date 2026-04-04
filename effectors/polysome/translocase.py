@@ -53,11 +53,17 @@ def _git_snapshot(cwd: str | None = None) -> dict:
     try:
         stat = _subprocess.run(
             ["git", "diff", "--stat", "HEAD"],
-            capture_output=True, text=True, timeout=10, cwd=work_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=work_dir,
         )
         numstat = _subprocess.run(
             ["git", "diff", "--numstat", "HEAD"],
-            capture_output=True, text=True, timeout=10, cwd=work_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=work_dir,
         )
         return {"stat": stat.stdout[:2000], "numstat": numstat.stdout[:2000]}
     except Exception:
@@ -69,7 +75,10 @@ def _git_pull_ff_only(repo_root: str) -> None:
     try:
         result = _subprocess.run(
             ["git", "pull", "--ff-only"],
-            capture_output=True, text=True, timeout=15, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=repo_root,
         )
         if result.returncode != 0:
             print(f"WARNING: git pull --ff-only failed: {result.stderr.strip()}", file=sys.stderr)
@@ -84,7 +93,10 @@ def _git_push(repo_root: str) -> None:
     try:
         result = _subprocess.run(
             ["git", "push"],
-            capture_output=True, text=True, timeout=30, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=repo_root,
         )
         if result.returncode != 0:
             print(f"WARNING: git push failed: {result.stderr.strip()}", file=sys.stderr)
@@ -103,12 +115,17 @@ def _create_worktree(repo_root: str, branch_name: str) -> str:
     if os.path.exists(worktree_path):
         _subprocess.run(
             ["git", "worktree", "remove", "--force", worktree_path],
-            capture_output=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            timeout=10,
+            cwd=repo_root,
         )
 
     result = _subprocess.run(
         ["git", "worktree", "add", "-b", branch_name, worktree_path, "HEAD"],
-        capture_output=True, text=True, timeout=15, cwd=repo_root,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        cwd=repo_root,
     )
     if result.returncode != 0:
         raise RuntimeError(f"worktree add failed: {result.stderr}")
@@ -130,7 +147,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
 
         check = _subprocess.run(
             ["git", "log", "--oneline", f"main..{branch_name}"],
-            capture_output=True, text=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=repo_root,
         )
         if not check.stdout.strip():
             delete_branch = True
@@ -139,7 +159,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # Try FF first (zero overhead when no contention)
         merge = _subprocess.run(
             ["git", "merge", "--ff-only", branch_name],
-            capture_output=True, text=True, timeout=15, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=repo_root,
         )
         if merge.returncode == 0:
             delete_branch = True
@@ -148,7 +171,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # FF failed -- real 3-way merge
         merge = _subprocess.run(
             ["git", "merge", "--no-ff", "--no-edit", branch_name],
-            capture_output=True, text=True, timeout=30, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=repo_root,
         )
         if merge.returncode == 0:
             delete_branch = True
@@ -157,7 +183,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # Categorise conflicts
         conflicted = _subprocess.run(
             ["git", "diff", "--name-only", "--diff-filter=U"],
-            capture_output=True, text=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=repo_root,
         )
         conflicted_files = [f.strip() for f in conflicted.stdout.splitlines() if f.strip()]
         lockfiles = [f for f in conflicted_files if Path(f).name in _LOCKFILE_NAMES]
@@ -166,17 +195,24 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         for lockfile in lockfiles:
             _subprocess.run(
                 ["git", "checkout", "--theirs", lockfile],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
             _subprocess.run(
                 ["git", "add", lockfile],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
 
         if not code_files:
             commit = _subprocess.run(
                 ["git", "commit", "--no-edit"],
-                capture_output=True, text=True, timeout=15, cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=repo_root,
             )
             if commit.returncode == 0:
                 delete_branch = True
@@ -211,13 +247,17 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         with contextlib.suppress(Exception):
             _subprocess.run(
                 ["git", "worktree", "remove", "--force", worktree_path],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
         if delete_branch:
             with contextlib.suppress(Exception):
                 _subprocess.run(
                     ["git", "branch", "-D", branch_name],
-                    capture_output=True, timeout=10, cwd=repo_root,
+                    capture_output=True,
+                    timeout=10,
+                    cwd=repo_root,
                 )
 
 
@@ -228,11 +268,16 @@ def _detect_prior_commits(
     try:
         result = _subprocess.run(
             [
-                "git", "log", "--oneline",
+                "git",
+                "log",
+                "--oneline",
                 f"--since={time_window_minutes} minutes ago",
                 f"--author={author}",
             ],
-            capture_output=True, text=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=repo_root,
         )
         return [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
     except Exception:
@@ -267,7 +312,9 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
         syntax_check = await asyncio.to_thread(
             _subprocess.run,
             ["bash", "-n", str(RIBOSOME_SCRIPT)],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if syntax_check.returncode != 0:
             return {
@@ -314,9 +361,12 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
     pre_diff = await asyncio.to_thread(_git_snapshot, work_dir)
 
     cmd = [
-        "bash", str(RIBOSOME_SCRIPT),
-        "--provider", provider,
-        "--max-turns", str(max_turns),
+        "bash",
+        str(RIBOSOME_SCRIPT),
+        "--provider",
+        provider,
+        "--max-turns",
+        str(max_turns),
         effective_task,
     ]
     proc = await asyncio.create_subprocess_exec(
@@ -346,8 +396,12 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
             proc.kill()
             await proc.communicate()
             return {
-                "success": False, "exit_code": -1, "provider": provider,
-                "task": task[:200], "stdout": "", "stderr": "timeout after 30m",
+                "success": False,
+                "exit_code": -1,
+                "provider": provider,
+                "task": task[:200],
+                "stdout": "",
+                "stderr": "timeout after 30m",
             }
     finally:
         hb_task.cancel()

@@ -7,9 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
-
 EFFECTOR = Path(__file__).parent.parent / "effectors" / "coverage-map"
 
 
@@ -230,7 +227,9 @@ class TestMainCLI:
         """Effector runs and exits (0 or 1 depending on coverage)."""
         r = subprocess.run(
             [sys.executable, str(EFFECTOR)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode in (0, 1)
         assert "METABOLON TEST COVERAGE REPORT" in r.stdout
@@ -239,7 +238,9 @@ class TestMainCLI:
         """--json flag produces valid JSON."""
         r = subprocess.run(
             [sys.executable, str(EFFECTOR), "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode in (0, 1)
         data = json.loads(r.stdout)
@@ -263,7 +264,9 @@ class TestMainCLI:
 
         r = subprocess.run(
             [sys.executable, str(EFFECTOR), "--create-stubs"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=str(tmp_path),
             # Won't work because effector uses Path(__file__).parent.parent.
             # We test stub creation logic via exec instead below.

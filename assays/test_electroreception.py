@@ -6,8 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "electroreception"
 
 
@@ -15,7 +13,10 @@ def _run_script(args: list[str] | None = None) -> subprocess.CompletedProcess:
     """Run the electroreception script with given args."""
     cmd = [sys.executable, str(SCRIPT)] + (args or [])
     return subprocess.run(
-        cmd, capture_output=True, text=True, timeout=10,
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
 
 
@@ -42,8 +43,18 @@ def test_help_shows_usage():
 def test_all_flags_listed_in_help():
     """Test all expected flags are mentioned in help."""
     r = _run_script(["--help"])
-    flags = ["-n", "--limit", "-s", "--sender", "-d", "--days", 
-             "-q", "--query", "--incoming", "--json"]
+    flags = [
+        "-n",
+        "--limit",
+        "-s",
+        "--sender",
+        "-d",
+        "--days",
+        "-q",
+        "--query",
+        "--incoming",
+        "--json",
+    ]
     for flag in flags:
         assert flag in r.stdout
 
@@ -58,7 +69,7 @@ def test_db_not_found_exits_with_1():
 
 class TestExtractText:
     """Tests for the extract_text function that extracts text from NSAttributedString blobs."""
-    
+
     def test_empty_blob_returns_none(self):
         """Test empty blob returns None."""
         # Load the function by executing the script
@@ -67,9 +78,9 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         assert extract_text(b"") is None
-    
+
     def test_clean_text_after_metadata_extracts(self):
         """Test text after metadata extracts correctly."""
         ns = {}
@@ -77,7 +88,7 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         # The actual blob contains control characters separating runs
         # Let's create a decoded string that would result from blob decoding
         # with actual useful content after metadata
@@ -85,7 +96,7 @@ class TestExtractText:
         test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         assert result == "Hello World"
-    
+
     def test_text_with_phone_prefix_stripped(self):
         """Test phone prefix is stripped."""
         ns = {}
@@ -93,12 +104,12 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         test_content = "NSString\x00+1Hello World\x00"
         test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         assert result == "Hello World"
-    
+
     def test_only_metadata_returns_none(self):
         """Test when everything is filtered as metadata, return None."""
         ns = {}
@@ -106,12 +117,12 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         test_content = "streamtyped\x00NSString\x00NSDictionary\x00NSArray"
         test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         assert result is None
-    
+
     def test_three_characters_kept(self):
         """Test strings >=3 characters are kept, shorter are ignored."""
         ns = {}
@@ -119,7 +130,7 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         test_content = "NSString\x00Hi!\x00"
         test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
@@ -147,13 +158,13 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         test_content = "NSString\x00H\x00"
         test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         # "H" is length 1, should be ignored
         assert result is None
-    
+
     def test_exception_returns_none(self):
         """Test that exceptions during extraction return None."""
         ns = {}
@@ -161,7 +172,7 @@ class TestExtractText:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
-        
+
         # Pass None instead of bytes to cause exception
         result = extract_text(None)  # type: ignore
         assert result is None

@@ -379,11 +379,13 @@ class TestScanHistoryInternal:
     """Tests for _scan_history with mocked filesystem."""
 
     def _make_entry(self, ts_ms, session="sess1", display="prompt text"):
-        return json.dumps({
-            "timestamp": ts_ms,
-            "sessionId": session,
-            "display": display,
-        })
+        return json.dumps(
+            {
+                "timestamp": ts_ms,
+                "sessionId": session,
+                "display": display,
+            }
+        )
 
     @patch("metabolon.organelles.engram._opencode_storage")
     @patch("metabolon.organelles.engram._history_files")
@@ -426,7 +428,7 @@ class TestScanHistoryInternal:
         codex_path.open.return_value.__iter__ = lambda s: iter([])
         mock_hf.return_value = [("Claude", claude_path), ("Codex", codex_path)]
 
-        result = _scan_history("2025-06-15", tool_filter="Codex")
+        _scan_history("2025-06-15", tool_filter="Codex")
         # Claude path should be skipped
         claude_path.open.assert_not_called()
         codex_path.open.assert_called_once()
@@ -478,16 +480,19 @@ class TestSearchPrompts:
     @patch("metabolon.organelles.engram._opencode_storage")
     @patch("metabolon.organelles.engram._history_files")
     def test_finds_match_in_history(self, mock_hf, mock_os):
-        from metabolon.organelles.engram import _search_prompts
         from io import StringIO
+
+        from metabolon.organelles.engram import _search_prompts
 
         mock_os.return_value = Path("/fake/opencode")
         ts_ms = 1718409600000  # some timestamp in range
-        entry = json.dumps({
-            "timestamp": ts_ms,
-            "sessionId": "sessABC1",
-            "display": "deploy the application now",
-        })
+        entry = json.dumps(
+            {
+                "timestamp": ts_ms,
+                "sessionId": "sessABC1",
+                "display": "deploy the application now",
+            }
+        )
         fake_path = MagicMock()
         fake_path.exists.return_value = True
         fake_path.open.return_value.__enter__ = lambda s: StringIO(entry)
@@ -524,23 +529,24 @@ class TestSearchTranscripts:
     @patch("metabolon.organelles.engram._opencode_storage")
     @patch("metabolon.organelles.engram._history_files")
     def test_claude_transcript_match(self, mock_hf, mock_os):
-        from metabolon.organelles.engram import _search_transcripts
         import os
         import tempfile
+
+        from metabolon.organelles.engram import _search_transcripts
 
         mock_os.return_value = Path("/fake/opencode")
         mock_hf.return_value = []
 
         # Build a fake transcript entry
         ts_str = "2025-06-15T10:30:00+08:00"
-        entry = json.dumps({
-            "type": "user",
-            "timestamp": ts_str,
-            "sessionId": "sessXYZ123456",
-            "message": {
-                "content": [{"type": "text", "text": "please refactor the module"}]
-            },
-        })
+        entry = json.dumps(
+            {
+                "type": "user",
+                "timestamp": ts_str,
+                "sessionId": "sessXYZ123456",
+                "message": {"content": [{"type": "text", "text": "please refactor the module"}]},
+            }
+        )
 
         ts_ms = int(datetime.fromisoformat(ts_str).timestamp() * 1000)
 
@@ -619,18 +625,18 @@ class TestReadOpencodeText:
     """Tests for _read_opencode_text."""
 
     def test_missing_dir_returns_empty(self):
-        from metabolon.organelles.engram import _read_opencode_text
-
         import tempfile
+
+        from metabolon.organelles.engram import _read_opencode_text
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _read_opencode_text(Path(tmpdir), "nonexistent")
             assert result == ""
 
     def test_reads_parts(self):
-        from metabolon.organelles.engram import _read_opencode_text
-
         import tempfile
+
+        from metabolon.organelles.engram import _read_opencode_text
 
         with tempfile.TemporaryDirectory() as tmpdir:
             part_dir = Path(tmpdir) / "part" / "msg1"
@@ -670,7 +676,16 @@ class TestPrintSearch:
         from metabolon.organelles.engram import _print_search
 
         regex = re.compile("test")
-        _print_search([], regex, "test", days=7, deep=True, role_filter=None, session_filter=None, context_lines=0)
+        _print_search(
+            [],
+            regex,
+            "test",
+            days=7,
+            deep=True,
+            role_filter=None,
+            session_filter=None,
+            context_lines=0,
+        )
         captured = capsys.readouterr()
         assert "No matches found" in captured.out
 
@@ -689,7 +704,16 @@ class TestPrintSearch:
                 tool="Claude",
             ),
         ]
-        _print_search(matches, regex, "needle", days=7, deep=False, role_filter=None, session_filter=None, context_lines=0)
+        _print_search(
+            matches,
+            regex,
+            "needle",
+            days=7,
+            deep=False,
+            role_filter=None,
+            session_filter=None,
+            context_lines=0,
+        )
         captured = capsys.readouterr()
         assert "Found 1 matches" in captured.out
         assert "2025-06-14" in captured.out

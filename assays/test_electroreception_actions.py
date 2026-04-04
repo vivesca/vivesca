@@ -7,8 +7,6 @@ import sqlite3
 import time
 from unittest.mock import patch
 
-import pytest
-
 
 def test_missing_db():
     """When chat.db doesn't exist, return error result."""
@@ -35,9 +33,7 @@ def test_basic_read_with_mock_db():
     conn.execute(f"INSERT INTO message VALUES (1, {apple_ns}, 0, 'Hello World', NULL, 1)")
     conn.commit()
 
-    with patch("os.path.exists", return_value=True), patch(
-        "sqlite3.connect", return_value=conn
-    ):
+    with patch("os.path.exists", return_value=True), patch("sqlite3.connect", return_value=conn):
         result = electroreception_read(limit=10)
         assert result.count >= 1
         assert any("Hello World" in m.get("text", "") for m in result.messages)
@@ -57,18 +53,12 @@ def test_sender_filter():
     conn.execute("INSERT INTO handle VALUES (2, 'MoxBank')")
     apple_ns = int((time.time() - 978307200) * 1_000_000_000)
     conn.execute(f"INSERT INTO message VALUES (1, {apple_ns}, 0, 'Hello', NULL, 1)")
-    conn.execute(
-        f"INSERT INTO message VALUES (2, {apple_ns}, 0, 'Transaction alert', NULL, 2)"
-    )
+    conn.execute(f"INSERT INTO message VALUES (2, {apple_ns}, 0, 'Transaction alert', NULL, 2)")
     conn.commit()
 
-    with patch("os.path.exists", return_value=True), patch(
-        "sqlite3.connect", return_value=conn
-    ):
+    with patch("os.path.exists", return_value=True), patch("sqlite3.connect", return_value=conn):
         result = electroreception_read(sender="MoxBank")
-        assert all(
-            "MoxBank" in m.get("sender", "") for m in result.messages if m.get("text")
-        )
+        assert all("MoxBank" in m.get("sender", "") for m in result.messages if m.get("text"))
 
 
 def test_query_filter():
@@ -83,17 +73,11 @@ def test_query_filter():
     )
     conn.execute("INSERT INTO handle VALUES (1, 'someone')")
     apple_ns = int((time.time() - 978307200) * 1_000_000_000)
-    conn.execute(
-        f"INSERT INTO message VALUES (1, {apple_ns}, 0, 'Hello World', NULL, 1)"
-    )
-    conn.execute(
-        f"INSERT INTO message VALUES (2, {apple_ns}, 0, 'Goodbye World', NULL, 1)"
-    )
+    conn.execute(f"INSERT INTO message VALUES (1, {apple_ns}, 0, 'Hello World', NULL, 1)")
+    conn.execute(f"INSERT INTO message VALUES (2, {apple_ns}, 0, 'Goodbye World', NULL, 1)")
     conn.commit()
 
-    with patch("os.path.exists", return_value=True), patch(
-        "sqlite3.connect", return_value=conn
-    ):
+    with patch("os.path.exists", return_value=True), patch("sqlite3.connect", return_value=conn):
         result = electroreception_read(query="Goodbye")
         assert result.count == 1
         assert "Goodbye" in result.messages[0]["text"]
@@ -111,17 +95,11 @@ def test_incoming_only():
     )
     conn.execute("INSERT INTO handle VALUES (1, 'someone')")
     apple_ns = int((time.time() - 978307200) * 1_000_000_000)
-    conn.execute(
-        f"INSERT INTO message VALUES (1, {apple_ns}, 0, 'Incoming', NULL, 1)"
-    )
-    conn.execute(
-        f"INSERT INTO message VALUES (2, {apple_ns}, 1, 'Outgoing', NULL, 1)"
-    )
+    conn.execute(f"INSERT INTO message VALUES (1, {apple_ns}, 0, 'Incoming', NULL, 1)")
+    conn.execute(f"INSERT INTO message VALUES (2, {apple_ns}, 1, 'Outgoing', NULL, 1)")
     conn.commit()
 
-    with patch("os.path.exists", return_value=True), patch(
-        "sqlite3.connect", return_value=conn
-    ):
+    with patch("os.path.exists", return_value=True), patch("sqlite3.connect", return_value=conn):
         result = electroreception_read(incoming_only=True)
         assert all(not m.get("from_me") for m in result.messages)
 

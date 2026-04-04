@@ -1,4 +1,3 @@
-
 """chromatin — file-based memory store.
 
 Oghma retired (Mar 2026). This organelle now reads/writes markdown files
@@ -8,7 +7,6 @@ Performance: an in-memory index caches frontmatter fields and file content
 so that repeated queries hit RAM instead of disk. The index is lazy-loaded
 on first access and auto-refreshed on writes.
 """
-
 
 import logging
 import re

@@ -1,6 +1,4 @@
-
 """tonus tool — session state. Actions: mark|status"""
-
 
 import re
 from datetime import datetime, timedelta, timezone

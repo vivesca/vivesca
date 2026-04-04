@@ -1,10 +1,8 @@
-
 """mitosis — DR sync tools for soma hot standby.
 
 One-way push from iMac to soma (fly.io, nrt).
 Mac is authoritative. Lucerna never writes back.
 """
-
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations

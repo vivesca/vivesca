@@ -1,24 +1,22 @@
 """Tests for metabolon/organelles/endocytosis_rss/cargo.py — JSONL cargo store."""
+
 from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
-
-import pytest
 
 from metabolon.organelles.endocytosis_rss.cargo import (
+    _title_prefix,
     append_cargo,
     recall_cargo,
     recall_title_prefixes,
     rotate_cargo,
-    _title_prefix,
 )
-
 
 # ---------------------------------------------------------------------------
 # append_cargo
 # ---------------------------------------------------------------------------
+
 
 class TestAppendCargo:
     def test_creates_file(self, tmp_path):
@@ -31,10 +29,13 @@ class TestAppendCargo:
 
     def test_appends_multiple(self, tmp_path):
         cargo = tmp_path / "cargo.jsonl"
-        append_cargo(cargo, [
-            {"title": "first"},
-            {"title": "second"},
-        ])
+        append_cargo(
+            cargo,
+            [
+                {"title": "first"},
+                {"title": "second"},
+            ],
+        )
         lines = cargo.read_text().strip().splitlines()
         assert len(lines) == 2
 
@@ -50,6 +51,7 @@ class TestAppendCargo:
 # recall_cargo
 # ---------------------------------------------------------------------------
 
+
 class TestRecallCargo:
     def test_nonexistent(self, tmp_path):
         assert recall_cargo(tmp_path / "nope.jsonl") == []
@@ -57,8 +59,7 @@ class TestRecallCargo:
     def test_reads_all(self, tmp_path):
         cargo = tmp_path / "cargo.jsonl"
         cargo.write_text(
-            '{"date": "2025-01-10", "title": "a"}\n'
-            '{"date": "2025-01-15", "title": "b"}\n'
+            '{"date": "2025-01-10", "title": "a"}\n{"date": "2025-01-15", "title": "b"}\n'
         )
         result = recall_cargo(cargo)
         assert len(result) == 2
@@ -66,8 +67,7 @@ class TestRecallCargo:
     def test_since_filter(self, tmp_path):
         cargo = tmp_path / "cargo.jsonl"
         cargo.write_text(
-            '{"date": "2025-01-10", "title": "a"}\n'
-            '{"date": "2025-01-15", "title": "b"}\n'
+            '{"date": "2025-01-10", "title": "a"}\n{"date": "2025-01-15", "title": "b"}\n'
         )
         result = recall_cargo(cargo, since="2025-01-13")
         assert len(result) == 1
@@ -76,8 +76,7 @@ class TestRecallCargo:
     def test_month_filter(self, tmp_path):
         cargo = tmp_path / "cargo.jsonl"
         cargo.write_text(
-            '{"date": "2025-01-15", "title": "jan"}\n'
-            '{"date": "2025-02-15", "title": "feb"}\n'
+            '{"date": "2025-01-15", "title": "jan"}\n{"date": "2025-02-15", "title": "feb"}\n'
         )
         result = recall_cargo(cargo, month="2025-02")
         assert len(result) == 1
@@ -100,6 +99,7 @@ class TestRecallCargo:
 # _title_prefix
 # ---------------------------------------------------------------------------
 
+
 class TestTitlePrefix:
     def test_basic(self):
         result = _title_prefix("HSBC Reports Strong Results")
@@ -114,6 +114,7 @@ class TestTitlePrefix:
 # recall_title_prefixes
 # ---------------------------------------------------------------------------
 
+
 class TestRecallTitlePrefixes:
     def test_nonexistent(self, tmp_path):
         assert recall_title_prefixes(tmp_path / "nope.jsonl") == set()
@@ -126,13 +127,14 @@ class TestRecallTitlePrefixes:
 
     def test_skips_bad_lines(self, tmp_path):
         cargo = tmp_path / "cargo.jsonl"
-        cargo.write_text('not json\n')
+        cargo.write_text("not json\n")
         assert recall_title_prefixes(cargo) == set()
 
 
 # ---------------------------------------------------------------------------
 # rotate_cargo
 # ---------------------------------------------------------------------------
+
 
 class TestRotateCargo:
     def test_no_rotation_needed(self, tmp_path):

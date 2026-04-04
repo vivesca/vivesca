@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 """Cold path — weekly differential evolution sweep."""
 
 

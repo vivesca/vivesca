@@ -31,7 +31,7 @@ theoria --period weekly --dry-run
 5-node LangGraph pipeline: Gather → Gap Analysis → Research → Synthesise → Write
 
 **Roll-up architecture** — each cadence synthesizes from the layer below:
-- **Weekly:** raw feed (lustro log + AI News Log) → weekly snapshot
+- **Weekly:** raw feed (endocytosis log + AI News Log) → weekly snapshot
 - **Monthly:** weekly snapshots → thematic synthesis
 - **Quarterly:** monthly reviews → strategic assessment
 - **Yearly:** quarterly reviews → annual narrative
@@ -60,7 +60,7 @@ Logs: `~/logs/cron-ai-landscape-{weekly,monthly,quarterly,yearly}.log`
 
 ## Relationship to Other Tools
 
-- **lustro** — data collection (upstream). Feeds theoria's gather node via `lustro log -n 200`.
+- **endocytosis** — data collection (upstream). Feeds theoria's gather node via `endocytosis log -n 200`.
 - **dialexis skill** — interactive synthesis (parallel). Theoria automates what dialexis does interactively. Both write to `~/epigenome/chromatin/Theoria.md`. dialexis adds governance translation pass + client-specific suggestions that theoria doesn't.
 - **weekly skill** — consumer. References Theoria.md output during Friday review.
 

@@ -1,11 +1,9 @@
-
 """ExecutiveSubstrate — cortical metabolism of constitutional rules.
 
 Deliberative: senses rules and their signal evidence, identifies prune
 candidates (rules with no signal backing), proposes pruning actions,
 and monitors biological naming precision across the codebase.
 """
-
 
 import re
 from datetime import UTC, datetime, timedelta

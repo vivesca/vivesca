@@ -1,10 +1,8 @@
-
 """Overnight metabolism pipeline: metabolise → draft → publish.
 
 An actus pipeline — each product is the next substrate.
 Runs autonomously. Human reviews products, not process.
 """
-
 
 import json
 import os

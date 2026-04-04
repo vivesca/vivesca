@@ -1,10 +1,8 @@
-
 """Interphase gather — evening routine context.
 
 Collects: inbox, archived emails, WhatsApp, calendar (today + tomorrow),
 Praxis, Tonus, budget, reminders, email threads tracker, prospective memory.
 """
-
 
 import concurrent.futures
 import datetime

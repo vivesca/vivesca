@@ -1,6 +1,4 @@
-
 """Bank-specific statement parsers."""
-
 
 from collections.abc import Callable
 from pathlib import Path
@@ -9,7 +7,7 @@ from typing import TYPE_CHECKING, TypeAlias
 if TYPE_CHECKING:
     from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
-Parser: TypeAlias = Callable[[Path], "tuple[RespirogramMeta, list[ConsumptionEvent]]"]
+type Parser = Callable[[Path], "tuple[RespirogramMeta, list[ConsumptionEvent]]"]
 
 _REGISTRY: dict[str, Parser] = {}
 

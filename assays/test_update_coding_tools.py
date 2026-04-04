@@ -8,8 +8,6 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "update-coding-tools.sh"
 
 
@@ -33,9 +31,7 @@ def _run_script(
             env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
         else:
             env["PATH"] = (
-                os.pathsep.join(str(p) for p in path_dirs)
-                + os.pathsep
-                + env.get("PATH", "")
+                os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
             )
     if env_extra:
         env.update(env_extra)
@@ -60,7 +56,10 @@ def _make_mock_bin(
 
 
 def _make_recording_bin(
-    tmp_path: Path, name: str, record_file: Path, exit_code: int = 0,
+    tmp_path: Path,
+    name: str,
+    record_file: Path,
+    exit_code: int = 0,
     extra_logic: str = "",
 ) -> Path:
     """Create a mock bin that records invocations (subcommand + args) to record_file."""
@@ -68,10 +67,7 @@ def _make_recording_bin(
     bindir.mkdir(exist_ok=True)
     script = bindir / name
     script.write_text(
-        "#!/bin/bash\n"
-        f"{extra_logic}\n"
-        f'echo "$@" >> {record_file}\n'
-        f"exit {exit_code}\n",
+        f'#!/bin/bash\n{extra_logic}\necho "$@" >> {record_file}\nexit {exit_code}\n',
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
@@ -219,6 +215,7 @@ class TestLogging:
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         log_text = _log_file(tmp_path).read_text()
         import re
+
         assert re.search(r"=== .+ ===", log_text) is not None
 
     def test_log_contains_updates_complete(self, tmp_path):
@@ -349,40 +346,44 @@ class TestToolFailureTolerance:
     """Individual tool failures should not abort the script (|| true)."""
 
     def test_brew_failure_does_not_abort(self, tmp_path):
-        bindir, records = _setup_full_mocks(tmp_path, brew_exit=1)
+        bindir, _records = _setup_full_mocks(tmp_path, brew_exit=1)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
 
     def test_npm_failure_does_not_abort(self, tmp_path):
-        bindir, records = _setup_full_mocks(tmp_path, npm_exit=1)
+        bindir, _records = _setup_full_mocks(tmp_path, npm_exit=1)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
 
     def test_pnpm_failure_does_not_abort(self, tmp_path):
-        bindir, records = _setup_full_mocks(tmp_path, pnpm_exit=1)
+        bindir, _records = _setup_full_mocks(tmp_path, pnpm_exit=1)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
 
     def test_uv_failure_does_not_abort(self, tmp_path):
-        bindir, records = _setup_full_mocks(tmp_path, uv_exit=1)
+        bindir, _records = _setup_full_mocks(tmp_path, uv_exit=1)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
 
     def test_cargo_failure_does_not_abort(self, tmp_path):
-        bindir, records = _setup_full_mocks(tmp_path, cargo_exit=1)
+        bindir, _records = _setup_full_mocks(tmp_path, cargo_exit=1)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
 
     def test_mas_failure_does_not_abort(self, tmp_path):
-        bindir, records = _setup_full_mocks(tmp_path, mas_exit=1)
+        bindir, _records = _setup_full_mocks(tmp_path, mas_exit=1)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
 
     def test_all_fail_still_completes(self, tmp_path):
-        bindir, records = _setup_full_mocks(
+        bindir, _records = _setup_full_mocks(
             tmp_path,
-            brew_exit=1, npm_exit=1, pnpm_exit=1,
-            uv_exit=1, cargo_exit=1, mas_exit=1,
+            brew_exit=1,
+            npm_exit=1,
+            pnpm_exit=1,
+            uv_exit=1,
+            cargo_exit=1,
+            mas_exit=1,
         )
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
@@ -451,6 +452,7 @@ class TestHealthCheck:
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         data = json.loads(_health_file(tmp_path).read_text())
         import re
+
         assert re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", data["checked"]) is not None
 
     def test_health_file_uses_home(self, tmp_path):
@@ -510,7 +512,7 @@ class TestExitCodes:
             if d and not (Path(d) / "brew").exists()
         ]
         r = _run_script(
-            path_dirs=[safe_bin] + filtered,
+            path_dirs=[safe_bin, *filtered],
             tmp_path=tmp_path,
             replace_path=True,
         )

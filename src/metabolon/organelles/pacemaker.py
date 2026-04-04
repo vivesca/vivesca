@@ -1,6 +1,4 @@
-
 """pacemaker — reminder signaling (pacemaker = generates signals at scheduled intervals)."""
-
 
 from typing import Any
 

@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-
 # Allow pytest to collect test files with dots in the name (e.g. test_foo.sh.py).
 # The dot makes Python's importer treat "test_foo" as a package, causing
 # ModuleNotFoundError.  We use a custom Module subclass that loads via
@@ -123,7 +122,6 @@ def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
 
     def _force_rmtree(path: Path) -> None:
         """Remove a directory tree, handling permission errors on readonly files."""
-        import errno
 
         def handle_error(func, exc_path, exc_info):
             """Error handler for shutil.rmtree that fixes permissions and retries."""

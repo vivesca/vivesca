@@ -1,4 +1,3 @@
-
 """noesis — Perplexity-powered AI search tool.
 
 Tools:

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 
 import json
-import math
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from metabolon.organelles.translocon_metrics import (
-    METRICS_PATH,
     format_report,
     record,
     stats_by_backend,
@@ -26,9 +23,15 @@ def tmp_metrics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return fake
 
 
-def _entry(backend: str = "goose", duration: float = 10.0, success: bool = True,
-           model: str = "GLM-4.7", prompt_length: int = 500, output_length: int = 200,
-           mode: str = "explore") -> dict:
+def _entry(
+    backend: str = "goose",
+    duration: float = 10.0,
+    success: bool = True,
+    model: str = "GLM-4.7",
+    prompt_length: int = 500,
+    output_length: int = 200,
+    mode: str = "explore",
+) -> dict:
     return {
         "backend": backend,
         "model": model,
@@ -107,7 +110,6 @@ class TestFormatReport:
         assert "Avg duration" in report
         assert "P50" in report
         assert "P95" in report
-
 
     def test_format_report_includes_summary(self, tmp_metrics: Path) -> None:
         """format_report output includes a Summary section."""

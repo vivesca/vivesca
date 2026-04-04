@@ -21,8 +21,7 @@ def _load_module(tmp_jsonl: Path, tmp_queue: Path) -> dict:
 def _write_jsonl(path: Path, records: list[dict]):
     """Append JSONL records to a file."""
     with open(path, "a") as f:
-        for r in records:
-            f.write(json.dumps(r) + "\n")
+        f.writelines(json.dumps(r) + "\n" for r in records)
 
 
 def _make_record(

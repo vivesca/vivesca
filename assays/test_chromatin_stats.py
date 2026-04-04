@@ -1,13 +1,11 @@
 """Tests for metabolon.resources.chromatin_stats — focused on module contract."""
-import sys
+
 import types
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Import & identity
 # ---------------------------------------------------------------------------
+
 
 def test_import_returns_module():
     """Importing chromatin_stats yields a real module object."""
@@ -27,6 +25,7 @@ def test_module_fqn():
 # BINARY constant
 # ---------------------------------------------------------------------------
 
+
 def test_binary_is_lowercase_alpha():
     """BINARY must be a non-empty lowercase alphabetic string."""
     from metabolon.resources.chromatin_stats import BINARY
@@ -34,7 +33,7 @@ def test_binary_is_lowercase_alpha():
     assert isinstance(BINARY, str)
     assert len(BINARY) > 0
     assert BINARY.isalpha()
-    assert BINARY == BINARY.lower()
+    assert BINARY.lower() == BINARY
 
 
 def test_binary_value_is_oghma():
@@ -55,6 +54,7 @@ def test_binary_is_module_only_public_name():
 # ---------------------------------------------------------------------------
 # Docstring contract
 # ---------------------------------------------------------------------------
+
 
 def test_docstring_declares_resource_uri():
     """Module docstring must declare the vivesca resource URI."""

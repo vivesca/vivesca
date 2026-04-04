@@ -207,7 +207,13 @@ class TestMain:
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_full_pipeline_publish(
-        self, mock_sec, mock_td, mock_new, mock_pub, fake_queue, fake_style,
+        self,
+        mock_sec,
+        mock_td,
+        mock_new,
+        mock_pub,
+        fake_queue,
+        fake_style,
     ):
         fake_queue.write_text("- [ ] My Topic — a subtitle\n")
         fake_style.write_text("Write clearly.")
@@ -235,7 +241,11 @@ class TestMain:
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_censor_fail_notifies(
-        self, mock_sec, mock_td, fake_queue, fake_style,
+        self,
+        mock_sec,
+        mock_td,
+        fake_queue,
+        fake_style,
     ):
         fake_queue.write_text("- [ ] Failing topic\n")
         fake_style.write_text("Style.")
@@ -256,7 +266,13 @@ class TestMain:
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_publish_failure_notifies(
-        self, mock_sec, mock_td, mock_new, mock_pub, fake_queue, fake_style,
+        self,
+        mock_sec,
+        mock_td,
+        mock_new,
+        mock_pub,
+        fake_queue,
+        fake_style,
     ):
         fake_queue.write_text("- [ ] Publish fail topic\n")
         fake_style.write_text("Style.")

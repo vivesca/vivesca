@@ -301,7 +301,9 @@ class TestScanForPlaceholders:
 
     def test_embedded_in_code(self, tmp_path):
         f = tmp_path / "code.py"
-        f.write_text(f'raise NotImplementedError("{_MARKER_TODO}: implement me")\n', encoding="utf-8")
+        f.write_text(
+            f'raise NotImplementedError("{_MARKER_TODO}: implement me")\n', encoding="utf-8"
+        )
         issues = scan_for_placeholders(tmp_path, ["code.py"])
         assert len(issues) == 1
         assert issues[0].severity == "warning"
@@ -359,7 +361,10 @@ class TestScanForPlaceholders:
             capture_output=True,
         )
         # Now modify the file WITHOUT changing the marker line.
-        f.write_text(f"# {_MARKER_TODO}: pre-existing\nprint('hello')\nprint('new line')\n", encoding="utf-8")
+        f.write_text(
+            f"# {_MARKER_TODO}: pre-existing\nprint('hello')\nprint('new line')\n",
+            encoding="utf-8",
+        )
         issues = scan_for_placeholders(tmp_path, ["code.py"])
         assert issues == []
 
@@ -409,7 +414,9 @@ class TestScanForPlaceholders:
             capture_output=True,
         )
         # Add a new FIXME alongside the existing TODO.
-        f.write_text(f"# {_MARKER_TODO}: old\n# {_MARKER_FIXME}: new\nprint('x')\n", encoding="utf-8")
+        f.write_text(
+            f"# {_MARKER_TODO}: old\n# {_MARKER_FIXME}: new\nprint('x')\n", encoding="utf-8"
+        )
         issues = scan_for_placeholders(tmp_path, ["code.py"])
         assert len(issues) == 1
         assert issues[0].severity == "warning"

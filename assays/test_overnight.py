@@ -1,19 +1,13 @@
 """Tests for metabolon.pathways.overnight."""
+
 from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.pathways.overnight import (
-    DRAFT_PROMPT,
-    LOGDIR,
-    PUBLISHED,
-    VIVESCA,
     _sterile_env,
     compose_post,
     metabolise,
@@ -158,9 +152,7 @@ class TestPipeline:
         mock_compose.return_value = post
 
         with patch("metabolon.pathways.overnight.LOGDIR", tmp_path):
-            result = metabolize_pipeline(
-                [{"seed": "s", "slug": "s1", "title": "T1"}]
-            )
+            result = metabolize_pipeline([{"seed": "s", "slug": "s1", "title": "T1"}])
 
         assert result["published"] == ["s1"]
         assert result["failed"] == []
@@ -171,9 +163,7 @@ class TestPipeline:
     @patch("metabolon.pathways.overnight.time")
     def test_no_convergence(self, mock_time, mock_meta, mock_compose, tmp_path):
         with patch("metabolon.pathways.overnight.LOGDIR", tmp_path):
-            result = metabolize_pipeline(
-                [{"seed": "s", "slug": "nope", "title": "T"}]
-            )
+            result = metabolize_pipeline([{"seed": "s", "slug": "nope", "title": "T"}])
         assert result["no_convergence"] == ["nope"]
         mock_compose.assert_not_called()
 
@@ -181,14 +171,14 @@ class TestPipeline:
     @patch("metabolon.pathways.overnight.compose_post")
     @patch("metabolon.pathways.overnight.metabolise")
     @patch("metabolon.pathways.overnight.time")
-    def test_compose_fail_goes_to_failed(self, mock_time, mock_meta, mock_compose, mock_pub, tmp_path):
+    def test_compose_fail_goes_to_failed(
+        self, mock_time, mock_meta, mock_compose, mock_pub, tmp_path
+    ):
         mock_meta.return_value = "ok"
         mock_compose.return_value = None
 
         with patch("metabolon.pathways.overnight.LOGDIR", tmp_path):
-            result = metabolize_pipeline(
-                [{"seed": "s", "slug": "bad", "title": "T"}]
-            )
+            result = metabolize_pipeline([{"seed": "s", "slug": "bad", "title": "T"}])
         assert result["failed"] == ["bad"]
 
     @patch("metabolon.pathways.overnight.publish", return_value=True)
@@ -202,9 +192,7 @@ class TestPipeline:
         mock_compose.return_value = post
 
         with patch("metabolon.pathways.overnight.LOGDIR", tmp_path):
-            result = metabolize_pipeline(
-                [{"seed": "s", "slug": "slug1", "title": "T"}]
-            )
+            metabolize_pipeline([{"seed": "s", "slug": "slug1", "title": "T"}])
 
         summary_file = tmp_path / "overnight-metabolise-summary.json"
         assert summary_file.exists()

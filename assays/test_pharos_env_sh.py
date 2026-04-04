@@ -3,15 +3,15 @@ from __future__ import annotations
 """Tests for effectors/pharos-env.sh — environment wrapper for systemd services."""
 
 import os
-import stat
 import subprocess
-import tempfile
 from pathlib import Path
 
 PHAROS_ENV = Path.home() / "germline/effectors/pharos-env.sh"
 
 
-def _run(args: list[str], env: dict | None = None, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    args: list[str], env: dict | None = None, cwd: str | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run pharos-env.sh and return CompletedProcess."""
     return subprocess.run(
         ["/bin/bash", str(PHAROS_ENV), *args],
@@ -245,9 +245,7 @@ def test_home_preserved_when_set(tmp_path: Path):
 def test_zshenv_local_exports_multiple_vars(tmp_path: Path):
     """Multiple exports in .zshenv.local are all available."""
     zshenv = tmp_path / ".zshenv.local"
-    zshenv.write_text(
-        'export PHAROS_ALPHA="1"\nexport PHAROS_BETA="2"\n'
-    )
+    zshenv.write_text('export PHAROS_ALPHA="1"\nexport PHAROS_BETA="2"\n')
     env = dict(os.environ)
     env["HOME"] = str(tmp_path)
     env.pop("PHAROS_ALPHA", None)

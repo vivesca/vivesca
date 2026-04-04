@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 class TestPsAction:
@@ -132,7 +128,9 @@ class TestKillAction:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result) as mock_run:
+        with patch(
+            "metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result
+        ) as mock_run:
             result = hemostasis(action="kill", pattern="proc", signal="KILL")
 
         assert result.success is True
@@ -153,9 +151,11 @@ class TestLaunchagentAction:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
-             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
+        with (
+            patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result),
+            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
+            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+        ):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.example.agent.plist",
@@ -171,9 +171,11 @@ class TestLaunchagentAction:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
-             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
+        with (
+            patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result),
+            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
+            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+        ):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.example.agent.plist",
@@ -186,8 +188,10 @@ class TestLaunchagentAction:
     def test_plist_not_found(self):
         from metabolon.enzymes.hemostasis import hemostasis
 
-        with patch("metabolon.enzymes.hemostasis.Path.exists", return_value=False), \
-             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
+        with (
+            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=False),
+            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+        ):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/nonexistent/plist.plist",
@@ -199,8 +203,10 @@ class TestLaunchagentAction:
     def test_invalid_launchagent_action(self):
         from metabolon.enzymes.hemostasis import hemostasis
 
-        with patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
-             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
+        with (
+            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
+            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+        ):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
@@ -216,9 +222,11 @@ class TestLaunchagentAction:
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stderr = "operation not permitted"
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True), \
-             patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"):
+        with (
+            patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result),
+            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
+            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+        ):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
@@ -233,11 +241,13 @@ class TestLaunchagentAction:
 
         from metabolon.enzymes.hemostasis import hemostasis
 
-        with patch(
-            "metabolon.enzymes.hemostasis.subprocess.run",
-            side_effect=subprocess.TimeoutExpired("launchctl", 15),
-        ), \
-             patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True):
+        with (
+            patch(
+                "metabolon.enzymes.hemostasis.subprocess.run",
+                side_effect=subprocess.TimeoutExpired("launchctl", 15),
+            ),
+            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
+        ):
             result = hemostasis(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
@@ -324,7 +334,9 @@ class TestUnknownAction:
 
         mock_result = MagicMock()
         mock_result.stdout = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result) as mock_run:
+        with patch(
+            "metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result
+        ) as mock_run:
             result = hemostasis(action="PS", pattern="test")
 
         assert result.count == 0

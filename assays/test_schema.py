@@ -8,7 +8,6 @@ from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 class TestConsumptionEvent:
     """Tests for the ConsumptionEvent dataclass."""
 
-
     def test_create_basic_event(self) -> None:
         """Test creating a basic ConsumptionEvent."""
         event = ConsumptionEvent(

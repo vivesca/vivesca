@@ -7,15 +7,11 @@ chaperone_check, scan_content, new, publish, revise, list_posts,
 push, index, _cli.  All filesystem I/O is mocked via tmp_path.
 """
 
-import subprocess
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 import metabolon.organelles.golgi as golgi
-
 
 # ============================================================================
 # _now_iso
@@ -66,7 +62,7 @@ class TestToSlug:
 
     def test_unicode_chars_stripped(self):
         slug = golgi._to_slug("café résumé")
-        assert slug == "caf-rsum"
+        assert slug == "calf-rsum"
 
 
 # ============================================================================
@@ -189,7 +185,7 @@ class TestScanContent:
         assert any("named" in x for x in w)
 
     def test_credential_leak(self):
-        w = golgi.scan_content('api_key: sk-abc123def456ghi789')
+        w = golgi.scan_content("api_key: sk-abc123def456ghi789")
         assert any("credential" in x for x in w)
 
     def test_offensive_word(self):
@@ -228,7 +224,7 @@ class TestNew:
     def test_creates_directory(self, tmp_path):
         subdir = tmp_path / "nested"
         with patch.object(golgi, "GARDEN_DIR", subdir):
-            slug, path = golgi.new("Nested Post")
+            _slug, path = golgi.new("Nested Post")
         assert subdir.exists()
         assert path.exists()
 
@@ -387,8 +383,12 @@ class TestPush:
         fake_result = MagicMock()
         fake_result.returncode = 0
         fake_result.stdout = "ok"
-        with patch.object(golgi, "SYNC_SCRIPT", fake_script), \
-             patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result) as mock_run:
+        with (
+            patch.object(golgi, "SYNC_SCRIPT", fake_script),
+            patch(
+                "metabolon.organelles.golgi.subprocess.run", return_value=fake_result
+            ) as mock_run,
+        ):
             result = golgi.push()
         assert result == "Live at https://terryli.hm"
         mock_run.assert_called_once_with(
@@ -405,8 +405,10 @@ class TestPush:
         fake_result = MagicMock()
         fake_result.returncode = 1
         fake_result.stderr = "permission denied"
-        with patch.object(golgi, "SYNC_SCRIPT", fake_script), \
-             patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result):
+        with (
+            patch.object(golgi, "SYNC_SCRIPT", fake_script),
+            patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result),
+        ):
             with pytest.raises(ValueError, match="Sync failed"):
                 golgi.push()
 
@@ -419,16 +421,14 @@ class TestPush:
 class TestIndex:
     def test_skips_drafts(self, tmp_path):
         idx = tmp_path / "index.md"
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "INDEX_PATH", idx):
+        with patch.object(golgi, "GARDEN_DIR", tmp_path), patch.object(golgi, "INDEX_PATH", idx):
             golgi.new("Draft Only")
             count = golgi.index()
         assert count == 0
 
     def test_includes_published(self, tmp_path):
         idx = tmp_path / "index.md"
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "INDEX_PATH", idx):
+        with patch.object(golgi, "GARDEN_DIR", tmp_path), patch.object(golgi, "INDEX_PATH", idx):
             slug, _ = golgi.new("Published Post")
             golgi.publish(slug, force=True)
             count = golgi.index()
@@ -439,8 +439,7 @@ class TestIndex:
 
     def test_groups_by_tag(self, tmp_path):
         idx = tmp_path / "index.md"
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "INDEX_PATH", idx):
+        with patch.object(golgi, "GARDEN_DIR", tmp_path), patch.object(golgi, "INDEX_PATH", idx):
             # Create two posts with tags
             slug1, path1 = golgi.new("Tagged One")
             fm1, body1 = golgi._parse_frontmatter(path1.read_text())
@@ -463,16 +462,14 @@ class TestIndex:
         idx = tmp_path / "index.md"
         garden = tmp_path / "garden"
         garden.mkdir()
-        with patch.object(golgi, "GARDEN_DIR", garden), \
-             patch.object(golgi, "INDEX_PATH", idx):
+        with patch.object(golgi, "GARDEN_DIR", garden), patch.object(golgi, "INDEX_PATH", idx):
             count = golgi.index()
         assert count == 0
 
     def test_wikilink_format(self, tmp_path):
         idx = tmp_path / "index.md"
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "INDEX_PATH", idx):
-            slug, path = golgi.new("Link Test")
+        with patch.object(golgi, "GARDEN_DIR", tmp_path), patch.object(golgi, "INDEX_PATH", idx):
+            slug, _path = golgi.new("Link Test")
             golgi.publish(slug, force=True)
             golgi.index()
         text = idx.read_text()
@@ -487,7 +484,7 @@ class TestIndex:
 class TestCli:
     def _run_cli(self, args):
         """Run _cli with patched sys.argv, return captured output."""
-        with patch("sys.argv", ["publish"] + args):
+        with patch("sys.argv", ["publish", *args]):
             with patch("builtins.print") as mock_print:
                 golgi._cli()
         return mock_print
@@ -520,9 +517,11 @@ class TestCli:
         fake_script.__str__ = lambda s: "/fake/sync.sh"
         fake_result = MagicMock()
         fake_result.returncode = 0
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "SYNC_SCRIPT", fake_script), \
-             patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result):
+        with (
+            patch.object(golgi, "GARDEN_DIR", tmp_path),
+            patch.object(golgi, "SYNC_SCRIPT", fake_script),
+            patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result),
+        ):
             golgi.new("Push CLI")
             mock_print = self._run_cli(["publish", "push-cli", "--push"])
         assert mock_print.call_count == 2
@@ -536,8 +535,7 @@ class TestCli:
 
     def test_index(self, tmp_path):
         idx = tmp_path / "index.md"
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "INDEX_PATH", idx):
+        with patch.object(golgi, "GARDEN_DIR", tmp_path), patch.object(golgi, "INDEX_PATH", idx):
             mock_print = self._run_cli(["index"])
         assert mock_print.call_count == 1
         assert "Index updated" in mock_print.call_args[0][0]
@@ -548,15 +546,19 @@ class TestCli:
         fake_script.__str__ = lambda s: "/fake/sync.sh"
         fake_result = MagicMock()
         fake_result.returncode = 0
-        with patch.object(golgi, "SYNC_SCRIPT", fake_script), \
-             patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result):
+        with (
+            patch.object(golgi, "SYNC_SCRIPT", fake_script),
+            patch("metabolon.organelles.golgi.subprocess.run", return_value=fake_result),
+        ):
             mock_print = self._run_cli(["push"])
         assert mock_print.call_count == 1
         assert "Live at" in mock_print.call_args[0][0]
 
     def test_no_command_shows_help(self):
-        with patch("sys.argv", ["publish"]), \
-             patch.object(golgi, "GARDEN_DIR", MagicMock()), \
-             patch("argparse.ArgumentParser.print_help") as mock_help:
+        with (
+            patch("sys.argv", ["publish"]),
+            patch.object(golgi, "GARDEN_DIR", MagicMock()),
+            patch("argparse.ArgumentParser.print_help") as mock_help,
+        ):
             golgi._cli()
         mock_help.assert_called_once()

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes import pinocytosis as pino
-
 
 # ---------------------------------------------------------------------------
 # _hkt_now
@@ -152,8 +149,7 @@ def test_read_efferens_newlines_in_body_replaced():
 def test_read_efferens_limits_to_5_messages():
     mock_acta = MagicMock()
     mock_acta.read.return_value = [
-        {"severity": "info", "from": f"sender{i}", "body": f"msg{i}"}
-        for i in range(10)
+        {"severity": "info", "from": f"sender{i}", "body": f"msg{i}"} for i in range(10)
     ]
     with patch.dict("sys.modules", {"acta": mock_acta}):
         result = pino._read_efferens()
@@ -168,7 +164,7 @@ def test_read_efferens_defaults_missing_fields():
     with patch.dict("sys.modules", {"acta": mock_acta}):
         result = pino._read_efferens()
     assert "[info]" in result  # default severity
-    assert "?" in result       # default sender
+    assert "?" in result  # default sender
 
 
 # ---------------------------------------------------------------------------
@@ -232,8 +228,12 @@ def test_day_snapshot_post_noon_includes_job_alerts():
         with patch("metabolon.enzymes.pinocytosis._read_now_md", return_value="N"):
             with patch("metabolon.enzymes.pinocytosis._read_praxis_today", return_value="P"):
                 with patch("metabolon.enzymes.pinocytosis._read_efferens", return_value="E"):
-                    with patch("metabolon.enzymes.pinocytosis._count_goose_tasks", return_value="G"):
-                        with patch("metabolon.enzymes.pinocytosis._count_job_alerts", return_value="J") as mock_jobs:
+                    with patch(
+                        "metabolon.enzymes.pinocytosis._count_goose_tasks", return_value="G"
+                    ):
+                        with patch(
+                            "metabolon.enzymes.pinocytosis._count_job_alerts", return_value="J"
+                        ) as mock_jobs:
                             result = pino._day_snapshot(json_output=True)
     mock_jobs.assert_called_once()
     data = json.loads(result.output)
@@ -246,8 +246,12 @@ def test_day_snapshot_json_has_all_keys():
         with patch("metabolon.enzymes.pinocytosis._read_now_md", return_value="N"):
             with patch("metabolon.enzymes.pinocytosis._read_praxis_today", return_value="P"):
                 with patch("metabolon.enzymes.pinocytosis._read_efferens", return_value="E"):
-                    with patch("metabolon.enzymes.pinocytosis._count_goose_tasks", return_value="G"):
-                        with patch("metabolon.enzymes.pinocytosis._count_job_alerts", return_value="J"):
+                    with patch(
+                        "metabolon.enzymes.pinocytosis._count_goose_tasks", return_value="G"
+                    ):
+                        with patch(
+                            "metabolon.enzymes.pinocytosis._count_job_alerts", return_value="J"
+                        ):
                             result = pino._day_snapshot(json_output=True)
     data = json.loads(result.output)
     for key in ("time", "now_md", "praxis", "efferens", "goose_tasks", "job_alerts"):
@@ -259,9 +263,15 @@ def test_day_snapshot_text_ordering():
         mock_now.return_value = datetime(2024, 6, 1, 14, 0, tzinfo=pino.HKT)
         with patch("metabolon.enzymes.pinocytosis._read_now_md", return_value="NOW"):
             with patch("metabolon.enzymes.pinocytosis._read_praxis_today", return_value="PRAXIS"):
-                with patch("metabolon.enzymes.pinocytosis._read_efferens", return_value="EFFERENS"):
-                    with patch("metabolon.enzymes.pinocytosis._count_goose_tasks", return_value="GOOSE"):
-                        with patch("metabolon.enzymes.pinocytosis._count_job_alerts", return_value="JOBS"):
+                with patch(
+                    "metabolon.enzymes.pinocytosis._read_efferens", return_value="EFFERENS"
+                ):
+                    with patch(
+                        "metabolon.enzymes.pinocytosis._count_goose_tasks", return_value="GOOSE"
+                    ):
+                        with patch(
+                            "metabolon.enzymes.pinocytosis._count_job_alerts", return_value="JOBS"
+                        ):
                             result = pino._day_snapshot(json_output=False)
     # Ordering: now_md, praxis, efferens, job_alerts, goose_tasks
     pos = {k: result.output.index(k) for k in ("NOW", "PRAXIS", "EFFERENS", "JOBS", "GOOSE")}
@@ -286,11 +296,15 @@ def _make_entrainment_mocks(oura_data, kinesin_output="", health=None, flywheel=
 
 
 def _run_entrainment(mock_chemo, mock_cyto, health, flywheel):
-    with patch.dict("sys.modules", {
-        "metabolon.organelles.chemoreceptor": mock_chemo,
-        "metabolon.cytosol": mock_cyto,
-    }):
+    with patch.dict(
+        "sys.modules",
+        {
+            "metabolon.organelles.chemoreceptor": mock_chemo,
+            "metabolon.cytosol": mock_cyto,
+        },
+    ):
         with patch("metabolon.enzymes.pinocytosis._read_if_fresh") as mock_fresh:
+
             def fresh_side_effect(path, **kw):
                 s = str(path)
                 if "nightly-health" in s:
@@ -298,6 +312,7 @@ def _run_entrainment(mock_chemo, mock_cyto, health, flywheel):
                 if "skill-flywheel" in s:
                     return flywheel
                 return None
+
             mock_fresh.side_effect = fresh_side_effect
             return pino._entrainment_brief()
 
@@ -350,10 +365,13 @@ def test_entrainment_brief_chemoreceptor_exception():
     mock_cyto.invoke_organelle.return_value = ""
     mock_cyto.VIVESCA_ROOT = Path("/tmp")
 
-    with patch.dict("sys.modules", {
-        "metabolon.organelles.chemoreceptor": mock_chemo,
-        "metabolon.cytosol": mock_cyto,
-    }):
+    with patch.dict(
+        "sys.modules",
+        {
+            "metabolon.organelles.chemoreceptor": mock_chemo,
+            "metabolon.cytosol": mock_cyto,
+        },
+    ):
         with patch("metabolon.enzymes.pinocytosis._read_if_fresh", return_value=None):
             result = pino._entrainment_brief()
     assert "sopor unavailable" in result.output.lower()
@@ -409,13 +427,16 @@ def test_entrainment_brief_no_overnight_data():
 
 def test_entrainment_brief_cytosol_exception():
     oura = {}
-    mock_chemo, mock_cyto, health, flywheel = _make_entrainment_mocks(oura)
+    mock_chemo, mock_cyto, _health, _flywheel = _make_entrainment_mocks(oura)
     mock_cyto.invoke_organelle.side_effect = Exception("broken")
 
-    with patch.dict("sys.modules", {
-        "metabolon.organelles.chemoreceptor": mock_chemo,
-        "metabolon.cytosol": mock_cyto,
-    }):
+    with patch.dict(
+        "sys.modules",
+        {
+            "metabolon.organelles.chemoreceptor": mock_chemo,
+            "metabolon.cytosol": mock_cyto,
+        },
+    ):
         with patch("metabolon.enzymes.pinocytosis._read_if_fresh", return_value=None):
             result = pino._entrainment_brief()
     # Should not crash, just skip kinesin section
@@ -531,8 +552,17 @@ def test_pinocytosis_action_strips_whitespace():
 def test_pinocytosis_unknown_action_lists_valid():
     result = pino.pinocytosis(action="bogus")
     assert result.success is False
-    for a in ("morning", "day", "evening", "weekly", "overnight",
-              "overnight_results", "overnight_list", "polarization", "entrainment_status"):
+    for a in (
+        "morning",
+        "day",
+        "evening",
+        "weekly",
+        "overnight",
+        "overnight_results",
+        "overnight_list",
+        "polarization",
+        "entrainment_status",
+    ):
         assert a in result.message
 
 
@@ -559,11 +589,13 @@ def test_pinocytosis_entrainment_status_returns_signals_and_recs():
 
 def test_pinocytosis_result_inherits_secretion():
     from metabolon.morphology import Secretion
+
     result = pino.PinocytosisResult(output="x")
     assert isinstance(result, Secretion)
 
 
 def test_entrainment_status_result_inherits_secretion():
     from metabolon.morphology import Secretion
+
     result = pino.EntrainmentStatusResult(signals={}, recommendations={}, summary="s")
     assert isinstance(result, Secretion)

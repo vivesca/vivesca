@@ -8,15 +8,13 @@ Tests use exec() to load the script since effectors are not importable modules.
 import json
 import os
 import subprocess
-import sys
 import time
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # Load telophase script into a namespace
 TELOPHASE_PATH = Path(__file__).parent.parent / "effectors" / "telophase"
@@ -36,29 +34,29 @@ def fake_home(tmp_path, monkeypatch):
     fake = tmp_path / "home"
     fake.mkdir()
     monkeypatch.setenv("HOME", str(fake))
-    
+
     # Create expected directory structure
     notes = fake / "notes"
     notes.mkdir()
-    
+
     daily = notes / "Daily"
     daily.mkdir()
-    
+
     code = fake / "code" / "vivesca" / "receptors"
     code.mkdir(parents=True)
-    
+
     claude_skills = fake / ".claude" / "skills"
     claude_skills.mkdir(parents=True)
-    
+
     claude_memory = fake / ".claude" / "projects" / "-Users-terry" / "memory"
     claude_memory.mkdir(parents=True)
-    
+
     officina = fake / "officina"
     officina.mkdir()
-    
+
     scripts = fake / "scripts"
     scripts.mkdir()
-    
+
     return fake
 
 
@@ -75,7 +73,7 @@ class TestGitStatus:
         repo = tmp_path / "repo"
         repo.mkdir()
         subprocess.run(["git", "init"], cwd=repo, capture_output=True)
-        
+
         result = telophase_ns["git_status"](repo)
         assert result == ""
 
@@ -85,7 +83,7 @@ class TestGitStatus:
         repo.mkdir()
         subprocess.run(["git", "init"], cwd=repo, capture_output=True)
         (repo / "test.txt").write_text("hello")
-        
+
         result = telophase_ns["git_status"](repo)
         assert "test.txt" in result
 
@@ -111,7 +109,8 @@ class TestNowAge:
         """Missing Tonus.md returns ('missing', -1)."""
         # Create a modified version of now_age that uses a custom path
         ns = {"__name__": "test", "NOW_MD": tmp_path / "nonexistent.md"}
-        exec("""
+        exec(
+            """
 import os
 import time
 def now_age():
@@ -128,7 +127,9 @@ def now_age():
             return "very stale", age
     except FileNotFoundError:
         return "missing", -1
-""", ns)
+""",
+            ns,
+        )
         label, secs = ns["now_age"]()
         assert label == "missing"
         assert secs == -1
@@ -137,9 +138,10 @@ def now_age():
         """File modified < 15 min ago returns ('fresh', seconds)."""
         now_md = tmp_path / "Tonus.md"
         now_md.write_text("test")
-        
+
         ns = {"__name__": "test", "NOW_MD": now_md}
-        exec("""
+        exec(
+            """
 import os
 import time
 def now_age():
@@ -156,7 +158,9 @@ def now_age():
             return "very stale", age
     except FileNotFoundError:
         return "missing", -1
-""", ns)
+""",
+            ns,
+        )
         label, secs = ns["now_age"]()
         assert label == "fresh"
         assert 0 <= secs < 900
@@ -167,9 +171,10 @@ def now_age():
         now_md.write_text("test")
         old_time = time.time() - 1800  # 30 min ago
         os.utime(now_md, (old_time, old_time))
-        
+
         ns = {"__name__": "test", "NOW_MD": now_md}
-        exec("""
+        exec(
+            """
 import os
 import time
 def now_age():
@@ -186,7 +191,9 @@ def now_age():
             return "very stale", age
     except FileNotFoundError:
         return "missing", -1
-""", ns)
+""",
+            ns,
+        )
         label, secs = ns["now_age"]()
         assert label == "recent"
         assert 900 <= secs < 3600
@@ -197,9 +204,10 @@ def now_age():
         now_md.write_text("test")
         old_time = time.time() - 7200  # 2 hours ago
         os.utime(now_md, (old_time, old_time))
-        
+
         ns = {"__name__": "test", "NOW_MD": now_md}
-        exec("""
+        exec(
+            """
 import os
 import time
 def now_age():
@@ -216,7 +224,9 @@ def now_age():
             return "very stale", age
     except FileNotFoundError:
         return "missing", -1
-""", ns)
+""",
+            ns,
+        )
         label, secs = ns["now_age"]()
         assert label == "stale"
         assert 3600 <= secs < 86400
@@ -227,9 +237,10 @@ def now_age():
         now_md.write_text("test")
         old_time = time.time() - 172800  # 2 days ago
         os.utime(now_md, (old_time, old_time))
-        
+
         ns = {"__name__": "test", "NOW_MD": now_md}
-        exec("""
+        exec(
+            """
 import os
 import time
 def now_age():
@@ -246,7 +257,9 @@ def now_age():
             return "very stale", age
     except FileNotFoundError:
         return "missing", -1
-""", ns)
+""",
+            ns,
+        )
         label, secs = ns["now_age"]()
         assert label == "very stale"
         assert secs >= 86400
@@ -259,43 +272,52 @@ class TestMemoryLines:
         """Missing MEMORY.md returns 0."""
         memory = tmp_path / "MEMORY.md"
         ns = {"__name__": "test", "MEMORY": memory}
-        exec("""
+        exec(
+            """
 def memory_lines():
     try:
         return sum(1 for _ in open(MEMORY))
     except FileNotFoundError:
         return 0
-""", ns)
+""",
+            ns,
+        )
         assert ns["memory_lines"]() == 0
 
     def test_counts_lines_correctly(self, tmp_path):
         """Returns correct line count."""
         memory = tmp_path / "MEMORY.md"
         memory.write_text("line1\nline2\nline3\n")
-        
+
         ns = {"__name__": "test", "MEMORY": memory}
-        exec("""
+        exec(
+            """
 def memory_lines():
     try:
         return sum(1 for _ in open(MEMORY))
     except FileNotFoundError:
         return 0
-""", ns)
+""",
+            ns,
+        )
         assert ns["memory_lines"]() == 3
 
     def test_counts_empty_file_as_zero(self, tmp_path):
         """Empty file returns 0."""
         memory = tmp_path / "MEMORY.md"
         memory.write_text("")
-        
+
         ns = {"__name__": "test", "MEMORY": memory}
-        exec("""
+        exec(
+            """
 def memory_lines():
     try:
         return sum(1 for _ in open(MEMORY))
     except FileNotFoundError:
         return 0
-""", ns)
+""",
+            ns,
+        )
         assert ns["memory_lines"]() == 0
 
 
@@ -308,9 +330,10 @@ class TestSkillGaps:
         skills.mkdir()
         claude_skills = tmp_path / "skills"
         claude_skills.mkdir()
-        
+
         ns = {"__name__": "test", "SKILLS": skills, "CLAUDE_SKILLS": claude_skills}
-        exec("""
+        exec(
+            """
 import os
 def skill_gaps():
     try:
@@ -319,7 +342,9 @@ def skill_gaps():
         return sorted(a - b)
     except FileNotFoundError:
         return []
-""", ns)
+""",
+            ns,
+        )
         assert ns["skill_gaps"]() == []
 
     def test_returns_gap_when_not_linked(self, tmp_path):
@@ -328,11 +353,12 @@ def skill_gaps():
         skills.mkdir()
         claude_skills = tmp_path / "skills"
         claude_skills.mkdir()
-        
+
         (skills / "test_skill.md").write_text("# Test Skill")
-        
+
         ns = {"__name__": "test", "SKILLS": skills, "CLAUDE_SKILLS": claude_skills}
-        exec("""
+        exec(
+            """
 import os
 def skill_gaps():
     try:
@@ -341,7 +367,9 @@ def skill_gaps():
         return sorted(a - b)
     except FileNotFoundError:
         return []
-""", ns)
+""",
+            ns,
+        )
         gaps = ns["skill_gaps"]()
         assert "test_skill.md" in gaps
 
@@ -351,12 +379,13 @@ def skill_gaps():
         skills.mkdir()
         claude_skills = tmp_path / "skills"
         claude_skills.mkdir()
-        
+
         (skills / "linked_skill.md").write_text("# Linked")
         (claude_skills / "linked_skill.md").symlink_to(skills / "linked_skill.md")
-        
+
         ns = {"__name__": "test", "SKILLS": skills, "CLAUDE_SKILLS": claude_skills}
-        exec("""
+        exec(
+            """
 import os
 def skill_gaps():
     try:
@@ -365,7 +394,9 @@ def skill_gaps():
         return sorted(a - b)
     except FileNotFoundError:
         return []
-""", ns)
+""",
+            ns,
+        )
         assert ns["skill_gaps"]() == []
 
     def test_ignores_hidden_files(self, tmp_path):
@@ -374,11 +405,12 @@ def skill_gaps():
         skills.mkdir()
         claude_skills = tmp_path / "skills"
         claude_skills.mkdir()
-        
+
         (skills / ".hidden").write_text("hidden")
-        
+
         ns = {"__name__": "test", "SKILLS": skills, "CLAUDE_SKILLS": claude_skills}
-        exec("""
+        exec(
+            """
 import os
 def skill_gaps():
     try:
@@ -387,7 +419,9 @@ def skill_gaps():
         return sorted(a - b)
     except FileNotFoundError:
         return []
-""", ns)
+""",
+            ns,
+        )
         assert ns["skill_gaps"]() == []
 
     def test_returns_sorted_gaps(self, tmp_path):
@@ -396,12 +430,13 @@ def skill_gaps():
         skills.mkdir()
         claude_skills = tmp_path / "skills"
         claude_skills.mkdir()
-        
+
         for name in ["z_skill.md", "a_skill.md", "m_skill.md"]:
             (skills / name).write_text(f"# {name}")
-        
+
         ns = {"__name__": "test", "SKILLS": skills, "CLAUDE_SKILLS": claude_skills}
-        exec("""
+        exec(
+            """
 import os
 def skill_gaps():
     try:
@@ -410,7 +445,9 @@ def skill_gaps():
         return sorted(a - b)
     except FileNotFoundError:
         return []
-""", ns)
+""",
+            ns,
+        )
         gaps = ns["skill_gaps"]()
         assert gaps == ["a_skill.md", "m_skill.md", "z_skill.md"]
 
@@ -419,9 +456,10 @@ def skill_gaps():
         skills = tmp_path / "nonexistent"
         claude_skills = tmp_path / "skills"
         claude_skills.mkdir()
-        
+
         ns = {"__name__": "test", "SKILLS": skills, "CLAUDE_SKILLS": claude_skills}
-        exec("""
+        exec(
+            """
 import os
 def skill_gaps():
     try:
@@ -430,7 +468,9 @@ def skill_gaps():
         return sorted(a - b)
     except FileNotFoundError:
         return []
-""", ns)
+""",
+            ns,
+        )
         assert ns["skill_gaps"]() == []
 
 
@@ -446,10 +486,7 @@ class TestDepCheck:
     def test_returns_warnings(self, telophase_ns):
         """Warnings from proteostasis are returned as list."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="warning1\nwarning2\n"
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="warning1\nwarning2\n")
             result = telophase_ns["dep_check"]()
             assert result == ["warning1", "warning2"]
 
@@ -484,10 +521,7 @@ class TestPeiraStatus:
     def test_returns_output_on_success(self, telophase_ns):
         """Successful peira status returns output."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="experiment-x active\n"
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="experiment-x active\n")
             assert telophase_ns["peira_status"]() == "experiment-x active"
 
     def test_returns_none_on_empty_output(self, telophase_ns):
@@ -522,8 +556,7 @@ class TestLatestSessionId:
         """Extracts session ID from anam output."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Some header\n[abc123] 5 prompts (10:00) - Claude\n"
+                returncode=0, stdout="Some header\n[abc123] 5 prompts (10:00) - Claude\n"
             )
             assert telophase_ns["latest_session_id"]() == "abc123"
 
@@ -532,8 +565,7 @@ class TestLatestSessionId:
         with patch("subprocess.run") as mock_run:
             # Use valid hex session IDs (regex pattern: [a-f0-9]+)
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="[aaa111] old session\n[bbb222] current session\n"
+                returncode=0, stdout="[aaa111] old session\n[bbb222] current session\n"
             )
             # Search from the end, so should find bbb222
             result = telophase_ns["latest_session_id"]()
@@ -543,10 +575,7 @@ class TestLatestSessionId:
     def test_returns_none_when_no_session_found(self, telophase_ns):
         """Returns None when no session pattern matches."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="No sessions found\n"
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="No sessions found\n")
             assert telophase_ns["latest_session_id"]() is None
 
     def test_handles_timeout(self, telophase_ns):
@@ -563,7 +592,7 @@ class TestCmdGather:
         """Gather with --syntactic outputs valid JSON."""
         # Create Tonus.md
         (fake_home / "notes" / "Tonus.md").write_text("test")
-        
+
         # Create namespace with patched paths
         ns = {
             "__name__": "test",
@@ -577,13 +606,13 @@ class TestCmdGather:
             "DEFAULT_REPOS": {},
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock(syntactic=True, perceptual=False, repos=None)
-        
+
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             ns["cmd_gather"](args)
             output = mock_stdout.getvalue()
-        
+
         data = json.loads(output)
         assert "repos" in data
         assert "skills" in data
@@ -593,7 +622,7 @@ class TestCmdGather:
     def test_gather_compact_output(self, fake_home):
         """Gather without flags outputs compact text."""
         (fake_home / "notes" / "Tonus.md").write_text("test")
-        
+
         ns = {
             "__name__": "test",
             "HOME": fake_home,
@@ -606,13 +635,13 @@ class TestCmdGather:
             "DEFAULT_REPOS": {},
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock(syntactic=False, perceptual=False, repos=None)
-        
+
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             ns["cmd_gather"](args)
             output = mock_stdout.getvalue()
-        
+
         assert "memory:" in output
         assert "now:" in output
 
@@ -621,9 +650,9 @@ class TestCmdGather:
         extra_repo = tmp_path / "extra"
         extra_repo.mkdir()
         subprocess.run(["git", "init"], cwd=extra_repo, capture_output=True)
-        
+
         (fake_home / "notes" / "Tonus.md").write_text("test")
-        
+
         ns = {
             "__name__": "test",
             "HOME": fake_home,
@@ -636,13 +665,13 @@ class TestCmdGather:
             "DEFAULT_REPOS": {},
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock(syntactic=True, perceptual=False, repos=str(extra_repo))
-        
+
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             ns["cmd_gather"](args)
             output = mock_stdout.getvalue()
-        
+
         data = json.loads(output)
         assert "extra" in data["repos"]
 
@@ -755,7 +784,7 @@ class TestCmdGather:
         ns["latest_session_id"] = lambda: "test123"
         ns["run_reflect"] = lambda sid: (
             [{"category": "discovery", "lesson": "test lesson", "quote": ""}],
-            {"input_tokens": 100, "output_tokens": 50}
+            {"input_tokens": 100, "output_tokens": 50},
         )
 
         args = MagicMock(syntactic=True, perceptual=False, repos=None)
@@ -867,7 +896,7 @@ class TestCmdArchive:
             "PRAXIS_ARCHIVE": fake_home / "archive.md",
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock()
         with pytest.raises(SystemExit) as exc_info:
             ns["cmd_archive"](args)
@@ -879,20 +908,20 @@ class TestCmdArchive:
         praxis.write_text("- [ ] Todo item\n- [ ] Another todo\n")
         archive = fake_home / "notes" / "Praxis Archive.md"
         archive.write_text("# Archive\n")
-        
+
         ns = {
             "__name__": "test",
             "PRAXIS": praxis,
             "PRAXIS_ARCHIVE": archive,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock()
-        
+
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             ns["cmd_archive"](args)
             output = mock_stdout.getvalue()
-        
+
         assert "No completed items" in output
 
     def test_archive_moves_completed_items(self, fake_home):
@@ -901,22 +930,22 @@ class TestCmdArchive:
         praxis.write_text("- [x] Done task\n- [ ] Todo item\n")
         archive = fake_home / "notes" / "Praxis Archive.md"
         archive.write_text("# Archive\n\n## March 2026\n")
-        
+
         ns = {
             "__name__": "test",
             "PRAXIS": praxis,
             "PRAXIS_ARCHIVE": archive,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock()
-        
+
         with patch("sys.stdout", new_callable=StringIO):
             ns["cmd_archive"](args)
-        
+
         praxis_content = praxis.read_text()
         archive_content = archive.read_text()
-        
+
         assert "- [x] Done task" not in praxis_content
         assert "- [ ] Todo item" in praxis_content
         assert "Done task" in archive_content
@@ -927,19 +956,19 @@ class TestCmdArchive:
         praxis.write_text("- [x] Task without tag\n")
         archive = fake_home / "notes" / "Praxis Archive.md"
         archive.write_text("# Archive\n\n## March 2026\n")
-        
+
         ns = {
             "__name__": "test",
             "PRAXIS": praxis,
             "PRAXIS_ARCHIVE": archive,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock()
-        
+
         with patch("sys.stdout", new_callable=StringIO):
             ns["cmd_archive"](args)
-        
+
         archive_content = archive.read_text()
         assert "done:" in archive_content
 
@@ -949,19 +978,19 @@ class TestCmdArchive:
         praxis.write_text("- [x] Parent task\n  - Child item\n- [ ] Another task\n")
         archive = fake_home / "notes" / "Praxis Archive.md"
         archive.write_text("# Archive\n\n## March 2026\n")
-        
+
         ns = {
             "__name__": "test",
             "PRAXIS": praxis,
             "PRAXIS_ARCHIVE": archive,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock()
-        
+
         with patch("sys.stdout", new_callable=StringIO):
             ns["cmd_archive"](args)
-        
+
         archive_content = archive.read_text()
         assert "Parent task" in archive_content
         assert "Child item" not in archive_content
@@ -1114,22 +1143,22 @@ class TestCmdDaily:
     def test_daily_creates_new_file(self, fake_home):
         """Daily creates new daily note if not exists."""
         daily_dir = fake_home / "notes" / "Daily"
-        
+
         ns = {
             "__name__": "test",
             "DAILY_DIR": daily_dir,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock(title="Test Session")
-        
+
         with patch("sys.stdout", new_callable=StringIO):
             ns["cmd_daily"](args)
-        
+
         today = datetime.now().strftime("%Y-%m-%d")
         daily_file = daily_dir / f"{today}.md"
         assert daily_file.exists()
-        
+
         content = daily_file.read_text()
         assert "Test Session" in content
 
@@ -1139,18 +1168,18 @@ class TestCmdDaily:
         today = datetime.now().strftime("%Y-%m-%d")
         daily_file = daily_dir / f"{today}.md"
         daily_file.write_text("# Existing note\n\nSome content\n")
-        
+
         ns = {
             "__name__": "test",
             "DAILY_DIR": daily_dir,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock(title="New Session")
-        
+
         with patch("sys.stdout", new_callable=StringIO):
             ns["cmd_daily"](args)
-        
+
         content = daily_file.read_text()
         assert "Some content" in content
         assert "New Session" in content
@@ -1158,18 +1187,18 @@ class TestCmdDaily:
     def test_daily_uses_default_title(self, fake_home):
         """Daily uses 'Session' as default title."""
         daily_dir = fake_home / "notes" / "Daily"
-        
+
         ns = {
             "__name__": "test",
             "DAILY_DIR": daily_dir,
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         args = MagicMock(title=None)
-        
+
         with patch("sys.stdout", new_callable=StringIO):
             ns["cmd_daily"](args)
-        
+
         today = datetime.now().strftime("%Y-%m-%d")
         daily_file = daily_dir / f"{today}.md"
         content = daily_file.read_text()
@@ -1275,21 +1304,23 @@ class TestRunReflect:
             mock_run.side_effect = [
                 MagicMock(returncode=0, stdout="not valid json"),
             ]
-            findings, usage = telophase_ns["run_reflect"]("test123")
+            findings, _usage = telophase_ns["run_reflect"]("test123")
             assert findings == []
 
     def test_returns_empty_on_empty_messages(self, telophase_ns):
         """Empty messages list returns empty results."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="[]")
-            findings, usage = telophase_ns["run_reflect"]("test123")
+            findings, _usage = telophase_ns["run_reflect"]("test123")
             assert findings == []
 
     def test_handles_channel_failure(self, telophase_ns):
         """Channel failure returns empty results."""
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
-                MagicMock(returncode=0, stdout='[{"role": "user", "snippet": "test", "time": "10:00"}]'),
+                MagicMock(
+                    returncode=0, stdout='[{"role": "user", "snippet": "test", "time": "10:00"}]'
+                ),
                 MagicMock(returncode=1, stdout="", stderr="error"),
             ]
             findings, usage = telophase_ns["run_reflect"]("test123")
@@ -1313,10 +1344,12 @@ MEMORY_TYPE: feedback
 ---"""
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
-                MagicMock(returncode=0, stdout='[{"role": "user", "snippet": "test", "time": "10:00"}]'),
+                MagicMock(
+                    returncode=0, stdout='[{"role": "user", "snippet": "test", "time": "10:00"}]'
+                ),
                 MagicMock(returncode=0, stdout=channel_output),
             ]
-            findings, usage = telophase_ns["run_reflect"]("test123")
+            findings, _usage = telophase_ns["run_reflect"]("test123")
             assert len(findings) == 2
             assert findings[0]["category"] == "discovery"
             assert findings[1]["category"] == "taste_calibration"
@@ -1326,10 +1359,13 @@ MEMORY_TYPE: feedback
         long_snippet = "x" * 600
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
-                MagicMock(returncode=0, stdout=f'[{{"role": "assistant", "snippet": "{long_snippet}", "time": "10:00"}}]'),
+                MagicMock(
+                    returncode=0,
+                    stdout=f'[{{"role": "assistant", "snippet": "{long_snippet}", "time": "10:00"}}]',
+                ),
                 MagicMock(returncode=0, stdout="---\nCATEGORY: discovery\nLESSON: test\n---"),
             ]
-            findings, usage = telophase_ns["run_reflect"]("test123")
+            _findings, usage = telophase_ns["run_reflect"]("test123")
             # Should not raise, transcript should include truncated snippet
             assert usage["input_tokens"] > 0
 
@@ -1337,7 +1373,7 @@ MEMORY_TYPE: feedback
         """Timeout returns empty results."""
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired("anam", 30)
-            findings, usage = telophase_ns["run_reflect"]("test123")
+            findings, _usage = telophase_ns["run_reflect"]("test123")
             assert findings == []
 
 
@@ -1364,7 +1400,7 @@ class TestCmdReflect:
         def mock_run_reflect(session_id):
             return (
                 [{"category": "discovery", "lesson": "test lesson", "quote": ""}],
-                {"input_tokens": 100, "output_tokens": 50}
+                {"input_tokens": 100, "output_tokens": 50},
             )
 
         telophase_ns["run_reflect"] = mock_run_reflect
@@ -1388,7 +1424,7 @@ class TestCmdReflect:
         def mock_run_reflect(session_id):
             return (
                 [{"category": "discovery", "lesson": "test lesson", "quote": "test quote"}],
-                {"input_tokens": 100, "output_tokens": 50}
+                {"input_tokens": 100, "output_tokens": 50},
             )
 
         telophase_ns["run_reflect"] = mock_run_reflect
@@ -1411,55 +1447,47 @@ class TestCmdExtract:
 
     def test_extract_from_stdin(self, telophase_ns):
         """Extract reads from stdin when no input file."""
-        gather_output = {
-            "reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]
-        }
-        
+        gather_output = {"reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]}
+
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="1. FILE: finding | test.md | test description"
+                returncode=0, stdout="1. FILE: finding | test.md | test description"
             )
-            
+
             with patch("sys.stdin", StringIO(json.dumps(gather_output))):
                 with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                     args = MagicMock(input=None)
                     telophase_ns["cmd_extract"](args)
                     output = mock_stdout.getvalue()
-                
+
                 assert "FILE" in output
 
     def test_extract_from_file(self, telophase_ns, tmp_path):
         """Extract reads from specified file."""
-        gather_output = {
-            "reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]
-        }
+        gather_output = {"reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]}
         input_file = tmp_path / "gather.json"
         input_file.write_text(json.dumps(gather_output))
-        
+
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="1. SKIP: already known"
-            )
-            
+            mock_run.return_value = MagicMock(returncode=0, stdout="1. SKIP: already known")
+
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 args = MagicMock(input=str(input_file))
                 telophase_ns["cmd_extract"](args)
                 output = mock_stdout.getvalue()
-            
+
             assert "SKIP" in output
 
     def test_extract_no_candidates(self, telophase_ns):
         """Extract with no candidates outputs 'no candidates'."""
         gather_output = {"reflect": []}
-        
+
         with patch("sys.stdin", StringIO(json.dumps(gather_output))):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 args = MagicMock(input=None)
                 telophase_ns["cmd_extract"](args)
                 output = mock_stdout.getvalue()
-            
+
             assert "no candidates" in output
 
     def test_extract_invalid_json_exits(self, telophase_ns):
@@ -1471,9 +1499,7 @@ class TestCmdExtract:
 
     def test_extract_channel_failure_exits(self, telophase_ns):
         """Extract with channel failure exits with error."""
-        gather_output = {
-            "reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]
-        }
+        gather_output = {"reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]}
 
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stderr="channel error")
@@ -1485,9 +1511,7 @@ class TestCmdExtract:
 
     def test_extract_handles_exception(self, telophase_ns):
         """Extract handles exceptions gracefully."""
-        gather_output = {
-            "reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]
-        }
+        gather_output = {"reflect": [{"category": "discovery", "lesson": "test", "quote": ""}]}
 
         with patch("subprocess.run", side_effect=Exception("boom")):
             with patch("sys.stdin", StringIO(json.dumps(gather_output))):
@@ -1508,7 +1532,7 @@ class TestMainFunction:
     def test_main_gather_command(self, fake_home):
         """Main dispatches to cmd_gather."""
         (fake_home / "notes" / "Tonus.md").write_text("test")
-        
+
         ns = {
             "__name__": "test",
             "HOME": fake_home,
@@ -1521,12 +1545,12 @@ class TestMainFunction:
             "DEFAULT_REPOS": {},
         }
         exec(TELOPHASE_PATH.read_text(), ns)
-        
+
         with patch("sys.argv", ["telophase", "gather", "--syntactic"]):
             with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
                 ns["main"]()
                 output = mock_stdout.getvalue()
-            
+
             data = json.loads(output)
             assert "repos" in data
 
@@ -1537,10 +1561,7 @@ class TestSubprocessExecution:
     def test_help_flag(self):
         """--help shows usage information."""
         result = subprocess.run(
-            ["python3", str(TELOPHASE_PATH), "--help"],
-            capture_output=True,
-            text=True,
-            timeout=30
+            ["python3", str(TELOPHASE_PATH), "--help"], capture_output=True, text=True, timeout=30
         )
         assert result.returncode == 0
         assert "gather" in result.stdout
@@ -1553,7 +1574,7 @@ class TestSubprocessExecution:
             ["python3", str(TELOPHASE_PATH), "gather", "--help"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         assert result.returncode == 0
         assert "--syntactic" in result.stdout
@@ -1562,10 +1583,7 @@ class TestSubprocessExecution:
     def test_no_command_exits_with_error(self):
         """Running with no command exits with error."""
         result = subprocess.run(
-            ["python3", str(TELOPHASE_PATH)],
-            capture_output=True,
-            text=True,
-            timeout=30
+            ["python3", str(TELOPHASE_PATH)], capture_output=True, text=True, timeout=30
         )
         assert result.returncode == 1
 
@@ -1575,7 +1593,7 @@ class TestSubprocessExecution:
             ["python3", str(TELOPHASE_PATH), "archive", "--help"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         assert result.returncode == 0
 
@@ -1585,7 +1603,7 @@ class TestSubprocessExecution:
             ["python3", str(TELOPHASE_PATH), "daily", "--help"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         assert result.returncode == 0
         assert "title" in result.stdout.lower()
@@ -1596,7 +1614,7 @@ class TestSubprocessExecution:
             ["python3", str(TELOPHASE_PATH), "reflect", "--help"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         assert result.returncode == 0
         assert "session" in result.stdout.lower()
@@ -1607,7 +1625,7 @@ class TestSubprocessExecution:
             ["python3", str(TELOPHASE_PATH), "extract", "--help"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         assert result.returncode == 0
         assert "input" in result.stdout.lower()
@@ -1802,7 +1820,7 @@ class TestEdgeCases:
         ns["latest_session_id"] = lambda: "test123"
         ns["run_reflect"] = lambda sid: (
             [{"category": "discovery", "lesson": "found something", "quote": ""}],
-            {"input_tokens": 100, "output_tokens": 50}
+            {"input_tokens": 100, "output_tokens": 50},
         )
 
         args = MagicMock(syntactic=False, perceptual=False, repos=None)
@@ -1892,7 +1910,7 @@ class TestEdgeCases:
         ns["latest_session_id"] = lambda: "test123"
         ns["run_reflect"] = lambda sid: (
             [{"category": "discovery", "lesson": "found something", "quote": ""}],
-            {}
+            {},
         )
 
         args = MagicMock(syntactic=False, perceptual=True, repos=None)

@@ -1,12 +1,10 @@
 """Tests for metabolon.metabolism.substrates.memory — ConsolidationSubstrate."""
+
 from __future__ import annotations
 
 import textwrap
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 from metabolon.metabolism.substrates.memory import (
     CONSOLIDATION_PATHWAYS,
@@ -15,10 +13,10 @@ from metabolon.metabolism.substrates.memory import (
     _parse_frontmatter,
 )
 
-
 # ---------------------------------------------------------------------------
 # _parse_frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestParseFrontmatter:
     def test_extracts_key_value_pairs(self):
@@ -44,6 +42,7 @@ class TestParseFrontmatter:
 # _keyword_overlap
 # ---------------------------------------------------------------------------
 
+
 class TestKeywordOverlap:
     def test_finds_common_words(self):
         overlap = _keyword_overlap("pytest runner fails", "pytest suite passes")
@@ -62,6 +61,7 @@ class TestKeywordOverlap:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.sense
 # ---------------------------------------------------------------------------
+
 
 class TestSense:
     def test_returns_empty_when_dir_missing(self, tmp_path):
@@ -143,6 +143,7 @@ class TestSense:
 # ConsolidationSubstrate.candidates
 # ---------------------------------------------------------------------------
 
+
 class TestCandidates:
     def _make(self, mem_type, overlap=None, signal_match=False):
         return {
@@ -195,18 +196,25 @@ class TestCandidates:
 # ConsolidationSubstrate.act
 # ---------------------------------------------------------------------------
 
+
 class TestAct:
     def test_dead_candidate_pruned(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        result = sub.act({"name": "old-mem", "action": "promote", "dead": True, "type": "feedback"})
+        result = sub.act(
+            {"name": "old-mem", "action": "promote", "dead": True, "type": "feedback"}
+        )
         assert result.startswith("prune candidate")
 
     def test_already_promoted(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        result = sub.act({
-            "name": "mem", "action": "already_promoted", "type": "feedback",
-            "constitution_overlap": {"a", "b", "c", "d", "e"},
-        })
+        result = sub.act(
+            {
+                "name": "mem",
+                "action": "already_promoted",
+                "type": "feedback",
+                "constitution_overlap": {"a", "b", "c", "d", "e"},
+            }
+        )
         assert "already promoted" in result
         assert "5 keywords" in result
 
@@ -217,7 +225,14 @@ class TestAct:
 
     def test_promote_with_priority(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        result = sub.act({"name": "mem", "action": "promote", "type": "feedback", "priority": "high (signal evidence)"})
+        result = sub.act(
+            {
+                "name": "mem",
+                "action": "promote",
+                "type": "feedback",
+                "priority": "high (signal evidence)",
+            }
+        )
         assert "[high (signal evidence)]" in result
 
     def test_program_action(self):
@@ -227,10 +242,14 @@ class TestAct:
 
     def test_migrate_action(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        result = sub.act({
-            "name": "notes", "action": "migrate", "type": "project",
-            "target": ("Chromatin note", "Project state"),
-        })
+        result = sub.act(
+            {
+                "name": "notes",
+                "action": "migrate",
+                "type": "project",
+                "target": ("Chromatin note", "Project state"),
+            }
+        )
         assert "migrate to Chromatin note" in result
 
     def test_unknown_action_falls_back_to_review(self):
@@ -242,6 +261,7 @@ class TestAct:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.report
 # ---------------------------------------------------------------------------
+
 
 class TestReport:
     def test_report_includes_type_counts(self):

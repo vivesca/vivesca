@@ -1,10 +1,8 @@
-
 """Effectors — how the organism acts on the world.
 
 Resources:
   vivesca://effectors — CLI tools, MCP tools, and trigger routing
 """
-
 
 import os
 from pathlib import Path

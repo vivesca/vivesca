@@ -3,10 +3,9 @@ from __future__ import annotations
 """Tests for effectors/evident-brief — Evident Banking Brief fetcher."""
 
 import json
-import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -149,6 +148,7 @@ class TestParseIndexFirecrawl:
 
         # Patch the firecrawl import inside the function
         import builtins
+
         real_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):
@@ -175,9 +175,9 @@ class TestParseIndexBrowser:
     def test_extracts_briefs_from_snapshot(self):
         snapshot = (
             'link "AI in Banking 2025" ref=abc1\n'
-            '15 JANUARY 2025\n'
+            "15 JANUARY 2025\n"
             'link "Risk Tiering Report" ref=def2\n'
-            '20 FEBRUARY 2025\n'
+            "20 FEBRUARY 2025\n"
         )
         # First _ab("open ..."), then _ab("snapshot"), then _ab("snapshot") again
         _mod["_ab"] = MagicMock(side_effect=["ok", snapshot, snapshot])
@@ -202,7 +202,14 @@ class TestParseIndexBrowser:
 
 class TestParseIndex:
     def test_browser_succeeds_no_fallback(self):
-        fake_briefs = [{"title": "Test", "slug": "test", "url": "https://x.com/test", "date": "1 January 2025"}]
+        fake_briefs = [
+            {
+                "title": "Test",
+                "slug": "test",
+                "url": "https://x.com/test",
+                "date": "1 January 2025",
+            }
+        ]
         _mod["_parse_index_browser"] = lambda: fake_briefs
         result = parse_index()
         assert result == fake_briefs
@@ -351,8 +358,18 @@ class TestSaveBrief:
 class TestCli:
     def test_list_outputs_briefs(self, capsys):
         fake_briefs = [
-            {"title": "AI Banking", "slug": "ai-banking", "url": "https://x.com/ai-banking", "date": "1 Jan 2025"},
-            {"title": "Risk Report", "slug": "risk-report", "url": "https://x.com/risk-report", "date": "15 Feb 2025"},
+            {
+                "title": "AI Banking",
+                "slug": "ai-banking",
+                "url": "https://x.com/ai-banking",
+                "date": "1 Jan 2025",
+            },
+            {
+                "title": "Risk Report",
+                "slug": "risk-report",
+                "url": "https://x.com/risk-report",
+                "date": "15 Feb 2025",
+            },
         ]
         _mod["parse_index"] = lambda: fake_briefs
         with patch.object(sys, "argv", ["evident-brief", "--list"]):
@@ -365,8 +382,11 @@ class TestCli:
     def test_slug_fetches_specific(self, capsys):
         _mod["parse_index"] = lambda: []
         _mod["fetch_brief"] = lambda slug, index_meta=None: {
-            "title": "Custom", "date": "2025-01-01", "slug": "custom-brief",
-            "url": "https://x.com/custom-brief", "markdown": "# Custom Brief\nContent.",
+            "title": "Custom",
+            "date": "2025-01-01",
+            "slug": "custom-brief",
+            "url": "https://x.com/custom-brief",
+            "markdown": "# Custom Brief\nContent.",
         }
         with patch.object(sys, "argv", ["evident-brief", "--slug", "custom-brief"]):
             main()
@@ -378,8 +398,11 @@ class TestCli:
     def test_json_flag(self, capsys):
         _mod["parse_index"] = lambda: []
         _mod["fetch_brief"] = lambda slug, index_meta=None: {
-            "title": "JSON Test", "date": "2025-01-01", "slug": "json-test",
-            "url": "https://x.com/json-test", "markdown": "# JSON\nContent.",
+            "title": "JSON Test",
+            "date": "2025-01-01",
+            "slug": "json-test",
+            "url": "https://x.com/json-test",
+            "markdown": "# JSON\nContent.",
         }
         with patch.object(sys, "argv", ["evident-brief", "--slug", "json-test", "--json"]):
             main()
@@ -396,8 +419,11 @@ class TestCli:
         _mod["CHROMATIN_DIR"] = chromatin
         _mod["parse_index"] = lambda: []
         _mod["fetch_brief"] = lambda slug, index_meta=None: {
-            "title": "Saved", "date": "1 April 2025", "slug": "saved",
-            "url": "https://x.com/saved", "markdown": "# Saved\nContent.",
+            "title": "Saved",
+            "date": "1 April 2025",
+            "slug": "saved",
+            "url": "https://x.com/saved",
+            "markdown": "# Saved\nContent.",
         }
         with patch.object(sys, "argv", ["evident-brief", "--slug", "saved", "--save"]):
             main()
@@ -419,17 +445,27 @@ class TestCli:
 
     def test_default_fetches_latest(self, capsys):
         fake_briefs = [
-            {"title": "Latest", "slug": "latest", "url": "https://x.com/latest", "date": "1 Apr 2025"},
+            {
+                "title": "Latest",
+                "slug": "latest",
+                "url": "https://x.com/latest",
+                "date": "1 Apr 2025",
+            },
         ]
         _mod["parse_index"] = lambda: fake_briefs
 
         calls = []
+
         def mock_fetch_brief(slug, index_meta=None):
             calls.append((slug, index_meta))
             return {
-                "title": "Latest", "date": "1 April 2025", "slug": "latest",
-                "url": "https://x.com/latest", "markdown": "# Latest Brief\nContent.",
+                "title": "Latest",
+                "date": "1 April 2025",
+                "slug": "latest",
+                "url": "https://x.com/latest",
+                "markdown": "# Latest Brief\nContent.",
             }
+
         _mod["fetch_brief"] = mock_fetch_brief
 
         with patch.object(sys, "argv", ["evident-brief"]):

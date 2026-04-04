@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from metabolon.organelles.rename import (
     ScanResult,
     fix_symlinks,
@@ -15,9 +13,7 @@ from metabolon.organelles.rename import (
     run_rename,
     scan,
     update_contents,
-    update_locus,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,9 +37,7 @@ def _make_tree(root: Path) -> None:
     """
     (root / "engrams").mkdir()
     (root / "engrams" / "index.md").write_text("# engrams index\nengrams are memory.\n")
-    (root / "engrams" / "notes.py").write_text(
-        "# engrams module\nENGRAMS_DIR = 'engrams'\n"
-    )
+    (root / "engrams" / "notes.py").write_text("# engrams module\nENGRAMS_DIR = 'engrams'\n")
     (root / "data").mkdir()
     (root / "data" / "engrams_config.toml").write_text('[engrams]\npath = "engrams"\n')
     (root / "data" / "other.md").write_text("# unrelated\nnothing here\n")
@@ -174,7 +168,7 @@ class TestRenameFiles:
 
     def test_live_rename_changes_filename(self, tmp_path):
         (tmp_path / "engrams_notes.md").write_text("engrams")
-        pairs = rename_files("engrams", "marks", [tmp_path], dry_run=False)
+        rename_files("engrams", "marks", [tmp_path], dry_run=False)
         assert not (tmp_path / "engrams_notes.md").exists()
         assert (tmp_path / "marks_notes.md").exists()
 
@@ -227,7 +221,7 @@ class TestFixSymlinks:
 
         fixed = fix_symlinks("engrams", "marks", [tmp_path], dry_run=True)
         assert len(fixed) == 1
-        link_path, old_t, new_t = fixed[0]
+        _link_path, old_t, new_t = fixed[0]
         assert "engrams" in old_t
         assert "marks" in new_t
 
@@ -239,6 +233,7 @@ class TestFixSymlinks:
 
         fix_symlinks("engrams", "marks", [tmp_path], dry_run=True)
         import os
+
         assert "engrams" in os.readlink(str(link))
 
     def test_live_updates_symlink_target(self, tmp_path):
@@ -252,6 +247,7 @@ class TestFixSymlinks:
         fixed = fix_symlinks("engrams", "marks", [tmp_path], dry_run=False)
         assert len(fixed) == 1
         import os
+
         assert "marks" in os.readlink(str(link))
 
     def test_ignores_symlinks_without_match(self, tmp_path):
@@ -272,7 +268,7 @@ class TestFixSymlinks:
 class TestRunRename:
     def test_dry_run_produces_summary(self, tmp_path):
         _make_tree(tmp_path)
-        report, summary = run_rename("engrams", "marks", [tmp_path], dry_run=True)
+        _report, summary = run_rename("engrams", "marks", [tmp_path], dry_run=True)
         assert "scan:" in summary
         assert "engrams" in summary or "marks" in summary
 
@@ -295,7 +291,7 @@ class TestRunRename:
 
     def test_live_run_renames_everything(self, tmp_path):
         _make_tree(tmp_path)
-        report, _ = run_rename("engrams", "marks", [tmp_path], dry_run=False)
+        _report, _ = run_rename("engrams", "marks", [tmp_path], dry_run=False)
         # Old top-level dir gone, new one present
         assert not (tmp_path / "engrams").exists()
         assert (tmp_path / "marks").exists()

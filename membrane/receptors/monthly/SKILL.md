@@ -40,15 +40,15 @@ Generate evidence-grounded thematic digest from archived AI news articles.
 
 ```bash
 # Preview themes (fast, no synthesis)
-uv run ~/skills/lustro/ai-digest.py --dry-run
+uv run ~/skills/endocytosis/ai-digest.py --dry-run
 
 # Full run — produces evidence briefs
-uv run ~/skills/lustro/ai-digest.py
+uv run ~/skills/endocytosis/ai-digest.py
 ```
 If `uv` or script execution fails, mark AI thematic digest as skipped and continue.
 
 Output: `~/epigenome/chromatin/AI & Tech/YYYY-MM AI Thematic Digest.md`
-Prerequisites: lustro cron must have been running with article archival (default since Feb 2026).
+Prerequisites: endocytosis cron must have been running with article archival (default since Feb 2026).
 Cost: ~$0.05-0.15 (Gemini Flash via OpenRouter).
 
 ### 3. Theoria Deep Review
@@ -69,17 +69,17 @@ Run `/skill-review`:
 
 ### 5. Source Health Check
 
-Run `lustro check` and review broken sources:
+Run `endocytosis check` and review broken sources:
 
 ```bash
-lustro check 2>&1 | grep "<-\|(stale)\|x0)"
+endocytosis check 2>&1 | grep "<-\|(stale)\|x0)"
 ```
-If `lustro check` fails, mark source health as unavailable and continue.
+If `endocytosis check` fails, mark source health as unavailable and continue.
 
-- Fix URL-rotted sources (update URLs in `~/.config/lustro/sources.yaml`)
+- Fix URL-rotted sources (update URLs in `~/.config/endocytosis/sources.yaml`)
 - Remove dead sources (domain expired, blog shut down)
 - Flag sources with consecutive zeros (`Nx0`) for investigation
-- Reference: `~/docs/solutions/lustro-reference.md`
+- Reference: `~/docs/solutions/endocytosis-reference.md`
 
 ~12% source rot rate per quarter. Takes 2-3 min.
 

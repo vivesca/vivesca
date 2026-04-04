@@ -1,6 +1,4 @@
-
 """Selection pressure — reflex checks + taste."""
-
 
 import asyncio
 import configparser

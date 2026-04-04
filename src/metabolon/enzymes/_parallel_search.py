@@ -1,4 +1,3 @@
-
 """elencho — parallel AI research orchestrator.
 
 Runs query through multiple search tools in parallel, synthesises
@@ -377,7 +376,7 @@ async def _run_zhipu(query: str) -> ToolResult:
         ).encode()
         req = urllib.request.Request(base, data=init_body, headers=headers)
         with urllib.request.urlopen(req, timeout=15) as resp:
-            init_text = resp.read().decode()
+            resp.read().decode()
             session_id = resp.headers.get("Mcp-Session-Id", "")
 
         # Step 2: Call tool with session

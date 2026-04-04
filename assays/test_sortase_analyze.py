@@ -49,9 +49,7 @@ class TestAnalyzeLogs:
             _make_entry(tool="gemini", success=True),
             _make_entry(tool="gemini", success=False, failure_reason="placeholder-scan"),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         result = analyze_logs(log_file)
         assert result["success_rate_by_backend"]["droid"] == round(2 / 3, 3)
         assert result["success_rate_by_backend"]["gemini"] == 0.5
@@ -65,9 +63,7 @@ class TestAnalyzeLogs:
             _make_entry(timestamp="2026-03-30T08:45:00", success=False, failure_reason="tests"),
             _make_entry(timestamp="2026-03-30T14:00:00", success=True),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         result = analyze_logs(log_file)
         assert result["success_rate_by_hour"]["08"] == round(2 / 3, 3)
         assert result["success_rate_by_hour"]["14"] == 1.0
@@ -81,9 +77,7 @@ class TestAnalyzeLogs:
             _make_entry(files_changed=3, duration_s=300.0),
             _make_entry(files_changed=3, duration_s=250.0),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         result = analyze_logs(log_file)
         assert result["avg_duration_by_plan_complexity"][1] == 60.0
         assert result["avg_duration_by_plan_complexity"][3] == 250.0
@@ -96,9 +90,7 @@ class TestAnalyzeLogs:
             _make_entry(success=False, failure_reason="placeholder-scan"),
             _make_entry(success=True),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         result = analyze_logs(log_file)
         assert result["failure_reasons"]["tests"] == 2
         assert result["failure_reasons"]["placeholder-scan"] == 1
@@ -123,11 +115,11 @@ class TestAnalyzeLogs:
 
         entries = [
             _make_entry(timestamp="2026-03-30T12:00:00", success=False, failure_reason="tests"),
-            _make_entry(timestamp="2026-03-30T13:00:00", success=False, failure_reason="placeholder-scan"),
+            _make_entry(
+                timestamp="2026-03-30T13:00:00", success=False, failure_reason="placeholder-scan"
+            ),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         result = analyze_logs(log_file, coaching_path=coaching_file)
         assert result["coaching_coverage"] == 1.0
         assert result["coaching_gap"] == 0.0
@@ -152,11 +144,11 @@ class TestAnalyzeLogs:
 
         entries = [
             _make_entry(timestamp="2026-03-30T10:00:00", success=False, failure_reason="tests"),
-            _make_entry(timestamp="2026-03-30T14:00:00", success=False, failure_reason="placeholder-scan"),
+            _make_entry(
+                timestamp="2026-03-30T14:00:00", success=False, failure_reason="placeholder-scan"
+            ),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         result = analyze_logs(log_file, coaching_path=coaching_file)
         assert result["coaching_coverage"] == 0.0
         assert result["coaching_gap"] == 1.0
@@ -175,7 +167,11 @@ class TestAnalyzeLogs:
             + "\n"
         )
 
-        entries = [_make_entry(timestamp="2026-03-30T14:00:00", success=False, failure_reason="placeholder-scan")]
+        entries = [
+            _make_entry(
+                timestamp="2026-03-30T14:00:00", success=False, failure_reason="placeholder-scan"
+            )
+        ]
         log_file.write_text(json.dumps(entries[0]) + "\n")
         result = analyze_logs(log_file, coaching_path=coaching_file)
         assert result["coaching_coverage"] == 0.0
@@ -220,15 +216,17 @@ class TestAnalyzeCommand:
             _make_entry(tool="droid", success=True, duration_s=100.0),
             _make_entry(tool="droid", success=False, failure_reason="tests", duration_s=50.0),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         coaching_file = tmp_path / "coaching.md"
-        coaching_file.write_text("### Verification discipline\n- Run pytest before claiming done.\n")
+        coaching_file.write_text(
+            "### Verification discipline\n- Run pytest before claiming done.\n"
+        )
 
         runner = CliRunner()
         with patch("metabolon.sortase.logger.DEFAULT_LOG_PATH", log_file):
-            result = runner.invoke(main, ["analyze", "--log", str(log_file), "--coaching", str(coaching_file)])
+            result = runner.invoke(
+                main, ["analyze", "--log", str(log_file), "--coaching", str(coaching_file)]
+            )
         assert result.exit_code == 0
         assert "droid" in result.output
         assert "file count" in result.output
@@ -240,9 +238,7 @@ class TestAnalyzeCommand:
             _make_entry(tool="droid", success=True),
             _make_entry(tool="gemini", success=False, failure_reason="tests"),
         ]
-        log_file.write_text(
-            "\n".join(json.dumps(e) for e in entries) + "\n"
-        )
+        log_file.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
         runner = CliRunner()
         result = runner.invoke(main, ["analyze", "--log", str(log_file), "--json"])
         assert result.exit_code == 0

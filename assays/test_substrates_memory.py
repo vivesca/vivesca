@@ -1,22 +1,21 @@
 """Tests for metabolon.metabolism.substrates.memory."""
+
 from __future__ import annotations
 
-import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
+from metabolon.metabolism.signals import SensorySystem, Stimulus
 from metabolon.metabolism.substrates.memory import (
     CONSOLIDATION_PATHWAYS,
     ConsolidationSubstrate,
     _keyword_overlap,
     _parse_frontmatter,
 )
-from metabolon.metabolism.signals import SensorySystem, Stimulus
-
 
 # ---------------------------------------------------------------------------
 # _parse_frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestParseFrontmatter:
     def test_extracts_yaml_keys(self):
@@ -39,6 +38,7 @@ class TestParseFrontmatter:
 # ---------------------------------------------------------------------------
 # _keyword_overlap
 # ---------------------------------------------------------------------------
+
 
 class TestKeywordOverlap:
     def test_finds_shared_words(self):
@@ -64,6 +64,7 @@ class TestKeywordOverlap:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.sense
 # ---------------------------------------------------------------------------
+
 
 class TestSense:
     def test_returns_empty_when_dir_missing(self, tmp_path):
@@ -150,6 +151,7 @@ class TestSense:
 # ConsolidationSubstrate.candidates
 # ---------------------------------------------------------------------------
 
+
 class TestCandidates:
     def _make_mem(self, type_: str, overlap: set[str] | None = None, signal: bool = False) -> dict:
         return {
@@ -165,7 +167,9 @@ class TestCandidates:
 
     def test_feedback_high_overlap_already_promoted(self):
         sub = ConsolidationSubstrate.__new__(ConsolidationSubstrate)
-        mem = self._make_mem("feedback", overlap={"pytest", "always", "testing", "session", "config"})
+        mem = self._make_mem(
+            "feedback", overlap={"pytest", "always", "testing", "session", "config"}
+        )
         results = sub.candidates([mem])
         assert results[0]["action"] == "already_promoted"
 
@@ -216,6 +220,7 @@ class TestCandidates:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.act
 # ---------------------------------------------------------------------------
+
 
 class TestAct:
     def test_prune_candidate(self):
@@ -275,6 +280,7 @@ class TestAct:
 # ---------------------------------------------------------------------------
 # ConsolidationSubstrate.report
 # ---------------------------------------------------------------------------
+
 
 class TestReport:
     def test_report_format(self):

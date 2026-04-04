@@ -1,4 +1,3 @@
-
 """potentiation — spaced repetition engine (potentiation = LTP, learning via timed stimulation)."""
 
 # GARP RAI spaced repetition: FSRS scheduling, tracker markdown, session planning.

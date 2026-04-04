@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-import shutil
 
 import pytest
 
@@ -60,7 +59,9 @@ def test_no_changes(mock_home):
     assert result.returncode == 0
     # Should not have made any new commits
     repo_dir = mock_home / "epigenome" / "chromatin"
-    log = subprocess.run(["git", "log", "--oneline"], cwd=repo_dir, capture_output=True, text=True).stdout
+    log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=repo_dir, capture_output=True, text=True
+    ).stdout
     assert len(log.strip().split("\n")) == 1
 
 
@@ -77,13 +78,17 @@ def test_backup_changes(mock_home):
     assert result.returncode == 0
 
     # Should have a new commit
-    log = subprocess.run(["git", "log", "--oneline"], cwd=repo_dir, capture_output=True, text=True).stdout
+    log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=repo_dir, capture_output=True, text=True
+    ).stdout
     assert "chromatin backup:" in log
     assert len(log.strip().split("\n")) == 2
 
     # Should have pushed to remote
     remote_dir = mock_home.parent / "remote"
-    remote_log = subprocess.run(["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True).stdout
+    remote_log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True
+    ).stdout
     assert "chromatin backup:" in remote_log
 
 
@@ -103,7 +108,9 @@ def test_remote_conflict_resolution(mock_home):
     # Let's simulate a remote change first.
     temp_clone = mock_home.parent / "temp_clone"
     subprocess.run(["git", "clone", str(remote_dir), str(temp_clone)], check=True)
-    subprocess.run(["git", "config", "user.email", "other@example.com"], cwd=temp_clone, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "other@example.com"], cwd=temp_clone, check=True
+    )
     subprocess.run(["git", "config", "user.name", "Other User"], cwd=temp_clone, check=True)
     (temp_clone / "remote_file.txt").write_text("remote content")
     subprocess.run(["git", "add", "remote_file.txt"], cwd=temp_clone, check=True)
@@ -122,7 +129,9 @@ def test_remote_conflict_resolution(mock_home):
     assert (repo_dir / "local_file.txt").exists()
 
     # Log should show: initial, remote, local backup
-    log = subprocess.run(["git", "log", "--oneline"], cwd=repo_dir, capture_output=True, text=True).stdout
+    log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=repo_dir, capture_output=True, text=True
+    ).stdout
     assert "remote commit" in log
     assert "chromatin backup:" in log
 
@@ -149,7 +158,9 @@ def test_conflict_accept_theirs(mock_home):
     # 3. Modify on remote (via temp clone) to cause a hard conflict
     temp_clone = mock_home.parent / "temp_clone"
     subprocess.run(["git", "clone", str(remote_dir), str(temp_clone)], check=True)
-    subprocess.run(["git", "config", "user.email", "other@example.com"], cwd=temp_clone, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "other@example.com"], cwd=temp_clone, check=True
+    )
     subprocess.run(["git", "config", "user.name", "Other User"], cwd=temp_clone, check=True)
     (temp_clone / "conflict.txt").write_text("modified remote")
     subprocess.run(["git", "add", "conflict.txt"], cwd=temp_clone, check=True)
@@ -157,7 +168,9 @@ def test_conflict_accept_theirs(mock_home):
     subprocess.run(["git", "push", "origin", "main"], cwd=temp_clone, check=True)
 
     # Remote has: 'initial', 'local commit', 'remote conflict' -> 3 commits.
-    initial_remote_log = subprocess.run(["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True).stdout
+    initial_remote_log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True
+    ).stdout
     initial_remote_commits = initial_remote_log.strip().split("\n")
     assert len(initial_remote_commits) == 3
 
@@ -174,7 +187,9 @@ def test_conflict_accept_theirs(mock_home):
     assert content == "modified remote"
 
     # Verify it was pushed to remote
-    remote_log = subprocess.run(["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True).stdout
+    remote_log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True
+    ).stdout
     remote_commits = remote_log.strip().split("\n")
     # If it was pushed, it should have 4 or more commits.
     assert len(remote_commits) > 3, f"Remote log only has: {remote_log}"

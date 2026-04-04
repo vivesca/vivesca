@@ -1,6 +1,4 @@
-
 """ConsumptionEvent and statement metadata schema."""
-
 
 from dataclasses import dataclass
 

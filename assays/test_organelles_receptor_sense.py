@@ -7,13 +7,10 @@ import datetime
 import json
 import tempfile
 from pathlib import Path
-from unittest import mock
 
-import pytest
 import yaml
 
 from metabolon.organelles.receptor_sense import (
-    GOALS_DIR,
     ProprioceptiveStore,
     current_phase,
     decode_flashcard_deck,
@@ -164,8 +161,7 @@ class TestProprioceptiveStore:
         ]
 
         with open(store_path, "w") as f:
-            for entry in entries:
-                f.write(json.dumps(entry) + "\n")
+            f.writelines(json.dumps(entry) + "\n" for entry in entries)
 
         store = ProprioceptiveStore(store_path)
         recalled = store.recall_all()
@@ -194,8 +190,7 @@ class TestProprioceptiveStore:
             {"ts": "2025-01-03T00:00:00+00:00", "goal": "g3"},
         ]
         with open(store_path, "w") as f:
-            for e in entries:
-                f.write(json.dumps(e) + "\n")
+            f.writelines(json.dumps(e) + "\n" for e in entries)
 
         store = ProprioceptiveStore(store_path)
         since = datetime.datetime(2025, 1, 2, 0, 0, 0, tzinfo=datetime.UTC)
@@ -307,7 +302,9 @@ def test_synthesize_signal_summary_with_signals():
         store.append(goal="test-goal", material="mat1", category="D1", score=4, drill_type="drill")
         store.append(goal="test-goal", material="mat2", category="D2", score=5, drill_type="drill")
         # Add a signal for another goal that should be ignored
-        store.append(goal="other-goal", material="mat1", category="D1", score=1, drill_type="drill")
+        store.append(
+            goal="other-goal", material="mat1", category="D1", score=1, drill_type="drill"
+        )
 
         summary = synthesize_signal_summary(goal, store, today)
 
@@ -352,8 +349,7 @@ def test_synthesize_signal_summary_deduplicates_by_timestamp():
             },
         ]
         with open(store_path, "w") as f:
-            for e in entries:
-                f.write(json.dumps(e) + "\n")
+            f.writelines(json.dumps(e) + "\n" for e in entries)
 
         summary = synthesize_signal_summary(goal, store, today)
         # Should only count one of them due to duplicate timestamp

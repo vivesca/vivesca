@@ -5,11 +5,9 @@ from __future__ import annotations
 import json
 import subprocess
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.pinocytosis.polarization import (
     GUARD_FILE,
@@ -18,7 +16,6 @@ from metabolon.pinocytosis.polarization import (
     NOW_FILE,
     PRAXIS_FILE,
     REPORTS_DIR,
-    HKT,
     _consumption_count,
     _fmt_resets,
     _guard_status,
@@ -34,7 +31,6 @@ from metabolon.pinocytosis.polarization import (
     manifest_init,
     manifest_show,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -72,20 +68,28 @@ class TestConsumptionCount:
         f2 = MagicMock()
         f2.stat.return_value.st_mtime = time.time() - 999_999  # old
 
-        with patch.object(type(REPORTS_DIR), "exists", return_value=True), \
-             patch.object(type(REPORTS_DIR), "iterdir", return_value=[f1, f2]):
+        with (
+            patch.object(type(REPORTS_DIR), "exists", return_value=True),
+            patch.object(type(REPORTS_DIR), "iterdir", return_value=[f1, f2]),
+        ):
             assert _consumption_count() == 1
 
     def test_empty_dir_returns_zero(self):
-        with patch.object(type(REPORTS_DIR), "exists", return_value=True), \
-             patch.object(type(REPORTS_DIR), "iterdir", return_value=[]):
+        with (
+            patch.object(type(REPORTS_DIR), "exists", return_value=True),
+            patch.object(type(REPORTS_DIR), "iterdir", return_value=[]),
+        ):
             assert _consumption_count() == 0
 
     def test_all_recent(self):
-        files = [MagicMock(stat=MagicMock(return_value=MagicMock(st_mtime=time.time() - i * 100)))
-                 for i in range(5)]
-        with patch.object(type(REPORTS_DIR), "exists", return_value=True), \
-             patch.object(type(REPORTS_DIR), "iterdir", return_value=files):
+        files = [
+            MagicMock(stat=MagicMock(return_value=MagicMock(st_mtime=time.time() - i * 100)))
+            for i in range(5)
+        ]
+        with (
+            patch.object(type(REPORTS_DIR), "exists", return_value=True),
+            patch.object(type(REPORTS_DIR), "iterdir", return_value=files),
+        ):
             assert _consumption_count() == 5
 
 
@@ -109,13 +113,16 @@ class TestRespirometry:
             assert result == {"error": "respirometry unavailable"}
 
     def test_timeout_returns_error(self):
-        with patch("metabolon.pinocytosis.polarization.subprocess.run",
-                    side_effect=subprocess.TimeoutExpired("cmd", 10)):
+        with patch(
+            "metabolon.pinocytosis.polarization.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("cmd", 10),
+        ):
             assert _respirometry() == {"error": "respirometry unavailable"}
 
     def test_not_found_returns_error(self):
-        with patch("metabolon.pinocytosis.polarization.subprocess.run",
-                    side_effect=FileNotFoundError):
+        with patch(
+            "metabolon.pinocytosis.polarization.subprocess.run", side_effect=FileNotFoundError
+        ):
             assert _respirometry() == {"error": "respirometry unavailable"}
 
     def test_bad_json_returns_error(self):
@@ -153,16 +160,20 @@ class TestManifestSummary:
 
     def test_present_returns_first_8_lines(self):
         content = "\n".join(f"line {i}" for i in range(20))
-        with patch.object(type(MANIFEST_FILE), "exists", return_value=True), \
-             patch.object(type(MANIFEST_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(MANIFEST_FILE), "exists", return_value=True),
+            patch.object(type(MANIFEST_FILE), "read_text", return_value=content),
+        ):
             result = _manifest_summary()
         assert result["exists"] is True
         assert result["summary"].count("\n") == 7  # 8 lines => 7 newlines
 
     def test_short_file(self):
         content = "only two\nlines here"
-        with patch.object(type(MANIFEST_FILE), "exists", return_value=True), \
-             patch.object(type(MANIFEST_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(MANIFEST_FILE), "exists", return_value=True),
+            patch.object(type(MANIFEST_FILE), "read_text", return_value=content),
+        ):
             result = _manifest_summary()
         assert result["exists"] is True
         assert result["summary"] == content
@@ -178,15 +189,19 @@ class TestNorthStars:
 
     def test_parses_numbered_headings(self):
         content = "## 1. Ship X\n## 2. Fix Y\n### not a star\n## unnumbered\n## 3. Write Z\n"
-        with patch.object(type(NORTH_STAR_FILE), "exists", return_value=True), \
-             patch.object(type(NORTH_STAR_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(NORTH_STAR_FILE), "exists", return_value=True),
+            patch.object(type(NORTH_STAR_FILE), "read_text", return_value=content),
+        ):
             result = _north_stars()
         assert result == ["1. Ship X", "2. Fix Y", "3. Write Z"]
 
     def test_no_matching_headings(self):
         content = "# top\n### sub\nnothing here\n"
-        with patch.object(type(NORTH_STAR_FILE), "exists", return_value=True), \
-             patch.object(type(NORTH_STAR_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(NORTH_STAR_FILE), "exists", return_value=True),
+            patch.object(type(NORTH_STAR_FILE), "read_text", return_value=content),
+        ):
             assert _north_stars() == []
 
 
@@ -200,8 +215,10 @@ class TestPraxisAgentClaude:
 
     def test_extracts_matching_lines(self):
         content = "- item1 agent:claude x\n- item2\n- item3 agent:claude y\n"
-        with patch.object(type(PRAXIS_FILE), "exists", return_value=True), \
-             patch.object(type(PRAXIS_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(PRAXIS_FILE), "exists", return_value=True),
+            patch.object(type(PRAXIS_FILE), "read_text", return_value=content),
+        ):
             result = _praxis_agent_claude()
         assert len(result) == 2
         assert "agent:claude" in result[0]
@@ -209,8 +226,10 @@ class TestPraxisAgentClaude:
 
     def test_no_matching_lines(self):
         content = "- item1\n- item2 agent:terry\n"
-        with patch.object(type(PRAXIS_FILE), "exists", return_value=True), \
-             patch.object(type(PRAXIS_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(PRAXIS_FILE), "exists", return_value=True),
+            patch.object(type(PRAXIS_FILE), "read_text", return_value=content),
+        ):
             assert _praxis_agent_claude() == []
 
 
@@ -225,30 +244,43 @@ class TestPraxisPhantomCount:
     def test_import_error_returns_zero(self):
         # The function does `from metabolon.checkpoint import sweep_praxis_for_phantoms`
         # inside a try/except. Remove the module from sys.modules so the import fails.
-        with patch.object(type(PRAXIS_FILE), "exists", return_value=True), \
-             patch.object(type(PRAXIS_FILE), "read_text", return_value="data"), \
-             patch.dict("sys.modules", {}, clear=False):
+        with (
+            patch.object(type(PRAXIS_FILE), "exists", return_value=True),
+            patch.object(type(PRAXIS_FILE), "read_text", return_value="data"),
+            patch.dict("sys.modules", {}, clear=False),
+        ):
             # Ensure metabolon.checkpoint is not importable
             import sys
+
             sys.modules.pop("metabolon.checkpoint", None)
             assert _praxis_phantom_count() == 0
 
     def test_returns_count(self):
-        with patch.object(type(PRAXIS_FILE), "exists", return_value=True), \
-             patch.object(type(PRAXIS_FILE), "read_text", return_value="data"), \
-             patch("metabolon.pinocytosis.polarization.sweep_praxis_for_phantoms",
-                   create=True) as mock_sweep, \
-             patch.dict("sys.modules", {"metabolon.checkpoint": MagicMock(
-                 sweep_praxis_for_phantoms=MagicMock(return_value=["a", "b", "c"]))}):
+        with (
+            patch.object(type(PRAXIS_FILE), "exists", return_value=True),
+            patch.object(type(PRAXIS_FILE), "read_text", return_value="data"),
+            patch("metabolon.pinocytosis.polarization.sweep_praxis_for_phantoms", create=True),
+            patch.dict(
+                "sys.modules",
+                {
+                    "metabolon.checkpoint": MagicMock(
+                        sweep_praxis_for_phantoms=MagicMock(return_value=["a", "b", "c"])
+                    )
+                },
+            ),
+        ):
             # Need to patch at the import site
             pass
         # Simpler: patch the module-level import
-        with patch.object(type(PRAXIS_FILE), "exists", return_value=True), \
-             patch.object(type(PRAXIS_FILE), "read_text", return_value="data"):
+        with (
+            patch.object(type(PRAXIS_FILE), "exists", return_value=True),
+            patch.object(type(PRAXIS_FILE), "read_text", return_value="data"),
+        ):
             # The function does `from metabolon.checkpoint import ...` so
             # if that module doesn't exist it returns 0 — test the happy path
             # by injecting the module into sys.modules
             import sys
+
             fake_mod = MagicMock()
             fake_mod.sweep_praxis_for_phantoms.return_value = ["p1", "p2"]
             with patch.dict(sys.modules, {"metabolon.checkpoint": fake_mod}):
@@ -264,8 +296,10 @@ class TestNowMd:
             assert _now_md() is None
 
     def test_present_returns_content(self):
-        with patch.object(type(NOW_FILE), "exists", return_value=True), \
-             patch.object(type(NOW_FILE), "read_text", return_value="  hello world  \n"):
+        with (
+            patch.object(type(NOW_FILE), "exists", return_value=True),
+            patch.object(type(NOW_FILE), "read_text", return_value="  hello world  \n"),
+        ):
             assert _now_md() == "hello world"
 
 
@@ -280,7 +314,7 @@ class TestFmtResets:
         assert _fmt_resets("") == "?"
 
     def test_valid_iso(self):
-        dt = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 4, 1, 12, 0, tzinfo=UTC)
         result = _fmt_resets(dt.isoformat())
         assert "2026-04-01" in result
         assert "HKT" in result
@@ -360,8 +394,10 @@ class TestManifestShow:
 
     def test_present_manifest(self):
         content = "# Session"
-        with patch.object(type(MANIFEST_FILE), "exists", return_value=True), \
-             patch.object(type(MANIFEST_FILE), "read_text", return_value=content):
+        with (
+            patch.object(type(MANIFEST_FILE), "exists", return_value=True),
+            patch.object(type(MANIFEST_FILE), "read_text", return_value=content),
+        ):
             assert manifest_show() == content
 
 
@@ -369,9 +405,15 @@ class TestManifestShow:
 
 
 class TestBudget:
-    def _make_usage(self, opus_pct=50.0, sonnet_pct=30.0,
-                    opus_resets=None, sonnet_resets=None,
-                    stale=False, source="test"):
+    def _make_usage(
+        self,
+        opus_pct=50.0,
+        sonnet_pct=30.0,
+        opus_resets=None,
+        sonnet_resets=None,
+        stale=False,
+        source="test",
+    ):
         return {
             "seven_day": {
                 "utilization": opus_pct,
@@ -387,12 +429,14 @@ class TestBudget:
 
     def test_happy_path_text(self):
         usage = self._make_usage()
-        with patch("metabolon.pinocytosis.polarization.get_usage", return_value=usage,
-                    create=True):
+        with patch(
+            "metabolon.pinocytosis.polarization.get_usage", return_value=usage, create=True
+        ):
             # Patch the import inside budget()
-            import metabolon.pinocytosis.polarization as mod
             fake_resp = MagicMock(return_value=usage)
-            with patch.dict("sys.modules", {"metabolon.respirometry": MagicMock(get_usage=fake_resp)}):
+            with patch.dict(
+                "sys.modules", {"metabolon.respirometry": MagicMock(get_usage=fake_resp)}
+            ):
                 result = budget()
         assert "opus:" in result
         assert "50%" in result
@@ -400,9 +444,13 @@ class TestBudget:
         assert "30%" in result
 
     def test_error_falls_back(self):
-        with patch.dict("sys.modules", {}), \
-             patch("metabolon.pinocytosis.polarization._respirometry",
-                   return_value={"error": "unavailable"}):
+        with (
+            patch.dict("sys.modules", {}),
+            patch(
+                "metabolon.pinocytosis.polarization._respirometry",
+                return_value={"error": "unavailable"},
+            ),
+        ):
             result = budget()
         assert "unavailable" in result
 
@@ -416,9 +464,12 @@ class TestBudget:
         assert data["sonnet_pct"] == 30.0
 
     def test_json_error_output(self):
-        with patch.dict("sys.modules", {}), \
-             patch("metabolon.pinocytosis.polarization._respirometry",
-                   return_value={"error": "fail"}):
+        with (
+            patch.dict("sys.modules", {}),
+            patch(
+                "metabolon.pinocytosis.polarization._respirometry", return_value={"error": "fail"}
+            ),
+        ):
             result = budget(as_json=True)
         data = json.loads(result)
         assert data["error"] == "fail"
@@ -445,28 +496,52 @@ class TestIntake:
     def _patch_all(self):
         """Return a dict of patches for all helper functions."""
         return {
-            "_consumption_count": patch("metabolon.pinocytosis.polarization._consumption_count", return_value=5),
-            "_respirometry": patch("metabolon.pinocytosis.polarization._respirometry",
-                                   return_value={"weekly_pct": 40, "sonnet_pct": 20,
-                                                  "resets_at": "soon", "stale": False}),
-            "_guard_status": patch("metabolon.pinocytosis.polarization._guard_status", return_value=True),
-            "_manifest_summary": patch("metabolon.pinocytosis.polarization._manifest_summary",
-                                       return_value={"exists": False, "summary": None}),
-            "_north_stars": patch("metabolon.pinocytosis.polarization._north_stars",
-                                  return_value=["1. Ship it"]),
-            "_praxis_agent_claude": patch("metabolon.pinocytosis.polarization._praxis_agent_claude",
-                                          return_value=["- item agent:claude"]),
-            "_praxis_phantom_count": patch("metabolon.pinocytosis.polarization._praxis_phantom_count",
-                                           return_value=0),
-            "_now_md": patch("metabolon.pinocytosis.polarization._now_md", return_value="do stuff"),
+            "_consumption_count": patch(
+                "metabolon.pinocytosis.polarization._consumption_count", return_value=5
+            ),
+            "_respirometry": patch(
+                "metabolon.pinocytosis.polarization._respirometry",
+                return_value={
+                    "weekly_pct": 40,
+                    "sonnet_pct": 20,
+                    "resets_at": "soon",
+                    "stale": False,
+                },
+            ),
+            "_guard_status": patch(
+                "metabolon.pinocytosis.polarization._guard_status", return_value=True
+            ),
+            "_manifest_summary": patch(
+                "metabolon.pinocytosis.polarization._manifest_summary",
+                return_value={"exists": False, "summary": None},
+            ),
+            "_north_stars": patch(
+                "metabolon.pinocytosis.polarization._north_stars", return_value=["1. Ship it"]
+            ),
+            "_praxis_agent_claude": patch(
+                "metabolon.pinocytosis.polarization._praxis_agent_claude",
+                return_value=["- item agent:claude"],
+            ),
+            "_praxis_phantom_count": patch(
+                "metabolon.pinocytosis.polarization._praxis_phantom_count", return_value=0
+            ),
+            "_now_md": patch(
+                "metabolon.pinocytosis.polarization._now_md", return_value="do stuff"
+            ),
         }
 
     def test_human_readable_output(self):
         patches = self._patch_all()
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "POLARIZATION PREFLIGHT" in result
         assert "CONSUMPTION" in result
@@ -478,10 +553,16 @@ class TestIntake:
 
     def test_json_output(self):
         patches = self._patch_all()
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake(as_json=True)
         data = json.loads(result)
         assert data["consumption_count"] == 5
@@ -493,33 +574,54 @@ class TestIntake:
     def test_low_consumption_signal(self):
         patches = self._patch_all()
         patches["_consumption_count"] = patch(
-            "metabolon.pinocytosis.polarization._consumption_count", return_value=1)
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+            "metabolon.pinocytosis.polarization._consumption_count", return_value=1
+        )
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "Produce more" in result
 
     def test_medium_consumption_signal(self):
         patches = self._patch_all()
         patches["_consumption_count"] = patch(
-            "metabolon.pinocytosis.polarization._consumption_count", return_value=5)
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+            "metabolon.pinocytosis.polarization._consumption_count", return_value=5
+        )
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "Self-sufficient" in result
 
     def test_high_consumption_signal(self):
         patches = self._patch_all()
         patches["_consumption_count"] = patch(
-            "metabolon.pinocytosis.polarization._consumption_count", return_value=12)
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+            "metabolon.pinocytosis.polarization._consumption_count", return_value=12
+        )
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "Overproduction" in result
 
@@ -527,22 +629,36 @@ class TestIntake:
         patches = self._patch_all()
         patches["_respirometry"] = patch(
             "metabolon.pinocytosis.polarization._respirometry",
-            return_value={"error": "respirometry unavailable"})
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+            return_value={"error": "respirometry unavailable"},
+        )
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "respirometry unavailable" in result
 
     def test_phantom_count_shown(self):
         patches = self._patch_all()
         patches["_praxis_phantom_count"] = patch(
-            "metabolon.pinocytosis.polarization._praxis_phantom_count", return_value=3)
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+            "metabolon.pinocytosis.polarization._praxis_phantom_count", return_value=3
+        )
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "3 suspect phantom" in result
 
@@ -550,22 +666,34 @@ class TestIntake:
         patches = self._patch_all()
         patches["_manifest_summary"] = patch(
             "metabolon.pinocytosis.polarization._manifest_summary",
-            return_value={"exists": True, "summary": "line1\nline2"})
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+            return_value={"exists": True, "summary": "line1\nline2"},
+        )
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "line1" in result
 
     def test_now_md_missing(self):
         patches = self._patch_all()
-        patches["_now_md"] = patch(
-            "metabolon.pinocytosis.polarization._now_md", return_value=None)
-        with patches["_consumption_count"], patches["_respirometry"], \
-             patches["_guard_status"], patches["_manifest_summary"], \
-             patches["_north_stars"], patches["_praxis_agent_claude"], \
-             patches["_praxis_phantom_count"], patches["_now_md"]:
+        patches["_now_md"] = patch("metabolon.pinocytosis.polarization._now_md", return_value=None)
+        with (
+            patches["_consumption_count"],
+            patches["_respirometry"],
+            patches["_guard_status"],
+            patches["_manifest_summary"],
+            patches["_north_stars"],
+            patches["_praxis_agent_claude"],
+            patches["_praxis_phantom_count"],
+            patches["_now_md"],
+        ):
             result = intake()
         assert "not found" in result
 
@@ -575,49 +703,68 @@ class TestIntake:
 
 class TestMain:
     def test_default_preflight(self, capsys):
-        with patch("sys.argv", ["polarization"]), \
-             patch("metabolon.pinocytosis.polarization.intake", return_value="preflight output"):
+        with (
+            patch("sys.argv", ["polarization"]),
+            patch("metabolon.pinocytosis.polarization.intake", return_value="preflight output"),
+        ):
             from metabolon.pinocytosis.polarization import main
+
             main()
         assert "preflight output" in capsys.readouterr().out
 
     def test_guard_on(self, capsys):
-        with patch("sys.argv", ["polarization", "guard", "on"]), \
-             patch("metabolon.pinocytosis.polarization.guard", return_value="ok"):
+        with (
+            patch("sys.argv", ["polarization", "guard", "on"]),
+            patch("metabolon.pinocytosis.polarization.guard", return_value="ok"),
+        ):
             from metabolon.pinocytosis.polarization import main
+
             main()
         assert "ok" in capsys.readouterr().out
 
     def test_manifest_init(self, capsys):
-        with patch("sys.argv", ["polarization", "manifest", "init"]), \
-             patch("metabolon.pinocytosis.polarization.manifest_init", return_value="created"):
+        with (
+            patch("sys.argv", ["polarization", "manifest", "init"]),
+            patch("metabolon.pinocytosis.polarization.manifest_init", return_value="created"),
+        ):
             from metabolon.pinocytosis.polarization import main
+
             main()
         assert "created" in capsys.readouterr().out
 
     def test_manifest_show(self, capsys):
-        with patch("sys.argv", ["polarization", "manifest", "show"]), \
-             patch("metabolon.pinocytosis.polarization.manifest_show", return_value="shown"):
+        with (
+            patch("sys.argv", ["polarization", "manifest", "show"]),
+            patch("metabolon.pinocytosis.polarization.manifest_show", return_value="shown"),
+        ):
             from metabolon.pinocytosis.polarization import main
+
             main()
         assert "shown" in capsys.readouterr().out
 
     def test_manifest_update(self, capsys):
         with patch("sys.argv", ["polarization", "manifest", "update"]):
             from metabolon.pinocytosis.polarization import main
+
             main()
         assert "agents write directly" in capsys.readouterr().out
 
     def test_budget_cmd(self, capsys):
-        with patch("sys.argv", ["polarization", "budget"]), \
-             patch("metabolon.pinocytosis.polarization.budget", return_value="budget info"):
+        with (
+            patch("sys.argv", ["polarization", "budget"]),
+            patch("metabolon.pinocytosis.polarization.budget", return_value="budget info"),
+        ):
             from metabolon.pinocytosis.polarization import main
+
             main()
         assert "budget info" in capsys.readouterr().out
 
     def test_preflight_json_flag(self, capsys):
-        with patch("sys.argv", ["polarization", "preflight", "--json"]), \
-             patch("metabolon.pinocytosis.polarization.intake", return_value='{"key": 1}') as mock:
+        with (
+            patch("sys.argv", ["polarization", "preflight", "--json"]),
+            patch("metabolon.pinocytosis.polarization.intake", return_value='{"key": 1}') as mock,
+        ):
             from metabolon.pinocytosis.polarization import main
+
             main()
         mock.assert_called_once_with(as_json=True)

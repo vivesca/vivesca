@@ -1,4 +1,3 @@
-
 """metabolism_loop — self-improvement state machine via LangGraph.
 
 Wires the metabolism subsystems (fitness, infection, repair, sweep) into an
@@ -18,7 +17,6 @@ Usage:
     python -m metabolon.organelles.metabolism_loop
     from metabolon.organelles.metabolism_loop import run_metabolism
 """
-
 
 import operator
 import time
@@ -119,7 +117,7 @@ def measure_fitness(state: MetabolismState) -> dict:
             try:
                 health_score = float(result.strip())
                 health_score = min(1.0, max(0.0, health_score))
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 health_score = 0.5
     else:
         # No signals at all — fresh system or logging gap

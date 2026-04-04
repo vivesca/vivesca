@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.enzymes.differentiation import differentiation
 
@@ -97,7 +93,7 @@ def test_readiness_with_contributors():
         mock_chemo.readiness.return_value = {
             "score": 78,
             "contributors": {"hrv": 85, "activity": 70},
-            "temperature_deviation": -0.3
+            "temperature_deviation": -0.3,
         }
         result = differentiation("readiness")
         assert "hrv: 85" in result
@@ -120,6 +116,7 @@ def test_write_log_invalid_date():
 def test_write_log_new_file(tmp_path):
     """Test write_log creates a new file."""
     from unittest.mock import patch
+
     with patch("metabolon.enzymes.differentiation.HEALTH_DIR", tmp_path):
         session_date = "2026-04-01"
         content = "# Gym Log\n- Squat: 100kg x 5"
@@ -136,6 +133,7 @@ def test_write_log_new_file(tmp_path):
 def test_write_log_overwrite_existing(tmp_path):
     """Test write_log overwrites an existing file."""
     from unittest.mock import patch
+
     with patch("metabolon.enzymes.differentiation.HEALTH_DIR", tmp_path):
         session_date = "2026-04-01"
         old_content = "Old content"

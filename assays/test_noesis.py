@@ -1,5 +1,4 @@
 """Tests for metabolon.enzymes.noesis."""
-import pytest
 
 
 def test_placeholder():

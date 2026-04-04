@@ -63,7 +63,7 @@ limen "prompt"
   ├─ navigate to midjourney.com/imagine
   ├─ submit prompt text
   ├─ poll for 4 new cdn.midjourney images
-  └─ download full-res PNGs
+  └─ download full-res ONGs
 ```
 
 ## LinkedIn Brand Images

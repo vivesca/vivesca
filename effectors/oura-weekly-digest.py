@@ -19,7 +19,10 @@ sys.path.append(str(Path.home() / "germline"))
 try:
     from metabolon.organelles import chemoreceptor
 except ImportError:
-    print("Error: metabolon.organelles.chemoreceptor not found. Ensure germline is in PATH.", file=sys.stderr)
+    print(
+        "Error: metabolon.organelles.chemoreceptor not found. Ensure germline is in PATH.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -50,8 +53,8 @@ def trend_arrow(values: list[int | None]) -> str:
 
 def format_section(label: str, data: dict) -> str:
     if not data or "error" in data:
-        return f"*No data available*"
-    
+        return "*No data available*"
+
     lines = []
     for k, v in data.items():
         if isinstance(v, dict):
@@ -64,12 +67,12 @@ def format_section(label: str, data: dict) -> str:
 def main():
     today_dt = date.today()
     yesterday_dt = today_dt - timedelta(days=1)
-    
+
     try:
         # Fetch 7-day trend
         week_data = chemoreceptor.week(days=7)
         # Fetch yesterday's detail
-        detail = chemoreceptor.sense() # sense() defaults to today's data (last night)
+        detail = chemoreceptor.sense()  # sense() defaults to today's data (last night)
     except Exception as e:
         print(f"Error fetching Oura data: {e}", file=sys.stderr)
         sys.exit(1)
@@ -83,29 +86,29 @@ def main():
         "| Date | Sleep | Readiness | Activity |",
         "|------|------:|----------:|---------:|",
     ]
-    
+
     sleeps = []
     readinesses = []
-    # Note: chemoreceptor.week() doesn't currently include activity score, 
+    # Note: chemoreceptor.week() doesn't currently include activity score,
     # but we can add it if needed. For now let's use what's available.
-    
+
     for day in week_data:
         d = day["date"]
         s = day.get("sleep_score")
         r = day.get("readiness_score")
         # Activity score is not in week() yet, but let's assume it might be there or use placeholder
-        a = "--" 
-        
+        a = "--"
+
         sleeps.append(s)
         readinesses.append(r)
-        
+
         s_str = str(s) if s is not None else "--"
         r_str = str(r) if r is not None else "--"
         table_lines.append(f"| {d} | {s_str} | {r_str} | {a} |")
 
     avg_sleep = compute_avg(sleeps)
     avg_readiness = compute_avg(readinesses)
-    
+
     sleep_trend = trend_arrow(sleeps)
     readiness_trend = trend_arrow(readinesses)
 
@@ -114,12 +117,12 @@ def main():
 
     # Compose note
     note_date = today_dt.strftime("%Y-%m-%d")
-    
+
     # Detail sections
     sleep_detail = detail.get("sleep_score", "--")
     readiness_detail = detail.get("readiness_score", "--")
     activity_detail = detail.get("activity", {}).get("score", "--")
-    
+
     note = f"""---
 date: {note_date}
 tags: [oura, health, weekly]

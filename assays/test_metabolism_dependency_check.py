@@ -3,12 +3,9 @@ from __future__ import annotations
 """Tests for metabolon.metabolism.dependency_check."""
 
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.metabolism.dependency_check import (
     DependencyStatus,
@@ -19,8 +16,8 @@ from metabolon.metabolism.dependency_check import (
     run_dependency_check,
 )
 
-
 # ── DependencyStatus dataclass ──────────────────────────────────────
+
 
 class TestDependencyStatus:
     def test_defaults(self):
@@ -36,6 +33,7 @@ class TestDependencyStatus:
 
 
 # ── check_env_var ───────────────────────────────────────────────────
+
 
 class TestCheckEnvVar:
     def test_not_set(self):
@@ -66,6 +64,7 @@ class TestCheckEnvVar:
 
 
 # ── check_binary ────────────────────────────────────────────────────
+
 
 class TestCheckBinary:
     @patch("metabolon.metabolism.dependency_check.subprocess.run")
@@ -108,6 +107,7 @@ class TestCheckBinary:
 
 # ── check_git_repo ──────────────────────────────────────────────────
 
+
 class TestCheckGitRepo:
     @patch("metabolon.metabolism.dependency_check.Path.exists", return_value=False)
     def test_path_missing(self, mock_exists):
@@ -118,7 +118,7 @@ class TestCheckGitRepo:
 
     @patch(
         "metabolon.metabolism.dependency_check.Path.exists",
-        side_effect=lambda self=False: True if "fake" in str(self) else False,
+        side_effect=lambda self=False: "fake" in str(self),
     )
     def test_not_a_git_repo(self, mock_exists):
         """Simulate .git missing by having path exist but .git not exist."""
@@ -126,7 +126,9 @@ class TestCheckGitRepo:
         # Use a simpler approach: patch at instance level
         fake_path = MagicMock(spec=Path)
         fake_path.exists.return_value = True
-        fake_path.__truediv__ = lambda s, k: MagicMock(spec=Path, exists=MagicMock(return_value=False))
+        fake_path.__truediv__ = lambda s, k: MagicMock(
+            spec=Path, exists=MagicMock(return_value=False)
+        )
         result = check_git_repo(fake_path, "broken")
         assert not result.healthy
         assert "Not a git repo" in result.message
@@ -172,6 +174,7 @@ class TestCheckGitRepo:
 
 # ── run_dependency_check ────────────────────────────────────────────
 
+
 class TestRunDependencyCheck:
     @patch("metabolon.metabolism.dependency_check.check_git_repo")
     @patch("metabolon.metabolism.dependency_check.check_binary")
@@ -211,6 +214,7 @@ class TestRunDependencyCheck:
 
 
 # ── report ──────────────────────────────────────────────────────────
+
 
 class TestReport:
     @patch("metabolon.metabolism.dependency_check.check_git_repo")

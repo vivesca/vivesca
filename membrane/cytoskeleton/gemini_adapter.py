@@ -38,10 +38,10 @@ with a no-op (exit 0, no output) so the hook does not error.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
-import warnings
 from pathlib import Path
 
 # ── Gemini CLI → CC event name map ───────────────────────────────────────────
@@ -127,10 +127,8 @@ def translate_cc_to_gemini(raw_output: str) -> str | None:
 
     # Attempt JSON parse
     parsed = None
-    try:
+    with contextlib.suppress(json.JSONDecodeError, ValueError):
         parsed = json.loads(stripped)
-    except (json.JSONDecodeError, ValueError):
-        pass
 
     if parsed is None:
         # Plain text output — wrap as context injection
@@ -193,7 +191,7 @@ def run(hook_script: str, extra_args: list[str], gemini_data: dict) -> int:
     cc_data = translate_gemini_to_cc(gemini_data)
     cc_stdin = json.dumps(cc_data).encode()
 
-    cmd = [sys.executable, hook_script] + extra_args
+    cmd = [sys.executable, hook_script, *extra_args]
     try:
         result = subprocess.run(
             cmd,

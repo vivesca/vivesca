@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from types import ModuleType
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner

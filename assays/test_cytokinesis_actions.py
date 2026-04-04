@@ -3,10 +3,9 @@ from __future__ import annotations
 """Tests for cytokinesis enzyme."""
 
 
-from unittest.mock import patch, MagicMock
 import json
 import subprocess
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 def test_gather_clean_result():

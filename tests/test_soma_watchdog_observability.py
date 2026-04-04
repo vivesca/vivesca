@@ -18,13 +18,13 @@ Call both from the main loop after each tick.
 
 Acceptance: pytest tests/test_soma_watchdog_observability.py
 """
+
 from __future__ import annotations
 
 import json
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 JSONL_PATH = Path.home() / "epigenome" / "chromatin" / "telemetry" / "soma-resources.jsonl"
 ALERT_STAMP = Path.home() / "tmp" / "soma-alert-last.txt"
@@ -42,6 +42,7 @@ def _import_watchdog():
 
     class _Module:
         """Module proxy whose __dict__ is the exec namespace itself."""
+
         pass
 
     mod = _Module()
@@ -50,6 +51,7 @@ def _import_watchdog():
 
 
 # --- JSONL logging tests ---
+
 
 class TestLogResources:
     def test_function_exists(self):

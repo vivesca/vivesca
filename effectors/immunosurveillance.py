@@ -87,7 +87,7 @@ def check_health() -> bool:
                         file=sys.stderr,
                     )
                     ok = False
-            except (FileNotFoundError, subprocess.TimeoutExpired):
+            except FileNotFoundError, subprocess.TimeoutExpired:
                 # launchctl not available — skip silently
                 pass
         else:

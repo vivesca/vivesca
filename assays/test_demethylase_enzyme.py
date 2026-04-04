@@ -11,10 +11,7 @@ by mocking all organelle-layer imports.  The enzyme uses lazy imports
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.demethylase import DemethylaseResult, demethylase
-
 
 # Organelle module path for patching lazy imports
 _ORG = "metabolon.organelles.demethylase"
@@ -206,10 +203,22 @@ class TestHistoryAction:
     @patch(f"{_ORG}.signal_history")
     def test_history_multiple_entries(self, mock_history):
         mock_history.return_value = [
-            {"timestamp": "2025-01-15T10:00:00", "name": "first", "source": "cc",
-             "fire_count": 1, "deduplicated": False, "content": "c1"},
-            {"timestamp": "2025-01-15T11:00:00", "name": "second", "source": "goose",
-             "fire_count": 3, "deduplicated": True, "content": "c2"},
+            {
+                "timestamp": "2025-01-15T10:00:00",
+                "name": "first",
+                "source": "cc",
+                "fire_count": 1,
+                "deduplicated": False,
+                "content": "c1",
+            },
+            {
+                "timestamp": "2025-01-15T11:00:00",
+                "name": "second",
+                "source": "goose",
+                "fire_count": 3,
+                "deduplicated": True,
+                "content": "c2",
+            },
         ]
         result = demethylase(action="history")
         assert "2 signal(s) in history:" in result.results

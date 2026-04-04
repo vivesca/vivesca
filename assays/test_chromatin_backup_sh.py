@@ -148,7 +148,10 @@ class TestHelp:
         env = _git_env(tmp_path)
         r = subprocess.run(
             ["bash", str(SCRIPT), "--help"],
-            capture_output=True, text=True, env=env, timeout=10,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
         )
         assert r.returncode == 0
         assert not (tmp_path / CHROMATIN_RELATIVE).exists()
@@ -180,7 +183,10 @@ class TestMissingChromatinDir:
         env["HOME"] = ""
         r = subprocess.run(
             ["bash", str(SCRIPT)],
-            capture_output=True, text=True, env=env, timeout=10,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
         )
         assert r.returncode == 1
 
@@ -190,7 +196,7 @@ class TestMissingChromatinDir:
 
 class TestNoChanges:
     def test_no_changes_exits_zero(self, tmp_path):
-        repo = _make_local_repo(tmp_path)
+        _make_local_repo(tmp_path)
         assert _run_script(tmp_path).returncode == 0
 
     def test_no_extra_commit(self, tmp_path):
@@ -377,7 +383,9 @@ class TestRebase:
         clone = tmp_path / "epigenome" / "clone"
         subprocess.run(
             ["git", "clone", str(remote_dir), str(clone)],
-            capture_output=True, env=env, timeout=10,
+            capture_output=True,
+            env=env,
+            timeout=10,
         )
         (clone / "remote.md").write_text("from remote")
         _git(clone, "add", "-A", env=env)
@@ -399,7 +407,9 @@ class TestRebase:
         clone = tmp_path / "epigenome" / "clone"
         subprocess.run(
             ["git", "clone", str(remote_dir), str(clone)],
-            capture_output=True, env=env, timeout=10,
+            capture_output=True,
+            env=env,
+            timeout=10,
         )
         (clone / "readme.md").write_text("remote")
         _git(clone, "add", "-A", env=env)

@@ -9,21 +9,18 @@ so we patch at the *source* module, not on the enzyme module.
 """
 
 
-import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.endocytosis import EndocytosisResult, endocytosis
 from metabolon.morphology import EffectorResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _iso(days_ago: int = 0) -> str:
     return (datetime.now(UTC) - timedelta(days=days_ago)).isoformat()
@@ -51,6 +48,7 @@ def _make_config(tmp_path: Path) -> SimpleNamespace:
 # ---------------------------------------------------------------------------
 # EndocytosisResult construction
 # ---------------------------------------------------------------------------
+
 
 class TestEndocytosisResult:
     def test_defaults(self):
@@ -94,6 +92,7 @@ class TestEndocytosisResult:
 # endocytosis("status", ...)
 # ---------------------------------------------------------------------------
 
+
 class TestStatusAction:
     @patch("metabolon.enzymes.endocytosis._status_result")
     def test_status_dispatches(self, mock_status):
@@ -119,6 +118,7 @@ class TestStatusAction:
 # ---------------------------------------------------------------------------
 # endocytosis("fetch", ...)
 # ---------------------------------------------------------------------------
+
 
 class TestFetchAction:
     @patch("metabolon.organelles.endocytosis_rss.cli._fetch_locked")
@@ -156,6 +156,7 @@ class TestFetchAction:
 # endocytosis("stats", ...)
 # ---------------------------------------------------------------------------
 
+
 class TestStatsAction:
     @patch("metabolon.enzymes.endocytosis._stats_result")
     def test_stats_dispatches(self, mock_stats):
@@ -178,6 +179,7 @@ class TestStatsAction:
 # ---------------------------------------------------------------------------
 # endocytosis("top", ...)
 # ---------------------------------------------------------------------------
+
 
 class TestTopAction:
     @patch("metabolon.enzymes.endocytosis._top_result")
@@ -218,6 +220,7 @@ class TestTopAction:
 # Unknown action
 # ---------------------------------------------------------------------------
 
+
 class TestUnknownAction:
     def test_unknown_returns_error(self):
         result = endocytosis(action="bogus")
@@ -240,6 +243,7 @@ class TestUnknownAction:
 # ---------------------------------------------------------------------------
 # _status_result integration (mocked lazy-imported internals at source)
 # ---------------------------------------------------------------------------
+
 
 class TestStatusResultInternal:
     @patch("metabolon.organelles.endocytosis_rss.state.restore_state")
@@ -310,6 +314,7 @@ class TestStatusResultInternal:
 # _stats_result integration (mocked lazy-imported internals at source)
 # ---------------------------------------------------------------------------
 
+
 class TestStatsResultInternal:
     @patch("metabolon.organelles.endocytosis_rss.relevance._read_jsonl")
     @patch("metabolon.enzymes.endocytosis.endocytosis_affinity", new_callable=lambda: MagicMock)
@@ -371,9 +376,14 @@ class TestStatsResultInternal:
             {"score": 5},  # no title key
             {"title": "Real", "score": 7},
         ]
-        mock_astats.return_value = {"status": "ok", "total_scored": 1, "total_engaged": 0,
-                                    "avg_engaged_score": 0.0, "false_positives_count": 0,
-                                    "false_negatives": []}
+        mock_astats.return_value = {
+            "status": "ok",
+            "total_scored": 1,
+            "total_engaged": 0,
+            "avg_engaged_score": 0.0,
+            "false_positives_count": 0,
+            "false_negatives": [],
+        }
 
         result = _stats_result()
         assert result.status == "ok"
@@ -384,6 +394,7 @@ class TestStatsResultInternal:
 # ---------------------------------------------------------------------------
 # _top_result integration (mocked lazy-imported internals at source)
 # ---------------------------------------------------------------------------
+
 
 class TestTopResultInternal:
     @patch("metabolon.organelles.endocytosis_rss.relevance.top_cargo")
@@ -402,7 +413,12 @@ class TestTopResultInternal:
         from metabolon.enzymes.endocytosis import _top_result
 
         mock_top.return_value = [
-            {"score": 9, "title": "AI regulation", "source": "Ars", "banking_angle": "Compliance spend"},
+            {
+                "score": 9,
+                "title": "AI regulation",
+                "source": "Ars",
+                "banking_angle": "Compliance spend",
+            },
             {"score": 7, "title": "Crypto bill", "source": "TechCrunch", "banking_angle": "N/A"},
         ]
         result = _top_result(limit=10, days=7)

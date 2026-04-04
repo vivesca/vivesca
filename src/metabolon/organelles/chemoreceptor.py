@@ -1,4 +1,3 @@
-
 """chemoreceptor — Oura health sensing (formerly sopor). Endosymbiosis: Python CLI -> organelle.
 
 Reads Oura Ring data via the Oura API v2. Credential resolution: OURA_TOKEN env var first,
@@ -6,7 +5,6 @@ then macOS Keychain entry 'oura-token'. Requires httpx (already a vivesca depend
 
 Core functions: today(), week(), readiness(), sleep_score(), sleep_detail(), heartrate(), sense().
 """
-
 
 import os
 import subprocess
@@ -292,7 +290,7 @@ def sleep_detail(target_date: str | None = None) -> dict[str, Any]:
         v = rec.get("total_sleep_duration", 0)
         try:
             return int(v) if v else 0
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return 0
 
     best = max(records, key=_duration)

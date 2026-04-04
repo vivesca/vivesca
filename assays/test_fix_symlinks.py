@@ -11,8 +11,6 @@ import sys
 import types
 from pathlib import Path, PurePosixPath
 
-import pytest
-
 EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
 SCRIPT = EFFECTORS_DIR / "fix-symlinks"
 MAC_HOME = PurePosixPath("/", "Users", "terry")
@@ -21,6 +19,7 @@ MAC_HOME = PurePosixPath("/", "Users", "terry")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_ns() -> dict:
     """Load fix-symlinks into a namespace dict."""
@@ -43,6 +42,7 @@ def _load_ns() -> dict:
 # ---------------------------------------------------------------------------
 # scan_and_fix tests
 # ---------------------------------------------------------------------------
+
 
 class TestScanAndFix:
     """Test scan_and_fix via exec-loaded namespace."""
@@ -136,7 +136,7 @@ class TestScanAndFix:
         link.symlink_to(str(MAC_HOME / "fix_symlinks_idem_target.txt"))
 
         try:
-            fixed1, skipped1 = ns["scan_and_fix"]()
+            fixed1, _skipped1 = ns["scan_and_fix"]()
             assert fixed1 == 1
             fixed2, skipped2 = ns["scan_and_fix"]()
             assert fixed2 == 0
@@ -190,7 +190,7 @@ class TestScanAndFix:
         link.symlink_to(str(MAC_HOME / "fix_symlinks_nested.txt"))
 
         try:
-            fixed, skipped = ns["scan_and_fix"]()
+            fixed, _skipped = ns["scan_and_fix"]()
             assert fixed == 1
             assert os.readlink(link) == str(linux_target)
         finally:
@@ -201,13 +201,15 @@ class TestScanAndFix:
 # CLI / __main__ tests via subprocess
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     """Test the script's CLI interface via subprocess.run."""
 
     def test_help_flag(self):
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "--help"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         assert "symlinks" in result.stdout.lower()
@@ -216,7 +218,8 @@ class TestCLI:
         """Running with no args should complete (exit 0 when no broken links)."""
         result = subprocess.run(
             [sys.executable, str(SCRIPT)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             timeout=30,
         )
         # May be 0 or 1 depending on whether there are broken links in the

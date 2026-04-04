@@ -13,7 +13,7 @@ EFFECTOR = Path.home() / "germline" / "effectors" / "coaching-stats"
 
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(EFFECTOR)] + args,
+        [sys.executable, str(EFFECTOR), *args],
         capture_output=True,
         text=True,
         timeout=30,
@@ -100,8 +100,17 @@ class TestParseCoaching:
     def test_parses_categories_and_bullets(self):
         with tempfile.TemporaryDirectory() as tmp:
             coaching = _make_coaching_md(Path(tmp))
-            r = _run(["--coaching", str(coaching), "--jsonl", "/dev/null",
-                       "--daemon-log", "/dev/null", "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    str(coaching),
+                    "--jsonl",
+                    "/dev/null",
+                    "--daemon-log",
+                    "/dev/null",
+                    "--json",
+                ]
+            )
             assert r.returncode == 0, r.stderr
             data = json.loads(r.stdout)
             assert data["total_rules"] == 5
@@ -114,8 +123,17 @@ class TestParseCoaching:
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "empty.md"
             p.write_text("")
-            r = _run(["--coaching", str(p), "--jsonl", "/dev/null",
-                       "--daemon-log", "/dev/null", "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    str(p),
+                    "--jsonl",
+                    "/dev/null",
+                    "--daemon-log",
+                    "/dev/null",
+                    "--json",
+                ]
+            )
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["total_rules"] == 0
@@ -125,8 +143,17 @@ class TestLoadJsonl:
     def test_loads_valid_entries(self):
         with tempfile.TemporaryDirectory() as tmp:
             jsonl = _make_jsonl(Path(tmp))
-            r = _run(["--coaching", "/dev/null", "--jsonl", str(jsonl),
-                       "--daemon-log", "/dev/null", "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    "/dev/null",
+                    "--jsonl",
+                    str(jsonl),
+                    "--daemon-log",
+                    "/dev/null",
+                    "--json",
+                ]
+            )
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["total_jsonl_entries"] == 3
@@ -134,9 +161,20 @@ class TestLoadJsonl:
     def test_skips_malformed_lines(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "bad.jsonl"
-            p.write_text('{"ts":"ok","provider":"zhipu"}\nNOT JSON\n{"ts":"ok2","provider":"volcano"}\n')
-            r = _run(["--coaching", "/dev/null", "--jsonl", str(p),
-                       "--daemon-log", "/dev/null", "--json"])
+            p.write_text(
+                '{"ts":"ok","provider":"zhipu"}\nNOT JSON\n{"ts":"ok2","provider":"volcano"}\n'
+            )
+            r = _run(
+                [
+                    "--coaching",
+                    "/dev/null",
+                    "--jsonl",
+                    str(p),
+                    "--daemon-log",
+                    "/dev/null",
+                    "--json",
+                ]
+            )
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["total_jsonl_entries"] == 2
@@ -146,8 +184,17 @@ class TestLoadDaemonFailures:
     def test_extracts_failures(self):
         with tempfile.TemporaryDirectory() as tmp:
             log = _make_daemon_log(Path(tmp))
-            r = _run(["--coaching", "/dev/null", "--jsonl", "/dev/null",
-                       "--daemon-log", str(log), "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    "/dev/null",
+                    "--jsonl",
+                    "/dev/null",
+                    "--daemon-log",
+                    str(log),
+                    "--json",
+                ]
+            )
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["total_daemon_failures"] == 3
@@ -156,8 +203,17 @@ class TestLoadDaemonFailures:
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "empty.log"
             p.write_text("")
-            r = _run(["--coaching", "/dev/null", "--jsonl", "/dev/null",
-                       "--daemon-log", str(p), "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    "/dev/null",
+                    "--jsonl",
+                    "/dev/null",
+                    "--daemon-log",
+                    str(p),
+                    "--json",
+                ]
+            )
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["total_daemon_failures"] == 0
@@ -168,8 +224,17 @@ class TestAnalysis:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
             jsonl = _make_jsonl(tmpdir)
-            r = _run(["--coaching", "/dev/null", "--jsonl", str(jsonl),
-                       "--daemon-log", "/dev/null", "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    "/dev/null",
+                    "--jsonl",
+                    str(jsonl),
+                    "--daemon-log",
+                    "/dev/null",
+                    "--json",
+                ]
+            )
             data = json.loads(r.stdout)
             provs = data["provider_stats"]
             assert "zhipu" in provs
@@ -182,8 +247,17 @@ class TestAnalysis:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
             jsonl = _make_jsonl(tmpdir)
-            r = _run(["--coaching", "/dev/null", "--jsonl", str(jsonl),
-                       "--daemon-log", "/dev/null", "--json"])
+            r = _run(
+                [
+                    "--coaching",
+                    "/dev/null",
+                    "--jsonl",
+                    str(jsonl),
+                    "--daemon-log",
+                    "/dev/null",
+                    "--json",
+                ]
+            )
             data = json.loads(r.stdout)
             signals = {s["signal"]: s for s in data["signal_stats"]}
             # Entry with "import" in prompt/tail should show up in hallucinated-imports
@@ -199,8 +273,9 @@ class TestTextReport:
             coaching = _make_coaching_md(tmpdir)
             jsonl = _make_jsonl(tmpdir)
             log = _make_daemon_log(tmpdir)
-            r = _run(["--coaching", str(coaching), "--jsonl", str(jsonl),
-                       "--daemon-log", str(log)])
+            r = _run(
+                ["--coaching", str(coaching), "--jsonl", str(jsonl), "--daemon-log", str(log)]
+            )
             assert r.returncode == 0
             output = r.stdout
             assert "COACHING EFFECTIVENESS REPORT" in output
@@ -214,9 +289,17 @@ class TestTextReport:
 
 class TestMissingFiles:
     def test_all_paths_missing(self):
-        r = _run(["--coaching", "/nonexistent/file.md",
-                   "--jsonl", "/nonexistent/file.jsonl",
-                   "--daemon-log", "/nonexistent/file.log", "--json"])
+        r = _run(
+            [
+                "--coaching",
+                "/nonexistent/file.md",
+                "--jsonl",
+                "/nonexistent/file.jsonl",
+                "--daemon-log",
+                "/nonexistent/file.log",
+                "--json",
+            ]
+        )
         assert r.returncode == 0
         data = json.loads(r.stdout)
         assert data["total_rules"] == 0

@@ -75,7 +75,7 @@ instructions: |
   **Sources (priority order):**
   1. Praxis.md items tagged `agent:claude` or where research/drafting is the bottleneck
   2. What the north stars need now, even if not in Praxis.md
-  3. External signals (lustro outputs, calendar proximity)
+  3. External signals (endocytosis outputs, calendar proximity)
   4. What systole N outputs revealed as the next logical step
 
   "Ran out of tasks" means "stopped looking." Ask: what would a good employee working on [star] do next?
@@ -100,7 +100,7 @@ instructions: |
 
   **Phase A — Compound:** For each output, ask "what builds on this?" Research → synthesise → IP/publish → verify → cross-link.
 
-  **Phase B — Scout:** Ask "what new directions does this reveal?" Check lustro/transduction for external signals. Check all six north stars. If any star has zero dispatched tasks, ask why.
+  **Phase B — Scout:** Ask "what new directions does this reveal?" Check endocytosis/transduction for external signals. Check all six north stars. If any star has zero dispatched tasks, ask why.
 
   **Deliverables are functions, not documents.** "Give me market intel" → produce a fresh brief, not point to a stale file.
 
@@ -165,7 +165,7 @@ instructions: |
   1. Is budget yellow or red?                           → if green, KEEP GOING
   2. Have all 6 north stars been checked for Automated  → if any unchecked, scout it
      tasks in the last 2 systoles?
-  3. Have you checked lustro/transduction for new signals?   → if not, check now
+  3. Have you checked endocytosis/transduction for new signals?   → if not, check now
   4. Have you checked the calendar for deadlines        → if not, check now
      within 14 days?
   5. Did the last systole's outputs reveal ANY follow-on?  → if yes, dispatch it

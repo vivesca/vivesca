@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
-from metabolon.metabolism.fitness import Emotion, sense_affect
-from metabolon.metabolism.signals import Stimulus, Outcome
+
+from metabolon.metabolism.fitness import sense_affect
+from metabolon.metabolism.signals import Outcome, Stimulus
 
 
 def test_empty_stimuli():
@@ -51,13 +52,15 @@ def test_mixed_success_and_failure():
         Stimulus(tool="tool2", outcome=Outcome.success, substrate_consumed=5, product_released=5),
         Stimulus(tool="tool2", outcome=Outcome.error, substrate_consumed=5, product_released=0),
         Stimulus(tool="tool2", outcome=Outcome.success, substrate_consumed=5, product_released=5),
-        Stimulus(tool="tool2", outcome=Outcome.correction, substrate_consumed=10, product_released=0),
+        Stimulus(
+            tool="tool2", outcome=Outcome.correction, substrate_consumed=10, product_released=0
+        ),
     ]
     result = sense_affect(stimuli, min_stimuli=3)
     emotion = result["tool2"]
     assert emotion.activations == 4
     assert emotion.success_rate == 0.5  # 2/4
-    avg_cost = ((5+5) + (5+0) + (5+5) + (10+0)) / 4
+    avg_cost = ((5 + 5) + (5 + 0) + (5 + 5) + (10 + 0)) / 4
     assert emotion.metabolic_cost == avg_cost
     assert emotion.valence is not None
     expected_valence = 0.5 * (1.0 / math.log2(avg_cost + 2))

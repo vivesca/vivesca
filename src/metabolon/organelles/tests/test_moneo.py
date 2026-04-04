@@ -1,4 +1,3 @@
-
 import base64
 from datetime import datetime
 
@@ -398,7 +397,7 @@ def test_resolve_target_pattern_not_found() -> None:
     data = _db_with_reminders()
     try:
         moneo.resolve_target(data, "nonexistent", allow_pattern=True)
-        assert False, "Should have raised"
+        raise AssertionError("Should have raised")
     except moneo.MoneoError as exc:
         assert "No reminders matching" in str(exc)
 
@@ -407,7 +406,7 @@ def test_resolve_target_uuid_prefix_not_found() -> None:
     data = _db_with_reminders()
     try:
         moneo.resolve_target(data, "ZZZZZZ")
-        assert False, "Should have raised"
+        raise AssertionError("Should have raised")
     except moneo.MoneoError as exc:
         assert "No reminders" in str(exc)
 
@@ -416,7 +415,7 @@ def test_resolve_target_numeric_out_of_range() -> None:
     data = _db_with_reminders()
     try:
         moneo.resolve_target(data, "99")
-        assert False, "Should have raised"
+        raise AssertionError("Should have raised")
     except moneo.MoneoError as exc:
         assert "no reminder at index" in str(exc)
 
@@ -429,7 +428,7 @@ def test_resolve_target_prefers_numeric_over_uuid() -> None:
     # Numeric should be tried first and fail with out-of-range
     try:
         moneo.resolve_target(data, "123456")
-        assert False, "Should have raised"
+        raise AssertionError("Should have raised")
     except moneo.MoneoError as exc:
         assert "no reminder at index" in str(exc)
 

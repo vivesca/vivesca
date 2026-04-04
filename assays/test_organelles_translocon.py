@@ -3,7 +3,6 @@ from __future__ import annotations
 """Tests for metabolon.organelles.translocon — pure helpers + mocked dispatch."""
 
 import json
-import subprocess
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -11,12 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.organelles.translocon import (
-    CACHE_DIR,
-    CACHE_TTL,
-    COACHING_NOTES,
-    GOLEM_LOG,
     PROVIDER_LIMITS,
-    SORTASE_LOG,
     _approx_tokens,
     _build_droid_cmd,
     _build_goose_cmd,
@@ -34,10 +28,10 @@ from metabolon.organelles.translocon import (
     run_eval,
 )
 
-
 # ---------------------------------------------------------------------------
 # _cache_key
 # ---------------------------------------------------------------------------
+
 
 class TestCacheKey:
     def test_deterministic(self):
@@ -55,12 +49,13 @@ class TestCacheKey:
 # _cache_get / _cache_put
 # ---------------------------------------------------------------------------
 
+
 class TestCache:
     def test_put_and_get(self, tmp_path):
         with patch.object(Path, "__truediv__", return_value=tmp_path / "test.json"):
             # Directly use tmp_path for cache file
             pass
-        cache_file = tmp_path / "abc.json"
+        tmp_path / "abc.json"
         entry = {"output": "hello world"}
         with patch("metabolon.organelles.translocon.CACHE_DIR", tmp_path):
             _cache_put("abc", entry)
@@ -98,6 +93,7 @@ class TestCache:
 # _inject_coaching
 # ---------------------------------------------------------------------------
 
+
 class TestInjectCoaching:
     def test_no_coaching_file(self):
         with patch.object(Path, "exists", return_value=False):
@@ -124,6 +120,7 @@ class TestInjectCoaching:
 # ---------------------------------------------------------------------------
 # _read_dir_context
 # ---------------------------------------------------------------------------
+
 
 class TestReadDirContext:
     def test_reads_py_files(self, tmp_path):
@@ -166,6 +163,7 @@ class TestReadDirContext:
 # _build_goose_cmd
 # ---------------------------------------------------------------------------
 
+
 class TestBuildGooseCmd:
     def test_basic(self):
         cmd = _build_goose_cmd("GLM-5.1", "hello world")
@@ -190,6 +188,7 @@ class TestBuildGooseCmd:
 # ---------------------------------------------------------------------------
 # _build_droid_cmd
 # ---------------------------------------------------------------------------
+
 
 class TestBuildDroidCmd:
     def test_basic(self):
@@ -220,16 +219,20 @@ class TestBuildDroidCmd:
 # _resolve_mode
 # ---------------------------------------------------------------------------
 
+
 class TestResolveMode:
-    @pytest.mark.parametrize("mode,expected_backend,expected_model", [
-        ("explore", "goose", "GLM-4.7"),
-        ("build", "goose", "GLM-5.1"),
-        ("mcp", "droid", "GLM-4.7"),
-        ("safe", "droid", "GLM-4.7"),
-        ("skill", "goose", "GLM-5.1"),
-    ])
+    @pytest.mark.parametrize(
+        "mode,expected_backend,expected_model",
+        [
+            ("explore", "goose", "GLM-4.7"),
+            ("build", "goose", "GLM-5.1"),
+            ("mcp", "droid", "GLM-4.7"),
+            ("safe", "droid", "GLM-4.7"),
+            ("skill", "goose", "GLM-5.1"),
+        ],
+    )
     def test_defaults(self, mode, expected_backend, expected_model):
-        backend, model, auto = _resolve_mode(mode=mode)
+        backend, model, _auto = _resolve_mode(mode=mode)
         assert backend == expected_backend
         assert model == expected_model
 
@@ -262,6 +265,7 @@ class TestResolveMode:
 # _approx_tokens
 # ---------------------------------------------------------------------------
 
+
 class TestApproxTokens:
     def test_basic(self):
         assert _approx_tokens("abcdefgh") == 2  # 8 / 4
@@ -276,6 +280,7 @@ class TestApproxTokens:
 # ---------------------------------------------------------------------------
 # _explore_structured
 # ---------------------------------------------------------------------------
+
 
 class TestExploreStructured:
     def test_fields(self):
@@ -292,6 +297,7 @@ class TestExploreStructured:
 # _run_captured
 # ---------------------------------------------------------------------------
 
+
 class TestRunCaptured:
     def test_success(self):
         rc, stdout = _run_captured(["echo", "hello"])
@@ -299,13 +305,14 @@ class TestRunCaptured:
         assert "hello" in stdout
 
     def test_failure(self):
-        rc, stdout = _run_captured(["false"])
+        rc, _stdout = _run_captured(["false"])
         assert rc != 0
 
 
 # ---------------------------------------------------------------------------
 # _direct_api
 # ---------------------------------------------------------------------------
+
 
 class TestDirectApi:
     def test_missing_key(self):
@@ -317,9 +324,9 @@ class TestDirectApi:
 
     def test_success_response(self):
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "content": [{"text": "the answer"}]
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {"content": [{"text": "the answer"}]}
+        ).encode()
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
             with patch("urllib.request.urlopen", return_value=mock_response):
                 result = _direct_api("prompt")
@@ -329,10 +336,9 @@ class TestDirectApi:
 
     def test_http_error_retried(self):
         import urllib.error
+
         mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps({
-            "content": [{"text": "ok"}]
-        }).encode()
+        mock_resp.read.return_value = json.dumps({"content": [{"text": "ok"}]}).encode()
         exc429 = urllib.error.HTTPError("url", 429, "rate limited", {}, None)
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
             with patch("urllib.request.urlopen", side_effect=[exc429, mock_resp]):
@@ -342,6 +348,7 @@ class TestDirectApi:
 
     def test_persistent_http_error_fails(self):
         import urllib.error
+
         exc500 = urllib.error.HTTPError("url", 500, "server error", {}, None)
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
             with patch("urllib.request.urlopen", side_effect=[exc500, exc500, exc500]):
@@ -362,6 +369,7 @@ class TestDirectApi:
 # dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestDispatch:
     def test_skill_mode_missing_skill_name(self):
         result = dispatch("prompt", mode="skill")
@@ -377,8 +385,10 @@ class TestDispatch:
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
             with patch("metabolon.organelles.translocon._read_dir_context", return_value=""):
                 with patch("metabolon.organelles.translocon._cache_get", return_value=None):
-                    with patch("metabolon.organelles.translocon._direct_api",
-                               return_value={"success": True, "output": "answer", "returncode": 0}):
+                    with patch(
+                        "metabolon.organelles.translocon._direct_api",
+                        return_value={"success": True, "output": "answer", "returncode": 0},
+                    ):
                         with patch("metabolon.organelles.translocon._cache_put"):
                             result = dispatch("test prompt", mode="explore")
         assert result["success"] is True
@@ -399,8 +409,10 @@ class TestDispatch:
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
             with patch("metabolon.organelles.translocon._read_dir_context", return_value=""):
                 with patch("metabolon.organelles.translocon._cache_get", return_value=None):
-                    with patch("metabolon.organelles.translocon._direct_api",
-                               return_value={"success": True, "output": "answer", "returncode": 0}):
+                    with patch(
+                        "metabolon.organelles.translocon._direct_api",
+                        return_value={"success": True, "output": "answer", "returncode": 0},
+                    ):
                         with patch("metabolon.organelles.translocon._cache_put"):
                             result = dispatch("test prompt", mode="explore", json_output=True)
         assert result["success"] is True
@@ -409,20 +421,24 @@ class TestDispatch:
         assert "cached" in parsed
 
     def test_goose_success(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    return_value=(0, "goose output")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch(
+            "metabolon.organelles.translocon._run_captured", return_value=(0, "goose output")
+        ):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="build", backend="goose")
         assert result["success"] is True
         assert result["output"] == "goose output"
         assert result["backend"] == "goose"
 
     def test_goose_failure_no_fallback_when_backend_forced(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    return_value=(1, "goose error")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch(
+            "metabolon.organelles.translocon._run_captured", return_value=(1, "goose error")
+        ):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="build", backend="goose")
         assert result["success"] is False
         assert result["backend"] == "goose"
@@ -437,30 +453,34 @@ class TestDispatch:
                 return (1, "goose error")
             return (0, "droid output")
 
-        with patch("metabolon.organelles.translocon._run_captured",
-                    side_effect=mock_run_captured):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch("metabolon.organelles.translocon._run_captured", side_effect=mock_run_captured):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="build")
         assert result["success"] is True
         assert result["output"] == "droid output"
         assert result["backend"] == "droid"
 
     def test_droid_success(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    return_value=(0, "droid output")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch(
+            "metabolon.organelles.translocon._run_captured", return_value=(0, "droid output")
+        ):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="mcp")
         assert result["success"] is True
         assert result["output"] == "droid output"
         assert result["backend"] == "droid"
 
     def test_droid_failure(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    return_value=(1, "droid error")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch(
+            "metabolon.organelles.translocon._run_captured", return_value=(1, "droid error")
+        ):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="safe")
         assert result["success"] is False
         assert result["backend"] == "droid"
@@ -472,38 +492,38 @@ class TestDispatch:
             captured_prompts["last"] = cmd
             return (0, "ok")
 
-        with patch("metabolon.organelles.translocon._run_captured",
-                    side_effect=fake_run_captured):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch("metabolon.organelles.translocon._run_captured", side_effect=fake_run_captured):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 dispatch("do audit", mode="safe")
         # The last arg of the droid command should contain READ ONLY
         last_arg = captured_prompts["last"][-1]
         assert "READ ONLY" in last_arg
 
     def test_goose_exception_caught(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    side_effect=OSError("boom")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch("metabolon.organelles.translocon._run_captured", side_effect=OSError("boom")):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="build", backend="goose")
         assert result["success"] is False
         assert "goose execution failed" in result["output"]
 
     def test_droid_exception_caught(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    side_effect=OSError("boom")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch("metabolon.organelles.translocon._run_captured", side_effect=OSError("boom")):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="mcp")
         assert result["success"] is False
         assert "droid execution failed" in result["output"]
 
     def test_result_has_duration(self):
-        with patch("metabolon.organelles.translocon._run_captured",
-                    return_value=(0, "ok")):
-            with patch("metabolon.organelles.translocon._inject_coaching",
-                       side_effect=lambda p: p):
+        with patch("metabolon.organelles.translocon._run_captured", return_value=(0, "ok")):
+            with patch(
+                "metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p
+            ):
                 result = dispatch("task", mode="build")
         assert "duration_s" in result
         assert isinstance(result["duration_s"], float)
@@ -512,6 +532,7 @@ class TestDispatch:
 # ---------------------------------------------------------------------------
 # run_eval
 # ---------------------------------------------------------------------------
+
 
 class TestRunEval:
     def test_no_sortase_log(self):
@@ -533,7 +554,13 @@ class TestRunEval:
         traces = [
             {"tool": "golem-reviewer", "success": True, "duration_s": 30},
             {"tool": "golem-reviewer", "success": True, "duration_s": 25},
-            {"tool": "golem-builder", "success": False, "failure_reason": "timeout", "plan": "build-x", "duration_s": 120},
+            {
+                "tool": "golem-builder",
+                "success": False,
+                "failure_reason": "timeout",
+                "plan": "build-x",
+                "duration_s": 120,
+            },
         ]
         log.write_text("\n".join(json.dumps(t) for t in traces))
         with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
@@ -556,7 +583,13 @@ class TestRunEval:
         log = tmp_path / "sortase.jsonl"
         traces = [
             {"tool": "t1", "success": True},
-            {"tool": "t2", "success": False, "failure_reason": "err", "plan": "p", "duration_s": 5},
+            {
+                "tool": "t2",
+                "success": False,
+                "failure_reason": "err",
+                "plan": "p",
+                "duration_s": 5,
+            },
         ]
         log.write_text("\n".join(json.dumps(t) for t in traces))
         with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
@@ -565,7 +598,7 @@ class TestRunEval:
 
     def test_malformed_lines_skipped(self, tmp_path):
         log = tmp_path / "sortase.jsonl"
-        log.write_text("bad line\n{\"tool\": \"t\", \"success\": true}")
+        log.write_text('bad line\n{"tool": "t", "success": true}')
         with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
             result = run_eval()
         assert result["success"] is True
@@ -575,6 +608,7 @@ class TestRunEval:
 # ---------------------------------------------------------------------------
 # dispatch_stats
 # ---------------------------------------------------------------------------
+
 
 class TestDispatchStats:
     def test_no_golem_log(self):
@@ -596,7 +630,13 @@ class TestDispatchStats:
         entries = [
             {"provider": "zhipu", "exit": 0, "duration": 60, "turns": 5},
             {"provider": "zhipu", "exit": 0, "duration": 45, "turns": 3},
-            {"provider": "infini", "exit": 1, "duration": 30, "turns": 2, "prompt": "failed task prompt here"},
+            {
+                "provider": "infini",
+                "exit": 1,
+                "duration": 30,
+                "turns": 2,
+                "prompt": "failed task prompt here",
+            },
         ]
         log.write_text("\n".join(json.dumps(e) for e in entries))
         with patch("metabolon.organelles.translocon.GOLEM_LOG", log):

@@ -14,7 +14,7 @@ LOG = Path.home() / ".claude" / "context-audit.log"
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         return
 
     file_path = data.get("file_path", "unknown")

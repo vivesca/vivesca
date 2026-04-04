@@ -6,7 +6,7 @@
 
 Usage:
     evident-brief              # fetch latest, print markdown to stdout
-    evident-brief --save       # also save to ~/.cache/lustro-articles/
+    evident-brief --save       # also save to ~/.cache/endocytosis-articles/
     evident-brief --list       # list available briefs (title, date, slug)
     evident-brief --slug X     # fetch a specific brief by slug
 
@@ -36,8 +36,20 @@ def _get_firecrawl_key() -> str:
         return key
     try:
         r = subprocess.run(
-            ["op", "item", "get", "Firecrawl", "--vault", "Agents", "--fields", "credential", "--reveal"],
-            capture_output=True, text=True, timeout=10,
+            [
+                "op",
+                "item",
+                "get",
+                "Firecrawl",
+                "--vault",
+                "Agents",
+                "--fields",
+                "credential",
+                "--reveal",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         key = r.stdout.strip()
         if key and key.startswith("fc-"):
@@ -49,8 +61,10 @@ def _get_firecrawl_key() -> str:
 
 def _ab(cmd: str, timeout: int = 15) -> str:
     r = subprocess.run(
-        ["agent-browser"] + cmd.split(),
-        capture_output=True, text=True, timeout=timeout,
+        ["agent-browser", *cmd.split()],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     return r.stdout.strip()
 
@@ -59,9 +73,11 @@ def _ab(cmd: str, timeout: int = 15) -> str:
 # Content extraction — Jina Reader (best signal/noise for Evident, free)
 # ---------------------------------------------------------------------------
 
+
 def fetch_markdown(url: str) -> str:
     """Fetch URL as markdown via Jina Reader."""
     import urllib.request
+
     req = urllib.request.Request(
         f"https://r.jina.ai/{url}",
         headers={"Accept": "text/markdown", "User-Agent": "evident-brief/1.0"},
@@ -78,25 +94,31 @@ def fetch_markdown(url: str) -> str:
 # Index parsing: Firecrawl map() → agent-browser fallback
 # ---------------------------------------------------------------------------
 
+
 def _parse_index_firecrawl() -> list[dict]:
     """Use Firecrawl map() to discover all brief URLs (1 credit)."""
     key = _get_firecrawl_key()
     if not key:
         return []
     from firecrawl import FirecrawlApp
+
     fc = FirecrawlApp(api_key=key)
     result = fc.map(INDEX_URL, limit=50)
     briefs = []
-    slug_re = re.compile(r'/bankingbrief/([a-z0-9][-a-z0-9]+)$')
-    for item in (result.links or []) if hasattr(result, 'links') else []:
-        url = item.url if hasattr(item, 'url') else str(item)
+    slug_re = re.compile(r"/bankingbrief/([a-z0-9][-a-z0-9]+)$")
+    for item in (result.links or []) if hasattr(result, "links") else []:
+        url = item.url if hasattr(item, "url") else str(item)
         m = slug_re.search(url)
         if m:
             slug = m.group(1)
-            title = (item.title or slug.replace("-", " ").title()) if hasattr(item, 'title') else slug.replace("-", " ").title()
+            title = (
+                (item.title or slug.replace("-", " ").title())
+                if hasattr(item, "title")
+                else slug.replace("-", " ").title()
+            )
             # Clean Evident prefix from title
-            title = re.sub(r'^Evident\s*-\s*', '', title)
-            title = re.sub(r'\s*\|.*$', '', title).strip()
+            title = re.sub(r"^Evident\s*-\s*", "", title)
+            title = re.sub(r"\s*\|.*$", "", title).strip()
             briefs.append({"title": title, "slug": slug, "url": url, "date": ""})
     return briefs
 
@@ -110,7 +132,7 @@ def _parse_index_browser() -> list[dict]:
         snap = _ab("snapshot")
         for line in snap.splitlines():
             if "Accept all" in line:
-                m = re.search(r'ref=(\w+)', line)
+                m = re.search(r"ref=(\w+)", line)
                 if m:
                     _ab(f"click @{m.group(1)}")
                     time.sleep(1)
@@ -120,13 +142,22 @@ def _parse_index_browser() -> list[dict]:
         briefs = []
         seen = set()
         date_re = re.compile(
-            r'(\d{1,2}\s+(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4})',
+            r"(\d{1,2}\s+(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4})",
             re.IGNORECASE,
         )
         skip = {
-            "Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy",
-            "Learn more about Membership", "Show more", "Register here", "Apply here",
-            "CAREERS", "Careers", "LINKEDIN", "TWITTER",
+            "Read more",
+            "SIGN IN",
+            "Sign up to our newsletter",
+            "privacy policy",
+            "Learn more about Membership",
+            "Show more",
+            "Register here",
+            "Apply here",
+            "CAREERS",
+            "Careers",
+            "LINKEDIN",
+            "TWITTER",
         }
 
         current_date = None
@@ -135,19 +166,23 @@ def _parse_index_browser() -> list[dict]:
             if dm:
                 current_date = dm.group(1).title()
 
-            if 'link "' in line and 'bankingbrief' not in line.lower():
+            if 'link "' in line and "bankingbrief" not in line.lower():
                 title_m = re.search(r'link "([^"]+)"', line)
                 if title_m and title_m.group(1) not in skip:
                     title = title_m.group(1)
                     slug = title.lower().strip()
-                    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
-                    slug = re.sub(r'\s+', '-', slug).strip('-')
+                    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
+                    slug = re.sub(r"\s+", "-", slug).strip("-")
                     if slug and slug not in seen:
                         seen.add(slug)
-                        briefs.append({
-                            "title": title, "slug": slug,
-                            "url": f"{BASE_URL}{slug}", "date": current_date or "",
-                        })
+                        briefs.append(
+                            {
+                                "title": title,
+                                "slug": slug,
+                                "url": f"{BASE_URL}{slug}",
+                                "date": current_date or "",
+                            }
+                        )
                         current_date = None
 
         return [b for b in briefs if b.get("date")]
@@ -175,6 +210,7 @@ def parse_index() -> list[dict]:
 # Brief fetching & formatting
 # ---------------------------------------------------------------------------
 
+
 def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
     """Fetch a single brief. Returns {title, date, slug, url, markdown}."""
     url = f"{BASE_URL}{slug}"
@@ -182,22 +218,22 @@ def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
 
     # Extract title
     title = slug.replace("-", " ").title()
-    title_match = re.search(r'^Title:\s*(.+)', raw, re.MULTILINE)
+    title_match = re.search(r"^Title:\s*(.+)", raw, re.MULTILINE)
     if title_match:
         t = title_match.group(1).strip()
-        t = re.sub(r'^Evident\s*-\s*', '', t)
-        t = re.sub(r'\s*\|.*$', '', t)
+        t = re.sub(r"^Evident\s*-\s*", "", t)
+        t = re.sub(r"\s*\|.*$", "", t)
         if t:
             title = t
     # Firecrawl uses H1 directly
-    h1_match = re.search(r'^# (.+)', raw, re.MULTILINE)
+    h1_match = re.search(r"^# (.+)", raw, re.MULTILINE)
     if h1_match and len(h1_match.group(1)) < 80:
         title = h1_match.group(1).strip()
 
     # Extract date
     date = ""
     date_match = re.search(
-        r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
+        r"(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})",
         raw,
     )
     if date_match:
@@ -207,7 +243,7 @@ def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
 
     # Clean markdown
     md = raw
-    md = re.sub(r'^(?:Title|URL Source|Markdown Content):.*\n?', '', md, flags=re.MULTILINE)
+    md = re.sub(r"^(?:Title|URL Source|Markdown Content):.*\n?", "", md, flags=re.MULTILINE)
 
     for marker in ["TOP OF THE NEWS", "Welcome back to the Banking Brief"]:
         idx = md.find(marker)
@@ -259,6 +295,7 @@ def save_brief(brief: dict) -> Path:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch the latest Evident Banking Brief.")

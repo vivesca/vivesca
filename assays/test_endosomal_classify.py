@@ -9,9 +9,17 @@ import pytest
 
 from metabolon.organelles.endosomal import (
     classify as _classify,
+)
+from metabolon.organelles.endosomal import (
     classify_subject as _classify_subject,
+)
+from metabolon.organelles.endosomal import (
     extract_sender as _extract_sender,
+)
+from metabolon.organelles.endosomal import (
     extract_subject as _extract_subject,
+)
+from metabolon.organelles.endosomal import (
     sender_is_automated as _sender_is_automated,
 )
 

@@ -3,24 +3,23 @@ from __future__ import annotations
 """Tests for digest.py"""
 
 
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
-import tempfile
 import json
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
 from metabolon.organelles.endocytosis_rss.digest import (
-    _resolve_month,
-    _resolve_week_label,
-    recall_archived_articles,
-    _parse_theme_json,
+    _build_affinity_index,
     _build_items,
     _build_source_tags_map,
     _filter_by_tags,
-    secrete_weekly_digest,
-    _build_affinity_index,
+    _parse_theme_json,
+    _resolve_month,
+    _resolve_week_label,
     recall_archived_articles,
+    secrete_weekly_digest,
 )
 
 
@@ -52,7 +51,7 @@ class TestResolveWeekLabel:
 
     def test_defaults_to_now(self):
         """Works with default anchor"""
-        start, end, label = _resolve_week_label(None)
+        start, end, _label = _resolve_week_label(None)
         assert start < end
 
 
@@ -98,19 +97,19 @@ class TestParseThemeJson:
 
     def test_parses_valid_json_array(self):
         """Parses clean JSON array"""
-        raw = '''
+        raw = """
         [
           {"theme": "AI Regulation", "description": "New rules", "article_indices": [0, 1]},
           {"theme": "Model Launches", "description": "New models", "article_indices": [2, 3]}
         ]
-        '''
+        """
         result = _parse_theme_json(raw)
         assert len(result) == 2
         assert result[0]["theme"] == "AI Regulation"
 
     def test_extracts_json_from_prose(self):
         """Extracts JSON array surrounded by text"""
-        raw = '''
+        raw = """
         Sure, here's your analysis:
 
         [
@@ -118,18 +117,18 @@ class TestParseThemeJson:
         ]
 
         Let me know if you need anything else!
-        '''
+        """
         result = _parse_theme_json(raw)
         assert len(result) == 1
         assert result[0]["theme"] == "Test"
 
     def test_strips_markdown_fences(self):
         """Strips ```json fences"""
-        raw = '''```json
+        raw = """```json
         [
           {"theme": "Test", "description": "Test", "article_indices": []}
         ]
-        ```'''
+        ```"""
         result = _parse_theme_json(raw)
         assert len(result) == 1
         assert result[0]["theme"] == "Test"
@@ -151,8 +150,18 @@ class TestBuildItems:
     def test_formats_both_articles_and_log_entries(self):
         """Builds correctly numbered items"""
         articles = [
-            {"date": "2024-03-15", "source": "Source1", "title": "Article 1", "summary": "Summary 1"},
-            {"date": "2024-03-14", "source": "Source2", "title": "Article 2", "summary": "Summary 2"},
+            {
+                "date": "2024-03-15",
+                "source": "Source1",
+                "title": "Article 1",
+                "summary": "Summary 1",
+            },
+            {
+                "date": "2024-03-14",
+                "source": "Source2",
+                "title": "Article 2",
+                "summary": "Summary 2",
+            },
         ]
         log_entries = [
             {"date": "2024-03-13", "source": "Source3", "title": "Log 1", "summary": "Summary 3"},
@@ -175,6 +184,7 @@ class TestBuildSourceTagsMap:
     def test_builds_correct_map(self):
         """Correctly extracts tags from config sources"""
         from types import SimpleNamespace
+
         cfg = SimpleNamespace()
         cfg.sources = [
             {"name": "Source1", "tags": ["ai", "regulation"]},
@@ -265,7 +275,11 @@ class TestSecreteWeeklyDigest:
                 },
             ]
             affinity_index = {
-                "Test Article": {"score": 8, "banking_angle": "Regulatory change", "talking_point": "Ask clients about this"},
+                "Test Article": {
+                    "score": 8,
+                    "banking_angle": "Regulatory change",
+                    "talking_point": "Ask clients about this",
+                },
                 "Another Article": {"score": 6, "banking_angle": "N/A", "talking_point": "N/A"},
             }
             result_path = secrete_weekly_digest(

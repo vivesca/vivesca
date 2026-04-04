@@ -1,4 +1,3 @@
-
 """hemostasis — Emergency stabilization: stop the bleeding.
 
 Deterministic triage tools for the hemostasis skill:
@@ -10,7 +9,6 @@ Deterministic triage tools for the hemostasis skill:
 Root cause analysis, cleanup, and fixing are out of scope.
 Clot first, understand second.
 """
-
 
 import datetime
 import platform

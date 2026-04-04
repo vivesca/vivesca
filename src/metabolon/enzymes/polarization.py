@@ -1,4 +1,3 @@
-
 """polarization — North star agent dispatch pre-flight and guard control.
 
 Wraps the deterministic polarization-gather CLI:
@@ -8,7 +7,6 @@ Wraps the deterministic polarization-gather CLI:
 Orchestration (agent dispatch, flywheel, systole management) stays in the skill.
 These tools give the skill grounded facts and guard control before dispatch.
 """
-
 
 import json
 import shutil
@@ -65,7 +63,7 @@ def _preflight() -> PolarizationPreflightResult:
         data: dict = {}
         try:
             data = json.loads(raw_output)
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError, ValueError:
             # Fall back to plain text
             data = {"raw_text": raw_output}
 

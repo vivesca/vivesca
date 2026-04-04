@@ -1,19 +1,16 @@
 """Tests for metabolon/organelles/endosomal.py - email classification logic."""
 
-import pytest
-
 from metabolon.organelles.endosomal import (
-    STAGES,
     CATEGORIES,
-    extract_sender,
-    sender_is_automated,
-    extract_subject,
-    classify_subject,
-    classify,
-    endosomal_pipeline,
     CLASSIFY_PROMPT_TMPL,
+    STAGES,
+    classify,
+    classify_subject,
+    endosomal_pipeline,
+    extract_sender,
+    extract_subject,
+    sender_is_automated,
 )
-
 
 # ── Constants tests ─────────────────────────────────────────────────────
 
@@ -290,7 +287,9 @@ def test_classify_body_monitor_announcement():
 
 def test_classify_body_borderline_please():
     """classify returns borderline for polite requests."""
-    email = "From: colleague@company.com\nSubject: Quick question\n\nPlease take a look when you can."
+    email = (
+        "From: colleague@company.com\nSubject: Quick question\n\nPlease take a look when you can."
+    )
     assert classify(email) == "borderline"
 
 

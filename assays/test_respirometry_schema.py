@@ -3,10 +3,7 @@ from __future__ import annotations
 """Tests for metabolon/respirometry/schema.py."""
 
 
-import pytest
-
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-
 
 # ── ConsumptionEvent tests ────────────────────────────────────────────────
 

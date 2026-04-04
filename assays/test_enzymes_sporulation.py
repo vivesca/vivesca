@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import pytest
 from datetime import UTC, datetime
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from metabolon.enzymes.sporulation import (
+    SporulationListResult,
+    SporulationLoadResult,
+    SporulationSaveResult,
     _checkpoint_path,
     _existing_codenames,
     _gen_codename,
@@ -14,9 +15,6 @@ from metabolon.enzymes.sporulation import (
     _purge_stale,
     _save,
     sporulation,
-    SporulationSaveResult,
-    SporulationLoadResult,
-    SporulationListResult,
 )
 
 
@@ -83,6 +81,7 @@ def test_purge_stale_removes_old(tmp_path):
         # Set mtime to 8 days ago
         old_time = datetime.now(UTC).timestamp() - 8 * 86400
         import os
+
         os.utime(old_file, (old_time, old_time))
 
         fresh_file = tmp_path / "checkpoint_fresh-one.md"
@@ -104,8 +103,10 @@ def test_purge_stale_dir_missing(tmp_path):
 # _save
 # ---------------------------------------------------------------------------
 def test_save_creates_checkpoint(tmp_path):
-    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path), \
-         patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]):
+    with (
+        patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path),
+        patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]),
+    ):
         result = _save(
             context="Building feature X",
             where_we_left_off="- wrote tests\n- need to implement",
@@ -128,8 +129,10 @@ def test_save_creates_checkpoint(tmp_path):
 
 
 def test_save_auto_generates_codename(tmp_path):
-    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path), \
-         patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]):
+    with (
+        patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path),
+        patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]),
+    ):
         result = _save(
             context="Some context",
             where_we_left_off="step 1",
@@ -141,8 +144,10 @@ def test_save_auto_generates_codename(tmp_path):
 
 
 def test_save_duplicate_codename_returns_empty_path(tmp_path):
-    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path), \
-         patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]):
+    with (
+        patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path),
+        patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]),
+    ):
         # Create existing checkpoint
         (tmp_path / "checkpoint_bold-fox.md").write_text("old")
         result = _save(
@@ -156,8 +161,10 @@ def test_save_duplicate_codename_returns_empty_path(tmp_path):
 
 
 def test_save_reports_purged(tmp_path):
-    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path), \
-         patch("metabolon.enzymes.sporulation._purge_stale", return_value=["stale-1"]):
+    with (
+        patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path),
+        patch("metabolon.enzymes.sporulation._purge_stale", return_value=["stale-1"]),
+    ):
         result = _save(
             context="ctx",
             where_we_left_off="wlo",
@@ -229,8 +236,10 @@ def test_list_dir_missing(tmp_path):
 # sporulation (dispatch)
 # ---------------------------------------------------------------------------
 def test_sporulation_save_dispatches(tmp_path):
-    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path), \
-         patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]):
+    with (
+        patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path),
+        patch("metabolon.enzymes.sporulation._purge_stale", return_value=[]),
+    ):
         result = sporulation(
             "save",
             context="Test context",

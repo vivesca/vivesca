@@ -10,11 +10,8 @@ Covers:
 
 from unittest.mock import patch
 
-import pytest
-
 import metabolon.resources.glycogen as glycogen_mod
 from metabolon.enzymes.proprioception import _glycogen
-
 
 # ── Module contract ──────────────────────────────────────────────────
 

@@ -8,11 +8,10 @@ It is loaded via exec() into isolated namespaces.
 """
 
 
-import os
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -41,7 +40,7 @@ class TestLoadConfig:
     def test_config_exists_with_llm_section(self, synth):
         """Should return llm section when config has it."""
         mock_yaml = {"llm": {"default_model": "sonnet"}}
-        config_path = synth["CONFIG_PATH"]
+        synth["CONFIG_PATH"]
         with patch("builtins.open", mock_open(read_data="llm:\n  default_model: sonnet\n")):
             with patch("yaml.safe_load", return_value=mock_yaml):
                 cfg = synth["_load_config"]()
@@ -83,6 +82,7 @@ class TestWhich:
     def test_found(self, synth, monkeypatch):
         """Should return path when executable is found."""
         import shutil
+
         monkeypatch.setattr(shutil, "which", lambda _: "/usr/bin/channel")
         result = synth["_which"]("channel")
         assert result == "/usr/bin/channel"
@@ -90,6 +90,7 @@ class TestWhich:
     def test_not_found(self, synth, monkeypatch):
         """Should return None when executable not found."""
         import shutil
+
         monkeypatch.setattr(shutil, "which", lambda _: None)
         result = synth["_which"]("nonexistent")
         assert result is None
@@ -132,9 +133,11 @@ class TestBackendChannel:
     def test_passes_model_and_prompt(self, synth, monkeypatch):
         """Should pass model and -p prompt to channel."""
         calls = []
+
         def mock_run(args, **kwargs):
             calls.append(args)
             return MagicMock(stdout="result", stderr="")
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         synth["_which"] = lambda _: "/usr/bin/channel"
         synth["_backend_channel"]("my prompt", "sonnet", 120)
@@ -152,8 +155,10 @@ class TestMain:
         mock_bc = MagicMock(return_value="response")
         synth["_backend_channel"] = mock_bc
         synth["_load_config"] = lambda: {}
-        with patch.object(sys, "argv", ["synthase", "hello world"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with (
+            patch.object(sys, "argv", ["synthase", "hello world"]),
+            patch.object(sys, "stdin") as mock_stdin,
+        ):
             mock_stdin.isatty.return_value = True
             synth["main"]()
         mock_bc.assert_called_once_with("hello world", "haiku", 60)
@@ -164,8 +169,10 @@ class TestMain:
         mock_bc = MagicMock(return_value="ok")
         synth["_backend_channel"] = mock_bc
         synth["_load_config"] = lambda: {}
-        with patch.object(sys, "argv", ["synthase", "--model", "opus", "test"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with (
+            patch.object(sys, "argv", ["synthase", "--model", "opus", "test"]),
+            patch.object(sys, "stdin") as mock_stdin,
+        ):
             mock_stdin.isatty.return_value = True
             synth["main"]()
         mock_bc.assert_called_once_with("test", "opus", 60)
@@ -175,8 +182,10 @@ class TestMain:
         mock_bc = MagicMock(return_value="ok")
         synth["_backend_channel"] = mock_bc
         synth["_load_config"] = lambda: {"default_model": "sonnet"}
-        with patch.object(sys, "argv", ["synthase", "test"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with (
+            patch.object(sys, "argv", ["synthase", "test"]),
+            patch.object(sys, "stdin") as mock_stdin,
+        ):
             mock_stdin.isatty.return_value = True
             synth["main"]()
         mock_bc.assert_called_once_with("test", "sonnet", 60)
@@ -186,8 +195,7 @@ class TestMain:
         mock_bc = MagicMock(return_value="ok")
         synth["_backend_channel"] = mock_bc
         synth["_load_config"] = lambda: {}
-        with patch.object(sys, "argv", ["synthase"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with patch.object(sys, "argv", ["synthase"]), patch.object(sys, "stdin") as mock_stdin:
             mock_stdin.isatty.return_value = False
             mock_stdin.read.return_value = "  stdin prompt  \n"
             synth["main"]()
@@ -195,8 +203,7 @@ class TestMain:
 
     def test_no_prompt_exits(self, synth):
         """Should exit 1 when no prompt provided and stdin is a tty."""
-        with patch.object(sys, "argv", ["synthase"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with patch.object(sys, "argv", ["synthase"]), patch.object(sys, "stdin") as mock_stdin:
             mock_stdin.isatty.return_value = True
             with pytest.raises(SystemExit) as exc_info:
                 synth["main"]()
@@ -204,8 +211,7 @@ class TestMain:
 
     def test_empty_prompt_exits(self, synth):
         """Should exit 1 when prompt is empty."""
-        with patch.object(sys, "argv", ["synthase", ""]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with patch.object(sys, "argv", ["synthase", ""]), patch.object(sys, "stdin") as mock_stdin:
             mock_stdin.isatty.return_value = True
             with pytest.raises(SystemExit) as exc_info:
                 synth["main"]()
@@ -215,8 +221,10 @@ class TestMain:
         """Should exit 1 and print error when _backend_channel raises."""
         synth["_backend_channel"] = MagicMock(side_effect=RuntimeError("boom"))
         synth["_load_config"] = lambda: {}
-        with patch.object(sys, "argv", ["synthase", "test"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with (
+            patch.object(sys, "argv", ["synthase", "test"]),
+            patch.object(sys, "stdin") as mock_stdin,
+        ):
             mock_stdin.isatty.return_value = True
             with pytest.raises(SystemExit) as exc_info:
                 synth["main"]()
@@ -228,8 +236,10 @@ class TestMain:
         mock_bc = MagicMock(return_value="ok")
         synth["_backend_channel"] = mock_bc
         synth["_load_config"] = lambda: {}
-        with patch.object(sys, "argv", ["synthase", "--timeout", "120", "test"]), \
-             patch.object(sys, "stdin") as mock_stdin:
+        with (
+            patch.object(sys, "argv", ["synthase", "--timeout", "120", "test"]),
+            patch.object(sys, "stdin") as mock_stdin,
+        ):
             mock_stdin.isatty.return_value = True
             synth["main"]()
         mock_bc.assert_called_once_with("test", "haiku", 120)
@@ -243,7 +253,9 @@ class TestCLISubprocess:
         """Running synthase with no args and tty should exit nonzero."""
         r = subprocess.run(
             [str(SYNTHASE_PATH)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode != 0
 
@@ -251,7 +263,9 @@ class TestCLISubprocess:
         """Running synthase --help should exit 0."""
         r = subprocess.run(
             [str(SYNTHASE_PATH), "--help"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "synthase" in r.stdout.lower() or "llm" in r.stdout.lower()

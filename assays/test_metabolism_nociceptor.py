@@ -1,8 +1,9 @@
 """Tests for metabolon.metabolism.nociceptor — comprehensive coverage."""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +29,7 @@ MOD = "metabolon.metabolism.nociceptor"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _ts(hours_ago: float = 0) -> str:
     """ISO timestamp relative to now in HKT."""
     return (datetime.now(HKT) - timedelta(hours=hours_ago)).isoformat()
@@ -50,46 +52,59 @@ def _patched_logs(tmp_path):
 # classify_error
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyError:
-    @pytest.mark.parametrize("msg", [
-        "timeout after 30s",
-        "Connection timed out",
-        "connection refused by remote",
-        "connection reset by peer",
-        "DNS resolution failed",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "timeout after 30s",
+            "Connection timed out",
+            "connection refused by remote",
+            "connection reset by peer",
+            "DNS resolution failed",
+        ],
+    )
     def test_network_variants(self, msg):
         assert classify_error(msg) == "network"
 
-    @pytest.mark.parametrize("msg", [
-        "HTTP 401 Unauthorized",
-        "Got 403 Forbidden",
-        "unauthorized access",
-        "forbidden: insufficient perms",
-        "auth failure",
-        "token expired at noon",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "HTTP 401 Unauthorized",
+            "Got 403 Forbidden",
+            "unauthorized access",
+            "forbidden: insufficient perms",
+            "auth failure",
+            "token expired at noon",
+        ],
+    )
     def test_auth_variants(self, msg):
         assert classify_error(msg) == "auth"
 
-    @pytest.mark.parametrize("msg", [
-        "429 Too Many Requests",
-        "rate limit exceeded",
-        "quota exceeded for project",
-        "disk full",
-        "No space left on device",
-        "resource exhausted",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "429 Too Many Requests",
+            "rate limit exceeded",
+            "quota exceeded for project",
+            "disk full",
+            "No space left on device",
+            "resource exhausted",
+        ],
+    )
     def test_resource_variants(self, msg):
         assert classify_error(msg) == "resource"
 
-    @pytest.mark.parametrize("msg", [
-        "KeyError: 'foo'",
-        "AttributeError: no 'bar'",
-        "TypeError: wrong type",
-        "ValueError: bad value",
-        "assertion failed: x != y",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "KeyError: 'foo'",
+            "AttributeError: no 'bar'",
+            "TypeError: wrong type",
+            "ValueError: bad value",
+            "assertion failed: x != y",
+        ],
+    )
     def test_logic_variants(self, msg):
         assert classify_error(msg) == "logic"
 
@@ -104,6 +119,7 @@ class TestClassifyError:
 # ---------------------------------------------------------------------------
 # recommended_action
 # ---------------------------------------------------------------------------
+
 
 class TestRecommendedAction:
     def test_network(self):
@@ -137,6 +153,7 @@ class TestRecommendedAction:
 # ---------------------------------------------------------------------------
 # _read_jsonl
 # ---------------------------------------------------------------------------
+
 
 class TestReadJsonl:
     def test_missing_file(self, tmp_path):
@@ -189,6 +206,7 @@ class TestReadJsonl:
 # scan
 # ---------------------------------------------------------------------------
 
+
 class TestScan:
     def test_empty_logs(self, tmp_path):
         pi, ps, ph = _patched_logs(tmp_path)
@@ -196,9 +214,12 @@ class TestScan:
             assert scan(hours=24) == []
 
     def test_infection_entries(self, tmp_path):
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -208,9 +229,12 @@ class TestScan:
         assert events[0].site == "curl"
 
     def test_signal_error_entries(self, tmp_path):
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "error", "error": "403 denied", "tool": "deploy"},
-        ])
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "error", "error": "403 denied", "tool": "deploy"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -219,9 +243,12 @@ class TestScan:
         assert events[0].pain_type == "auth"
 
     def test_signal_correction_entries(self, tmp_path):
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "correction", "message": "fixed", "substrate": "x"},
-        ])
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "correction", "message": "fixed", "substrate": "x"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -229,17 +256,23 @@ class TestScan:
         assert events[0].source == "signal"
 
     def test_signal_non_error_filtered(self, tmp_path):
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "success", "message": "ok"},
-        ])
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "success", "message": "ok"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             assert scan(1) == []
 
     def test_hook_denial_entries(self, tmp_path):
-        _write_jsonl(tmp_path / "hook.jsonl", [
-            {"ts": _ts(0), "rule": "deny-dangerous", "hook": "pre-commit"},
-        ])
+        _write_jsonl(
+            tmp_path / "hook.jsonl",
+            [
+                {"ts": _ts(0), "rule": "deny-dangerous", "hook": "pre-commit"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -249,19 +282,25 @@ class TestScan:
         assert events[0].recommended_action == "review hook rule"
 
     def test_hook_empty_rule_skipped(self, tmp_path):
-        _write_jsonl(tmp_path / "hook.jsonl", [
-            {"ts": _ts(0), "rule": "", "hook": "pre-commit"},
-        ])
+        _write_jsonl(
+            tmp_path / "hook.jsonl",
+            [
+                {"ts": _ts(0), "rule": "", "hook": "pre-commit"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             assert scan(1) == []
 
     def test_chronic_detection(self, tmp_path):
         """Same fingerprint >= CHRONIC_THRESHOLD triggers chronic type."""
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fpX"}
-            for _ in range(CHRONIC_THRESHOLD)
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fpX"}
+                for _ in range(CHRONIC_THRESHOLD)
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -271,18 +310,24 @@ class TestScan:
 
     def test_error_truncated_to_200(self, tmp_path):
         long_err = "x" * 300
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": long_err, "tool": "t", "fingerprint": "fp1"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": long_err, "tool": "t", "fingerprint": "fp1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
         assert len(events[0].error) <= 200
 
     def test_signal_uses_message_fallback(self, tmp_path):
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "error", "message": "quota hit", "substrate": "sub1"},
-        ])
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "error", "message": "quota hit", "substrate": "sub1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -294,6 +339,7 @@ class TestScan:
 # report
 # ---------------------------------------------------------------------------
 
+
 class TestReport:
     def test_no_events(self, tmp_path):
         pi, ps, ph = _patched_logs(tmp_path)
@@ -302,9 +348,12 @@ class TestReport:
         assert "No pain events" in r
 
     def test_with_events(self, tmp_path):
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             r = report(hours=1)
@@ -312,10 +361,13 @@ class TestReport:
         assert "NETWORK" in r
 
     def test_chronic_section(self, tmp_path):
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fpC"}
-            for _ in range(CHRONIC_THRESHOLD)
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fpC"}
+                for _ in range(CHRONIC_THRESHOLD)
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             r = report(hours=1)
@@ -323,10 +375,13 @@ class TestReport:
 
     def test_deduplication_in_report(self, tmp_path):
         """Same site:error pair appears only once per type section."""
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "error", "error": "timeout", "tool": "a"},
-            {"ts": _ts(0), "outcome": "error", "error": "timeout", "tool": "a"},
-        ])
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "error", "error": "timeout", "tool": "a"},
+                {"ts": _ts(0), "outcome": "error", "error": "timeout", "tool": "a"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             r = report(hours=1)
@@ -337,6 +392,7 @@ class TestReport:
 # PainEvent dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestPainEvent:
     def test_defaults(self):
         e = PainEvent(timestamp="t", source="s", site="x", error="e", pain_type="network")
@@ -345,8 +401,13 @@ class TestPainEvent:
 
     def test_custom_fields(self):
         e = PainEvent(
-            timestamp="t", source="s", site="x", error="e",
-            pain_type="chronic", count=5, recommended_action="escalate",
+            timestamp="t",
+            source="s",
+            site="x",
+            error="e",
+            pain_type="chronic",
+            count=5,
+            recommended_action="escalate",
         )
         assert e.count == 5
         assert e.pain_type == "chronic"
@@ -355,6 +416,7 @@ class TestPainEvent:
 # ---------------------------------------------------------------------------
 # Module constants
 # ---------------------------------------------------------------------------
+
 
 class TestConstants:
     def test_chronic_threshold_positive(self):
@@ -372,6 +434,7 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 # Additional edge-case coverage
 # ---------------------------------------------------------------------------
+
 
 class TestClassifyErrorEdgeCases:
     def test_empty_string(self):
@@ -408,8 +471,10 @@ class TestReadJsonlEdgeCases:
     def test_mixed_recent_and_old(self, tmp_path):
         f = tmp_path / "log.jsonl"
         f.write_text(
-            json.dumps({"ts": _ts(100), "id": 1}) + "\n"
-            + json.dumps({"ts": _ts(0), "id": 2}) + "\n"
+            json.dumps({"ts": _ts(100), "id": 1})
+            + "\n"
+            + json.dumps({"ts": _ts(0), "id": 2})
+            + "\n"
         )
         result = _read_jsonl(f, 1)
         assert len(result) == 1
@@ -431,15 +496,24 @@ class TestReadJsonlEdgeCases:
 class TestScanEdgeCases:
     def test_mixed_sources(self, tmp_path):
         """All three log sources produce events simultaneously."""
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "a", "fingerprint": "fp1"},
-        ])
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "error", "error": "403", "tool": "b"},
-        ])
-        _write_jsonl(tmp_path / "hook.jsonl", [
-            {"ts": _ts(0), "rule": "deny-x", "hook": "h1"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "a", "fingerprint": "fp1"},
+            ],
+        )
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "error", "error": "403", "tool": "b"},
+            ],
+        )
+        _write_jsonl(
+            tmp_path / "hook.jsonl",
+            [
+                {"ts": _ts(0), "rule": "deny-x", "hook": "h1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -448,9 +522,12 @@ class TestScanEdgeCases:
         assert sources == {"infection", "signal", "hook"}
 
     def test_infection_missing_tool_defaults_unknown(self, tmp_path):
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "fingerprint": "fp1"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "fingerprint": "fp1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -458,9 +535,12 @@ class TestScanEdgeCases:
 
     def test_infection_missing_fingerprint(self, tmp_path):
         """Missing fingerprint key → empty string used as counter key."""
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "x"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "x"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -468,10 +548,13 @@ class TestScanEdgeCases:
         assert events[0].count == 1
 
     def test_multiple_different_fingerprints(self, tmp_path):
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "a", "fingerprint": "fp1"},
-            {"ts": _ts(0), "error": "401", "tool": "b", "fingerprint": "fp2"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "a", "fingerprint": "fp1"},
+                {"ts": _ts(0), "error": "401", "tool": "b", "fingerprint": "fp2"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -481,10 +564,13 @@ class TestScanEdgeCases:
 
     def test_chronic_escalation_action(self, tmp_path):
         """Chronic events should recommend escalation."""
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "x", "fingerprint": "fpC"}
-            for _ in range(CHRONIC_THRESHOLD)
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "x", "fingerprint": "fpC"}
+                for _ in range(CHRONIC_THRESHOLD)
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             events = scan(1)
@@ -493,9 +579,12 @@ class TestScanEdgeCases:
 
 class TestReportEdgeCases:
     def test_report_shows_event_count(self, tmp_path):
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": "curl", "fingerprint": "fp1"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             r = report(hours=1)
@@ -509,10 +598,13 @@ class TestReportEdgeCases:
 
     def test_report_more_than_5_per_type(self, tmp_path):
         """Report shows at most 5 unique site:error pairs per type."""
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "error", "error": f"timeout {i}", "tool": f"t{i}"}
-            for i in range(8)
-        ])
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "error", "error": f"timeout {i}", "tool": f"t{i}"}
+                for i in range(8)
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             r = report(hours=1)
@@ -522,13 +614,19 @@ class TestReportEdgeCases:
 
     def test_report_sorted_by_count_descending(self, tmp_path):
         """Type with more events appears first."""
-        _write_jsonl(tmp_path / "inf.jsonl", [
-            {"ts": _ts(0), "error": "timeout", "tool": f"a{i}", "fingerprint": f"fp{i}"}
-            for i in range(3)
-        ])
-        _write_jsonl(tmp_path / "sig.jsonl", [
-            {"ts": _ts(0), "outcome": "error", "error": "403", "tool": "b"},
-        ])
+        _write_jsonl(
+            tmp_path / "inf.jsonl",
+            [
+                {"ts": _ts(0), "error": "timeout", "tool": f"a{i}", "fingerprint": f"fp{i}"}
+                for i in range(3)
+            ],
+        )
+        _write_jsonl(
+            tmp_path / "sig.jsonl",
+            [
+                {"ts": _ts(0), "outcome": "error", "error": "403", "tool": "b"},
+            ],
+        )
         pi, ps, ph = _patched_logs(tmp_path)
         with pi, ps, ph:
             r = report(hours=1)

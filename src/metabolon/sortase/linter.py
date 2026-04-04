@@ -1,10 +1,8 @@
-
 """Plan file linter with structured issue reporting.
 
 Checks plan files for common problems: missing sections, forbidden
 paths, placeholder markers, and absent do-NOT instructions.
 """
-
 
 import re
 from dataclasses import dataclass

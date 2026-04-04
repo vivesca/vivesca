@@ -143,7 +143,7 @@ def main():
                 # Stage but skip commit — next call outside debounce will commit all
                 subprocess.run(["git", "-C", repo_root, "add", "-A"], capture_output=True)
                 sys.exit(0)
-    except (ValueError, OSError):
+    except ValueError, OSError:
         pass
 
     should_push = TRACKED_REPOS[repo_root]

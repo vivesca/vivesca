@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from metabolon.gastrulation.check import (
     _check_prompt_file,
     _check_resource_file,
@@ -147,11 +145,11 @@ def weather_get(city: str) -> dict:
 
     def test_missing_return_type(self, tmp_path: Path) -> None:
         """Should detect missing return type annotation."""
-        code = '''
+        code = """
 @tool(description="Get weather", annotations=ToolAnnotations())
 def weather_get(city: str):
     return {}
-'''
+"""
         tool_file = tmp_path / "weather.py"
         tool_file.write_text(code)
 
@@ -160,11 +158,11 @@ def weather_get(city: str):
 
     def test_missing_annotations_kwarg(self, tmp_path: Path) -> None:
         """Should detect missing annotations kwarg."""
-        code = '''
+        code = """
 @tool(description="Get weather")
 def weather_get(city: str) -> dict:
     return {}
-'''
+"""
         tool_file = tmp_path / "weather.py"
         tool_file.write_text(code)
 
@@ -173,11 +171,11 @@ def weather_get(city: str) -> dict:
 
     def test_missing_description_kwarg(self, tmp_path: Path) -> None:
         """Should detect missing description kwarg."""
-        code = '''
+        code = """
 @tool(annotations=ToolAnnotations())
 def weather_get(city: str) -> dict:
     return {}
-'''
+"""
         tool_file = tmp_path / "weather.py"
         tool_file.write_text(code)
 
@@ -195,10 +193,10 @@ def weather_get(city: str) -> dict:
 
     def test_non_tool_function_ignored(self, tmp_path: Path) -> None:
         """Should ignore functions without @tool decorator."""
-        code = '''
+        code = """
 def helper_function(x: int) -> int:
     return x * 2
-'''
+"""
         tool_file = tmp_path / "helpers.py"
         tool_file.write_text(code)
 
@@ -211,11 +209,11 @@ class TestCheckPromptFile:
 
     def test_valid_prompt_no_issues(self, tmp_path: Path) -> None:
         """Should return no issues for valid prompt."""
-        code = '''
+        code = """
 @prompt(description="Review code")
 def code_review(code: str) -> str:
     return f"Reviewing: {code}"
-'''
+"""
         prompt_file = tmp_path / "review.py"
         prompt_file.write_text(code)
 
@@ -224,11 +222,11 @@ def code_review(code: str) -> str:
 
     def test_missing_description(self, tmp_path: Path) -> None:
         """Should detect missing description in @prompt()."""
-        code = '''
+        code = """
 @prompt()
 def code_review(code: str) -> str:
     return f"Reviewing: {code}"
-'''
+"""
         prompt_file = tmp_path / "review.py"
         prompt_file.write_text(code)
 
@@ -246,10 +244,10 @@ def code_review(code: str) -> str:
 
     def test_non_prompt_function_ignored(self, tmp_path: Path) -> None:
         """Should ignore functions without @prompt decorator."""
-        code = '''
+        code = """
 def format_prompt(text: str) -> str:
     return text.strip()
-'''
+"""
         prompt_file = tmp_path / "format.py"
         prompt_file.write_text(code)
 
@@ -262,11 +260,11 @@ class TestCheckResourceFile:
 
     def test_valid_resource_no_issues(self, tmp_path: Path) -> None:
         """Should return no issues for valid resource."""
-        code = '''
+        code = """
 @resource("config://settings.yaml")
 def get_settings() -> str:
     return "settings"
-'''
+"""
         resource_file = tmp_path / "config.py"
         resource_file.write_text(code)
 
@@ -275,11 +273,11 @@ def get_settings() -> str:
 
     def test_missing_uri(self, tmp_path: Path) -> None:
         """Should detect missing URI in @resource()."""
-        code = '''
+        code = """
 @resource()
 def get_settings() -> str:
     return "settings"
-'''
+"""
         resource_file = tmp_path / "config.py"
         resource_file.write_text(code)
 
@@ -297,10 +295,10 @@ def get_settings() -> str:
 
     def test_non_resource_function_ignored(self, tmp_path: Path) -> None:
         """Should ignore functions without @resource decorator."""
-        code = '''
+        code = """
 def load_file(path: str) -> bytes:
     return b"data"
-'''
+"""
         resource_file = tmp_path / "loader.py"
         resource_file.write_text(code)
 
@@ -333,11 +331,11 @@ class TestProbeGastrulation:
 
         # Create a tool with issues
         tool_file = src / "enzymes" / "weather.py"
-        tool_file.write_text('''
+        tool_file.write_text("""
 @tool()
 def weather_get(city: str):
     return {}
-''')
+""")
 
         issues = probe_gastrulation(project)
         assert len(issues) > 0
@@ -348,11 +346,11 @@ def weather_get(city: str):
         src = project / "src" / "test_module"
 
         prompt_file = src / "codons" / "review.py"
-        prompt_file.write_text('''
+        prompt_file.write_text("""
 @prompt()
 def review(code: str) -> str:
     return code
-''')
+""")
 
         issues = probe_gastrulation(project)
         assert len(issues) > 0
@@ -363,11 +361,11 @@ def review(code: str) -> str:
         src = project / "src" / "test_module"
 
         resource_file = src / "resources" / "config.py"
-        resource_file.write_text('''
+        resource_file.write_text("""
 @resource()
 def config() -> str:
     return ""
-''')
+""")
 
         issues = probe_gastrulation(project)
         assert len(issues) > 0

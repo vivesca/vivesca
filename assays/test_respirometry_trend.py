@@ -67,8 +67,8 @@ def test_trend_renders_table(tmp_history, capsys):
     output_lines = captured.out.strip().splitlines()
 
     assert output_lines[0] == "Week      | All Models | Sonnet | Sessions | Goose"
-    assert "Mar 24-30 |       47% |   13% |        9 |    270" == output_lines[2]
-    assert "Mar 17-23 |       62% |   25% |       12 |     45" == output_lines[3]
+    assert output_lines[2] == "Mar 24-30 |       47% |   13% |        9 |    270"
+    assert output_lines[3] == "Mar 17-23 |       62% |   25% |       12 |     45"
 
 
 def test_record_snapshot_creates_history_with_windowed_stats(tmp_history, monkeypatch):

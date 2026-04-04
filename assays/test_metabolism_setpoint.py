@@ -3,14 +3,12 @@ from __future__ import annotations
 """Tests for metabolon.metabolism.setpoint — autonomic thresholds with calibration."""
 
 import json
-from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from metabolon.metabolism.setpoint import SETPOINTS_DIR, SetpointStatus, Threshold
-
+from metabolon.metabolism.setpoint import SetpointStatus, Threshold
 
 # ── helpers ──────────────────────────────────────────────────────────
 
@@ -260,17 +258,13 @@ class TestAcclimatise:
         assert t.read() == 15.0
 
     def test_clamps_lower(self, tmp_dir: Path):
-        t = _make_threshold(
-            tmp_dir, name="x", default=10.0, clamp=(5.0, 100.0), min_samples=1
-        )
+        t = _make_threshold(tmp_dir, name="x", default=10.0, clamp=(5.0, 100.0), min_samples=1)
         _write_events(t._events, [{"before": 1.0}])
         t._acclimatise()
         assert t.read() == 5.0
 
     def test_clamps_upper(self, tmp_dir: Path):
-        t = _make_threshold(
-            tmp_dir, name="x", default=10.0, clamp=(0.0, 50.0), min_samples=1
-        )
+        t = _make_threshold(tmp_dir, name="x", default=10.0, clamp=(0.0, 50.0), min_samples=1)
         _write_events(t._events, [{"before": 200.0}])
         t._acclimatise()
         assert t.read() == 50.0
@@ -367,9 +361,7 @@ class TestStatus:
 
 class TestSetpointStatusModel:
     def test_defaults(self):
-        s = SetpointStatus(
-            name="x", value=10.0, default=10.0, observations=0, acclimatised=False
-        )
+        s = SetpointStatus(name="x", value=10.0, default=10.0, observations=0, acclimatised=False)
         assert s.hysteresis == 0.0
         assert s.activation_threshold is None
         assert s.deactivation_threshold is None

@@ -6,16 +6,17 @@ import tempfile
 from pathlib import Path
 
 from metabolon.sortase.coaching import (
-    load_coaching_notes,
-    list_categories,
     add_coaching_note,
+    list_categories,
+    load_coaching_notes,
     search_coaching,
 )
 
 
 def test_load_coaching_notes_parses():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write("""
+        f.write(
+            """
 ### Testing
 - Write more unit tests
 - Run tests before committing
@@ -23,7 +24,8 @@ def test_load_coaching_notes_parses():
 ### Refactoring
 - Keep functions small
 - Respect single responsibility principle
-""".lstrip())
+""".lstrip()
+        )
     path = Path(f.name)
     try:
         entries = load_coaching_notes(path)

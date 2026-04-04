@@ -1,6 +1,4 @@
-
 """ingestion — meal planning. Actions: read_plan|log_meal"""
-
 
 import re
 from datetime import date

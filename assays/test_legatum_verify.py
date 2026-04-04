@@ -1,7 +1,7 @@
 """Tests for legatum-verify effector script."""
-import subprocess
+
 import json
-import pytest
+import subprocess
 from pathlib import Path
 
 # Path to the effector
@@ -30,9 +30,7 @@ def test_legatum_verify_help_flag():
 def test_missing_session_exits_with_error():
     """Test that non-existent session exits with code 1."""
     result = subprocess.run(
-        [str(LEGATUM_VERIFY), "nonexistent-session-id"],
-        capture_output=True,
-        text=True
+        [str(LEGATUM_VERIFY), "nonexistent-session-id"], capture_output=True, text=True
     )
     assert result.returncode == 1
     assert "No session found" in result.stderr
@@ -41,9 +39,7 @@ def test_missing_session_exits_with_error():
 def test_legatum_verify_json_flag_accepted():
     """Test that --json flag is accepted even without valid session."""
     result = subprocess.run(
-        [str(LEGATUM_VERIFY), "--json", "nonexistent-session-id"],
-        capture_output=True,
-        text=True
+        [str(LEGATUM_VERIFY), "--json", "nonexistent-session-id"], capture_output=True, text=True
     )
     assert result.returncode == 1
     # Still error, but flag is recognized
@@ -98,8 +94,9 @@ class TestScriptParsability:
         # Patch the _EFFERENS_DIR constant
         lines = code.splitlines()
         lines = [
-            line if not line.startswith("_EFFERENS_DIR = ") else
-            f"_EFFERENS_DIR = Path(r'{tmp_path}')"
+            line
+            if not line.startswith("_EFFERENS_DIR = ")
+            else f"_EFFERENS_DIR = Path(r'{tmp_path}')"
             for line in lines
         ]
         modified_code = "\n".join(lines)
@@ -116,8 +113,9 @@ class TestScriptParsability:
         code = LEGATUM_VERIFY.read_text()
         lines = code.splitlines()
         lines = [
-            line if not line.startswith("_EFFERENS_DIR = ") else
-            f"_EFFERENS_DIR = Path(r'{tmp_path}')"
+            line
+            if not line.startswith("_EFFERENS_DIR = ")
+            else f"_EFFERENS_DIR = Path(r'{tmp_path}')"
             for line in lines
         ]
         modified_code = "\n".join(lines)
@@ -138,6 +136,7 @@ class TestScriptParsability:
 def test_python_syntax_valid():
     """Test that the entire script has valid Python syntax."""
     import ast
+
     code = LEGATUM_VERIFY.read_text()
     # Should not raise
     ast.parse(code)

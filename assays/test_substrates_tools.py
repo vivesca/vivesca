@@ -6,15 +6,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.metabolism.fitness import Emotion
 from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _emotion(
     tool: str = "t1",
@@ -54,6 +52,7 @@ def _make_substrate(
 # ===========================================================================
 # sense
 # ===========================================================================
+
 
 class TestSense:
     """Tests for PhenotypeSubstrate.sense()."""
@@ -150,6 +149,7 @@ class TestSense:
 # candidates
 # ===========================================================================
 
+
 class TestCandidates:
     """Tests for PhenotypeSubstrate.candidates()."""
 
@@ -191,6 +191,7 @@ class TestCandidates:
 # act
 # ===========================================================================
 
+
 class TestAct:
     """Tests for PhenotypeSubstrate.act()."""
 
@@ -229,6 +230,7 @@ class TestAct:
 # ===========================================================================
 # report
 # ===========================================================================
+
 
 class TestReport:
     """Tests for PhenotypeSubstrate.report()."""

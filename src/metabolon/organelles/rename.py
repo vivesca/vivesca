@@ -1,4 +1,3 @@
-
 """rename — deterministic rename across the organism.
 
 Scans and renames a concept (name, directory, file, reference) across the
@@ -14,7 +13,6 @@ Steps (in order):
     7. verify     — report summary of changes
     8. commit     — git add + commit in each affected repo (unless --dry-run)
 """
-
 
 import subprocess
 from pathlib import Path
@@ -71,7 +69,7 @@ def scan(old_name: str, scope: list[Path]) -> ScanResult:
                 continue
             try:
                 text = path.read_text(errors="replace")
-            except (OSError, PermissionError):
+            except OSError, PermissionError:
                 continue
             count = text.count(old_name)
             if count:
@@ -166,7 +164,7 @@ def update_contents(
             continue
         try:
             original = path.read_text(errors="replace")
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             continue
         if old_name not in original:
             continue
@@ -187,7 +185,7 @@ def update_locus(old_name: str, new_name: str, *, dry_run: bool) -> bool:
         return False
     try:
         original = _LOCUS_PATH.read_text()
-    except (OSError, PermissionError):
+    except OSError, PermissionError:
         return False
     if old_name not in original:
         return False
@@ -217,7 +215,7 @@ def fix_symlinks(
                 continue
             try:
                 target = str(path.readlink())
-            except (OSError, AttributeError):
+            except OSError, AttributeError:
                 # Fallback for Python < 3.9
                 import os
 
@@ -368,7 +366,7 @@ def _remap_paths(
     that was itself renamed needs its full path updated.
     """
     # Build a lookup for directly renamed files: old -> new
-    file_map = {old: new for old, new in renamed_files}
+    file_map = dict(renamed_files)
 
     remapped: list[Path] = []
     for p in paths:
@@ -424,7 +422,7 @@ def run_rename(
         try:
             if old_name in _LOCUS_PATH.read_text(errors="replace"):
                 content_files.append(_LOCUS_PATH)
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             pass
 
     updated_contents = update_contents(old_name, new_name, content_files, dry_run=dry_run)
@@ -474,9 +472,9 @@ def _cli(old_name: str, new_name: str, scope: list[str], dry_run: bool) -> None:
     if not dry_run:
         # Collect all changed paths for git
         changed: list[Path] = []
-        for old, new in report.renamed_dirs:
+        for _old, new in report.renamed_dirs:
             changed.append(new)
-        for old, new in report.renamed_files:
+        for _old, new in report.renamed_files:
             changed.append(new)
         changed.extend(report.updated_contents)
         if report.updated_locus:

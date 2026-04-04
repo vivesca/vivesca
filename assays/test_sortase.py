@@ -4,11 +4,7 @@ from __future__ import annotations
 
 
 from dataclasses import dataclass
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -96,11 +92,11 @@ class TestDispatchSuccess:
     def test_dispatch_returns_sortase_result(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.decompose.TaskSpec"),
             patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
             patch("metabolon.sortase.router.route_description") as mock_route,
             patch("metabolon.sortase.validator.validate_execution") as mock_validate,
-            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("metabolon.sortase.logger.append_log"),
             patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision(tool="goose")
@@ -122,11 +118,11 @@ class TestDispatchSuccess:
     def test_dispatch_with_backend_override(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.decompose.TaskSpec"),
             patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
             patch("metabolon.sortase.router.route_description") as mock_route,
             patch("metabolon.sortase.validator.validate_execution") as mock_validate,
-            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("metabolon.sortase.logger.append_log"),
             patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision(tool="codex", reason="Forced")
@@ -150,11 +146,11 @@ class TestDispatchSuccess:
     def test_dispatch_captures_files_changed(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.decompose.TaskSpec"),
             patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
             patch("metabolon.sortase.router.route_description") as mock_route,
             patch("metabolon.sortase.validator.validate_execution") as mock_validate,
-            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("metabolon.sortase.logger.append_log"),
             patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision()
@@ -173,11 +169,11 @@ class TestDispatchSuccess:
     def test_dispatch_captures_validation_issues(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.decompose.TaskSpec"),
             patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
             patch("metabolon.sortase.router.route_description") as mock_route,
             patch("metabolon.sortase.validator.validate_execution") as mock_validate,
-            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("metabolon.sortase.logger.append_log"),
             patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision()
@@ -199,7 +195,7 @@ class TestDispatchSuccess:
     def test_dispatch_logs_execution(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.decompose.TaskSpec"),
             patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
             patch("metabolon.sortase.router.route_description") as mock_route,
             patch("metabolon.sortase.validator.validate_execution") as mock_validate,
@@ -309,8 +305,18 @@ class TestStatsAction:
             patch("metabolon.sortase.logger.aggregate_stats") as mock_agg,
         ):
             mock_read.return_value = [
-                {"timestamp": "2025-01-01T12:00:00", "plan": "p1", "tool": "goose", "success": True},
-                {"timestamp": "2025-01-01T13:00:00", "plan": "p2", "tool": "codex", "success": False},
+                {
+                    "timestamp": "2025-01-01T12:00:00",
+                    "plan": "p1",
+                    "tool": "goose",
+                    "success": True,
+                },
+                {
+                    "timestamp": "2025-01-01T13:00:00",
+                    "plan": "p2",
+                    "tool": "codex",
+                    "success": False,
+                },
             ]
             mock_agg.return_value = {"per_tool": {"goose": 1, "codex": 1}}
 
@@ -327,7 +333,12 @@ class TestStatsAction:
             patch("metabolon.sortase.logger.aggregate_stats") as mock_agg,
         ):
             mock_read.return_value = [
-                {"timestamp": f"2025-01-0{i}T12:00:00", "plan": f"p{i}", "tool": "goose", "success": True}
+                {
+                    "timestamp": f"2025-01-0{i}T12:00:00",
+                    "plan": f"p{i}",
+                    "tool": "goose",
+                    "success": True,
+                }
                 for i in range(1, 11)  # 10 entries
             ]
             mock_agg.return_value = {"per_tool": {"goose": 10}}
@@ -341,7 +352,7 @@ class TestStatsAction:
         fn = _fn()
         with (
             patch("metabolon.sortase.logger.read_logs") as mock_read,
-            patch("metabolon.sortase.logger.aggregate_stats") as mock_agg,
+            patch("metabolon.sortase.logger.aggregate_stats"),
         ):
             mock_read.return_value = []
 

@@ -30,7 +30,7 @@ def test_ergometer_trend_improving(mock_success_trend):
         "historical_rate": 0.8,
         "historical_count": 100,
         "delta": 0.1,
-        "direction": "improving"
+        "direction": "improving",
     }
     result = ergometer("trend")
     assert "Recent (10): 90.0%" in result
@@ -48,7 +48,7 @@ def test_ergometer_trend_declining(mock_success_trend):
         "historical_rate": 0.85,
         "historical_count": 100,
         "delta": -0.15,
-        "direction": "declining"
+        "direction": "declining",
     }
     result = ergometer("trend")
     assert "Recent (10): 70.0%" in result
@@ -65,7 +65,7 @@ def test_ergometer_trend_stable(mock_success_trend):
         "historical_rate": 0.85,
         "historical_count": 100,
         "delta": 0.0,
-        "direction": "stable"
+        "direction": "stable",
     }
     result = ergometer("trend")
     assert "Delta: +0.000 — stable" in result
@@ -79,7 +79,7 @@ def test_ergometer_slowest_found(mock_slowest_recent):
         "duration_s": 123.4,
         "tool": "test-tool",
         "timestamp": "2026-04-01T10:00:00",
-        "success": True
+        "success": True,
     }
     result = ergometer("slowest", hours=24)
     assert "Plan: test-plan" in result
@@ -106,7 +106,7 @@ def test_ergometer_coaching(mock_coaching_effectiveness):
         "after_failure_rate": 0.10,
         "improvement_pct": 15.0,
         "notes_analyzed": 5,
-        "total_entries": 200
+        "total_entries": 200,
     }
     result = ergometer("coaching")
     assert "Before coaching failure rate: 25.0%" in result

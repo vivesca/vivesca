@@ -9,19 +9,17 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import metabolon.organelles.inflammasome as mod
-
 
 # ---------------------------------------------------------------------------
 # probe_chromatin
 # ---------------------------------------------------------------------------
 
+
 class TestProbeChromatin:
     @patch.dict("sys.modules", {})
     def test_storage_none_returns_false(self):
-        with patch("metabolon.organelles.inflammasome.chromatin", create=True) as m_chrom:
+        with patch("metabolon.organelles.inflammasome.chromatin", create=True):
             # Simulate: from ...chromatin import _get_storage, recall
             # We patch the import inside the function
             pass
@@ -71,6 +69,7 @@ class TestProbeChromatin:
 # probe_endocytosis
 # ---------------------------------------------------------------------------
 
+
 class TestProbeEndocytosis:
     @patch("metabolon.organelles.inflammasome.Path")
     def test_sources_not_found(self, mock_path_cls):
@@ -109,6 +108,7 @@ class TestProbeEndocytosis:
             assert "0 sources" in msg
         finally:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
 
     @patch("yaml.safe_load")
@@ -125,6 +125,7 @@ class TestProbeEndocytosis:
             assert "1 source" in msg
         finally:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_dangling_symlink(self):
@@ -140,12 +141,14 @@ class TestProbeEndocytosis:
             assert "dangling" in msg.lower() or "not found" in msg.lower()
         finally:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
 # probe_rheotaxis
 # ---------------------------------------------------------------------------
+
 
 class TestProbeRheotaxis:
     @patch.dict(os.environ, {"PERPLEXITY_API_KEY": "test-key-12345"})
@@ -172,6 +175,7 @@ class TestProbeRheotaxis:
 # ---------------------------------------------------------------------------
 # probe_rheotaxis_self_test
 # ---------------------------------------------------------------------------
+
 
 class TestProbeRheotaxisSelfTest:
     @patch("shutil.which", return_value=None)
@@ -232,6 +236,7 @@ class TestProbeRheotaxisSelfTest:
 # probe_vasomotor_conf
 # ---------------------------------------------------------------------------
 
+
 class TestProbeVasomotorConf:
     def test_conf_file_not_found(self):
         fake_vasomotor = MagicMock()
@@ -276,6 +281,7 @@ class TestProbeVasomotorConf:
 # ---------------------------------------------------------------------------
 # probe_respirometry
 # ---------------------------------------------------------------------------
+
 
 class TestProbeRespirometry:
     @patch("shutil.which", return_value=None)
@@ -327,9 +333,7 @@ class TestProbeRespirometry:
     def test_success_with_stale_warning(self, mock_which, mock_subprocess):
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = json.dumps(
-            {"seven_day": {"utilization": 0.5}, "stale": True}
-        )
+        mock_result.stdout = json.dumps({"seven_day": {"utilization": 0.5}, "stale": True})
         mock_result.stderr = ""
         mock_subprocess.run.return_value = mock_result
         mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
@@ -343,9 +347,7 @@ class TestProbeRespirometry:
     def test_success_fresh(self, mock_which, mock_subprocess):
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = json.dumps(
-            {"seven_day": {"utilization": 0.75}, "stale": False}
-        )
+        mock_result.stdout = json.dumps({"seven_day": {"utilization": 0.75}, "stale": False})
         mock_result.stderr = ""
         mock_subprocess.run.return_value = mock_result
         mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
@@ -367,6 +369,7 @@ class TestProbeRespirometry:
 # ---------------------------------------------------------------------------
 # probe_perfusion
 # ---------------------------------------------------------------------------
+
 
 class TestProbePerfusion:
     def test_empty_routable_stars(self):
@@ -395,6 +398,7 @@ class TestProbePerfusion:
 # ---------------------------------------------------------------------------
 # probe_infection
 # ---------------------------------------------------------------------------
+
 
 class TestProbeInfection:
     def test_success_no_chronics(self):
@@ -443,6 +447,7 @@ class TestProbeInfection:
 # probe_rss_state
 # ---------------------------------------------------------------------------
 
+
 class TestProbeRssState:
     def test_state_not_found(self):
         with patch.object(mod.Path, "home", return_value=Path("/nonexistent_rss_12345")):
@@ -475,6 +480,7 @@ class TestProbeRssState:
 # ---------------------------------------------------------------------------
 # probe_importin
 # ---------------------------------------------------------------------------
+
 
 class TestProbeImportin:
     def test_importin_not_found(self):
@@ -513,6 +519,7 @@ class TestProbeImportin:
 # probe_mcp_server
 # ---------------------------------------------------------------------------
 
+
 class TestProbeMcpServer:
     @patch("metabolon.organelles.inflammasome.subprocess")
     def test_not_loaded(self, mock_subprocess):
@@ -549,10 +556,12 @@ class TestProbeMcpServer:
 # _run_probe_with_timeout
 # ---------------------------------------------------------------------------
 
+
 class TestRunProbeWithTimeout:
     def test_fast_probe_returns_result(self):
         def good_probe():
             return True, "all good"
+
         passed, msg = mod._run_probe_with_timeout(good_probe)
         assert passed is True
         assert "all good" in msg
@@ -560,6 +569,7 @@ class TestRunProbeWithTimeout:
     def test_probe_that_raises(self):
         def bad_probe():
             raise RuntimeError("boom")
+
         passed, msg = mod._run_probe_with_timeout(bad_probe)
         assert passed is False
         assert "boom" in msg
@@ -568,8 +578,10 @@ class TestRunProbeWithTimeout:
         """When a probe returns None (no return statement), _run_probe_with_timeout
         stores None in result_holder and returns it — callers get None, not a tuple.
         This is a known edge case; probes are contractually required to return tuples."""
+
         def empty_probe():
             pass
+
         result = mod._run_probe_with_timeout(empty_probe)
         assert result is None  # probe returned None, not a (bool, str) tuple
 
@@ -577,6 +589,7 @@ class TestRunProbeWithTimeout:
 # ---------------------------------------------------------------------------
 # run_all_probes
 # ---------------------------------------------------------------------------
+
 
 class TestRunAllProbes:
     @patch.object(mod, "_PROBES", [("test_probe", lambda: (True, "ok"))])
@@ -589,10 +602,14 @@ class TestRunAllProbes:
         assert r["message"] == "ok"
         assert "duration_ms" in r
 
-    @patch.object(mod, "_PROBES", [
-        ("p1", lambda: (True, "ok")),
-        ("p2", lambda: (False, "bad")),
-    ])
+    @patch.object(
+        mod,
+        "_PROBES",
+        [
+            ("p1", lambda: (True, "ok")),
+            ("p2", lambda: (False, "bad")),
+        ],
+    )
     def test_mixed_results(self):
         results = mod.run_all_probes()
         assert len(results) == 2
@@ -604,6 +621,7 @@ class TestRunAllProbes:
         # The probe raises; _run_probe_with_timeout catches it
         def crash_probe():
             raise ValueError("ouch")
+
         with patch.object(mod, "_PROBES", [("crash", crash_probe)]):
             results = mod.run_all_probes()
         assert len(results) == 1
@@ -613,6 +631,7 @@ class TestRunAllProbes:
 # ---------------------------------------------------------------------------
 # probe_report
 # ---------------------------------------------------------------------------
+
 
 class TestProbeReport:
     @patch.object(mod, "run_all_probes")
@@ -648,6 +667,7 @@ class TestProbeReport:
 # is_primed
 # ---------------------------------------------------------------------------
 
+
 class TestIsPrimed:
     def test_first_failure_primes(self):
         priming = {}
@@ -678,6 +698,7 @@ class TestIsPrimed:
 # check_pyroptosis
 # ---------------------------------------------------------------------------
 
+
 class TestCheckPyroptosis:
     def test_below_threshold(self):
         assert mod.check_pyroptosis("test", {"test": 2}) is False
@@ -695,6 +716,7 @@ class TestCheckPyroptosis:
 # ---------------------------------------------------------------------------
 # _load_priming / _save_priming
 # ---------------------------------------------------------------------------
+
 
 class TestPrimingIO:
     def test_load_nonexistent(self, tmp_path):
@@ -733,6 +755,7 @@ class TestPrimingIO:
 # _repair_rss_stale
 # ---------------------------------------------------------------------------
 
+
 class TestRepairRssStale:
     @patch("shutil.which", return_value=None)
     def test_vivesca_not_found(self, mock_which):
@@ -758,6 +781,7 @@ class TestRepairRssStale:
 # ---------------------------------------------------------------------------
 # _repair_mcp_not_loaded
 # ---------------------------------------------------------------------------
+
 
 class TestRepairMcpNotLoaded:
     @patch("metabolon.organelles.inflammasome.subprocess")
@@ -794,6 +818,7 @@ class TestRepairMcpNotLoaded:
 # ---------------------------------------------------------------------------
 # _repair_chemotaxis_key
 # ---------------------------------------------------------------------------
+
 
 class TestRepairChemotaxisKey:
     def test_importin_not_found(self):
@@ -839,6 +864,7 @@ class TestRepairChemotaxisKey:
 # adaptive_response
 # ---------------------------------------------------------------------------
 
+
 class TestAdaptiveResponse:
     @patch.object(mod, "_save_priming")
     @patch.object(mod, "_load_priming", return_value={})
@@ -861,7 +887,8 @@ class TestAdaptiveResponse:
         mock_repair = MagicMock(return_value=(True, "dispatched"))
         patched_patterns = [
             ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch_background"),
-        ] + mod._REPAIR_PATTERNS[1:]
+            *mod._REPAIR_PATTERNS[1:],
+        ]
         with patch.object(mod, "_REPAIR_PATTERNS", patched_patterns):
             out = mod.adaptive_response(results)
         assert out[0]["repair_attempted"] == "rss_fetch_background:ok"
@@ -873,7 +900,8 @@ class TestAdaptiveResponse:
         mock_repair = MagicMock(return_value=(False, "vivesca not found"))
         patched_patterns = [
             ("rss_state", lambda msg: "stale" in msg, mock_repair, "rss_fetch_background"),
-        ] + mod._REPAIR_PATTERNS[1:]
+            *mod._REPAIR_PATTERNS[1:],
+        ]
         with patch.object(mod, "_REPAIR_PATTERNS", patched_patterns):
             out = mod.adaptive_response(results)
         assert "rss_fetch_background:fail" in out[0]["repair_attempted"]

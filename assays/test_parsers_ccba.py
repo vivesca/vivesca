@@ -14,7 +14,6 @@ from metabolon.respirometry.parsers.ccba import (
     _parse_transactions,
     extract_ccba,
 )
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 class TestCleanMerchantEdgeCases:
@@ -27,7 +26,7 @@ class TestCleanMerchantEdgeCases:
         assert _clean_merchant("7-ELEVEN #123") == "7-ELEVEN #123"
 
     def test_name_with_hyphen(self):
-        assert _clean_merchant("STARBUCKS-COFEE") == "STARBUCKS-COFEE"
+        assert _clean_merchant("STARBUCKS-COFFEE") == "STARBUCKS-COFFEE"
 
     def test_only_country_code_and_spaces(self):
         assert _clean_merchant("   US   ") == "US"

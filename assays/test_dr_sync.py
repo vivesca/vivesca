@@ -7,14 +7,16 @@ All filesystem and subprocess calls are mocked.
 """
 
 
-import pytest
-from unittest.mock import patch, MagicMock, call
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 DR_SYNC_PATH = Path(__file__).resolve().parents[1] / "effectors" / "dr-sync"
 
 
 # ── Load module via exec ────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def dr():
@@ -35,11 +37,11 @@ def dr():
 class TestDRConstants:
     def test_dest_path(self, dr):
         expected = Path.home() / "officina" / "claude-backup"
-        assert dr.DEST == expected
+        assert expected == dr.DEST
 
     def test_home_is_path(self, dr):
         assert isinstance(dr.HOME, Path)
-        assert dr.HOME == Path.home()
+        assert Path.home() == dr.HOME
 
 
 # ── Claude settings sync ───────────────────────────────────────────────────
@@ -67,7 +69,9 @@ class TestDRSettingsSync:
 
         def mock_exists(self_path):
             s = str(self_path)
-            return s.endswith("settings.json") is False and s.endswith("settings.local.json") is False
+            return (
+                s.endswith("settings.json") is False and s.endswith("settings.local.json") is False
+            )
 
         with patch("shutil.copy2", side_effect=lambda s, d: copy_calls.append((s, d))):
             with patch("shutil.copytree"):
@@ -92,7 +96,9 @@ class TestDRMemorySync:
         # Mock iterdir to return a single project with memory
         mock_project = MagicMock()
         mock_project.name = "test-project"
-        mock_project.__truediv__ = lambda self, key: Path(f"/home/user/.claude/projects/test-project/{key}")
+        mock_project.__truediv__ = lambda self, key: Path(
+            f"/home/user/.claude/projects/test-project/{key}"
+        )
 
         def mock_is_dir(self):
             return "memory" in str(self)
@@ -113,7 +119,11 @@ class TestDRMemorySync:
         copytree_calls = []
 
         def mock_exists(self_path):
-            return "memory" in str(self_path) or "officina" in str(self_path) or "projects" in str(self_path)
+            return (
+                "memory" in str(self_path)
+                or "officina" in str(self_path)
+                or "projects" in str(self_path)
+            )
 
         with patch("shutil.copy2"):
             with patch("shutil.copytree", side_effect=lambda s, d: copytree_calls.append((s, d))):
@@ -183,7 +193,9 @@ class TestDRSynaxisConfig:
         with patch("shutil.copy2"):
             with patch("shutil.copytree"):
                 with patch("pathlib.Path.exists", mock_exists):
-                    with patch("pathlib.Path.mkdir", side_effect=lambda **kw: mkdir_calls.append(kw)):
+                    with patch(
+                        "pathlib.Path.mkdir", side_effect=lambda **kw: mkdir_calls.append(kw)
+                    ):
                         with patch("subprocess.run"):
                             dr.sync()
         # mkdir should have parents=True
@@ -198,8 +210,10 @@ class TestDRBrewfile:
         with patch("platform.system", return_value="Darwin"):
             with patch("shutil.copy2"):
                 with patch("shutil.copytree"):
+
                     def mock_exists(self_path):
                         return "officina" in str(self_path)
+
                     with patch("pathlib.Path.exists", mock_exists):
                         with patch("subprocess.run") as mock_run:
                             dr.sync()
@@ -219,8 +233,10 @@ class TestDRGitLogic:
     def test_no_changes_no_commit(self, dr, capsys):
         with patch("shutil.copy2"):
             with patch("shutil.copytree"):
+
                 def mock_exists(self_path):
                     return "officina" in str(self_path)
+
                 with patch("pathlib.Path.exists", mock_exists):
                     mock_result = MagicMock(stdout="")
                     with patch("subprocess.run", return_value=mock_result):
@@ -230,8 +246,10 @@ class TestDRGitLogic:
     def test_changes_committed_and_pushed(self, dr, capsys):
         with patch("shutil.copy2"):
             with patch("shutil.copytree"):
+
                 def mock_exists(self_path):
                     return "officina" in str(self_path)
+
                 with patch("pathlib.Path.exists", mock_exists):
                     mock_status = MagicMock(stdout=" M claude-backup/settings.json\n")
 
@@ -254,8 +272,10 @@ class TestDRNoSources:
         with patch("platform.system", return_value="Darwin"):
             with patch("shutil.copy2"):
                 with patch("shutil.copytree"):
+
                     def mock_exists(self_path):
                         return "officina" in str(self_path)
+
                     with patch("pathlib.Path.exists", mock_exists):
                         with patch("subprocess.run") as mock_run:
                             dr.sync()

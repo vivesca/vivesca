@@ -7,8 +7,6 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "compound-engineering-status"
 
 
@@ -32,7 +30,11 @@ def _run_script(
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
     return subprocess.run(
-        cmd, capture_output=True, text=True, env=env, timeout=10,
+        cmd,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
     )
 
 
@@ -51,11 +53,7 @@ def _make_recording_bin(tmp_path: Path, name: str, record_file: Path, exit_code:
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     script = bindir / name
-    script.write_text(
-        "#!/bin/bash\n"
-        f'echo "$@" >> {record_file}\n'
-        f"exit {exit_code}\n"
-    )
+    script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nexit {exit_code}\n')
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
 
@@ -127,12 +125,12 @@ class TestSchedulerDetectionLinux:
         mock_crontab.mkdir(exist_ok=True)
         crontab_script = mock_crontab / "crontab"
         crontab_script.write_text(
-            '#!/bin/bash\n'
+            "#!/bin/bash\n"
             'if [ "$1" = "-l" ]; then\n'
             '  echo "0 2 * * 0 /usr/local/bin/update-compound-engineering"\n'
-            '  exit 0\n'
-            'fi\n'
-            'exit 1\n'
+            "  exit 0\n"
+            "fi\n"
+            "exit 1\n"
         )
         crontab_script.chmod(crontab_script.stat().st_mode | stat.S_IEXEC)
         r = _run_script(path_dirs=[mock_crontab], tmp_path=tmp_path)
@@ -140,12 +138,12 @@ class TestSchedulerDetectionLinux:
         # The mock output doesn't contain "compound-engineering" so it won't match
         # Let's fix the mock to include the keyword
         crontab_script.write_text(
-            '#!/bin/bash\n'
+            "#!/bin/bash\n"
             'if [ "$1" = "-l" ]; then\n'
             '  echo "0 2 * * 0 compound-engineering"\n'
-            '  exit 0\n'
-            'fi\n'
-            'exit 1\n'
+            "  exit 0\n"
+            "fi\n"
+            "exit 1\n"
         )
         crontab_script.chmod(crontab_script.stat().st_mode | stat.S_IEXEC)
         r = _run_script(path_dirs=[mock_crontab], tmp_path=tmp_path)

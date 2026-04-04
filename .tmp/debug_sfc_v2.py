@@ -1,5 +1,7 @@
-from playwright.sync_api import sync_playwright
 import time
+
+from playwright.sync_api import sync_playwright
+
 
 def run():
     with sync_playwright() as p:
@@ -11,6 +13,7 @@ def run():
         with open("/home/terry/germline/.tmp/sfc_body.html", "w") as f:
             f.write(content)
         browser.close()
+
 
 if __name__ == "__main__":
     run()

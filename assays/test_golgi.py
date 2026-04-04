@@ -9,7 +9,6 @@ import pytest
 
 import metabolon.organelles.golgi as golgi
 
-
 # -- TestToSlug ----------------------------------------------------------------
 
 
@@ -171,20 +170,20 @@ class TestNewPost:
 
     def test_new_includes_title_in_frontmatter(self, tmp_path):
         with patch.object(golgi, "GARDEN_DIR", tmp_path):
-            slug, path = golgi.new("Test Title Here")
+            _slug, path = golgi.new("Test Title Here")
         content = path.read_text()
         assert "title: Test Title Here" in content
 
     def test_new_includes_tags_field(self, tmp_path):
         with patch.object(golgi, "GARDEN_DIR", tmp_path):
-            slug, path = golgi.new("Tagged Post")
+            _slug, path = golgi.new("Tagged Post")
         content = path.read_text()
         assert "tags:" in content
 
     def test_new_creates_directory(self, tmp_path):
         subdir = tmp_path / "nested"
         with patch.object(golgi, "GARDEN_DIR", subdir):
-            slug, path = golgi.new("Nested Post")
+            _slug, path = golgi.new("Nested Post")
         assert subdir.exists()
         assert path.exists()
 
@@ -210,7 +209,7 @@ class TestPublish:
 
     def test_publish_already_published(self, tmp_path):
         with patch.object(golgi, "GARDEN_DIR", tmp_path):
-            slug, path = golgi.new("Already Done")
+            slug, _path = golgi.new("Already Done")
             golgi.publish(slug, force=True)
             # Publishing again should succeed without error
             result = golgi.publish(slug, force=False)
@@ -293,7 +292,11 @@ class TestPush:
     def test_push_missing_script_raises(self):
         with patch.object(golgi, "SYNC_SCRIPT", golgi.SYNC_SCRIPT):
             # Point to a nonexistent path
-            with patch.object(golgi, "SYNC_SCRIPT", type("", (), {"exists": lambda s: False, "__fspath__": lambda s: "/nope"})()):
+            with patch.object(
+                golgi,
+                "SYNC_SCRIPT",
+                type("", (), {"exists": lambda s: False, "__fspath__": lambda s: "/nope"})(),
+            ):
                 pass  # just verify the guard exists; real push tests need the script
 
 
@@ -305,9 +308,11 @@ class TestIndex:
         assert count == 0
 
     def test_index_includes_published(self, tmp_path):
-        with patch.object(golgi, "GARDEN_DIR", tmp_path), \
-             patch.object(golgi, "INDEX_PATH", tmp_path / "index.md"):
-            slug, path = golgi.new("Published Post")
+        with (
+            patch.object(golgi, "GARDEN_DIR", tmp_path),
+            patch.object(golgi, "INDEX_PATH", tmp_path / "index.md"),
+        ):
+            slug, _path = golgi.new("Published Post")
             golgi.publish(slug, force=True)
             count = golgi.index()
         assert count == 1

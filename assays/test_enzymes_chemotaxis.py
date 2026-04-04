@@ -48,9 +48,9 @@ class TestExtract:
     @patch("metabolon.enzymes.chemotaxis._run_ab")
     def test_extract_success(self, mock_run, mock_sleep):
         mock_run.side_effect = [
-            (True, "ok"),          # open
-            (True, "My Page"),     # get title
-            (True, "page text"),   # get text
+            (True, "ok"),  # open
+            (True, "My Page"),  # get title
+            (True, "page text"),  # get text
             (True, "https://x.co"),  # get url
         ]
         res = chemotaxis(action="extract", url="https://example.com", wait_ms=100)
@@ -81,10 +81,10 @@ class TestExtract:
     def test_extract_partial_get_failure(self, mock_run, mock_sleep):
         """If some `get` calls fail, graceful degradation with defaults."""
         mock_run.side_effect = [
-            (True, "ok"),        # open
-            (False, "err"),      # get title
-            (False, "err"),      # get text
-            (False, "err"),      # get url
+            (True, "ok"),  # open
+            (False, "err"),  # get title
+            (False, "err"),  # get text
+            (False, "err"),  # get url
         ]
         res = chemotaxis(action="extract", url="https://x.co", wait_ms=0)
         assert res.success is True
@@ -98,7 +98,9 @@ class TestExtract:
     def test_extract_zero_wait(self, mock_run, mock_sleep):
         mock_run.side_effect = [
             (True, "ok"),
-            (True, "t"), (True, "txt"), (True, "u"),
+            (True, "t"),
+            (True, "txt"),
+            (True, "u"),
         ]
         chemotaxis(action="extract", url="https://x.co", wait_ms=0)
         mock_sleep.assert_not_called()
@@ -164,8 +166,8 @@ class TestScreenshot:
     @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     def test_screenshot_capture_failure(self, mock_sp, mock_run, mock_sleep):
         mock_run.side_effect = [
-            (True, "ok"),           # open succeeds
-            (False, "disk full"),   # screenshot fails
+            (True, "ok"),  # open succeeds
+            (False, "disk full"),  # screenshot fails
         ]
         mock_sp.return_value = _subprocess_ok()
         res = chemotaxis(action="screenshot", url="https://x.co", wait_ms=0)
@@ -193,7 +195,7 @@ class TestCheckAuth:
     @patch("metabolon.enzymes.chemotaxis._run_ab")
     def test_check_auth_authenticated(self, mock_run, mock_sleep):
         mock_run.side_effect = [
-            (True, "ok"),                      # open
+            (True, "ok"),  # open
             (True, "https://app.example.com/dashboard"),  # get url
         ]
         res = chemotaxis(action="check_auth", domain="example.com")
@@ -280,8 +282,8 @@ class TestCheckAuth:
     def test_check_auth_get_url_fails(self, mock_run, mock_sleep):
         """If get-url fails, current_url defaults to empty and user is 'authenticated'."""
         mock_run.side_effect = [
-            (True, "ok"),     # open
-            (False, "error"), # get url
+            (True, "ok"),  # open
+            (False, "error"),  # get url
         ]
         res = chemotaxis(action="check_auth", domain="example.com")
         assert res.success is True
@@ -314,9 +316,12 @@ class TestRunAb:
     @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     @patch("metabolon.enzymes.chemotaxis.os.popen")
     def test_run_ab_success(self, mock_popen, mock_sp):
-        mock_popen.return_value = MagicMock(read=MagicMock(return_value="/usr/local/bin/agent-browser\n"))
+        mock_popen.return_value = MagicMock(
+            read=MagicMock(return_value="/usr/local/bin/agent-browser\n")
+        )
         mock_sp.return_value = _subprocess_ok("result text")
         from metabolon.enzymes.chemotaxis import _run_ab
+
         ok, out = _run_ab(["open", "https://x.co"])
         assert ok is True
         assert out == "result text"
@@ -325,11 +330,15 @@ class TestRunAb:
     @patch("metabolon.enzymes.chemotaxis.os.popen")
     def test_run_ab_failure_returns_stderr(self, mock_popen, mock_sp):
         import subprocess
+
         mock_popen.return_value = MagicMock(read=MagicMock(return_value="agent-browser\n"))
         mock_sp.side_effect = subprocess.CalledProcessError(
-            1, "agent-browser", stderr="bad",
+            1,
+            "agent-browser",
+            stderr="bad",
         )
         from metabolon.enzymes.chemotaxis import _run_ab
+
         ok, out = _run_ab(["fail"])
         assert ok is False
         assert out == "bad"
@@ -338,11 +347,16 @@ class TestRunAb:
     @patch("metabolon.enzymes.chemotaxis.os.popen")
     def test_run_ab_failure_falls_back_to_stdout(self, mock_popen, mock_sp):
         import subprocess
+
         mock_popen.return_value = MagicMock(read=MagicMock(return_value="agent-browser\n"))
         mock_sp.side_effect = subprocess.CalledProcessError(
-            1, "agent-browser", output="std output", stderr="",
+            1,
+            "agent-browser",
+            output="std output",
+            stderr="",
         )
         from metabolon.enzymes.chemotaxis import _run_ab
+
         ok, out = _run_ab(["fail"])
         assert ok is False
         assert out == "std output"
@@ -353,6 +367,7 @@ class TestRunAb:
         mock_popen.return_value = MagicMock(read=MagicMock(return_value="\n"))
         mock_sp.return_value = _subprocess_ok("ok")
         from metabolon.enzymes.chemotaxis import _run_ab
+
         _run_ab(["version"])
         called_path = mock_sp.call_args[0][0][0]
         assert called_path == "agent-browser"
@@ -364,6 +379,7 @@ class TestRunAb:
 class TestCleanup:
     def test_cleanup_unlinks_pending(self, tmp_path):
         from metabolon.enzymes.chemotaxis import _cleanup_temp_screenshots
+
         f = tmp_path / "screenshot_test.png"
         f.write_text("img")
         _pending_screenshots.append(str(f))
@@ -373,5 +389,6 @@ class TestCleanup:
     def test_cleanup_missing_ok(self):
         """No error if file already gone."""
         from metabolon.enzymes.chemotaxis import _cleanup_temp_screenshots
+
         _pending_screenshots.append("/nonexistent/path/file.png")
         _cleanup_temp_screenshots()  # should not raise

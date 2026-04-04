@@ -1,4 +1,3 @@
-
 """talking_points — generate talking points from consulting IP library.
 
 Given a client name and meeting context, searches the consulting IP library
@@ -6,7 +5,6 @@ for relevant assets and generates structured talking points.
 
 Each talking point has: thesis, evidence, positioning, and source asset.
 """
-
 
 import re
 from dataclasses import dataclass, field

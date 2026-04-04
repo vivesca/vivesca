@@ -13,13 +13,12 @@ import pytest
 
 from metabolon.enzymes.lysis import BINARY, lysis
 
-
 # ── Module constants ─────────────────────────────────────────────────────────
 
 
 class TestConstants:
     def test_binary_points_to_lysis_effector(self):
-        assert BINARY == str(Path.home() / "germline/effectors/lysis")
+        assert str(Path.home() / "germline/effectors/lysis") == BINARY
 
     def test_binary_path_is_absolute(self):
         assert Path(BINARY).is_absolute()
@@ -158,11 +157,13 @@ class TestDefaults:
     def test_url_default_empty(self):
         """Default url should be empty string."""
         import inspect
+
         sig = inspect.signature(lysis)
         assert sig.parameters["url"].default == ""
 
     def test_query_default_empty(self):
         """Default query should be empty string."""
         import inspect
+
         sig = inspect.signature(lysis)
         assert sig.parameters["query"].default == ""

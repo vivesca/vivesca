@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.sortase.executor import register_running, unregister_running, _status_path
+from metabolon.sortase.executor import _status_path, register_running, unregister_running
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +17,7 @@ def isolated_status_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Point sortase executor at a temporary status directory for test isolation."""
     status_file = tmp_path / "status.json"
     monkeypatch.setenv("OPIFEX_STATUS_PATH", str(status_file))
-    yield tmp_path
+    return tmp_path
 
 
 def _read_status() -> list:
@@ -33,7 +33,9 @@ def test_parallel_register_creates_exact_entries():
     task_ids = ["alpha", "beta", "gamma"]
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(lambda tid=tid: (register_running(tid), tid)[1]) for tid in task_ids]
+        futures = [
+            pool.submit(lambda tid=tid: (register_running(tid), tid)[1]) for tid in task_ids
+        ]
         results = [f.result() for f in as_completed(futures)]
 
     assert sorted(results) == sorted(task_ids)
@@ -59,7 +61,9 @@ def test_parallel_unregister_empties_status():
     assert len(_read_status()) == 3, "precondition: 3 entries before unregister"
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(lambda tid=tid: (unregister_running(tid), tid)[1]) for tid in task_ids]
+        futures = [
+            pool.submit(lambda tid=tid: (unregister_running(tid), tid)[1]) for tid in task_ids
+        ]
         results = [f.result() for f in as_completed(futures)]
 
     assert sorted(results) == sorted(task_ids)

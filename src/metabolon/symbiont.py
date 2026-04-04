@@ -1,4 +1,3 @@
-
 """Symbiont — shared LLM dispatch. Single source of truth for multi-model queries.
 
 The endosymbiont interface: deterministic routing to external LLM models.
@@ -10,7 +9,6 @@ Usage:
     result = transduce("gemini", "What is 2+2?")
     results = parallel_query(["gemini", "claude"], "What is 2+2?")
 """
-
 
 import concurrent.futures
 import json
@@ -37,7 +35,7 @@ def restore_symbionts(config_path: str | None = None) -> dict:
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return {}
 
 
@@ -92,7 +90,7 @@ def _query_cmd(cmd: list[str], prompt: str, timeout: int) -> str:
     except subprocess.TimeoutExpired as err:
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except (ProcessLookupError, OSError):
+        except ProcessLookupError, OSError:
             proc.kill()
         proc.wait()
         raise subprocess.TimeoutExpired(cmd, timeout) from err
@@ -119,7 +117,7 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
         except subprocess.TimeoutExpired as err:
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-            except (ProcessLookupError, OSError):
+            except ProcessLookupError, OSError:
                 proc.kill()
             proc.wait()
             raise subprocess.TimeoutExpired(full_cmd, timeout) from err

@@ -109,7 +109,13 @@ class TestCensorSection:
 class TestCensorCriteriaSection:
     """Validate [censor_criteria] weight values (HIGH/MED/LOW)."""
 
-    EXPECTED_KEYS: ClassVar[set[str]] = {"clear_thesis", "evidence", "hook", "conclusion", "concise"}
+    EXPECTED_KEYS: ClassVar[set[str]] = {
+        "clear_thesis",
+        "evidence",
+        "hook",
+        "conclusion",
+        "concise",
+    }
     VALID_WEIGHTS: ClassVar[set[str]] = {"HIGH", "MED", "LOW"}
 
     def test_all_criteria_keys_present(self, conf):

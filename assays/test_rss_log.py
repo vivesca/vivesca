@@ -1,18 +1,16 @@
 """Tests for endocytosis_rss/log.py - markdown log handling."""
 
-import tempfile
 from datetime import UTC, datetime
-from pathlib import Path
 
 from metabolon.organelles.endocytosis_rss.log import (
     _sanitize_text,
     _title_prefix,
+    cycle_log,
+    generate_daily_markdown,
     is_noise,
     recall_title_prefixes,
-    serialize_markdown,
-    generate_daily_markdown,
     record_cargo,
-    cycle_log,
+    serialize_markdown,
 )
 
 
@@ -92,9 +90,9 @@ def test_recall_title_prefixes_extracts_titles(tmp_path):
     """Test recall_title_prefixes extracts titles from markdown."""
     log_file = tmp_path / "news.md"
     log_file.write_text(
-        '## 2024-01-15\n'
-        '### Source\n'
-        '- **[Article Title Here](https://example.com)**\n'
+        "## 2024-01-15\n"
+        "### Source\n"
+        "- **[Article Title Here](https://example.com)**\n"
         '- **"Quoted Title Example"**\n'
     )
     prefixes = recall_title_prefixes(log_file)
@@ -105,7 +103,13 @@ def test_serialize_markdown_basic():
     """Test serialize_markdown produces valid markdown."""
     results = {
         "FeedA": [
-            {"title": "Article One", "link": "https://a.com/1", "date": "2024-01-15", "summary": "Test", "score": 5},
+            {
+                "title": "Article One",
+                "link": "https://a.com/1",
+                "date": "2024-01-15",
+                "summary": "Test",
+                "score": 5,
+            },
         ],
         "FeedB": [],
     }
@@ -131,7 +135,14 @@ def test_serialize_markdown_includes_banking_angle():
     """Test serialize_markdown includes banking_angle for starred items."""
     results = {
         "Feed": [
-            {"title": "Important", "link": "https://x.com", "score": 7, "banking_angle": "Payment rails", "date": "", "summary": ""},
+            {
+                "title": "Important",
+                "link": "https://x.com",
+                "score": 7,
+                "banking_angle": "Payment rails",
+                "date": "",
+                "summary": "",
+            },
         ]
     }
     output = serialize_markdown(results, "2024-01-15")
@@ -140,8 +151,7 @@ def test_serialize_markdown_includes_banking_angle():
 
 def test_generate_daily_markdown_empty(tmp_path):
     """Test generate_daily_markdown returns header for empty cargo."""
-    from metabolon.organelles.endocytosis_rss.cargo import append_cargo
-    
+
     cargo_path = tmp_path / "cargo.jsonl"
     output = generate_daily_markdown(cargo_path, "2024-01-15")
     assert "## 2024-01-15" in output
@@ -150,13 +160,19 @@ def test_generate_daily_markdown_empty(tmp_path):
 def test_generate_daily_markdown_with_entries(tmp_path):
     """Test generate_daily_markdown includes entries from cargo."""
     from metabolon.organelles.endocytosis_rss.cargo import append_cargo
-    
+
     cargo_path = tmp_path / "cargo.jsonl"
     articles = [
-        {"title": "Test Article", "source": "Feed", "link": "https://x.com", "date": "2024-01-15", "score": 5},
+        {
+            "title": "Test Article",
+            "source": "Feed",
+            "link": "https://x.com",
+            "date": "2024-01-15",
+            "score": 5,
+        },
     ]
     append_cargo(cargo_path, articles)
-    
+
     output = generate_daily_markdown(cargo_path, "2024-01-15")
     assert "Test Article" in output
     assert "### Feed" in output
@@ -166,7 +182,7 @@ def test_record_cargo_creates_file(tmp_path):
     """Test record_cargo creates new file if nonexistent."""
     log_path = tmp_path / "news.md"
     markdown = "## 2024-01-15\n\nTest content\n"
-    
+
     record_cargo(log_path, markdown)
     assert log_path.exists()
     assert "Test content" in log_path.read_text()
@@ -176,7 +192,7 @@ def test_record_cargo_appends_after_marker(tmp_path):
     """Test record_cargo inserts content after marker."""
     log_path = tmp_path / "news.md"
     log_path.write_text("# News\n\n<!-- News entries below -->\nOld content\n")
-    
+
     record_cargo(log_path, "## New entries\n")
     content = log_path.read_text()
     assert "## New entries" in content
@@ -188,7 +204,7 @@ def test_cycle_log_no_rotation_needed(tmp_path):
     log_path = tmp_path / "news.md"
     log_path.write_text("# News\n\nContent\n")
     archive_dir = tmp_path / "archive"
-    
+
     cycle_log(log_path, archive_dir, max_lines=100)
     assert not archive_dir.exists()
 
@@ -202,10 +218,10 @@ def test_cycle_log_rotates_old_content(tmp_path):
     lines.append("## 2024-01-01")  # Old date
     lines.extend(["old content"] * 10)
     log_path.write_text("\n".join(lines) + "\n")
-    
+
     archive_dir = tmp_path / "archive"
     now = datetime(2024, 1, 20, tzinfo=UTC)  # 19 days later
-    
+
     cycle_log(log_path, archive_dir, max_lines=15, now=now)
     # The rotation should have occurred
     assert log_path.read_text() != "\n".join(lines) + "\n"

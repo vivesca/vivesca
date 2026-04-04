@@ -8,12 +8,14 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 # Import module with hyphen in filename (no .py extension)
-_MOD_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "effectors", "client-brief"))
+_MOD_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "effectors", "client-brief")
+)
 _loader = importlib.machinery.SourceFileLoader("client_brief", _MOD_PATH)
 spec = importlib.util.spec_from_file_location("client_brief", _MOD_PATH, loader=_loader)
 client_brief = importlib.util.module_from_spec(spec)
@@ -184,7 +186,9 @@ class TestSearchChromatin:
     def test_skips_excluded_dirs(self, fake_chromatin):
         archive = fake_chromatin / "Archive"
         archive.mkdir()
-        (archive / "old_hsbc.md").write_text("HSBC archived content about banking.", encoding="utf-8")
+        (archive / "old_hsbc.md").write_text(
+            "HSBC archived content about banking.", encoding="utf-8"
+        )
         with patch.object(client_brief, "CHROMATIN_PATH", fake_chromatin):
             hits = client_brief.search_chromatin("HSBC")
         assert not any("Archive" in str(h.path) for h in hits)
@@ -201,7 +205,9 @@ class TestDetectIndustry:
         assert "Consulting" in client_brief._detect_industry(["Capco is a consulting firm."])
 
     def test_unknown(self):
-        assert "Not yet determined" in client_brief._detect_industry(["Something completely random."])
+        assert "Not yet determined" in client_brief._detect_industry(
+            ["Something completely random."]
+        )
 
 
 # ── _detect_size ─────────────────────────────────────────────────────────────
@@ -209,7 +215,10 @@ class TestDetectIndustry:
 
 class TestDetectSize:
     def test_detects_global(self):
-        assert "global" in client_brief._detect_size(["A global enterprise with thousands of staff."]).lower()
+        assert (
+            "global"
+            in client_brief._detect_size(["A global enterprise with thousands of staff."]).lower()
+        )
 
     def test_unknown(self):
         assert "Not yet determined" in client_brief._detect_size(["Random text."])
@@ -220,7 +229,9 @@ class TestDetectSize:
 
 class TestSummariseAiPosture:
     def test_detects_governance(self):
-        result = client_brief._summarise_ai_posture(["AI governance framework established."], "HSBC")
+        result = client_brief._summarise_ai_posture(
+            ["AI governance framework established."], "HSBC"
+        )
         assert "AI governance" in result
 
     def test_detects_genai(self):
@@ -241,16 +252,16 @@ class TestSummariseAiPosture:
 
 class TestFindConsultingOpportunities:
     def test_detects_regulatory(self):
-        opps = client_brief._find_consulting_opportunities(["regulatory compliance needs."], "X")
-        assert any("Regulatory" in o for o in opps)
+        oops = client_brief._find_consulting_opportunities(["regulatory compliance needs."], "X")
+        assert any("Regulatory" in o for o in oops)
 
     def test_detects_aml(self):
-        opps = client_brief._find_consulting_opportunities(["AML model updates needed."], "X")
-        assert any("AML" in o for o in opps)
+        oops = client_brief._find_consulting_opportunities(["AML model updates needed."], "X")
+        assert any("AML" in o for o in oops)
 
     def test_fallback(self):
-        opps = client_brief._find_consulting_opportunities(["nothing relevant."], "X")
-        assert any("General AI strategy" in o for o in opps)
+        oops = client_brief._find_consulting_opportunities(["nothing relevant."], "X")
+        assert any("General AI strategy" in o for o in oops)
 
 
 # ── generate_brief ───────────────────────────────────────────────────────────

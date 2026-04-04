@@ -1,7 +1,8 @@
 """Tests for metabolon.enzymes.endocytosis."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,10 +17,10 @@ from metabolon.enzymes.endocytosis import (
 )
 from metabolon.morphology import EffectorResult
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(
     sources_path="/tmp/sources.yaml",
@@ -41,6 +42,7 @@ def _make_config(
 # 1. Dispatch: unknown action returns EffectorResult failure
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_action_returns_error():
     result = endocytosis(action="foobar")
     assert isinstance(result, EffectorResult)
@@ -52,6 +54,7 @@ def test_unknown_action_returns_error():
 # ---------------------------------------------------------------------------
 # 2. status action builds human-readable report
 # ---------------------------------------------------------------------------
+
 
 @patch("metabolon.enzymes.endocytosis._status_result")
 def test_status_dispatches(mock_status):
@@ -70,7 +73,7 @@ def test_status_result_builds_output(
     mock_file_age, mock_parse_aware, mock_restore_config, mock_restore_state
 ):
     mock_file_age.return_value = "2h ago"
-    mock_parse_aware.return_value = datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc)
+    mock_parse_aware.return_value = datetime(2025, 6, 1, 12, 0, tzinfo=UTC)
     cfg = _make_config()
     # Make article_cache_dir exist so it lists files
     cfg.article_cache_dir = Path("/tmp/endocytosis_test_cache_status")
@@ -93,6 +96,7 @@ def test_status_result_builds_output(
 # ---------------------------------------------------------------------------
 # 3. stats action with no data returns insufficient_data
 # ---------------------------------------------------------------------------
+
 
 @patch("metabolon.organelles.endocytosis_rss.relevance._read_jsonl", return_value=[])
 def test_stats_result_no_data(mock_read):
@@ -156,10 +160,16 @@ def test_stats_result_full_affinity(mock_read, mock_stats):
 # 4. top action with items formats numbered list
 # ---------------------------------------------------------------------------
 
+
 @patch(
     "metabolon.organelles.endocytosis_rss.relevance.top_cargo",
     return_value=[
-        {"title": "Breaking News", "score": 9, "source": "Reuters", "banking_angle": "geopolitical shift"},
+        {
+            "title": "Breaking News",
+            "score": 9,
+            "source": "Reuters",
+            "banking_angle": "geopolitical shift",
+        },
         {"title": "Tech Update", "score": 7, "source": "Ars", "banking_angle": "N/A"},
     ],
 )
@@ -189,12 +199,15 @@ def test_top_result_empty(mock_top):
 # 5. fetch action returns EffectorResult on success
 # ---------------------------------------------------------------------------
 
+
 @patch("metabolon.organelles.endocytosis_rss.state.lockfile")
 @patch("metabolon.organelles.endocytosis_rss.config.restore_config")
 @patch("metabolon.organelles.endocytosis_rss.cli._fetch_locked")
 def test_fetch_action_success(mock_fetch, mock_config, mock_lockfile):
     mock_config.return_value = _make_config()
-    mock_lockfile.return_value = MagicMock(__enter__=MagicMock(), __exit__=MagicMock(return_value=False))
+    mock_lockfile.return_value = MagicMock(
+        __enter__=MagicMock(), __exit__=MagicMock(return_value=False)
+    )
 
     result = endocytosis(action="fetch", no_archive=True)
     assert isinstance(result, EffectorResult)

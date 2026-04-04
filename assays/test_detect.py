@@ -8,7 +8,6 @@ from metabolon.respirometry.detect import filename_matches, identify_bank
 class TestFilenameMatches:
     """Tests for filename_matches."""
 
-
     def test_mox_filename_matches(self) -> None:
         """Mox statement filename matches."""
         filename = "HO-MING-TERRY-LI_202403_123456_Mox_Credit_Statement.pdf"

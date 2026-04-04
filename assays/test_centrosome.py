@@ -21,10 +21,7 @@ def test_centrosome_help():
     """Run centrosome with --help and verify output."""
     effector_path = Path(__file__).resolve().parents[1] / "effectors" / "centrosome"
     result = subprocess.run(
-        [str(effector_path), "--help"],
-        capture_output=True,
-        text=True,
-        check=True
+        [str(effector_path), "--help"], capture_output=True, text=True, check=True
     )
     assert result.returncode == 0
     assert "centrosome" in result.stdout
@@ -40,11 +37,7 @@ def test_centrosome_list_cases():
         pytest.skip(f"Capco cases file not found: {cases_file}")
 
     effector_path = Path(__file__).resolve().parents[1] / "effectors" / "centrosome"
-    result = subprocess.run(
-        [str(effector_path), "--cases"],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run([str(effector_path), "--cases"], capture_output=True, text=True)
     # It will exit with 0 regardless
     assert result.returncode == 0
     # Should output at least some case headings

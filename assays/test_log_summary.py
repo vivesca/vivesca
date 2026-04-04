@@ -107,6 +107,7 @@ def test_read_log_lines_reads_rotated(tmp_path):
     """read_log_lines merges main and rotated (.1) log files."""
     now = datetime(2026, 3, 31, 15, 0, 0)
     from datetime import timedelta
+
     h2 = now - timedelta(hours=2)
 
     rotated = tmp_path / "golem-daemon.log.1"
@@ -152,7 +153,7 @@ def test_classify_events_finish_details(log_file):
     events = classify_events(entries)
     first_finish = events["finishes"][0]
     assert first_finish[1] == 200  # duration_s
-    assert first_finish[2] == 0    # exit_code
+    assert first_finish[2] == 0  # exit_code
     second_finish = events["finishes"][1]
     assert second_finish[1] == 98
     assert second_finish[2] == 1
@@ -173,7 +174,7 @@ def test_classify_events_autocommit(log_file):
     entries = _read_lines(log_file)
     events = classify_events(entries)
     ac = events["autocommits"][0]
-    assert ac[1] == 5       # n_tasks
+    assert ac[1] == 5  # n_tasks
     assert ac[2] == "abc1234"  # hash
 
 
@@ -293,9 +294,18 @@ def test_compute_window_stats_narrow_window_excludes(log_file):
 def test_compute_window_stats_empty():
     """compute_window_stats handles empty event lists."""
     empty_events = {
-        "starts": [], "finishes": [], "failures": [], "timeouts": [],
-        "errors": [], "queued": [], "running": [], "idle": [],
-        "daemon": [], "autocommits": [], "warnings": [], "fatals": [],
+        "starts": [],
+        "finishes": [],
+        "failures": [],
+        "timeouts": [],
+        "errors": [],
+        "queued": [],
+        "running": [],
+        "idle": [],
+        "daemon": [],
+        "autocommits": [],
+        "warnings": [],
+        "fatals": [],
     }
     cutoff = datetime(2026, 3, 31, 0, 0)
     stats = compute_window_stats(empty_events, "1h", cutoff)
@@ -346,11 +356,20 @@ def test_format_report_single_window_no_trend(log_file):
 def test_format_report_no_errors_no_top_errors_section():
     """format_report omits Top errors when there are none."""
     stats = {
-        "window": "1h", "cutoff": "", "tasks_started": 5, "tasks_finished": 5,
-        "tasks_succeeded": 5, "tasks_failed": 0, "tasks_timed_out": 0,
-        "failure_rate_pct": 0.0, "avg_duration_s": 60.0,
-        "autocommits": 0, "autocommit_tasks": 0, "warnings": 0,
-        "top_errors": [], "providers": {},
+        "window": "1h",
+        "cutoff": "",
+        "tasks_started": 5,
+        "tasks_finished": 5,
+        "tasks_succeeded": 5,
+        "tasks_failed": 0,
+        "tasks_timed_out": 0,
+        "failure_rate_pct": 0.0,
+        "avg_duration_s": 60.0,
+        "autocommits": 0,
+        "autocommit_tasks": 0,
+        "warnings": 0,
+        "top_errors": [],
+        "providers": {},
     }
     report = format_report([stats])
     assert "Top errors" not in report

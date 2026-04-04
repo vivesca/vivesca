@@ -1,12 +1,13 @@
 """Tests for metabolon.resources.consolidation — memory consolidation resource."""
-from pathlib import Path
-import pytest
+
 import importlib
+from pathlib import Path
 
 
 def test_module_import_succeeds():
     """Test that the consolidation module can be imported successfully."""
     from metabolon.resources import consolidation
+
     assert consolidation is not None
     assert consolidation.__doc__ is not None
 
@@ -14,6 +15,7 @@ def test_module_import_succeeds():
 def test_module_docstring_contains_expected_metadata():
     """Test that the module docstring contains the expected resource declaration."""
     from metabolon.resources import consolidation
+
     doc = consolidation.__doc__
 
     assert "Consolidation resource" in doc
@@ -25,6 +27,7 @@ def test_module_docstring_contains_expected_metadata():
 def test_consolidation_module_is_in_package():
     """Test that consolidation module is properly in the metabolon.resources package."""
     import metabolon.resources
+
     package_path = Path(metabolon.resources.__file__).parent
     module_path = package_path / "consolidation.py"
 

@@ -9,8 +9,6 @@ import pytest
 
 from metabolon.organelles.demethylase import (
     ConsolidationReport,
-    DemethylaseReport,
-    MarkAnalysis,
     _effective_threshold,
     analyze_mark,
     consolidate,
@@ -29,7 +27,7 @@ def _write_mark(path: Path, name: str, mtype: str = "feedback", **extra_fm):
     fm_lines = [f"name: {name}", f"type: {mtype}"]
     for k, v in extra_fm.items():
         fm_lines.append(f"{k}: {v}")
-    path.write_text(f"---\n" + "\n".join(fm_lines) + "\n---\n\nContent here.\n")
+    path.write_text("---\n" + "\n".join(fm_lines) + "\n---\n\nContent here.\n")
 
 
 def _patch_home(monkeypatch, home_path: Path) -> None:
@@ -46,7 +44,9 @@ def marks_dir(tmp_path: Path) -> Path:
     _write_mark(d / "project_old_thing.md", "Old project", "project")
     _write_mark(d / "checkpoint_abc.md", "Checkpoint", "project")
     _write_mark(d / "feedback_protected.md", "Protected", "feedback", protected="true")
-    _write_mark(d / "feedback_with_source.md", "Sourced", "feedback", source="gemini", durability="acetyl")
+    _write_mark(
+        d / "feedback_with_source.md", "Sourced", "feedback", source="gemini", durability="acetyl"
+    )
     return d
 
 
@@ -243,9 +243,7 @@ def test_signal_history_filters_by_name(tmp_path: Path, monkeypatch):
 def test_consolidation_finds_recent_marks(marks_dir: Path, tmp_path: Path, monkeypatch):
     """Marks modified today (last_modified_days == 0) appear in today_marks."""
     # All marks in the fixture were just written, so last_modified_days == 0
-    monkeypatch.setattr(
-        "metabolon.organelles.demethylase.MARKS_DIR", marks_dir
-    )
+    monkeypatch.setattr("metabolon.organelles.demethylase.MARKS_DIR", marks_dir)
     _patch_home(monkeypatch, tmp_path)
 
     report = consolidate(marks_dir)
@@ -289,6 +287,7 @@ def test_emit_signal_increments_fire_count(tmp_path: Path, monkeypatch):
     assert path1 == path2
 
     from metabolon.organelles.demethylase import _parse_frontmatter
+
     fm = _parse_frontmatter(path1)
     assert int(fm.get("fire_count", "0")) == 2
 

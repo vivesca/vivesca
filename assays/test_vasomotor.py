@@ -5,11 +5,9 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # Import the module under test
 import metabolon.vasomotor as vm
@@ -186,7 +184,7 @@ class TestHoursToReset:
 
     def test_calculates_hours_correctly(self):
         """Should calculate hours until reset."""
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=12)
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=12)
         telemetry = {"seven_day": {"resets_at": future.isoformat()}}
 
         with patch("metabolon.vasomotor._RESETS_AT_FILE", Path("/tmp/test-resets-at")):
@@ -206,8 +204,9 @@ class TestHoursToReset:
         """Should use persisted fallback when telemetry has no reset time."""
         # Create a temp file with a future reset time
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=6)
+            future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=6)
             f.write(future.isoformat())
             temp_path = Path(f.name)
 
@@ -222,7 +221,7 @@ class TestHoursToReset:
 
     def test_minimum_half_hour(self):
         """Should return at least 0.5 hours even if reset is imminent."""
-        past = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
+        past = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
         telemetry = {"seven_day": {"resets_at": past.isoformat()}}
 
         with patch("metabolon.vasomotor._RESETS_AT_FILE", Path("/tmp/test-resets-at-2")):
@@ -302,7 +301,9 @@ class TestAssessVitalCapacity:
         with patch("metabolon.vasomotor.measure_vasomotor_tone", return_value=mock_telemetry):
             with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 with patch("metabolon.vasomotor._hours_to_reset", return_value=48.0):
-                    with patch("metabolon.vasomotor.assess_pacing", return_value=(True, "pacing_ok")):
+                    with patch(
+                        "metabolon.vasomotor.assess_pacing", return_value=(True, "pacing_ok")
+                    ):
                         ok, reason = vm.assess_vital_capacity()
 
         assert ok is True
@@ -319,7 +320,7 @@ class TestAssessVitalCapacity:
             with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 with patch("metabolon.vasomotor._hours_to_reset", return_value=6.0):  # Full debt
                     with patch("metabolon.vasomotor.assess_pacing", return_value=(True, "ok")):
-                        ok, reason = vm.assess_vital_capacity()
+                        ok, _reason = vm.assess_vital_capacity()
 
         # With oxygen debt, ceiling should be ~90%, so 82% should pass
         assert ok is True
@@ -493,11 +494,15 @@ class TestMeasuredCostPerSystole:
     def test_uses_today_deltas_when_available(self, tmp_path):
         """Should use today's deltas when 3+ samples available."""
         state_file = tmp_path / "respiration-daily.json"
-        state_file.write_text(json.dumps({
-            "date": datetime.date.today().isoformat(),
-            "count": 3,
-            "systole_deltas": [0.5, 1.0, 0.0, 1.5],
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "date": datetime.date.today().isoformat(),
+                    "count": 3,
+                    "systole_deltas": [0.5, 1.0, 0.0, 1.5],
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor.DAILY_STATE_FILE", state_file):
             with patch("metabolon.vasomotor._maybe_migrate"):
@@ -509,11 +514,15 @@ class TestMeasuredCostPerSystole:
     def test_uses_default_when_insufficient_data(self, tmp_path):
         """Should use default when not enough samples."""
         state_file = tmp_path / "respiration-daily.json"
-        state_file.write_text(json.dumps({
-            "date": datetime.date.today().isoformat(),
-            "count": 1,
-            "systole_deltas": [0.5],
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "date": datetime.date.today().isoformat(),
+                    "count": 1,
+                    "systole_deltas": [0.5],
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor.DAILY_STATE_FILE", state_file):
             with patch("metabolon.vasomotor.EVENT_LOG", tmp_path / "no-events.jsonl"):
@@ -526,11 +535,15 @@ class TestMeasuredCostPerSystole:
     def test_minimum_cost_is_one_tenth(self, tmp_path):
         """Should return at least 0.1 even with zero deltas."""
         state_file = tmp_path / "respiration-daily.json"
-        state_file.write_text(json.dumps({
-            "date": datetime.date.today().isoformat(),
-            "count": 5,
-            "systole_deltas": [0.0, 0.0, 0.0],
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "date": datetime.date.today().isoformat(),
+                    "count": 5,
+                    "systole_deltas": [0.0, 0.0, 0.0],
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor.DAILY_STATE_FILE", state_file):
             with patch("metabolon.vasomotor._maybe_migrate"):
@@ -555,19 +568,19 @@ class TestApnea:
     def test_is_apneic_when_time_passed(self, tmp_path):
         """Should return False when skip time has passed."""
         skip_file = tmp_path / "skip-until"
-        past = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
+        past = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
         skip_file.write_text(past.isoformat())
 
         with patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file):
             with patch("metabolon.vasomotor._maybe_migrate"):
-                is_apneic, reason = vm.is_apneic()
+                is_apneic, _reason = vm.is_apneic()
 
         assert is_apneic is False
 
     def test_is_apneic_when_time_future(self, tmp_path):
         """Should return True when skip time is in future."""
         skip_file = tmp_path / "skip-until"
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
         skip_file.write_text(future.isoformat())
 
         with patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file):
@@ -608,7 +621,9 @@ class TestApnea:
         skip_file = tmp_path / "skip-until"
 
         with patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file):
-            with patch("metabolon.vasomotor.vasomotor_genome", return_value={"max_daily_systoles": 10}):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome", return_value={"max_daily_systoles": 10}
+            ):
                 with patch("metabolon.vasomotor.record_event"):
                     vm.induce_apnea(
                         daily_budget=5.0,
@@ -728,10 +743,13 @@ class TestTidalVolume:
     def test_custom_genome_values(self):
         """Should respect custom genome values."""
         with patch("metabolon.vasomotor.interactive_pressure", return_value=0.5):
-            with patch("metabolon.vasomotor.vasomotor_genome", return_value={
-                "basal_rate": 0.4,
-                "min_basal_rate": 0.1,
-            }):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome",
+                return_value={
+                    "basal_rate": 0.4,
+                    "min_basal_rate": 0.1,
+                },
+            ):
                 result = vm.tidal_volume()
 
         # share = 0.4 - 0.5 * (0.4 - 0.1) = 0.4 - 0.15 = 0.25
@@ -765,7 +783,7 @@ class TestVasomotorGenome:
     def test_handles_malformed_json(self, tmp_path):
         """Should return empty dict on malformed JSON."""
         conf_path = tmp_path / "respiration.conf"
-        conf_path.write_text('not valid json')
+        conf_path.write_text("not valid json")
 
         with patch("metabolon.vasomotor.CONF_PATH", conf_path):
             with patch("metabolon.vasomotor._maybe_migrate"):
@@ -864,7 +882,7 @@ class TestEmitDistressSignal:
 
     def test_logs_on_failure(self):
         """Should log on Telegram failure."""
-        with patch("metabolon.vasomotor.log") as mock_log:
+        with patch("metabolon.vasomotor.log"):
             with patch.dict("sys.modules", {}):
                 # Import will fail, should log
                 try:
@@ -901,15 +919,19 @@ class TestAssessPacing:
     def test_returns_false_when_pacing_exceeded(self, tmp_path):
         """Should return False when burn exceeds daily budget."""
         state_file = tmp_path / "respiration-daily.json"
-        state_file.write_text(json.dumps({
-            "date": datetime.date.today().isoformat(),
-            "count": 10,
-            "saturated": 0,
-            "systole_deltas": [1.0] * 10,
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "date": datetime.date.today().isoformat(),
+                    "count": 10,
+                    "saturated": 0,
+                    "systole_deltas": [1.0] * 10,
+                }
+            )
+        )
 
         skip_file = tmp_path / "skip-until"
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=5)
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=5)
         mock_telemetry = {
             "seven_day": {"utilization": 30, "resets_at": future.isoformat()},
             "five_hour": {"utilization": 10},
@@ -919,7 +941,10 @@ class TestAssessPacing:
             with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 with patch("metabolon.vasomotor.DAILY_STATE_FILE", state_file):
                     with patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file):
-                        with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", tmp_path / "pattern.json"):
+                        with patch(
+                            "metabolon.vasomotor.INTERACTIVE_PATTERN_FILE",
+                            tmp_path / "pattern.json",
+                        ):
                             with patch("metabolon.vasomotor.EVENT_LOG", tmp_path / "events.jsonl"):
                                 with patch("metabolon.vasomotor._maybe_migrate"):
                                     ok, reason = vm.assess_pacing()
@@ -931,14 +956,18 @@ class TestAssessPacing:
     def test_returns_true_when_pacing_ok(self, tmp_path):
         """Should return True when pacing is acceptable."""
         state_file = tmp_path / "respiration-daily.json"
-        state_file.write_text(json.dumps({
-            "date": datetime.date.today().isoformat(),
-            "count": 1,
-            "saturated": 0,
-            "systole_deltas": [0.5],
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "date": datetime.date.today().isoformat(),
+                    "count": 1,
+                    "saturated": 0,
+                    "systole_deltas": [0.5],
+                }
+            )
+        )
 
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=5)
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=5)
         mock_telemetry = {
             "seven_day": {"utilization": 30, "resets_at": future.isoformat()},
             "five_hour": {"utilization": 10},
@@ -948,7 +977,10 @@ class TestAssessPacing:
             with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 with patch("metabolon.vasomotor.DAILY_STATE_FILE", state_file):
                     with patch("metabolon.vasomotor.SKIP_UNTIL_FILE", tmp_path / "skip-until"):
-                        with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", tmp_path / "pattern.json"):
+                        with patch(
+                            "metabolon.vasomotor.INTERACTIVE_PATTERN_FILE",
+                            tmp_path / "pattern.json",
+                        ):
                             with patch("metabolon.vasomotor.EVENT_LOG", tmp_path / "events.jsonl"):
                                 with patch("metabolon.vasomotor._maybe_migrate"):
                                     ok, reason = vm.assess_pacing()
@@ -998,10 +1030,14 @@ class TestSelectReviewTier:
         # opus: < 7 days ago
         one_hour_ago = (now - datetime.timedelta(hours=1)).isoformat()
         one_day_ago = (now - datetime.timedelta(days=1)).isoformat()
-        review_state.write_text(json.dumps({
-            "sonnet_last": one_hour_ago,
-            "opus_last": one_day_ago,
-        }))
+        review_state.write_text(
+            json.dumps(
+                {
+                    "sonnet_last": one_hour_ago,
+                    "opus_last": one_day_ago,
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor._REVIEW_STATE_FILE", review_state):
             with patch("metabolon.vasomotor._detect_ligand", return_value=None):
@@ -1014,10 +1050,14 @@ class TestSelectReviewTier:
         """Should select opus when a week has passed."""
         review_state = tmp_path / "review-state.json"
         old_date = (datetime.datetime.now() - datetime.timedelta(days=8)).isoformat()
-        review_state.write_text(json.dumps({
-            "sonnet_last": old_date,
-            "opus_last": old_date,
-        }))
+        review_state.write_text(
+            json.dumps(
+                {
+                    "sonnet_last": old_date,
+                    "opus_last": old_date,
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor._REVIEW_STATE_FILE", review_state):
             with patch("metabolon.vasomotor._detect_ligand", return_value=None):
@@ -1032,10 +1072,14 @@ class TestSelectReviewTier:
         now = datetime.datetime.now()
         two_days_ago = (now - datetime.timedelta(days=2)).isoformat()
         three_days_ago = (now - datetime.timedelta(days=3)).isoformat()
-        review_state.write_text(json.dumps({
-            "sonnet_last": two_days_ago,
-            "opus_last": three_days_ago,
-        }))
+        review_state.write_text(
+            json.dumps(
+                {
+                    "sonnet_last": two_days_ago,
+                    "opus_last": three_days_ago,
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor._REVIEW_STATE_FILE", review_state):
             with patch("metabolon.vasomotor._detect_ligand", return_value=None):
@@ -1049,10 +1093,14 @@ class TestSelectReviewTier:
         review_state = tmp_path / "review-state.json"
         now = datetime.datetime.now()
         yesterday = (now - datetime.timedelta(days=1)).isoformat()
-        review_state.write_text(json.dumps({
-            "sonnet_last": yesterday,
-            "opus_last": yesterday,
-        }))
+        review_state.write_text(
+            json.dumps(
+                {
+                    "sonnet_last": yesterday,
+                    "opus_last": yesterday,
+                }
+            )
+        )
 
         with patch("metabolon.vasomotor._REVIEW_STATE_FILE", review_state):
             with patch("metabolon.vasomotor._detect_ligand", return_value="opus"):
@@ -1088,10 +1136,7 @@ class TestDetectLigand:
     def test_sonnet_ligand_on_saturation(self, tmp_path):
         """Should detect sonnet ligand on repeated saturation."""
         event_log = tmp_path / "events.jsonl"
-        event_log.write_text(
-            '{"event": "saturation_idle"}\n'
-            '{"event": "saturation_idle"}\n'
-        )
+        event_log.write_text('{"event": "saturation_idle"}\n{"event": "saturation_idle"}\n')
 
         with patch("metabolon.vasomotor.EVENT_LOG", event_log):
             result = vm._detect_ligand()
@@ -1106,7 +1151,11 @@ class TestSetRecoveryInterval:
         """Should write skip_until file."""
         skip_file = tmp_path / "skip-until"
         mock_telemetry = {
-            "seven_day": {"resets_at": (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=12)).isoformat()}
+            "seven_day": {
+                "resets_at": (
+                    datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=12)
+                ).isoformat()
+            }
         }
 
         with patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file):

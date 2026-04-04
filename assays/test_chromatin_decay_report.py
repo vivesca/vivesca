@@ -5,9 +5,6 @@ from __future__ import annotations
 Chromatin-decay-report is a script — loaded via exec(), never imported.
 """
 
-import io
-import json
-import os
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -283,8 +280,13 @@ class TestMain:
         _note(notes, "orphan", "# Orphan")  # no incoming links
         old = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
         _note(notes, "coldy", "# Cold", last_accessed=old, access_count=10)
-        _note(notes, "fresh", "# Fresh\n[[coldy]]", access_count=1,
-              last_accessed=datetime.now().strftime("%Y-%m-%d"))
+        _note(
+            notes,
+            "fresh",
+            "# Fresh\n[[coldy]]",
+            access_count=1,
+            last_accessed=datetime.now().strftime("%Y-%m-%d"),
+        )
         cr["main"]()
         out = capsys.readouterr().out
         assert "Total notes indexed: 3" in out

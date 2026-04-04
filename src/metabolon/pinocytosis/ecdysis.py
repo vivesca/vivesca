@@ -1,4 +1,3 @@
-
 """Ecdysis gather — weekly review context (was weekly).
 
 Moulting: shed the old week, prepare the new.

@@ -6,7 +6,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pytest
 import yaml
 
 from metabolon.resources.receptome import (
@@ -15,10 +14,10 @@ from metabolon.resources.receptome import (
     express_operon_index,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_skill(directory: Path, name: str, frontmatter: dict, body: str = "") -> Path:
     """Create a skill directory with a SKILL.md containing YAML frontmatter."""
@@ -33,6 +32,7 @@ def _write_skill(directory: Path, name: str, frontmatter: dict, body: str = "") 
 # ---------------------------------------------------------------------------
 # _parse_frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestParseFrontmatter:
     """Tests for _parse_frontmatter(path)."""
@@ -87,16 +87,21 @@ class TestParseFrontmatter:
 # _operon_entry
 # ---------------------------------------------------------------------------
 
+
 class TestOperonEntry:
     """Tests for _operon_entry(skill_dir, prefix)."""
 
     def test_basic_entry(self, tmp_path: Path) -> None:
-        skill_dir = _write_skill(tmp_path, "my_skill", {
-            "name": "My Skill",
-            "description": "A test skill",
-            "user_invocable": True,
-            "runtime": "goose",
-        })
+        skill_dir = _write_skill(
+            tmp_path,
+            "my_skill",
+            {
+                "name": "My Skill",
+                "description": "A test skill",
+                "user_invocable": True,
+                "runtime": "goose",
+            },
+        )
         result = _operon_entry(skill_dir)
         assert result is not None
         assert result["name"] == "My Skill"
@@ -146,6 +151,7 @@ class TestOperonEntry:
 # express_operon_index
 # ---------------------------------------------------------------------------
 
+
 class TestExpressOperonIndex:
     """Tests for express_operon_index(skills_root)."""
 
@@ -163,10 +169,14 @@ class TestExpressOperonIndex:
     def test_single_top_level_skill(self, tmp_path: Path) -> None:
         root = tmp_path / "skills"
         root.mkdir()
-        _write_skill(root, "alpha", {
-            "name": "Alpha",
-            "description": "First skill",
-        })
+        _write_skill(
+            root,
+            "alpha",
+            {
+                "name": "Alpha",
+                "description": "First skill",
+            },
+        )
         result = express_operon_index(skills_root=root)
         assert "Skill Index (1 active)" in result
         assert "`Alpha`" in result
@@ -267,7 +277,9 @@ class TestExpressOperonIndex:
         ns = root / "dual"
         ns.mkdir()
         # Give the namespace dir its own SKILL.md
-        fm_yaml = yaml.dump({"name": "Dual", "description": "Top-level"}, default_flow_style=False).strip()
+        fm_yaml = yaml.dump(
+            {"name": "Dual", "description": "Top-level"}, default_flow_style=False
+        ).strip()
         (ns / "SKILL.md").write_text(f"---\n{fm_yaml}\n---\n")
         result = express_operon_index(skills_root=root)
         assert "Skill Index (1 active)" in result

@@ -1,4 +1,3 @@
-
 """gradient_sense — sensor array reading and polarity detection.
 
 Biology: A small stochastic asymmetry amplified into a stable polarity axis.
@@ -6,18 +5,17 @@ Cdc42 in yeast, PCP in epithelia — the cell detects a gradient, amplifies it,
 and locks onto a direction. One axis wins and organises subsequent behaviour.
 
 This organelle implements the sensing half: reads signals across three sensor
-arrays (lustro relevance log, tool invocation log, search query log), detects
+arrays (endocytosis relevance log, tool invocation log, search query log), detects
 which topic domains are co-trending across multiple sensors, and reports the
 polarity vector — the domain the organism is drifting toward.
 
 Sensor arrays:
-  - Lustro relevance log: RSS articles scored >=7 (high-signal news items)
+  - Endocytosis relevance log: RSS articles scored >=7 (high-signal news items)
   - Signals log: tool invocation frequency by domain over rolling window
   - Rheotaxis log: search queries (free-text, highest semantic richness)
 
 Output: ranked polarity vectors with signal strength and sensor coverage.
 """
-
 
 import json
 from collections import Counter, defaultdict
@@ -30,7 +28,7 @@ from metabolon.morphology import Secretion
 # Constants
 # ---------------------------------------------------------------------------
 
-_RELEVANCE_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
+_RELEVANCE_LOG = Path.home() / ".cache" / "endocytosis" / "relevance.jsonl"
 _SIGNALS_LOG = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
 _RHEOTAXIS_LOG = Path.home() / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
 
@@ -215,7 +213,7 @@ class GradientVector(Secretion):
     sensor_coverage: int  # how many of 3 sensors detected this domain
     topology_bonus: str  # "independent", "adjacent", "single", or "full"
     sensors: dict[str, int]  # sensor name → raw hit count
-    top_titles: list[str]  # up to 3 lustro titles that drove this
+    top_titles: list[str]  # up to 3 endocytosis titles that drove this
     top_queries: list[str]  # up to 3 search queries that drove this
     window_days: int
 
@@ -289,7 +287,7 @@ def _read_jsonl(path: Path) -> list[dict]:
 def sense_endocytosis(
     days: int,
 ) -> tuple[dict[str, int], dict[str, list[str]]]:
-    """Read lustro relevance log. Returns (domain_hits, domain_titles)."""
+    """Read endocytosis relevance log. Returns (domain_hits, domain_titles)."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
     domain_hits: Counter = Counter()
     domain_titles: dict[str, list[str]] = defaultdict(list)
@@ -299,7 +297,7 @@ def sense_endocytosis(
         try:
             if int(score) < 6:  # only signal-grade items
                 continue
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
         raw_ts = row.get("timestamp", "")
@@ -309,7 +307,7 @@ def sense_endocytosis(
                 ts = ts.replace(tzinfo=UTC)
             if ts < cutoff:
                 continue
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
         title = str(row.get("title", ""))
@@ -335,7 +333,7 @@ def sense_signals(days: int) -> dict[str, int]:
                 ts = ts.replace(tzinfo=UTC)
             if ts < cutoff:
                 continue
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
         tool_name = str(row.get("tool", ""))
@@ -396,7 +394,7 @@ def sense_rheotaxis(days: int) -> tuple[dict[str, int], dict[str, list[str]]]:
 def build_gradient_report(days: int = 7) -> GradientReport:
     """Sense directional gradients across the organism's sensor arrays.
 
-    Reads three signal sources — lustro RSS relevance scores, tool invocation
+    Reads three signal sources — endocytosis RSS relevance scores, tool invocation
     frequency, and search query text — then detects which topic domains are
     co-trending. Returns the polarity vector: the domain(s) the organism is
     orienting toward.
@@ -409,12 +407,12 @@ def build_gradient_report(days: int = 7) -> GradientReport:
         days: Rolling window in days to consider (default 7).
     """
     # Sense each array
-    lustro_hits, lustro_titles = sense_endocytosis(days)
+    endocytosis_hits, endocytosis_titles = sense_endocytosis(days)
     signal_hits = sense_signals(days)
     rheotaxis_hits, rheotaxis_queries = sense_rheotaxis(days)
 
     sensors_read = []
-    if lustro_hits:
+    if endocytosis_hits:
         sensors_read.append("endocytosis_signal")
     if signal_hits:
         sensors_read.append("tool_signals")
@@ -422,15 +420,15 @@ def build_gradient_report(days: int = 7) -> GradientReport:
         sensors_read.append("rheotaxis_queries")
 
     # Aggregate: per domain, count sensors that fired + total hits
-    all_domains = set(lustro_hits) | set(signal_hits) | set(rheotaxis_hits)
+    all_domains = set(endocytosis_hits) | set(signal_hits) | set(rheotaxis_hits)
 
     gradients: list[GradientVector] = []
     for domain in all_domains:
         sensors: dict[str, int] = {}
         total_hits = 0
-        if domain in lustro_hits:
-            sensors["endocytosis_signal"] = lustro_hits[domain]
-            total_hits += lustro_hits[domain]
+        if domain in endocytosis_hits:
+            sensors["endocytosis_signal"] = endocytosis_hits[domain]
+            total_hits += endocytosis_hits[domain]
         if domain in signal_hits:
             sensors["tool_signals"] = signal_hits[domain]
             total_hits += signal_hits[domain]
@@ -447,7 +445,7 @@ def build_gradient_report(days: int = 7) -> GradientReport:
                 sensor_coverage=coverage,
                 topology_bonus=topology_bonus,
                 sensors=sensors,
-                top_titles=lustro_titles.get(domain, [])[:3],
+                top_titles=endocytosis_titles.get(domain, [])[:3],
                 top_queries=rheotaxis_queries.get(domain, [])[:3],
                 window_days=days,
             )

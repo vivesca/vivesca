@@ -194,22 +194,22 @@ def _summarise_ai_posture(snippets: list[str], company: str) -> str:
 def _find_consulting_opportunities(snippets: list[str], company: str) -> list[str]:
     """Derive potential consulting engagement angles."""
     corpus = " ".join(snippets).lower()
-    opps: list[str] = []
+    oops: list[str] = []
     if "regulatory" in corpus or "compliance" in corpus:
-        opps.append("Regulatory compliance & AI governance advisory")
+        oops.append("Regulatory compliance & AI governance advisory")
     if "risk tiering" in corpus or "risk" in corpus:
-        opps.append("AI risk-tiering and model risk management")
+        oops.append("AI risk-tiering and model risk management")
     if "sandbox" in corpus:
-        opps.append("Sandbox programme delivery and evaluation")
+        oops.append("Sandbox programme delivery and evaluation")
     if "data governance" in corpus or "data management" in corpus:
-        opps.append("Data governance framework design")
+        oops.append("Data governance framework design")
     if "aml" in corpus or "fraud" in corpus:
-        opps.append("AML / fraud analytics modernisation")
+        oops.append("AML / fraud analytics modernisation")
     if "digital" in corpus and ("transform" in corpus or "bank" in corpus):
-        opps.append("Digital transformation strategy")
-    if not opps:
-        opps.append("General AI strategy & governance assessment")
-    return opps
+        oops.append("Digital transformation strategy")
+    if not oops:
+        oops.append("General AI strategy & governance assessment")
+    return oops
 
 
 def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
@@ -227,7 +227,7 @@ def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
     industry = _detect_industry(all_snippets)
     size = _detect_size(all_snippets)
     ai_posture = _summarise_ai_posture(all_snippets, company)
-    opps = _find_consulting_opportunities(all_snippets, company)
+    oops = _find_consulting_opportunities(all_snippets, company)
 
     # Recent news — top snippets from the highest-scored files
     recent_lines: list[str] = []
@@ -238,7 +238,7 @@ def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
             seen.add(short)
             recent_lines.append(f"- {short}")
 
-    opps_lines = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(opps))
+    oops_lines = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(oops))
     sources_md = "\n".join(sources_lines[:8])
     recent_md = "\n".join(recent_lines) if recent_lines else "- No recent news extracted from knowledge base."
 
@@ -261,7 +261,7 @@ def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
 
 ## Consulting Opportunities
 
-{opps_lines}
+{oops_lines}
 
 ## Sources (chromatin)
 

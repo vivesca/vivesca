@@ -4,16 +4,15 @@ from __future__ import annotations
 
 
 import sqlite3
-from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from datetime import datetime
+from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fn():
     """Return the raw function behind the @tool decorator."""
@@ -29,12 +28,13 @@ def _build_attributed_body(text: str) -> bytes:
     the text to survive the regex split on control chars.
     """
     # Encode with a control-char separator that the regex will split on
-    return f"\x01NSString\x02{text}".encode("utf-8")
+    return f"\x01NSString\x02{text}".encode()
 
 
 # ---------------------------------------------------------------------------
 # _extract_text unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestExtractText:
     """Tests for _extract_text helper."""
@@ -98,6 +98,7 @@ class TestExtractText:
 # electroreception_read — DB not found
 # ---------------------------------------------------------------------------
 
+
 class TestDBNotFound:
     """When chat.db does not exist."""
 
@@ -114,6 +115,7 @@ class TestDBNotFound:
 # ---------------------------------------------------------------------------
 # electroreception_read — with mock DB
 # ---------------------------------------------------------------------------
+
 
 class TestElectroreceptionRead:
     """Tests with an in-memory SQLite database."""
@@ -238,6 +240,7 @@ class TestElectroreceptionRead:
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             # timedelta still needs to work
             from datetime import timedelta as real_td
+
             mock_dt.timedelta = real_td
             result = fn(days=7)
 

@@ -3,13 +3,10 @@ from __future__ import annotations
 """Tests for pulse — the organism's heartbeat."""
 
 import datetime
-import json
 import os
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -45,24 +42,25 @@ def mock_paths(tmp_path, monkeypatch):
 @pytest.fixture
 def mock_vasomotor():
     """Mock vasomotor module functions."""
-    with patch("metabolon.pulse.measure_vasomotor_tone") as mock_measure, \
-         patch("metabolon.pulse.vasomotor_genome") as mock_genome, \
-         patch("metabolon.pulse.vasomotor_status") as mock_status, \
-         patch("metabolon.pulse.vasomotor_snapshot") as mock_snapshot, \
-         patch("metabolon.pulse.record_event") as mock_record, \
-         patch("metabolon.pulse.log") as mock_log, \
-         patch("metabolon.pulse.is_apneic") as mock_apneic, \
-         patch("metabolon.pulse.assess_vital_capacity") as mock_capacity, \
-         patch("metabolon.pulse._fetch_telemetry") as mock_telemetry, \
-         patch("metabolon.pulse._hours_to_reset") as mock_hours, \
-         patch("metabolon.pulse.oxygen_debt") as mock_debt, \
-         patch("metabolon.pulse.measured_cost_per_systole") as mock_cost, \
-         patch("metabolon.pulse.breathe") as mock_breathe, \
-         patch("metabolon.pulse.resume_breathing") as mock_resume, \
-         patch("metabolon.pulse.set_recovery_interval") as mock_set_interval, \
-         patch("metabolon.pulse.adapt") as mock_adapt, \
-         patch("metabolon.pulse.emit_distress_signal") as mock_distress:
-
+    with (
+        patch("metabolon.pulse.measure_vasomotor_tone") as mock_measure,
+        patch("metabolon.pulse.vasomotor_genome") as mock_genome,
+        patch("metabolon.pulse.vasomotor_status") as mock_status,
+        patch("metabolon.pulse.vasomotor_snapshot") as mock_snapshot,
+        patch("metabolon.pulse.record_event") as mock_record,
+        patch("metabolon.pulse.log") as mock_log,
+        patch("metabolon.pulse.is_apneic") as mock_apneic,
+        patch("metabolon.pulse.assess_vital_capacity") as mock_capacity,
+        patch("metabolon.pulse._fetch_telemetry") as mock_telemetry,
+        patch("metabolon.pulse._hours_to_reset") as mock_hours,
+        patch("metabolon.pulse.oxygen_debt") as mock_debt,
+        patch("metabolon.pulse.measured_cost_per_systole") as mock_cost,
+        patch("metabolon.pulse.breathe") as mock_breathe,
+        patch("metabolon.pulse.resume_breathing") as mock_resume,
+        patch("metabolon.pulse.set_recovery_interval") as mock_set_interval,
+        patch("metabolon.pulse.adapt") as mock_adapt,
+        patch("metabolon.pulse.emit_distress_signal") as mock_distress,
+    ):
         mock_genome.return_value = {
             "infra_pct": 30,
             "basal_rate": 0.15,
@@ -81,7 +79,10 @@ def mock_vasomotor():
         mock_cost.return_value = 5.0
         mock_status.return_value = "green"
         mock_snapshot.return_value = {"weekly": 50, "sonnet": 40}
-        mock_measure.return_value = {"seven_day": {"utilization": 50}, "seven_day_sonnet": {"utilization": 40}}
+        mock_measure.return_value = {
+            "seven_day": {"utilization": 50},
+            "seven_day_sonnet": {"utilization": 40},
+        }
 
         yield {
             "measure": mock_measure,
@@ -114,7 +115,7 @@ class TestAcquireCardiacLock:
         """Should create lock file when none exists."""
         import metabolon.pulse as pulse
 
-        with patch.object(os, 'getpid', return_value=12345):
+        with patch.object(os, "getpid", return_value=12345):
             pulse.acquire_cardiac_lock()
 
         assert mock_paths["cardiac_lock"].exists()
@@ -126,8 +127,7 @@ class TestAcquireCardiacLock:
 
         mock_paths["cardiac_lock"].write_text("12345")
 
-        with patch.object(os, 'getpid', return_value=99999), \
-             patch.object(os, 'kill') as mock_kill:
+        with patch.object(os, "getpid", return_value=99999), patch.object(os, "kill") as mock_kill:
             # os.kill succeeds means process is running
             mock_kill.return_value = None
             with pytest.raises(SystemExit):
@@ -139,8 +139,7 @@ class TestAcquireCardiacLock:
 
         mock_paths["cardiac_lock"].write_text("12345")
 
-        with patch.object(os, 'getpid', return_value=99999), \
-             patch.object(os, 'kill') as mock_kill:
+        with patch.object(os, "getpid", return_value=99999), patch.object(os, "kill") as mock_kill:
             # ProcessLookupError means PID not running
             mock_kill.side_effect = ProcessLookupError()
             pulse.acquire_cardiac_lock()
@@ -153,8 +152,7 @@ class TestAcquireCardiacLock:
 
         mock_paths["cardiac_lock"].write_text("12345")
 
-        with patch.object(os, 'getpid', return_value=99999), \
-             patch.object(os, 'kill') as mock_kill:
+        with patch.object(os, "getpid", return_value=99999), patch.object(os, "kill") as mock_kill:
             mock_kill.side_effect = PermissionError()
             with pytest.raises(SystemExit):
                 pulse.acquire_cardiac_lock()
@@ -165,7 +163,7 @@ class TestAcquireCardiacLock:
 
         mock_paths["cardiac_lock"].write_text("not-a-number")
 
-        with patch.object(os, 'getpid', return_value=99999):
+        with patch.object(os, "getpid", return_value=99999):
             pulse.acquire_cardiac_lock()
 
         assert mock_paths["cardiac_lock"].read_text() == "99999"
@@ -178,7 +176,7 @@ class TestReleaseCardiacLock:
 
         mock_paths["cardiac_lock"].write_text("12345")
 
-        with patch.object(os, 'getpid', return_value=12345):
+        with patch.object(os, "getpid", return_value=12345):
             pulse.release_cardiac_lock()
 
         assert not mock_paths["cardiac_lock"].exists()
@@ -189,7 +187,7 @@ class TestReleaseCardiacLock:
 
         mock_paths["cardiac_lock"].write_text("12345")
 
-        with patch.object(os, 'getpid', return_value=99999):
+        with patch.object(os, "getpid", return_value=99999):
             pulse.release_cardiac_lock()
 
         assert mock_paths["cardiac_lock"].exists()
@@ -351,8 +349,17 @@ class TestSenseDiskPressure:
             after_gb=13.0,
         )
         # Mock the import inside the function
-        with patch("metabolon.pulse.shutil.disk_usage") as mock_disk, \
-             patch.dict("sys.modules", {"metabolon.enzymes.interoception": MagicMock(lysosome_digest=lambda: mock_lysosome_result)}):
+        with (
+            patch("metabolon.pulse.shutil.disk_usage") as mock_disk,
+            patch.dict(
+                "sys.modules",
+                {
+                    "metabolon.enzymes.interoception": MagicMock(
+                        lysosome_digest=lambda: mock_lysosome_result
+                    )
+                },
+            ),
+        ):
             # 10GB free (below DISK_CLEAN_GB=15)
             mock_disk.return_value = MagicMock(free=10 * 1024**3)
             result = pulse.sense_disk_pressure()
@@ -368,8 +375,17 @@ class TestSenseDiskPressure:
             before_gb=3.0,
             after_gb=3.5,
         )
-        with patch("metabolon.pulse.shutil.disk_usage") as mock_disk, \
-             patch.dict("sys.modules", {"metabolon.enzymes.interoception": MagicMock(lysosome_digest=lambda: mock_lysosome_result)}):
+        with (
+            patch("metabolon.pulse.shutil.disk_usage") as mock_disk,
+            patch.dict(
+                "sys.modules",
+                {
+                    "metabolon.enzymes.interoception": MagicMock(
+                        lysosome_digest=lambda: mock_lysosome_result
+                    )
+                },
+            ),
+        ):
             # 3GB free (below DISK_FLOOR_GB=5)
             mock_disk.return_value = MagicMock(free=3 * 1024**3)
             result = pulse.sense_disk_pressure()
@@ -505,8 +521,9 @@ class TestAtrialSystole:
 
     def test_scans_praxis_for_urgent_items(self, mock_paths, mock_vasomotor):
         """Should scan Praxis for urgent items with near dates."""
-        import metabolon.pulse as pulse
         from datetime import date, timedelta
+
+        import metabolon.pulse as pulse
 
         tomorrow = date.today() + timedelta(days=1)
         praxis_content = f"""
@@ -540,8 +557,10 @@ class TestDiastole:
         lines = ["# Pulse Manifest", "", "## Completed"] + [f"  - Item {i}" for i in range(150)]
         mock_paths["cardiac_log"].write_text("\n".join(lines))
 
-        with patch("metabolon.respiration.auto_convert") as mock_convert, \
-             patch("metabolon.respiration.phantom_sweep") as mock_phantom:
+        with (
+            patch("metabolon.respiration.auto_convert") as mock_convert,
+            patch("metabolon.respiration.phantom_sweep") as mock_phantom,
+        ):
             mock_convert.return_value = {"converted": 0}
             mock_phantom.return_value = {"phantom_count": 0}
             pulse.diastole(1)
@@ -561,8 +580,10 @@ class TestDiastole:
 """
         mock_paths["cardiac_log"].write_text(manifest)
 
-        with patch("metabolon.respiration.auto_convert") as mock_convert, \
-             patch("metabolon.respiration.phantom_sweep") as mock_phantom:
+        with (
+            patch("metabolon.respiration.auto_convert") as mock_convert,
+            patch("metabolon.respiration.phantom_sweep") as mock_phantom,
+        ):
             mock_convert.return_value = {"converted": 0}
             mock_phantom.return_value = {"phantom_count": 0}
             pulse.diastole(1)
@@ -576,8 +597,10 @@ class TestDiastole:
 
         mock_paths["cardiac_log"].write_text("# Pulse Manifest\n")
 
-        with patch("metabolon.respiration.auto_convert") as mock_convert, \
-             patch("metabolon.respiration.phantom_sweep") as mock_phantom:
+        with (
+            patch("metabolon.respiration.auto_convert") as mock_convert,
+            patch("metabolon.respiration.phantom_sweep") as mock_phantom,
+        ):
             mock_convert.return_value = {"converted": 5}
             mock_phantom.return_value = {"phantom_count": 0}
             pulse.diastole(1)
@@ -594,8 +617,9 @@ class TestDiastole:
 class TestCountRecentSecretions:
     def test_counts_new_files(self, mock_paths, tmp_path):
         """Should count files created after the given timestamp."""
-        import metabolon.pulse as pulse
         import time
+
+        import metabolon.pulse as pulse
 
         # Create some files
         dir1 = tmp_path / "secretions"
@@ -608,8 +632,9 @@ class TestCountRecentSecretions:
 
     def test_ignores_old_files(self, mock_paths, tmp_path):
         """Should ignore files created before the timestamp."""
-        import metabolon.pulse as pulse
         import time
+
+        import metabolon.pulse as pulse
 
         dir1 = tmp_path / "secretions"
         dir1.mkdir()
@@ -636,8 +661,8 @@ class TestCountRecentSecretions:
 class TestFireSystole:
     def test_returns_success_on_zero_exit(self, mock_paths, mock_vasomotor):
         """Should return (True, tail) on successful exit."""
+
         import metabolon.pulse as pulse
-        import time
 
         mock_paths["log_dir"].mkdir(parents=True)
         log_file = mock_paths["log_dir"] / "pulse-systoles.log"
@@ -645,20 +670,23 @@ class TestFireSystole:
 
         # Use a side effect to make poll return 0 after first call
         poll_count = [0]
+
         def poll_side_effect():
             poll_count[0] += 1
             if poll_count[0] > 1:
                 return 0  # Process completed
             return None  # Still running
 
-        with patch("metabolon.pulse.subprocess.Popen") as mock_popen, \
-             patch("metabolon.pulse.time.sleep"):
+        with (
+            patch("metabolon.pulse.subprocess.Popen") as mock_popen,
+            patch("metabolon.pulse.time.sleep"),
+        ):
             mock_proc = MagicMock()
             mock_proc.poll.side_effect = poll_side_effect
             mock_proc.pid = 12345
             mock_popen.return_value = mock_proc
 
-            success, tail = pulse.fire_systole(1, "sonnet", prompt="test prompt")
+            success, _tail = pulse.fire_systole(1, "sonnet", prompt="test prompt")
 
         assert success is True
 
@@ -671,20 +699,23 @@ class TestFireSystole:
         log_file.write_text("error output")
 
         poll_count = [0]
+
         def poll_side_effect():
             poll_count[0] += 1
             if poll_count[0] > 1:
                 return 1  # Process failed
             return None
 
-        with patch("metabolon.pulse.subprocess.Popen") as mock_popen, \
-             patch("metabolon.pulse.time.sleep"):
+        with (
+            patch("metabolon.pulse.subprocess.Popen") as mock_popen,
+            patch("metabolon.pulse.time.sleep"),
+        ):
             mock_proc = MagicMock()
             mock_proc.poll.side_effect = poll_side_effect
             mock_proc.pid = 12345
             mock_popen.return_value = mock_proc
 
-            success, tail = pulse.fire_systole(1, "sonnet", prompt="test prompt")
+            success, _tail = pulse.fire_systole(1, "sonnet", prompt="test prompt")
 
         assert success is False
 
@@ -697,15 +728,18 @@ class TestFireSystole:
         log_file.write_text("output")
 
         poll_count = [0]
+
         def poll_side_effect():
             poll_count[0] += 1
             if poll_count[0] > 1:
                 return 0
             return None
 
-        with patch("metabolon.pulse.subprocess.Popen") as mock_popen, \
-             patch("metabolon.pulse.subprocess.run") as mock_run, \
-             patch("metabolon.pulse.time.sleep"):
+        with (
+            patch("metabolon.pulse.subprocess.Popen") as mock_popen,
+            patch("metabolon.pulse.subprocess.run") as mock_run,
+            patch("metabolon.pulse.time.sleep"),
+        ):
             mock_proc = MagicMock()
             mock_proc.poll.side_effect = poll_side_effect
             mock_proc.pid = 12345
@@ -802,9 +836,11 @@ class TestAutophagy:
         """Should record vital signs during autophagy."""
         import metabolon.pulse as pulse
 
-        with patch("metabolon.pulse.post_efferens_summary"), \
-             patch("metabolon.pulse._auto_commit_germline"), \
-             patch("metabolon.pulse.cross_model_review"):
+        with (
+            patch("metabolon.pulse.post_efferens_summary"),
+            patch("metabolon.pulse._auto_commit_germline"),
+            patch("metabolon.pulse.cross_model_review"),
+        ):
             pulse.autophagy(3, "completed")
 
         reports = list(mock_paths["report_dir"].glob("*.md"))
@@ -816,9 +852,11 @@ class TestAutophagy:
 
         mock_paths["cardiac_log"].write_text("# Manifest content")
 
-        with patch("metabolon.pulse.post_efferens_summary"), \
-             patch("metabolon.pulse._auto_commit_germline"), \
-             patch("metabolon.pulse.cross_model_review"):
+        with (
+            patch("metabolon.pulse.post_efferens_summary"),
+            patch("metabolon.pulse._auto_commit_germline"),
+            patch("metabolon.pulse.cross_model_review"),
+        ):
             pulse.autophagy(1, "test")
 
         # Original manifest should be renamed (archived)
@@ -870,8 +908,7 @@ class TestCycleEventLog:
         # Write > 1MB of data
         event_log.write_text("x" * 1_100_000)
 
-        with patch("metabolon.pulse.EVENT_LOG", event_log), \
-             patch("metabolon.pulse.log"):
+        with patch("metabolon.pulse.EVENT_LOG", event_log), patch("metabolon.pulse.log"):
             pulse.cycle_event_log()
 
         # Original should be renamed
@@ -912,8 +949,10 @@ class TestCheckEntrainment:
         """Should return (False, 'normal') for normal action."""
         import metabolon.pulse as pulse
 
-        with patch("metabolon.organelles.entrainment.zeitgebers") as mock_zeitgebers, \
-             patch("metabolon.organelles.entrainment.optimal_schedule") as mock_schedule:
+        with (
+            patch("metabolon.organelles.entrainment.zeitgebers") as mock_zeitgebers,
+            patch("metabolon.organelles.entrainment.optimal_schedule") as mock_schedule,
+        ):
             mock_zeitgebers.return_value = {"hkt_hour": 10}
             mock_schedule.return_value = {
                 "recommendations": {"pulse": {"action": "normal", "reason": "nominal"}}
@@ -930,9 +969,11 @@ class TestCheckEntrainment:
 
         skip_file = tmp_path / "skip-until"
 
-        with patch("metabolon.organelles.entrainment.zeitgebers") as mock_zeitgebers, \
-             patch("metabolon.organelles.entrainment.optimal_schedule") as mock_schedule, \
-             patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file):
+        with (
+            patch("metabolon.organelles.entrainment.zeitgebers") as mock_zeitgebers,
+            patch("metabolon.organelles.entrainment.optimal_schedule") as mock_schedule,
+            patch("metabolon.vasomotor.SKIP_UNTIL_FILE", skip_file),
+        ):
             mock_zeitgebers.return_value = {"hkt_hour": 3}
             mock_schedule.return_value = {
                 "recommendations": {"pulse": {"action": "suppress", "reason": "night_hours"}}
@@ -1004,14 +1045,15 @@ class TestMain:
 
         mock_paths["log_dir"].mkdir(parents=True)
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.atrial_systole") as mock_atrial, \
-             patch("metabolon.pulse.isovolumic_contraction") as mock_iso, \
-             patch("metabolon.pulse.fire_systole") as mock_fire, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"), \
-             patch("metabolon.pulse.diastole"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.atrial_systole") as mock_atrial,
+            patch("metabolon.pulse.isovolumic_contraction") as mock_iso,
+            patch("metabolon.pulse.fire_systole") as mock_fire,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+            patch("metabolon.pulse.diastole"),
+        ):
             mock_ent.return_value = (False, "normal")
             mock_atrial.return_value = {"coverage": {}}
             mock_iso.return_value = "test prompt"
@@ -1028,10 +1070,11 @@ class TestMain:
 
         mock_vasomotor["status"].return_value = "yellow"
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+        ):
             mock_ent.return_value = (False, "normal")
 
             pulse.main(systoles=3, dry_run=True)
@@ -1046,13 +1089,14 @@ class TestMain:
 
         mock_paths["log_dir"].mkdir(parents=True)
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.atrial_systole") as mock_atrial, \
-             patch("metabolon.pulse.isovolumic_contraction") as mock_iso, \
-             patch("metabolon.pulse.fire_systole") as mock_fire, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.atrial_systole") as mock_atrial,
+            patch("metabolon.pulse.isovolumic_contraction") as mock_iso,
+            patch("metabolon.pulse.fire_systole") as mock_fire,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+        ):
             mock_ent.return_value = (False, "normal")
             mock_atrial.return_value = {"coverage": {}}
             mock_iso.return_value = "test prompt"
@@ -1071,14 +1115,15 @@ class TestMain:
 
         mock_paths["log_dir"].mkdir(parents=True)
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.atrial_systole") as mock_atrial, \
-             patch("metabolon.pulse.isovolumic_contraction") as mock_iso, \
-             patch("metabolon.pulse.fire_systole") as mock_fire, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"), \
-             patch("metabolon.pulse.diastole"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.atrial_systole") as mock_atrial,
+            patch("metabolon.pulse.isovolumic_contraction") as mock_iso,
+            patch("metabolon.pulse.fire_systole") as mock_fire,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+            patch("metabolon.pulse.diastole"),
+        ):
             mock_ent.return_value = (False, "normal")
             mock_atrial.return_value = {"coverage": {}}
             mock_iso.return_value = "test prompt"
@@ -1100,10 +1145,11 @@ class TestMain:
         # Set a deadline in the past
         past_time = (datetime.datetime.now() - datetime.timedelta(hours=1)).strftime("%H:%M")
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+        ):
             mock_ent.return_value = (False, "normal")
             mock_vasomotor["status"].return_value = "green"
 
@@ -1119,10 +1165,11 @@ class TestAdaptiveCadence:
         """Should use provided systole count directly."""
         import metabolon.pulse as pulse
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+        ):
             mock_ent.return_value = (False, "normal")
             mock_vasomotor["capacity"].return_value = (True, "plenty")
             mock_vasomotor["status"].return_value = "green"
@@ -1142,10 +1189,11 @@ class TestAdaptiveCadence:
         }
         mock_vasomotor["cost"].return_value = 5.0
 
-        with patch("metabolon.pulse._check_entrainment") as mock_ent, \
-             patch("metabolon.pulse.sense_disk_pressure", return_value=True), \
-             patch("metabolon.pulse.autophagy"):
-
+        with (
+            patch("metabolon.pulse._check_entrainment") as mock_ent,
+            patch("metabolon.pulse.sense_disk_pressure", return_value=True),
+            patch("metabolon.pulse.autophagy"),
+        ):
             mock_ent.return_value = (False, "normal")
             mock_vasomotor["capacity"].return_value = (True, "plenty")
             mock_vasomotor["status"].return_value = "green"

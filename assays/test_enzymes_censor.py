@@ -17,11 +17,13 @@ def _import_module():
     import importlib
 
     import metabolon.enzymes.censor as mod
+
     importlib.reload(mod)
     return mod
 
 
 # ---- rubric validation ----
+
 
 def test_enzymes_censor_invalid_rubric_raises():
     """Passing an unknown rubric name raises ValueError."""
@@ -43,6 +45,7 @@ def test_valid_rubrics_accepted():
 
 
 # ---- argument construction ----
+
 
 def test_basic_args():
     """Minimal call passes rubric, --json, --model glm."""

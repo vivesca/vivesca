@@ -4,37 +4,45 @@ from __future__ import annotations
 
 
 import subprocess
-from unittest.mock import patch, MagicMock
-from metabolon.metabolism.substrates.mismatch_repair import AnamScanSubstrate, _run
+from unittest.mock import patch
 
+from metabolon.metabolism.substrates.mismatch_repair import AnamScanSubstrate, _run
 
 # --- _run helper ---
 
+
 def test_mismatch_repair_substrate_run_success():
     with patch("metabolon.metabolism.substrates.mismatch_repair.subprocess.run") as mock:
-        mock.return_value = subprocess.CompletedProcess(args=["x"], returncode=0, stdout="ok", stderr="")
+        mock.return_value = subprocess.CompletedProcess(
+            args=["x"], returncode=0, stdout="ok", stderr=""
+        )
         result = _run(["x"])
         assert result.returncode == 0
         assert result.stdout == "ok"
 
 
 def test_mismatch_repair_substrate_run_timeout():
-    with patch("metabolon.metabolism.substrates.mismatch_repair.subprocess.run",
-               side_effect=subprocess.TimeoutExpired("x", 5)):
+    with patch(
+        "metabolon.metabolism.substrates.mismatch_repair.subprocess.run",
+        side_effect=subprocess.TimeoutExpired("x", 5),
+    ):
         result = _run(["x"], timeout=5)
         assert result.returncode == 1
         assert "timeout" in result.stderr
 
 
 def test_run_not_found():
-    with patch("metabolon.metabolism.substrates.mismatch_repair.subprocess.run",
-               side_effect=FileNotFoundError("x")):
+    with patch(
+        "metabolon.metabolism.substrates.mismatch_repair.subprocess.run",
+        side_effect=FileNotFoundError("x"),
+    ):
         result = _run(["x"])
         assert result.returncode == 1
         assert "not found" in result.stderr
 
 
 # --- AnamScanSubstrate ---
+
 
 def test_mismatch_repair_substrate_name():
     s = AnamScanSubstrate()
@@ -43,8 +51,10 @@ def test_mismatch_repair_substrate_name():
 
 def test_sense_error():
     with patch("metabolon.metabolism.substrates.mismatch_repair._run") as mock:
-        mock.return_value = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="bad")
-        result = s = AnamScanSubstrate()
+        mock.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="bad"
+        )
+        s = AnamScanSubstrate()
         signals = s.sense()
         assert len(signals) == 1
         assert signals[0]["kind"] == "error"
@@ -53,7 +63,10 @@ def test_sense_error():
 def test_sense_parses_sessions():
     with patch("metabolon.metabolism.substrates.mismatch_repair._run") as mock:
         mock.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="Sessions: 15\nCorrections: 8 across 5 sessions\n", stderr=""
+            args=[],
+            returncode=0,
+            stdout="Sessions: 15\nCorrections: 8 across 5 sessions\n",
+            stderr="",
         )
         s = AnamScanSubstrate()
         signals = s.sense()
@@ -66,7 +79,9 @@ def test_sense_parses_sessions():
 
 def test_sense_no_data():
     with patch("metabolon.metabolism.substrates.mismatch_repair._run") as mock:
-        mock.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         s = AnamScanSubstrate()
         signals = s.sense()
         assert signals[0]["kind"] == "no_data"
@@ -100,7 +115,9 @@ def test_candidates_not_enough():
 
 def test_act_daily():
     with patch("metabolon.metabolism.substrates.mismatch_repair._run") as mock:
-        mock.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="done\n", stderr="")
+        mock.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="done\n", stderr=""
+        )
         s = AnamScanSubstrate()
         result = s.act({"action": "daily_scan"})
         assert "completed" in result
@@ -108,7 +125,9 @@ def test_act_daily():
 
 def test_act_weekly():
     with patch("metabolon.metabolism.substrates.mismatch_repair._run") as mock:
-        mock.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="synth done\n", stderr="")
+        mock.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="synth done\n", stderr=""
+        )
         s = AnamScanSubstrate()
         result = s.act({"action": "weekly_synthesis"})
         assert "completed" in result
@@ -116,7 +135,9 @@ def test_act_weekly():
 
 def test_act_failure():
     with patch("metabolon.metabolism.substrates.mismatch_repair._run") as mock:
-        mock.return_value = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="crash")
+        mock.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="crash"
+        )
         s = AnamScanSubstrate()
         result = s.act({"action": "daily_scan"})
         assert "failed" in result

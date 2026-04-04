@@ -39,15 +39,23 @@ def test_parser_fetch_subcommand():
 def test_parser_all_options():
     """Parser wires every option to the correct attribute."""
     parser = build_parser()
-    args = parser.parse_args([
-        "fetch", "https://example.com",
-        "--cookies", "/tmp/cookies.json",
-        "--selector", "main",
-        "--screenshot", "/tmp/shot.png",
-        "--pdf", "/tmp/out.pdf",
-        "--wait", "2000",
-        "--json",
-    ])
+    args = parser.parse_args(
+        [
+            "fetch",
+            "https://example.com",
+            "--cookies",
+            "/tmp/cookies.json",
+            "--selector",
+            "main",
+            "--screenshot",
+            "/tmp/shot.png",
+            "--pdf",
+            "/tmp/out.pdf",
+            "--wait",
+            "2000",
+            "--json",
+        ]
+    )
     assert args.cookies == "/tmp/cookies.json"
     assert args.selector == "main"
     assert args.screenshot == "/tmp/shot.png"
@@ -118,14 +126,22 @@ def test_fetch_json_output(mock_fetch, capsys):
 
 def test_fetch_passes_all_options(mock_fetch, capsys):
     """All CLI options are forwarded to _async_fetch."""
-    main([
-        "fetch", "https://example.com",
-        "--cookies", "/tmp/c.json",
-        "--selector", "article",
-        "--screenshot", "/tmp/s.png",
-        "--pdf", "/tmp/o.pdf",
-        "--wait", "3000",
-    ])
+    main(
+        [
+            "fetch",
+            "https://example.com",
+            "--cookies",
+            "/tmp/c.json",
+            "--selector",
+            "article",
+            "--screenshot",
+            "/tmp/s.png",
+            "--pdf",
+            "/tmp/o.pdf",
+            "--wait",
+            "3000",
+        ]
+    )
     mock_fetch.assert_called_once_with(
         "https://example.com",
         cookies="/tmp/c.json",

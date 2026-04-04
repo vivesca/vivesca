@@ -2,12 +2,10 @@ from __future__ import annotations
 
 """Tests for regulatory-scrape — URL→frontmattered markdown converter."""
 
-import csv
-import os
 import sys
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -160,8 +158,10 @@ def test_pdf_extract_local_file_success():
 
 def test_fetch_content_pdf_url_calls_pdf_extract():
     """fetch_content calls _pdf_extract for .pdf URLs."""
-    with patch("regulatory_scrape._pdf_extract", return_value="text " * 100) as mock_pe, \
-         patch("regulatory_scrape._curl_fetch", return_value=""):
+    with (
+        patch("regulatory_scrape._pdf_extract", return_value="text " * 100) as mock_pe,
+        patch("regulatory_scrape._curl_fetch", return_value=""),
+    ):
         text = fetch_content("https://example.com/doc.pdf")
 
     mock_pe.assert_called_once_with("https://example.com/doc.pdf")
@@ -170,9 +170,11 @@ def test_fetch_content_pdf_url_calls_pdf_extract():
 
 def test_fetch_content_bot_blocked_skips_pinocytosis():
     """fetch_content skips pinocytosis for BOT_BLOCKED domains."""
-    with patch("subprocess.run") as mock_run, \
-         patch("regulatory_scrape._curl_fetch", return_value=""), \
-         patch("regulatory_scrape._find_pdf_links", return_value=[]):
+    with (
+        patch("subprocess.run") as mock_run,
+        patch("regulatory_scrape._curl_fetch", return_value=""),
+        patch("regulatory_scrape._find_pdf_links", return_value=[]),
+    ):
         fetch_content("https://www.bankofengland.co.uk/some-page")
 
     # pinocytosis should NOT be called — only curl calls
@@ -188,7 +190,7 @@ def test_fetch_content_tries_pinocytosis_first_for_normal_domain():
     mock_result.stdout = "x" * 600
 
     with patch("subprocess.run", return_value=mock_result) as mock_run:
-        text = fetch_content("https://example.com/page")
+        fetch_content("https://example.com/page")
 
     # First call should be pinocytosis
     first_cmd = mock_run.call_args_list[0]
@@ -199,10 +201,12 @@ def test_fetch_content_returns_empty_on_all_failures():
     """fetch_content returns '' when all fetch methods fail."""
     fail_result = MagicMock(returncode=1, stdout="")
 
-    with patch("subprocess.run", return_value=fail_result), \
-         patch("regulatory_scrape._curl_fetch", return_value=""), \
-         patch("regulatory_scrape._find_pdf_links", return_value=[]), \
-         patch("regulatory_scrape._pdf_extract", return_value=""):
+    with (
+        patch("subprocess.run", return_value=fail_result),
+        patch("regulatory_scrape._curl_fetch", return_value=""),
+        patch("regulatory_scrape._find_pdf_links", return_value=[]),
+        patch("regulatory_scrape._pdf_extract", return_value=""),
+    ):
         text = fetch_content("https://example.com/page")
 
     assert text == ""
@@ -214,16 +218,21 @@ def test_fetch_content_returns_empty_on_all_failures():
 def test_scrape_one_writes_file(tmp_path):
     """scrape_one creates a frontmattered markdown file."""
     content = "X" * 300
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content", return_value=content):
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content", return_value=content),
+    ):
         result = scrape_one(
-            "https://example.com/doc", "fca", "2024-04-22",
-            "AI Update", "guidance",
+            "https://example.com/doc",
+            "fca",
+            "2024-04-22",
+            "AI Update",
+            "guidance",
         )
 
     assert result  # non-empty path returned
     written = Path(result).read_text()
-    assert "title: \"AI Update\"" in written
+    assert 'title: "AI Update"' in written
     assert "issuer: fca" in written
     assert "date: 2024-04-22" in written
     assert "source: https://example.com/doc" in written
@@ -233,11 +242,17 @@ def test_scrape_one_writes_file(tmp_path):
 
 def test_scrape_one_custom_slug(tmp_path):
     """scrape_one uses custom slug when provided."""
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content", return_value="X" * 300):
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content", return_value="X" * 300),
+    ):
         result = scrape_one(
-            "https://example.com/doc", "fca", "2024-04-22",
-            "AI Update", "guidance", slug="custom-slug",
+            "https://example.com/doc",
+            "fca",
+            "2024-04-22",
+            "AI Update",
+            "guidance",
+            slug="custom-slug",
         )
 
     assert "custom-slug" in Path(result).name
@@ -250,11 +265,16 @@ def test_scrape_one_skips_existing(tmp_path):
     existing = tmp_path / filename
     existing.write_text("X" * 600)
 
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content") as mock_fc:
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content") as mock_fc,
+    ):
         result = scrape_one(
-            "https://example.com/doc", "fca", "2024-04-22",
-            "AI Update", "guidance",
+            "https://example.com/doc",
+            "fca",
+            "2024-04-22",
+            "AI Update",
+            "guidance",
         )
 
     mock_fc.assert_not_called()
@@ -263,11 +283,16 @@ def test_scrape_one_skips_existing(tmp_path):
 
 def test_scrape_one_returns_empty_on_fetch_failure(tmp_path):
     """scrape_one returns '' when fetch_content returns empty."""
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content", return_value=""):
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content", return_value=""),
+    ):
         result = scrape_one(
-            "https://example.com/doc", "fca", "2024-04-22",
-            "AI Update", "guidance",
+            "https://example.com/doc",
+            "fca",
+            "2024-04-22",
+            "AI Update",
+            "guidance",
         )
 
     assert result == ""
@@ -275,14 +300,19 @@ def test_scrape_one_returns_empty_on_fetch_failure(tmp_path):
 
 def test_scrape_one_auto_slug(tmp_path):
     """scrape_one auto-generates slug from title when slug is None."""
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content", return_value="Y" * 300):
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content", return_value="Y" * 300),
+    ):
         result = scrape_one(
-            "https://example.com/doc", "pra", "2024-06-01",
-            "Dear CEO Letter", "letter",
+            "https://example.com/doc",
+            "pra",
+            "2024-06-01",
+            "Dear CEO Letter",
+            "letter",
         )
 
-    assert "pra-2024-06-dear-ceo-letter.md" == Path(result).name
+    assert Path(result).name == "pra-2024-06-dear-ceo-letter.md"
 
 
 # ── batch ──────────────────────────────────────────────────────────────
@@ -291,8 +321,10 @@ def test_scrape_one_auto_slug(tmp_path):
 def test_batch_processes_tsv(tmp_path):
     """batch reads TSV and calls scrape_one for each row."""
     tsv = tmp_path / "catalog.tsv"
-    tsv.write_text("https://a.com\taa\t2024-01-01\tTitle A\tguidance\n"
-                   "https://b.com\tbb\t2024-02-01\tTitle B\treport\n")
+    tsv.write_text(
+        "https://a.com\taa\t2024-01-01\tTitle A\tguidance\n"
+        "https://b.com\tbb\t2024-02-01\tTitle B\treport\n"
+    )
 
     with patch("regulatory_scrape.scrape_one", return_value="/fake/path") as mock_so:
         batch(str(tsv))
@@ -321,7 +353,9 @@ def test_batch_with_slug_column(tmp_path):
     with patch("regulatory_scrape.scrape_one", return_value="/fake/path") as mock_so:
         batch(str(tsv))
 
-    mock_so.assert_called_once_with("https://a.com", "aa", "2024-01-01", "Title", "guidance", "my-slug")
+    mock_so.assert_called_once_with(
+        "https://a.com", "aa", "2024-01-01", "Title", "guidance", "my-slug"
+    )
 
 
 # ── main (CLI) ─────────────────────────────────────────────────────────
@@ -329,11 +363,23 @@ def test_batch_with_slug_column(tmp_path):
 
 def test_main_single_url_prints_path(tmp_path, capsys):
     """main prints the output path on success."""
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content", return_value="Z" * 300), \
-         patch("sys.argv", ["regulatory-scrape", "https://example.com/doc",
-                            "--issuer", "fca", "--date", "2024-04-22",
-                            "--title", "Test Doc"]):
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content", return_value="Z" * 300),
+        patch(
+            "sys.argv",
+            [
+                "regulatory-scrape",
+                "https://example.com/doc",
+                "--issuer",
+                "fca",
+                "--date",
+                "2024-04-22",
+                "--title",
+                "Test Doc",
+            ],
+        ),
+    ):
         main()
 
     captured = capsys.readouterr()
@@ -345,26 +391,42 @@ def test_main_batch_flag(tmp_path):
     tsv = tmp_path / "catalog.tsv"
     tsv.write_text("https://a.com\taa\t2024-01-01\tTitle\tguidance\n")
 
-    with patch("regulatory_scrape.scrape_one", return_value="/fake/path"), \
-         patch("sys.argv", ["regulatory-scrape", "--batch", str(tsv)]):
+    with (
+        patch("regulatory_scrape.scrape_one", return_value="/fake/path"),
+        patch("sys.argv", ["regulatory-scrape", "--batch", str(tsv)]),
+    ):
         main()
 
 
 def test_main_missing_args_exits(tmp_path):
     """main exits with error when required args are missing for single URL."""
-    with patch("sys.argv", ["regulatory-scrape", "https://example.com/doc"]), \
-         pytest.raises(SystemExit):
+    with (
+        patch("sys.argv", ["regulatory-scrape", "https://example.com/doc"]),
+        pytest.raises(SystemExit),
+    ):
         main()
 
 
 def test_main_fetch_failure_exits_1(tmp_path):
     """main exits 1 when fetch_content returns empty."""
-    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
-         patch("regulatory_scrape.fetch_content", return_value=""), \
-         patch("sys.argv", ["regulatory-scrape", "https://example.com/doc",
-                            "--issuer", "fca", "--date", "2024-04-22",
-                            "--title", "Test Doc"]), \
-         pytest.raises(SystemExit) as exc_info:
+    with (
+        patch("regulatory_scrape.REG_DIR", str(tmp_path)),
+        patch("regulatory_scrape.fetch_content", return_value=""),
+        patch(
+            "sys.argv",
+            [
+                "regulatory-scrape",
+                "https://example.com/doc",
+                "--issuer",
+                "fca",
+                "--date",
+                "2024-04-22",
+                "--title",
+                "Test Doc",
+            ],
+        ),
+        pytest.raises(SystemExit) as exc_info,
+    ):
         main()
 
     assert exc_info.value.code == 1

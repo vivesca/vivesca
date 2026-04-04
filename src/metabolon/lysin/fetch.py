@@ -1,9 +1,7 @@
-
 """Fetch biology for hybridization grounding.
 
 Source hierarchy: UniProt (protein mechanism) → Reactome (pathway context) → Wikipedia (general).
 """
-
 
 import re
 from dataclasses import dataclass, field

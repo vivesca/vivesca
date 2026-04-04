@@ -1,9 +1,9 @@
 """Tests for chromatin organelle — file-based memory store."""
 
-from metabolon.organelles.chromatin import _parse_frontmatter, _MarkIndex
-
+from metabolon.organelles.chromatin import _MarkIndex, _parse_frontmatter
 
 # --- _parse_frontmatter ---
+
 
 def test_chromatin_organelle_parse_frontmatter_basic():
     text = "---\nname: test\ntype: feedback\n---\nBody text"
@@ -30,6 +30,7 @@ def test_parse_frontmatter_colons_in_value():
 
 
 # --- _MarkIndex ---
+
 
 def test_index_empty_dir(tmp_path):
     idx = _MarkIndex(tmp_path)

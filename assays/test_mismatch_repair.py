@@ -1,17 +1,22 @@
 """Tests for mismatch_repair — biological naming precision audit."""
 
 from metabolon.metabolism.mismatch_repair import (
-    VocabularyGap,
+    SRC_DIR,
     VOCABULARY_GAPS,
     OrphanGap,
+    VocabularyGap,
     _detect_orphan_gaps,
-    SRC_DIR,
 )
 
 
 def test_vocabulary_gap_dataclass():
-    g = VocabularyGap(old_term="OldName", new_term="NewName", layer="cortical",
-                      reason="better precision", grep_pattern=r"\bOldName\b")
+    g = VocabularyGap(
+        old_term="OldName",
+        new_term="NewName",
+        layer="cortical",
+        reason="better precision",
+        grep_pattern=r"\bOldName\b",
+    )
     assert g.old_term == "OldName"
     assert g.exclude_file == ""
 
@@ -48,11 +53,11 @@ def test_detect_orphan_gaps_with_resource(tmp_path):
     res = src / "resources"
     res.mkdir()
     # Create a file that registers a resource
-    (res / "test.py").write_text('''
+    (res / "test.py").write_text("""
 from fastmcp.resources import resource
 @resource(uri="vivesca://test")
 def test_resource(): return "data"
-''')
+""")
     # No consumer references
     consumer = tmp_path / "empty_consumer.md"
     consumer.write_text("nothing here")

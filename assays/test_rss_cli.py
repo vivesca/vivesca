@@ -1,12 +1,11 @@
 """Tests for metabolon.organelles.endocytosis_rss.cli."""
+
 from __future__ import annotations
 
 import importlib.metadata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from metabolon.organelles.endocytosis_rss.cli import (
     _file_age,
@@ -15,7 +14,6 @@ from metabolon.organelles.endocytosis_rss.cli import (
     _parse_aware,
     _source_since_date,
 )
-
 
 # ---------------------------------------------------------------------------
 # _get_version
@@ -149,7 +147,7 @@ def test_last_scan_date_empty_state():
 
 
 def test_last_scan_date_all_invalid():
-    """State with only unparseable values falls back to yesterday."""
+    """State with only unparsable values falls back to yesterday."""
     result = _get_last_scan_date({"x": "garbage"})
     yesterday = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
     assert result == yesterday

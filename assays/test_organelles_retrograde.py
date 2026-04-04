@@ -4,30 +4,21 @@ from __future__ import annotations
 
 import datetime
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
-
-import pytest
+from unittest.mock import MagicMock, mock_open, patch
 
 from metabolon.organelles.retrograde import (
-    SIGNALS_LOG,
-    EVENT_LOG,
-    METHYLATION_CANDIDATES,
-    INFECTIONS_LOG,
-    METHYLATION_JSONL,
-    TRACKED_REPOS,
-    log_signal,
-    _cutoff_iso,
     _count_anterograde,
-    _count_retrograde,
     _count_logged,
+    _count_retrograde,
+    _cutoff_iso,
+    log_signal,
     signal_balance,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _iso(minutes_ago: int = 0) -> str:
     """ISO timestamp for *now minus minutes_ago*."""
@@ -206,13 +197,21 @@ class TestCountAnterograde:
 
     @patch("metabolon.organelles.retrograde._count_logged", return_value=0)
     @patch("metabolon.organelles.retrograde.EVENT_LOG", new_callable=MagicMock)
-    def test_counts_systole_events(self, mock_event_log: MagicMock, mock_counted: MagicMock) -> None:
+    def test_counts_systole_events(
+        self, mock_event_log: MagicMock, mock_counted: MagicMock
+    ) -> None:
         mock_event_log.exists.return_value = True
-        lines = "\n".join(json.dumps(e) for e in [
-            _make_event(_iso(0), "systole_start"),
-            _make_event(_iso(1), "run_start"),
-            _make_event(_iso(2), "adapt_start"),
-        ]) + "\n"
+        lines = (
+            "\n".join(
+                json.dumps(e)
+                for e in [
+                    _make_event(_iso(0), "systole_start"),
+                    _make_event(_iso(1), "run_start"),
+                    _make_event(_iso(2), "adapt_start"),
+                ]
+            )
+            + "\n"
+        )
         mock_event_log.read_text.return_value = lines
         assert _count_anterograde(7) == 3
 
@@ -226,7 +225,9 @@ class TestCountAnterograde:
 
     @patch("metabolon.organelles.retrograde._count_logged", return_value=0)
     @patch("metabolon.organelles.retrograde.EVENT_LOG", new_callable=MagicMock)
-    def test_ignores_unrelated_events(self, mock_event_log: MagicMock, mock_counted: MagicMock) -> None:
+    def test_ignores_unrelated_events(
+        self, mock_event_log: MagicMock, mock_counted: MagicMock
+    ) -> None:
         mock_event_log.exists.return_value = True
         lines = json.dumps(_make_event(_iso(0), event="something_else")) + "\n"
         mock_event_log.read_text.return_value = lines
@@ -249,7 +250,9 @@ class TestCountAnterograde:
 
     @patch("metabolon.organelles.retrograde._count_logged", return_value=0)
     @patch("metabolon.organelles.retrograde.EVENT_LOG", new_callable=MagicMock)
-    def test_malformed_event_skipped(self, mock_event_log: MagicMock, mock_counted: MagicMock) -> None:
+    def test_malformed_event_skipped(
+        self, mock_event_log: MagicMock, mock_counted: MagicMock
+    ) -> None:
         mock_event_log.exists.return_value = True
         good = _make_event(_iso(0), "systole_start")
         mock_event_log.read_text.return_value = "NOT JSON\n" + json.dumps(good) + "\n"
@@ -271,8 +274,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_no_data_returns_zero(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         mock_mc.exists.return_value = False
         mock_mj.exists.return_value = False
@@ -286,8 +293,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[MagicMock()])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_counts_git_commits(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         mock_sp.run.return_value = MagicMock(
             stdout="abc123 fix bug\ndef456 add feature\n", stderr=""
@@ -306,8 +317,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_counts_methylation_candidates(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         entry = {"ts": _iso(0), "action": "propose"}
         mock_mc.exists.return_value = True
@@ -323,8 +338,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_counts_healed_infections_not_test_fixtures(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         healed_real = {"ts": _iso(0), "tool": "some_real_tool", "healed": True}
         healed_fixture = {"ts": _iso(0), "tool": "fail_tool", "healed": True}
@@ -332,9 +351,9 @@ class TestCountRetrograde:
         mock_mc.exists.return_value = False
         mock_mj.exists.return_value = False
         mock_il.exists.return_value = True
-        mock_il.read_text.return_value = "\n".join(
-            json.dumps(e) for e in [healed_real, healed_fixture, not_healed]
-        ) + "\n"
+        mock_il.read_text.return_value = (
+            "\n".join(json.dumps(e) for e in [healed_real, healed_fixture, not_healed]) + "\n"
+        )
         # Should count only the healed_real entry (1)
         assert _count_retrograde(7) == 1
 
@@ -345,8 +364,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_adds_logged_retrograde(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         mock_mc.exists.return_value = False
         mock_mj.exists.return_value = False
@@ -360,8 +383,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_excludes_old_methylation(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         old_ts = _iso(60 * 24 * 10)
         entry = {"ts": old_ts, "action": "propose"}
@@ -378,8 +405,12 @@ class TestCountRetrograde:
     @patch("metabolon.organelles.retrograde.TRACKED_REPOS", new=[])
     @patch("metabolon.organelles.retrograde.subprocess")
     def test_git_exception_handled(
-        self, mock_sp: MagicMock, mock_mc: MagicMock, mock_mj: MagicMock,
-        mock_il: MagicMock, mock_cl: MagicMock,
+        self,
+        mock_sp: MagicMock,
+        mock_mc: MagicMock,
+        mock_mj: MagicMock,
+        mock_il: MagicMock,
+        mock_cl: MagicMock,
     ) -> None:
         """Git command failure should not raise."""
         # TRACKED_REPOS is empty here, so no git calls happen — this test
@@ -467,13 +498,17 @@ class TestSignalBalance:
 
     @patch("metabolon.organelles.retrograde._count_retrograde", return_value=2)
     @patch("metabolon.organelles.retrograde._count_anterograde", return_value=7)
-    def test_ratio_rounds_to_two_decimals(self, mock_ante: MagicMock, mock_retro: MagicMock) -> None:
+    def test_ratio_rounds_to_two_decimals(
+        self, mock_ante: MagicMock, mock_retro: MagicMock
+    ) -> None:
         result = signal_balance(7)
         assert result["ratio"] == 3.5
 
     @patch("metabolon.organelles.retrograde._count_retrograde", return_value=0)
     @patch("metabolon.organelles.retrograde._count_anterograde", return_value=1)
-    def test_retro_zero_ante_positive_default_ratio(self, mock_ante: MagicMock, mock_retro: MagicMock) -> None:
+    def test_retro_zero_ante_positive_default_ratio(
+        self, mock_ante: MagicMock, mock_retro: MagicMock
+    ) -> None:
         result = signal_balance(7)
         # ante>0, retro==0: ratio = float(ante) if ante>0 else 1.0 = 1.0
         assert result["ratio"] == 1.0

@@ -97,10 +97,7 @@ def test_format_callout_qmd_urls():
 
 def test_format_callout_title_lines():
     """Title: lines are used as the link name."""
-    qmd_output = (
-        "Title: My Great Note\n"
-        "Score: 0.91\n"
-    )
+    qmd_output = "Title: My Great Note\nScore: 0.91\n"
     result = format_callout(qmd_output, Path("other.md"))
     assert "[[My Great Note]] (0.91)" in result
 
@@ -125,10 +122,7 @@ def test_format_callout_empty_input():
 
 def test_format_callout_all_self_refs():
     """If all entries are self-references, return empty string."""
-    qmd_output = (
-        "qmd://notes/my-note.md:1 #tag\n"
-        "Score: 0.99\n"
-    )
+    qmd_output = "qmd://notes/my-note.md:1 #tag\nScore: 0.99\n"
     result = format_callout(qmd_output, Path("my-note.md"))
     assert result == ""
 
@@ -147,10 +141,7 @@ def test_format_callout_max_six_entries():
 
 def test_format_callout_md_extension_stripped():
     """The .md extension is stripped from qmd:// paths."""
-    qmd_output = (
-        "qmd://notes/vault/my-page.md:1 #tag\n"
-        "Score: 0.90\n"
-    )
+    qmd_output = "qmd://notes/vault/my-page.md:1 #tag\nScore: 0.90\n"
     result = format_callout(qmd_output, Path("other.md"))
     assert "[[my-page]] (0.90)" in result
     assert ".md" not in result.split("(0.90)")[0]
@@ -158,10 +149,7 @@ def test_format_callout_md_extension_stripped():
 
 def test_format_callout_notes_prefix_stripped():
     """The qmd://notes/ prefix is stripped from paths."""
-    qmd_output = (
-        "qmd://notes/deep/nested/page.md:1\n"
-        "Score: 0.75\n"
-    )
+    qmd_output = "qmd://notes/deep/nested/page.md:1\nScore: 0.75\n"
     result = format_callout(qmd_output, Path("root.md"))
     assert "[[page]] (0.75)" in result
     assert "notes/" not in result
@@ -228,7 +216,7 @@ def _make_qmd_mock(stdout="", returncode=0, stderr=""):
 
 def _run_main(args: list[str]):
     """Run main() with patched sys.argv."""
-    with patch.object(sys, "argv", ["rheotaxis-local"] + args):
+    with patch.object(sys, "argv", ["rheotaxis-local", *args]):
         main()
 
 
@@ -258,10 +246,7 @@ class TestMain:
             "and software development practices in the wild"
         )
         note.write_text(original, encoding="utf-8")
-        qmd_output = (
-            "Title: Related Article\n"
-            "Score: 0.88\n"
-        )
+        qmd_output = "Title: Related Article\nScore: 0.88\n"
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
             _run_main([str(note), "--dry-run"])
         captured = capsys.readouterr()
@@ -276,10 +261,7 @@ class TestMain:
             "and software development practices in the wild"
         )
         note.write_text(original, encoding="utf-8")
-        qmd_output = (
-            "Title: Related Article\n"
-            "Score: 0.88\n"
-        )
+        qmd_output = "Title: Related Article\nScore: 0.88\n"
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
             _run_main([str(note)])
         captured = capsys.readouterr()
@@ -310,10 +292,7 @@ class TestMain:
             "and software development practices in the wild",
             encoding="utf-8",
         )
-        qmd_output = (
-            "qmd://notes/my-note.md:1 #tag\n"
-            "Score: 0.99\n"
-        )
+        qmd_output = "qmd://notes/my-note.md:1 #tag\nScore: 0.99\n"
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
             with pytest.raises(SystemExit) as exc_info:
                 _run_main([str(note)])

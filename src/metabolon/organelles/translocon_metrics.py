@@ -1,4 +1,3 @@
-
 """translocon_metrics — per-dispatch metrics collection and reporting.
 
 Records prompt length, output length, duration, model, backend, and
@@ -7,7 +6,6 @@ grouped by backend.
 
 Storage: ~/.local/share/translocon/metrics.jsonl
 """
-
 
 import json
 import statistics
@@ -70,8 +68,8 @@ def _load_entries(days: int | None = None) -> list[dict[str, Any]]:
                     entry_dt = datetime.fromisoformat(ts)
                     if entry_dt < cutoff:
                         continue
-                except (ValueError, TypeError):
-                    pass  # include unparseable entries
+                except ValueError, TypeError:
+                    pass  # include unparsable entries
             entries.append(entry)
     return entries
 

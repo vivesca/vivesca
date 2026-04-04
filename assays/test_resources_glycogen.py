@@ -12,12 +12,7 @@ Covers:
 """
 
 
-import json
-from datetime import UTC, datetime
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 import metabolon.resources.glycogen as glycogen_mod
 from metabolon.organelles.vasomotor_sensor import (
@@ -25,7 +20,6 @@ from metabolon.organelles.vasomotor_sensor import (
     budget_status,
     serialize_status,
 )
-
 
 # ── Module-level attributes ───────────────────────────────────────────
 
@@ -120,7 +114,15 @@ class TestSerializeStatus:
     def test_all_expected_keys(self):
         usage = {"seven_day": {"utilization": 0}, "seven_day_sonnet": {"utilization": 0}}
         result = serialize_status(usage)
-        expected_keys = {"status", "weekly_pct", "sonnet_pct", "session_pct", "stale", "stale_label", "resets_at"}
+        expected_keys = {
+            "status",
+            "weekly_pct",
+            "sonnet_pct",
+            "session_pct",
+            "stale",
+            "stale_label",
+            "resets_at",
+        }
         assert set(result.keys()) == expected_keys
 
 
@@ -229,6 +231,10 @@ class TestGlycogenProprioception:
         assert result["stale"] is True
         assert result["stale_label"] == "5m ago"
         # Build the string proprioception._glycogen would build
-        stale = f" [{result['stale_label']}]" if result.get("stale") and result.get("stale_label") else ""
+        stale = (
+            f" [{result['stale_label']}]"
+            if result.get("stale") and result.get("stale_label")
+            else ""
+        )
         text = f"Token budget: {result['status']} — weekly {result['weekly_pct']:.0f}%, sonnet {result['sonnet_pct']:.0f}%{stale}"
         assert "[5m ago]" in text

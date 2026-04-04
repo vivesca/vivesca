@@ -1,11 +1,11 @@
 """Tests for effectors/photos.py — CLI subprocess tests + exec-based unit tests."""
+
 from __future__ import annotations
 
 import sqlite3
 import subprocess
 import sys
-import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -124,10 +124,10 @@ def _make_db(tmp_path: Path) -> Path:
     )
 
     # Person + face for photo 1
-    conn.execute("INSERT INTO ZPERSON (Z_PK,ZDISPLAYNAME,ZFULLNAME) VALUES (1,'Alice','Alice Smith')")
     conn.execute(
-        "INSERT INTO ZDETECTEDFACE (Z_PK,ZASSETFORFACE,ZPERSONFORFACE) VALUES (1,1,1)"
+        "INSERT INTO ZPERSON (Z_PK,ZDISPLAYNAME,ZFULLNAME) VALUES (1,'Alice','Alice Smith')"
     )
+    conn.execute("INSERT INTO ZDETECTEDFACE (Z_PK,ZASSETFORFACE,ZPERSONFORFACE) VALUES (1,1,1)")
 
     # Internal resource (local availability) for photo 1
     conn.execute(
@@ -218,7 +218,7 @@ class TestTimestampConversion:
         self.ns = _load_ns()
 
     def test_cd_epoch_is_zero(self):
-        epoch = datetime(2001, 1, 1, tzinfo=timezone.utc)
+        epoch = datetime(2001, 1, 1, tzinfo=UTC)
         assert self.ns["_cd_timestamp"](epoch) == 0.0
 
     def test_cd_roundtrip(self):
@@ -229,7 +229,7 @@ class TestTimestampConversion:
         assert dt_back == dt
 
     def test_positive_after_epoch(self):
-        dt = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        dt = datetime(2025, 1, 1, tzinfo=UTC)
         assert self.ns["_cd_timestamp"](dt) > 0
 
     def test_to_datetime_tz_is_hkt(self):
@@ -267,10 +267,16 @@ class TestPrintPhotos:
         assert "  ?  " in out
 
     def test_people_in_labels(self, capsys):
-        self.print_photos([
-            {"ZUUID": "aaaabbbb", "ZDATECREATED": 100000.0,
-             "people": "Alice, Bob", "ZTITLE": "Beach"}
-        ])
+        self.print_photos(
+            [
+                {
+                    "ZUUID": "aaaabbbb",
+                    "ZDATECREATED": 100000.0,
+                    "people": "Alice, Bob",
+                    "ZTITLE": "Beach",
+                }
+            ]
+        )
         out = capsys.readouterr().out
         assert "Alice" in out
         assert "Bob" in out
@@ -283,25 +289,20 @@ class TestPrintPhotos:
 
     def test_icloud_indicator(self, capsys):
         """local_avail != 1 should show [iCloud]."""
-        self.print_photos([
-            {"ZUUID": "eeeeffff", "ZDATECREATED": 0.0, "local_avail": 0}
-        ])
+        self.print_photos([{"ZUUID": "eeeeffff", "ZDATECREATED": 0.0, "local_avail": 0}])
         out = capsys.readouterr().out
         assert "[iCloud]" in out
 
     def test_description_shown(self, capsys):
-        self.print_photos([
-            {"ZUUID": "gggghhhh", "ZDATECREATED": 0.0,
-             "description": "A nice photo"}
-        ])
+        self.print_photos(
+            [{"ZUUID": "gggghhhh", "ZDATECREATED": 0.0, "description": "A nice photo"}]
+        )
         out = capsys.readouterr().out
         assert "A nice photo" in out
 
     def test_description_2Q_suppressed(self, capsys):
         """Description exactly '2Q' should not be shown."""
-        self.print_photos([
-            {"ZUUID": "iiiijjjj", "ZDATECREATED": 0.0, "description": "2Q"}
-        ])
+        self.print_photos([{"ZUUID": "iiiijjjj", "ZDATECREATED": 0.0, "description": "2Q"}])
         out = capsys.readouterr().out
         assert "2Q" not in out
 

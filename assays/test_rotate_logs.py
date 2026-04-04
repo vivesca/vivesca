@@ -3,9 +3,9 @@ from __future__ import annotations
 
 """Tests for effectors/rotate-logs.py — cron log truncation script."""
 
-import sys
+import contextlib
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -193,7 +193,7 @@ class TestErrorHandling:
 
         # Should not crash when iterating
         try:
-            for log in ns["LOG_DIR"].glob("*.log"):
+            for _log in ns["LOG_DIR"].glob("*.log"):
                 pass
         except Exception:
             pass  # Expected to fail gracefully
@@ -209,10 +209,8 @@ class TestErrorHandling:
         with patch.object(Path, "read_text", side_effect=PermissionError("No access")):
             try:
                 for log in rotate_logs_module["LOG_DIR"].glob("*.log"):
-                    try:
-                        lines = log.read_text().splitlines()
-                    except Exception:
-                        pass
+                    with contextlib.suppress(Exception):
+                        log.read_text().splitlines()
             except Exception:
                 pass
 

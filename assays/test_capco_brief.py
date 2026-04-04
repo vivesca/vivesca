@@ -213,16 +213,20 @@ class TestStakeholders:
         assert "No stakeholders found" in out
 
     def test_pattern1_heading_dash(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Key People.md",
-            "### Terry Li — Managing Director\nSome bio text")
+        _chromatin_file(
+            cb, "Capco/Key People.md", "### Terry Li — Managing Director\nSome bio text"
+        )
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Terry Li" in out
         assert "Managing Director" in out
 
     def test_pattern2_table_bold(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Team.md",
-            "| **Alice Johnson** | Senior Consultant |\n| **Bob Chen** | Tech Lead |")
+        _chromatin_file(
+            cb,
+            "Capco/Team.md",
+            "| **Alice Johnson** | Senior Consultant |\n| **Bob Chen** | Tech Lead |",
+        )
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Johnson" in out
@@ -230,22 +234,19 @@ class TestStakeholders:
 
     def test_pattern2_short_role_filtered(self, cb, capsys):
         """Roles <=5 chars should be filtered out."""
-        _chromatin_file(cb, "Capco/Team.md",
-            "| **Alice Johnson** | Lead |")
+        _chromatin_file(cb, "Capco/Team.md", "| **Alice Johnson** | Lead |")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "No stakeholders found" in out
 
     def test_pattern3_label_parens(self, cb, capsys):
-        _chromatin_file(cb, "Capco Transition.md",
-            "- **Manager:** Terry Li (Delivery Lead)")
+        _chromatin_file(cb, "Capco Transition.md", "- **Manager:** Terry Li (Delivery Lead)")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Terry Li" in out
 
     def test_pattern4_capco_role(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Alice Johnson (Capco / Senior Consultant)")
+        _chromatin_file(cb, "Capco/Contacts.md", "Alice Johnson (Capco / Senior Consultant)")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Johnson" in out
@@ -259,88 +260,81 @@ class TestStakeholders:
         assert out.count("Terry Li") == 1
 
     def test_table_format(self, cb, capsys):
-        _chromatin_file(cb, "Capco/People.md",
-            "### Terry Li — Managing Director\n")
+        _chromatin_file(cb, "Capco/People.md", "### Terry Li — Managing Director\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "# Capco Stakeholders" in out
         assert "|" in out
 
     def test_summary_line(self, cb, capsys):
-        _chromatin_file(cb, "Capco/People.md",
-            "### Alice Johnson — Partner\n")
+        _chromatin_file(cb, "Capco/People.md", "### Alice Johnson — Partner\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "1 people extracted" in out
 
     def test_pattern1_en_dash(self, cb, capsys):
         """En dash (–) should also work as separator."""
-        _chromatin_file(cb, "Capco/People.md",
-            "### Alice Johnson – Senior Partner\n")
+        _chromatin_file(cb, "Capco/People.md", "### Alice Johnson – Senior Partner\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Johnson" in out
 
     def test_pattern1_plain_hyphen(self, cb, capsys):
         """Plain ASCII hyphen should also work as separator."""
-        _chromatin_file(cb, "Capco/People.md",
-            "### Alice Johnson - Consultant\n")
+        _chromatin_file(cb, "Capco/People.md", "### Alice Johnson - Consultant\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Johnson" in out
 
     def test_pattern1_empty_role_filtered(self, cb, capsys):
         """Heading with dash but no role text should not produce entry."""
-        _chromatin_file(cb, "Capco/People.md",
-            "### Alice Johnson —\n")
+        _chromatin_file(cb, "Capco/People.md", "### Alice Johnson —\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "No stakeholders found" in out
 
     def test_never_name_word_filtered(self, cb, capsys):
         """Names that are in _NEVER_NAME_WORDS should not appear."""
-        _chromatin_file(cb, "Capco/People.md",
-            "### Hong Kong — Director\n")
+        _chromatin_file(cb, "Capco/People.md", "### Hong Kong — Director\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "No stakeholders found" in out
 
     def test_pattern4_director_keyword(self, cb, capsys):
         """Pattern 4 with 'director' keyword in role."""
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Alice Johnson (Executive Director)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Alice Johnson (Executive Director)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Johnson" in out
 
     def test_pattern4_head_keyword(self, cb, capsys):
         """Pattern 4 with 'head' keyword in role."""
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Bob Chen (Head of Data)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Bob Chen (Head of Data)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Bob Chen" in out
 
     def test_pattern4_no_matching_keyword(self, cb, capsys):
         """Pattern 4: name (role) but role lacks any keyword → filtered."""
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Alice Johnson (Software Engineer)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Alice Johnson (Software Engineer)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "No stakeholders found" in out
 
     def test_long_name_truncated_in_table(self, cb, capsys):
         """Names >22 chars should be truncated with '..'."""
-        _chromatin_file(cb, "Capco/People.md",
-            "### Verylongfirstname Verylonglastname — Director\n")
+        _chromatin_file(
+            cb, "Capco/People.md", "### Verylongfirstname Verylonglastname — Director\n"
+        )
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert ".." in out
 
     def test_multiple_stakeholders_from_single_file(self, cb, capsys):
         """Multiple people in one file should all appear."""
-        _chromatin_file(cb, "Capco/Team.md",
-            "### Alice Johnson — Director\n### Bob Chen — Partner\n")
+        _chromatin_file(
+            cb, "Capco/Team.md", "### Alice Johnson — Director\n### Bob Chen — Partner\n"
+        )
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Johnson" in out
@@ -363,6 +357,7 @@ class TestCalendar:
         mock = tmp_path / "fasti_mock2"
         mock.write_text("#!/bin/sh\necho 'HSBC catchup 10:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -377,6 +372,7 @@ class TestCalendar:
         mock = tmp_path / "fasti_mock3"
         mock.write_text("#!/bin/sh\necho 'Team standup 09:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -397,6 +393,7 @@ class TestCalendar:
         mock = tmp_path / "fasti_mock4"
         mock.write_text("#!/bin/sh\necho 'HSBC sync 10:00'\necho 'Lunch with team 12:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -412,6 +409,7 @@ class TestCalendar:
         mock = tmp_path / "fasti_mock5"
         mock.write_text("#!/bin/sh\necho '# This is a comment'\necho 'HSBC meeting 10:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -429,6 +427,7 @@ class TestCalendar:
         mock = tmp_path / "fasti_mock6"
         mock.write_text("#!/bin/sh\necho 'Events for today'\necho 'Team standup 09:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -442,8 +441,11 @@ class TestCalendar:
     def test_empty_lines_skipped(self, cb, capsys, tmp_path):
         """Empty lines should be ignored."""
         mock = tmp_path / "fasti_mock7"
-        mock.write_text("#!/bin/sh\necho 'HSBC sync 10:00'\necho ''\necho '  '\necho 'Lunch 12:00'\n")
+        mock.write_text(
+            "#!/bin/sh\necho 'HSBC sync 10:00'\necho ''\necho '  '\necho 'Lunch 12:00'\n"
+        )
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -460,6 +462,7 @@ class TestCalendar:
         mock = tmp_path / "fasti_mock8"
         mock.write_text("#!/bin/sh\necho 'HSBC client meeting 10:00'\necho 'Team standup 09:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -488,8 +491,11 @@ class TestChecklist:
         assert "No capco-day1-*.md files found" in out
 
     def test_unchecked_items(self, cb, capsys):
-        _pulse_file(cb, "capco-day1-onboarding-2026-03-15.md",
-            "# Day 1\n\n- [x] Done item\n- [ ] Bring laptop\n- [ ] Get badge\n")
+        _pulse_file(
+            cb,
+            "capco-day1-onboarding-2026-03-15.md",
+            "# Day 1\n\n- [x] Done item\n- [ ] Bring laptop\n- [ ] Get badge\n",
+        )
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Bring laptop" in out
@@ -497,17 +503,14 @@ class TestChecklist:
         assert "Done item" not in out
 
     def test_all_checked(self, cb, capsys):
-        _pulse_file(cb, "capco-day1-dress-2026-03-15.md",
-            "- [x] Item one\n- [x] Item two\n")
+        _pulse_file(cb, "capco-day1-dress-2026-03-15.md", "- [x] Item one\n- [x] Item two\n")
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "All items checked off" in out
 
     def test_multiple_files(self, cb, capsys):
-        _pulse_file(cb, "capco-day1-transport-2026-03-15.md",
-            "- [ ] Check MTR route\n")
-        _pulse_file(cb, "capco-day1-benefits-2026-03-15.md",
-            "- [ ] Sign up insurance\n")
+        _pulse_file(cb, "capco-day1-transport-2026-03-15.md", "- [ ] Check MTR route\n")
+        _pulse_file(cb, "capco-day1-benefits-2026-03-15.md", "- [ ] Sign up insurance\n")
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Check MTR route" in out
@@ -515,8 +518,7 @@ class TestChecklist:
         assert "2 unchecked items" in out
 
     def test_bold_stripped_from_items(self, cb, capsys):
-        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md",
-            "- [ ] **Review** the onboarding docs\n")
+        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md", "- [ ] **Review** the onboarding docs\n")
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Review the onboarding docs" in out
@@ -524,16 +526,16 @@ class TestChecklist:
         assert "****" not in out
 
     def test_header_format(self, cb, capsys):
-        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md",
-            "- [ ] Do something\n")
+        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md", "- [ ] Do something\n")
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "# Capco Day 1 — Unchecked Items" in out
 
     def test_empty_checklist_file(self, cb, capsys):
         """A file with no checklist items at all."""
-        _pulse_file(cb, "capco-day1-notes-2026-03-15.md",
-            "# Notes\n\nSome prose without any checkboxes.\n")
+        _pulse_file(
+            cb, "capco-day1-notes-2026-03-15.md", "# Notes\n\nSome prose without any checkboxes.\n"
+        )
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "All items checked off" in out
@@ -547,8 +549,11 @@ class TestChecklist:
 
     def test_summary_count(self, cb, capsys):
         """Footer should report correct count."""
-        _pulse_file(cb, "capco-day1-stuff-2026-03-15.md",
-            "- [ ] Item alpha\n- [ ] Item beta\n- [ ] Item gamma\n")
+        _pulse_file(
+            cb,
+            "capco-day1-stuff-2026-03-15.md",
+            "- [ ] Item alpha\n- [ ] Item beta\n- [ ] Item gamma\n",
+        )
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "3 unchecked items" in out
@@ -688,71 +693,61 @@ class TestCapcoFilesEdgeCases:
 
 class TestStakeholdersEdgeCases:
     def test_pattern4_lead_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Jane Cooper (Delivery Lead)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Jane Cooper (Delivery Lead)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Jane Cooper" in out
 
     def test_pattern4_officer_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Tom Baker (Chief Operating Officer)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Tom Baker (Chief Operating Officer)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Tom Baker" in out
 
     def test_pattern4_managing_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Sarah Connors (Managing Director)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Sarah Connors (Managing Director)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Sarah Connors" in out
 
     def test_pattern4_executive_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Mike Hunt (Executive Partner)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Mike Hunt (Executive Partner)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Mike Hunt" in out
 
     def test_pattern4_practice_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Lisa Chen (Practice Lead)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Lisa Chen (Practice Lead)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Lisa Chen" in out
 
     def test_pattern4_governance_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "David Park (Governance Lead)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "David Park (Governance Lead)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "David Park" in out
 
     def test_pattern4_data_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Anna Kim (Data Scientist)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Anna Kim (Data Scientist)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Anna Kim" in out
 
     def test_pattern4_ai_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Robert Lin (AI Engineering Lead)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Robert Lin (AI Engineering Lead)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Robert Lin" in out
 
     def test_pattern4_hsbc_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Terry Li (HSBC Relationship Manager)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Terry Li (HSBC Relationship Manager)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Terry Li" in out
 
     def test_pattern4_bank_keyword(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Contacts.md",
-            "Alice Wang (Banking Analyst)\n")
+        _chromatin_file(cb, "Capco/Contacts.md", "Alice Wang (Banking Analyst)\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Alice Wang" in out
@@ -760,31 +755,27 @@ class TestStakeholdersEdgeCases:
     def test_role_truncation(self, cb, capsys):
         """Roles >60 chars should be truncated with '..'."""
         long_role = "A" * 70
-        _chromatin_file(cb, "Capco/People.md",
-            f"### Alice Johnson — {long_role}\n")
+        _chromatin_file(cb, "Capco/People.md", f"### Alice Johnson — {long_role}\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert ".." in out
 
     def test_source_column_shown(self, cb, capsys):
-        _chromatin_file(cb, "Capco/Key People.md",
-            "### Terry Li — Managing Director\n")
+        _chromatin_file(cb, "Capco/Key People.md", "### Terry Li — Managing Director\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Key People" in out
 
     def test_pattern2_empty_role_column_filtered(self, cb, capsys):
         """Table row with empty role column should be filtered."""
-        _chromatin_file(cb, "Capco/Team.md",
-            "| **Alice Johnson** |  |\n")
+        _chromatin_file(cb, "Capco/Team.md", "| **Alice Johnson** |  |\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "No stakeholders found" in out
 
     def test_summary_file_count(self, cb, capsys):
         """Footer should report correct file count."""
-        _chromatin_file(cb, "Capco/People.md",
-            "### Alice Johnson — Partner\n")
+        _chromatin_file(cb, "Capco/People.md", "### Alice Johnson — Partner\n")
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "1 files" in out
@@ -795,6 +786,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_bank"
         mock.write_text("#!/bin/sh\necho 'Bank review meeting 14:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -810,6 +802,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_hs"
         mock.write_text("#!/bin/sh\necho 'Hang Seng catchup 11:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -824,6 +817,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_sec"
         mock.write_text("#!/bin/sh\necho 'Secondment sync 16:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -838,6 +832,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_sv"
         mock.write_text("#!/bin/sh\necho 'Site visit preparation 10:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -852,6 +847,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_aims"
         mock.write_text("#!/bin/sh\necho 'AIMS quarterly review 09:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -866,6 +862,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_cust"
         mock.write_text("#!/bin/sh\necho 'Customer journey workshop 15:00'\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -888,6 +885,7 @@ class TestCalendarEdgeCases:
         mock = tmp_path / "fasti_slow"
         mock.write_text("#!/bin/sh\nsleep 30\n")
         import os
+
         os.chmod(str(mock), 0o755)
         saved = cb["FASTI"]
         cb["FASTI"] = mock
@@ -903,8 +901,11 @@ class TestCalendarEdgeCases:
 class TestChecklistEdgeCases:
     def test_bold_in_middle_of_item(self, cb, capsys):
         """Bold markers within the text should be stripped."""
-        _pulse_file(cb, "capco-day1-notes-2026-03-15.md",
-            "- [ ] Review **Section 2** and **Section 3** of the guide\n")
+        _pulse_file(
+            cb,
+            "capco-day1-notes-2026-03-15.md",
+            "- [ ] Review **Section 2** and **Section 3** of the guide\n",
+        )
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Review Section 2 and Section 3 of the guide" in out
@@ -912,8 +913,9 @@ class TestChecklistEdgeCases:
 
     def test_file_with_only_checked_items(self, cb, capsys):
         """File with all items checked shows 'All items checked off'."""
-        _pulse_file(cb, "capco-day1-onboard-2026-03-15.md",
-            "- [x] Task A\n- [x] Task B\n- [x] Task C\n")
+        _pulse_file(
+            cb, "capco-day1-onboard-2026-03-15.md", "- [x] Task A\n- [x] Task B\n- [x] Task C\n"
+        )
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "All items checked off" in out
@@ -921,16 +923,16 @@ class TestChecklistEdgeCases:
 
     def test_checklist_item_with_leading_spaces(self, cb, capsys):
         """Items with leading whitespace after '- [ ]' should still match."""
-        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md",
-            "- [ ]   Indented task\n")
+        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md", "- [ ]   Indented task\n")
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Indented task" in out
 
     def test_checked_item_with_x_uppercase(self, cb, capsys):
         """' - [X]' (uppercase X) should be treated as checked."""
-        _pulse_file(cb, "capco-day1-tasks-2026-03-15.md",
-            "- [X] Uppercase checked\n- [ ] Unchecked item\n")
+        _pulse_file(
+            cb, "capco-day1-tasks-2026-03-15.md", "- [X] Uppercase checked\n- [ ] Unchecked item\n"
+        )
         cb["cmd_checklist"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "Unchecked item" in out

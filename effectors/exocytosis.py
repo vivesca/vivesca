@@ -1,5 +1,6 @@
 #!/usr/bin/env -S uv run --script
 """Headless garden post pipeline. Reads queue, generates, judges, publishes."""
+
 from __future__ import annotations
 
 # /// script

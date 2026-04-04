@@ -1,28 +1,25 @@
 """Tests for metabolon.organelles.endocytosis_rss.config."""
+
 from __future__ import annotations
 
 import os
-import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.organelles.endocytosis_rss.config import (
     EndocytosisConfig,
+    _env_path,
     _expand_env_vars,
     _expand_path,
-    _env_path,
     _load_yaml,
     _xdg_base,
-    default_sources_path,
     restore_config,
 )
-
 
 # ---------------------------------------------------------------------------
 # _expand_path
 # ---------------------------------------------------------------------------
+
 
 class TestExpandPath:
     def test_resolves_relative_to_absolute(self, tmp_path):
@@ -40,6 +37,7 @@ class TestExpandPath:
 # ---------------------------------------------------------------------------
 # _env_path
 # ---------------------------------------------------------------------------
+
 
 class TestEnvPath:
     def test_uses_env_when_set(self, tmp_path):
@@ -60,6 +58,7 @@ class TestEnvPath:
 # _xdg_base
 # ---------------------------------------------------------------------------
 
+
 class TestXdgBase:
     def test_returns_env_override(self):
         custom = Path.home() / "custom_xdg"
@@ -78,6 +77,7 @@ class TestXdgBase:
 # _expand_env_vars
 # ---------------------------------------------------------------------------
 
+
 class TestExpandEnvVars:
     def test_expands_dollar_brace(self):
         with patch.dict(os.environ, {"MY_VAR": "hello"}):
@@ -90,6 +90,7 @@ class TestExpandEnvVars:
 # ---------------------------------------------------------------------------
 # _load_yaml
 # ---------------------------------------------------------------------------
+
 
 class TestLoadYaml:
     def test_returns_empty_for_missing_file(self, tmp_path):
@@ -123,6 +124,7 @@ class TestLoadYaml:
 # ---------------------------------------------------------------------------
 # EndocytosisConfig.sources property
 # ---------------------------------------------------------------------------
+
 
 class TestEndocytosisConfigSources:
     def _make_config(self, sources_data):
@@ -164,6 +166,7 @@ class TestEndocytosisConfigSources:
 # EndocytosisConfig.resolve_bird / resolve_tg_notify
 # ---------------------------------------------------------------------------
 
+
 class TestResolveTools:
     def _base_kwargs(self):
         return dict(
@@ -197,7 +200,10 @@ class TestResolveTools:
 
     def test_resolve_tg_notify_finds_on_path(self):
         cfg = EndocytosisConfig(**self._base_kwargs())
-        with patch("metabolon.organelles.endocytosis_rss.config.shutil.which", return_value="/usr/local/bin/tg-notify.sh"):
+        with patch(
+            "metabolon.organelles.endocytosis_rss.config.shutil.which",
+            return_value="/usr/local/bin/tg-notify.sh",
+        ):
             assert cfg.resolve_tg_notify() == "/usr/local/bin/tg-notify.sh"
 
     def test_resolve_tg_notify_finds_home_scripts_fallback(self, tmp_path):
@@ -205,8 +211,10 @@ class TestResolveTools:
         fallback = tmp_path / "scripts" / "tg-notify.sh"
         fallback.parent.mkdir(parents=True)
         fallback.write_text("#!/bin/sh")
-        with patch("metabolon.organelles.endocytosis_rss.config.shutil.which", return_value=None), \
-             patch("metabolon.organelles.endocytosis_rss.config.Path.home", return_value=tmp_path):
+        with (
+            patch("metabolon.organelles.endocytosis_rss.config.shutil.which", return_value=None),
+            patch("metabolon.organelles.endocytosis_rss.config.Path.home", return_value=tmp_path),
+        ):
             assert cfg.resolve_tg_notify() == str(fallback)
 
 
@@ -214,13 +222,17 @@ class TestResolveTools:
 # restore_config
 # ---------------------------------------------------------------------------
 
+
 class TestRestoreConfig:
     def test_returns_endocytosis_config(self):
-        with patch.dict(os.environ, {
-            "XDG_CONFIG_HOME": "/tmp/xdg_conf",
-            "XDG_CACHE_HOME": "/tmp/xdg_cache",
-            "XDG_DATA_HOME": "/tmp/xdg_data",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "XDG_CONFIG_HOME": "/tmp/xdg_conf",
+                "XDG_CACHE_HOME": "/tmp/xdg_cache",
+                "XDG_DATA_HOME": "/tmp/xdg_data",
+            },
+        ):
             cfg = restore_config()
         assert isinstance(cfg, EndocytosisConfig)
         assert cfg.config_dir == Path("/tmp/xdg_conf/endocytosis").resolve()
@@ -229,11 +241,15 @@ class TestRestoreConfig:
         assert cfg.digest_model == "glm"
 
     def test_uses_env_override_dirs(self):
-        with patch.dict(os.environ, {
-            "ENDOCYTOSIS_CONFIG_DIR": "/tmp/my_conf",
-            "ENDOCYTOSIS_CACHE_DIR": "/tmp/my_cache",
-            "ENDOCYTOSIS_DATA_DIR": "/tmp/my_data",
-        }, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "ENDOCYTOSIS_CONFIG_DIR": "/tmp/my_conf",
+                "ENDOCYTOSIS_CACHE_DIR": "/tmp/my_cache",
+                "ENDOCYTOSIS_DATA_DIR": "/tmp/my_data",
+            },
+            clear=False,
+        ):
             # Ensure XDG vars don't interfere
             for v in ["XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"]:
                 os.environ.pop(v, None)

@@ -10,7 +10,6 @@ from unittest.mock import patch
 from metabolon.sortase.diff_viewer import (
     find_task_commit,
     format_diff_summary,
-    get_task_diff,
 )
 
 SAMPLE_GIT_LOG = """\

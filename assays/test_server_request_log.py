@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for metabolon/server.py request logging."""
 
 
+import itertools
 import json
 import logging
 from datetime import UTC, datetime
@@ -141,7 +142,6 @@ def test_default_log_path():
 
 def test_log_swallows_write_error(tmp_path, caplog):
     """Write to a path inside a read-only directory should not raise."""
-    import os
     import stat
 
     from metabolon.server import RequestLogger
@@ -269,7 +269,7 @@ def test_timestamps_are_monotonic(log_file):
         time.sleep(0.01)
 
     timestamps = [datetime.fromisoformat(e["ts"]) for e in _load_jsonl(log_file)]
-    for earlier, later in zip(timestamps, timestamps[1:]):
+    for earlier, later in itertools.pairwise(timestamps):
         assert later >= earlier
 
 

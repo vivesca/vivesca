@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import json
 import subprocess
-from unittest.mock import patch, Mock
-
-import pytest
+from unittest.mock import Mock, patch
 
 from metabolon.enzymes.polarization import (
-    polarization,
-    _preflight,
-    _guard,
-    PolarizationPreflightResult,
-    EffectorResult,
     _CLI,
+    EffectorResult,
+    PolarizationPreflightResult,
+    _guard,
+    _preflight,
+    polarization,
 )
 
 
@@ -35,8 +33,13 @@ def test_preflight_cli_not_found():
 
 def test_preflight_timeout():
     """Test preflight timeout handling."""
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
-        with patch("metabolon.enzymes.polarization.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="", timeout=30)):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
+        with patch(
+            "metabolon.enzymes.polarization.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="", timeout=30),
+        ):
             result = _preflight()
             assert "timed out" in result.summary
             assert result.data["error"] == "timeout"
@@ -49,7 +52,9 @@ def test_preflight_non_zero_exit():
     mock_process.stdout = ""
     mock_process.stderr = "some error"
 
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
         with patch("metabolon.enzymes.polarization.subprocess.run", return_value=mock_process):
             result = _preflight()
             assert "preflight failed" in result.summary
@@ -69,7 +74,9 @@ def test_preflight_valid_json():
     mock_process.stdout = json.dumps(test_data)
     mock_process.stderr = ""
 
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
         with patch("metabolon.enzymes.polarization.subprocess.run", return_value=mock_process):
             result = _preflight()
             assert result.raw == json.dumps(test_data)
@@ -86,7 +93,9 @@ def test_preflight_invalid_json():
     mock_process.stdout = "plain text output"
     mock_process.stderr = ""
 
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
         with patch("metabolon.enzymes.polarization.subprocess.run", return_value=mock_process):
             result = _preflight()
             assert result.raw == "plain text output"
@@ -111,8 +120,13 @@ def test_guard_cli_not_found():
 
 def test_guard_timeout():
     """Test guard timeout handling."""
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
-        with patch("metabolon.enzymes.polarization.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="", timeout=10)):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
+        with patch(
+            "metabolon.enzymes.polarization.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="", timeout=10),
+        ):
             result = _guard("on")
             assert not result.success
             assert "timed out" in result.message
@@ -125,7 +139,9 @@ def test_guard_non_zero_exit():
     mock_process.stdout = "oops"
     mock_process.stderr = ""
 
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
         with patch("metabolon.enzymes.polarization.subprocess.run", return_value=mock_process):
             result = _guard("off")
             assert not result.success
@@ -140,7 +156,9 @@ def test_guard_success_on():
     mock_process.stdout = ""
     mock_process.stderr = ""
 
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
         with patch("metabolon.enzymes.polarization.subprocess.run", return_value=mock_process):
             result = _guard("ON")
             assert result.success
@@ -155,7 +173,9 @@ def test_guard_success_off():
     mock_process.stdout = ""
     mock_process.stderr = ""
 
-    with patch("metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"):
+    with patch(
+        "metabolon.enzymes.polarization.shutil.which", return_value="/usr/bin/polarization-gather"
+    ):
         with patch("metabolon.enzymes.polarization.subprocess.run", return_value=mock_process):
             result = _guard("  off  ")
             assert result.success
@@ -165,7 +185,10 @@ def test_guard_success_off():
 
 def test_polarization_dispatch_preflight():
     """Test polarization dispatches to preflight."""
-    with patch("metabolon.enzymes.polarization._preflight", return_value=PolarizationPreflightResult(raw="", data={}, summary="test")):
+    with patch(
+        "metabolon.enzymes.polarization._preflight",
+        return_value=PolarizationPreflightResult(raw="", data={}, summary="test"),
+    ):
         result = polarization(action="preflight")
         assert isinstance(result, PolarizationPreflightResult)
         assert result.summary == "test"
@@ -173,7 +196,10 @@ def test_polarization_dispatch_preflight():
 
 def test_polarization_dispatch_guard():
     """Test polarization dispatches to guard."""
-    with patch("metabolon.enzymes.polarization._guard", return_value=EffectorResult(success=True, message="ok")):
+    with patch(
+        "metabolon.enzymes.polarization._guard",
+        return_value=EffectorResult(success=True, message="ok"),
+    ):
         result = polarization(action="guard", guard_action="on")
         assert isinstance(result, EffectorResult)
         assert result.success

@@ -139,7 +139,7 @@ def should_debounce() -> bool:
             last = float(DEBOUNCE_FILE.read_text().strip())
             if time.time() - last < DEBOUNCE_SECONDS:
                 return True
-    except (ValueError, OSError):
+    except ValueError, OSError:
         pass
     return False
 
@@ -248,13 +248,15 @@ def format_suggestions(scored: list[tuple[str, float]]) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="UserPromptSubmit hook — keyword-based retrieval over reference docs. Scans markdown for relevance to user prompt via TF-IDF scoring.")
+    parser = argparse.ArgumentParser(
+        description="UserPromptSubmit hook — keyword-based retrieval over reference docs. Scans markdown for relevance to user prompt via TF-IDF scoring."
+    )
     parser.parse_args()
 
     # Read hook input from stdin
     try:
         hook_input = json.loads(sys.stdin.read())
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         return
 
     prompt = hook_input.get("prompt", "")

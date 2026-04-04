@@ -1,5 +1,4 @@
 """Tests for metabolon.enzymes.lysin."""
-import pytest
 
 
 def test_placeholder():

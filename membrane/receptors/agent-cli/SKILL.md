@@ -8,7 +8,7 @@ user_invocable: false
 
 Reference patterns for building CLIs that agents drive, not humans. The design constraints differ significantly from human-facing CLIs.
 
-Full worked example: `graphis` — Telegram bot manager built specifically for agent use.
+Full worked example: `graphics` — Telegram bot manager built specifically for agent use.
 
 ## Core difference
 
@@ -35,7 +35,7 @@ Before splitting a step into two commands, ask: **can the human step be removed 
 
 **The goal is zero recurring human steps.** One-time setup (initial auth, keychain seeding) is acceptable. Anything that recurs per-operation is a design flaw.
 
-**graphis example:** The SMS code is genuinely one-time — session persists to `session.bin` and survives reboots. The design is correct: auth once, never again. If you're being asked for a code repeatedly, the session is being deleted or not saved correctly — fix that, don't add a recurring human step.
+**graphics example:** The SMS code is genuinely one-time — session persists to `session.bin` and survives reboots. The design is correct: auth once, never again. If you're being asked for a code repeatedly, the session is being deleted or not saved correctly — fix that, don't add a recurring human step.
 
 **Red flags that mean you haven't eliminated enough:**
 - User must copy a value from one tool and paste it into another → pipe it or save to keychain
@@ -57,10 +57,10 @@ cmd step2 <secret>   → reads saved state, completes with human-provided secret
 - Which server/DC/endpoint to reconnect to — connection state is NOT preserved
 - Any session or auth key established in step 1
 
-**graphis example:**
+**graphics example:**
 ```bash
-graphis auth +phone        # → saves {phone, phone_code_hash, dc} to pending-auth.json
-graphis auth-complete CODE # → reads pending-auth.json, signs in on correct DC
+graphics auth +phone        # → saves {phone, phone_code_hash, dc} to pending-auth.json
+graphics auth-complete CODE # → reads pending-auth.json, signs in on correct DC
 ```
 
 ## Pattern 2: Persist connection state explicitly
@@ -74,7 +74,7 @@ Common failure: step 1 migrates to a different server (DC migration, regional re
 - [ ] Is that encoded in the session file, or do I need to save it separately?
 - [ ] Will the library honour it on reconnect without explicit configuration?
 
-**graphis example:** grammers session encodes auth keys per DC but grammers ignores the DC on reconnect — always uses default. Had to save DC to `dc.txt` and pass via `InitParams::server_addr`.
+**graphics example:** grammars session encodes auth keys per DC but grammars ignores the DC on reconnect — always uses default. Had to save DC to `dc.txt` and pass via `InitParams::server_addr`.
 
 ## Pattern 3: Use raw protocol calls when the high-level API hides needed state
 
@@ -87,7 +87,7 @@ High-level library methods often wrap responses in opaque types with private fie
 
 Do NOT use `unsafe` transmute to access private fields — layout assumptions break across compiler versions.
 
-**graphis example:** `LoginToken.phone_code_hash` is `pub(crate)`. Used raw TL `auth.SendCode` instead, which returns `auth.SentCode` with public `phone_code_hash` field.
+**graphics example:** `LoginToken.phone_code_hash` is `pub(crate)`. Used raw TL `auth.SendCode` instead, which returns `auth.SentCode` with public `phone_code_hash` field.
 
 ## Pattern 4: Handle library-transparent errors manually
 
@@ -121,7 +121,7 @@ Human CLI errors say what went wrong. Agent CLI errors say what to run next.
 Error: Not authenticated
 
 # Agent-facing
-Error: Not authenticated. Run: graphis auth +<your_phone>
+Error: Not authenticated. Run: graphics auth +<your_phone>
 ```
 
 The agent reads the error and acts on it — it needs a concrete next command, not a diagnosis.
@@ -134,18 +134,18 @@ The agent may retry a step if it's unsure whether it succeeded (background task,
 - `start-bot`: sending `/start` twice is harmless
 - `create`: check if bot exists before creating (BotFather will error clearly if not)
 
-## Worked example: graphis auth design
+## Worked example: graphics auth design
 
 ```
 Problem: Telegram auth requires an SMS code the agent cannot receive.
 
 Naive design (fails):
-  graphis auth +phone   ← blocks waiting for stdin that never comes
+  graphics auth +phone   ← blocks waiting for stdin that never comes
 
 Two-step design (works):
-  graphis auth +phone           ← agent runs; Telegram sends SMS to user
+  graphics auth +phone           ← agent runs; Telegram sends SMS to user
   # user tells agent the code
-  graphis auth-complete CODE    ← agent runs with code
+  graphics auth-complete CODE    ← agent runs with code
 
 State persisted to pending-auth.json:
   { phone, phone_code_hash, dc }
@@ -170,5 +170,5 @@ DC migration handled:
 
 ## See also
 
-- `graphis` skill — full worked example
+- `graphics` skill — full worked example
 - `~/docs/solutions/grammers-mtproto-agent-auth.md` — concrete implementation: DC migration code, raw TL auth.SendCode, LoginToken workaround, SRP 2FA, Cargo.toml deps, recovery procedure

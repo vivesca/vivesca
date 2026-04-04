@@ -6,11 +6,8 @@ Covers: TalkingPoint, TalkingPointCard, _scan_consulting_assets,
 _score_relevance, generate_talking_points — all external I/O mocked.
 """
 
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from datetime import datetime
+from unittest.mock import patch
 
 from metabolon.organelles.talking_points import (
     TalkingPoint,
@@ -20,10 +17,10 @@ from metabolon.organelles.talking_points import (
     generate_talking_points,
 )
 
-
 # ---------------------------------------------------------------------------
 # TalkingPoint.to_markdown
 # ---------------------------------------------------------------------------
+
 
 class TestTalkingPointToMarkdown:
     def test_all_fields_present(self):
@@ -57,6 +54,7 @@ class TestTalkingPointToMarkdown:
 # ---------------------------------------------------------------------------
 # TalkingPointCard.to_markdown
 # ---------------------------------------------------------------------------
+
 
 class TestTalkingPointCardToMarkdown:
     def _make_card(self, **overrides):
@@ -110,6 +108,7 @@ class TestTalkingPointCardToMarkdown:
 # _scan_consulting_assets
 # ---------------------------------------------------------------------------
 
+
 class TestScanConsultingAssets:
     def test_returns_empty_when_dir_missing(self, tmp_path):
         fake_dir = tmp_path / "nope"
@@ -121,7 +120,9 @@ class TestScanConsultingAssets:
         for sd in subdirs:
             d = tmp_path / sd
             d.mkdir()
-            (d / f"{sd.replace(' ', '_')}.md").write_text(f"# {sd} doc\n\nSome content here that is long enough.")
+            (d / f"{sd.replace(' ', '_')}.md").write_text(
+                f"# {sd} doc\n\nSome content here that is long enough."
+            )
         with patch("metabolon.organelles.talking_points.CONSULTING_DIR", tmp_path):
             assets = _scan_consulting_assets()
         assert len(assets) == 4
@@ -199,6 +200,7 @@ class TestScanConsultingAssets:
 # _score_relevance
 # ---------------------------------------------------------------------------
 
+
 class TestScoreRelevance:
     def _asset(self, **kw):
         defaults = {"content_preview": "", "title": "", "domain": ""}
@@ -216,7 +218,9 @@ class TestScoreRelevance:
         assert score >= 0.3
 
     def test_context_keyword_overlap(self):
-        asset = self._asset(content_preview="governance framework for artificial intelligence oversight")
+        asset = self._asset(
+            content_preview="governance framework for artificial intelligence oversight"
+        )
         score = _score_relevance(asset, "Acme", "AI governance review")
         # "governance" and "artificial" and "intelligence" should overlap
         assert score > 0.1
@@ -246,11 +250,15 @@ class TestScoreRelevance:
             title="HSBC governance banking financial regulatory HKMA compliance",
             domain="HSBC banking governance",
         )
-        score = _score_relevance(asset, "HSBC", "HSBC governance banking financial regulatory HKMA compliance")
+        score = _score_relevance(
+            asset, "HSBC", "HSBC governance banking financial regulatory HKMA compliance"
+        )
         assert score <= 1.0
 
     def test_threshold_below_01(self):
-        asset = self._asset(content_preview="random text nothing relevant", title="Misc", domain="other")
+        asset = self._asset(
+            content_preview="random text nothing relevant", title="Misc", domain="other"
+        )
         score = _score_relevance(asset, "UnknownClient", "completely unrelated agenda")
         assert score < 0.1
 
@@ -258,6 +266,7 @@ class TestScoreRelevance:
 # ---------------------------------------------------------------------------
 # generate_talking_points
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateTalkingPoints:
     def _mock_asset(self, title="Test Asset", content_preview="", domain="", filename="asset.md"):

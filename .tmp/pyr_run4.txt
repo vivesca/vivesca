@@ -123,5 +123,5 @@ Could not import 'IPython.display' in file '/home/terry/germline/.venv/lib/pytho
 Heap stats: total_memory_size=32097MB, total_free_size=22437MB, total_heap_size=778MB, used_heap_size=735MB, cross_worker_used_heap_size=735MB, total_physical_size=778MB, total_available_size=3394MB, heap_size_limit=4144MB
 Heap stats: total_memory_size=32097MB, total_free_size=22287MB, total_heap_size=799MB, used_heap_size=745MB, cross_worker_used_heap_size=745MB, total_physical_size=799MB, total_available_size=3384MB, heap_size_limit=4144MB
 pyright 1.1.408
-0 errors, 0 warnings, 0 informations
+0 errors, 0 warnings, 0 information
 Completed in 43.561sec

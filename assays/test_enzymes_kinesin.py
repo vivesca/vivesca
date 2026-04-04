@@ -7,9 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from metabolon.enzymes.kinesin import translocation, TranslocationResult
+from metabolon.enzymes.kinesin import TranslocationResult, translocation
 from metabolon.morphology import EffectorResult, Secretion
-
 
 # ---------------------------------------------------------------------------
 # tool decorator metadata
@@ -84,8 +83,10 @@ def test_sequential_list_then_list():
 
 def test_sequential_run_then_cancel():
     """run followed by cancel dispatches correctly to different backends."""
-    with patch("metabolon.organelles.gemmation.run_task") as mock_run, \
-         patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel:
+    with (
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+        patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel,
+    ):
         mock_run.return_value = "started"
         mock_cancel.return_value = "stopped"
 
@@ -102,8 +103,10 @@ def test_sequential_run_then_cancel():
 
 def test_sequential_results_then_list():
     """results then list dispatches to different backends."""
-    with patch("metabolon.organelles.gemmation.get_results") as mock_results, \
-         patch("metabolon.organelles.gemmation.list_tasks") as mock_list:
+    with (
+        patch("metabolon.organelles.gemmation.get_results") as mock_results,
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+    ):
         mock_results.return_value = "output data"
         mock_list.return_value = "task listing"
 
@@ -219,8 +222,10 @@ def test_unknown_action_returns_action_usage_hint():
 
 def test_run_does_not_call_cancel():
     """run action never invokes cancel_task."""
-    with patch("metabolon.organelles.gemmation.run_task") as mock_run, \
-         patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel:
+    with (
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+        patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel,
+    ):
         mock_run.return_value = "ok"
 
         translocation(action="run", name="t")
@@ -230,8 +235,10 @@ def test_run_does_not_call_cancel():
 
 def test_cancel_does_not_call_run():
     """cancel action never invokes run_task."""
-    with patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel, \
-         patch("metabolon.organelles.gemmation.run_task") as mock_run:
+    with (
+        patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel,
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+    ):
         mock_cancel.return_value = "ok"
 
         translocation(action="cancel", name="t")
@@ -241,8 +248,10 @@ def test_cancel_does_not_call_run():
 
 def test_list_does_not_call_get_results():
     """list action never invokes get_results."""
-    with patch("metabolon.organelles.gemmation.list_tasks") as mock_list, \
-         patch("metabolon.organelles.gemmation.get_results") as mock_results:
+    with (
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+        patch("metabolon.organelles.gemmation.get_results") as mock_results,
+    ):
         mock_list.return_value = "ok"
 
         translocation(action="list")
@@ -252,8 +261,10 @@ def test_list_does_not_call_get_results():
 
 def test_results_does_not_call_list():
     """results action never invokes list_tasks."""
-    with patch("metabolon.organelles.gemmation.get_results") as mock_results, \
-         patch("metabolon.organelles.gemmation.list_tasks") as mock_list:
+    with (
+        patch("metabolon.organelles.gemmation.get_results") as mock_results,
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+    ):
         mock_results.return_value = "ok"
 
         translocation(action="results", name="t")
@@ -268,8 +279,10 @@ def test_results_does_not_call_list():
 
 def test_run_and_cancel_both_effector_result():
     """run and cancel both return EffectorResult with success=True."""
-    with patch("metabolon.organelles.gemmation.run_task") as mock_run, \
-         patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel:
+    with (
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+        patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel,
+    ):
         mock_run.return_value = "r"
         mock_cancel.return_value = "c"
 
@@ -284,8 +297,10 @@ def test_run_and_cancel_both_effector_result():
 
 def test_list_and_results_both_translocation_result():
     """list and results both return TranslocationResult."""
-    with patch("metabolon.organelles.gemmation.list_tasks") as mock_list, \
-         patch("metabolon.organelles.gemmation.get_results") as mock_results:
+    with (
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+        patch("metabolon.organelles.gemmation.get_results") as mock_results,
+    ):
         mock_list.return_value = "a"
         mock_results.return_value = "b"
 

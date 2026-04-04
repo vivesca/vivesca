@@ -4,7 +4,6 @@ Exposes the listening surfaces the auscultation skill taps:
   auscultation    — System log diagnostics. Actions: logs|errors
 """
 
-
 import platform as _platform
 import re
 from collections import Counter

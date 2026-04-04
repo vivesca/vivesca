@@ -3,10 +3,8 @@ from __future__ import annotations
 
 """Tests for effectors/hkicpa — HKICPA LMS auto-login script."""
 
-import subprocess
-import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -189,7 +187,9 @@ class TestMain:
                 MagicMock(stdout="", stderr=""),  # --headed open
                 MagicMock(stdout="", stderr=""),  # fill
                 MagicMock(stdout="", stderr=""),  # press
-                MagicMock(stdout="https://lms.hkicpa.org.hk/session/out", stderr=""),  # get url - login failed
+                MagicMock(
+                    stdout="https://lms.hkicpa.org.hk/session/out", stderr=""
+                ),  # get url - login failed
             ]
             with patch.dict("os.environ", {"USER": "testuser"}):
                 with patch("time.sleep"):
@@ -207,7 +207,9 @@ class TestMain:
                 MagicMock(stdout="", stderr=""),  # --headed open
                 MagicMock(stdout="", stderr=""),  # fill
                 MagicMock(stdout="", stderr=""),  # press
-                MagicMock(stdout="https://lms.hkicpa.org.hk/session/out", stderr=""),  # get url - login failed
+                MagicMock(
+                    stdout="https://lms.hkicpa.org.hk/session/out", stderr=""
+                ),  # get url - login failed
             ]
             with patch.dict("os.environ", {"USER": "testuser"}):
                 with patch("time.sleep"):
@@ -257,9 +259,7 @@ class TestLoginFlow:
                 MagicMock(stdout="", stderr=""),  # --headed open
                 MagicMock(stdout="", stderr=""),  # fill
                 MagicMock(stdout="", stderr=""),  # press
-                MagicMock(
-                    stdout="https://lms.hkicpa.org.hk/session/out", stderr=""
-                ),  # get url
+                MagicMock(stdout="https://lms.hkicpa.org.hk/session/out", stderr=""),  # get url
             ]
             with patch.dict("os.environ", {"USER": "testuser"}):
                 with patch("time.sleep"):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Tests for metabolon.sortase.linter."""
 
-from metabolon.sortase.linter import lint_plan, format_lint_report, LintIssue
+from metabolon.sortase.linter import LintIssue, format_lint_report, lint_plan
 
 
 def test_empty_plan_errors():

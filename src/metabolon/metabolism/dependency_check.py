@@ -1,4 +1,3 @@
-
 """dependency_check — API key and external dependency integrity.
 
 Runs monthly or on-demand. Checks:
@@ -7,11 +6,10 @@ Runs monthly or on-demand. Checks:
 - Sortase/dispatch infrastructure is functional
 """
 
-
 import os
-from pathlib import Path
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from metabolon.locus import epigenome, germline
 

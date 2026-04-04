@@ -3,17 +3,15 @@ from __future__ import annotations
 """Tests for retrograde — symbiont influence tracker."""
 
 import json
-from datetime import datetime, timedelta, UTC
-from unittest.mock import patch, MagicMock
-
-import pytest
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import metabolon.organelles.retrograde as retro
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _recent_ts(days_ago: float = 0) -> str:
     return (datetime.now(UTC) - timedelta(days=days_ago)).isoformat()
@@ -27,6 +25,7 @@ def _make_jsonl(path, entries):
 # ---------------------------------------------------------------------------
 # log_signal
 # ---------------------------------------------------------------------------
+
 
 class TestLogSignal:
     def test_appends_to_file(self, tmp_path):
@@ -74,6 +73,7 @@ class TestLogSignal:
 # _cutoff_iso
 # ---------------------------------------------------------------------------
 
+
 class TestCutoffIso:
     def test_returns_iso_string(self):
         result = retro._cutoff_iso(7)
@@ -94,6 +94,7 @@ class TestCutoffIso:
 # ---------------------------------------------------------------------------
 # _count_logged
 # ---------------------------------------------------------------------------
+
 
 class TestCountLogged:
     def test_empty_log(self, tmp_path):
@@ -128,8 +129,7 @@ class TestCountLogged:
         log = tmp_path / "signals.jsonl"
         now = _recent_ts(0)
         log.write_text(
-            json.dumps({"ts": now, "direction": "anterograde", "type": "ok"})
-            + "\nBROKEN LINE\n"
+            json.dumps({"ts": now, "direction": "anterograde", "type": "ok"}) + "\nBROKEN LINE\n"
         )
         with patch.object(retro, "SIGNALS_LOG", log):
             assert retro._count_logged(7, "anterograde") == 1
@@ -144,6 +144,7 @@ class TestCountLogged:
 # ---------------------------------------------------------------------------
 # _count_anterograde
 # ---------------------------------------------------------------------------
+
 
 class TestCountAnterograde:
     def test_empty_event_log(self, tmp_path):
@@ -222,6 +223,7 @@ class TestCountAnterograde:
 # ---------------------------------------------------------------------------
 # _count_retrograde
 # ---------------------------------------------------------------------------
+
 
 class TestCountRetrograde:
     def _patch_env(self, tmp_path, repos=None):
@@ -323,7 +325,9 @@ class TestCountRetrograde:
             for p in patches:
                 p.start()
             # Should not call subprocess at all — just return 0
-            with patch("metabolon.organelles.retrograde.subprocess.run", side_effect=AssertionError):
+            with patch(
+                "metabolon.organelles.retrograde.subprocess.run", side_effect=AssertionError
+            ):
                 assert retro._count_retrograde(7) == 0
         finally:
             for p in patches:
@@ -452,6 +456,7 @@ class TestCountRetrograde:
 # ---------------------------------------------------------------------------
 # signal_balance
 # ---------------------------------------------------------------------------
+
 
 class TestSignalBalance:
     def test_sovereign_when_high_anterograde(self):

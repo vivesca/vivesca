@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.organelles.porta import _ab, inject
-
 
 # ── _ab helper tests ────────────────────────────────────────────────
 
@@ -65,9 +62,7 @@ class TestAb:
         import subprocess
 
         mock_popen.return_value.read.return_value = "agent-browser\n"
-        mock_run.side_effect = subprocess.CalledProcessError(
-            1, "agent-browser", stderr="kaboom"
-        )
+        mock_run.side_effect = subprocess.CalledProcessError(1, "agent-browser", stderr="kaboom")
         ok, out = _ab(["eval", "x"])
         assert ok is False
         assert out == "kaboom"
@@ -86,7 +81,7 @@ class TestAb:
     def test_falls_back_when_which_empty(self, mock_popen, mock_run):
         mock_popen.return_value.read.return_value = ""
         mock_run.return_value = MagicMock(returncode=0, stdout="ok")
-        ok, out = _ab(["test"])
+        ok, _out = _ab(["test"])
         assert ok is True
         mock_run.assert_called_once_with(
             ["agent-browser", "test"],
@@ -159,7 +154,7 @@ class TestInject:
         """Domain normalization strips https:// prefix."""
         mock_cc.return_value = {"sid": "abc123"}
         mock_ab.return_value = (True, "ok")
-        result = inject("https://example.com")
+        inject("https://example.com")
         # chrome_cookies should be called with https://example.com
         mock_cc.assert_called_with("https://example.com")
 
@@ -169,7 +164,7 @@ class TestInject:
         """Domain normalization strips http:// prefix."""
         mock_cc.return_value = {"sid": "abc123"}
         mock_ab.return_value = (True, "ok")
-        result = inject("http://example.com")
+        inject("http://example.com")
         mock_cc.assert_called_with("https://example.com")
 
     @patch("metabolon.organelles.porta._ab")
@@ -178,7 +173,7 @@ class TestInject:
         """Domain normalization strips trailing slash."""
         mock_cc.return_value = {"sid": "abc123"}
         mock_ab.return_value = (True, "ok")
-        result = inject("example.com/")
+        inject("example.com/")
         mock_cc.assert_called_with("https://example.com")
 
     @patch("metabolon.organelles.porta._ab")
@@ -231,10 +226,10 @@ class TestInject:
         """Some cookies succeed, some fail — partial result."""
         mock_cc.return_value = {"a": "1", "b": "2", "c": "3"}
         mock_ab.side_effect = [
-            (True, "ok"),       # open
-            (True, "ok"),       # cookie a
-            (False, "err"),     # cookie b fails
-            (True, "ok"),       # cookie c
+            (True, "ok"),  # open
+            (True, "ok"),  # cookie a
+            (False, "err"),  # cookie b fails
+            (True, "ok"),  # cookie c
         ]
         result = inject("example.com")
         assert result["success"] is True
@@ -247,9 +242,9 @@ class TestInject:
         """All cookie set calls fail — returns failure."""
         mock_cc.return_value = {"a": "1", "b": "2"}
         mock_ab.side_effect = [
-            (True, "ok"),       # open succeeds
-            (False, "err"),     # cookie a
-            (False, "err"),     # cookie b
+            (True, "ok"),  # open succeeds
+            (False, "err"),  # cookie a
+            (False, "err"),  # cookie b
         ]
         result = inject("example.com")
         assert result["success"] is False
@@ -265,14 +260,14 @@ class TestInject:
         # open succeeds, then all cookie sets fail except first two
         mock_ab.side_effect = [
             (True, "ok"),
-            (True, "ok"),       # cookie_0
-            (True, "ok"),       # cookie_1
-            (False, "err"),     # cookie_2
-            (False, "err"),     # cookie_3
-            (False, "err"),     # cookie_4
-            (False, "err"),     # cookie_5
-            (False, "err"),     # cookie_6
-            (False, "err"),     # cookie_7
+            (True, "ok"),  # cookie_0
+            (True, "ok"),  # cookie_1
+            (False, "err"),  # cookie_2
+            (False, "err"),  # cookie_3
+            (False, "err"),  # cookie_4
+            (False, "err"),  # cookie_5
+            (False, "err"),  # cookie_6
+            (False, "err"),  # cookie_7
         ]
         result = inject("example.com")
         assert result["success"] is True
@@ -301,7 +296,7 @@ class TestInject:
         """Cookie set command includes --domain with dot prefix."""
         mock_cc.return_value = {"sid": "abc"}
         mock_ab.return_value = (True, "ok")
-        result = inject("bigmodel.cn")
+        inject("bigmodel.cn")
         cookie_call = mock_ab.call_args_list[1]
         cmd = cookie_call[0][0]
         assert "--domain" in cmd
@@ -314,7 +309,7 @@ class TestInject:
         """Cookie set includes --httpOnly --secure --path /."""
         mock_cc.return_value = {"sid": "abc"}
         mock_ab.return_value = (True, "ok")
-        result = inject("example.com")
+        inject("example.com")
         cookie_call = mock_ab.call_args_list[1]
         cmd = cookie_call[0][0]
         assert "--httpOnly" in cmd

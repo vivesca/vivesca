@@ -7,12 +7,12 @@ from pathlib import Path
 
 from metabolon.sortase.compare import (
     CompareDelta,
-    compare_sessions,
-    load_session_entries,
-    format_compare_report,
     _delta_str,
-    _session_stats,
     _failure_reasons,
+    _session_stats,
+    compare_sessions,
+    format_compare_report,
+    load_session_entries,
 )
 
 
@@ -115,7 +115,9 @@ def test_compare_sessions_both_empty():
 
 def test_compare_sessions_calculates_deltas():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
-        f.write('{"timestamp": "2026-03-30T10:00:00", "success": false, "failure_reason": "timeout", "duration_s": 30}\n')
+        f.write(
+            '{"timestamp": "2026-03-30T10:00:00", "success": false, "failure_reason": "timeout", "duration_s": 30}\n'
+        )
         f.write('{"timestamp": "2026-03-30T11:00:00", "success": true, "duration_s": 20}\n')
         f.write('{"timestamp": "2026-03-31T10:00:00", "success": true, "duration_s": 25}\n')
         f.write('{"timestamp": "2026-03-31T11:00:00", "success": true, "duration_s": 15}\n')

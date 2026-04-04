@@ -6,9 +6,8 @@ from __future__ import annotations
 
 import json
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import sys
 
 # Load effector via exec (no .py extension)
 _effector_path = Path(__file__).parent.parent / "effectors" / "respirometry"
@@ -38,11 +37,11 @@ def test_classify_cost_mode():
     """Test classification of cost modes."""
     assert _classify_cost_mode({"cost_estimate": "$0.05", "tool": ""}) == "metered"
     assert _classify_cost_mode({"cost_estimate": "flat-rate", "tool": ""}) == "flat-rate"
-    
+
     # Flat rate tools should always be flat-rate regardless of cost_estimate
     for tool in FLAT_RATE_TOOLS:
         assert _classify_cost_mode({"cost_estimate": "$0.00", "tool": tool}) == "flat-rate"
-    
+
     # Should detect metered even without dollar sign if tool is specified
     assert _classify_cost_mode({"cost_estimate": "", "tool": "test"}) == "metered"
     assert _classify_cost_mode({"cost_estimate": "", "tool": ""}) == "unknown"
@@ -60,8 +59,8 @@ def test_respirometry_effector_summarize_cost_rows_empty():
 
 def test_respirometry_effector_summarize_cost_rows_mixed():
     """Test summarization with mixed flat-rate and metered rows."""
-    now = datetime.now(timezone.utc)
-    
+    now = datetime.now(UTC)
+
     rows = [
         {
             "timestamp": now.isoformat(),
@@ -91,7 +90,7 @@ def test_respirometry_effector_summarize_cost_rows_mixed():
             "_parsed_timestamp": now,
         },
     ]
-    
+
     summary = _summarize_cost_rows(rows)
     assert summary["runs"] == 3
     assert summary["successful_runs"] == 3
@@ -123,43 +122,52 @@ def test_get_cost_tracking_no_file():
 
 def test_get_cost_tracking_with_data():
     """Test cost tracking with sample data in the log."""
-    now = datetime.now(timezone.utc)
-    
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+    now = datetime.now(UTC)
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
         # Write some test entries - one within window, one outside
         recent = now - timedelta(days=3)
         older = now - timedelta(days=10)
-        
-        json.dump({
-            "timestamp": recent.isoformat(),
-            "tool": "goose",
-            "duration_s": 400,
-            "tasks": 8,
-            "success": True,
-            "cost_estimate": "flat-rate",
-        }, f)
-        f.write('\n')
-        
-        json.dump({
-            "timestamp": recent.isoformat(),
-            "tool": "anthropic",
-            "duration_s": 100,
-            "tasks": 1,
-            "success": True,
-            "cost_estimate": "$0.025",
-        }, f)
-        f.write('\n')
-        
-        json.dump({
-            "timestamp": older.isoformat(),
-            "tool": "anthropic",
-            "duration_s": 200,
-            "tasks": 2,
-            "success": True,
-            "cost_estimate": "$0.05",
-        }, f)
-        f.write('\n')
-    
+
+        json.dump(
+            {
+                "timestamp": recent.isoformat(),
+                "tool": "goose",
+                "duration_s": 400,
+                "tasks": 8,
+                "success": True,
+                "cost_estimate": "flat-rate",
+            },
+            f,
+        )
+        f.write("\n")
+
+        json.dump(
+            {
+                "timestamp": recent.isoformat(),
+                "tool": "anthropic",
+                "duration_s": 100,
+                "tasks": 1,
+                "success": True,
+                "cost_estimate": "$0.025",
+            },
+            f,
+        )
+        f.write("\n")
+
+        json.dump(
+            {
+                "timestamp": older.isoformat(),
+                "tool": "anthropic",
+                "duration_s": 200,
+                "tasks": 2,
+                "success": True,
+                "cost_estimate": "$0.05",
+            },
+            f,
+        )
+        f.write("\n")
+
     original_path = _ns["SORTASE_LOG"]
     _ns["SORTASE_LOG"] = Path(f.name)
     try:
@@ -180,20 +188,20 @@ if __name__ == "__main__":
     # Run tests
     test_parse_metered_cost()
     print("✓ test_parse_metered_cost passed")
-    
+
     test_classify_cost_mode()
     print("✓ test_classify_cost_mode passed")
-    
+
     test_respirometry_effector_summarize_cost_rows_empty()
     print("✓ test_respirometry_effector_summarize_cost_rows_empty passed")
-    
+
     test_respirometry_effector_summarize_cost_rows_mixed()
     print("✓ test_respirometry_effector_summarize_cost_rows_mixed passed")
-    
+
     test_get_cost_tracking_no_file()
     print("✓ test_get_cost_tracking_no_file passed")
-    
+
     test_get_cost_tracking_with_data()
     print("✓ test_get_cost_tracking_with_data passed")
-    
+
     print("\nAll tests passed!")

@@ -5,10 +5,18 @@ from metabolon.metabolism.substrate import Substrate
 
 class ConcreteSubstrate:
     name = "test"
-    def sense(self, days=30): return [{"item": "a"}]
-    def candidates(self, sensed): return [s for s in sensed if s.get("item") == "a"]
-    def act(self, candidate): return f"acted on {candidate['item']}"
-    def report(self, sensed, acted): return f"{len(sensed)} sensed, {len(acted)} acted"
+
+    def sense(self, days=30):
+        return [{"item": "a"}]
+
+    def candidates(self, sensed):
+        return [s for s in sensed if s.get("item") == "a"]
+
+    def act(self, candidate):
+        return f"acted on {candidate['item']}"
+
+    def report(self, sensed, acted):
+        return f"{len(sensed)} sensed, {len(acted)} acted"
 
 
 def test_substrate_protocol_concrete_is_substrate():
@@ -46,4 +54,5 @@ def test_substrate_protocol_report_format():
 def test_non_substrate():
     class NotASubstrate:
         pass
+
     assert not isinstance(NotASubstrate(), Substrate)

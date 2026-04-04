@@ -5,13 +5,11 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.pinocytosis import (
     EntrainmentStatusResult,
     PinocytosisResult,
-    _count_job_alerts,
     _count_goose_tasks,
+    _count_job_alerts,
     _day_snapshot,
     _entrainment_brief,
     _hkt_now,
@@ -68,6 +66,7 @@ def test_pinocytosis_read_if_fresh_stale_file():
 def test_pinocytosis_read_now_md_not_exists():
     """Test _read_now_md when file doesn't exist."""
     from metabolon.enzymes import pinocytosis as module
+
     original = module.NOW_MD
     try:
         mock_path = MagicMock(spec=Path)
@@ -82,6 +81,7 @@ def test_pinocytosis_read_now_md_not_exists():
 def test_read_now_md_filters_completed():
     """Test _read_now_md filters out completed items."""
     from metabolon.enzymes import pinocytosis as module
+
     original = module.NOW_MD
     try:
         content = """- [ ] Open item 1
@@ -106,6 +106,7 @@ def test_read_now_md_filters_completed():
 def test_pinocytosis_count_job_alerts_no_files():
     """Test _count_job_alerts when no files exist."""
     from metabolon.enzymes import pinocytosis as module
+
     original = module.JOB_HUNT_DIR
     try:
         # Mock the directory so that / returns a fake path with exists()=False
@@ -205,10 +206,9 @@ def test_pinocytosis_entrainment_status():
     # The imports are inside the function, so we need to patch builtins.__import__
     # and mock the imported module properly
     mock_zeitgebers_func = MagicMock(return_value={"some": "signal"})
-    mock_optimal_func = MagicMock(return_value={
-        "recommendations": {"rec": "test"},
-        "summary": "test summary"
-    })
+    mock_optimal_func = MagicMock(
+        return_value={"recommendations": {"rec": "test"}, "summary": "test summary"}
+    )
 
     mock_module = MagicMock()
     mock_module.optimal_schedule = mock_optimal_func

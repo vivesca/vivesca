@@ -1,4 +1,5 @@
 """Tests for ergometer enzyme — dispatch speed monitor."""
+
 from unittest.mock import patch
 
 
@@ -210,13 +211,15 @@ class TestFormatHelpers:
     def test_fmt_slowest_with_data(self):
         from metabolon.enzymes.ergometer import _fmt_slowest
 
-        result = _fmt_slowest({
-            "plan": "p1",
-            "duration_s": 45.0,
-            "tool": "reader",
-            "timestamp": "2026-04-01T08:00:00",
-            "success": True,
-        })
+        result = _fmt_slowest(
+            {
+                "plan": "p1",
+                "duration_s": 45.0,
+                "tool": "reader",
+                "timestamp": "2026-04-01T08:00:00",
+                "success": True,
+            }
+        )
 
         assert "Plan: p1" in result
         assert "Duration: 45.0s" in result
@@ -232,14 +235,16 @@ class TestFormatHelpers:
     def test_fmt_trend(self):
         from metabolon.enzymes.ergometer import _fmt_trend
 
-        result = _fmt_trend({
-            "recent_count": 10,
-            "recent_rate": 0.9,
-            "historical_count": 100,
-            "historical_rate": 0.75,
-            "delta": 0.15,
-            "direction": "improving",
-        })
+        result = _fmt_trend(
+            {
+                "recent_count": 10,
+                "recent_rate": 0.9,
+                "historical_count": 100,
+                "historical_rate": 0.75,
+                "delta": 0.15,
+                "direction": "improving",
+            }
+        )
 
         assert "Recent (10): 90.0%" in result
         assert "Historical (100): 75.0%" in result
@@ -249,13 +254,15 @@ class TestFormatHelpers:
     def test_fmt_coaching(self):
         from metabolon.enzymes.ergometer import _fmt_coaching
 
-        result = _fmt_coaching({
-            "before_failure_rate": 0.30,
-            "after_failure_rate": 0.15,
-            "improvement_pct": 15.0,
-            "notes_analyzed": 25,
-            "total_entries": 50,
-        })
+        result = _fmt_coaching(
+            {
+                "before_failure_rate": 0.30,
+                "after_failure_rate": 0.15,
+                "improvement_pct": 15.0,
+                "notes_analyzed": 25,
+                "total_entries": 50,
+            }
+        )
 
         assert "Before coaching failure rate: 30.0%" in result
         assert "After coaching failure rate:  15.0%" in result

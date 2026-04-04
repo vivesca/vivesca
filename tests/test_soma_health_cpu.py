@@ -1,7 +1,7 @@
 """Tests for check_cpu() in soma-health."""
+
 from __future__ import annotations
 
-import inspect
 import sys
 import types
 from pathlib import Path
@@ -22,7 +22,7 @@ def ns():
     try:
         source = EFFECTOR.read_text()
         namespace: dict = {"__name__": MOD_NAME, "__file__": str(EFFECTOR)}
-        exec(source, namespace)  # noqa: S102
+        exec(source, namespace)
         yield namespace
     finally:
         sys.modules.pop(MOD_NAME, None)
@@ -79,7 +79,6 @@ class TestCheckCpu:
         source = EFFECTOR.read_text()
         assert "check_cpu()" in source
         # Also verify calling run_health (mocked) includes cpu in results
-        from unittest.mock import MagicMock
         report = ns["HealthReport"]()
         report.add(ns["Check"](name="disk", status="ok", value="50%"))
         # Can't fully run run_health without mocking everything, but we

@@ -5,25 +5,26 @@ from __future__ import annotations
 # requires-python = ">=3.13"
 # dependencies = ["httpx", "rich", "typer"]
 # ///
-
 import os
-import time
 import re
-from typing import Annotated, List, Optional
+import time
+from typing import Annotated
 
 import httpx
 import typer
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
-from rich.table import Table
 from rich.status import Status
+from rich.table import Table
 
 app = typer.Typer(help="Lacuna: Regulatory Gap Analysis Demo", no_args_is_help=True)
 console = Console()
 
 BASE_URL = os.getenv("LACUNA_API_URL", "https://lacuna.sh")
-TIMEOUT = httpx.Timeout(45.0)   # 45s: long enough for cold cache, short enough to fail fast on stage
+TIMEOUT = httpx.Timeout(
+    45.0
+)  # 45s: long enough for cold cache, short enough to fail fast on stage
 
 DISPLAY_NAMES = {
     "f3db2d97-2201-4555-a81e-43a8721b2761": "HKMA GenAI Consumer Protection 2024",
@@ -61,32 +62,41 @@ ALIASES = {
     "sg-genai": "058242a7-c7b8-4e11-be8a-5840ce978b5d",
 }
 
-_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+)
+
 
 def _client(timeout=TIMEOUT) -> httpx.Client:
     api_key = os.getenv("LACUNA_API_KEY", "")
     headers = {"X-API-Key": api_key} if api_key else {}
     return httpx.Client(timeout=timeout, headers=headers)
 
+
 def s(text) -> str:
     """Escape Rich markup in any API-sourced string."""
     return escape(str(text)) if text is not None else ""
+
 
 def resolve(name: str) -> str:
     name = name.strip()
     return ALIASES.get(name, name)
 
+
 def validate_doc_id(name: str, label: str) -> str:
     """Resolve alias and validate the result looks like a UUID."""
     resolved = resolve(name)
     if not _UUID_RE.match(resolved):
-        console.print(Panel(
-            f"[bold red]Unknown {label}:[/bold red] [yellow]{s(name)}[/yellow]\n\n"
-            f"Available aliases: {', '.join(sorted(ALIASES.keys()))}",
-            border_style="red"
-        ))
+        console.print(
+            Panel(
+                f"[bold red]Unknown {label}:[/bold red] [yellow]{s(name)}[/yellow]\n\n"
+                f"Available aliases: {', '.join(sorted(ALIASES.keys()))}",
+                border_style="red",
+            )
+        )
         raise typer.Exit(code=1)
     return resolved
+
 
 def handle_request_error(e: Exception):
     if isinstance(e, httpx.TimeoutException):
@@ -123,10 +133,12 @@ def docs():
             display_name = s(DISPLAY_NAMES.get(doc_id, doc.get("filename", "Unknown")))
             reqs = doc.get("requirements")
             req_count = str(len(reqs)) if isinstance(reqs, list) and reqs else "-"
-            table.add_row(display_name, jurisdiction, str(doc.get("chunks_count", 0)), req_count, doc_id[:8])
+            table.add_row(
+                display_name, jurisdiction, str(doc.get("chunks_count", 0)), req_count, doc_id[:8]
+            )
 
         console.print(table)
-    except (typer.Exit, KeyboardInterrupt):
+    except typer.Exit, KeyboardInterrupt:
         raise
     except Exception as e:
         handle_request_error(e)
@@ -135,16 +147,35 @@ def docs():
 @app.command()
 def gap(
     circular: Annotated[str, typer.Option(help="Circular document alias or UUID (e.g. hkma-cp)")],
-    baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID (e.g. demo-baseline)")],
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show reasoning and provenance")] = False,
-    amendments: Annotated[bool, typer.Option("--amendments", "-a", help="Generate draft policy amendment for each Partial/Gap finding (slower)")] = False,
-    interactive: Annotated[bool, typer.Option("--interactive", "-i", help="Pause for human review before finalising")] = False,
+    baseline: Annotated[
+        str, typer.Option(help="Baseline document alias or UUID (e.g. demo-baseline)")
+    ],
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show reasoning and provenance")
+    ] = False,
+    amendments: Annotated[
+        bool,
+        typer.Option(
+            "--amendments",
+            "-a",
+            help="Generate draft policy amendment for each Partial/Gap finding (slower)",
+        ),
+    ] = False,
+    interactive: Annotated[
+        bool, typer.Option("--interactive", "-i", help="Pause for human review before finalising")
+    ] = False,
 ):
     """Run gap analysis: compare a regulatory circular against a policy baseline."""
     circular_id = validate_doc_id(circular, "circular")
     baseline_id = validate_doc_id(baseline, "baseline")
 
-    payload = {"circular_doc_id": circular_id, "baseline_id": baseline_id, "is_policy_baseline": False, "include_amendments": amendments, "interactive": interactive}
+    payload = {
+        "circular_doc_id": circular_id,
+        "baseline_id": baseline_id,
+        "is_policy_baseline": False,
+        "include_amendments": amendments,
+        "interactive": interactive,
+    }
 
     try:
         with Status(f"Analyzing {circular} → {baseline}...", console=console):
@@ -157,17 +188,30 @@ def gap(
         if data.get("status") == "interrupted":
             thread_id = data.get("report_id")
             findings = data.get("findings") or []
-            console.print(Panel("[bold yellow]Analysis paused for review[/bold yellow]", border_style="yellow"))
-            status_map = {"Full": "[green]●[/green]", "Partial": "[yellow]◑[/yellow]", "Gap": "[red]○[/red]"}
+            console.print(
+                Panel(
+                    "[bold yellow]Analysis paused for review[/bold yellow]", border_style="yellow"
+                )
+            )
+            status_map = {
+                "Full": "[green]●[/green]",
+                "Partial": "[yellow]◑[/yellow]",
+                "Gap": "[red]○[/red]",
+            }
             for finding in findings:
-                icon = status_map.get((finding.get("status") or "Gap").capitalize(), "[red]○[/red]")
+                icon = status_map.get(
+                    (finding.get("status") or "Gap").capitalize(), "[red]○[/red]"
+                )
                 desc = s(finding.get("description") or "")
                 console.print(f"{icon} {(desc[:97] + '...') if len(desc) > 100 else desc}")
             console.print()
             approved = typer.confirm("Approve findings and generate report?", default=True)
             with Status("Finalising...", console=console):
                 with _client() as client:
-                    resume_response = client.post(f"{BASE_URL}/gap-analysis/resume", json={"thread_id": thread_id, "approved": approved})
+                    resume_response = client.post(
+                        f"{BASE_URL}/gap-analysis/resume",
+                        json={"thread_id": thread_id, "approved": approved},
+                    )
                     resume_response.raise_for_status()
                     data = resume_response.json()
             if not approved:
@@ -178,10 +222,12 @@ def gap(
         # Normalise key casing defensively
         summary = {k.capitalize(): v for k, v in summary.items()}
         summary_str = f"Full: {summary.get('Full', 0)}  Partial: {summary.get('Partial', 0)}  Gap: {summary.get('Gap', 0)}"
-        console.print(Panel(
-            f"[bold white]Gap Analysis: {s(circular)} → {s(baseline)}[/bold white]\n{summary_str}",
-            border_style="blue"
-        ))
+        console.print(
+            Panel(
+                f"[bold white]Gap Analysis: {s(circular)} → {s(baseline)}[/bold white]\n{summary_str}",
+                border_style="blue",
+            )
+        )
 
         findings = data.get("findings") or []
         if not findings:
@@ -189,9 +235,9 @@ def gap(
             return
 
         status_map = {
-            "Full":    "[green]●[/green]",
+            "Full": "[green]●[/green]",
             "Partial": "[yellow]◑[/yellow]",
-            "Gap":     "[red]○[/red]",
+            "Gap": "[red]○[/red]",
         }
 
         for finding in findings:
@@ -213,7 +259,7 @@ def gap(
             if draft:
                 console.print(f"  [bold cyan]Draft amendment:[/bold cyan] [cyan]{s(draft)}[/cyan]")
 
-    except (typer.Exit, KeyboardInterrupt):
+    except typer.Exit, KeyboardInterrupt:
         raise
     except Exception as e:
         handle_request_error(e)
@@ -222,10 +268,17 @@ def gap(
 @app.command()
 def query(
     text: Annotated[str, typer.Argument(help="Question to ask the regulatory knowledge base")],
-    jurisdiction: Annotated[Optional[str], typer.Option(help="Filter by jurisdiction: hk, sg, eu, uk")] = None,
+    jurisdiction: Annotated[
+        str | None, typer.Option(help="Filter by jurisdiction: hk, sg, eu, uk")
+    ] = None,
 ):
     """Query the regulatory knowledge base with a natural language question."""
-    jurisdiction_map = {"hk": "Hong Kong", "sg": "Singapore", "eu": "European Union", "uk": "United Kingdom"}
+    jurisdiction_map = {
+        "hk": "Hong Kong",
+        "sg": "Singapore",
+        "eu": "European Union",
+        "uk": "United Kingdom",
+    }
 
     payload: dict = {"query": text, "n_results": 5}
     if jurisdiction:
@@ -250,7 +303,7 @@ def query(
                 trunc = (doc_text[:117] + "...") if len(doc_text) > 120 else doc_text
                 console.print(f"• [cyan]{filename}[/cyan]: {trunc}")
 
-    except (typer.Exit, KeyboardInterrupt):
+    except typer.Exit, KeyboardInterrupt:
         raise
     except Exception as e:
         handle_request_error(e)
@@ -258,22 +311,35 @@ def query(
 
 @app.command()
 def chat(
-    jurisdiction: Annotated[Optional[str], typer.Option(help="Filter by jurisdiction: hk, sg, eu, uk")] = None,
+    jurisdiction: Annotated[
+        str | None, typer.Option(help="Filter by jurisdiction: hk, sg, eu, uk")
+    ] = None,
 ):
     """Interactive chat with the regulatory knowledge base."""
-    jurisdiction_map = {"hk": "Hong Kong", "sg": "Singapore", "eu": "European Union", "uk": "United Kingdom"}
-    jur_label = jurisdiction_map.get(jurisdiction or "", jurisdiction) if jurisdiction else "all jurisdictions"
+    jurisdiction_map = {
+        "hk": "Hong Kong",
+        "sg": "Singapore",
+        "eu": "European Union",
+        "uk": "United Kingdom",
+    }
+    jur_label = (
+        jurisdiction_map.get(jurisdiction or "", jurisdiction)
+        if jurisdiction
+        else "all jurisdictions"
+    )
 
-    console.print(Panel(
-        f"[bold]Lacuna Chat[/bold] — {jur_label}\n"
-        "[dim]Ask anything about the regulatory corpus. Empty line or Ctrl+C to exit.[/dim]",
-        border_style="blue"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Lacuna Chat[/bold] — {jur_label}\n"
+            "[dim]Ask anything about the regulatory corpus. Empty line or Ctrl+C to exit.[/dim]",
+            border_style="blue",
+        )
+    )
 
     while True:
         try:
             question = console.input("\n[bold cyan]You ›[/bold cyan] ").strip()
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt, EOFError:
             console.print("\n[dim]Bye.[/dim]")
             break
 
@@ -306,7 +372,7 @@ def chat(
                         sources.append(fname)
                 console.print(f"[dim]  Sources: {' · '.join(sources)}[/dim]")
 
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt, EOFError:
             console.print("\n[dim]Bye.[/dim]")
             break
         except Exception as e:
@@ -333,22 +399,24 @@ def warmup():
         # Validate response is a real gap analysis result, not an error page
         summary = data.get("summary") or {}
         if not summary:
-            console.print(Panel(
-                "[bold red]Warmup failed — backend returned an unexpected response.[/bold red]\n"
-                "The service may be starting up. Wait 30s and try again.",
-                border_style="red"
-            ))
+            console.print(
+                Panel(
+                    "[bold red]Warmup failed — backend returned an unexpected response.[/bold red]\n"
+                    "The service may be starting up. Wait 30s and try again.",
+                    border_style="red",
+                )
+            )
             raise typer.Exit(code=1)
 
         elapsed = time.time() - start
         counts = {k.capitalize(): v for k, v in summary.items()}
         console.print(
             f"hkma-cp × demo-baseline  [green]✓[/green]  ({elapsed:.1f}s)  "
-            f"Full:{counts.get('Full',0)} Partial:{counts.get('Partial',0)} Gap:{counts.get('Gap',0)}"
+            f"Full:{counts.get('Full', 0)} Partial:{counts.get('Partial', 0)} Gap:{counts.get('Gap', 0)}"
         )
         console.print("Cache is hot. Demo ready.")
 
-    except (typer.Exit, KeyboardInterrupt):
+    except typer.Exit, KeyboardInterrupt:
         raise
     except Exception as e:
         handle_request_error(e)
@@ -362,13 +430,16 @@ def upload(
 ):
     """Upload a client document as a gap analysis baseline."""
     import pathlib
+
     path = pathlib.Path(file)
     if not path.exists():
         console.print(f"[bold red]File not found:[/bold red] {file}")
         raise typer.Exit(code=1)
     suffix = path.suffix.lower()
     if suffix not in (".pdf", ".txt", ".docx"):
-        console.print(f"[bold red]Unsupported format:[/bold red] {suffix} (use .pdf, .txt, or .docx)")
+        console.print(
+            f"[bold red]Unsupported format:[/bold red] {suffix} (use .pdf, .txt, or .docx)"
+        )
         raise typer.Exit(code=1)
 
     # DOCX extraction is handled server-side (python-docx); CLI sends raw bytes
@@ -383,15 +454,19 @@ def upload(
                     )
         if response.status_code == 409:
             data = response.json()
-            console.print(f"[yellow]Already exists[/yellow] (doc_id={data.get('detail', {}).get('doc_id', '?')})")
+            console.print(
+                f"[yellow]Already exists[/yellow] (doc_id={data.get('detail', {}).get('doc_id', '?')})"
+            )
             return
         response.raise_for_status()
         data = response.json()
         doc_id = data.get("doc_id", "?")
         req_count = data.get("requirements_count", 0)
-        console.print(f"[green]✓[/green] Uploaded  doc_id=[bold]{doc_id}[/bold]  requirements={req_count}")
+        console.print(
+            f"[green]✓[/green] Uploaded  doc_id=[bold]{doc_id}[/bold]  requirements={req_count}"
+        )
         console.print(f"  Use with: [dim]lacuna gap --circular hkma-cp --baseline {doc_id}[/dim]")
-    except (typer.Exit, KeyboardInterrupt):
+    except typer.Exit, KeyboardInterrupt:
         raise
     except Exception as e:
         handle_request_error(e)
@@ -399,69 +474,85 @@ def upload(
 
 @app.command()
 def multi_gap(
-    baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID (e.g. demo-baseline)")],
-    jurisdiction: Annotated[str, typer.Option(help="Jurisdiction filter: hk, sg, eu, all")] = "all",
+    baseline: Annotated[
+        str, typer.Option(help="Baseline document alias or UUID (e.g. demo-baseline)")
+    ],
+    jurisdiction: Annotated[
+        str, typer.Option(help="Jurisdiction filter: hk, sg, eu, all")
+    ] = "all",
 ):
-    '''Run gap analysis for multiple circulars against a single baseline.'''
+    """Run gap analysis for multiple circulars against a single baseline."""
     baseline_id = validate_doc_id(baseline, "baseline")
-    
+
     jur_map = {
         "hk": ["hkma-cp", "hkma-gai", "hkma-sandbox", "hkma-spm"],
         "sg": ["mas-consult", "mas-mrmf"],
         "eu": ["eu-ai-act", "fca"],
     }
-    
+
     if jurisdiction == "all":
         circular_aliases = jur_map["hk"] + jur_map["sg"] + jur_map["eu"]
     elif jurisdiction in jur_map:
         circular_aliases = jur_map[jurisdiction]
     else:
-        console.print(f"[bold red]Invalid jurisdiction:[/bold red] [yellow]{jurisdiction}[/yellow]")
-        console.print(f"Supported: hk, sg, eu, all")
+        console.print(
+            f"[bold red]Invalid jurisdiction:[/bold red] [yellow]{jurisdiction}[/yellow]"
+        )
+        console.print("Supported: hk, sg, eu, all")
         raise typer.Exit(code=1)
 
     results = []
-    
+
     with _client() as client:
         for i, alias in enumerate(circular_aliases, 1):
             circular_id = ALIASES.get(alias)
             display_name = DISPLAY_NAMES.get(circular_id, alias)
-            
+
             console.print(f"Analysing {i}/{len(circular_aliases)}: [cyan]{display_name}[/cyan]...")
-            
+
             try:
-                payload = {"circular_doc_id": circular_id, "baseline_id": baseline_id, "is_policy_baseline": False}
+                payload = {
+                    "circular_doc_id": circular_id,
+                    "baseline_id": baseline_id,
+                    "is_policy_baseline": False,
+                }
                 response = client.post(f"{BASE_URL}/gap-analysis", json=payload)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 summary = data.get("summary") or {}
                 summary = {k.capitalize(): v for k, v in summary.items()}
-                
+
                 full = summary.get("Full", 0)
                 partial = summary.get("Partial", 0)
                 gap = summary.get("Gap", 0)
-                
-                results.append({
-                    "name": display_name,
-                    "full": full,
-                    "partial": partial,
-                    "gap": gap,
-                    "total": full + partial + gap,
-                    "error": False
-                })
+
+                results.append(
+                    {
+                        "name": display_name,
+                        "full": full,
+                        "partial": partial,
+                        "gap": gap,
+                        "total": full + partial + gap,
+                        "error": False,
+                    }
+                )
             except Exception:
-                results.append({
-                    "name": display_name,
-                    "full": 0,
-                    "partial": 0,
-                    "gap": 0,
-                    "total": 0,
-                    "error": True
-                })
+                results.append(
+                    {
+                        "name": display_name,
+                        "full": 0,
+                        "partial": 0,
+                        "gap": 0,
+                        "total": 0,
+                        "error": True,
+                    }
+                )
 
     console.print()
-    table = Table(title=f"Multi-Gap Analysis (Baseline: {s(DISPLAY_NAMES.get(baseline_id, baseline))})")
+    table = Table(
+        title=f"Multi-Gap Analysis (Baseline: {s(DISPLAY_NAMES.get(baseline_id, baseline))})"
+    )
     table.add_column("Circular", style="cyan")
     table.add_column("Full", justify="right")
     table.add_column("Partial", justify="right")
@@ -472,14 +563,16 @@ def multi_gap(
 
     for res in results:
         if res["error"]:
-            table.add_row(res["name"], "[red]Error[/red]", "[red]Error[/red]", "[red]Error[/red]", "0")
+            table.add_row(
+                res["name"], "[red]Error[/red]", "[red]Error[/red]", "[red]Error[/red]", "0"
+            )
         else:
             table.add_row(
                 res["name"],
                 f"[green]{res['full']}[/green]",
                 f"[yellow]{res['partial']}[/yellow]",
                 f"[red]{res['gap']}[/red]",
-                str(res["total"])
+                str(res["total"]),
             )
             totals["full"] += res["full"]
             totals["partial"] += res["partial"]
@@ -492,7 +585,7 @@ def multi_gap(
         f"[bold green]{totals['full']}[/bold green]",
         f"[bold yellow]{totals['partial']}[/bold yellow]",
         f"[bold red]{totals['gap']}[/bold red]",
-        f"[bold]{totals['total']}[/bold]"
+        f"[bold]{totals['total']}[/bold]",
     )
 
     console.print(table)
@@ -500,11 +593,15 @@ def multi_gap(
 
 @app.command()
 def synthesize(
-    circulars: Annotated[List[str], typer.Option(help="Circular aliases or UUIDs (repeat flag for each)")],
+    circulars: Annotated[
+        list[str], typer.Option(help="Circular aliases or UUIDs (repeat flag for each)")
+    ],
     baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID")],
-    include_amendments: Annotated[bool, typer.Option(help="Include draft amendment suggestions")] = False,
+    include_amendments: Annotated[
+        bool, typer.Option(help="Include draft amendment suggestions")
+    ] = False,
 ):
-    '''Run cross-jurisdiction synthesis: compare multiple circulars against one baseline.'''
+    """Run cross-jurisdiction synthesis: compare multiple circulars against one baseline."""
     circular_ids = [validate_doc_id(c, "circular") for c in circulars]
     baseline_id = validate_doc_id(baseline, "baseline")
 
@@ -558,17 +655,21 @@ def synthesize(
 def export(
     circular: Annotated[str, typer.Option(help="Circular document alias or UUID")],
     baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID")],
-    output: Annotated[Optional[str], typer.Option(help="Filepath to save the report")] = None,
+    output: Annotated[str | None, typer.Option(help="Filepath to save the report")] = None,
     format: Annotated[str, typer.Option(help="Export format: md, pdf, docx")] = "md",
 ):
-    '''Export gap analysis as a Markdown or PDF report.'''
+    """Export gap analysis as a Markdown or PDF report."""
     circular_id = validate_doc_id(circular, "circular")
     baseline_id = validate_doc_id(baseline, "baseline")
 
     circular_name = DISPLAY_NAMES.get(circular_id, circular_id)
     baseline_name = DISPLAY_NAMES.get(baseline_id, baseline_id)
 
-    payload = {"circular_doc_id": circular_id, "baseline_id": baseline_id, "is_policy_baseline": False}
+    payload = {
+        "circular_doc_id": circular_id,
+        "baseline_id": baseline_id,
+        "is_policy_baseline": False,
+    }
 
     if format.lower() == "pdf":
         try:
@@ -611,11 +712,11 @@ def export(
         summary = data.get("summary") or {}
         summary = {k.capitalize(): v for k, v in summary.items()}
         findings = data.get("findings") or []
-        
+
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        
+
         md = [
-            f"# Gap Analysis Report",
+            "# Gap Analysis Report",
             f"**Circular:** {circular_name}",
             f"**Baseline:** {baseline_name}",
             f"**Generated:** {timestamp}",
@@ -628,7 +729,7 @@ def export(
             f"| Gap    | {summary.get('Gap', 0)} |",
             "",
             "## Findings",
-            ""
+            "",
         ]
 
         for f in findings:
@@ -636,7 +737,7 @@ def export(
             desc = f.get("description") or "No description"
             reasoning = f.get("reasoning") or "No reasoning provided."
             baseline_match = f.get("baseline_match")
-            
+
             md.append(f"### {desc}")
             md.append(f"**Status:** {status}")
             md.append(f"**Reasoning:** {reasoning}")
@@ -655,7 +756,7 @@ def export(
         else:
             console.print(report)
 
-    except (typer.Exit, KeyboardInterrupt):
+    except typer.Exit, KeyboardInterrupt:
         raise
     except Exception as e:
         handle_request_error(e)
@@ -688,7 +789,9 @@ def preflight():
         check("API reachable", True, f"{latency:.1f}s")
     except Exception:
         check("API reachable", False, "cannot reach backend")
-        console.print(Panel("[bold red]Preflight failed — API unreachable.[/bold red]", border_style="red"))
+        console.print(
+            Panel("[bold red]Preflight failed — API unreachable.[/bold red]", border_style="red")
+        )
         raise typer.Exit(code=1)
 
     # 2. All expected doc UUIDs present
@@ -715,8 +818,10 @@ def preflight():
         elapsed = time.time() - start
         summary = gap_data.get("summary") or {}
         counts = {k.capitalize(): v for k, v in summary.items()}
-        result_str = f"Full:{counts.get('Full',0)} Partial:{counts.get('Partial',0)} Gap:{counts.get('Gap',0)}"
-        check("Cache warm (hkma-cp × demo-baseline)", bool(summary), f"{elapsed:.1f}s  {result_str}")
+        result_str = f"Full:{counts.get('Full', 0)} Partial:{counts.get('Partial', 0)} Gap:{counts.get('Gap', 0)}"
+        check(
+            "Cache warm (hkma-cp × demo-baseline)", bool(summary), f"{elapsed:.1f}s  {result_str}"
+        )
     except Exception:
         check("Cache warm", False, "warmup failed — run lacuna warmup manually")
 

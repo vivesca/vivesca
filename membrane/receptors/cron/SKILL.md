@@ -20,8 +20,8 @@ Plists tracked in `~/officina/launchd/`, symlinked to `~/Library/LaunchAgents/`.
 
 | Agent | Schedule | Purpose |
 |-------|----------|---------|
-| `lustro-daily` | 6:30 PM daily | AI news RSS scan → AI News Log |
-| `lustro-breaking` | Every 2h, 8am-10pm | Breaking AI news → Telegram |
+| `endocytosis-daily` | 6:30 PM daily | AI news RSS scan → AI News Log |
+| `endocytosis-breaking` | Every 2h, 8am-10pm | Breaking AI news → Telegram |
 | `morning-weather` | 6:45 AM daily | HKO weather → Telegram |
 | `oura-sync` | 9:00 AM daily | Oura Ring data sync |
 | `vault-git-backup` | Every 30 min | Obsidian vault git backup |
@@ -34,7 +34,7 @@ Plists tracked in `~/officina/launchd/`, symlinked to `~/Library/LaunchAgents/`.
 | `csb-ai-jobs` | Fri 12:00 PM | CSB AI job vacancies → Telegram |
 | `legatus-git-health` | 00:30 daily | Git health across active repos |
 | `legatus-vault-health-check` | 01:00 daily | Vault link + TODO health |
-| `legatus-lustro-digest` | 01:30 daily | AI news digest (Capco lens) |
+| `legatus-endocytosis-digest` | 01:30 daily | AI news digest (Capco lens) |
 | `legatus-solutions-dedup` | 02:00 Sunday | Solutions KB dedup |
 | `legatus-todo-stale-sweep` | 02:15 Sunday | Stale TODO sweep |
 | `legatus-notes-orphan-scan` | 02:30 Sunday | Vault orphan scan |
@@ -51,7 +51,7 @@ Logs: `~/logs/`
 launchctl list | grep com.terry
 
 # Check specific agent
-launchctl list com.terry.lustro-daily
+launchctl list com.terry.endocytosis-daily
 
 # Reload after plist change
 launchctl unload ~/Library/LaunchAgents/com.terry.AGENT.plist

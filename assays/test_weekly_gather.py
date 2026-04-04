@@ -12,8 +12,6 @@ namespace).  We access it through ``wg.gather_quarterly.__globals__`` and use
 import json
 import os
 import subprocess
-import sys
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -60,8 +58,8 @@ class TestScriptBasics:
         assert callable(wg.render_text)
 
     def test_constants(self, wg):
-        assert wg.HOME == Path.home()
-        assert wg.NOTES == Path.home() / "notes"
+        assert Path.home() == wg.HOME
+        assert Path.home() / "notes" == wg.NOTES
 
 
 # ── CLI / argparse ──────────────────────────────────────────────────────────
@@ -93,8 +91,10 @@ class TestCLIArgparse:
             "job_alerts": {"summary": "0 unchecked"},
             "garden": {"summary": "0 posts"},
         }
-        with patch.dict(g, {"run_all": MagicMock(return_value=fake_results)}), \
-             patch("sys.argv", ["weekly-gather"]):
+        with (
+            patch.dict(g, {"run_all": MagicMock(return_value=fake_results)}),
+            patch("sys.argv", ["weekly-gather"]),
+        ):
             wg.main()
         out = capsys.readouterr().out
         assert "Weekly Context" in out
@@ -111,8 +111,10 @@ class TestCLIArgparse:
             "job_alerts": {"summary": "j"},
             "garden": {"summary": "g"},
         }
-        with patch.dict(g, {"run_all": MagicMock(return_value=fake_results)}), \
-             patch("sys.argv", ["weekly-gather", "--json"]):
+        with (
+            patch.dict(g, {"run_all": MagicMock(return_value=fake_results)}),
+            patch("sys.argv", ["weekly-gather", "--json"]),
+        ):
             wg.main()
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -301,9 +303,7 @@ class TestGatherDaily:
         # Write a daily note from yesterday with a Commute Close section
         yesterday = today - timedelta(days=1)
         note = daily_dir / f"{yesterday.strftime('%Y-%m-%d')}.md"
-        note.write_text(
-            "## Commute Close\n- Did stuff\n- More stuff\n## Other Section\n"
-        )
+        note.write_text("## Commute Close\n- Did stuff\n- More stuff\n## Other Section\n")
         with patch.dict(g, {"NOTES": tmp_path}):
             result = wg.gather_daily()
         assert result["notes_found"] == 1
@@ -320,8 +320,9 @@ class TestGatherDaily:
         with patch.dict(g, {"NOTES": tmp_path}):
             result = wg.gather_daily()
         # Should have extracted 2 time-stamped headers
-        day_data = [d for d in result["daily_data"]
-                    if d["date"] == yesterday.strftime("%Y-%m-%d")][0]
+        day_data = next(
+            d for d in result["daily_data"] if d["date"] == yesterday.strftime("%Y-%m-%d")
+        )
         assert len(day_data["session_headers"]) == 2
 
 
@@ -339,11 +340,7 @@ class TestGatherOura:
         assert result["readiness_avg"] == "N/A"
 
     def test_parses_sopor_week_output(self, wg, g):
-        output = (
-            "Readiness  │ 82\n"
-            "Sleep Duration │ 7.5h\n"
-            "Avg HRV     │ 45ms\n"
-        )
+        output = "Readiness  │ 82\nSleep Duration │ 7.5h\nAvg HRV     │ 45ms\n"
         mock_run = MagicMock(return_value=(0, output, ""))
         with patch.dict(g, {"run_cmd": mock_run}):
             result = wg.gather_oura()
@@ -438,8 +435,14 @@ class TestRunAll:
         g["_gather"] = False
         result = wg.run_all()
         expected_keys = {
-            "calendar", "todo", "now", "quarterly",
-            "daily", "oura", "job_alerts", "garden",
+            "calendar",
+            "todo",
+            "now",
+            "quarterly",
+            "daily",
+            "oura",
+            "job_alerts",
+            "garden",
         }
         assert set(result.keys()) == expected_keys
 
@@ -451,6 +454,7 @@ class TestRunAll:
 
     def test_run_all_catches_exceptions(self, wg, g):
         """If a gatherer raises, run_all should catch it and store an error."""
+
         def bad_gatherer():
             raise RuntimeError("boom")
 
@@ -488,8 +492,19 @@ class TestRenderText:
         assert "1 post" in text
 
     def test_render_text_has_decorators(self, wg):
-        results = {k: {"summary": "x"} for k in
-                   ["calendar", "todo", "now", "quarterly", "daily", "oura", "job_alerts", "garden"]}
+        results = {
+            k: {"summary": "x"}
+            for k in [
+                "calendar",
+                "todo",
+                "now",
+                "quarterly",
+                "daily",
+                "oura",
+                "job_alerts",
+                "garden",
+            ]
+        }
         text = wg.render_text(results)
         assert "───" in text
         assert "────" in text  # closing line
@@ -505,18 +520,18 @@ class TestRunCmd:
         mock_result.stdout = "out"
         mock_result.stderr = "err"
         with patch("subprocess.run", return_value=mock_result):
-            rc, out, err = wg.run_cmd(["echo", "hi"])
+            rc, out, _err = wg.run_cmd(["echo", "hi"])
         assert rc == 0
         assert out == "out"
 
     def test_timeout(self, wg):
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 15)):
-            rc, out, err = wg.run_cmd(["slow"], timeout=15)
+            rc, out, _err = wg.run_cmd(["slow"], timeout=15)
         assert rc == -1
         assert out == ""
 
     def test_generic_exception(self, wg):
         with patch("subprocess.run", side_effect=OSError("nope")):
-            rc, out, err = wg.run_cmd(["bad"])
+            rc, _out, err = wg.run_cmd(["bad"])
         assert rc == -1
         assert "nope" in err

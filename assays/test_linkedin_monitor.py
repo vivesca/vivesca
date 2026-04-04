@@ -21,10 +21,9 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from io import StringIO
 from pathlib import Path
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -35,20 +34,22 @@ namespace = {}
 exec(linkedin_code, namespace)
 
 # Extract all the functions/globals from the namespace
-linkedin = type('linkedin_monitor_module', (), {})()
+linkedin = type("linkedin_monitor_module", (), {})()
 for key, value in namespace.items():
-    if not key.startswith('__'):
+    if not key.startswith("__"):
         setattr(linkedin, key, value)
 
 # ---------------------------------------------------------------------------
 # Test hash_text
 # ---------------------------------------------------------------------------
 
+
 def test_hash_text_returns_16_chars():
     """Test hash_text returns 16 character hex string."""
     result = linkedin.hash_text("test content")
     assert len(result) == 16
-    assert all(c in '0123456789abcdef' for c in result)
+    assert all(c in "0123456789abcdef" for c in result)
+
 
 def test_hash_text_deterministic():
     """Test hash_text produces same hash for same input."""
@@ -57,91 +58,106 @@ def test_hash_text_deterministic():
     hash2 = linkedin.hash_text(text)
     assert hash1 == hash2
 
+
 def test_hash_text_different_inputs():
     """Test hash_text produces different hashes for different inputs."""
     hash1 = linkedin.hash_text("first post")
     hash2 = linkedin.hash_text("second post")
     assert hash1 != hash2
 
+
 def test_hash_text_empty_string():
     """Test hash_text handles empty string."""
     result = linkedin.hash_text("")
     assert len(result) == 16
 
+
 # ---------------------------------------------------------------------------
 # Test profile_slug
 # ---------------------------------------------------------------------------
+
 
 def test_profile_slug_lowercase():
     """Test profile_slug converts to lowercase."""
     assert linkedin.profile_slug("John Doe") == "john-doe"
 
+
 def test_profile_slug_spaces_to_hyphens():
     """Test profile_slug replaces spaces with hyphens."""
     assert linkedin.profile_slug("Jane Marie Smith") == "jane-marie-smith"
+
 
 def test_profile_slug_no_spaces():
     """Test profile_slug handles single name."""
     assert linkedin.profile_slug("Madonna") == "madonna"
 
+
 def test_profile_slug_mixed_case():
     """Test profile_slug normalizes mixed case."""
     assert linkedin.profile_slug("JoHn DoE") == "john-doe"
+
 
 # ---------------------------------------------------------------------------
 # Test load_seen
 # ---------------------------------------------------------------------------
 
+
 def test_load_seen_missing_file():
     """Test load_seen returns empty set when cache file doesn't exist."""
-    with patch.object(Path, 'exists', return_value=False):
+    with patch.object(Path, "exists", return_value=False):
         result = linkedin.load_seen("john-doe")
         assert result == set()
+
 
 def test_load_seen_valid_json():
     """Test load_seen parses valid JSON array."""
     hashes = ["abc123def456", "fed456cba321"]
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=json.dumps(hashes)):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=json.dumps(hashes)):
             result = linkedin.load_seen("john-doe")
             assert result == set(hashes)
 
+
 def test_load_seen_invalid_json():
     """Test load_seen returns empty set on malformed JSON."""
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value="not valid json"):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value="not valid json"):
             result = linkedin.load_seen("john-doe")
             assert result == set()
 
+
 def test_load_seen_empty_file():
     """Test load_seen handles empty file."""
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=""):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=""):
             result = linkedin.load_seen("john-doe")
             assert result == set()
+
 
 # ---------------------------------------------------------------------------
 # Test save_seen
 # ---------------------------------------------------------------------------
 
+
 def test_save_seen_creates_directory():
     """Test save_seen creates cache directory if needed."""
-    mock_cache_dir = MagicMock()
+    MagicMock()
     mock_path = MagicMock()
-    
-    with patch.object(Path, '__truediv__', return_value=mock_path):
-        with patch('pathlib.Path.mkdir') as mock_mkdir:
+
+    with patch.object(Path, "__truediv__", return_value=mock_path):
+        with patch("pathlib.Path.mkdir") as mock_mkdir:
             linkedin.save_seen("john-doe", {"abc123", "def456"})
             # mkdir should be called with parents=True, exist_ok=True
             mock_mkdir.assert_called()
+
 
 def test_save_seen_writes_sorted_json():
     """Test save_seen writes sorted JSON array."""
     hashes = {"def456", "abc123"}  # set is unordered
     mock_path = MagicMock()
-    
-    with patch.object(Path, '__truediv__', return_value=mock_path):
-        with patch('pathlib.Path.mkdir'):
+
+    with patch.object(Path, "__truediv__", return_value=mock_path):
+        with patch("pathlib.Path.mkdir"):
             linkedin.save_seen("john-doe", hashes)
             # Check write_text was called with sorted JSON
             mock_path.write_text.assert_called_once()
@@ -149,34 +165,43 @@ def test_save_seen_writes_sorted_json():
             parsed = json.loads(written)
             assert parsed == sorted(hashes)  # should be sorted
 
+
 # ---------------------------------------------------------------------------
 # Test _parse_eval_result
 # ---------------------------------------------------------------------------
+
 
 def test_parse_eval_result_empty():
     """Test _parse_eval_result returns empty list for empty input."""
     assert linkedin._parse_eval_result("") == []
     assert linkedin._parse_eval_result(None) == []
 
+
 def test_parse_eval_result_valid_json_array():
     """Test _parse_eval_result parses valid JSON array."""
     data = [
-        {"text": "This is a post that is long enough", "timestamp": "2026-03-31", "url": "https://example.com"},
-        {"text": "Another post with enough characters", "timestamp": "2026-03-30", "url": ""}
+        {
+            "text": "This is a post that is long enough",
+            "timestamp": "2026-03-31",
+            "url": "https://example.com",
+        },
+        {"text": "Another post with enough characters", "timestamp": "2026-03-30", "url": ""},
     ]
     result = linkedin._parse_eval_result(json.dumps(data))
     assert len(result) == 2
     assert result[0]["text"] == "This is a post that is long enough"
 
+
 def test_parse_eval_result_filters_short_text():
     """Test _parse_eval_result filters posts with text <= 20 chars."""
     data = [
         {"text": "Short text", "timestamp": "2026-03-31", "url": ""},  # 10 chars - filtered
-        {"text": "This is longer than twenty characters", "timestamp": "", "url": ""}  # kept
+        {"text": "This is longer than twenty characters", "timestamp": "", "url": ""},  # kept
     ]
     result = linkedin._parse_eval_result(json.dumps(data))
     assert len(result) == 1
     assert "longer" in result[0]["text"]
+
 
 def test_parse_eval_result_double_encoded():
     """Test _parse_eval_result handles double-encoded JSON."""
@@ -185,13 +210,16 @@ def test_parse_eval_result_double_encoded():
     result = linkedin._parse_eval_result(double_encoded)
     assert len(result) == 1
 
+
 def test_parse_eval_result_invalid_json():
     """Test _parse_eval_result returns empty list for invalid JSON."""
     assert linkedin._parse_eval_result("not json at all") == []
 
+
 def test_parse_eval_result_non_list():
     """Test _parse_eval_result returns empty list for non-list JSON."""
     assert linkedin._parse_eval_result('{"key": "value"}') == []
+
 
 def test_parse_eval_result_non_dict_items():
     """Test _parse_eval_result filters non-dict items."""
@@ -199,14 +227,16 @@ def test_parse_eval_result_non_dict_items():
         {"text": "Valid post with enough characters here", "timestamp": "", "url": ""},
         "not a dict",
         123,
-        ["list", "item"]
+        ["list", "item"],
     ]
     result = linkedin._parse_eval_result(json.dumps(data))
     assert len(result) == 1
 
+
 # ---------------------------------------------------------------------------
 # Test _parse_snapshot
 # ---------------------------------------------------------------------------
+
 
 def test_parse_snapshot_basic():
     """Test _parse_snapshot extracts posts from accessibility tree text."""
@@ -219,6 +249,7 @@ def test_parse_snapshot_basic():
     result = linkedin._parse_snapshot(snapshot)
     assert len(result) >= 1
 
+
 def test_parse_snapshot_filters_short_lines():
     """Test _parse_snapshot filters lines shorter than 60 chars."""
     snapshot = """
@@ -228,6 +259,7 @@ def test_parse_snapshot_filters_short_lines():
     result = linkedin._parse_snapshot(snapshot)
     assert len(result) == 0
 
+
 def test_parse_snapshot_skips_bracket_lines():
     """Test _parse_snapshot skips lines starting with bracket."""
     snapshot = """
@@ -236,6 +268,7 @@ def test_parse_snapshot_skips_bracket_lines():
     """
     result = linkedin._parse_snapshot(snapshot)
     assert len(result) == 0
+
 
 def test_parse_snapshot_combines_buffer():
     """Test _parse_snapshot combines adjacent long lines."""
@@ -248,6 +281,7 @@ def test_parse_snapshot_combines_buffer():
     # The two long lines should be combined before short line breaks buffer
     assert len(result) >= 1
 
+
 def test_parse_snapshot_deduplicates():
     """Test _parse_snapshot deduplicates similar posts."""
     snapshot = """
@@ -258,14 +292,18 @@ def test_parse_snapshot_deduplicates():
     # Both lines have same first 80 chars, so should dedupe to 1
     assert len(result) <= 1
 
+
 def test_parse_snapshot_caps_at_20():
     """Test _parse_snapshot caps output at 20 posts."""
     lines = []
     for i in range(30):
-        lines.append(f"This is post number {i} which is definitely long enough to be captured here yay.")
+        lines.append(
+            f"This is post number {i} which is definitely long enough to be captured here yay."
+        )
     snapshot = "\n".join(lines)
     result = linkedin._parse_snapshot(snapshot)
     assert len(result) <= 20
+
 
 def test_parse_snapshot_returns_text_key():
     """Test _parse_snapshot returns dicts with text key."""
@@ -276,9 +314,11 @@ def test_parse_snapshot_returns_text_key():
         assert "timestamp" in result[0]
         assert "url" in result[0]
 
+
 # ---------------------------------------------------------------------------
 # Test is_auth_gated
 # ---------------------------------------------------------------------------
+
 
 def test_is_auth_gated_no_posts_with_signal():
     """Test is_auth_gated returns True when no posts and signal in raw_text."""
@@ -289,46 +329,56 @@ def test_is_auth_gated_no_posts_with_signal():
         "Join now for free",
         "Authwall detected",
         "Join LinkedIn today",
-        "See who's hiring in your network"
+        "See who's hiring in your network",
     ]
     for signal in signals:
         assert linkedin.is_auth_gated([], signal) is True
 
+
 def test_is_auth_gated_no_posts_no_signal():
     """Test is_auth_gated returns False when no posts and no signal."""
     assert linkedin.is_auth_gated([], "Welcome to LinkedIn content") is False
+
 
 def test_is_auth_gated_has_posts():
     """Test is_auth_gated returns False when posts exist."""
     posts = [{"text": "Some post content here"}]
     assert linkedin.is_auth_gated(posts, "Please sign in") is False
 
+
 def test_is_auth_gated_case_insensitive():
     """Test is_auth_gated is case insensitive."""
     assert linkedin.is_auth_gated([], "PLEASE SIGN IN") is True
     assert linkedin.is_auth_gated([], "LOG IN NOW") is True
 
+
 def test_is_auth_gated_empty_raw_text():
     """Test is_auth_gated with empty raw_text and no posts."""
     assert linkedin.is_auth_gated([], "") is False
 
+
 # ---------------------------------------------------------------------------
 # Test format_digest
 # ---------------------------------------------------------------------------
+
 
 def test_format_digest_basic():
     """Test format_digest produces expected markdown."""
     profile = {
         "name": "John Doe",
         "url": "https://linkedin.com/in/johndoe",
-        "context": "Former colleague"
+        "context": "Former colleague",
     }
     posts = [
-        {"text": "First post content here with enough text", "timestamp": "2026-03-31", "url": "https://linkedin.com/posts/123"},
-        {"text": "Second post also has enough characters", "timestamp": "2026-03-30", "url": ""}
+        {
+            "text": "First post content here with enough text",
+            "timestamp": "2026-03-31",
+            "url": "https://linkedin.com/posts/123",
+        },
+        {"text": "Second post also has enough characters", "timestamp": "2026-03-30", "url": ""},
     ]
     result = linkedin.format_digest(profile, posts, new_count=1)
-    
+
     assert "## John Doe" in result
     assert "**Context:** Former colleague" in result
     assert "**Profile:** https://linkedin.com/in/johndoe" in result
@@ -338,34 +388,37 @@ def test_format_digest_basic():
     assert "2026-03-31" in result
     assert "[View on LinkedIn]" in result
 
+
 def test_format_digest_no_context():
     """Test format_digest omits context line when empty."""
-    profile = {
-        "name": "Jane Smith",
-        "url": "https://linkedin.com/in/janesmith"
-    }
+    profile = {"name": "Jane Smith", "url": "https://linkedin.com/in/janesmith"}
     posts = [{"text": "A post with sufficient characters here", "timestamp": "", "url": ""}]
     result = linkedin.format_digest(profile, posts, new_count=0)
-    
+
     assert "## Jane Smith" in result
     assert "**Context:**" not in result
+
 
 def test_format_digest_no_timestamp():
     """Test format_digest handles missing timestamp."""
     profile = {"name": "Test User", "url": "https://linkedin.com/in/test"}
     posts = [{"text": "Post content goes here and is long enough", "timestamp": "", "url": ""}]
     result = linkedin.format_digest(profile, posts, new_count=1)
-    
+
     assert "### Post 1" in result
     assert " — " not in result  # no timestamp dash
+
 
 def test_format_digest_no_url():
     """Test format_digest omits link when no URL."""
     profile = {"name": "Test User", "url": "https://linkedin.com/in/test"}
-    posts = [{"text": "Post content goes here and is long enough", "timestamp": "2026-03-31", "url": ""}]
+    posts = [
+        {"text": "Post content goes here and is long enough", "timestamp": "2026-03-31", "url": ""}
+    ]
     result = linkedin.format_digest(profile, posts, new_count=1)
-    
+
     assert "[View on LinkedIn]" not in result
+
 
 def test_format_digest_multiple_posts():
     """Test format_digest numbers posts correctly."""
@@ -373,66 +426,76 @@ def test_format_digest_multiple_posts():
     posts = [
         {"text": "First post content with enough characters", "timestamp": "", "url": ""},
         {"text": "Second post content with enough characters", "timestamp": "", "url": ""},
-        {"text": "Third post content with enough characters", "timestamp": "", "url": ""}
+        {"text": "Third post content with enough characters", "timestamp": "", "url": ""},
     ]
     result = linkedin.format_digest(profile, posts, new_count=3)
-    
+
     assert "### Post 1" in result
     assert "### Post 2" in result
     assert "### Post 3" in result
+
 
 # ---------------------------------------------------------------------------
 # Test _run helper
 # ---------------------------------------------------------------------------
 
+
 def test_linkedin_monitor_run_success():
     """Test _run returns (True, stdout) on success."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="output text\n")
         success, output = linkedin._run(["echo", "test"])
         assert success is True
         assert output == "output text"
 
+
 def test_linkedin_monitor_run_failure():
     """Test _run returns (False, stdout) on non-zero exit."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stdout="")
-        success, output = linkedin._run(["false"])
+        success, _output = linkedin._run(["false"])
         assert success is False
+
 
 def test_linkedin_monitor_run_timeout():
     """Test _run returns (False, error) on timeout."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["sleep"], timeout=30)
         success, output = linkedin._run(["sleep", "100"], timeout=30)
         assert success is False
         assert "[error:" in output
 
+
 def test_linkedin_monitor_run_file_not_found():
     """Test _run returns (False, error) when command not found."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = FileNotFoundError("command not found")
         success, output = linkedin._run(["nonexistent-command"])
         assert success is False
         assert "[error:" in output
 
+
 def test_run_strips_output():
     """Test _run strips whitespace from stdout."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="  text  \n\n")
-        success, output = linkedin._run(["echo", "test"])
+        _success, output = linkedin._run(["echo", "test"])
         assert output == "text"
+
 
 # ---------------------------------------------------------------------------
 # Test fetch_activity (integration-like test with heavy mocking)
 # ---------------------------------------------------------------------------
 
+
 def test_fetch_activity_returns_posts_on_success():
     """Test fetch_activity returns posts when agent-browser succeeds."""
-    mock_posts = [{"text": "A post that is definitely long enough to pass", "timestamp": "", "url": ""}]
+    mock_posts = [
+        {"text": "A post that is definitely long enough to pass", "timestamp": "", "url": ""}
+    ]
 
     # Patch subprocess.run directly since _run uses it
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         # Sequence: close, open, wait, scroll, eval, close
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=""),  # close
@@ -442,17 +505,20 @@ def test_fetch_activity_returns_posts_on_success():
             MagicMock(returncode=0, stdout=json.dumps(mock_posts)),  # eval
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
 
         assert len(result) == 1
         assert "definitely long enough" in result[0]["text"]
 
+
 def test_fetch_activity_uses_snapshot_fallback():
     """Test fetch_activity falls back to snapshot when eval fails."""
-    snapshot_text = "This is a very long line of text that should be captured from accessibility tree here."
+    snapshot_text = (
+        "This is a very long line of text that should be captured from accessibility tree here."
+    )
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=""),  # close
             MagicMock(returncode=0, stdout=""),  # open
@@ -462,29 +528,31 @@ def test_fetch_activity_uses_snapshot_fallback():
             MagicMock(returncode=0, stdout=snapshot_text),  # snapshot succeeds
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
 
         assert len(result) >= 1
 
+
 def test_fetch_activity_handles_open_failure():
     """Test fetch_activity returns empty list when open fails."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=""),  # close
             MagicMock(returncode=1, stdout="error"),  # open fails
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
 
         assert result == []
 
+
 def test_fetch_activity_constructs_activity_url():
     """Test fetch_activity constructs correct activity URL."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="")
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             linkedin.fetch_activity("https://linkedin.com/in/johndoe/")
 
         # Check that open was called with correct URL
@@ -495,35 +563,41 @@ def test_fetch_activity_constructs_activity_url():
             args = c.args
             if args and len(args) >= 1:
                 cmd_list = args[0]  # First arg is the command list
-                if isinstance(cmd_list, list) and 'open' in cmd_list:
+                if isinstance(cmd_list, list) and "open" in cmd_list:
                     # Check for activity URL in the command
                     for arg in cmd_list:
-                        if 'recent-activity/all/' in str(arg):
+                        if "recent-activity/all/" in str(arg):
                             found_activity_url = True
                             break
-        assert found_activity_url, "Did not find 'recent-activity/all/' in agent-browser open command"
+        assert found_activity_url, (
+            "Did not find 'recent-activity/all/' in agent-browser open command"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Test main function (via subprocess for isolation)
 # ---------------------------------------------------------------------------
+
 
 def test_linkedin_monitor_main_help():
     """Test that linkedin-monitor --help exits successfully."""
     result = subprocess.run(
         [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],
         capture_output=True,
-        text=True
+        text=True,
     )
     assert result.returncode == 0
     assert "linkedin-monitor" in result.stdout.lower() or "linkedin" in result.stdout.lower()
 
+
 def test_main_dry_run_no_config():
     """Test that main exits with error when config missing."""
-    with patch.object(Path, 'exists', return_value=False):
+    with patch.object(Path, "exists", return_value=False):
         # Capture SystemExit
         with pytest.raises(SystemExit) as exc_info:
-            namespace['main']()
+            namespace["main"]()
         assert exc_info.value.code == 1
+
 
 def test_main_dry_run_with_config():
     """Test dry run mode with valid config."""
@@ -533,48 +607,56 @@ profiles:
     url: https://linkedin.com/in/testuser
     context: Test profile
 """
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor', '--dry-run']):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor", "--dry-run"]):
                 # Should not raise, just print
-                namespace['main']()
+                namespace["main"]()
+
 
 def test_main_empty_profiles():
     """Test main exits gracefully with no profiles configured."""
     config_content = "profiles: []"
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor']):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor"]):
                 with pytest.raises(SystemExit) as exc_info:
-                    namespace['main']()
+                    namespace["main"]()
                 assert exc_info.value.code == 0
+
 
 # ---------------------------------------------------------------------------
 # Test constants and configuration
 # ---------------------------------------------------------------------------
 
+
 def test_config_path_location():
     """Test CONFIG_PATH is in expected location."""
     assert "epigenome/phenotype/linkedin-monitor.yaml" in str(linkedin.CONFIG_PATH)
+
 
 def test_output_dir_location():
     """Test OUTPUT_DIR is in expected location."""
     assert "epigenome/chromatin/Consulting" in str(linkedin.OUTPUT_DIR)
 
+
 def test_cache_dir_location():
     """Test CACHE_DIR is in expected location."""
     assert ".cache/linkedin-monitor" in str(linkedin.CACHE_DIR)
+
 
 def test_inter_profile_delay():
     """Test INTER_PROFILE_DELAY is reasonable."""
     assert linkedin.INTER_PROFILE_DELAY >= 1
     assert linkedin.INTER_PROFILE_DELAY <= 60
 
+
 def test_auth_signals_exist():
     """Test AUTH_SIGNALS contains expected signals."""
     assert "sign in" in linkedin.AUTH_SIGNALS
     assert "log in" in linkedin.AUTH_SIGNALS
     assert "authwall" in linkedin.AUTH_SIGNALS
+
 
 def test_extract_js_structure():
     """Test EXTRACT_JS is valid JavaScript function structure."""
@@ -583,20 +665,24 @@ def test_extract_js_structure():
     assert "JSON.stringify" in js
     assert "return" in js
 
+
 # ---------------------------------------------------------------------------
 # Edge cases and error handling
 # ---------------------------------------------------------------------------
+
 
 def test_hash_text_unicode():
     """Test hash_text handles unicode characters."""
     result = linkedin.hash_text("Hello 世界 🌍")
     assert len(result) == 16
 
+
 def test_hash_text_very_long():
     """Test hash_text handles very long strings."""
     long_text = "x" * 100000
     result = linkedin.hash_text(long_text)
     assert len(result) == 16
+
 
 def test_profile_slug_special_chars():
     """Test profile_slug with special characters (only spaces handled)."""
@@ -606,14 +692,16 @@ def test_profile_slug_special_chars():
     result = linkedin.profile_slug("John O'Brien")
     assert "o'brien" in result
 
+
 def test_parse_eval_result_missing_text_key():
     """Test _parse_eval_result handles dicts without text key."""
     data = [
         {"timestamp": "2026-03-31", "url": "https://example.com"},  # no text
-        {"text": "Valid post with enough characters here", "timestamp": "", "url": ""}
+        {"text": "Valid post with enough characters here", "timestamp": "", "url": ""},
     ]
     result = linkedin._parse_eval_result(json.dumps(data))
     assert len(result) == 1
+
 
 def test_format_digest_empty_posts():
     """Test format_digest handles empty posts list."""
@@ -621,6 +709,7 @@ def test_format_digest_empty_posts():
     result = linkedin.format_digest(profile, [], new_count=0)
     assert "## Test User" in result
     assert "**New posts:** 0 of 0 seen" in result
+
 
 def test_format_digest_special_chars_in_text():
     """Test format_digest handles special markdown characters."""
@@ -634,12 +723,13 @@ def test_format_digest_special_chars_in_text():
 # Additional hash_text tests
 # ---------------------------------------------------------------------------
 
+
 def test_hash_text_known_value():
     """Test hash_text produces expected hash for known input."""
     # SHA-1 of "test" is a94a8fe5ccb19ba61c4c0873d391e987982fbbd3
     # We take first 16 chars: a94a8fe5ccb19ba6
     result = linkedin.hash_text("test")
-    expected = hashlib.sha1("test".encode()).hexdigest()[:16]
+    expected = hashlib.sha1(b"test").hexdigest()[:16]
     assert result == expected
 
 
@@ -682,6 +772,7 @@ def test_hash_text_different_encodings_not_tested():
 # ---------------------------------------------------------------------------
 # Additional profile_slug tests
 # ---------------------------------------------------------------------------
+
 
 def test_profile_slug_preserves_numbers():
     """Test profile_slug preserves numeric characters."""
@@ -726,11 +817,12 @@ def test_profile_slug_long_name():
 # Additional load_seen tests
 # ---------------------------------------------------------------------------
 
+
 def test_load_seen_non_json_array():
     """Test load_seen returns keys when JSON is an object (current behavior)."""
     # Current implementation: set(json.loads(path.read_text())) on object gives keys
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value='{"key": "value"}'):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value='{"key": "value"}'):
             result = linkedin.load_seen("john-doe")
             # Object becomes set of its keys
             assert result == {"key"}
@@ -738,8 +830,8 @@ def test_load_seen_non_json_array():
 
 def test_load_seen_json_object_instead_of_array():
     """Test load_seen returns keys when JSON is an object (current behavior)."""
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value='{"hash1": true, "hash2": false}'):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value='{"hash1": true, "hash2": false}'):
             result = linkedin.load_seen("john-doe")
             # Object becomes set of its keys
             assert result == {"hash1", "hash2"}
@@ -748,8 +840,8 @@ def test_load_seen_json_object_instead_of_array():
 def test_load_seen_json_number():
     """Test load_seen raises TypeError for JSON number (current behavior)."""
     # Current implementation doesn't handle non-iterable JSON values
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value='123'):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value="123"):
             # This will raise TypeError when trying to make set from int
             with pytest.raises(TypeError):
                 linkedin.load_seen("john-doe")
@@ -757,8 +849,8 @@ def test_load_seen_json_number():
 
 def test_load_seen_json_null():
     """Test load_seen raises TypeError for JSON null (current behavior)."""
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value='null'):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value="null"):
             # This will raise TypeError when trying to make set from None
             with pytest.raises(TypeError):
                 linkedin.load_seen("john-doe")
@@ -766,8 +858,8 @@ def test_load_seen_json_null():
 
 def test_load_seen_os_error():
     """Test load_seen handles OSError during file read."""
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', side_effect=OSError("Permission denied")):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", side_effect=OSError("Permission denied")):
             result = linkedin.load_seen("john-doe")
             assert result == set()
 
@@ -775,8 +867,8 @@ def test_load_seen_os_error():
 def test_load_seen_mixed_array_elements():
     """Test load_seen raises TypeError for array with non-hashable elements."""
     json_content = '["hash1", 123, null, {"nested": true}, "hash2"]'
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=json_content):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=json_content):
             # This will raise TypeError when trying to add dict to set
             with pytest.raises(TypeError):
                 linkedin.load_seen("john-doe")
@@ -786,8 +878,8 @@ def test_load_seen_large_file():
     """Test load_seen handles large cache file efficiently."""
     # Simulate a large cache with many hashes
     hashes = [f"hash{i:016d}" for i in range(10000)]
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=json.dumps(hashes)):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=json.dumps(hashes)):
             result = linkedin.load_seen("john-doe")
             assert len(result) == 10000
 
@@ -796,11 +888,12 @@ def test_load_seen_large_file():
 # Additional save_seen tests
 # ---------------------------------------------------------------------------
 
+
 def test_save_seen_empty_set():
     """Test save_seen handles empty set."""
     mock_path = MagicMock()
-    with patch.object(Path, '__truediv__', return_value=mock_path):
-        with patch('pathlib.Path.mkdir'):
+    with patch.object(Path, "__truediv__", return_value=mock_path):
+        with patch("pathlib.Path.mkdir"):
             linkedin.save_seen("john-doe", set())
             mock_path.write_text.assert_called_once_with("[]")
 
@@ -808,8 +901,8 @@ def test_save_seen_empty_set():
 def test_save_seen_single_element():
     """Test save_seen handles single element set."""
     mock_path = MagicMock()
-    with patch.object(Path, '__truediv__', return_value=mock_path):
-        with patch('pathlib.Path.mkdir'):
+    with patch.object(Path, "__truediv__", return_value=mock_path):
+        with patch("pathlib.Path.mkdir"):
             linkedin.save_seen("john-doe", {"single-hash"})
             written = mock_path.write_text.call_args[0][0]
             parsed = json.loads(written)
@@ -821,8 +914,8 @@ def test_save_seen_creates_parent_directories():
     mock_cache_dir = MagicMock()
     mock_cache_dir.mkdir = MagicMock()
 
-    with patch.object(Path, '__truediv__', return_value=MagicMock()):
-        with patch('pathlib.Path.mkdir') as mock_mkdir:
+    with patch.object(Path, "__truediv__", return_value=MagicMock()):
+        with patch("pathlib.Path.mkdir") as mock_mkdir:
             linkedin.save_seen("john-doe", {"hash"})
             # Verify mkdir was called
             mock_mkdir.assert_called()
@@ -833,8 +926,8 @@ def test_save_seen_json_format():
     mock_path = MagicMock()
     hashes = {"abc", "def", "ghi"}
 
-    with patch.object(Path, '__truediv__', return_value=mock_path):
-        with patch('pathlib.Path.mkdir'):
+    with patch.object(Path, "__truediv__", return_value=mock_path):
+        with patch("pathlib.Path.mkdir"):
             linkedin.save_seen("test-profile", hashes)
             written = mock_path.write_text.call_args[0][0]
             # Should be valid JSON
@@ -847,6 +940,7 @@ def test_save_seen_json_format():
 # Additional _parse_eval_result tests
 # ---------------------------------------------------------------------------
 
+
 def test_parse_eval_result_whitespace_only():
     """Test _parse_eval_result handles whitespace-only input."""
     assert linkedin._parse_eval_result("   \n\t  ") == []
@@ -854,7 +948,13 @@ def test_parse_eval_result_whitespace_only():
 
 def test_parse_eval_result_nested_structure():
     """Test _parse_eval_result handles nested JSON structures."""
-    data = [{"text": "Post text that is long enough here", "metadata": {"nested": {"deep": "value"}}, "url": ""}]
+    data = [
+        {
+            "text": "Post text that is long enough here",
+            "metadata": {"nested": {"deep": "value"}},
+            "url": "",
+        }
+    ]
     result = linkedin._parse_eval_result(json.dumps(data))
     assert len(result) == 1
     assert result[0]["text"] == "Post text that is long enough here"
@@ -891,7 +991,7 @@ def test_parse_eval_result_triple_encoded():
 
 def test_parse_eval_result_with_escape_sequences():
     """Test _parse_eval_result handles JSON with escape sequences."""
-    data = [{"text": "Post with \"quotes\" and \\backslashes\\", "timestamp": "", "url": ""}]
+    data = [{"text": 'Post with "quotes" and \\backslashes\\', "timestamp": "", "url": ""}]
     result = linkedin._parse_eval_result(json.dumps(data))
     assert len(result) == 1
 
@@ -934,6 +1034,7 @@ def test_parse_eval_result_nested_json_in_string():
 # ---------------------------------------------------------------------------
 # Additional _parse_snapshot tests
 # ---------------------------------------------------------------------------
+
 
 def test_parse_snapshot_empty_string():
     """Test _parse_snapshot handles empty string."""
@@ -1046,6 +1147,7 @@ def test_parse_snapshot_no_duplicates_same_content():
 # Additional is_auth_gated tests
 # ---------------------------------------------------------------------------
 
+
 def test_is_auth_gated_all_signals():
     """Test is_auth_gated detects all known auth signals."""
     signals = [
@@ -1119,13 +1221,14 @@ def test_is_auth_gated_realistic_auth_wall():
 # Additional format_digest tests
 # ---------------------------------------------------------------------------
 
+
 def test_format_digest_profile_missing_name():
     """Test format_digest handles missing name key."""
     profile = {"url": "https://linkedin.com/in/test"}
     posts = [{"text": "Post content that is long enough here", "timestamp": "", "url": ""}]
     # Should raise KeyError or handle gracefully
     try:
-        result = linkedin.format_digest(profile, posts, 1)
+        linkedin.format_digest(profile, posts, 1)
         # If it doesn't raise, check what happens
     except KeyError:
         pass  # Expected behavior
@@ -1134,7 +1237,13 @@ def test_format_digest_profile_missing_name():
 def test_format_digest_url_with_tracking():
     """Test format_digest preserves tracking parameters in URLs."""
     profile = {"name": "Test", "url": "https://linkedin.com/in/test?tracking=123"}
-    posts = [{"text": "Post text that is sufficiently long", "timestamp": "", "url": "https://linkedin.com/posts/123?utm_source=test"}]
+    posts = [
+        {
+            "text": "Post text that is sufficiently long",
+            "timestamp": "",
+            "url": "https://linkedin.com/posts/123?utm_source=test",
+        }
+    ]
     result = linkedin.format_digest(profile, posts, 1)
     assert "tracking=123" in result
     assert "utm_source=test" in result
@@ -1190,7 +1299,9 @@ def test_format_digest_unicode_in_name():
 def test_format_digest_unicode_in_post():
     """Test format_digest handles unicode in post text."""
     profile = {"name": "Test", "url": "https://linkedin.com/in/test"}
-    posts = [{"text": "Post with 中文 and émojis 🚀 and other unicode", "timestamp": "", "url": ""}]
+    posts = [
+        {"text": "Post with 中文 and émojis 🚀 and other unicode", "timestamp": "", "url": ""}
+    ]
     result = linkedin.format_digest(profile, posts, new_count=1)
     assert "中文" in result
     assert "🚀" in result
@@ -1211,7 +1322,7 @@ def test_format_digest_context_with_special_chars():
     profile = {
         "name": "Test User",
         "url": "https://linkedin.com/in/test",
-        "context": "Former **colleague** at _Company_ with `code`"
+        "context": "Former **colleague** at _Company_ with `code`",
     }
     posts = [{"text": "Post content here", "timestamp": "", "url": ""}]
     result = linkedin.format_digest(profile, posts, new_count=1)
@@ -1235,48 +1346,49 @@ def test_format_digest_multiple_posts_numbering():
 # Additional _run tests
 # ---------------------------------------------------------------------------
 
+
 def test_run_with_env():
     """Test _run passes environment correctly."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="output")
         linkedin._run(["echo", "test"])
         # Verify subprocess.run was called
         mock_run.assert_called_once()
         call_kwargs = mock_run.call_args[1]
-        assert call_kwargs.get('capture_output') is True
-        assert call_kwargs.get('text') is True
+        assert call_kwargs.get("capture_output") is True
+        assert call_kwargs.get("text") is True
 
 
 def test_run_custom_timeout():
     """Test _run respects custom timeout."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="")
         linkedin._run(["sleep", "1"], timeout=60)
         call_kwargs = mock_run.call_args[1]
-        assert call_kwargs.get('timeout') == 60
+        assert call_kwargs.get("timeout") == 60
 
 
 def test_run_default_timeout():
     """Test _run uses default timeout of 30."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="")
         linkedin._run(["echo", "test"])
         call_kwargs = mock_run.call_args[1]
-        assert call_kwargs.get('timeout') == 30
+        assert call_kwargs.get("timeout") == 30
 
 
 def test_run_stderr_not_captured():
     """Test _run doesn't include stderr in result."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="stdout", stderr="stderr")
-        success, output = linkedin._run(["test"])
+        _success, output = linkedin._run(["test"])
         assert output == "stdout"
         # stderr is not returned
 
 
 def test_run_nonzero_with_stdout():
     """Test _run returns stdout even on non-zero exit."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stdout="error output")
         success, output = linkedin._run(["test"])
         assert success is False
@@ -1285,7 +1397,7 @@ def test_run_nonzero_with_stdout():
 
 def test_run_permission_error():
     """Test _run raises PermissionError (not caught by implementation)."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = PermissionError("Permission denied")
         # Implementation only catches TimeoutExpired and FileNotFoundError
         with pytest.raises(PermissionError):
@@ -1294,7 +1406,7 @@ def test_run_permission_error():
 
 def test_run_generic_exception():
     """Test _run handles generic exceptions."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = RuntimeError("Unexpected error")
         # Should raise since we only catch TimeoutExpired and FileNotFoundError
         with pytest.raises(RuntimeError):
@@ -1305,11 +1417,12 @@ def test_run_generic_exception():
 # Additional fetch_activity tests
 # ---------------------------------------------------------------------------
 
+
 def test_fetch_activity_url_trailing_slash():
     """Test fetch_activity handles URL with trailing slash."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="")
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             linkedin.fetch_activity("https://linkedin.com/in/test/")
 
         # Check the constructed URL
@@ -1320,16 +1433,16 @@ def test_fetch_activity_url_trailing_slash():
                 cmd_list = args[0]
                 if isinstance(cmd_list, list):
                     for arg in cmd_list:
-                        if 'recent-activity/all/' in str(arg):
+                        if "recent-activity/all/" in str(arg):
                             # Should not have double slashes
-                            assert '//recent-activity' not in str(arg)
+                            assert "//recent-activity" not in str(arg)
 
 
 def test_fetch_activity_url_no_trailing_slash():
     """Test fetch_activity handles URL without trailing slash."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="")
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             linkedin.fetch_activity("https://linkedin.com/in/test")
 
         calls = mock_run.call_args_list
@@ -1340,32 +1453,34 @@ def test_fetch_activity_url_no_trailing_slash():
                 cmd_list = args[0]
                 if isinstance(cmd_list, list):
                     for arg in cmd_list:
-                        if 'recent-activity/all/' in str(arg):
+                        if "recent-activity/all/" in str(arg):
                             found = True
         assert found
 
 
 def test_fetch_activity_sequence_of_commands():
     """Test fetch_activity calls correct sequence of agent-browser commands."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="[]")
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             linkedin.fetch_activity("https://linkedin.com/in/test")
 
         # Verify sequence: close, open, wait, scroll, eval, close
         calls = [c.args[0] for c in mock_run.call_args_list]
-        assert any('close' in str(c) for c in calls)
-        assert any('open' in str(c) for c in calls)
-        assert any('wait' in str(c) for c in calls)
-        assert any('scroll' in str(c) for c in calls)
-        assert any('eval' in str(c) for c in calls)
+        assert any("close" in str(c) for c in calls)
+        assert any("open" in str(c) for c in calls)
+        assert any("wait" in str(c) for c in calls)
+        assert any("scroll" in str(c) for c in calls)
+        assert any("eval" in str(c) for c in calls)
 
 
 def test_fetch_activity_eval_returns_posts():
     """Test fetch_activity processes eval result correctly."""
-    posts = [{"text": "A valid post with enough characters here", "timestamp": "2026-03-31", "url": ""}]
+    posts = [
+        {"text": "A valid post with enough characters here", "timestamp": "2026-03-31", "url": ""}
+    ]
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=""),  # close
             MagicMock(returncode=0, stdout=""),  # open
@@ -1374,7 +1489,7 @@ def test_fetch_activity_eval_returns_posts():
             MagicMock(returncode=0, stdout=json.dumps(posts)),  # eval
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
 
         assert len(result) == 1
@@ -1383,7 +1498,7 @@ def test_fetch_activity_eval_returns_posts():
 
 def test_fetch_activity_all_steps_timeout():
     """Test fetch_activity handles timeout at close step."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         # Need enough responses for all subprocess.run calls
         mock_run.side_effect = [
             subprocess.TimeoutExpired(cmd=["agent-browser"], timeout=8),  # close times out
@@ -1394,7 +1509,7 @@ def test_fetch_activity_all_steps_timeout():
             MagicMock(returncode=0, stdout=""),  # snapshot (empty)
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
         # Should continue despite timeout on close
         assert isinstance(result, list)
@@ -1402,9 +1517,11 @@ def test_fetch_activity_all_steps_timeout():
 
 def test_fetch_activity_snapshot_parsing():
     """Test fetch_activity parses snapshot output."""
-    snapshot = "This is a very long accessibility tree text line that should be captured as a post here."
+    snapshot = (
+        "This is a very long accessibility tree text line that should be captured as a post here."
+    )
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=""),  # close
             MagicMock(returncode=0, stdout=""),  # open
@@ -1414,7 +1531,7 @@ def test_fetch_activity_snapshot_parsing():
             MagicMock(returncode=0, stdout=snapshot),  # snapshot
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
 
         # Should have parsed the snapshot
@@ -1423,7 +1540,7 @@ def test_fetch_activity_snapshot_parsing():
 
 def test_fetch_activity_empty_result():
     """Test fetch_activity returns empty list when no posts found."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=""),  # close
             MagicMock(returncode=0, stdout=""),  # open
@@ -1433,7 +1550,7 @@ def test_fetch_activity_empty_result():
             MagicMock(returncode=0, stdout=""),  # snapshot empty
             MagicMock(returncode=0, stdout=""),  # close
         ]
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = linkedin.fetch_activity("https://linkedin.com/in/test")
 
         assert result == []
@@ -1442,6 +1559,7 @@ def test_fetch_activity_empty_result():
 # ---------------------------------------------------------------------------
 # Additional main function tests
 # ---------------------------------------------------------------------------
+
 
 def test_main_with_multiple_profiles():
     """Test main processes multiple profiles correctly."""
@@ -1454,11 +1572,11 @@ profiles:
   - name: User Three
     url: https://linkedin.com/in/user3
 """
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor', '--dry-run']):
-                with patch('sys.stdout', new_callable=StringIO):
-                    namespace['main']()
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor", "--dry-run"]):
+                with patch("sys.stdout", new_callable=StringIO):
+                    namespace["main"]()
                     # Should process all 3 profiles
 
 
@@ -1470,13 +1588,14 @@ profiles:
     url: https://linkedin.com/in/test
 """
     from datetime import datetime
+
     today = datetime.now().strftime("%Y-%m-%d")
 
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor', '--dry-run']):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    namespace['main']()
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor", "--dry-run"]):
+                with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
+                    namespace["main"]()
                     output = mock_stdout.getvalue()
                     # Check date appears in output
                     assert today in output or "DRY RUN" in output
@@ -1490,22 +1609,22 @@ profiles:
     url: https://example.com
     context: "this is not closed
 """
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=bad_yaml):
-            with patch.object(sys, 'argv', ['linkedin-monitor']):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=bad_yaml):
+            with patch.object(sys, "argv", ["linkedin-monitor"]):
                 # Should raise YAML parse error
                 with pytest.raises(yaml.YAMLError):
-                    namespace['main']()
+                    namespace["main"]()
 
 
 def test_main_missing_profiles_key():
     """Test main handles config without profiles key."""
     config_content = "some_other_key: value"
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor']):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor"]):
                 with pytest.raises(SystemExit) as exc_info:
-                    namespace['main']()
+                    namespace["main"]()
                 assert exc_info.value.code == 0  # Empty profiles exits 0
 
 
@@ -1516,11 +1635,11 @@ profiles:
   - name: Test User
     context: No URL provided
 """
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor', '--dry-run']):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor", "--dry-run"]):
                 # Should handle gracefully (URL would be empty string)
-                namespace['main']()
+                namespace["main"]()
 
 
 def test_main_creates_output_directory():
@@ -1533,17 +1652,17 @@ profiles:
     mock_output_dir = MagicMock()
     mock_output_dir.mkdir = MagicMock()
 
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor']):
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor"]):
                 # Would create output dir in non-dry-run mode
-                with patch('subprocess.run'):
-                    with patch('time.sleep'):
-                        with patch.object(Path, 'write_text'):
-                            with patch.object(Path, 'mkdir'):
+                with patch("subprocess.run"):
+                    with patch("time.sleep"):
+                        with patch.object(Path, "write_text"):
+                            with patch.object(Path, "mkdir"):
                                 try:
-                                    namespace['main']()
-                                except (SystemExit, AttributeError, TypeError):
+                                    namespace["main"]()
+                                except SystemExit, AttributeError, TypeError:
                                     pass  # May exit or error on mocked paths
 
 
@@ -1556,11 +1675,11 @@ profiles:
   - name: User Two
     url: https://linkedin.com/in/user2
 """
-    with patch.object(Path, 'exists', return_value=True):
-        with patch.object(Path, 'read_text', return_value=config_content):
-            with patch.object(sys, 'argv', ['linkedin-monitor', '--dry-run']):
-                with patch('time.sleep') as mock_sleep:
-                    namespace['main']()
+    with patch.object(Path, "exists", return_value=True):
+        with patch.object(Path, "read_text", return_value=config_content):
+            with patch.object(sys, "argv", ["linkedin-monitor", "--dry-run"]):
+                with patch("time.sleep"):
+                    namespace["main"]()
                     # In dry-run mode, sleep is called for delay between profiles
                     # Actually in dry-run, no fetch happens, so no inter-profile delay
 
@@ -1569,9 +1688,10 @@ profiles:
 # Constants validation tests
 # ---------------------------------------------------------------------------
 
+
 def test_agent_browser_path():
     """Test AGENT_BROWSER path is defined."""
-    assert hasattr(linkedin, 'AGENT_BROWSER')
+    assert hasattr(linkedin, "AGENT_BROWSER")
     assert isinstance(linkedin.AGENT_BROWSER, str)
     assert len(linkedin.AGENT_BROWSER) > 0
 
@@ -1585,32 +1705,33 @@ def test_inter_profile_delay_reasonable_range():
 def test_extract_js_function():
     """Test EXTRACT_JS contains required elements."""
     js = linkedin.EXTRACT_JS
-    assert 'querySelectorAll' in js
-    assert 'feed-shared-update-v2' in js or 'data-urn' in js
-    assert 'results.push' in js
-    assert 'JSON.stringify' in js
+    assert "querySelectorAll" in js
+    assert "feed-shared-update-v2" in js or "data-urn" in js
+    assert "results.push" in js
+    assert "JSON.stringify" in js
 
 
 def test_extract_js_post_extraction():
     """Test EXTRACT_JS extracts text, timestamp, and url."""
     js = linkedin.EXTRACT_JS
-    assert 'text' in js
-    assert 'timestamp' in js
-    assert 'url' in js
+    assert "text" in js
+    assert "timestamp" in js
+    assert "url" in js
 
 
 def test_auth_signals_comprehensive():
     """Test AUTH_SIGNALS covers common auth wall texts."""
     signals = linkedin.AUTH_SIGNALS
     # Should include common variations
-    assert any('sign' in s.lower() for s in signals)
-    assert any('log' in s.lower() for s in signals)
-    assert any('auth' in s.lower() for s in signals)
+    assert any("sign" in s.lower() for s in signals)
+    assert any("log" in s.lower() for s in signals)
+    assert any("auth" in s.lower() for s in signals)
 
 
 # ---------------------------------------------------------------------------
 # Integration-style tests with temporary directories
 # ---------------------------------------------------------------------------
+
 
 class TestWithTempDir:
     """Tests using real temporary directories for file I/O."""
@@ -1623,8 +1744,8 @@ class TestWithTempDir:
         # Create the expected JSON content
         expected_json = json.dumps(sorted(hashes))
 
-        with patch.object(Path, 'exists', return_value=True):
-            with patch.object(Path, 'read_text', return_value=expected_json):
+        with patch.object(Path, "exists", return_value=True):
+            with patch.object(Path, "read_text", return_value=expected_json):
                 loaded = linkedin.load_seen(profile)
                 assert loaded == hashes
 
@@ -1641,8 +1762,8 @@ class TestWithTempDir:
             written_content.append(content)
             return len(content)
 
-        with patch.object(Path, 'mkdir'):
-            with patch.object(Path, 'write_text', mock_write):
+        with patch.object(Path, "mkdir"):
+            with patch.object(Path, "write_text", mock_write):
                 # First save
                 linkedin.save_seen(profile, original)
                 first_write = json.loads(written_content[-1])
@@ -1673,8 +1794,8 @@ class TestWithTempDir:
             written_content.append(content)
             return len(content)
 
-        with patch.object(Path, 'mkdir'):
-            with patch.object(Path, 'write_text', mock_write):
+        with patch.object(Path, "mkdir"):
+            with patch.object(Path, "write_text", mock_write):
                 linkedin.save_seen("test", hashes)
 
                 content = written_content[0]
@@ -1687,6 +1808,7 @@ class TestWithTempDir:
 # ---------------------------------------------------------------------------
 # Subprocess execution tests
 # ---------------------------------------------------------------------------
+
 
 class TestSubprocessExecution:
     """Tests that verify the script can be executed as a subprocess."""
@@ -1703,7 +1825,7 @@ class TestSubprocessExecution:
             [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
         # Should exit 0 for --help
         assert result.returncode == 0
@@ -1714,24 +1836,24 @@ class TestSubprocessExecution:
             [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
         output = result.stdout.lower()
         # Should mention linkedin or monitor
-        assert 'linkedin' in output or 'monitor' in output or 'usage' in output
+        assert "linkedin" in output or "monitor" in output or "usage" in output
 
     def test_script_dry_run_no_config(self):
         """Test script exits gracefully when config missing."""
         # Run with a non-existent config by using subprocess env manipulation
         env = os.environ.copy()
-        env['HOME'] = '/nonexistent/home/path'
+        env["HOME"] = "/nonexistent/home/path"
 
         result = subprocess.run(
             [str(Path.home() / "germline/effectors/linkedin-monitor")],
             capture_output=True,
             text=True,
             timeout=10,
-            env=env
+            env=env,
         )
         # Should exit with error code
         assert result.returncode != 0
@@ -1740,6 +1862,7 @@ class TestSubprocessExecution:
 # ---------------------------------------------------------------------------
 # Edge case and boundary tests
 # ---------------------------------------------------------------------------
+
 
 def test_hash_text_collision_resistance():
     """Test hash_text produces different hashes for similar inputs."""
@@ -1758,14 +1881,20 @@ def test_hash_text_collision_resistance():
 
 def test_parse_eval_result_max_posts():
     """Test _parse_eval_result handles large number of posts."""
-    posts = [{"text": f"Post number {i} with enough characters to pass", "timestamp": "", "url": ""} for i in range(1000)]
+    posts = [
+        {"text": f"Post number {i} with enough characters to pass", "timestamp": "", "url": ""}
+        for i in range(1000)
+    ]
     result = linkedin._parse_eval_result(json.dumps(posts))
     assert len(result) == 1000
 
 
 def test_parse_snapshot_max_posts_cap():
     """Test _parse_snapshot caps output at 20 posts."""
-    lines = [f"This is post number {i} which is definitely long enough to be captured here." for i in range(50)]
+    lines = [
+        f"This is post number {i} which is definitely long enough to be captured here."
+        for i in range(50)
+    ]
     snapshot = "\n".join(lines)
     result = linkedin._parse_snapshot(snapshot)
     assert len(result) <= 20
@@ -1783,16 +1912,16 @@ def test_is_auth_gated_with_none():
     """Test is_auth_gated handles None input gracefully."""
     # This tests edge case behavior
     try:
-        result = linkedin.is_auth_gated([], None)
-    except (TypeError, AttributeError):
+        linkedin.is_auth_gated([], None)
+    except TypeError, AttributeError:
         pass  # Expected if implementation doesn't handle None
 
 
 def test_load_seen_with_none_slug():
     """Test load_seen handles None slug."""
     try:
-        result = linkedin.load_seen(None)
-    except (TypeError, AttributeError):
+        linkedin.load_seen(None)
+    except TypeError, AttributeError:
         pass  # Expected
 
 
@@ -1800,13 +1929,14 @@ def test_save_seen_with_none_slug():
     """Test save_seen handles None slug."""
     try:
         linkedin.save_seen(None, {"hash"})
-    except (TypeError, AttributeError):
+    except TypeError, AttributeError:
         pass  # Expected
 
 
 # ---------------------------------------------------------------------------
 # Regression tests
 # ---------------------------------------------------------------------------
+
 
 def test_regression_hash_consistency():
     """Regression test: hash should be consistent with SHA-1 first 16 chars."""
@@ -1825,8 +1955,18 @@ def test_regression_slug_format():
 
 def test_regression_digest_format():
     """Regression test: digest format structure."""
-    profile = {"name": "Test User", "url": "https://linkedin.com/in/test", "context": "Test context"}
-    posts = [{"text": "Test post content that is long enough here", "timestamp": "2026-03-31", "url": "https://example.com"}]
+    profile = {
+        "name": "Test User",
+        "url": "https://linkedin.com/in/test",
+        "context": "Test context",
+    }
+    posts = [
+        {
+            "text": "Test post content that is long enough here",
+            "timestamp": "2026-03-31",
+            "url": "https://example.com",
+        }
+    ]
     result = linkedin.format_digest(profile, posts, new_count=1)
 
     # Key structural elements
@@ -1841,9 +1981,11 @@ def test_regression_digest_format():
 # Performance tests
 # ---------------------------------------------------------------------------
 
+
 def test_hash_text_performance():
     """Test hash_text is reasonably fast."""
     import time
+
     start = time.time()
     for _ in range(1000):
         linkedin.hash_text("Performance test input text")
@@ -1854,7 +1996,11 @@ def test_hash_text_performance():
 def test_parse_eval_result_performance():
     """Test _parse_eval_result is reasonably fast."""
     import time
-    posts = [{"text": f"Post {i} with enough characters", "timestamp": "", "url": ""} for i in range(100)]
+
+    posts = [
+        {"text": f"Post {i} with enough characters", "timestamp": "", "url": ""}
+        for i in range(100)
+    ]
     json_data = json.dumps(posts)
 
     start = time.time()
@@ -1868,11 +2014,12 @@ def test_parse_eval_result_performance():
 # Error message tests
 # ---------------------------------------------------------------------------
 
+
 def test_run_timeout_error_message():
     """Test _run produces helpful error message on timeout."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["test"], timeout=30)
-        success, output = linkedin._run(["test"], timeout=30)
+        _success, output = linkedin._run(["test"], timeout=30)
         assert "error" in output.lower()
         # The error message includes "timed out" or "timeout"
         assert "timed out" in output.lower() or "timeout" in output.lower()
@@ -1880,15 +2027,16 @@ def test_run_timeout_error_message():
 
 def test_run_file_not_found_error_message():
     """Test _run produces helpful error message when command not found."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = FileNotFoundError("command not found")
-        success, output = linkedin._run(["nonexistent"])
+        _success, output = linkedin._run(["nonexistent"])
         assert "error" in output.lower()
 
 
 # ---------------------------------------------------------------------------
 # Configuration validation tests
 # ---------------------------------------------------------------------------
+
 
 def test_config_yaml_valid_structure():
     """Test expected config YAML structure."""
@@ -1901,9 +2049,9 @@ profiles:
     url: https://linkedin.com/in/janesmith
 """
     parsed = yaml.safe_load(valid_config)
-    assert 'profiles' in parsed
-    assert len(parsed['profiles']) == 2
-    assert all('name' in p and 'url' in p for p in parsed['profiles'])
+    assert "profiles" in parsed
+    assert len(parsed["profiles"]) == 2
+    assert all("name" in p and "url" in p for p in parsed["profiles"])
 
 
 def test_config_minimal_profile():
@@ -1914,8 +2062,8 @@ profiles:
     url: https://linkedin.com/in/minimal
 """
     parsed = yaml.safe_load(minimal_config)
-    assert len(parsed['profiles']) == 1
-    assert parsed['profiles'][0].get('context') is None
+    assert len(parsed["profiles"]) == 1
+    assert parsed["profiles"][0].get("context") is None
 
 
 def test_config_extra_fields_ignored():
@@ -1929,4 +2077,4 @@ profiles:
 some_other_key: value
 """
     parsed = yaml.safe_load(config_with_extras)
-    assert parsed['profiles'][0]['name'] == "User"
+    assert parsed["profiles"][0]["name"] == "User"

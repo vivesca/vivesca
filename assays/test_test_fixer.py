@@ -3,16 +3,14 @@ from __future__ import annotations
 """Tests for effectors/test-fixer — pytest failure parser and reporter."""
 
 import json
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Load the effector via exec (standard pattern for effectors)
 # ---------------------------------------------------------------------------
+
 
 def _load_test_fixer():
     source = open(Path.home() / "germline" / "effectors" / "test-fixer").read()
@@ -42,15 +40,24 @@ def test_classify_module_not_found():
 
 
 def test_classify_attribute_error():
-    assert classify_error("AttributeError: 'NoneType' has no attr") == "attribute access on wrong type or misspelled name"
+    assert (
+        classify_error("AttributeError: 'NoneType' has no attr")
+        == "attribute access on wrong type or misspelled name"
+    )
 
 
 def test_classify_type_error():
-    assert classify_error("TypeError: expected str got int") == "type mismatch — wrong argument count or type"
+    assert (
+        classify_error("TypeError: expected str got int")
+        == "type mismatch — wrong argument count or type"
+    )
 
 
 def test_classify_name_error():
-    assert classify_error("NameError: name 'x' is not defined") == "undefined name (typo or missing import)"
+    assert (
+        classify_error("NameError: name 'x' is not defined")
+        == "undefined name (typo or missing import)"
+    )
 
 
 def test_classify_file_not_found():
@@ -62,7 +69,10 @@ def test_classify_key_error():
 
 
 def test_classify_value_error():
-    assert classify_error("ValueError: invalid literal") == "bad value — conversion or validation failure"
+    assert (
+        classify_error("ValueError: invalid literal")
+        == "bad value — conversion or validation failure"
+    )
 
 
 def test_classify_index_error():
@@ -74,7 +84,10 @@ def test_classify_syntax_error():
 
 
 def test_classify_assertion_error():
-    assert classify_error("AssertionError: assert False") == "assertion failed — logic or data mismatch"
+    assert (
+        classify_error("AssertionError: assert False")
+        == "assertion failed — logic or data mismatch"
+    )
 
 
 def test_classify_recursion_error():
@@ -156,7 +169,12 @@ def test_format_markdown_no_failures():
 def test_format_markdown_with_failures():
     groups = {
         "assays/test_a.py": [
-            {"test": "test_one", "line": "10", "error": "TypeError: bad", "cause": "type mismatch — wrong argument count or type"},
+            {
+                "test": "test_one",
+                "line": "10",
+                "error": "TypeError: bad",
+                "cause": "type mismatch — wrong argument count or type",
+            },
         ]
     }
     md = format_markdown(groups, 1)

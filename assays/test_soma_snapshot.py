@@ -57,10 +57,7 @@ def _make_urlopen(responses):
 
     def _urlopen(req, timeout=30):
         data = next(it)
-        if isinstance(data, (dict, list)):
-            raw = json.dumps(data).encode()
-        else:
-            raw = data
+        raw = json.dumps(data).encode() if isinstance(data, (dict, list)) else data
         return FakeResponse(raw)
 
     return _urlopen
@@ -260,8 +257,8 @@ def test_cmd_list_no_volumes(monkeypatch, capsys):
 
 def test_cmd_snapshot_running_machine(monkeypatch, capsys):
     """cmd_snapshot stops a running machine, snapshots, then restarts."""
-    from unittest.mock import patch as um_patch
     import time as time_mod
+    from unittest.mock import patch as um_patch
 
     monkeypatch.setenv("FLY_API_TOKEN", "tok_snap")
     machines = [{"id": "m_1", "state": "started"}]
@@ -270,16 +267,18 @@ def test_cmd_snapshot_running_machine(monkeypatch, capsys):
     snap_result = {"id": "snap_new"}
 
     responses = [
-        machines,             # _get_machine (initial) -> list
-        vols,                 # _get_volumes -> list
-        {},                   # stop API call
-        stopped_machines,     # _get_machine (poll: stopped) -> list
-        snap_result,          # snapshot creation
-        {},                   # start API call
+        machines,  # _get_machine (initial) -> list
+        vols,  # _get_volumes -> list
+        {},  # stop API call
+        stopped_machines,  # _get_machine (poll: stopped) -> list
+        snap_result,  # snapshot creation
+        {},  # start API call
     ]
 
-    with patch_urlopen(_make_urlopen(responses)), \
-         um_patch.object(time_mod, "sleep", lambda s: None):
+    with (
+        patch_urlopen(_make_urlopen(responses)),
+        um_patch.object(time_mod, "sleep", lambda s: None),
+    ):
         cmd_snapshot()
 
     out = capsys.readouterr().out
@@ -298,8 +297,8 @@ def test_cmd_snapshot_stopped_machine(monkeypatch, capsys):
     snap_result = {"id": "snap_off"}
 
     responses = [
-        machines,     # _get_machine
-        vols,         # _get_volumes
+        machines,  # _get_machine
+        vols,  # _get_volumes
         snap_result,  # snapshot creation
     ]
 
@@ -320,7 +319,7 @@ def test_cmd_snapshot_no_volumes(monkeypatch):
 
     responses = [
         machines,  # _get_machine
-        [],        # _get_volumes -> empty
+        [],  # _get_volumes -> empty
     ]
 
     with patch_urlopen(_make_urlopen(responses)):
@@ -331,8 +330,8 @@ def test_cmd_snapshot_no_volumes(monkeypatch):
 
 def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
     """cmd_snapshot proceeds after 30 polls even if machine doesn't reach 'stopped'."""
-    from unittest.mock import patch as um_patch
     import time as time_mod
+    from unittest.mock import patch as um_patch
 
     monkeypatch.setenv("FLY_API_TOKEN", "tok_snap4")
     machines = [{"id": "m_4", "state": "started"}]
@@ -341,16 +340,18 @@ def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
     snap_result = {"id": "snap_slow"}
 
     responses = [
-        machines,               # _get_machine (initial)
-        vols,                   # _get_volumes
-        {},                     # stop call
+        machines,  # _get_machine (initial)
+        vols,  # _get_volumes
+        {},  # stop call
     ]
     responses.extend([still_running] * 30)  # 30 polls, never stops
-    responses.append(snap_result)           # snapshot creation
-    responses.append({})                    # start call
+    responses.append(snap_result)  # snapshot creation
+    responses.append({})  # start call
 
-    with patch_urlopen(_make_urlopen(responses)), \
-         um_patch.object(time_mod, "sleep", lambda s: None):
+    with (
+        patch_urlopen(_make_urlopen(responses)),
+        um_patch.object(time_mod, "sleep", lambda s: None),
+    ):
         cmd_snapshot()
 
     out = capsys.readouterr().out

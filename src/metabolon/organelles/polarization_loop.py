@@ -1,4 +1,3 @@
-
 """polarization_loop — overnight flywheel via LangGraph.
 
 Systole loop: preflight → brainstorm → [INTERRUPT] → dispatch → collect →
@@ -15,7 +14,6 @@ Usage:
     polarize(mode="overnight")   # unattended flywheel
     polarize(mode="interactive") # pauses before dispatch for review
 """
-
 
 import json
 import operator
@@ -239,7 +237,7 @@ Return ONLY the JSON array."""
         end = result.rfind("]") + 1
         if start >= 0 and end > start:
             goals = json.loads(result[start:end])
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return {"errors": [f"Brainstorm failed to parse: {result[:200]}"]}
 
     return {"sub_goals": goals[:max_goals]}
@@ -334,7 +332,7 @@ Return ONLY the JSON array."""
             evals = json.loads(eval_text[start:end])
             review = sum(1 for e in evals if e.get("classification") == "needs-review")
             archived = evals
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
 
     return {
@@ -374,7 +372,7 @@ Return ONLY the JSON array."""
         end = result.rfind("]") + 1
         if start >= 0 and end > start:
             follow_ons = json.loads(result[start:end])
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
 
     return {"follow_ons": follow_ons[:6]}

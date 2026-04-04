@@ -127,4 +127,4 @@ lucus remove <task>-gemini
 
 ## Naming
 
-*Judex* — Latin, "judge/arbiter" (*jus* + *dicare*). Named by consilium quick (2026-03-04). Crux (Claude's pick) was taken on crates.io; Judex was free and semantically equivalent.
+*Judex* — Latin, "judge/arbiter" (*just* + *dicare*). Named by consilium quick (2026-03-04). Crux (Claude's pick) was taken on crates.io; Judex was free and semantically equivalent.

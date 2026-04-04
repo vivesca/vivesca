@@ -1,4 +1,3 @@
-
 """effector — run CLI binaries from MCP tool handlers."""
 
 import os
@@ -16,7 +15,7 @@ def run_cli(
     path = os.path.expanduser(binary)
     try:
         result = subprocess.run(
-            [path] + args,
+            [path, *args],
             capture_output=True,
             text=True,
             check=True,

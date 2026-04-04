@@ -13,10 +13,10 @@ import pytest
 
 from metabolon.organelles.browser import fetch
 
-
 # ---------------------------------------------------------------------------
 # Helpers to build a mock Playwright stack
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_pw(
     *,
@@ -70,10 +70,11 @@ def _make_mock_pw(
 # Basic fetch
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_basic_fetch():
     """fetch returns dict with expected keys and values."""
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, _page, _ctx, _br = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com")
 
@@ -90,6 +91,7 @@ async def test_basic_fetch():
 # Cookies
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_cookies_loaded(tmp_path: Path):
     """fetch loads cookies from a JSON file and reports count."""
@@ -97,7 +99,7 @@ async def test_cookies_loaded(tmp_path: Path):
     cookies = [{"name": "sid", "value": "abc", "domain": ".example.com"}]
     cookie_file.write_text(json.dumps(cookies))
 
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, _page, ctx, _br = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", cookies=str(cookie_file))
 
@@ -108,7 +110,7 @@ async def test_cookies_loaded(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_cookies_file_missing(tmp_path: Path):
     """Missing cookie file results in cookies_loaded == 0, no crash."""
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, _page, ctx, _br = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", cookies=str(tmp_path / "nope.json"))
 
@@ -122,7 +124,7 @@ async def test_cookies_not_list(tmp_path: Path):
     cookie_file = tmp_path / "cookies.json"
     cookie_file.write_text('{"not": "a list"}')
 
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, _page, _ctx, _br = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", cookies=str(cookie_file))
 
@@ -133,10 +135,11 @@ async def test_cookies_not_list(tmp_path: Path):
 # Selector
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_selector_returns_element_text():
     """When selector is given, inner_text of the matched element is returned."""
-    pw_cm, page, ctx, br = _make_mock_pw(element_text="selected content")
+    pw_cm, page, _ctx, _br = _make_mock_pw(element_text="selected content")
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", selector="div.main")
 
@@ -147,7 +150,7 @@ async def test_selector_returns_element_text():
 @pytest.mark.asyncio
 async def test_selector_no_match_returns_empty():
     """When selector matches nothing, text is empty string."""
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, page, _ctx, _br = _make_mock_pw()
     page.query_selector = AsyncMock(return_value=None)
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", selector="div.missing")
@@ -159,11 +162,12 @@ async def test_selector_no_match_returns_empty():
 # Screenshot
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_screenshot_saved(tmp_path: Path):
     """When screenshot path is given, screenshot is taken and flag is True."""
     shot_path = str(tmp_path / "out.png")
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, page, _ctx, _br = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", screenshot=shot_path)
 
@@ -185,11 +189,12 @@ async def test_no_screenshot_by_default():
 # PDF
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_pdf_saved(tmp_path: Path):
     """When pdf path is given, pdf is rendered and flag is True."""
     pdf_path = str(tmp_path / "out.pdf")
-    pw_cm, page, ctx, br = _make_mock_pw()
+    pw_cm, page, _ctx, _br = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", pdf=pdf_path)
 
@@ -211,12 +216,13 @@ async def test_no_pdf_by_default():
 # Wait
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_wait_parameter():
     """wait > 0 triggers page.wait_for_timeout with the given ms."""
     pw_cm, page, _, _ = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
-        result = await fetch("https://example.com", wait=500)
+        await fetch("https://example.com", wait=500)
 
     page.wait_for_timeout.assert_awaited_once_with(500)
 
@@ -235,6 +241,7 @@ async def test_zero_wait_skips_timeout():
 # Response status edge cases
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_null_response_status_zero():
     """When page.goto returns None (e.g. navigation error), status is 0."""
@@ -250,6 +257,7 @@ async def test_null_response_status_zero():
 # Browser lifecycle
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_browser_closed():
     """browser.close() is always called."""
@@ -264,6 +272,7 @@ async def test_browser_closed():
 # Multiple cookies
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_multiple_cookies(tmp_path: Path):
     """Multiple cookies in the file are all loaded."""
@@ -275,7 +284,7 @@ async def test_multiple_cookies(tmp_path: Path):
     ]
     cookie_file.write_text(json.dumps(cookies))
 
-    pw_cm, _, ctx, _ = _make_mock_pw()
+    pw_cm, _, _ctx, _ = _make_mock_pw()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         result = await fetch("https://example.com", cookies=str(cookie_file))
 

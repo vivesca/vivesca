@@ -9,9 +9,11 @@ Usage:
     python worker.py                # Start worker
     python worker.py --help         # Show this help
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fcntl as _fcntl
 import os
 import sys
@@ -55,13 +57,17 @@ def _git_snapshot(cwd: str | None = None) -> dict:
     try:
         stat = _subprocess.run(
             ["git", "diff", "--stat", "HEAD"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=work_dir,
         )
         # numstat gives per-file +/- line counts for shrinkage detection
         numstat = _subprocess.run(
             ["git", "diff", "--numstat", "HEAD"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=work_dir,
         )
         return {
@@ -77,7 +83,9 @@ def _git_pull_ff_only(repo_root: str) -> None:
     try:
         result = _subprocess.run(
             ["git", "pull", "--ff-only"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             cwd=repo_root,
         )
         if result.returncode != 0:
@@ -93,7 +101,9 @@ def _git_push(repo_root: str) -> None:
     try:
         result = _subprocess.run(
             ["git", "push"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=repo_root,
         )
         if result.returncode != 0:
@@ -114,12 +124,17 @@ def _create_worktree(repo_root: str, branch_name: str) -> str:
     if os.path.exists(worktree_path):
         _subprocess.run(
             ["git", "worktree", "remove", "--force", worktree_path],
-            capture_output=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            timeout=10,
+            cwd=repo_root,
         )
 
     result = _subprocess.run(
         ["git", "worktree", "add", "-b", branch_name, worktree_path, "HEAD"],
-        capture_output=True, text=True, timeout=15, cwd=repo_root,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        cwd=repo_root,
     )
     if result.returncode != 0:
         raise RuntimeError(f"worktree add failed: {result.stderr}")
@@ -146,7 +161,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # Check if branch has commits beyond main
         check = _subprocess.run(
             ["git", "log", "--oneline", f"main..{branch_name}"],
-            capture_output=True, text=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=repo_root,
         )
         if not check.stdout.strip():
             delete_branch = True
@@ -155,7 +173,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # Try fast-forward first (zero overhead when no contention)
         merge = _subprocess.run(
             ["git", "merge", "--ff-only", branch_name],
-            capture_output=True, text=True, timeout=15, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=repo_root,
         )
         if merge.returncode == 0:
             delete_branch = True
@@ -164,7 +185,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # FF failed — real 3-way merge
         merge = _subprocess.run(
             ["git", "merge", "--no-ff", "--no-edit", branch_name],
-            capture_output=True, text=True, timeout=30, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=repo_root,
         )
         if merge.returncode == 0:
             delete_branch = True
@@ -173,7 +197,10 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         # Conflicts — categorise them
         conflicted = _subprocess.run(
             ["git", "diff", "--name-only", "--diff-filter=U"],
-            capture_output=True, text=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=repo_root,
         )
         conflicted_files = [f.strip() for f in conflicted.stdout.splitlines() if f.strip()]
         lockfiles = [f for f in conflicted_files if Path(f).name in _LOCKFILE_NAMES]
@@ -183,59 +210,73 @@ def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> boo
         for lockfile in lockfiles:
             _subprocess.run(
                 ["git", "checkout", "--theirs", lockfile],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
             _subprocess.run(
                 ["git", "add", lockfile],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
 
         if not code_files:
             # All conflicts were lockfiles — commit the resolution
             commit = _subprocess.run(
                 ["git", "commit", "--no-edit"],
-                capture_output=True, text=True, timeout=15, cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=repo_root,
             )
             if commit.returncode == 0:
                 delete_branch = True
                 return True
-            _subprocess.run(["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root)
-            print(f"ERROR: merge commit failed for {branch_name}: {commit.stderr.strip()}", file=sys.stderr)
+            _subprocess.run(
+                ["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root
+            )
+            print(
+                f"ERROR: merge commit failed for {branch_name}: {commit.stderr.strip()}",
+                file=sys.stderr,
+            )
             return False
 
         # Code conflicts — abort, leave branch for inspection
-        _subprocess.run(["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root)
+        _subprocess.run(
+            ["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root
+        )
         conflict_list = ", ".join(code_files[:5])
         print(f"CONFLICT: {branch_name} has code conflicts: {conflict_list}", file=sys.stderr)
         return False
 
     except Exception as exc:
         print(f"ERROR: merge error for {branch_name}: {exc}", file=sys.stderr)
-        try:
-            _subprocess.run(["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root)
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            _subprocess.run(
+                ["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root
+            )
         return False
     finally:
         _fcntl.flock(lock_fd, _fcntl.LOCK_UN)
         lock_fd.close()
         # Always remove worktree
-        try:
+        with contextlib.suppress(Exception):
             _subprocess.run(
                 ["git", "worktree", "remove", "--force", worktree_path],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
-        except Exception:
-            pass
         # Delete branch only on successful merge
         if delete_branch:
-            try:
+            with contextlib.suppress(Exception):
                 _subprocess.run(
                     ["git", "branch", "-D", branch_name],
-                    capture_output=True, timeout=10, cwd=repo_root,
+                    capture_output=True,
+                    timeout=10,
+                    cwd=repo_root,
                 )
-            except Exception:
-                pass
 
 
 def _detect_prior_commits(
@@ -250,11 +291,15 @@ def _detect_prior_commits(
     try:
         result = _subprocess.run(
             [
-                "git", "log", "--oneline",
+                "git",
+                "log",
+                "--oneline",
                 f"--since={time_window_minutes} minutes ago",
                 f"--author={author}",
             ],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=repo_root,
         )
         lines = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
@@ -282,7 +327,9 @@ def _post_golem_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
     try:
         diff_result = _subprocess.run(
             ["git", "diff", "--name-only", "HEAD~5..HEAD"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=repo_root,
         )
         modified_files = [f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()]
@@ -290,10 +337,14 @@ def _post_golem_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
             # Fallback: check working tree (uncommitted changes)
             diff_result = _subprocess.run(
                 ["git", "diff", "--name-only"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
                 cwd=repo_root,
             )
-            modified_files = [f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()]
+            modified_files = [
+                f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()
+            ]
     except Exception:
         return (0, "", post_checks)
 
@@ -314,7 +365,9 @@ def _post_golem_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
         try:
             test_result = _subprocess.run(
                 ["uv", "run", "pytest", "assays/", "-q", "--tb=line", "-x", "--timeout=120"],
-                capture_output=True, text=True, timeout=150,
+                capture_output=True,
+                text=True,
+                timeout=150,
                 cwd=repo_root,
             )
             if test_result.returncode != 0:
@@ -334,11 +387,9 @@ def _post_golem_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
         post_checks["tests"] = False
 
     # (3) scope_check: warn if files modified outside target directory
-    target_match = _re.search(r'~/germline/[\w/.-]+', task)
+    target_match = _re.search(r"~/germline/[\w/.-]+", task)
     if target_match:
-        target_path = os.path.normpath(
-            target_match.group(0).replace("~/", str(Path.home()) + "/")
-        )
+        target_path = os.path.normpath(target_match.group(0).replace("~/", str(Path.home()) + "/"))
         # If target looks like a file, use its parent directory
         if os.path.splitext(target_path)[1]:
             target_path = os.path.dirname(target_path)
@@ -356,7 +407,7 @@ def _post_golem_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
 async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
     """Execute a single golem task as a subprocess."""
     # #1: Idempotency — if output file from prior attempt exists, return cached
-    task_id_match = _re.search(r'\[t-([0-9a-fA-F]+)\]', task)
+    task_id_match = _re.search(r"\[t-([0-9a-fA-F]+)\]", task)
     tid_str = task_id_match.group(1) if task_id_match else ""
     if tid_str:
         cached = OUTPUT_DIR / f"{_time.strftime('%Y%m%d')}-{tid_str}.txt"
@@ -382,7 +433,9 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         syntax_check = await asyncio.to_thread(
             _subprocess.run,
             ["bash", "-n", str(GOLEM_SCRIPT)],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if syntax_check.returncode != 0:
             return {
@@ -403,7 +456,10 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         worktree_path = await asyncio.to_thread(_create_worktree, repo_root, branch_name)
         work_dir = worktree_path
     except Exception as exc:
-        print(f"WARNING: worktree creation failed ({exc}), falling back to repo root", file=sys.stderr)
+        print(
+            f"WARNING: worktree creation failed ({exc}), falling back to repo root",
+            file=sys.stderr,
+        )
         work_dir = repo_root
         worktree_path = None
 
@@ -431,9 +487,12 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
     pre_diff = await asyncio.to_thread(_git_snapshot, work_dir)
 
     cmd = [
-        "bash", str(GOLEM_SCRIPT),
-        "--provider", provider,
-        "--max-turns", str(max_turns),
+        "bash",
+        str(GOLEM_SCRIPT),
+        "--provider",
+        provider,
+        "--max-turns",
+        str(max_turns),
         effective_task,
     ]
     proc = await asyncio.create_subprocess_exec(
@@ -450,10 +509,8 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
         while True:
             await asyncio.sleep(_HEARTBEAT_INTERVAL)
             n += 1
-            try:
+            with contextlib.suppress(Exception):
                 activity.heartbeat(f"{provider}:{task[:60]} tick:{n}")
-            except Exception:
-                pass
 
     hb_task = asyncio.create_task(_heartbeat())
     try:
@@ -462,7 +519,7 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
                 proc.communicate(),
                 timeout=_ACTIVITY_TIMEOUT.total_seconds(),
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.communicate()
             return {
@@ -475,10 +532,8 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
             }
     finally:
         hb_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await hb_task
-        except asyncio.CancelledError:
-            pass
 
     rc = proc.returncode or 0
     stdout = stdout_bytes.decode(errors="replace")
@@ -504,13 +559,15 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
             cost_info += line + "\n"
 
     # #8: Save full output to per-task file; #4: return path, not payload
-    task_id_match = _re.search(r'\[t-([0-9a-fA-F]+)\]', task)
+    task_id_match = _re.search(r"\[t-([0-9a-fA-F]+)\]", task)
     tid_str = task_id_match.group(1) if task_id_match else _time.strftime("%H%M%S")
     out_path = ""
     try:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         out_file = OUTPUT_DIR / f"{_time.strftime('%Y%m%d')}-{tid_str}.txt"
-        out_file.write_text(f"Task: {task}\nProvider: {provider}\nExit: {rc}\n\n--- stdout ---\n{stdout}\n\n--- stderr ---\n{stderr}\n\n--- diff ---\n{post_diff.get('stat', '')}\n")
+        out_file.write_text(
+            f"Task: {task}\nProvider: {provider}\nExit: {rc}\n\n--- stdout ---\n{stdout}\n\n--- stderr ---\n{stderr}\n\n--- diff ---\n{post_diff.get('stat', '')}\n"
+        )
         out_path = str(out_file)
     except OSError:
         pass
@@ -533,7 +590,6 @@ import json
 import re as _re
 import subprocess as _subprocess
 import time as _time
-from datetime import datetime as _datetime, timezone as _timezone
 
 # ── LangGraph golem activity ──
 
@@ -541,26 +597,28 @@ from datetime import datetime as _datetime, timezone as _timezone
 @activity.defn
 async def run_golem_graph_task(task: str, provider: str, max_turns: int = 50) -> dict:
     """Execute a golem task via LangGraph agent graph (plan→execute→verify→review)."""
-    from golem_graph import run_golem_graph
     # Run synchronously in a thread to avoid blocking the event loop
     import asyncio
+
+    from golem_graph import run_golem_graph
+
     result = await asyncio.to_thread(run_golem_graph, task, provider)
     return result
+
 
 # ── Red-flag patterns that indicate golem may have done damage ──
 
 _DESTRUCTION_PATTERNS = _re.compile(
-    r'rm -rf|rmdir|replaced entire|overwrote|deleted all|'
-    r'file is now empty|wrote 0 bytes|No such file',
+    r"rm -rf|rmdir|replaced entire|overwrote|deleted all|"
+    r"file is now empty|wrote 0 bytes|No such file",
     _re.IGNORECASE,
 )
 
 _ERROR_PATTERNS = _re.compile(
-    r'SyntaxError|ImportError|ModuleNotFoundError|PermissionError|'
-    r'Traceback \(most recent|FAILED|panic:|fatal:',
+    r"SyntaxError|ImportError|ModuleNotFoundError|PermissionError|"
+    r"Traceback \(most recent|FAILED|panic:|fatal:",
     _re.IGNORECASE,
 )
-
 
 
 @activity.defn
@@ -606,12 +664,16 @@ async def review_golem_result(result: dict) -> dict:
         flags.append("empty_stdout_on_success")
 
     # 5b. No git commit despite success — GLM ran to completion but built nothing
-    post_stat_text = result.get("post_diff", {}).get("stat", "") if isinstance(result.get("post_diff"), dict) else ""
+    post_stat_text = (
+        result.get("post_diff", {}).get("stat", "")
+        if isinstance(result.get("post_diff"), dict)
+        else ""
+    )
     if exit_code == 0 and not post_stat_text.strip():
         flags.append("no_commit_on_success")
 
     # 5c. Target file missing — prompt names a file that wasn't created/modified
-    target_match = _re.search(r'(?:at|to)\s+([\w/]+\.py)', task)
+    target_match = _re.search(r"(?:at|to)\s+([\w/]+\.py)", task)
     if target_match and exit_code == 0 and post_stat_text:
         target_file = target_match.group(1)
         if target_file not in post_stat_text:
@@ -640,8 +702,7 @@ async def review_golem_result(result: dict) -> dict:
 
     # Verdict
     approved = exit_code == 0 and not any(
-        f.startswith("destruction") or f == "no_commit_on_success"
-        for f in flags
+        f.startswith("destruction") or f == "no_commit_on_success" for f in flags
     )
     verdict = "approved" if approved else "rejected"
     if flags and approved:
@@ -673,9 +734,17 @@ async def review_golem_result(result: dict) -> dict:
     if verdict == "rejected" and any("thin_output" in f for f in flags):
         requeue_prompt = task[:200] + " — Be thorough. Read files before editing. Show your work."
     elif verdict == "rejected" and any("file_shrunk" in f for f in flags):
-        requeue_prompt = task[:200] + " — IMPORTANT: Read the entire file before modifying. Preserve ALL existing content."
+        requeue_prompt = (
+            task[:200]
+            + " — IMPORTANT: Read the entire file before modifying. Preserve ALL existing content."
+        )
 
-    return {"approved": approved, "flags": flags, "verdict": verdict, "requeue_prompt": requeue_prompt}
+    return {
+        "approved": approved,
+        "flags": flags,
+        "verdict": verdict,
+        "requeue_prompt": requeue_prompt,
+    }
 
 
 async def main() -> None:
@@ -700,7 +769,9 @@ async def main() -> None:
         activities=[run_golem_task, run_golem_graph_task, review_golem_result],
         max_concurrent_activities=max_concurrent,
     )
-    print(f"Temporal golem worker started on queue '{TASK_QUEUE}' (max_concurrent={max_concurrent})")
+    print(
+        f"Temporal golem worker started on queue '{TASK_QUEUE}' (max_concurrent={max_concurrent})"
+    )
     await worker.run()
 
 

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 """Tests for metabolon.enzymes.histone."""
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from metabolon.enzymes.histone import histone, HistoneResult, _format_search_results
+from metabolon.enzymes.histone import HistoneResult, _format_search_results, histone
 from metabolon.morphology import EffectorResult, Vital
 
 
@@ -17,7 +16,7 @@ class TestFormatSearchResults:
             {
                 "name": "test_file.py",
                 "path": "/path/test_file.py",
-                "content": "This is some test content that should appear in the output"
+                "content": "This is some test content that should appear in the output",
             }
         ]
         formatted = _format_search_results(results)
@@ -73,11 +72,7 @@ class TestHistoneTool:
 
     @patch("metabolon.organelles.chromatin.stats")
     def test_stats_success(self, mock_stats):
-        mock_stats.return_value = {
-            "count": 100,
-            "size_kb": 250,
-            "path": "/path/to/db"
-        }
+        mock_stats.return_value = {"count": 100, "size_kb": 250, "path": "/path/to/db"}
         result = histone(action="stats")
         assert isinstance(result, HistoneResult)
         assert "Marks: 100" in result.results
@@ -102,7 +97,7 @@ class TestHistoneTool:
             source="golem",
             limit=20,
             mode="fulltext",
-            chromatin="closed"
+            chromatin="closed",
         )
         mock_search.assert_called_with(
             "test query",
@@ -110,7 +105,7 @@ class TestHistoneTool:
             source_enzyme="golem",
             limit=20,
             mode="fulltext",
-            chromatin="closed"
+            chromatin="closed",
         )
 
     @patch("metabolon.organelles.chromatin.add")

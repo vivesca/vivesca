@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.circadian import CircadianResult, circadian
 from metabolon.morphology import EffectorResult
 

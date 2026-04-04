@@ -3,7 +3,6 @@ from __future__ import annotations
 """Tests for terminus hook."""
 
 import json
-import re
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -12,7 +11,6 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "synaptic"))
 import terminus
-
 
 # ── mod_dirty_repos ─────────────────────────────────────────
 
@@ -105,9 +103,10 @@ def test_mod_anabolism_green_budget(tmp_path: Path, capsys: pytest.CaptureFixtur
 def test_mod_consolidation_recent_skip(tmp_path: Path) -> None:
     """Recent consolidation = no action."""
     import time
+
     state_file = tmp_path / "consolidation-last.json"
     state_file.write_text(json.dumps({"ts": time.time() - 100}))
-    with patch.object(terminus, "CONSOL_STATE", state_file):
+    with patch.object(terminus, "CONSOLE_STATE", state_file):
         terminus.mod_consolidation()
     # Should not launch subprocess
 
@@ -115,9 +114,10 @@ def test_mod_consolidation_recent_skip(tmp_path: Path) -> None:
 def test_mod_consolidation_triggers(tmp_path: Path) -> None:
     """Stale consolidation = launches dissolve."""
     import time
+
     state_file = tmp_path / "consolidation-last.json"
     state_file.write_text(json.dumps({"ts": time.time() - 86400}))
-    with patch.object(terminus, "CONSOL_STATE", state_file):
+    with patch.object(terminus, "CONSOLE_STATE", state_file):
         with patch("subprocess.Popen") as mock_popen:
             terminus.mod_consolidation()
             mock_popen.assert_called_once()

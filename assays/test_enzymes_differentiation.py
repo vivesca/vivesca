@@ -10,14 +10,12 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.enzymes.differentiation import differentiation
-
 
 # ---------------------------------------------------------------------------
 # latest_log
 # ---------------------------------------------------------------------------
+
 
 class TestLatestLog:
     """Tests for action='latest_log'."""
@@ -63,6 +61,7 @@ class TestLatestLog:
 # readiness
 # ---------------------------------------------------------------------------
 
+
 class TestReadiness:
     """Tests for action='readiness'."""
 
@@ -75,12 +74,12 @@ class TestReadiness:
     @patch("metabolon.enzymes.differentiation.chemoreceptor.readiness")
     def test_missing_score(self, mock_ready: MagicMock) -> None:
         mock_ready.return_value = {"score": None}
-        assert "No readiness data available for today." == differentiation("readiness")
+        assert differentiation("readiness") == "No readiness data available for today."
 
     @patch("metabolon.enzymes.differentiation.chemoreceptor.readiness")
     def test_empty_dict_no_score_key(self, mock_ready: MagicMock) -> None:
         mock_ready.return_value = {}
-        assert "No readiness data available for today." == differentiation("readiness")
+        assert differentiation("readiness") == "No readiness data available for today."
 
     @patch("metabolon.enzymes.differentiation.chemoreceptor.readiness")
     def test_low_score_under_70(self, mock_ready: MagicMock) -> None:
@@ -167,6 +166,7 @@ class TestReadiness:
 # write_log
 # ---------------------------------------------------------------------------
 
+
 class TestWriteLog:
     """Tests for action='write_log'."""
 
@@ -207,7 +207,7 @@ class TestWriteLog:
     def test_empty_content_allowed(self, tmp_path: Path) -> None:
         session_date = "2026-01-15"
         with patch("metabolon.enzymes.differentiation.HEALTH_DIR", tmp_path):
-            result = differentiation("write_log", session_date=session_date, content="")
+            differentiation("write_log", session_date=session_date, content="")
 
         target = tmp_path / f"Gym Log - {session_date}.md"
         assert target.exists()
@@ -217,6 +217,7 @@ class TestWriteLog:
 # ---------------------------------------------------------------------------
 # unknown action
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownAction:
     """Tests for unrecognised action values."""

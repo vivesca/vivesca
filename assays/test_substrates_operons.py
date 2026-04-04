@@ -1,19 +1,17 @@
 """Tests for metabolon.metabolism.substrates.operon_monitor."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.metabolism.substrates.operon_monitor import (
     _CADENCE_KEYWORDS,
     _DEFAULT_STALENESS_DAYS,
-    _infer_cadence,
     OperonSubstrate,
+    _infer_cadence,
 )
 from metabolon.operons import Operon
-
 
 # ── Fixtures ────────────────────────────────────────────────────
 

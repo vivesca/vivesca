@@ -1,4 +1,3 @@
-
 """quorum — multi-model deliberation engine.
 
 Quorum sensing: bacteria coordinate behavior by accumulating signal molecules
@@ -15,7 +14,6 @@ Usage:
     from metabolon.organelles.quorum import deliberate
     result = deliberate("Should we use Kafka or Redis Streams?", mode="quick")
 """
-
 
 import json
 import textwrap

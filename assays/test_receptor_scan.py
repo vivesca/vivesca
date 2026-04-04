@@ -11,7 +11,7 @@ It is loaded via exec() into isolated namespaces.
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -69,7 +69,8 @@ class TestRunHelper:
     def test_run_returns_empty_on_timeout(self, ns, monkeypatch):
         """Should return empty string on TimeoutExpired."""
         monkeypatch.setattr(
-            subprocess, "run",
+            subprocess,
+            "run",
             MagicMock(side_effect=subprocess.TimeoutExpired("cmd", 15)),
         )
         assert ns["run"](["slow-cmd"]) == ""
@@ -77,7 +78,8 @@ class TestRunHelper:
     def test_run_returns_empty_on_file_not_found(self, ns, monkeypatch):
         """Should return empty string when command not found."""
         monkeypatch.setattr(
-            subprocess, "run",
+            subprocess,
+            "run",
             MagicMock(side_effect=FileNotFoundError),
         )
         assert ns["run"](["nonexistent-cmd"]) == ""
@@ -85,9 +87,11 @@ class TestRunHelper:
     def test_run_passes_timeout(self, ns, monkeypatch):
         """Should pass timeout parameter to subprocess.run."""
         calls = []
+
         def mock_run(*a, **kw):
             calls.append(kw)
             return MagicMock(stdout="ok")
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         ns["run"](["cmd"], timeout=30)
         assert calls[0]["timeout"] == 30
@@ -95,9 +99,11 @@ class TestRunHelper:
     def test_run_default_timeout_is_15(self, ns, monkeypatch):
         """Should default to 15 second timeout."""
         calls = []
+
         def mock_run(*a, **kw):
             calls.append(kw)
             return MagicMock(stdout="ok")
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         ns["run"](["cmd"])
         assert calls[0]["timeout"] == 15
@@ -125,7 +131,9 @@ class TestMain:
     def test_qmd_results_printed(self, ns, capsys, monkeypatch):
         """Should print vault results when qmd returns matches."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "test query"])
-        ns["run"] = lambda cmd, timeout=15: "qmd://doc1\nqmd://doc2\nsome detail" if cmd[0] == "qmd" else ""
+        ns["run"] = lambda cmd, timeout=15: (
+            "qmd://doc1\nqmd://doc2\nsome detail" if cmd[0] == "qmd" else ""
+        )
         ns["main"]()
         out = capsys.readouterr().out
         assert "Vault (authoritative) — 2 results" in out
@@ -143,6 +151,7 @@ class TestMain:
         """Should query oghma when vault returns < 3 results."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
         call_log = []
+
         def mock_run(cmd, timeout=15):
             call_log.append(cmd)
             if cmd[0] == "qmd":
@@ -150,6 +159,7 @@ class TestMain:
             if cmd[0] == "oghma":
                 return "oghma result"
             return ""
+
         ns["run"] = mock_run
         ns["main"]()
         out = capsys.readouterr().out
@@ -160,11 +170,13 @@ class TestMain:
         """Should NOT query oghma when vault returns >= 3 results."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
         call_log = []
+
         def mock_run(cmd, timeout=15):
             call_log.append(cmd)
             if cmd[0] == "qmd":
                 return "qmd://doc1\nqmd://doc2\nqmd://doc3\ndetail"
             return ""
+
         ns["run"] = mock_run
         ns["main"]()
         out = capsys.readouterr().out
@@ -183,9 +195,11 @@ class TestMain:
         """Should join multiple argv args into single query string."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "how", "to", "deploy"])
         call_log = []
+
         def mock_run(cmd, timeout=15):
             call_log.append(cmd)
             return "qmd://hit1\nqmd://hit2\nqmd://hit3\ndetail"
+
         ns["run"] = mock_run
         ns["main"]()
         qmd_calls = [c for c in call_log if c[0] == "qmd"]
@@ -211,7 +225,9 @@ class TestCLISubprocess:
         """Running receptor-scan with no args should exit 0 (help mode)."""
         r = subprocess.run(
             [sys.executable, str(RECEPTOR_SCAN_PATH)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "Usage" in r.stdout
@@ -220,7 +236,9 @@ class TestCLISubprocess:
         """Running receptor-scan with a query should not crash."""
         r = subprocess.run(
             [sys.executable, str(RECEPTOR_SCAN_PATH), "test"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode is not None
         assert r.stdout or r.stderr

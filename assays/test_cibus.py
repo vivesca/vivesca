@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -96,6 +96,7 @@ class TestCurrentHours:
     def _fake_datetime(self):
         """Temporarily replace _mod['datetime'] with a fake returning a fixed Monday."""
         from datetime import datetime as real_dt
+
         monday = real_dt(2026, 3, 30, 12, 0)  # Monday (weekday 0 → OR dow 1)
         original = _mod["datetime"]
 
@@ -188,9 +189,21 @@ class TestFormatTable:
 
     def test_multiple_results_numbered(self):
         results = [
-            {"name": f"R{i}", "categories": [], "district": {"name": "?"}, "scoreOverall": None,
-             "scoreSmile": 0, "scoreCry": 0, "reviewCount": 0, "priceRangeId": 0,
-             "phones": ["00000000"], "openNow": False, "poiHours": [], "shortenUrl": "", "address": ""}
+            {
+                "name": f"R{i}",
+                "categories": [],
+                "district": {"name": "?"},
+                "scoreOverall": None,
+                "scoreSmile": 0,
+                "scoreCry": 0,
+                "reviewCount": 0,
+                "priceRangeId": 0,
+                "phones": ["00000000"],
+                "openNow": False,
+                "poiHours": [],
+                "shortenUrl": "",
+                "address": "",
+            }
             for i in range(3)
         ]
         output = format_table(results)
@@ -218,7 +231,11 @@ class TestListOptions:
         captured = capsys.readouterr()
         # English names only — Chinese filtered out
         for line in captured.out.splitlines():
-            if line.strip() and not line.startswith("Cuisines") and not line.startswith("Districts"):
+            if (
+                line.strip()
+                and not line.startswith("Cuisines")
+                and not line.startswith("Districts")
+            ):
                 assert all(ord(c) < 128 or c in " \t" for c in line), f"Non-ASCII in: {line}"
 
 
@@ -231,7 +248,9 @@ class TestCli:
     def test_help_flag(self):
         r = subprocess.run(
             [sys.executable, str(CIBUS), "--help"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert r.returncode == 0
         assert "Hong Kong restaurant finder" in r.stdout
@@ -239,7 +258,9 @@ class TestCli:
     def test_list_flag(self):
         r = subprocess.run(
             [sys.executable, str(CIBUS), "--list"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert r.returncode == 0
         assert "Cuisines:" in r.stdout
@@ -248,14 +269,18 @@ class TestCli:
     def test_no_args_exits_error(self):
         r = subprocess.run(
             [sys.executable, str(CIBUS)],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert r.returncode != 0
 
     def test_unknown_cuisine_exits_error(self):
         r = subprocess.run(
             [sys.executable, str(CIBUS), "-c", "zebracuisine999"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert r.returncode != 0
         assert "Unknown cuisine" in r.stderr
@@ -282,9 +307,7 @@ class TestFetch:
         return fake_urlopen, captured_url
 
     def test_fetch_builds_correct_url(self):
-        body = json.dumps(
-            {"paginationResult": {"results": [{"name": "Sushi Place"}]}}
-        ).encode()
+        body = json.dumps({"paginationResult": {"results": [{"name": "Sushi Place"}]}}).encode()
         fake, captured_url = self._make_fake_urlopen(body)
 
         original = _mod["urlopen"]

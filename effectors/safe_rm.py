@@ -19,6 +19,7 @@ PROTECTED_PATHS = [
     "/",
 ]
 
+
 def is_protected(path: str) -> bool:
     """Check if path is protected or is a parent of protected paths."""
     abs_path = os.path.abspath(os.path.expanduser(path))
@@ -32,6 +33,7 @@ def is_protected(path: str) -> bool:
         if protected_abs.startswith(abs_path + os.sep):
             return True
     return False
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -53,6 +55,7 @@ def main():
     for path in paths:
         print(os.path.abspath(os.path.expanduser(path)))
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

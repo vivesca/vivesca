@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,9 +19,7 @@ class TestGetOauthToken:
         future_ts = int(datetime.now(UTC).timestamp() * 1000) + 3600000  # 1hr future
         creds_data = {"claudeAiOauth": {"accessToken": "test-token-123", "expiresAt": future_ts}}
 
-        with patch.object(
-            vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"
-        ):
+        with patch.object(vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"):
             (tmp_path / ".credentials.json").write_text(json.dumps(creds_data))
             result = vasomotor_sensor.get_oauth_token()
 
@@ -32,18 +30,14 @@ class TestGetOauthToken:
         past_ts = int(datetime.now(UTC).timestamp() * 1000) - 1000  # 1s ago
         creds_data = {"claudeAiOauth": {"accessToken": "expired-token", "expiresAt": past_ts}}
 
-        with patch.object(
-            vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"
-        ):
+        with patch.object(vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"):
             (tmp_path / ".credentials.json").write_text(json.dumps(creds_data))
             with pytest.raises(RuntimeError, match="expired"):
                 vasomotor_sensor.get_oauth_token()
 
     def test_raises_when_credentials_file_missing(self, tmp_path):
         """Raises RuntimeError when no credentials file and no Keychain fallback."""
-        with patch.object(
-            vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"
-        ):
+        with patch.object(vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"):
             with patch.object(vasomotor_sensor.subprocess, "run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=1, stdout="")
                 with pytest.raises(RuntimeError, match="No OAuth token found"):
@@ -51,9 +45,7 @@ class TestGetOauthToken:
 
     def test_raises_on_malformed_json(self, tmp_path):
         """Raises RuntimeError when credentials file has invalid JSON."""
-        with patch.object(
-            vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"
-        ):
+        with patch.object(vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"):
             (tmp_path / ".credentials.json").write_text("not valid json")
             with pytest.raises(RuntimeError, match="Failed to read"):
                 vasomotor_sensor.get_oauth_token()
@@ -61,15 +53,13 @@ class TestGetOauthToken:
     def test_fallback_to_keychain_on_missing_file(self, tmp_path):
         """Falls back to macOS Keychain when credentials file missing."""
         future_ts = int(datetime.now(UTC).timestamp() * 1000) + 3600000
-        keychain_data = {"claudeAiOauth": {"accessToken": "keychain-token", "expiresAt": future_ts}}
+        keychain_data = {
+            "claudeAiOauth": {"accessToken": "keychain-token", "expiresAt": future_ts}
+        }
 
-        with patch.object(
-            vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"
-        ):
+        with patch.object(vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"):
             with patch.object(vasomotor_sensor.subprocess, "run") as mock_run:
-                mock_run.return_value = MagicMock(
-                    returncode=0, stdout=json.dumps(keychain_data)
-                )
+                mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(keychain_data))
                 result = vasomotor_sensor.get_oauth_token()
 
         assert result == "keychain-token"
@@ -83,13 +73,9 @@ class TestGetOauthToken:
         past_ts = int(datetime.now(UTC).timestamp() * 1000) - 1000
         keychain_data = {"claudeAiOauth": {"accessToken": "expired", "expiresAt": past_ts}}
 
-        with patch.object(
-            vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"
-        ):
+        with patch.object(vasomotor_sensor, "_CREDENTIALS_FILE", tmp_path / ".credentials.json"):
             with patch.object(vasomotor_sensor.subprocess, "run") as mock_run:
-                mock_run.return_value = MagicMock(
-                    returncode=0, stdout=json.dumps(keychain_data)
-                )
+                mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(keychain_data))
                 with pytest.raises(RuntimeError, match="Keychain token expired"):
                     vasomotor_sensor.get_oauth_token()
 
@@ -99,7 +85,10 @@ class TestInternalizeUsage:
 
     def test_fetches_usage_from_api(self):
         """Makes authenticated request and returns parsed JSON."""
-        api_response = {"seven_day": {"utilization": 42.5}, "seven_day_sonnet": {"utilization": 30.0}}
+        api_response = {
+            "seven_day": {"utilization": 42.5},
+            "seven_day_sonnet": {"utilization": 30.0},
+        }
         mock_response = MagicMock()
         mock_response.read.return_value = json.dumps(api_response).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
@@ -113,11 +102,13 @@ class TestInternalizeUsage:
     def test_request_includes_auth_header(self):
         """Request includes Bearer token and required headers."""
         mock_response = MagicMock()
-        mock_response.read.return_value = b'{}'
+        mock_response.read.return_value = b"{}"
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch.object(vasomotor_sensor.urllib.request, "urlopen", return_value=mock_response) as mock_urlopen:
+        with patch.object(
+            vasomotor_sensor.urllib.request, "urlopen", return_value=mock_response
+        ) as mock_urlopen:
             vasomotor_sensor.internalize_usage("my-secret-token")
 
             call_args = mock_urlopen.call_args
@@ -153,7 +144,7 @@ class TestReadFallback:
         ts = now.isoformat()
         entry = {"ts": ts, "metrics": {"seven_day": {"utilization": 50}}}
         history_file = tmp_path / "history.jsonl"
-        history_file.write_text('{"ts": "old"}\n' + json.dumps(entry) + '\n')
+        history_file.write_text('{"ts": "old"}\n' + json.dumps(entry) + "\n")
 
         with patch.object(vasomotor_sensor, "HISTORY_FILE", history_file):
             with patch.object(vasomotor_sensor, "WATCH_LOG", tmp_path / "watch.jsonl"):
@@ -169,11 +160,11 @@ class TestReadFallback:
         ts = now.isoformat()
         entry = {"ts": ts, "weekly_pct": 60}
         watch_file = tmp_path / "watch.jsonl"
-        watch_file.write_text(json.dumps(entry) + '\n')
+        watch_file.write_text(json.dumps(entry) + "\n")
 
         with patch.object(vasomotor_sensor, "HISTORY_FILE", tmp_path / "history.jsonl"):
             with patch.object(vasomotor_sensor, "WATCH_LOG", watch_file):
-                result_entry, age = vasomotor_sensor._read_fallback()
+                result_entry, _age = vasomotor_sensor._read_fallback()
 
         assert result_entry == entry
 
@@ -220,7 +211,9 @@ class TestSenseUsage:
                 mock_response.__enter__ = MagicMock(return_value=mock_response)
                 mock_response.__exit__ = MagicMock(return_value=False)
 
-                with patch.object(vasomotor_sensor.urllib.request, "urlopen", return_value=mock_response):
+                with patch.object(
+                    vasomotor_sensor.urllib.request, "urlopen", return_value=mock_response
+                ):
                     usage, stale = vasomotor_sensor.sense_usage()
 
         assert usage == api_response
@@ -237,11 +230,13 @@ class TestSenseUsage:
                 "seven_day_sonnet": {"utilization": 40, "resets_at": "2025-01-01"},
             },
         }
-        history_file.write_text(json.dumps(entry) + '\n')
+        history_file.write_text(json.dumps(entry) + "\n")
 
         with patch.object(vasomotor_sensor, "HISTORY_FILE", history_file):
             with patch.object(vasomotor_sensor, "WATCH_LOG", tmp_path / "watch.jsonl"):
-                with patch.object(vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")):
+                with patch.object(
+                    vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")
+                ):
                     usage, stale = vasomotor_sensor.sense_usage()
 
         assert usage["seven_day"]["utilization"] == 55
@@ -252,7 +247,9 @@ class TestSenseUsage:
         """Raises RuntimeError when API fails and no cache available."""
         with patch.object(vasomotor_sensor, "HISTORY_FILE", tmp_path / "history.jsonl"):
             with patch.object(vasomotor_sensor, "WATCH_LOG", tmp_path / "watch.jsonl"):
-                with patch.object(vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")):
+                with patch.object(
+                    vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")
+                ):
                     with pytest.raises(RuntimeError, match="Live API failed.*no cached data"):
                         vasomotor_sensor.sense_usage()
 
@@ -261,11 +258,13 @@ class TestSenseUsage:
         history_file = tmp_path / "history.jsonl"
         now = datetime.now(UTC)
         entry = {"ts": now.isoformat(), "weekly_pct": 70, "sonnet_pct": 35}
-        history_file.write_text(json.dumps(entry) + '\n')
+        history_file.write_text(json.dumps(entry) + "\n")
 
         with patch.object(vasomotor_sensor, "HISTORY_FILE", history_file):
             with patch.object(vasomotor_sensor, "WATCH_LOG", tmp_path / "watch.jsonl"):
-                with patch.object(vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("fail")):
+                with patch.object(
+                    vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("fail")
+                ):
                     usage, _ = vasomotor_sensor.sense_usage()
 
         assert usage["seven_day"]["utilization"] == 70
@@ -427,7 +426,9 @@ class TestSense:
                 mock_response.__enter__ = MagicMock(return_value=mock_response)
                 mock_response.__exit__ = MagicMock(return_value=False)
 
-                with patch.object(vasomotor_sensor.urllib.request, "urlopen", return_value=mock_response):
+                with patch.object(
+                    vasomotor_sensor.urllib.request, "urlopen", return_value=mock_response
+                ):
                     result = vasomotor_sensor.sense()
 
         assert result["status"] == "SAFE"
@@ -438,7 +439,9 @@ class TestSense:
         """Returns dict with error key on any exception."""
         with patch.object(vasomotor_sensor, "HISTORY_FILE", tmp_path / "h.jsonl"):
             with patch.object(vasomotor_sensor, "WATCH_LOG", tmp_path / "w.jsonl"):
-                with patch.object(vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")):
+                with patch.object(
+                    vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")
+                ):
                     result = vasomotor_sensor.sense()
 
         assert "error" in result

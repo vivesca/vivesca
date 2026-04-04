@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -22,7 +22,6 @@ from metabolon.enzymes.proprioception import (
     proprioception,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
 
@@ -30,9 +29,7 @@ from metabolon.enzymes.proprioception import (
 def _isolate_gradient_log(tmp_path, monkeypatch):
     """Redirect gradient log to tmp so tests never touch the real file."""
     log = tmp_path / "proprioception.jsonl"
-    monkeypatch.setattr(
-        "metabolon.enzymes.proprioception._GRADIENT_LOG", str(log)
-    )
+    monkeypatch.setattr("metabolon.enzymes.proprioception._GRADIENT_LOG", str(log))
     return log
 
 
@@ -82,9 +79,7 @@ class TestLogAndGradient:
 
     def test_creates_log_directory(self, tmp_path, monkeypatch):
         log_path = tmp_path / "subdir" / "proprioception.jsonl"
-        monkeypatch.setattr(
-            "metabolon.enzymes.proprioception._GRADIENT_LOG", str(log_path)
-        )
+        monkeypatch.setattr("metabolon.enzymes.proprioception._GRADIENT_LOG", str(log_path))
         result = _log_and_gradient("genome", "test")
         assert result is None
         assert log_path.exists()
@@ -217,8 +212,11 @@ class TestGlycogen:
         from metabolon.enzymes.proprioception import _glycogen
 
         mock_sense.return_value = {
-            "status": "low", "weekly_pct": 90.0, "sonnet_pct": 85.0,
-            "stale": True, "stale_label": "2h ago",
+            "status": "low",
+            "weekly_pct": 90.0,
+            "sonnet_pct": 85.0,
+            "stale": True,
+            "stale_label": "2h ago",
         }
         result = _glycogen()
         assert "[2h ago]" in result
@@ -320,7 +318,9 @@ class TestHistoneStore:
 
 class TestEffectors:
     def test_effectors(self):
-        with patch("metabolon.resources.proteome.express_effector_index", return_value="effector idx"):
+        with patch(
+            "metabolon.resources.proteome.express_effector_index", return_value="effector idx"
+        ):
             from metabolon.enzymes.proprioception import _effectors
 
             result = _effectors()
@@ -332,7 +332,9 @@ class TestEffectors:
 
 class TestOscillators:
     def test_oscillators(self):
-        with patch("metabolon.resources.oscillators.express_pacemaker_status", return_value="pacemaker ok"):
+        with patch(
+            "metabolon.resources.oscillators.express_pacemaker_status", return_value="pacemaker ok"
+        ):
             from metabolon.enzymes.proprioception import _oscillators
 
             result = _oscillators()
@@ -352,14 +354,23 @@ class TestSense:
 
     def test_with_goals(self):
         summary = {
-            "goal": "Learn Python", "phase": "active",
-            "days_to_next_phase": 5, "total_drills": 10,
-            "weakest": [], "categories": {},
+            "goal": "Learn Python",
+            "phase": "active",
+            "days_to_next_phase": 5,
+            "total_drills": 10,
+            "weakest": [],
+            "categories": {},
         }
         with (
-            patch("metabolon.organelles.receptor_sense.restore_goals", return_value=[{"name": "Learn Python"}]),
+            patch(
+                "metabolon.organelles.receptor_sense.restore_goals",
+                return_value=[{"name": "Learn Python"}],
+            ),
             patch("metabolon.organelles.receptor_sense.ProprioceptiveStore"),
-            patch("metabolon.organelles.receptor_sense.synthesize_signal_summary", return_value=summary),
+            patch(
+                "metabolon.organelles.receptor_sense.synthesize_signal_summary",
+                return_value=summary,
+            ),
             patch("metabolon.organelles.receptor_sense.SIGNALS_DIR", Path("/tmp")),
         ):
             from metabolon.enzymes.proprioception import _sense
@@ -371,17 +382,26 @@ class TestSense:
 
     def test_with_weakest_categories(self):
         summary = {
-            "goal": "Math", "phase": "phase1", "days_to_next_phase": None,
-            "total_drills": 3, "weakest": ["algebra", "calc"],
+            "goal": "Math",
+            "phase": "phase1",
+            "days_to_next_phase": None,
+            "total_drills": 3,
+            "weakest": ["algebra", "calc"],
             "categories": {
                 "algebra": {"drill_count": 0, "avg_score": 0.0},
                 "calc": {"drill_count": 5, "avg_score": 1.2},
             },
         }
         with (
-            patch("metabolon.organelles.receptor_sense.restore_goals", return_value=[{"name": "Math"}]),
+            patch(
+                "metabolon.organelles.receptor_sense.restore_goals",
+                return_value=[{"name": "Math"}],
+            ),
             patch("metabolon.organelles.receptor_sense.ProprioceptiveStore"),
-            patch("metabolon.organelles.receptor_sense.synthesize_signal_summary", return_value=summary),
+            patch(
+                "metabolon.organelles.receptor_sense.synthesize_signal_summary",
+                return_value=summary,
+            ),
             patch("metabolon.organelles.receptor_sense.SIGNALS_DIR", Path("/tmp")),
         ):
             from metabolon.enzymes.proprioception import _sense
@@ -398,7 +418,9 @@ class TestDrill:
     def test_valid_score_records(self):
         mock_store = MagicMock()
         with (
-            patch("metabolon.organelles.receptor_sense.ProprioceptiveStore", return_value=mock_store),
+            patch(
+                "metabolon.organelles.receptor_sense.ProprioceptiveStore", return_value=mock_store
+            ),
             patch("metabolon.organelles.receptor_sense.SIGNALS_DIR", Path("/tmp")),
         ):
             from metabolon.enzymes.proprioception import _drill
@@ -448,7 +470,9 @@ class TestGradientDetect:
         g.top_queries = ["query x"]
         mock_report.gradients = [g]
 
-        with patch("metabolon.organelles.gradient_sense.build_gradient_report", return_value=mock_report):
+        with patch(
+            "metabolon.organelles.gradient_sense.build_gradient_report", return_value=mock_report
+        ):
             from metabolon.enzymes.proprioception import _gradient_detect
 
             result = _gradient_detect()
@@ -469,7 +493,9 @@ class TestRestoreForkRegistry:
 
     def test_loads_existing_yaml(self, tmp_path):
         registry_path = tmp_path / "skill-forks.yaml"
-        registry_path.write_text(yaml.dump({"custom-suite": {"local": "/tmp/x", "cache_pattern": "/tmp/y"}}))
+        registry_path.write_text(
+            yaml.dump({"custom-suite": {"local": "/tmp/x", "cache_pattern": "/tmp/y"}})
+        )
         result = _restore_fork_registry(registry_path)
         assert "custom-suite" in result
 
@@ -585,9 +611,14 @@ class TestSkills:
 
     def test_local_dir_missing_skipped(self, tmp_path):
         registry = {
-            "suite": {"local": str(tmp_path / "nonexistent"), "cache_pattern": str(tmp_path / "cache")}
+            "suite": {
+                "local": str(tmp_path / "nonexistent"),
+                "cache_pattern": str(tmp_path / "cache"),
+            }
         }
-        with patch("metabolon.enzymes.proprioception._restore_fork_registry", return_value=registry):
+        with patch(
+            "metabolon.enzymes.proprioception._restore_fork_registry", return_value=registry
+        ):
             result = _skills()
         assert "No upstream skill changes" in result
 
@@ -598,7 +629,9 @@ class TestSkills:
         cache_base = tmp_path / "cache" / "suite"
         cache_base.mkdir(parents=True)
         registry = {"suite": {"local": str(local), "cache_pattern": str(cache_base)}}
-        with patch("metabolon.enzymes.proprioception._restore_fork_registry", return_value=registry):
+        with patch(
+            "metabolon.enzymes.proprioception._restore_fork_registry", return_value=registry
+        ):
             result = _skills()
         assert "No upstream skill changes" in result
 
@@ -636,9 +669,21 @@ class TestDispatchCompleteness:
         from metabolon.enzymes.proprioception import _DISPATCH
 
         expected = {
-            "genome", "anatomy", "circadian", "vitals", "glycogen",
-            "reflexes", "consolidation", "operons", "sensorium",
-            "histone_store", "effectors", "oscillators", "sense",
-            "gradient", "skills", "timing",
+            "genome",
+            "anatomy",
+            "circadian",
+            "vitals",
+            "glycogen",
+            "reflexes",
+            "consolidation",
+            "operons",
+            "sensorium",
+            "histone_store",
+            "effectors",
+            "oscillators",
+            "sense",
+            "gradient",
+            "skills",
+            "timing",
         }
         assert expected == set(_DISPATCH.keys())

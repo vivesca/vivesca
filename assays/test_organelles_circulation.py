@@ -1,19 +1,18 @@
 """Tests for circulation.py — mock external LLM calls and file operations."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.organelles.circulation import (
     CirculationState,
     _open_checkpointer,
     build_graph,
     checkpoint_node,
-    compound,
     circulate,
+    compound,
     dispatch,
     evaluate,
     preflight,
@@ -43,7 +42,9 @@ def test_preflight_no_files():
         "report": "",
     }
 
-    with patch("metabolon.organelles.circulation.NORTH_STAR_PATH", Path("/nonexistent/nothing.md")):
+    with patch(
+        "metabolon.organelles.circulation.NORTH_STAR_PATH", Path("/nonexistent/nothing.md")
+    ):
         with patch("metabolon.organelles.circulation.praxis", Path("/nonexistent/praxis.md")):
             with patch("metabolon.organelles.circulation.Path.home") as mock_home:
                 mock_home.return_value = Path("/tmp")
@@ -75,25 +76,32 @@ def test_preflight_with_budget_red():
         "report": "",
     }
 
-    allo_data = {"tier": "autophagic-catabolic"}
-    allo_path = Path("/tmp/claude/allostasis-state.json")
-    allo_path.parent.mkdir(parents=True, exist_ok=True)
-    allo_path.write_text(json.dumps(allo_data))
+    allow_data = {"tier": "autophagic-catabolic"}
+    allow_path = Path("/tmp/claude/allostasis-state.json")
+    allow_path.parent.mkdir(parents=True, exist_ok=True)
+    allow_path.write_text(json.dumps(allow_data))
 
-    with patch("metabolon.organelles.circulation.NORTH_STAR_PATH", Path("/nonexistent/nothing.md")):
+    with patch(
+        "metabolon.organelles.circulation.NORTH_STAR_PATH", Path("/nonexistent/nothing.md")
+    ):
         with patch("metabolon.organelles.circulation.praxis", Path("/nonexistent/praxis.md")):
             with patch("metabolon.organelles.circulation.Path.home") as mock_home:
                 mock_home.return_value = Path("/tmp")
                 result = preflight(state)
 
     assert result["budget_status"] == "red"
-    allo_path.unlink()
+    allow_path.unlink()
 
 
 def test_select_goals_parses_valid_json():
     """Test select_goals correctly parses valid JSON response."""
     mock_goals = [
-        {"star": "Improve testing", "goal": "Write tests for circulation", "deliverable": "assays/test_organelles_circulation.py", "model": "claude"}
+        {
+            "star": "Improve testing",
+            "goal": "Write tests for circulation",
+            "deliverable": "assays/test_organelles_circulation.py",
+            "model": "claude",
+        }
     ]
 
     state: CirculationState = {
@@ -150,7 +158,10 @@ def test_select_goals_handles_parse_error():
 
 def test_select_goals_overnight_max_goals():
     """Test overnight mode allows up to 8 goals."""
-    mock_goals = [{"star": f"Star {i}", "goal": f"Goal {i}", "deliverable": f"file{i}.md", "model": "sonnet"} for i in range(10)]
+    mock_goals = [
+        {"star": f"Star {i}", "goal": f"Goal {i}", "deliverable": f"file{i}.md", "model": "sonnet"}
+        for i in range(10)
+    ]
 
     state: CirculationState = {
         "north_stars": "Test",
@@ -204,7 +215,12 @@ def test_dispatch_no_selected_goals():
 def test_dispatch_with_goals_mock():
     """Test dispatch executes goals and returns results."""
     mock_goals = [
-        {"star": "Test", "goal": "Write test", "deliverable": "/tmp/test-output.md", "model": "claude"}
+        {
+            "star": "Test",
+            "goal": "Write test",
+            "deliverable": "/tmp/test-output.md",
+            "model": "claude",
+        }
     ]
 
     state: CirculationState = {
@@ -225,7 +241,9 @@ def test_dispatch_with_goals_mock():
         "report": "",
     }
 
-    with patch("metabolon.organelles.circulation.transduce_safe", return_value=("claude", "# Test Output")):
+    with patch(
+        "metabolon.organelles.circulation.transduce_safe", return_value=("claude", "# Test Output")
+    ):
         result = dispatch(state)
 
     assert len(result["dispatched_work"]) == 1
@@ -239,7 +257,12 @@ def test_dispatch_with_goals_mock():
 def test_dispatch_handles_write_error(caplog):
     """Test dispatch handles write errors gracefully."""
     mock_goals = [
-        {"star": "Test", "goal": "Write test", "deliverable": "/root/protected.md", "model": "claude"}
+        {
+            "star": "Test",
+            "goal": "Write test",
+            "deliverable": "/root/protected.md",
+            "model": "claude",
+        }
     ]
 
     state: CirculationState = {
@@ -260,7 +283,9 @@ def test_dispatch_handles_write_error(caplog):
         "report": "",
     }
 
-    with patch("metabolon.organelles.circulation.transduce_safe", return_value=("claude", "content")):
+    with patch(
+        "metabolon.organelles.circulation.transduce_safe", return_value=("claude", "content")
+    ):
         result = dispatch(state)
 
     assert "write_error" in result["dispatched_work"][0]
@@ -294,11 +319,18 @@ def test_evaluate_no_successful_work():
 def test_evaluate_with_successful_work_parses_json():
     """Test evaluate parses JSON evaluation correctly."""
     mock_eval = [
-        {"goal": "Write tests", "classification": "self-sufficient", "quality": "pass", "reason": "Good"}
+        {
+            "goal": "Write tests",
+            "classification": "self-sufficient",
+            "quality": "pass",
+            "reason": "Good",
+        }
     ]
 
     state: CirculationState = {
-        "dispatched_work": [{"goal": "Write tests", "success": True, "output": "Test output", "star": "Testing"}],
+        "dispatched_work": [
+            {"goal": "Write tests", "success": True, "output": "Test output", "star": "Testing"}
+        ],
         "total_produced": 0,
         "total_for_review": 0,
         "north_stars": "",
@@ -348,9 +380,7 @@ def test_compound_no_successful_work():
 
 def test_compound_parses_ideas():
     """Test compound extracts ideas from JSON."""
-    mock_result = [
-        {"idea": "Add more tests", "star": "Testing", "type": "compound"}
-    ]
+    mock_result = [{"idea": "Add more tests", "star": "Testing", "type": "compound"}]
 
     state: CirculationState = {
         "dispatched_work": [{"goal": "Write tests", "success": True, "star": "Testing"}],
@@ -397,7 +427,9 @@ def test_checkpoint_node_red_budget_stops():
         "report": "",
     }
 
-    with patch("metabolon.organelles.circulation.MANIFEST_PATH", Path("/tmp/circulation-manifest-test.md")):
+    with patch(
+        "metabolon.organelles.circulation.MANIFEST_PATH", Path("/tmp/circulation-manifest-test.md")
+    ):
         result = checkpoint_node(state)
 
     assert result["should_stop"] is True
@@ -425,7 +457,9 @@ def test_checkpoint_node_green_budget_continues():
         "report": "",
     }
 
-    with patch("metabolon.organelles.circulation.MANIFEST_PATH", Path("/tmp/circulation-manifest-test.md")):
+    with patch(
+        "metabolon.organelles.circulation.MANIFEST_PATH", Path("/tmp/circulation-manifest-test.md")
+    ):
         result = checkpoint_node(state)
 
     assert result["should_stop"] is False
@@ -452,7 +486,9 @@ def test_checkpoint_node_no_goals_stops():
         "report": "",
     }
 
-    with patch("metabolon.organelles.circulation.MANIFEST_PATH", Path("/tmp/circulation-manifest-test.md")):
+    with patch(
+        "metabolon.organelles.circulation.MANIFEST_PATH", Path("/tmp/circulation-manifest-test.md")
+    ):
         result = checkpoint_node(state)
 
     assert result["should_stop"] is True
@@ -519,13 +555,36 @@ def test_circulation_non_persistent():
     with patch("metabolon.organelles.circulation.transduce") as mock_transduce:
         # First call for select_goals
         mock_transduce.side_effect = [
-            json.dumps([{"star": "Test", "goal": "Test", "deliverable": "/tmp/test.md", "model": "claude"}]),
-            json.dumps([{"goal": "Test", "classification": "self-sufficient", "quality": "pass", "reason": "OK"}]),
+            json.dumps(
+                [
+                    {
+                        "star": "Test",
+                        "goal": "Test",
+                        "deliverable": "/tmp/test.md",
+                        "model": "claude",
+                    }
+                ]
+            ),
+            json.dumps(
+                [
+                    {
+                        "goal": "Test",
+                        "classification": "self-sufficient",
+                        "quality": "pass",
+                        "reason": "OK",
+                    }
+                ]
+            ),
             json.dumps([{"idea": "Next step", "star": "Test", "type": "compound"}]),
         ]
 
-        with patch("metabolon.organelles.circulation.transduce_safe", return_value=("claude", "Test output")):
-            with patch("metabolon.organelles.circulation.CHECKPOINT_DB", Path("/tmp/test-checkpoints.db")):
+        with patch(
+            "metabolon.organelles.circulation.transduce_safe",
+            return_value=("claude", "Test output"),
+        ):
+            with patch(
+                "metabolon.organelles.circulation.CHECKPOINT_DB", Path("/tmp/test-checkpoints.db")
+            ):
                 result = circulate(mode="overnight", persistent=False, resume=False)
 
     assert result is not None

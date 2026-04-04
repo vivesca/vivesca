@@ -1,10 +1,8 @@
-
 """emit — all outbound secretion (output) channels.
 
 Actions: spark|tweet|daily_note|praxis|publish|reminder|telemetry|telegram_text|telegram_image|linkedin|knowledge_signal|interphase_close
 Absorbs: secretory (emit_*), deltos (exocytosis_*), pseudopod endocytosis_extract helpers, polymerization, interphase_close.
 """
-
 
 import os
 import re

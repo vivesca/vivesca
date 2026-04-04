@@ -76,7 +76,13 @@ class TestScaffoldProject:
             )
 
         src = target / "src" / "test_project"
-        for pkg_dir in [src, src / "enzymes", src / "codons", src / "resources", src / "morphology"]:
+        for pkg_dir in [
+            src,
+            src / "enzymes",
+            src / "codons",
+            src / "resources",
+            src / "morphology",
+        ]:
             assert (pkg_dir / "__init__.py").exists()
 
     def test_raises_on_non_empty_directory(self, tmp_path: Path) -> None:

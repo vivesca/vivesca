@@ -1,5 +1,7 @@
 """Tests for assay enzyme — life experiment tracker."""
+
 from unittest.mock import patch
+
 import pytest
 
 
@@ -53,7 +55,7 @@ class TestAssayCheck:
         from metabolon.enzymes.assay import assay
 
         mock_run.return_value = "check result"
-        result = assay(action="check")
+        assay(action="check")
 
         args = mock_run.call_args
         assert args[0][1] == ["check"]
@@ -65,7 +67,7 @@ class TestAssayCheck:
         from metabolon.enzymes.assay import assay
 
         mock_run.return_value = "done"
-        result = assay(action="check", name="")
+        assay(action="check", name="")
 
         args = mock_run.call_args
         assert args[0][1] == ["check"]
@@ -92,7 +94,7 @@ class TestAssayClose:
         from metabolon.enzymes.assay import assay
 
         mock_run.return_value = "closed"
-        result = assay(action="close")
+        assay(action="close")
 
         args = mock_run.call_args
         assert args[0][1] == ["close"]
@@ -118,7 +120,7 @@ class TestAssayUnknownAction:
 
     def test_unknown_action_does_not_call_run_cli(self):
         """Unknown actions should not invoke run_cli at all."""
-        from metabolon.enzymes.assay import assay, run_cli
+        from metabolon.enzymes.assay import assay
 
         with patch("metabolon.enzymes.assay.run_cli") as mock_run:
             result = assay(action="invalid")
@@ -130,8 +132,9 @@ class TestAssayBinaryPath:
     """Tests for the BINARY constant."""
 
     def test_binary_path_is_absolute(self):
-        from metabolon.enzymes.assay import BINARY
         from pathlib import Path
+
+        from metabolon.enzymes.assay import BINARY
 
         # BINARY is a string, should be absolute path
         assert BINARY.startswith(str(Path.home()))

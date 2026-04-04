@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -147,9 +147,9 @@ class TestListCapcoDocs:
 
     def test_sorted_newest_first(self, cp, tmp_path):
         capco = tmp_path / "capco"
-        old = _file(capco, "old.txt", "old", age_days=30)
+        _file(capco, "old.txt", "old", age_days=30)
         time.sleep(0.1)
-        new = _file(capco, "new.txt", "new")
+        _file(capco, "new.txt", "new")
         docs = cp["list_capco_docs"]()
         assert docs[0]["name"] == "new.txt"
         assert docs[1]["name"] == "old.txt"
@@ -183,16 +183,30 @@ class TestReadinessChecklist:
         assert "Total documents found: 0" in out
 
     def test_prints_stale_docs(self, cp, capsys):
-        docs = [{"name": "old.pdf", "modified": datetime.now(), "days_since_modified": 100,
-                 "size_kb": 5.0, "is_stale": True}]
+        docs = [
+            {
+                "name": "old.pdf",
+                "modified": datetime.now(),
+                "days_since_modified": 100,
+                "size_kb": 5.0,
+                "is_stale": True,
+            }
+        ]
         cp["print_readiness_checklist"](docs)
         out = capsys.readouterr().out
         assert "Stale Documents" in out
         assert "old.pdf" in out
 
     def test_prints_fresh_docs(self, cp, capsys):
-        docs = [{"name": "new.pdf", "modified": datetime.now(), "days_since_modified": 5,
-                 "size_kb": 3.0, "is_stale": False}]
+        docs = [
+            {
+                "name": "new.pdf",
+                "modified": datetime.now(),
+                "days_since_modified": 5,
+                "size_kb": 3.0,
+                "is_stale": False,
+            }
+        ]
         cp["print_readiness_checklist"](docs)
         out = capsys.readouterr().out
         assert "Fresh Documents" in out
@@ -206,16 +220,28 @@ class TestReadinessChecklist:
         assert "❌" in out
 
     def test_checkmark_when_docs_exist(self, cp, capsys):
-        docs = [{"name": "ok.pdf", "modified": datetime.now(), "days_since_modified": 1,
-                 "size_kb": 2.0, "is_stale": False}]
+        docs = [
+            {
+                "name": "ok.pdf",
+                "modified": datetime.now(),
+                "days_since_modified": 1,
+                "size_kb": 2.0,
+                "is_stale": False,
+            }
+        ]
         cp["print_readiness_checklist"](docs)
         out = capsys.readouterr().out
         assert "All required CAPCO documents are added" in out
 
     def test_limits_fresh_display_to_10(self, cp, capsys):
         docs = [
-            {"name": f"doc{i}.pdf", "modified": datetime.now(), "days_since_modified": 1,
-             "size_kb": 1.0, "is_stale": False}
+            {
+                "name": f"doc{i}.pdf",
+                "modified": datetime.now(),
+                "days_since_modified": 1,
+                "size_kb": 1.0,
+                "is_stale": False,
+            }
             for i in range(15)
         ]
         cp["print_readiness_checklist"](docs)
@@ -223,8 +249,15 @@ class TestReadinessChecklist:
         assert "more" in out
 
     def test_next_steps_with_stale(self, cp, capsys):
-        docs = [{"name": "old.pdf", "modified": datetime.now(), "days_since_modified": 100,
-                 "size_kb": 1.0, "is_stale": True}]
+        docs = [
+            {
+                "name": "old.pdf",
+                "modified": datetime.now(),
+                "days_since_modified": 100,
+                "size_kb": 1.0,
+                "is_stale": True,
+            }
+        ]
         cp["print_readiness_checklist"](docs)
         out = capsys.readouterr().out
         assert "stale" in out.lower()

@@ -9,13 +9,8 @@ Tests cover:
 """
 
 
-import json
-import os
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from metabolon.pore import (
@@ -29,7 +24,6 @@ from metabolon.pore import (
     _word_set,
     cli,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # UNIT TESTS: Helper Functions
@@ -290,16 +284,14 @@ class TestServeCommand:
     @patch("metabolon.membrane.assemble_organism")
     @patch("metabolon.organelles.inflammasome.run_all_probes")
     @patch("metabolon.organelles.inflammasome.adaptive_response")
-    def test_serve_stdio_mode(
-        self, mock_adaptive, mock_probes, mock_assemble, mock_cofactors
-    ):
+    def test_serve_stdio_mode(self, mock_adaptive, mock_probes, mock_assemble, mock_cofactors):
         """Test serve command in stdio mode."""
         mock_probes.return_value = []
         mock_mcp = MagicMock()
         mock_assemble.return_value = mock_mcp
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["serve"])
+        runner.invoke(cli, ["serve"])
 
         mock_cofactors.assert_called_once()
         mock_mcp.run.assert_called_once_with(transport="stdio")
@@ -308,16 +300,14 @@ class TestServeCommand:
     @patch("metabolon.membrane.assemble_organism")
     @patch("metabolon.organelles.inflammasome.run_all_probes")
     @patch("metabolon.organelles.inflammasome.adaptive_response")
-    def test_serve_http_mode(
-        self, mock_adaptive, mock_probes, mock_assemble, mock_cofactors
-    ):
+    def test_serve_http_mode(self, mock_adaptive, mock_probes, mock_assemble, mock_cofactors):
         """Test serve command in HTTP mode."""
         mock_probes.return_value = []
         mock_mcp = MagicMock()
         mock_assemble.return_value = mock_mcp
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["serve", "--http"])
+        runner.invoke(cli, ["serve", "--http"])
 
         mock_mcp.run.assert_called_once()
         call_kwargs = mock_mcp.run.call_args[1]
@@ -336,7 +326,7 @@ class TestServeCommand:
         mock_assemble.return_value = mock_mcp
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["serve", "--http", "--host", "0.0.0.0", "--port", "9000"])
+        runner.invoke(cli, ["serve", "--http", "--host", "0.0.0.0", "--port", "9000"])
 
         call_kwargs = mock_mcp.run.call_args[1]
         assert call_kwargs["host"] == "0.0.0.0"
@@ -448,6 +438,7 @@ class TestAddCommands:
             project_dir.mkdir(parents=True)
 
             import os
+
             os.chdir(project_dir)
 
             # Return a path within the cwd for relative_to to work
@@ -467,6 +458,7 @@ class TestAddCommands:
             project_dir.mkdir(parents=True)
 
             import os
+
             os.chdir(project_dir)
 
             mock_graft.return_value = project_dir / "src" / "demo" / "enzymes" / "data.py"
@@ -490,6 +482,7 @@ class TestAddCommands:
             project_dir.mkdir(parents=True)
 
             import os
+
             os.chdir(project_dir)
 
             mock_graft.return_value = project_dir / "src" / "demo" / "codons" / "analyze.py"
@@ -508,6 +501,7 @@ class TestAddCommands:
             project_dir.mkdir(parents=True)
 
             import os
+
             os.chdir(project_dir)
 
             mock_graft.return_value = project_dir / "src" / "demo" / "resources" / "config.py"
@@ -649,7 +643,7 @@ class TestPulseCommand:
     def test_pulse_default(self, mock_pulse_main, tmp_path):
         """Test pulse command with defaults."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["pulse"])
+        runner.invoke(cli, ["pulse"])
 
         mock_pulse_main.assert_called_once()
         call_kwargs = mock_pulse_main.call_args[1]
@@ -659,7 +653,7 @@ class TestPulseCommand:
     def test_pulse_with_options(self, mock_pulse_main, tmp_path):
         """Test pulse command with custom options."""
         runner = CliRunner()
-        result = runner.invoke(
+        runner.invoke(
             cli,
             ["pulse", "--waves", "5", "--model", "sonnet", "--retry", "2"],
         )
@@ -673,7 +667,7 @@ class TestPulseCommand:
     def test_pulse_overnight_flag(self, mock_pulse_main, tmp_path):
         """Test pulse --overnight sets overnight defaults."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["pulse", "--overnight"])
+        runner.invoke(cli, ["pulse", "--overnight"])
 
         call_kwargs = mock_pulse_main.call_args[1]
         assert call_kwargs["systoles"] == 3
@@ -683,7 +677,7 @@ class TestPulseCommand:
     def test_pulse_dry_run(self, mock_pulse_main, tmp_path):
         """Test pulse --dry-run flag."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["pulse", "--dry-run"])
+        runner.invoke(cli, ["pulse", "--dry-run"])
 
         call_kwargs = mock_pulse_main.call_args[1]
         assert call_kwargs["dry_run"] is True
@@ -699,7 +693,7 @@ class TestMetabolismCommands:
         mock_registry.return_value = {"phenotype": MagicMock}
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["metabolism", "run", "phenotype"])
+        runner.invoke(cli, ["metabolism", "run", "phenotype"])
 
         mock_run.assert_called_once_with("phenotype", days=30)
 
@@ -710,7 +704,7 @@ class TestMetabolismCommands:
         mock_registry.return_value = {"phenotype": MagicMock, "dna": MagicMock}
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["metabolism", "run", "all"])
+        runner.invoke(cli, ["metabolism", "run", "all"])
 
         assert mock_run.call_count == 2
 
@@ -743,7 +737,7 @@ class TestEndocytosisCommands:
         mock_lock.return_value.__exit__ = MagicMock(return_value=None)
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["endocytosis", "fetch"])
+        runner.invoke(cli, ["endocytosis", "fetch"])
 
         mock_fetch.assert_called_once()
 
@@ -784,7 +778,7 @@ class TestEndocytosisCommands:
         mock_scan.return_value = 0
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["endocytosis", "breaking"])
+        runner.invoke(cli, ["endocytosis", "breaking"])
 
         mock_scan.assert_called_once()
 
@@ -792,9 +786,7 @@ class TestEndocytosisCommands:
     def test_endocytosis_sources(self, mock_config, tmp_path):
         """Test endocytosis sources command."""
         cfg = MagicMock()
-        cfg.sources_data = {
-            "web_sources": [{"name": "Test Feed", "tier": 1, "cadence": "daily"}]
-        }
+        cfg.sources_data = {"web_sources": [{"name": "Test Feed", "tier": 1, "cadence": "daily"}]}
         mock_config.return_value = cfg
 
         runner = CliRunner()
@@ -908,7 +900,7 @@ class TestPhenotypeCommands:
         mock_translate.return_value = (mock_result, "diff text")
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["phenotype", "translate"])
+        runner.invoke(cli, ["phenotype", "translate"])
 
         mock_translate.assert_called_once()
 
@@ -933,7 +925,7 @@ class TestRenameCommand:
     def test_rename_basic(self, mock_cli_func, tmp_path):
         """Test rename command."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["rename", "old_name", "new_name"])
+        runner.invoke(cli, ["rename", "old_name", "new_name"])
 
         mock_cli_func.assert_called_once_with("old_name", "new_name", [], False)
 
@@ -941,7 +933,7 @@ class TestRenameCommand:
     def test_rename_dry_run(self, mock_cli_func, tmp_path):
         """Test rename command with dry-run."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["rename", "old", "new", "--dry-run"])
+        runner.invoke(cli, ["rename", "old", "new", "--dry-run"])
 
         mock_cli_func.assert_called_once_with("old", "new", [], True)
 
@@ -956,7 +948,7 @@ class TestConjugationCommands:
         mock_replicate.return_value = (mock_result, "diff text")
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["conjugation", "replicate", "gemini"])
+        runner.invoke(cli, ["conjugation", "replicate", "gemini"])
 
         mock_replicate.assert_called_once()
 
@@ -966,9 +958,7 @@ class TestReceptorHealthCommand:
 
     @patch("metabolon.enzymes.integrin.integrin_probe")
     @patch("metabolon.enzymes.integrin.integrin_apoptosis_check")
-    def test_receptor_health_healthy(
-        self, mock_apoptosis, mock_probe, tmp_path, monkeypatch
-    ):
+    def test_receptor_health_healthy(self, mock_apoptosis, mock_probe, tmp_path, monkeypatch):
         """Test receptor-health command when healthy."""
         # Mock probe result
         probe_result = MagicMock()
@@ -1042,7 +1032,7 @@ class TestConsolidationPathways:
 
     def test_pathways_have_target_and_rationale(self):
         """Test that each pathway has target and rationale."""
-        for key, value in CONSOLIDATION_PATHWAYS.items():
+        for value in CONSOLIDATION_PATHWAYS.values():
             assert isinstance(value, tuple)
             assert len(value) == 2
             target, rationale = value

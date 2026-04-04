@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -72,7 +71,10 @@ class TestBashScript:
 
         r = subprocess.run(
             ["bash", str(SCRIPT)],
-            capture_output=True, text=True, env=env, timeout=10,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
         )
         assert "INVOKED: -m metabolon.organelles.gap_junction sync catchup" in r.stdout
 
@@ -90,7 +92,10 @@ class TestBashScript:
 
         r = subprocess.run(
             ["bash", str(SCRIPT)],
-            capture_output=True, text=True, env=env, timeout=10,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
         )
         assert f"{tmp_path}/myhome/germline" in r.stdout
 
@@ -225,7 +230,7 @@ class TestCliWrongArgs:
         """_cli never calls _wacli when args are wrong."""
         mod = self._mod()
         mock_wacli = MagicMock()
-        original_wacli = mod["_wacli"]
+        mod["_wacli"]
         mod["_wacli"] = mock_wacli
         with patch("sys.argv", ["gap_junction", "bad"]):
             with pytest.raises(SystemExit):
@@ -484,10 +489,12 @@ class TestResolveJids:
 
     def test_returns_jids_from_search(self):
         mod = self._mod()
-        contacts = {"data": [
-            {"JID": "123@s.whatsapp.net", "Name": "tara"},
-            {"JID": "123@lid", "Name": "tara"},
-        ]}
+        contacts = {
+            "data": [
+                {"JID": "123@s.whatsapp.net", "Name": "tara"},
+                {"JID": "123@lid", "Name": "tara"},
+            ]
+        }
         mod["_wacli_json"] = MagicMock(return_value=contacts)
         jids = mod["resolve_jids"]("tara")
         assert jids == ["123@s.whatsapp.net", "123@lid"]
@@ -522,9 +529,20 @@ class TestReceiveSignals:
     def test_merges_multiple_jids(self):
         mod = self._mod()
         mod["resolve_jids"] = MagicMock(return_value=["a@s.whatsapp.net", "a@lid"])
-        mod["_wacli_json"] = MagicMock(return_value={"data": {"messages": [
-            {"MsgID": "1", "Timestamp": "2025-01-01T10:00:00Z", "FromMe": True, "Text": "hi"},
-        ]}})
+        mod["_wacli_json"] = MagicMock(
+            return_value={
+                "data": {
+                    "messages": [
+                        {
+                            "MsgID": "1",
+                            "Timestamp": "2025-01-01T10:00:00Z",
+                            "FromMe": True,
+                            "Text": "hi",
+                        },
+                    ]
+                }
+            }
+        )
         result = mod["receive_signals"]("tara", limit=5)
         assert "me: hi" in result
 
@@ -538,9 +556,18 @@ class TestSearchSignals:
 
     def test_global_search_no_name(self):
         mod = self._mod()
-        msgs = {"data": {"messages": [
-            {"MsgID": "1", "Timestamp": "2025-03-01T12:00:00Z", "FromMe": False, "Text": "lunch?"},
-        ]}}
+        msgs = {
+            "data": {
+                "messages": [
+                    {
+                        "MsgID": "1",
+                        "Timestamp": "2025-03-01T12:00:00Z",
+                        "FromMe": False,
+                        "Text": "lunch?",
+                    },
+                ]
+            }
+        }
         mod["_wacli_json"] = MagicMock(return_value=msgs)
         result = mod["search_signals"]("lunch")
         assert "them: lunch?" in result
@@ -554,9 +581,20 @@ class TestSearchSignals:
     def test_scoped_search_with_jids(self):
         mod = self._mod()
         mod["resolve_jids"] = MagicMock(return_value=["a@s.whatsapp.net"])
-        mod["_wacli_json"] = MagicMock(return_value={"data": {"messages": [
-            {"MsgID": "2", "Timestamp": "2025-02-01T09:00:00Z", "FromMe": True, "Text": "yo"},
-        ]}})
+        mod["_wacli_json"] = MagicMock(
+            return_value={
+                "data": {
+                    "messages": [
+                        {
+                            "MsgID": "2",
+                            "Timestamp": "2025-02-01T09:00:00Z",
+                            "FromMe": True,
+                            "Text": "yo",
+                        },
+                    ]
+                }
+            }
+        )
         result = mod["search_signals"]("yo", name="tara")
         assert "me: yo" in result
 

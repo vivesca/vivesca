@@ -1,10 +1,8 @@
-
 """lysis — Firecrawl URL scraper, fallback for bot-protected pages.
 
 Extends chemotaxis with Firecrawl-backed scraping for sites that block
 headless browsers. Returns clean markdown.
 """
-
 
 from pathlib import Path
 

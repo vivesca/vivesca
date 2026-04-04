@@ -344,7 +344,7 @@ When site uses Cloudflare AND stores auth in localStorage (not cookies):
 cd /tmp && uv run --python 3.13 --with nodriver python3 -c "
 import asyncio, nodriver as uc
 from pathlib import Path
-PROFILE = Path.home() / '.config/lustro/nodriver-profile'
+PROFILE = Path.home() / '.config/endocytosis/nodriver-profile'
 PROFILE.mkdir(parents=True, exist_ok=True)
 async def main():
     b = await uc.start(headless=False, user_data_dir=str(PROFILE))

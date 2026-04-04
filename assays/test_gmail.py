@@ -1,5 +1,4 @@
 """Tests for metabolon.organelles.gmail."""
-import pytest
 
 
 def test_placeholder():

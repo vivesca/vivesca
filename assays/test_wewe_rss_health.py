@@ -5,11 +5,8 @@ from __future__ import annotations
 
 
 import json
-from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "wewe-rss-health.py"
 
@@ -95,6 +92,7 @@ class TestCheckService:
     def test_unreachable_api(self, monkeypatch):
         def fail(*a, **kw):
             raise Exception("Connection refused")
+
         monkeypatch.setattr("urllib.request.Request", lambda url: None)
         monkeypatch.setattr("urllib.request.urlopen", fail)
         healthy, detail = _mod["check_service"]()

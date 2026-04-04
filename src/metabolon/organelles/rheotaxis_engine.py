@@ -1,4 +1,3 @@
-
 """rheotaxis_engine — multi-backend web search with parallel execution.
 
 Named after rheotaxis: orientation in response to current flow.
@@ -7,7 +6,6 @@ Multiple sensors triangulate where the current points.
 Backends: Perplexity (sonar), Exa, Tavily, Serper.
 Credentials via importin (macOS Keychain → env vars).
 """
-
 
 import json
 import os

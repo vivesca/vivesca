@@ -11,14 +11,11 @@ Functional rename tests use subprocess with temp directories.
 """
 
 
-import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 RENAME_PATH = Path(__file__).resolve().parents[1] / "effectors" / "rename-kindle-asins.py"
 
@@ -186,7 +183,9 @@ class TestFunctionalRename:
 
             r = subprocess.run(
                 [sys.executable, "-c", _make_wrapper(tmpdir)],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert (books / "Awakenings.md").exists()
@@ -202,7 +201,9 @@ class TestFunctionalRename:
 
             r = subprocess.run(
                 [sys.executable, "-c", _make_wrapper(tmpdir, ["--dry-run"])],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert src.exists()
@@ -221,7 +222,9 @@ class TestFunctionalRename:
 
             r = subprocess.run(
                 [sys.executable, "-c", _make_wrapper(tmpdir)],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert src.exists()
@@ -236,7 +239,9 @@ class TestFunctionalRename:
 
             r = subprocess.run(
                 [sys.executable, "-c", _make_wrapper(tmpdir)],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert "Renamed 0 files" in r.stdout
@@ -251,7 +256,9 @@ class TestFunctionalRename:
 
             r = subprocess.run(
                 [sys.executable, "-c", _make_wrapper(tmpdir)],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert (books / "Awakenings.md").exists()
@@ -267,7 +274,9 @@ class TestCLISubprocess:
         """Running rename-kindle-asins.py directly should succeed."""
         r = subprocess.run(
             [sys.executable, str(RENAME_PATH)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "Renamed" in r.stdout
@@ -276,7 +285,9 @@ class TestCLISubprocess:
         """Running with --dry-run should show would-rename message."""
         r = subprocess.run(
             [sys.executable, str(RENAME_PATH), "--dry-run"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "Would rename" in r.stdout or "Renamed" in r.stdout

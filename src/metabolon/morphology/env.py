@@ -4,7 +4,6 @@ Provides a single place for the CLAUDECODE-contamination guard so callers
 don't each re-implement the same os.environ filter.
 """
 
-
 import os
 
 # Keys that must not leak into child processes (they confuse Claude Code

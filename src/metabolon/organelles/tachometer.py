@@ -1,11 +1,9 @@
-
 """tachometer — sortase dispatch throughput monitor.
 
 Reads log.jsonl and computes real-time dispatch metrics:
 rate, success trends, slowest tasks, coaching effectiveness,
 and estimated completion times.
 """
-
 
 from datetime import datetime, timedelta
 from pathlib import Path

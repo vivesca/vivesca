@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import time
 from io import StringIO
 from pathlib import Path
@@ -62,6 +61,7 @@ def _pdict(**kw):
 # git_status
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestGitStatus:
     def test_clean_repo_returns_empty_string(self):
         mock = MagicMock(returncode=0, stdout="  \n")
@@ -95,35 +95,44 @@ class TestGitStatus:
 # now_age
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNowAge:
     def test_fresh_under_15_min(self):
         now = time.time()
-        with patch("os.path.getmtime", return_value=now - 500), \
-             patch("time.time", return_value=now):
+        with (
+            patch("os.path.getmtime", return_value=now - 500),
+            patch("time.time", return_value=now),
+        ):
             label, secs = now_age()
             assert label == "fresh"
             assert secs < 900
 
     def test_recent_under_1_hour(self):
         now = time.time()
-        with patch("os.path.getmtime", return_value=now - 1800), \
-             patch("time.time", return_value=now):
+        with (
+            patch("os.path.getmtime", return_value=now - 1800),
+            patch("time.time", return_value=now),
+        ):
             label, secs = now_age()
             assert label == "recent"
             assert 900 <= secs < 3600
 
     def test_stale_under_1_day(self):
         now = time.time()
-        with patch("os.path.getmtime", return_value=now - 10000), \
-             patch("time.time", return_value=now):
+        with (
+            patch("os.path.getmtime", return_value=now - 10000),
+            patch("time.time", return_value=now),
+        ):
             label, secs = now_age()
             assert label == "stale"
             assert 3600 <= secs < 86400
 
     def test_very_stale_over_1_day(self):
         now = time.time()
-        with patch("os.path.getmtime", return_value=now - 200000), \
-             patch("time.time", return_value=now):
+        with (
+            patch("os.path.getmtime", return_value=now - 200000),
+            patch("time.time", return_value=now),
+        ):
             label, secs = now_age()
             assert label == "very stale"
             assert secs >= 86400
@@ -138,6 +147,7 @@ class TestNowAge:
 # ══════════════════════════════════════════════════════════════════════════════
 # memory_lines
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestMemoryLines:
     def test_counts_lines(self, tmp_path):
@@ -156,6 +166,7 @@ class TestMemoryLines:
 # skill_gaps
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestSkillGaps:
     def test_no_gaps(self):
         with patch("os.listdir", side_effect=lambda p: ["skill_a", "skill_b"]):
@@ -170,6 +181,7 @@ class TestSkillGaps:
             if str(CLAUDE_SKILLS) == path:
                 return ["alpha", "gamma"]
             return []
+
         with patch("os.listdir", side_effect=fake_listdir):
             result = skill_gaps()
             assert result == ["beta"]
@@ -182,6 +194,7 @@ class TestSkillGaps:
             if str(CLAUDE_SKILLS) == path:
                 return ["visible"]
             return []
+
         with patch("os.listdir", side_effect=fake_listdir):
             result = skill_gaps()
             assert result == []
@@ -194,6 +207,7 @@ class TestSkillGaps:
 # ══════════════════════════════════════════════════════════════════════════════
 # dep_check
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestDepCheck:
     def test_returns_warnings(self):
@@ -221,6 +235,7 @@ class TestDepCheck:
 # peira_status
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestPeiraStatus:
     def test_returns_status_text(self):
         mock = MagicMock(returncode=0, stdout="exp-42 running\n")
@@ -245,6 +260,7 @@ class TestPeiraStatus:
 # ══════════════════════════════════════════════════════════════════════════════
 # latest_session_id
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestLatestSessionId:
     def test_extracts_hex_id(self):
@@ -272,9 +288,11 @@ class TestLatestSessionId:
 # run_reflect
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestRunReflect:
     def _mock_anam(self, messages_json):
         """Return a mock subprocess.run that responds to anam search + channel."""
+
         def side_effect(cmd, **kwargs):
             m = MagicMock()
             if "anam" in cmd:
@@ -291,6 +309,7 @@ class TestRunReflect:
                 m.returncode = 1
                 m.stdout = ""
             return m
+
         return side_effect
 
     def test_parses_findings(self):
@@ -299,18 +318,18 @@ class TestRunReflect:
             {"role": "assistant", "snippet": "Great!", "time": "10:01"},
         ]
         with patch("subprocess.run", side_effect=self._mock_anam(msgs)):
-            findings, usage = run_reflect("abc123")
+            findings, _usage = run_reflect("abc123")
         assert len(findings) >= 1
         assert findings[0]["category"] == "discovery"
 
     def test_empty_messages_returns_empty(self):
         with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="[]")):
-            findings, usage = run_reflect("abc123")
+            findings, _usage = run_reflect("abc123")
         assert findings == []
 
     def test_anam_failure_returns_empty(self):
         with patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="")):
-            findings, usage = run_reflect("abc123")
+            findings, _usage = run_reflect("abc123")
         assert findings == []
 
     def test_long_assistant_snippet_truncated(self):
@@ -318,7 +337,7 @@ class TestRunReflect:
             {"role": "assistant", "snippet": "x" * 600, "time": "10:00"},
         ]
         with patch("subprocess.run", side_effect=self._mock_anam(msgs)):
-            findings, usage = run_reflect("abc123")
+            _findings, usage = run_reflect("abc123")
         assert usage["input_tokens"] > 0
 
     def test_channel_failure_returns_empty(self):
@@ -346,6 +365,7 @@ class TestRunReflect:
 # ══════════════════════════════════════════════════════════════════════════════
 # cmd_gather
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestCmdGather:
     def _make_args(self, **overrides):
@@ -390,6 +410,7 @@ class TestCmdGather:
             if "receptors" in str(path) or path.name == "receptors":
                 return "M foo.py"
             return ""
+
         args = self._make_args()
         with _pdict(**self._gather_patches(git_status=MagicMock(side_effect=fake_git_status))):
             cmd_gather(args)
@@ -436,10 +457,12 @@ class TestCmdGather:
         fake_findings = [{"category": "discovery", "lesson": "learned X"}]
         fake_usage = {"input_tokens": 100, "output_tokens": 50}
         args = self._make_args()
-        with _pdict(**self._gather_patches(
-            latest_session_id=MagicMock(return_value="abc123"),
-            run_reflect=MagicMock(return_value=(fake_findings, fake_usage)),
-        )):
+        with _pdict(
+            **self._gather_patches(
+                latest_session_id=MagicMock(return_value="abc123"),
+                run_reflect=MagicMock(return_value=(fake_findings, fake_usage)),
+            )
+        ):
             cmd_gather(args)
         out = capsys.readouterr().out
         assert "reflect:1 candidates" in out
@@ -470,6 +493,7 @@ class TestCmdGather:
 # cmd_archive
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestCmdArchive:
     @staticmethod
     def _fake_datetime(dt):
@@ -495,6 +519,7 @@ class TestCmdArchive:
 
     def test_archives_completed_items(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("# Tasks\n\n- [x] Done thing\n- [ ] Still todo\n")
         archive = tmp_path / "Praxis Archive.md"
@@ -514,6 +539,7 @@ class TestCmdArchive:
 
     def test_adds_done_tag_if_missing(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [x] Task without done tag\n")
         archive = tmp_path / "Praxis Archive.md"
@@ -526,6 +552,7 @@ class TestCmdArchive:
 
     def test_preserves_existing_done_tag(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [x] Task `done:2026-01-01`\n")
         archive = tmp_path / "Praxis Archive.md"
@@ -539,6 +566,7 @@ class TestCmdArchive:
 
     def test_creates_new_month_section(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [x] New task\n")
         archive = tmp_path / "Praxis Archive.md"
@@ -552,8 +580,11 @@ class TestCmdArchive:
 
     def test_skips_children_of_completed_items(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
-        praxis.write_text("- [x] Parent task\n  - child detail 1\n  - child detail 2\n- [ ] Remaining\n")
+        praxis.write_text(
+            "- [x] Parent task\n  - child detail 1\n  - child detail 2\n- [ ] Remaining\n"
+        )
         archive = tmp_path / "Praxis Archive.md"
         archive.write_text("")
         fake_now = datetime(2026, 3, 31, 12, 0, 0)
@@ -565,6 +596,7 @@ class TestCmdArchive:
 
     def test_empty_archive_gets_first_section(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [x] First archived\n")
         archive = tmp_path / "Praxis Archive.md"
@@ -588,6 +620,7 @@ class TestCmdArchive:
 
     def test_format_json_archived_items(self, tmp_path, capsys):
         from datetime import datetime
+
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [x] Done thing\n- [ ] Still todo\n")
         archive = tmp_path / "Praxis Archive.md"
@@ -610,6 +643,7 @@ class TestCmdArchive:
 # cmd_daily
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestCmdDaily:
     @staticmethod
     def _fake_datetime(dt):
@@ -621,6 +655,7 @@ class TestCmdDaily:
 
     def test_creates_new_daily_note(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
@@ -635,6 +670,7 @@ class TestCmdDaily:
 
     def test_appends_to_existing(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         daily_path = daily_dir / "2026-03-31.md"
@@ -649,6 +685,7 @@ class TestCmdDaily:
 
     def test_default_title_is_session(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
@@ -660,6 +697,7 @@ class TestCmdDaily:
 
     def test_template_has_fill_prompt(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
@@ -671,6 +709,7 @@ class TestCmdDaily:
 
     def test_template_format(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
@@ -683,6 +722,7 @@ class TestCmdDaily:
 
     def test_format_json_creates_new(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
@@ -697,6 +737,7 @@ class TestCmdDaily:
 
     def test_format_json_appends_existing(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         daily_path = daily_dir / "2026-03-31.md"
@@ -714,9 +755,12 @@ class TestCmdDaily:
 # cmd_reflect
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestCmdReflect:
     def test_no_findings(self, capsys):
-        with _pdict(run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
+        with _pdict(
+            run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))
+        ):
             args = MagicMock(session="abc123", json=False)
             cmd_reflect(args)
         out = capsys.readouterr().out
@@ -724,7 +768,11 @@ class TestCmdReflect:
 
     def test_json_output(self, capsys):
         findings = [{"category": "discovery", "lesson": "something"}]
-        with _pdict(run_reflect=MagicMock(return_value=(findings, {"input_tokens": 100, "output_tokens": 50}))):
+        with _pdict(
+            run_reflect=MagicMock(
+                return_value=(findings, {"input_tokens": 100, "output_tokens": 50})
+            )
+        ):
             args = MagicMock(session="abc123", json=True)
             cmd_reflect(args)
         out = capsys.readouterr().out
@@ -736,7 +784,11 @@ class TestCmdReflect:
         findings = [
             {"category": "taste_calibration", "lesson": "prefer X over Y", "quote": "use X"},
         ]
-        with _pdict(run_reflect=MagicMock(return_value=(findings, {"input_tokens": 100, "output_tokens": 50}))):
+        with _pdict(
+            run_reflect=MagicMock(
+                return_value=(findings, {"input_tokens": 100, "output_tokens": 50})
+            )
+        ):
             args = MagicMock(session="abc123", json=False)
             cmd_reflect(args)
         out = capsys.readouterr().out
@@ -746,7 +798,11 @@ class TestCmdReflect:
 
     def test_format_json_output(self, capsys):
         findings = [{"category": "discovery", "lesson": "something"}]
-        with _pdict(run_reflect=MagicMock(return_value=(findings, {"input_tokens": 100, "output_tokens": 50}))):
+        with _pdict(
+            run_reflect=MagicMock(
+                return_value=(findings, {"input_tokens": 100, "output_tokens": 50})
+            )
+        ):
             args = MagicMock(session="abc123", json=False, format="json")
             cmd_reflect(args)
         out = capsys.readouterr().out
@@ -755,7 +811,9 @@ class TestCmdReflect:
         assert data[0]["category"] == "discovery"
 
     def test_format_json_no_findings(self, capsys):
-        with _pdict(run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
+        with _pdict(
+            run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))
+        ):
             args = MagicMock(session="abc123", json=False, format="json")
             cmd_reflect(args)
         out = capsys.readouterr().out
@@ -765,6 +823,7 @@ class TestCmdReflect:
 # ══════════════════════════════════════════════════════════════════════════════
 # cmd_extract
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestCmdExtract:
     def test_exits_on_bad_json(self):
@@ -865,10 +924,12 @@ class TestCmdExtract:
                 cmd_extract(args)
 
     def test_format_json_parses_mixed_output(self, capsys, tmp_path):
-        gather = {"reflect": [
-            {"category": "discovery", "lesson": "x"},
-            {"category": "process_gap", "lesson": "y"},
-        ]}
+        gather = {
+            "reflect": [
+                {"category": "discovery", "lesson": "x"},
+                {"category": "process_gap", "lesson": "y"},
+            ]
+        }
         infile = tmp_path / "gather.json"
         infile.write_text(json.dumps(gather))
         channel_output = (
@@ -891,6 +952,7 @@ class TestCmdExtract:
 # ══════════════════════════════════════════════════════════════════════════════
 # main / argument parsing
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestMain:
     def _gather_patches(self):
@@ -918,8 +980,10 @@ class TestMain:
                 main()
 
     def test_gather_command(self, capsys):
-        with patch("sys.argv", ["legatum", "gather", "--syntactic"]), \
-             _pdict(**self._gather_patches()):
+        with (
+            patch("sys.argv", ["legatum", "gather", "--syntactic"]),
+            _pdict(**self._gather_patches()),
+        ):
             main()
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -928,40 +992,50 @@ class TestMain:
     def test_archive_command(self, tmp_path, capsys):
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [ ] nothing to archive\n")
-        with patch("sys.argv", ["legatum", "archive"]), \
-             _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=tmp_path / "archive.md"):
+        with (
+            patch("sys.argv", ["legatum", "archive"]),
+            _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=tmp_path / "archive.md"),
+        ):
             main()
         out = capsys.readouterr().out
         assert "No completed items" in out
 
     def test_daily_command(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
-        with patch("sys.argv", ["legatum", "daily", "Test"]), \
-             _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)):
+        with (
+            patch("sys.argv", ["legatum", "daily", "Test"]),
+            _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)),
+        ):
             main()
         assert (daily_dir / "2026-03-31.md").exists()
 
     def test_reflect_command(self, capsys):
-        with patch("sys.argv", ["legatum", "reflect", "abc123"]), \
-             _pdict(run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
+        with (
+            patch("sys.argv", ["legatum", "reflect", "abc123"]),
+            _pdict(
+                run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))
+            ),
+        ):
             main()
         out = capsys.readouterr().out
         assert "No messages found" in out
 
     def test_extract_command(self, capsys):
         data = json.dumps({"reflect": []})
-        with patch("sys.argv", ["legatum", "extract"]), \
-             patch("sys.stdin", StringIO(data)):
+        with patch("sys.argv", ["legatum", "extract"]), patch("sys.stdin", StringIO(data)):
             main()
         out = capsys.readouterr().out
         assert "no candidates" in out
 
     def test_gather_format_json(self, capsys):
-        with patch("sys.argv", ["legatum", "gather", "--format", "json"]), \
-             _pdict(**self._gather_patches()):
+        with (
+            patch("sys.argv", ["legatum", "gather", "--format", "json"]),
+            _pdict(**self._gather_patches()),
+        ):
             main()
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -971,8 +1045,10 @@ class TestMain:
     def test_archive_format_json(self, tmp_path, capsys):
         praxis = tmp_path / "Praxis.md"
         praxis.write_text("- [ ] nothing\n")
-        with patch("sys.argv", ["legatum", "archive", "--format", "json"]), \
-             _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=tmp_path / "archive.md"):
+        with (
+            patch("sys.argv", ["legatum", "archive", "--format", "json"]),
+            _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=tmp_path / "archive.md"),
+        ):
             main()
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -980,11 +1056,14 @@ class TestMain:
 
     def test_daily_format_json(self, tmp_path, capsys):
         from datetime import datetime
+
         daily_dir = tmp_path / "Daily"
         daily_dir.mkdir()
         fake_now = datetime(2026, 3, 31, 14, 30, 0)
-        with patch("sys.argv", ["legatum", "daily", "--format", "json", "Test"]), \
-             _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)):
+        with (
+            patch("sys.argv", ["legatum", "daily", "--format", "json", "Test"]),
+            _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)),
+        ):
             main()
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -992,24 +1071,32 @@ class TestMain:
         assert data["title"] == "Test"
 
     def test_reflect_format_json(self, capsys):
-        with patch("sys.argv", ["legatum", "reflect", "--format", "json", "abc123"]), \
-             _pdict(run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
+        with (
+            patch("sys.argv", ["legatum", "reflect", "--format", "json", "abc123"]),
+            _pdict(
+                run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))
+            ),
+        ):
             main()
         out = capsys.readouterr().out
         assert json.loads(out) == []
 
     def test_extract_format_json(self, capsys):
         data = json.dumps({"reflect": []})
-        with patch("sys.argv", ["legatum", "extract", "--format", "json"]), \
-             patch("sys.stdin", StringIO(data)):
+        with (
+            patch("sys.argv", ["legatum", "extract", "--format", "json"]),
+            patch("sys.stdin", StringIO(data)),
+        ):
             main()
         out = capsys.readouterr().out
         assert json.loads(out) == []
 
     def test_format_text_is_default(self, capsys):
         """Verify --format text (default) gives compact text, not JSON."""
-        with patch("sys.argv", ["legatum", "gather", "--format", "text"]), \
-             _pdict(**self._gather_patches()):
+        with (
+            patch("sys.argv", ["legatum", "gather", "--format", "text"]),
+            _pdict(**self._gather_patches()),
+        ):
             main()
         out = capsys.readouterr().out
         # Should be compact text, not JSON

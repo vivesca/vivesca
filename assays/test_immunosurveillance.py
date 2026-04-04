@@ -237,8 +237,10 @@ class TestCheckHealth:
             "__code_dir__": True,
         }
         side_effect = self._path_exists_side_effect(ns, mapping)
-        with patch("pathlib.Path.exists", side_effect), \
-             patch("subprocess.run", return_value=MagicMock(returncode=0)):
+        with (
+            patch("pathlib.Path.exists", side_effect),
+            patch("subprocess.run", return_value=MagicMock(returncode=0)),
+        ):
             assert ns["check_health"]() is True
         out = capsys.readouterr().out
         assert "cargo-audit found" in out
@@ -281,8 +283,10 @@ class TestCheckHealth:
             "__code_dir__": True,
         }
         side_effect = self._path_exists_side_effect(ns, mapping)
-        with patch("pathlib.Path.exists", side_effect), \
-             patch("subprocess.run", return_value=MagicMock(returncode=1)):
+        with (
+            patch("pathlib.Path.exists", side_effect),
+            patch("subprocess.run", return_value=MagicMock(returncode=1)),
+        ):
             assert ns["check_health"]() is False
         err = capsys.readouterr().err
         assert "not loaded" in err
@@ -360,24 +364,26 @@ class TestRunSweep:
         (proj / "Cargo.toml").write_text("[package]\nname='vuln'")
         (proj / "Cargo.lock").write_text("# lock")
 
-        vuln_output = (
-            "ID: RUSTSEC-2024-0001\nCrate: bad-crate\n"
-            "Version: 1.0.0\nDate: 2024-01-01\n"
-        )
+        vuln_output = "ID: RUSTSEC-2024-0001\nCrate: bad-crate\nVersion: 1.0.0\nDate: 2024-01-01\n"
         mock_result = MagicMock(returncode=1, stdout=vuln_output, stderr="")
         mock_secrete = MagicMock()
 
         orig_code = ns["CODE_DIR"]
         ns["CODE_DIR"] = tmp_path
         try:
-            with patch("subprocess.run", return_value=mock_result), \
-                 patch.dict("sys.modules", {
-                     "metabolon": MagicMock(),
-                     "metabolon.organelles": MagicMock(),
-                     "metabolon.organelles.secretory_vesicle": MagicMock(
-                         secrete_text=mock_secrete,
-                     ),
-                 }):
+            with (
+                patch("subprocess.run", return_value=mock_result),
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "metabolon": MagicMock(),
+                        "metabolon.organelles": MagicMock(),
+                        "metabolon.organelles.secretory_vesicle": MagicMock(
+                            secrete_text=mock_secrete,
+                        ),
+                    },
+                ),
+            ):
                 ns["run_sweep"]()
         finally:
             ns["CODE_DIR"] = orig_code

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 
 import json
-import textwrap
-from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,19 +13,19 @@ from metabolon.organelles.rheotaxis_engine import (
     _DEPTH_FN,
     _PERPLEXITY_MODELS,
     RheotaxisResult,
+    _get_key,
+    _perplexity_key,
+    _perplexity_query,
     format_results,
     multi_query_search,
     parallel_search,
     search_perplexity,
-    _perplexity_key,
-    _get_key,
-    _perplexity_query,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_result(
     backend: str = "test",
@@ -49,6 +47,7 @@ def _make_result(
 # 1. Config / routing dicts
 # ---------------------------------------------------------------------------
 
+
 class TestConfigDicts:
     def test_perplexity_models_mapping(self) -> None:
         assert _PERPLEXITY_MODELS == {
@@ -67,6 +66,7 @@ class TestConfigDicts:
 # ---------------------------------------------------------------------------
 # 2. format_results — pure formatting
 # ---------------------------------------------------------------------------
+
 
 class TestFormatResults:
     def test_empty_input(self) -> None:
@@ -103,10 +103,12 @@ class TestFormatResults:
         assert "(no results)" in result
 
     def test_multiple_results_separated(self) -> None:
-        out = format_results([
-            _make_result(backend="exa", query="q1", answer="a1"),
-            _make_result(backend="serper", query="q2", error="fail"),
-        ])
+        out = format_results(
+            [
+                _make_result(backend="exa", query="q1", answer="a1"),
+                _make_result(backend="serper", query="q2", error="fail"),
+            ]
+        )
         assert "## exa (q1)" in out
         assert "## serper (q2)" in out
 
@@ -114,6 +116,7 @@ class TestFormatResults:
 # ---------------------------------------------------------------------------
 # 3. Key helpers
 # ---------------------------------------------------------------------------
+
 
 class TestKeyHelpers:
     def test_perplexity_key_present(self) -> None:
@@ -139,10 +142,15 @@ class TestKeyHelpers:
 # 4. search_perplexity — dispatches to depth fn
 # ---------------------------------------------------------------------------
 
+
 class TestSearchPerplexity:
     def test_returns_answer(self) -> None:
-        with patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}), \
-             patch("metabolon.organelles.rheotaxis_engine._perplexity_query", return_value="ans") as mock_pq:
+        with (
+            patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}),
+            patch(
+                "metabolon.organelles.rheotaxis_engine._perplexity_query", return_value="ans"
+            ) as mock_pq,
+        ):
             result = search_perplexity("hello", depth="quick")
             assert result.backend == "perplexity"
             assert result.answer == "ans"
@@ -150,14 +158,21 @@ class TestSearchPerplexity:
             mock_pq.assert_called_once_with("sonar", "hello", timeout=30)
 
     def test_depth_routing(self) -> None:
-        with patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}), \
-             patch("metabolon.organelles.rheotaxis_engine._perplexity_query", return_value="x"):
+        with (
+            patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}),
+            patch("metabolon.organelles.rheotaxis_engine._perplexity_query", return_value="x"),
+        ):
             search_perplexity("q", depth="thorough")
             # Should call with sonar-pro model
 
     def test_error_handling(self) -> None:
-        with patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}), \
-             patch("metabolon.organelles.rheotaxis_engine._perplexity_query", side_effect=ValueError("nope")):
+        with (
+            patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}),
+            patch(
+                "metabolon.organelles.rheotaxis_engine._perplexity_query",
+                side_effect=ValueError("nope"),
+            ),
+        ):
             result = search_perplexity("q")
             assert result.error == "nope"
             assert result.backend == "perplexity"
@@ -166,6 +181,7 @@ class TestSearchPerplexity:
 # ---------------------------------------------------------------------------
 # 5. _perplexity_query — citation formatting
 # ---------------------------------------------------------------------------
+
 
 class TestPerplexityQuery:
     def _mock_response(self, content: str, citations: list[str] | None = None) -> MagicMock:
@@ -182,17 +198,24 @@ class TestPerplexityQuery:
         return mock_resp
 
     def test_basic_answer(self) -> None:
-        with patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}), \
-             patch("urllib.request.urlopen", return_value=self._mock_response("Paris")) as mock_urlopen, \
-             patch("builtins.open", MagicMock()):
+        with (
+            patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}),
+            patch("urllib.request.urlopen", return_value=self._mock_response("Paris")),
+            patch("builtins.open", MagicMock()),
+        ):
             result = _perplexity_query("sonar", "capital of france")
             assert "Paris" in result
             assert "Sources" not in result
 
     def test_citations_appended(self) -> None:
-        with patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}), \
-             patch("urllib.request.urlopen", return_value=self._mock_response("Paris", ["https://a.com", "https://b.com"])), \
-             patch("builtins.open", MagicMock()):
+        with (
+            patch.dict("os.environ", {"PERPLEXITY_API_KEY": "k"}),
+            patch(
+                "urllib.request.urlopen",
+                return_value=self._mock_response("Paris", ["https://a.com", "https://b.com"]),
+            ),
+            patch("builtins.open", MagicMock()),
+        ):
             result = _perplexity_query("sonar", "capital of france")
             assert "Sources:" in result
             assert "- https://a.com" in result
@@ -202,6 +225,7 @@ class TestPerplexityQuery:
 # ---------------------------------------------------------------------------
 # 6. parallel_search — orchestration with mocked backends
 # ---------------------------------------------------------------------------
+
 
 class TestParallelSearch:
     def test_default_backends(self) -> None:
@@ -215,6 +239,7 @@ class TestParallelSearch:
         def fake_backend(name: str):
             def fn(*args, **kwargs):
                 return mock_results[name]
+
             return fn
 
         with patch.dict(
@@ -245,6 +270,7 @@ class TestParallelSearch:
 # ---------------------------------------------------------------------------
 # 7. multi_query_search — multiple queries
 # ---------------------------------------------------------------------------
+
 
 class TestMultiQuerySearch:
     def test_groups_by_query(self) -> None:

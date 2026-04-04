@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 import json
-import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -67,7 +66,9 @@ class TestLoadOvernightEntries:
         log_path = tmp_path / "log.jsonl"
         now = datetime.now()
         entries = [
-            _make_entry((now - timedelta(hours=h)).isoformat(timespec="seconds"), plan=f"plan-{h}.md")
+            _make_entry(
+                (now - timedelta(hours=h)).isoformat(timespec="seconds"), plan=f"plan-{h}.md"
+            )
             for h in [1, 3, 5, 7]
         ]
         _write_log(log_path, entries)
@@ -166,8 +167,21 @@ class TestComputeOvernightStats:
 class TestFormatOvernightReport:
     def test_format_overnight_report_contains_key_sections(self) -> None:
         entries = [
-            _make_entry("2026-03-31T01:00:00", success=True, tool="droid", plan="alpha.md", project="germline"),
-            _make_entry("2026-03-31T02:00:00", success=False, tool="gemini", failure_reason="placeholder-scan", plan="beta.md", project="germline"),
+            _make_entry(
+                "2026-03-31T01:00:00",
+                success=True,
+                tool="droid",
+                plan="alpha.md",
+                project="germline",
+            ),
+            _make_entry(
+                "2026-03-31T02:00:00",
+                success=False,
+                tool="gemini",
+                failure_reason="placeholder-scan",
+                plan="beta.md",
+                project="germline",
+            ),
         ]
         stats = compute_overnight_stats(entries)
         report = format_overnight_report(stats, entries)

@@ -1,6 +1,4 @@
-
 """Deterministic spending monitors -- fraud, budget, subscriptions."""
-
 
 from collections import Counter
 

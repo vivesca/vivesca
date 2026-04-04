@@ -1,9 +1,8 @@
 """Tests for gap_junction enzyme."""
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from metabolon.enzymes.gap_junction import gap_junction, GapJunctionResult
+from metabolon.enzymes.gap_junction import GapJunctionResult, gap_junction
 
 
 def test_gap_junction_unknown_action():

@@ -6,7 +6,6 @@ import pytest
 
 from metabolon.pinocytosis.ultradian import intake, main
 
-
 # ── intake tests ───────────────────────────────────────────────────────
 
 
@@ -39,9 +38,7 @@ def test_pinocytosis_ultradian_main_calls_intake_with_default_args(monkeypatch, 
     import sys
 
     monkeypatch.setattr(sys, "argv", ["ultradian"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.ultradian.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.ultradian.intake", mock_intake)
     main()
     captured = capsys.readouterr()
     # --json flag not passed, so as_json is False (default from argparse action="store_true")
@@ -60,9 +57,7 @@ def test_pinocytosis_ultradian_main_with_json_flag(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["ultradian", "--json"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.ultradian.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.ultradian.intake", mock_intake)
     main()
     assert called["as_json"] is True
 
@@ -78,9 +73,7 @@ def test_pinocytosis_ultradian_main_without_json_flag(monkeypatch, capsys):
     import sys
 
     monkeypatch.setattr(sys, "argv", ["ultradian"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.ultradian.intake", mock_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.ultradian.intake", mock_intake)
     main()
     # Default is True when --json is not passed
     assert called["as_json"] is False

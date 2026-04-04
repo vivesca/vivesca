@@ -1,4 +1,3 @@
-
 """censor — LLM quality gate against named rubrics.
 
 Tools:

@@ -9,9 +9,8 @@ Loaded via exec() with all external calls mocked.
 
 
 import os
-import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -20,6 +19,7 @@ GREP_LINK_PATH = Path(__file__).resolve().parents[1] / "effectors" / "grep"
 
 
 # ── Load module via exec ────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def sg():
@@ -108,7 +108,7 @@ class TestGrepBlocking:
         """~/Library tilde-expands and hits the massive-dir block."""
         # On this machine ~/Library -> /home/terry/Library which doesn't
         # match the hardcoded /home/terry/Library, so mock to make it match
-        lib_expanded = os.path.abspath(os.path.expanduser("~/Library"))
+        os.path.abspath(os.path.expanduser("~/Library"))
         with patch("sys.argv", ["grep", "-r", "pattern", "~/Library"]):
             # The code expands ~/Library to /home/terry/Library.
             # Only blocked if it matches the massive_dirs list.

@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from metabolon.enzymes.telegram_receptor import (
-    telegram_receptor,
     TelegramResult,
+    telegram_receptor,
 )
 
-
 # ── helpers ──────────────────────────────────────────────────────────
+
 
 def _call(**kwargs) -> TelegramResult:
     return telegram_receptor(**kwargs)
 
 
 # ── return type consistency ──────────────────────────────────────────
+
 
 class TestReturnType:
     """Every code path must return a TelegramResult."""
@@ -45,25 +45,28 @@ class TestReturnType:
 
 # ── action normalization ─────────────────────────────────────────────
 
+
 class TestActionNormalization:
     def test_whitespace_stripped_read(self):
         with patch("metabolon.organelles.telegram_receptor.read_chat", return_value="msg") as m:
-            r = _call(action="  read  ", chat="me")
+            _call(action="  read  ", chat="me")
             m.assert_called_once()
 
     def test_whitespace_stripped_search(self):
-        with patch("metabolon.organelles.telegram_receptor.search_messages", return_value="x") as m:
-            r = _call(action=" search ", query="hi")
+        with patch(
+            "metabolon.organelles.telegram_receptor.search_messages", return_value="x"
+        ) as m:
+            _call(action=" search ", query="hi")
             m.assert_called_once()
 
     def test_mixed_case_action(self):
         with patch("metabolon.organelles.telegram_receptor.auth_status", return_value="ok") as m:
-            r = _call(action="AuTh_StAtUs")
+            _call(action="AuTh_StAtUs")
             m.assert_called_once()
 
     def test_uppercase_list_chats(self):
         with patch("metabolon.organelles.telegram_receptor.list_chats", return_value="chats") as m:
-            r = _call(action="LIST_CHATS")
+            _call(action="LIST_CHATS")
             m.assert_called_once()
 
     def test_empty_string_action(self):
@@ -72,6 +75,7 @@ class TestActionNormalization:
 
 
 # ── read action ──────────────────────────────────────────────────────
+
 
 class TestReadAction:
     @patch("metabolon.organelles.telegram_receptor.read_chat", return_value="chat messages")
@@ -82,7 +86,7 @@ class TestReadAction:
 
     @patch("metabolon.organelles.telegram_receptor.read_chat", return_value="chat messages")
     def test_read_custom_params(self, m):
-        r = _call(action="read", chat="general", limit=10)
+        _call(action="read", chat="general", limit=10)
         m.assert_called_once_with("general", 10)
 
     @patch("metabolon.organelles.telegram_receptor.read_chat", return_value="")
@@ -92,6 +96,7 @@ class TestReadAction:
 
 
 # ── search action ────────────────────────────────────────────────────
+
 
 class TestSearchAction:
     def test_search_without_query_returns_error(self):
@@ -107,17 +112,20 @@ class TestSearchAction:
 
     @patch("metabolon.organelles.telegram_receptor.search_messages", return_value="found: 0")
     def test_search_custom_chat_and_limit(self, m):
-        r = _call(action="search", query="test", chat="devops", limit=5)
+        _call(action="search", query="test", chat="devops", limit=5)
         m.assert_called_once_with("test", "devops", 5)
 
     def test_search_query_only_whitespace_still_has_value(self):
         """Whitespace-only query is truthy in Python, so it passes validation."""
-        with patch("metabolon.organelles.telegram_receptor.search_messages", return_value="ok") as m:
-            r = _call(action="search", query="  ")
+        with patch(
+            "metabolon.organelles.telegram_receptor.search_messages", return_value="ok"
+        ) as m:
+            _call(action="search", query="  ")
             m.assert_called_once()
 
 
 # ── list_chats action ────────────────────────────────────────────────
+
 
 class TestListChatsAction:
     @patch("metabolon.organelles.telegram_receptor.list_chats", return_value="Chat1\nChat2")
@@ -128,20 +136,24 @@ class TestListChatsAction:
 
     @patch("metabolon.organelles.telegram_receptor.list_chats", return_value="No chats")
     def test_list_chats_custom_limit(self, m):
-        r = _call(action="list_chats", limit=50)
+        _call(action="list_chats", limit=50)
         m.assert_called_once_with(50)
 
     @patch("metabolon.organelles.telegram_receptor.list_chats", return_value="No chats")
     def test_list_chats_ignores_query_param(self, m):
         """list_chats should not forward irrelevant params to organelle."""
-        r = _call(action="list_chats", query="ignored", chat="ignored")
+        _call(action="list_chats", query="ignored", chat="ignored")
         m.assert_called_once_with(30)
 
 
 # ── auth_status action ───────────────────────────────────────────────
 
+
 class TestAuthStatusAction:
-    @patch("metabolon.organelles.telegram_receptor.auth_status", return_value="Authenticated as: Terry (+123456)")
+    @patch(
+        "metabolon.organelles.telegram_receptor.auth_status",
+        return_value="Authenticated as: Terry (+123456)",
+    )
     def test_auth_status_success(self, m):
         r = _call(action="auth_status")
         m.assert_called_once_with()
@@ -154,11 +166,12 @@ class TestAuthStatusAction:
 
     @patch("metabolon.organelles.telegram_receptor.auth_status", return_value="ok")
     def test_auth_status_ignores_all_optional_params(self, m):
-        r = _call(action="auth_status", chat="ignored", query="ignored", limit=999)
+        _call(action="auth_status", chat="ignored", query="ignored", limit=999)
         m.assert_called_once_with()
 
 
 # ── unknown action ───────────────────────────────────────────────────
+
 
 class TestUnknownActionMessage:
     def test_message_contains_all_valid_actions(self):
@@ -177,6 +190,7 @@ class TestUnknownActionMessage:
 
 # ── TelegramResult is a proper model ─────────────────────────────────
 
+
 class TestTelegramResultModel:
     def test_output_field_populated(self):
         r = TelegramResult(output="hello")
@@ -184,5 +198,6 @@ class TestTelegramResultModel:
 
     def test_result_is_secretion_subclass(self):
         from metabolon.morphology import Secretion
+
         r = TelegramResult(output="x")
         assert isinstance(r, Secretion)

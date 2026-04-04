@@ -8,6 +8,7 @@ Supports two execution modes:
   - "raw" (default): subprocess via `claude --print` (fast, battle-tested)
   - "graph": LangGraph agent with plan→execute→verify→review (structured, auditable)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +18,7 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy, SearchAttributeKey
 
 with workflow.unsafe.imports_passed_through():
-    from worker import run_golem_task, run_golem_graph_task, review_golem_result
+    from worker import review_golem_result, run_golem_graph_task, run_golem_task
 
 # #6: Search attributes (registered on server)
 SA_PROVIDER = SearchAttributeKey.for_keyword("GolemProvider")
@@ -34,7 +35,6 @@ _RETRY_POLICY = RetryPolicy(
 
 # Review has no retries — it's local and fast
 _REVIEW_RETRY = RetryPolicy(maximum_attempts=1)
-
 
 
 @workflow.defn
@@ -75,7 +75,14 @@ class GolemDispatchWorkflow:
                         heartbeat_timeout=timedelta(minutes=10),
                         retry_policy=_RETRY_POLICY,
                     )
-                    review = result.get("review", {"approved": result.get("success", False), "flags": [], "verdict": "unknown"})
+                    review = result.get(
+                        "review",
+                        {
+                            "approved": result.get("success", False),
+                            "flags": [],
+                            "verdict": "unknown",
+                        },
+                    )
                 except Exception:
                     # Graph failed (e.g. 429 rate limit) — fall back to raw mode
                     mode = "raw_fallback"
@@ -94,7 +101,11 @@ class GolemDispatchWorkflow:
                             retry_policy=_REVIEW_RETRY,
                         )
                     except Exception:
-                        review = {"approved": result.get("success", False), "flags": ["review_failed"], "verdict": "review_error"}
+                        review = {
+                            "approved": result.get("success", False),
+                            "flags": ["review_failed"],
+                            "verdict": "review_error",
+                        }
             else:
                 # Raw subprocess mode (default)
                 result = await workflow.execute_activity(
@@ -112,7 +123,11 @@ class GolemDispatchWorkflow:
                         retry_policy=_REVIEW_RETRY,
                     )
                 except Exception:
-                    review = {"approved": result.get("success", False), "flags": ["review_failed"], "verdict": "review_error"}
+                    review = {
+                        "approved": result.get("success", False),
+                        "flags": ["review_failed"],
+                        "verdict": "review_error",
+                    }
 
         except Exception as exc:
             result = {
@@ -145,7 +160,7 @@ class GolemDispatchWorkflow:
                 decision = self._approval_signals.get(task_id, "approve")
                 if decision == "reject":
                     review = {**review, "approved": False, "verdict": "rejected_by_signal"}
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass  # auto-approve after 1h
 
         # Wire use_review_v2: pass output_path in review for new executions
@@ -153,20 +168,22 @@ class GolemDispatchWorkflow:
         if use_review_v2:
             review = {**review, "output_path": result.get("output_path", "")}
 
-        return {**result, "review": review, "mode": mode, "requeue_prompt": review.get("requeue_prompt", "")}
+        return {
+            **result,
+            "review": review,
+            "mode": mode,
+            "requeue_prompt": review.get("requeue_prompt", ""),
+        }
 
     @workflow.run
     async def run(self, specs: list[dict]) -> dict:
         """Execute all task specs concurrently, review each, return aggregate."""
-        results = await asyncio.gather(
-            *[self._execute_one(s) for s in specs]
-        )
+        results = await asyncio.gather(*[self._execute_one(s) for s in specs])
 
         succeeded = sum(1 for r in results if r.get("success"))
         approved = sum(1 for r in results if r.get("review", {}).get("approved"))
         flagged = sum(
-            1 for r in results
-            if r.get("review", {}).get("verdict") == "approved_with_flags"
+            1 for r in results if r.get("review", {}).get("verdict") == "approved_with_flags"
         )
         rejected = sum(1 for r in results if not r.get("review", {}).get("approved"))
 

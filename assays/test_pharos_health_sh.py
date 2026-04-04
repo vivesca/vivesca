@@ -6,8 +6,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-health.sh"
 
 
@@ -38,7 +36,9 @@ echo "Mem:           16000        8000        8000           0           0      
     # Mock systemctl
     systemctl = mock_bin / "systemctl"
     if failed_units > 0:
-        lines = "\n".join([f"unit{i}.service loaded failed failed unit{i}" for i in range(failed_units)])
+        lines = "\n".join(
+            [f"unit{i}.service loaded failed failed unit{i}" for i in range(failed_units)]
+        )
         systemctl.write_text(f"""#!/bin/bash
 cat <<'EOF'
 {lines}
@@ -193,7 +193,7 @@ class TestTgNotify:
         scripts_dir.mkdir()
         alert_file = tmp_path / "alert.txt"
         notify = scripts_dir / "tg-notify.sh"
-        notify.write_text(f"#!/bin/bash\necho \"$@\" > {alert_file}\n")
+        notify.write_text(f'#!/bin/bash\necho "$@" > {alert_file}\n')
         notify.chmod(0o755)
 
         env = os.environ.copy()

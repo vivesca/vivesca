@@ -1,5 +1,4 @@
 """Tests for metabolon.morphology.env."""
-import pytest
 
 
 def test_placeholder():

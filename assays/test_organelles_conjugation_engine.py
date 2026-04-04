@@ -13,7 +13,6 @@ Complements assays/test_conjugation_engine.py with:
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -30,25 +29,20 @@ from metabolon.organelles.conjugation_engine import (
     transform_skills,
 )
 
-
 # ── transform_hooks edge cases ─────────────────────────────────────────────
 
 
 class TestTransformHooksEdgeCases:
     def test_definition_missing_hooks_key(self):
         """A definition dict with no 'hooks' key should be skipped."""
-        gemini_hooks, dropped, count = transform_hooks(
-            {"UserPromptSubmit": [{"matcher": "Bash"}]}
-        )
+        gemini_hooks, dropped, count = transform_hooks({"UserPromptSubmit": [{"matcher": "Bash"}]})
         assert gemini_hooks == {}
         assert count == 0
         assert dropped == []
 
     def test_definition_with_empty_hooks_list(self):
         """A definition whose 'hooks' list is empty should be skipped."""
-        gemini_hooks, _, count = transform_hooks(
-            {"PreToolUse": [{"hooks": []}]}
-        )
+        gemini_hooks, _, count = transform_hooks({"PreToolUse": [{"hooks": []}]})
         assert gemini_hooks == {}
         assert count == 0
 
@@ -60,15 +54,9 @@ class TestTransformHooksEdgeCases:
     def test_mixed_event_partial_mapping(self):
         """Mixture of mappable, unmapped-known, and unknown events."""
         cc_hooks = {
-            "UserPromptSubmit": [
-                {"hooks": [{"type": "command", "command": "a.sh"}]}
-            ],
-            "Notification": [
-                {"hooks": [{"type": "command", "command": "b.sh"}]}
-            ],
-            "UnknownEvent": [
-                {"hooks": [{"type": "command", "command": "c.sh"}]}
-            ],
+            "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "a.sh"}]}],
+            "Notification": [{"hooks": [{"type": "command", "command": "b.sh"}]}],
+            "UnknownEvent": [{"hooks": [{"type": "command", "command": "c.sh"}]}],
         }
         gemini_hooks, dropped, count = transform_hooks(cc_hooks)
         assert "BeforeModel" in gemini_hooks
@@ -165,7 +153,7 @@ class TestReadCcSettingsMocked:
     def test_default_path_is_home_claude(self):
         from metabolon.organelles.conjugation_engine import CC_SETTINGS_PATH
 
-        assert CC_SETTINGS_PATH == Path.home() / ".claude" / "settings.json"
+        assert Path.home() / ".claude" / "settings.json" == CC_SETTINGS_PATH
 
 
 class TestReadGeminiSettingsMocked:
@@ -181,7 +169,7 @@ class TestReadGeminiSettingsMocked:
     def test_default_path_is_home_gemini(self):
         from metabolon.organelles.conjugation_engine import GEMINI_SETTINGS_PATH
 
-        assert GEMINI_SETTINGS_PATH == Path.home() / ".gemini" / "settings.json"
+        assert Path.home() / ".gemini" / "settings.json" == GEMINI_SETTINGS_PATH
 
     def test_valid_gemini_json(self, tmp_path):
         f = tmp_path / "gemini.json"
@@ -243,7 +231,7 @@ class TestDiffSettingsEdgeCases:
         before = {"hooks": {"BeforeModel": []}}
         after = {"hooks": {"BeforeModel": [{"hooks": [{"type": "command", "command": "x"}]}]}}
         result = diff_settings(before, after)
-        assert "-  \"hooks\":" in result or "+" in result
+        assert '-  "hooks":' in result or "+" in result
 
     def test_sorted_keys_in_output(self):
         """json.dumps with sort_keys means keys are alphabetized in diff."""
@@ -295,7 +283,7 @@ class TestReplicateIntegration:
     def test_no_hooks_no_mcp_no_write(self, tmp_path):
         cc_path = self._write_cc_settings(tmp_path, {"hooks": {}, "mcpServers": {}})
         gemini_path = tmp_path / "gemini.json"
-        result, diff = replicate_to_gemini(
+        result, _diff = replicate_to_gemini(
             cc_settings_path=cc_path,
             gemini_settings_path=gemini_path,
         )
@@ -307,9 +295,7 @@ class TestReplicateIntegration:
             tmp_path,
             {
                 "hooks": {
-                    "UserPromptSubmit": [
-                        {"hooks": [{"type": "command", "command": "a.sh"}]}
-                    ]
+                    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "a.sh"}]}]
                 },
                 "mcpServers": {"s": {"command": "c"}},
             },
@@ -330,9 +316,7 @@ class TestReplicateIntegration:
             tmp_path,
             {
                 "hooks": {
-                    "UserPromptSubmit": [
-                        {"hooks": [{"type": "command", "command": "a.sh"}]}
-                    ]
+                    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "a.sh"}]}]
                 },
                 "mcpServers": {"s": {"command": "c"}},
             },
@@ -352,17 +336,11 @@ class TestReplicateIntegration:
         cc_path = self._write_cc_settings(
             tmp_path,
             {
-                "hooks": {
-                    "Stop": [
-                        {"hooks": [{"type": "command", "command": "log.sh"}]}
-                    ]
-                },
+                "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "log.sh"}]}]},
             },
         )
         gemini_path = tmp_path / "gemini.json"
-        gemini_path.write_text(
-            json.dumps({"myCustomField": [1, 2, 3], "theme": "dark"})
-        )
+        gemini_path.write_text(json.dumps({"myCustomField": [1, 2, 3], "theme": "dark"}))
         replicate_to_gemini(
             cc_settings_path=cc_path,
             gemini_settings_path=gemini_path,
@@ -392,11 +370,7 @@ class TestReplicateIntegration:
         cc_path = self._write_cc_settings(
             tmp_path,
             {
-                "hooks": {
-                    "PreToolUse": [
-                        {"hooks": [{"type": "command", "command": "x.sh"}]}
-                    ]
-                },
+                "hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "x.sh"}]}]},
             },
         )
         gemini_path = tmp_path / "new_gemini.json"
@@ -424,7 +398,7 @@ class TestReplicateIntegration:
 
     def test_missing_cc_settings_produces_zero_result(self, tmp_path):
         gemini_path = tmp_path / "out.json"
-        result, diff = replicate_to_gemini(
+        result, _diff = replicate_to_gemini(
             cc_settings_path=tmp_path / "no_such_file.json",
             gemini_settings_path=gemini_path,
         )
@@ -438,9 +412,7 @@ class TestReplicateIntegration:
             {"mcpServers": {"new_srv": {"command": "new"}}},
         )
         gemini_path = tmp_path / "gemini.json"
-        gemini_path.write_text(
-            json.dumps({"mcpServers": {"old_srv": {"command": "old"}}})
-        )
+        gemini_path.write_text(json.dumps({"mcpServers": {"old_srv": {"command": "old"}}}))
         replicate_to_gemini(
             cc_settings_path=cc_path,
             gemini_settings_path=gemini_path,
@@ -479,4 +451,4 @@ class TestConstants:
             "PostToolUse": "AfterTool",
             "Stop": "AfterModel",
         }
-        assert CC_TO_GEMINI_EVENT == expected
+        assert expected == CC_TO_GEMINI_EVENT

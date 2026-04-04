@@ -2,13 +2,13 @@ from __future__ import annotations
 
 """Tests for chromatin writing, PDF archival, and deduplication."""
 
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 from metabolon.respirometry.chromatin import (
     is_processed,
     secrete_monthly_summary,
     serialize_markdown,
     stamp_processed,
 )
+from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 def _sample_meta() -> RespirogramMeta:

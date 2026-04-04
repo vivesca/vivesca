@@ -186,7 +186,7 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     except json.JSONDecodeError:
         return {
             "verdict": "FAIL", "score": 0, "criteria": {},
-            "summary": f"Censor returned unparseable output: {text[:200]}",
+            "summary": f"Censor returned unparsable output: {text[:200]}",
             "_raw": text,
         }
 

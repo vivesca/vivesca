@@ -16,11 +16,17 @@ def main():
         description="Truncate log files to last N lines.",
     )
     parser.add_argument(
-        "-d", "--dir", type=Path, default=LOG_DIR,
+        "-d",
+        "--dir",
+        type=Path,
+        default=LOG_DIR,
         help=f"Log directory (default: {LOG_DIR})",
     )
     parser.add_argument(
-        "-n", "--keep", type=int, default=DEFAULT_KEEP,
+        "-n",
+        "--keep",
+        type=int,
+        default=DEFAULT_KEEP,
         help=f"Lines to keep per file (default: {DEFAULT_KEEP})",
     )
     args = parser.parse_args()
@@ -35,7 +41,7 @@ def main():
             lines = log.read_text().splitlines()
             if len(lines) > args.keep:
                 tmp = log.with_suffix(".log.tmp")
-                tmp.write_text("\n".join(lines[-args.keep:]) + "\n")
+                tmp.write_text("\n".join(lines[-args.keep :]) + "\n")
                 tmp.replace(log)
         except OSError:
             pass

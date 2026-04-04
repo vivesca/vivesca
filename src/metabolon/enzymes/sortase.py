@@ -1,9 +1,7 @@
-
 """sortase — dispatch coding tasks to cheap LLM backends.
 
 Actions: dispatch|route|status|stats
 """
-
 
 import asyncio
 import tempfile

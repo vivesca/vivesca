@@ -8,8 +8,6 @@ import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 def _load_council():
     """Load the council module by exec-ing its Python body."""
@@ -303,7 +301,7 @@ def test_find_divergence_detects_unique_cost():
     gemini = "This is cheap to implement."
 
     # Both mention cost-related words, so no divergence on cost
-    result = find_divergence(codex, gemini)
+    find_divergence(codex, gemini)
     # The function checks for presence/absence, so this case has both
     # Let's test true divergence
     codex2 = "This is affordable."
@@ -326,7 +324,7 @@ def test_find_divergence_limits_results():
     """find_divergence limits results to 4."""
     result = find_divergence(
         "security performance cost user",  # codex mentions all
-        "none of the above"  # gemini mentions none
+        "none of the above",  # gemini mentions none
     )
     assert len(result) <= 4
 
@@ -371,15 +369,17 @@ def test_extract_risks_combines_both_inputs():
 
 def test_extract_risks_limits_results():
     """extract_risks limits results to 5."""
-    text = ". ".join([
-        "There is risk one.",
-        "There is danger two.",
-        "This will fail three.",
-        "Major problem four.",
-        "Big issue five.",
-        "Another risk six.",
-        "More danger seven.",
-    ])
+    text = ". ".join(
+        [
+            "There is risk one.",
+            "There is danger two.",
+            "This will fail three.",
+            "Major problem four.",
+            "Big issue five.",
+            "Another risk six.",
+            "More danger seven.",
+        ]
+    )
     result = extract_risks(text, "")
     assert len(result) <= 5
 

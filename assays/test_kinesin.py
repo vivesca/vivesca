@@ -6,9 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from metabolon.enzymes.kinesin import translocation, TranslocationResult, EffectorResult
+from metabolon.enzymes.kinesin import EffectorResult, TranslocationResult, translocation
 from metabolon.morphology import Secretion
-
 
 # ---------------------------------------------------------------------------
 # list
@@ -324,8 +323,10 @@ def test_results_imports_from_gemmation():
 
 def test_list_and_results_return_different_type_than_run():
     """list/results return TranslocationResult; run returns EffectorResult."""
-    with patch("metabolon.organelles.gemmation.list_tasks") as mock_list, \
-         patch("metabolon.organelles.gemmation.run_task") as mock_run:
+    with (
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+    ):
         mock_list.return_value = "tasks"
         mock_run.return_value = "dispatched"
 
@@ -340,8 +341,10 @@ def test_list_and_results_return_different_type_than_run():
 
 def test_cancel_same_type_as_run():
     """cancel and run both return EffectorResult."""
-    with patch("metabolon.organelles.gemmation.run_task") as mock_run, \
-         patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel:
+    with (
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+        patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel,
+    ):
         mock_run.return_value = "r"
         mock_cancel.return_value = "c"
 
@@ -382,8 +385,10 @@ def test_translocation_result_rejects_wrong_type():
 
 def test_list_does_not_call_run_task():
     """list action never touches run_task."""
-    with patch("metabolon.organelles.gemmation.list_tasks") as mock_list, \
-         patch("metabolon.organelles.gemmation.run_task") as mock_run:
+    with (
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+    ):
         mock_list.return_value = "ok"
 
         translocation(action="list")
@@ -393,8 +398,10 @@ def test_list_does_not_call_run_task():
 
 def test_run_does_not_call_list_tasks():
     """run action never touches list_tasks."""
-    with patch("metabolon.organelles.gemmation.run_task") as mock_run, \
-         patch("metabolon.organelles.gemmation.list_tasks") as mock_list:
+    with (
+        patch("metabolon.organelles.gemmation.run_task") as mock_run,
+        patch("metabolon.organelles.gemmation.list_tasks") as mock_list,
+    ):
         mock_run.return_value = "ok"
 
         translocation(action="run", name="t")

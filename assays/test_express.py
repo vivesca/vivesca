@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -325,6 +325,7 @@ class TestPerItemSymlinks:
         # Remove receptors directory
         receptors = express["VIVESCA_ROOT"] / "membrane" / "receptors"
         import shutil
+
         shutil.rmtree(receptors)
 
         fake_home = express["VIVESCA_ROOT"].parent / "fake_home9"

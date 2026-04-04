@@ -2,9 +2,8 @@ from __future__ import annotations
 
 """Tests for metabolon.metabolism.signals."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -14,7 +13,6 @@ from metabolon.metabolism.signals import (
     SensorySystem,
     Stimulus,
 )
-
 
 # ── Outcome enum ─────────────────────────────────────────────────────────
 
@@ -93,7 +91,7 @@ class TestStimulus:
 class TestDefaultLog:
     def test_default_path(self):
         expected = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
-        assert DEFAULT_LOG == expected
+        assert expected == DEFAULT_LOG
 
 
 # ── SensorySystem ────────────────────────────────────────────────────────
@@ -147,7 +145,9 @@ class TestSensorySystem:
 
     def test_recall_all_skips_blank_and_malformed_lines(self, tmp_path):
         log = tmp_path / "signals.jsonl"
-        log.write_text("\n  \nnot-json\n{\"tool\":\"ok\",\"outcome\":\"success\",\"ts\":\"2026-01-01T00:00:00Z\"}\n\n")
+        log.write_text(
+            '\n  \nnot-json\n{"tool":"ok","outcome":"success","ts":"2026-01-01T00:00:00Z"}\n\n'
+        )
         ss = SensorySystem(sensory_surface_path=log)
         results = ss.recall_all()
         assert len(results) == 1

@@ -1,4 +1,3 @@
-
 """retrograde — symbiont influence tracking.
 
 Retrograde signaling: mitochondria (symbiont) send signals BACK to the
@@ -19,7 +18,6 @@ influence between organism and symbiont.
     1:1 - 3:1 = "balanced"
     < 1:1 = "dependent"
 """
-
 
 import datetime
 import json
@@ -81,7 +79,7 @@ def _count_anterograde(days: int) -> int:
             for line in path.read_text().splitlines():
                 try:
                     entry = json.loads(line)
-                except (json.JSONDecodeError, ValueError):
+                except json.JSONDecodeError, ValueError:
                     continue
                 ts_str = entry.get("ts", "")
                 # parse ts — may or may not have timezone
@@ -142,7 +140,7 @@ def _count_retrograde(days: int) -> int:
             for line in path.read_text().splitlines():
                 try:
                     entry = json.loads(line)
-                except (json.JSONDecodeError, ValueError):
+                except json.JSONDecodeError, ValueError:
                     continue
                 ts_str = entry.get("ts", "")
                 try:
@@ -201,7 +199,7 @@ def _count_logged(days: int, direction: str) -> int:
         for line in SIGNALS_LOG.read_text().splitlines():
             try:
                 entry = json.loads(line)
-            except (json.JSONDecodeError, ValueError):
+            except json.JSONDecodeError, ValueError:
                 continue
             if entry.get("direction") != direction:
                 continue
@@ -211,7 +209,7 @@ def _count_logged(days: int, direction: str) -> int:
                     ts = ts.replace(tzinfo=datetime.UTC)
                 if ts >= cutoff:
                     count += 1
-            except (ValueError, KeyError):
+            except ValueError, KeyError:
                 pass
     except Exception:
         pass

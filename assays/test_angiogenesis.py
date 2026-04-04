@@ -3,30 +3,31 @@ from __future__ import annotations
 """Tests for angiogenesis — subsystem integration detector."""
 
 import json
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
-
-import pytest
 
 
 class TestDetectHypoxia:
     def test_no_log_file(self, tmp_path):
-        from metabolon.organelles.angiogenesis import detect_hypoxia
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import detect_hypoxia
+
         with patch.object(angio, "INFECTION_LOG", tmp_path / "nope.jsonl"):
             assert detect_hypoxia() == []
 
     def test_empty_log(self, tmp_path):
-        from metabolon.organelles.angiogenesis import detect_hypoxia
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import detect_hypoxia
+
         log = tmp_path / "infections.jsonl"
         log.write_text("")
         with patch.object(angio, "INFECTION_LOG", log):
             assert detect_hypoxia() == []
 
     def test_detects_cofailure_pair(self, tmp_path):
-        from metabolon.organelles.angiogenesis import detect_hypoxia
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import detect_hypoxia
+
         log = tmp_path / "infections.jsonl"
         base = datetime(2026, 3, 30, 10, 0, 0, tzinfo=UTC)
         # Create 4 sequential A→B failures (within 300s window)
@@ -45,8 +46,9 @@ class TestDetectHypoxia:
         assert ab_pair[0]["co_failures"] >= 3
 
     def test_ignores_healed(self, tmp_path):
-        from metabolon.organelles.angiogenesis import detect_hypoxia
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import detect_hypoxia
+
         log = tmp_path / "infections.jsonl"
         entries = [json.dumps({"tool": "x", "ts": "2026-03-30T10:00:00+00:00", "healed": True})]
         log.write_text("\n".join(entries) + "\n")
@@ -56,8 +58,9 @@ class TestDetectHypoxia:
 
 class TestProposeVessel:
     def test_creates_proposal(self, tmp_path):
-        from metabolon.organelles.angiogenesis import propose_vessel
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import propose_vessel
+
         proposal_log = tmp_path / "proposals.jsonl"
         with patch.object(angio, "PROPOSAL_LOG", proposal_log):
             result = propose_vessel("toolA", "toolB")
@@ -69,14 +72,16 @@ class TestProposeVessel:
 
 class TestVesselRegistry:
     def test_no_registry(self, tmp_path):
-        from metabolon.organelles.angiogenesis import vessel_registry
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import vessel_registry
+
         with patch.object(angio, "VESSEL_REGISTRY", tmp_path / "nope.json"):
             assert vessel_registry() == []
 
     def test_reads_registry(self, tmp_path):
-        from metabolon.organelles.angiogenesis import vessel_registry
         import metabolon.organelles.angiogenesis as angio
+        from metabolon.organelles.angiogenesis import vessel_registry
+
         reg = tmp_path / "vessels.json"
         reg.write_text(json.dumps([{"source": "a", "target": "b"}]))
         with patch.object(angio, "VESSEL_REGISTRY", reg):

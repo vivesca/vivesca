@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from metabolon.organelles.chromatin import _MarkIndex, stale_marks, type_counts
@@ -59,7 +59,7 @@ def test_stale_marks():
         marks_dir = Path(tmpdir)
         index = _MarkIndex(marks_dir)
 
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         day_seconds = 86400
 
         # Fresh mark (1 day old)

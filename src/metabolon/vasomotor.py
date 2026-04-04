@@ -1,4 +1,3 @@
-
 """vasomotor — autonomic pacing and budget regulation.
 
 The organism's respiratory system. Pure arithmetic, no LLM judgment.
@@ -138,7 +137,7 @@ def _send_pacing_alert_once(reason: str):
         data = json.loads(PACING_ALERT_FILE.read_text())
         if data.get("date") == today:
             return
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError, json.JSONDecodeError:
         pass
     emit_distress_signal(f"Pulse paused for today: {reason}")
     PACING_ALERT_FILE.write_text(json.dumps({"date": today}))
@@ -220,7 +219,7 @@ def _hours_to_reset(telemetry: dict | None) -> float | None:
         resets_at = datetime.datetime.fromisoformat(resets_at_str)
         now = datetime.datetime.now(resets_at.tzinfo)
         return max((resets_at - now).total_seconds() / 3600, 0.5)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -330,7 +329,7 @@ def _load_circadian_state() -> dict:
         circadian_state = json.loads(DAILY_STATE_FILE.read_text())
         if circadian_state.get("date") == _today_str():
             return circadian_state
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError, json.JSONDecodeError:
         pass
     return {
         "date": _today_str(),
@@ -389,7 +388,7 @@ def _load_sympathetic_pattern() -> dict:
     _maybe_migrate()
     try:
         return json.loads(INTERACTIVE_PATTERN_FILE.read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError, json.JSONDecodeError:
         return {}
 
 
@@ -520,7 +519,7 @@ def is_apneic() -> tuple[bool, str]:
         if now < skip_until:
             remaining = (skip_until - now).total_seconds() / 60
             return True, f"skip_until {skip_until_str} ({remaining:.0f}m remaining)"
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError, ValueError:
         pass
     return False, ""
 
@@ -600,7 +599,7 @@ def assess_pacing() -> tuple[bool, str]:
     try:
         resets_at = datetime.datetime.fromisoformat(resets_at_str)
         now = datetime.datetime.now(resets_at.tzinfo)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return True, "pacing_bad_reset_format"
 
     calibrate_circadian(weekly)
@@ -857,7 +856,7 @@ def _load_review_state() -> dict:
     """Load review state — tracks when each tier last ran."""
     try:
         return json.loads(_REVIEW_STATE_FILE.read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError, json.JSONDecodeError:
         return {}
 
 
@@ -1089,8 +1088,7 @@ def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
         text = result.stdout.strip()
         if "```" in text:
             text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
+            text = text.removeprefix("json")
             text = text.strip()
 
         adjustments = json.loads(text)

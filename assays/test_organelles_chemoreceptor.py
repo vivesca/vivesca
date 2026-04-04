@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers / constants
 # ---------------------------------------------------------------------------
@@ -80,7 +79,13 @@ class TestFetch:
         assert result == [{"score": 90}]
         # Check Authorization header uses the explicit token
         call_kwargs = MockClient.call_args
-        headers = call_kwargs[1]["headers"] if "headers" in call_kwargs[1] else call_kwargs[0][0] if call_kwargs[0] else {}
+        headers = (
+            call_kwargs[1]["headers"]
+            if "headers" in call_kwargs[1]
+            else call_kwargs[0][0]
+            if call_kwargs[0]
+            else {}
+        )
         assert headers["Authorization"] == "Bearer explicit"
 
     def test_fetch_empty_data(self):
@@ -99,13 +104,16 @@ class TestFetch:
     def test_fetch_no_token_raises(self):
         from metabolon.organelles.chemoreceptor import _fetch
 
-        with patch.dict("os.environ", {}, clear=True), \
-             patch(f"{MOD}._keychain_token", return_value=None):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(f"{MOD}._keychain_token", return_value=None),
+        ):
             with pytest.raises(RuntimeError, match="OURA_TOKEN"):
                 _fetch("daily_sleep", TODAY, TODAY)
 
     def test_fetch_http_error_propagates(self):
         import httpx
+
         from metabolon.organelles.chemoreceptor import _fetch
 
         mock_resp = _mock_response(status_code=500)
@@ -150,8 +158,10 @@ class TestFetchDatetime:
     def test_fetch_datetime_no_token_raises(self):
         from metabolon.organelles.chemoreceptor import _fetch_datetime
 
-        with patch.dict("os.environ", {}, clear=True), \
-             patch(f"{MOD}._keychain_token", return_value=None):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(f"{MOD}._keychain_token", return_value=None),
+        ):
             with pytest.raises(RuntimeError):
                 _fetch_datetime("heartrate", "s", "e")
 
@@ -169,7 +179,14 @@ class TestToday:
         with patch(f"{MOD}._fetch") as mock_fetch:
             mock_fetch.side_effect = [
                 [{"score": 85, "contributors": {"deep_sleep": 90}}],
-                [{"score": 92, "contributors": {"activity_balance": 88}, "temperature_deviation": 0.1, "temperature_trend_deviation": -0.05}],
+                [
+                    {
+                        "score": 92,
+                        "contributors": {"activity_balance": 88},
+                        "temperature_deviation": 0.1,
+                        "temperature_trend_deviation": -0.05,
+                    }
+                ],
             ]
             result = today("2026-03-25")
 
@@ -209,10 +226,12 @@ class TestToday:
     def test_today_defaults_to_today(self):
         from metabolon.organelles.chemoreceptor import today
 
-        with patch(f"{MOD}._fetch") as mock_fetch, \
-             patch(f"{MOD}._today_date", return_value="2026-04-01"):
+        with (
+            patch(f"{MOD}._fetch") as mock_fetch,
+            patch(f"{MOD}._today_date", return_value="2026-04-01"),
+        ):
             mock_fetch.side_effect = [[], []]
-            result = today()
+            today()
 
         mock_fetch.assert_any_call("daily_sleep", "2026-04-01", "2026-04-01", TOKEN)
 
@@ -228,7 +247,12 @@ class TestReadiness:
 
         with patch(f"{MOD}._fetch") as mock_fetch:
             mock_fetch.return_value = [
-                {"score": 88, "contributors": {"temp": 0.5}, "temperature_deviation": 0.3, "temperature_trend_deviation": 0.1}
+                {
+                    "score": 88,
+                    "contributors": {"temp": 0.5},
+                    "temperature_deviation": 0.3,
+                    "temperature_trend_deviation": 0.1,
+                }
             ]
             result = readiness("2026-03-25")
 
@@ -255,8 +279,10 @@ class TestReadiness:
     def test_readiness_defaults_to_today(self):
         from metabolon.organelles.chemoreceptor import readiness
 
-        with patch(f"{MOD}._fetch") as mock_fetch, \
-             patch(f"{MOD}._today_date", return_value="2026-04-01"):
+        with (
+            patch(f"{MOD}._fetch") as mock_fetch,
+            patch(f"{MOD}._today_date", return_value="2026-04-01"),
+        ):
             mock_fetch.return_value = []
             readiness()
 
@@ -380,8 +406,7 @@ class TestHeartrate:
     def test_heartrate_defaults_from_sleep_detail(self):
         from metabolon.organelles.chemoreceptor import heartrate
 
-        with patch(f"{MOD}.sleep_detail") as mock_sd, \
-             patch(f"{MOD}._fetch_datetime") as mock_fdt:
+        with patch(f"{MOD}.sleep_detail") as mock_sd, patch(f"{MOD}._fetch_datetime") as mock_fdt:
             mock_sd.return_value = {
                 "bedtime_start": "2026-03-27T22:30:00+08:00",
                 "bedtime_end": "2026-03-28T06:15:00+08:00",
@@ -409,14 +434,13 @@ class TestHeartrate:
         """If only start_dt is given, end_dt comes from sleep_detail."""
         from metabolon.organelles.chemoreceptor import heartrate
 
-        with patch(f"{MOD}.sleep_detail") as mock_sd, \
-             patch(f"{MOD}._fetch_datetime") as mock_fdt:
+        with patch(f"{MOD}.sleep_detail") as mock_sd, patch(f"{MOD}._fetch_datetime") as mock_fdt:
             mock_sd.return_value = {
                 "bedtime_start": "should-not-be-used",
                 "bedtime_end": "2026-03-28T06:00:00+08:00",
             }
             mock_fdt.return_value = [{"bpm": 55}]
-            result = heartrate("2026-03-27T22:00:00+08:00", None)
+            heartrate("2026-03-27T22:00:00+08:00", None)
 
         mock_fdt.assert_called_once_with(
             "heartrate",
@@ -452,7 +476,12 @@ class TestWeek:
             {"day": "2026-03-21", "score": 75, "contributors": {"deep": 70}},
         ]
         readiness_records = [
-            {"day": "2026-03-20", "score": 90, "temperature_deviation": 0.1, "contributors": {"temp": 0.5}},
+            {
+                "day": "2026-03-20",
+                "score": 90,
+                "temperature_deviation": 0.1,
+                "contributors": {"temp": 0.5},
+            },
             {"day": "2026-03-22", "score": 85, "temperature_deviation": -0.2, "contributors": {}},
         ]
         with patch(f"{MOD}._fetch") as mock_fetch:
@@ -485,11 +514,13 @@ class TestWeek:
     def test_week_custom_days(self):
         from metabolon.organelles.chemoreceptor import week
 
-        with patch(f"{MOD}._fetch") as mock_fetch, \
-             patch(f"{MOD}._today_date", return_value="2026-04-01") as mock_today, \
-             patch(f"{MOD}._week_start_date", return_value="2026-03-25") as mock_week:
+        with (
+            patch(f"{MOD}._fetch") as mock_fetch,
+            patch(f"{MOD}._today_date", return_value="2026-04-01"),
+            patch(f"{MOD}._week_start_date", return_value="2026-03-25") as mock_week,
+        ):
             mock_fetch.side_effect = [[], []]
-            result = week(7)
+            week(7)
 
         mock_week.assert_called_once_with(7)
 
@@ -538,11 +569,12 @@ class TestSense:
     def test_sense_full_snapshot(self):
         from metabolon.organelles.chemoreceptor import sense
 
-        with patch(f"{MOD}.today") as mock_today, \
-             patch(f"{MOD}.sleep_detail") as mock_sd, \
-             patch(f"{MOD}._fetch_daily") as mock_fd, \
-             patch(f"{MOD}._fetch") as mock_fetch:
-
+        with (
+            patch(f"{MOD}.today") as mock_today,
+            patch(f"{MOD}.sleep_detail") as mock_sd,
+            patch(f"{MOD}._fetch_daily") as mock_fd,
+            patch(f"{MOD}._fetch") as mock_fetch,
+        ):
             mock_today.return_value = {
                 "date": TODAY,
                 "sleep_score": 85,
@@ -556,11 +588,34 @@ class TestSense:
 
             def _fd_side_effect(endpoint, d, token):
                 data = {
-                    "daily_activity": {"score": 75, "steps": 8000, "active_calories": 300, "total_calories": 2200, "high_activity_time": 1200, "medium_activity_time": 900, "low_activity_time": 3600, "sedentary_time": 20000, "resting_time": 15000, "equivalent_walking_distance": 6000, "contributors": {"meet_daily_targets": 1}},
-                    "daily_stress": {"day_summary": "normal", "stress_high": 0.5, "recovery_high": 0.8},
-                    "daily_spo2": {"spo2_percentage": {"average": 97.5}, "breathing_disturbance_index": 1.2},
+                    "daily_activity": {
+                        "score": 75,
+                        "steps": 8000,
+                        "active_calories": 300,
+                        "total_calories": 2200,
+                        "high_activity_time": 1200,
+                        "medium_activity_time": 900,
+                        "low_activity_time": 3600,
+                        "sedentary_time": 20000,
+                        "resting_time": 15000,
+                        "equivalent_walking_distance": 6000,
+                        "contributors": {"meet_daily_targets": 1},
+                    },
+                    "daily_stress": {
+                        "day_summary": "normal",
+                        "stress_high": 0.5,
+                        "recovery_high": 0.8,
+                    },
+                    "daily_spo2": {
+                        "spo2_percentage": {"average": 97.5},
+                        "breathing_disturbance_index": 1.2,
+                    },
                     "daily_resilience": {"level": "good", "contributors": {"recovery": 0.9}},
-                    "sleep_time": {"recommendation": "improve", "status": "insufficient", "optimal_bedtime": "22:00"},
+                    "sleep_time": {
+                        "recommendation": "improve",
+                        "status": "insufficient",
+                        "optimal_bedtime": "22:00",
+                    },
                     "daily_cardiovascular_age": {"vascular_age": 35},
                     "vO2_max": {"vo2_max": 42},
                 }
@@ -568,7 +623,16 @@ class TestSense:
 
             mock_fd.side_effect = _fd_side_effect
             mock_fetch.return_value = [
-                {"activity": "running", "calories": 250, "distance": 5000, "intensity": "moderate", "source": "manual", "start_datetime": "t1", "end_datetime": "t2", "label": "Morning run"}
+                {
+                    "activity": "running",
+                    "calories": 250,
+                    "distance": 5000,
+                    "intensity": "moderate",
+                    "source": "manual",
+                    "start_datetime": "t1",
+                    "end_datetime": "t2",
+                    "label": "Morning run",
+                }
             ]
 
             result = sense()
@@ -603,11 +667,12 @@ class TestSense:
         """sense() when today/sleep_detail return minimal data and all extra endpoints empty."""
         from metabolon.organelles.chemoreceptor import sense
 
-        with patch(f"{MOD}.today") as mock_today, \
-             patch(f"{MOD}.sleep_detail") as mock_sd, \
-             patch(f"{MOD}._fetch_daily") as mock_fd, \
-             patch(f"{MOD}._fetch") as mock_fetch:
-
+        with (
+            patch(f"{MOD}.today") as mock_today,
+            patch(f"{MOD}.sleep_detail") as mock_sd,
+            patch(f"{MOD}._fetch_daily") as mock_fd,
+            patch(f"{MOD}._fetch") as mock_fetch,
+        ):
             mock_today.return_value = {"date": TODAY}
             mock_sd.return_value = {"date": TODAY}
             mock_fd.return_value = {}
@@ -628,11 +693,12 @@ class TestSense:
         """sleep_detail keys merged after today; unique keys from both preserved."""
         from metabolon.organelles.chemoreceptor import sense
 
-        with patch(f"{MOD}.today") as mock_today, \
-             patch(f"{MOD}.sleep_detail") as mock_sd, \
-             patch(f"{MOD}._fetch_daily") as mock_fd, \
-             patch(f"{MOD}._fetch") as mock_fetch:
-
+        with (
+            patch(f"{MOD}.today") as mock_today,
+            patch(f"{MOD}.sleep_detail") as mock_sd,
+            patch(f"{MOD}._fetch_daily") as mock_fd,
+            patch(f"{MOD}._fetch") as mock_fetch,
+        ):
             mock_today.return_value = {"date": TODAY, "sleep_score": 85}
             mock_sd.return_value = {"date": TODAY, "bedtime_start": "23:00"}
             mock_fd.return_value = {}
@@ -652,11 +718,12 @@ class TestSense:
         """spo2_percentage can be None; average should be None."""
         from metabolon.organelles.chemoreceptor import sense
 
-        with patch(f"{MOD}.today") as mock_today, \
-             patch(f"{MOD}.sleep_detail") as mock_sd, \
-             patch(f"{MOD}._fetch_daily") as mock_fd, \
-             patch(f"{MOD}._fetch") as mock_fetch:
-
+        with (
+            patch(f"{MOD}.today") as mock_today,
+            patch(f"{MOD}.sleep_detail") as mock_sd,
+            patch(f"{MOD}._fetch_daily") as mock_fd,
+            patch(f"{MOD}._fetch") as mock_fetch,
+        ):
             mock_today.return_value = {"date": TODAY}
             mock_sd.return_value = {"date": TODAY}
 

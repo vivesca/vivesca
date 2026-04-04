@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-
 import argparse
 import subprocess
 import sys
 from pathlib import Path
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -35,14 +35,20 @@ def main():
     # Use ripgrep with smart exclusions and a 10s timeout
     cmd = [
         "rg",
-        "--max-columns", "500",
-        "--max-count", "100",  # Don't drown the agent in matches
-        "--glob", "!Library/**",
-        "--glob", "!.Trash/**",
-        "--glob", "!*.log",
-        "--glob", "!node_modules/**",
+        "--max-columns",
+        "500",
+        "--max-count",
+        "100",  # Don't drown the agent in matches
+        "--glob",
+        "!Library/**",
+        "--glob",
+        "!.Trash/**",
+        "--glob",
+        "!*.log",
+        "--glob",
+        "!node_modules/**",
         args.pattern,
-        str(search_path)
+        str(search_path),
     ]
     try:
         subprocess.run(cmd, timeout=15)
@@ -53,6 +59,7 @@ def main():
     except FileNotFoundError:
         print("ERROR: ripgrep (rg) is not installed. Falling back to grep...")
         subprocess.run(["grep", "-r", args.pattern, search_path], timeout=60)
+
 
 if __name__ == "__main__":
     main()

@@ -3,6 +3,7 @@
 Complements test_organelles_browser.py with edge-case and integration-style
 coverage. All tests mock async_playwright so no real browser is launched.
 """
+
 from __future__ import annotations
 
 import json
@@ -57,8 +58,13 @@ async def test_return_keys():
         result = await fetch("https://example.com")
 
     expected_keys = {
-        "title", "url", "text", "status",
-        "cookies_loaded", "screenshot_saved", "pdf_saved",
+        "title",
+        "url",
+        "text",
+        "status",
+        "cookies_loaded",
+        "screenshot_saved",
+        "pdf_saved",
     }
     assert set(result.keys()) == expected_keys
 
@@ -71,7 +77,8 @@ async def test_goto_receives_url():
         await fetch("https://httpbin.org/get")
 
     page.goto.assert_awaited_once_with(
-        "https://httpbin.org/get", wait_until="domcontentloaded",
+        "https://httpbin.org/get",
+        wait_until="domcontentloaded",
     )
 
 
@@ -79,7 +86,7 @@ async def test_goto_receives_url():
 @pytest.mark.asyncio
 async def test_launch_headless():
     pw_cm, _, _, _ = _mock_pw_stack()
-    with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm) as mock_pw_factory:
+    with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         await fetch("https://example.com")
 
     # The CM was returned by the factory; the pw inside has chromium.launch
@@ -92,7 +99,7 @@ async def test_malformed_cookie_file(tmp_path: Path):
     cookie_file = tmp_path / "bad.json"
     cookie_file.write_text("this is not json at all")
 
-    pw_cm, _, ctx, _ = _mock_pw_stack()
+    pw_cm, _, _ctx, _ = _mock_pw_stack()
     with patch("metabolon.organelles.browser.async_playwright", return_value=pw_cm):
         # json.loads will raise — but the source doesn't catch it, so we
         # expect the exception to propagate. Verify the exception type.
@@ -115,7 +122,7 @@ async def test_all_options_combined(tmp_path: Path):
     elem = AsyncMock()
     elem.inner_text = AsyncMock(return_value="selected")
 
-    pw_cm, page, ctx, br = _mock_pw_stack()
+    pw_cm, page, ctx, _br = _mock_pw_stack()
     page.query_selector = AsyncMock(return_value=elem)
 
     shot = str(tmp_path / "s.png")

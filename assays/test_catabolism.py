@@ -1,9 +1,8 @@
 """Tests for metabolon.enzymes.catabolism."""
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.enzymes.catabolism import (
     CatabolismConfirmResult,
@@ -12,7 +11,6 @@ from metabolon.enzymes.catabolism import (
     _spending,
     catabolism,
 )
-
 
 # ---------------------------------------------------------------------------
 # _spending
@@ -56,7 +54,9 @@ def test_spending_digests_statements(mock_meta, mock_overdue, mock_missing):
 
 
 @patch("metabolon.respirometry.payments.assess_missing_statements", return_value=[])
-@patch("metabolon.respirometry.payments.flag_overdue_payments", return_value=["MOX payment overdue!"])
+@patch(
+    "metabolon.respirometry.payments.flag_overdue_payments", return_value=["MOX payment overdue!"]
+)
 @patch("metabolon.respirometry.metabolize_statements", return_value=[])
 def test_spending_includes_payment_alerts(mock_meta, mock_overdue, mock_missing):
     """Payment alerts are surfaced in the summary and counted."""
@@ -67,7 +67,9 @@ def test_spending_includes_payment_alerts(mock_meta, mock_overdue, mock_missing)
     assert result.total_alerts == 1
 
 
-@patch("metabolon.respirometry.payments.assess_missing_statements", return_value=["HSBC Feb missing"])
+@patch(
+    "metabolon.respirometry.payments.assess_missing_statements", return_value=["HSBC Feb missing"]
+)
 @patch("metabolon.respirometry.payments.flag_overdue_payments", return_value=[])
 @patch("metabolon.respirometry.metabolize_statements", return_value=[])
 def test_spending_includes_missing_statements(mock_meta, mock_overdue, mock_missing):

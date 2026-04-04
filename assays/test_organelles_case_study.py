@@ -3,10 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.organelles.case_study."""
 
 import textwrap
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from metabolon.organelles.case_study import (
     CaseStudy,
@@ -18,10 +15,10 @@ from metabolon.organelles.case_study import (
     package_use_case,
 )
 
-
 # ---------------------------------------------------------------------------
 # CaseStudy dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestCaseStudyConstruction:
     def test_defaults(self):
@@ -55,6 +52,7 @@ class TestCaseStudyConstruction:
 # to_executive_summary
 # ---------------------------------------------------------------------------
 
+
 class TestExecutiveSummary:
     def test_basic(self):
         cs = CaseStudy(title="Alpha", challenge="big problem", approach="did X", result="won")
@@ -73,6 +71,7 @@ class TestExecutiveSummary:
 # to_car_arc
 # ---------------------------------------------------------------------------
 
+
 class TestCarArc:
     def test_basic_structure(self):
         cs = CaseStudy(title="Beta", challenge="hard", approach="clever", result="great")
@@ -87,7 +86,10 @@ class TestCarArc:
 
     def test_with_metrics(self):
         cs = CaseStudy(
-            title="T", challenge="C", approach="A", result="R",
+            title="T",
+            challenge="C",
+            approach="A",
+            result="R",
             metrics=["99% uptime", "$2M saved"],
         )
         arc = cs.to_car_arc()
@@ -104,6 +106,7 @@ class TestCarArc:
 # ---------------------------------------------------------------------------
 # to_slide_notes
 # ---------------------------------------------------------------------------
+
 
 class TestSlideNotes:
     def test_basic(self):
@@ -123,7 +126,10 @@ class TestSlideNotes:
 
     def test_with_metrics_shows_max_three(self):
         cs = CaseStudy(
-            title="T", challenge="C", approach="A", result="R",
+            title="T",
+            challenge="C",
+            approach="A",
+            result="R",
             metrics=["m1", "m2", "m3", "m4"],
         )
         notes = cs.to_slide_notes()
@@ -141,6 +147,7 @@ class TestSlideNotes:
 # ---------------------------------------------------------------------------
 # _extract_section
 # ---------------------------------------------------------------------------
+
 
 class TestExtractSection:
     def test_finds_heading(self):
@@ -170,6 +177,7 @@ class TestExtractSection:
 # _extract_metrics
 # ---------------------------------------------------------------------------
 
+
 class TestExtractMetrics:
     def test_percentage(self):
         text = "We achieved a 45% reduction in costs."
@@ -193,6 +201,7 @@ class TestExtractMetrics:
 # ---------------------------------------------------------------------------
 # _anonymise
 # ---------------------------------------------------------------------------
+
 
 class TestAnonymise:
     def test_replaces_hsbc(self):
@@ -218,6 +227,7 @@ class TestAnonymise:
 # ---------------------------------------------------------------------------
 # package_use_case
 # ---------------------------------------------------------------------------
+
 
 class TestPackageUseCase:
     def test_file_not_found(self, tmp_path):
@@ -334,10 +344,14 @@ class TestPackageUseCase:
 # generate_from_template
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateFromTemplate:
     def test_basic(self):
         cs = generate_from_template(
-            title="T", context="ctx", action="act", result="res",
+            title="T",
+            context="ctx",
+            action="act",
+            result="res",
         )
         assert cs.title == "T"
         assert cs.challenge == "ctx"
@@ -365,6 +379,7 @@ class TestGenerateFromTemplate:
 # ---------------------------------------------------------------------------
 # list_use_cases
 # ---------------------------------------------------------------------------
+
 
 class TestListUseCases:
     def test_dir_not_exists(self):

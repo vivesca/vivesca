@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from metabolon.sortase.router import (
     DEFAULT_TOOL,
+    ROUTING_RULES,
     RouteDecision,
     route_description,
-    ROUTING_RULES,
 )
 
 

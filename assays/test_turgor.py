@@ -8,10 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-from metabolon.enzymes.turgor import tonus, ITEM_RE
-
+from metabolon.enzymes.turgor import ITEM_RE, tonus
 
 # ── ITEM_RE regex tests ───────────────────────────────────────────────────────
 
@@ -116,7 +113,7 @@ class TestTonusStatus:
         with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
             result = tonus(action="status")
         assert result["count"] == 6
-        assert 1/6 < 0.2
+        assert 1 / 6 < 0.2
         assert "LOW" in result["turgor"]
 
     def test_status_parses_items_correctly(self):
@@ -290,7 +287,7 @@ class TestReadTonus:
         """TONUS should live under ~/epigenome/chromatin/."""
         from metabolon.enzymes.turgor import TONUS
 
-        assert TONUS == Path.home() / "epigenome" / "chromatin" / "Tonus.md"
+        assert Path.home() / "epigenome" / "chromatin" / "Tonus.md" == TONUS
 
 
 class TestWriteTonus:
@@ -423,9 +420,7 @@ class TestTonusStatusEdgeCases:
     def test_pressure_format_string(self):
         """Pressure string should show in-progress / total with percentage."""
         mock_content = (
-            "- [in-progress] **A.** First\n"
-            "- [in-progress] **B.** Second\n"
-            "- [done] **C.** Third\n"
+            "- [in-progress] **A.** First\n- [in-progress] **B.** Second\n- [done] **C.** Third\n"
         )
         with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
             result = tonus(action="status")

@@ -10,23 +10,22 @@ Usage:
     tmux-workspace dev          # use 'dev' layout (cc|shell|test|logs)
     tmux-workspace --help
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 import os
 import subprocess
 import sys
 
-
 LAYOUTS = {
     "default": [
-        ("main", None),         # Tab 1: deep work — holds context, long sessions
-        ("light", None),        # Tab 2: quick CC — todos, lookups, weather, short tasks
+        ("main", None),  # Tab 1: deep work — holds context, long sessions
+        ("light", None),  # Tab 2: quick CC — todos, lookups, weather, short tasks
     ],
     "dev": [
-        ("main", None),         # Tab 1: deep work
-        ("light", None),        # Tab 2: quick CC
-        ("shell", None),        # Tab 3: git, builds, raw shell when needed
+        ("main", None),  # Tab 1: deep work
+        ("light", None),  # Tab 2: quick CC
+        ("shell", None),  # Tab 3: git, builds, raw shell when needed
     ],
 }
 

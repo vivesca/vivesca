@@ -1,4 +1,5 @@
 """Tests for the chromatin_stats resource module."""
+
 from metabolon.resources.chromatin_stats import BINARY
 
 
@@ -12,8 +13,9 @@ def test_resource_chromatin_stats_module_structure():
 def test_resource_chromatin_stats_docstring_content():
     """Test that the module docstring contains expected information."""
     import metabolon.resources.chromatin_stats as module
+
     docstring = module.__doc__
-    
+
     assert "Hippocampus" in docstring
     assert "the organism's memory performance" in docstring
     assert "vivesca://histone_store" in docstring

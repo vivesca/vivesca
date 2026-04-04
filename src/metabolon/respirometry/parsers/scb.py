@@ -1,6 +1,4 @@
-
 """Standard Chartered Smart Credit Card statement PDF parser."""
-
 
 import re
 from datetime import datetime

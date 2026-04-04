@@ -215,7 +215,19 @@ class TestParseTransactions:
 
     def test_merchant_cleaned_removes_country_codes(self):
         """Country codes like USA, GBR, etc. are removed."""
-        country_codes = ["USA", "GBR", "IRL", "CAN", "HKG", "AUS", "SGP", "JPN", "NEW", "TWN", "KOR"]
+        country_codes = [
+            "USA",
+            "GBR",
+            "IRL",
+            "CAN",
+            "HKG",
+            "AUS",
+            "SGP",
+            "JPN",
+            "NEW",
+            "TWN",
+            "KOR",
+        ]
 
         for code in country_codes:
             text = f"15 Aug 15 AugSTORE {code}\n-100.00\n2025"
@@ -413,7 +425,7 @@ Payment due date
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        _meta, txns = extract_mox(Path("/fake/path.pdf"))
 
         assert len(txns) == 2
 
@@ -440,7 +452,7 @@ Some other text that should be ignored
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        _meta, txns = extract_mox(Path("/fake/path.pdf"))
 
         assert len(txns) == 1
 
@@ -468,7 +480,7 @@ Some other text that should be ignored
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        _meta, txns = extract_mox(Path("/fake/path.pdf"))
 
         assert len(txns) == 1
 
@@ -495,7 +507,7 @@ Payment due date
         mock_pdf_reader.return_value = mock_reader
 
         # Should not raise
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        _meta, txns = extract_mox(Path("/fake/path.pdf"))
         assert len(txns) == 1
 
     @patch("metabolon.respirometry.parsers.mox.PdfReader")
@@ -521,7 +533,7 @@ Payment due date
         mock_pdf_reader.return_value = mock_reader
 
         # Should not raise - within 0.02 tolerance
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        _meta, _txns = extract_mox(Path("/fake/path.pdf"))
 
     @patch("metabolon.respirometry.parsers.mox.PdfReader")
     def test_transfers_excluded_from_balance_check(self, mock_pdf_reader):
@@ -547,7 +559,7 @@ Payment due date
         mock_pdf_reader.return_value = mock_reader
 
         # Should not raise - transfer excluded from balance check
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        _meta, txns = extract_mox(Path("/fake/path.pdf"))
         assert len(txns) == 1  # Transfer is filtered out
 
 
@@ -658,7 +670,7 @@ Payment due date
         mock_reader.pages = [mock_page]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_mox(Path("/fake/path.pdf"))
+        meta, _txns = extract_mox(Path("/fake/path.pdf"))
         assert meta.balance == 500.00
 
     @patch("metabolon.respirometry.parsers.mox.PdfReader")

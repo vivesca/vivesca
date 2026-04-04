@@ -18,15 +18,15 @@ Search (full transcripts — slower, searches both user + assistant):
     python chat_history.py --search="self-intro" --deep         # Last 7 days
     python chat_history.py --search="DBS" --deep --days=30      # Last 30 days
 """
+
 from __future__ import annotations
+
+import contextlib
 
 # /// script
 # dependencies = []
 # ///
-
-
 import json
-import os
 import re
 import sys
 import time
@@ -94,7 +94,7 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
 
     for jsonl_file in sorted(session_files, key=lambda f: f.stat().st_mtime, reverse=True):
         try:
-            with open(jsonl_file, "r") as f:
+            with open(jsonl_file) as f:
                 for line in f:
                     try:
                         entry = json.loads(line)
@@ -107,9 +107,9 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
                         if not ts_str:
                             continue
                         try:
-                            ts_dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                            ts_dt = datetime.fromisoformat(ts_str)
                             ts_ms = int(ts_dt.timestamp() * 1000)
-                        except (ValueError, TypeError):
+                        except ValueError, TypeError:
                             continue
 
                         if not (start_ms <= ts_ms < end_ms):
@@ -138,19 +138,21 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
                             if end_idx < len(text):
                                 snippet = snippet + "..."
 
-                            matches.append({
-                                "date": ts_hkt.strftime("%Y-%m-%d"),
-                                "time": ts_hkt.strftime("%H:%M"),
-                                "timestamp": ts_ms,
-                                "session": session_id[:8],
-                                "session_full": session_id,
-                                "role": role,
-                                "snippet": snippet,
-                                "tool": "Claude",
-                            })
-                    except (json.JSONDecodeError, Exception):
+                            matches.append(
+                                {
+                                    "date": ts_hkt.strftime("%Y-%m-%d"),
+                                    "time": ts_hkt.strftime("%H:%M"),
+                                    "timestamp": ts_ms,
+                                    "session": session_id[:8],
+                                    "session_full": session_id,
+                                    "role": role,
+                                    "snippet": snippet,
+                                    "tool": "Claude",
+                                }
+                            )
+                    except json.JSONDecodeError, Exception:
                         continue
-        except (OSError, Exception):
+        except OSError, Exception:
             continue
 
     # Sort by timestamp descending (most recent first)
@@ -158,7 +160,9 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
     return matches[:limit]
 
 
-def search_prompts(pattern: str, start_ms: int, end_ms: int, tool: str | None = None, limit: int = 50) -> list:
+def search_prompts(
+    pattern: str, start_ms: int, end_ms: int, tool: str | None = None, limit: int = 50
+) -> list:
     """Search prompt history for a pattern (fast, prompts only)."""
     matches = []
     regex = re.compile(pattern, re.IGNORECASE)
@@ -173,7 +177,7 @@ def search_prompts(pattern: str, start_ms: int, end_ms: int, tool: str | None = 
     for label, path in files_to_scan.items():
         if not path.exists():
             continue
-        with open(path, "r") as f:
+        with open(path) as f:
             for line in f:
                 try:
                     entry = json.loads(line)
@@ -198,17 +202,19 @@ def search_prompts(pattern: str, start_ms: int, end_ms: int, tool: str | None = 
                     if end_idx < len(prompt):
                         snippet = snippet + "..."
 
-                    matches.append({
-                        "date": ts_hkt.strftime("%Y-%m-%d"),
-                        "time": ts_hkt.strftime("%H:%M"),
-                        "timestamp": ts,
-                        "session": sess[:8],
-                        "session_full": sess,
-                        "role": "you",
-                        "snippet": snippet,
-                        "tool": label,
-                    })
-                except (json.JSONDecodeError, Exception):
+                    matches.append(
+                        {
+                            "date": ts_hkt.strftime("%Y-%m-%d"),
+                            "time": ts_hkt.strftime("%H:%M"),
+                            "timestamp": ts,
+                            "session": sess[:8],
+                            "session_full": sess,
+                            "role": "you",
+                            "snippet": snippet,
+                            "tool": label,
+                        }
+                    )
+                except json.JSONDecodeError, Exception:
                     continue
 
     # Also search OpenCode if applicable
@@ -224,16 +230,20 @@ def search_prompts(pattern: str, start_ms: int, end_ms: int, tool: str | None = 
                     snippet = "..." + snippet
                 if end_idx < len(p["prompt"]):
                     snippet = snippet + "..."
-                matches.append({
-                    "date": p["time"][:10] if len(p["time"]) > 10 else datetime.now(HKT).strftime("%Y-%m-%d"),
-                    "time": p["time"],
-                    "timestamp": p["timestamp"],
-                    "session": p["session"],
-                    "session_full": p["session_full"],
-                    "role": "you",
-                    "snippet": snippet,
-                    "tool": "OpenCode",
-                })
+                matches.append(
+                    {
+                        "date": p["time"][:10]
+                        if len(p["time"]) > 10
+                        else datetime.now(HKT).strftime("%Y-%m-%d"),
+                        "time": p["time"],
+                        "timestamp": p["timestamp"],
+                        "session": p["session"],
+                        "session_full": p["session_full"],
+                        "role": "you",
+                        "snippet": snippet,
+                        "tool": "OpenCode",
+                    }
+                )
 
     matches.sort(key=lambda x: x["timestamp"], reverse=True)
     return matches[:limit]
@@ -248,7 +258,7 @@ def scan_opencode(start_ms: int, end_ms: int) -> list:
     session_files = list(OPENCODE_STORAGE.glob("session/*/*.json"))
     for sf in session_files:
         try:
-            with open(sf, "r") as f:
+            with open(sf) as f:
                 sess_data = json.load(f)
                 created_ms = sess_data.get("time", {}).get("created", 0)
                 if not (start_ms <= created_ms < end_ms):
@@ -264,7 +274,7 @@ def scan_opencode(start_ms: int, end_ms: int) -> list:
 
                 msg_files = list(msg_dir.glob("msg_*.json"))
                 for mf in msg_files:
-                    with open(mf, "r") as f:
+                    with open(mf) as f:
                         msg_data = json.load(f)
                         if msg_data.get("role") != "user":
                             continue
@@ -280,21 +290,23 @@ def scan_opencode(start_ms: int, end_ms: int) -> list:
                         if part_dir.exists():
                             part_files = sorted(part_dir.glob("prt_*.json"))
                             for pf in part_files:
-                                with open(pf, "r") as f:
+                                with open(pf) as f:
                                     part_data = json.load(f)
                                     prompt_text += part_data.get("text", "")
 
                         if prompt_text:
                             ts_hkt = datetime.fromtimestamp(ts_ms / 1000, tz=HKT)
-                            prompts.append({
-                                "time": ts_hkt.strftime("%H:%M"),
-                                "timestamp": ts_ms,
-                                "session": sess_id[:8],
-                                "session_full": sess_id,
-                                "prompt": prompt_text,
-                                "tool": "OpenCode",
-                            })
-        except (OSError, json.JSONDecodeError):
+                            prompts.append(
+                                {
+                                    "time": ts_hkt.strftime("%H:%M"),
+                                    "timestamp": ts_ms,
+                                    "session": sess_id[:8],
+                                    "session_full": sess_id,
+                                    "prompt": prompt_text,
+                                    "tool": "OpenCode",
+                                }
+                            )
+        except OSError, json.JSONDecodeError:
             continue
     return prompts
 
@@ -321,7 +333,7 @@ def scan_history(target_date_str: str, limit: int = 50, tool: str | None = None)
         if not path.exists():
             continue
 
-        with open(path, "r") as f:
+        with open(path) as f:
             for line in f:
                 try:
                     entry = json.loads(line)
@@ -333,15 +345,17 @@ def scan_history(target_date_str: str, limit: int = 50, tool: str | None = None)
                     sess = entry.get("sessionId", "unknown")
                     prompt = entry.get("display", entry.get("prompt", ""))
 
-                    prompts.append({
-                        "time": ts_hkt.strftime("%H:%M"),
-                        "timestamp": ts,
-                        "session": sess[:8],
-                        "session_full": sess,
-                        "prompt": prompt,
-                        "tool": label,
-                    })
-                except (json.JSONDecodeError, Exception):
+                    prompts.append(
+                        {
+                            "time": ts_hkt.strftime("%H:%M"),
+                            "timestamp": ts,
+                            "session": sess[:8],
+                            "session_full": sess,
+                            "prompt": prompt,
+                            "tool": label,
+                        }
+                    )
+                except json.JSONDecodeError, Exception:
                     continue
 
     if tool is None or (tool and tool.lower() == "opencode"):
@@ -461,10 +475,8 @@ def main():
     days = None
     for arg in args:
         if arg.startswith("--days="):
-            try:
+            with contextlib.suppress(ValueError):
                 days = int(arg.split("=", 1)[1])
-            except ValueError:
-                pass
             break
 
     # Parse --tool=NAME

@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -20,7 +19,7 @@ def fake_claude(tmp_path):
     """Create a fake claude binary that records invocation details."""
     fake = tmp_path / "claude"
     fake.write_text(
-        '#!/bin/bash\n'
+        "#!/bin/bash\n"
         'echo "ARGV: $@"\n'
         'echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}"\n'
         'echo "ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL}"\n'
@@ -55,6 +54,7 @@ def _run_cg(*args, env_extra=None, path_dirs=None):
 # --help / -h
 # ---------------------------------------------------------------------------
 
+
 class TestHelp:
     def test_help_flag_exits_zero(self):
         r = _run_cg("--help")
@@ -83,6 +83,7 @@ class TestHelp:
 # Missing ZHIPU_API_KEY
 # ---------------------------------------------------------------------------
 
+
 class TestMissingKey:
     def test_missing_key_exits_nonzero(self):
         r = _run_cg("-p", "test")
@@ -98,10 +99,12 @@ class TestMissingKey:
 # Correct invocation with fake claude
 # ---------------------------------------------------------------------------
 
+
 class TestInvocation:
     def test_sets_anthropic_api_key(self, fake_claude, tmp_path):
         r = _run_cg(
-            "-p", "hello",
+            "-p",
+            "hello",
             env_extra={"ZHIPU_API_KEY": "test-key-123"},
             path_dirs=str(tmp_path),
         )
@@ -112,7 +115,8 @@ class TestInvocation:
 
     def test_sets_anthropic_base_url(self, fake_claude, tmp_path):
         r = _run_cg(
-            "-p", "hello",
+            "-p",
+            "hello",
             env_extra={"ZHIPU_API_KEY": "k"},
             path_dirs=str(tmp_path),
         )
@@ -120,7 +124,8 @@ class TestInvocation:
 
     def test_unsets_anthropic_auth_token(self, fake_claude, tmp_path):
         r = _run_cg(
-            "-p", "hello",
+            "-p",
+            "hello",
             env_extra={
                 "ZHIPU_API_KEY": "k",
                 "ANTHROPIC_AUTH_TOKEN": "should-be-gone",
@@ -131,7 +136,8 @@ class TestInvocation:
 
     def test_passes_model_flag(self, fake_claude, tmp_path):
         r = _run_cg(
-            "-p", "hello",
+            "-p",
+            "hello",
             env_extra={"ZHIPU_API_KEY": "k"},
             path_dirs=str(tmp_path),
         )
@@ -140,7 +146,8 @@ class TestInvocation:
 
     def test_passes_dangerously_skip_permissions(self, fake_claude, tmp_path):
         r = _run_cg(
-            "-p", "hello",
+            "-p",
+            "hello",
             env_extra={"ZHIPU_API_KEY": "k"},
             path_dirs=str(tmp_path),
         )
@@ -148,7 +155,8 @@ class TestInvocation:
 
     def test_passes_extra_args(self, fake_claude, tmp_path):
         r = _run_cg(
-            "-p", "hello world",
+            "-p",
+            "hello world",
             env_extra={"ZHIPU_API_KEY": "k"},
             path_dirs=str(tmp_path),
         )
@@ -157,7 +165,9 @@ class TestInvocation:
 
     def test_passes_multiple_args(self, fake_claude, tmp_path):
         r = _run_cg(
-            "--verbose", "-p", "test prompt",
+            "--verbose",
+            "-p",
+            "test prompt",
             env_extra={"ZHIPU_API_KEY": "k"},
             path_dirs=str(tmp_path),
         )

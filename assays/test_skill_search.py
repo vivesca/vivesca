@@ -7,8 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "skill-search"
 GERMLINE = Path(__file__).resolve().parent.parent
 RECEPTORS = GERMLINE / "membrane" / "receptors"
@@ -25,6 +23,7 @@ def run_search(*args: str) -> subprocess.CompletedProcess:
 
 
 # --- Frontmatter parsing ---
+
 
 class TestFrontmatterParsing:
     """Test the parse_frontmatter function directly."""
@@ -57,7 +56,7 @@ triggers:
   - baz
 ---
 Body."""
-        meta, body = ns["parse_frontmatter"](text)
+        meta, _body = ns["parse_frontmatter"](text)
         assert meta["triggers"] == ["foo", "bar", "baz"]
 
     def test_no_frontmatter(self):
@@ -80,6 +79,7 @@ Body."""
 
 # --- Keyword matching ---
 
+
 class TestKeywordMatching:
     def _load_ns(self):
         ns = {"__name__": "test_skill_search", "__file__": str(SCRIPT)}
@@ -101,6 +101,7 @@ class TestKeywordMatching:
 
 
 # --- CLI integration tests (run against real skills) ---
+
 
 class TestCLI:
     def test_search_finds_known_skill(self):
@@ -183,6 +184,7 @@ class TestCLI:
 
 
 # --- Find skills (path traversal) ---
+
 
 class TestFindSkills:
     def _load_ns(self):

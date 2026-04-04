@@ -1,9 +1,7 @@
-
 """endocytosis — RSS ingestion and status tools.
 
 Actions: status|fetch|stats|top
 """
-
 
 import contextlib
 from datetime import datetime

@@ -1,4 +1,3 @@
-
 """pinocytosis — deterministic context gathering and overnight summaries."""
 
 import json

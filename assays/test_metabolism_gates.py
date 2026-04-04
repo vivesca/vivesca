@@ -7,15 +7,15 @@ from unittest.mock import patch
 import pytest
 
 from metabolon.metabolism.gates import (
-    GateResult,
     MAX_WORDS,
     MIN_WORDS,
+    GateResult,
     reflex_check,
     taste,
 )
 
-
 # ── GateResult ──────────────────────────────────────────────────────────
+
 
 class TestGateResult:
     def test_fields(self):
@@ -25,6 +25,7 @@ class TestGateResult:
 
 
 # ── reflex_check ────────────────────────────────────────────────────────
+
 
 class TestReflexCheck:
     def _make_text(self, n_words: int) -> str:
@@ -74,6 +75,7 @@ class TestReflexCheck:
 # transduce is imported inside the function body via
 # `from metabolon.symbiont import transduce`, so we patch where
 # it is looked up: metabolon.symbiont.transduce.
+
 
 class TestTaste:
     @pytest.mark.asyncio

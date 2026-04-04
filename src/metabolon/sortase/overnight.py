@@ -1,10 +1,8 @@
-
 """Overnight session report generator for sortase.
 
 Analyzes sortase log entries from the last N hours to produce a summary
 report covering success rates, backend distribution, and failure reasons.
 """
-
 
 import json
 from collections import Counter

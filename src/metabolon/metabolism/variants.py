@@ -1,6 +1,4 @@
-
 """Genome variant storage — tool descriptions as versioned markdown files."""
-
 
 import json
 from pathlib import Path

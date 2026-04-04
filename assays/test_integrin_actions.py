@@ -7,9 +7,6 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -31,7 +28,7 @@ class TestConstants:
         from metabolon.enzymes.integrin import SKILL_USAGE_LOG
 
         expected = Path.home() / ".claude" / "skill-usage.tsv"
-        assert SKILL_USAGE_LOG == expected
+        assert expected == SKILL_USAGE_LOG
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +91,9 @@ class TestBinaryResolution:
         from metabolon.enzymes.integrin import _probe_responsiveness
 
         with (
-            patch("metabolon.enzymes.integrin.shutil.which", return_value="/usr/local/bin/slowbin"),
+            patch(
+                "metabolon.enzymes.integrin.shutil.which", return_value="/usr/local/bin/slowbin"
+            ),
             patch(
                 "metabolon.enzymes.integrin.subprocess.run",
                 side_effect=subprocess.TimeoutExpired(cmd="slowbin", timeout=5),

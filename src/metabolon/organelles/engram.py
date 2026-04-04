@@ -1,6 +1,4 @@
-
 """engram — chat session archive search (formerly anam)."""
-
 
 import argparse
 import difflib
@@ -75,7 +73,7 @@ def _ms_to_hkt(ms: int) -> datetime:
 def _parse_rfc3339(s: str) -> datetime | None:
     """Parse RFC-3339 / ISO-8601 timestamp to aware datetime."""
     try:
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return datetime.fromisoformat(s)
     except ValueError:
         return None
 
@@ -875,7 +873,7 @@ def _collect_words_from_transcripts(
 
     # OpenCode transcripts
     if not tool_filter or tool_filter.lower() == "opencode":
-        for sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
+        for _sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
             role_str = msg.get("role") or ""
             if role_str not in ("user", "assistant"):
                 continue

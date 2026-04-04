@@ -3,21 +3,20 @@ from __future__ import annotations
 """Tests for metabolon.sortase.decompose module."""
 
 
-import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from metabolon.sortase.decompose import (
     ComplexityScore,
     TaskSpec,
-    _strip_fences,
     _parse_yaml_tasks,
-    estimate_complexity,
-    score_spec_quality,
-    lint_plan,
+    _strip_fences,
     decompose_plan,
+    estimate_complexity,
+    lint_plan,
+    score_spec_quality,
 )
 
 
@@ -393,7 +392,7 @@ class TestDecomposePlan:
 """
         plan_file = tmp_path / "plan.yaml"
         plan_file.write_text(yaml_content)
-        
+
         tasks = decompose_plan(plan_file)
         assert len(tasks) == 1
         assert tasks[0].name == "task1"
@@ -407,7 +406,7 @@ class TestDecomposePlan:
 """
         plan_file = tmp_path / "plan.yml"
         plan_file.write_text(yaml_content)
-        
+
         tasks = decompose_plan(plan_file)
         assert len(tasks) == 1
 
@@ -420,7 +419,7 @@ Create a function that does X.
 """
         plan_file = tmp_path / "plan.md"
         plan_file.write_text(md_content)
-        
+
         tasks = decompose_plan(plan_file)
         assert len(tasks) == 1
         assert tasks[0].name == "plan"
@@ -435,7 +434,7 @@ Create a function that does X.
 """
         plan_file = tmp_path / "plan.yaml"
         plan_file.write_text(yaml_content)
-        
+
         tasks = decompose_plan(plan_file)
         assert tasks[0].temp_file is not None
         assert Path(tasks[0].temp_file).exists()
@@ -445,7 +444,7 @@ Create a function that does X.
         """Smart mode calls Gemini decomposition."""
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("Create a function")
-        
+
         mock_output = """
 ```yaml
 - name: generated-task
@@ -453,9 +452,11 @@ Create a function that does X.
   files: []
 ```
 """
-        
-        with patch("metabolon.sortase.decompose._run_gemini_decomposition", return_value=mock_output):
+
+        with patch(
+            "metabolon.sortase.decompose._run_gemini_decomposition", return_value=mock_output
+        ):
             tasks = decompose_plan(plan_file, smart=True)
-        
+
         assert len(tasks) == 1
         assert tasks[0].name == "generated-task"

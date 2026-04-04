@@ -6,8 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 def _mock_file(name: str, *, is_file: bool = True) -> MagicMock:
     """Create a sortable MagicMock(Path) with a given name."""
@@ -249,7 +247,12 @@ class TestExpressEffectorIndex:
             {"name": "lysin", "type": "cli", "source": "vivesca/effectors/"},
         ]
         mock_scan_mcp.return_value = [
-            {"name": "vivesca__search", "type": "mcp", "source": "vivesca/search", "description": "Search"},
+            {
+                "name": "vivesca__search",
+                "type": "mcp",
+                "source": "vivesca/search",
+                "description": "Search",
+            },
         ]
 
         output = express_effector_index(
@@ -318,7 +321,12 @@ class TestExpressEffectorIndex:
         mock_cli.return_value = []
         long_desc = "A" * 120
         mock_mcp.return_value = [
-            {"name": "vivesca__long", "type": "mcp", "source": "vivesca/x", "description": long_desc},
+            {
+                "name": "vivesca__long",
+                "type": "mcp",
+                "source": "vivesca/x",
+                "description": long_desc,
+            },
         ]
 
         output = express_effector_index(
@@ -343,7 +351,12 @@ class TestExpressEffectorIndex:
         mock_mcp: MagicMock,
         mock_routing: MagicMock,
     ) -> None:
-        from metabolon.resources.proteome import _BIN_DIR, _ROUTING_TABLE, _VIVESCA_TOOLS, express_effector_index
+        from metabolon.resources.proteome import (
+            _BIN_DIR,
+            _ROUTING_TABLE,
+            _VIVESCA_TOOLS,
+            express_effector_index,
+        )
 
         mock_cli.return_value = []
         mock_mcp.return_value = []

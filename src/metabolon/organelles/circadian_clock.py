@@ -1,4 +1,3 @@
-
 """circadian_clock — Google Calendar API client for headless environments.
 
 Direct Google Calendar API access — no gog CLI dependency.

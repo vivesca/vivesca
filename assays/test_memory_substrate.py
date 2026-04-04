@@ -3,11 +3,8 @@ from __future__ import annotations
 """Comprehensive tests for ConsolidationSubstrate (memory.py)."""
 
 
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 from metabolon.metabolism.signals import Outcome, Stimulus
 from metabolon.metabolism.substrates.memory import (
@@ -17,10 +14,10 @@ from metabolon.metabolism.substrates.memory import (
     _parse_frontmatter,
 )
 
-
 # ---------------------------------------------------------------------------
 # _parse_frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestParseFrontmatter:
     def test_valid_frontmatter(self):
@@ -63,6 +60,7 @@ class TestParseFrontmatter:
 # _keyword_overlap
 # ---------------------------------------------------------------------------
 
+
 class TestKeywordOverlap:
     def test_basic_overlap(self):
         result = _keyword_overlap("testing memory files", "memory files are great")
@@ -103,6 +101,7 @@ class TestKeywordOverlap:
 # ConsolidationSubstrate.__init__
 # ---------------------------------------------------------------------------
 
+
 class TestInit:
     def test_custom_paths(self, tmp_path):
         mem_dir = tmp_path / "mem"
@@ -130,6 +129,7 @@ class TestInit:
 # ---------------------------------------------------------------------------
 # sense
 # ---------------------------------------------------------------------------
+
 
 class TestSense:
     def test_missing_memory_dir(self, tmp_path):
@@ -259,9 +259,7 @@ class TestSense:
         """Tools with underscores contribute their prefix to enzyme set."""
         mem_dir = tmp_path / "memory"
         mem_dir.mkdir()
-        (mem_dir / "sig.md").write_text(
-            "---\ntype: finding\n---\nUsing Write for output."
-        )
+        (mem_dir / "sig.md").write_text("---\ntype: finding\n---\nUsing Write for output.")
 
         collector = MagicMock()
         signal = Stimulus(
@@ -352,6 +350,7 @@ class TestSense:
 # ---------------------------------------------------------------------------
 # candidates
 # ---------------------------------------------------------------------------
+
 
 class TestCandidates:
     def _make_mem(self, **overrides):
@@ -494,35 +493,42 @@ class TestCandidates:
 # act
 # ---------------------------------------------------------------------------
 
+
 class TestAct:
     def test_prune_dead(self):
         s = ConsolidationSubstrate()
-        result = s.act({
-            "name": "stale",
-            "action": "promote",
-            "dead": True,
-            "constitution_overlap": set(),
-        })
+        result = s.act(
+            {
+                "name": "stale",
+                "action": "promote",
+                "dead": True,
+                "constitution_overlap": set(),
+            }
+        )
         assert result.startswith("prune candidate: stale")
         assert "no signal or constitution evidence" in result
 
     def test_already_promoted(self):
         s = ConsolidationSubstrate()
-        result = s.act({
-            "name": "old",
-            "action": "already_promoted",
-            "constitution_overlap": {"a", "b", "c", "d", "e"},
-        })
+        result = s.act(
+            {
+                "name": "old",
+                "action": "already_promoted",
+                "constitution_overlap": {"a", "b", "c", "d", "e"},
+            }
+        )
         assert result.startswith("already promoted: old")
         assert "overlap: 5 keywords" in result
 
     def test_promote_with_priority(self):
         s = ConsolidationSubstrate()
-        result = s.act({
-            "name": "hot",
-            "action": "promote",
-            "priority": "high (signal evidence)",
-        })
+        result = s.act(
+            {
+                "name": "hot",
+                "action": "promote",
+                "priority": "high (signal evidence)",
+            }
+        )
         assert result == "promote to constitution: hot [high (signal evidence)]"
 
     def test_promote_without_priority(self):
@@ -532,11 +538,13 @@ class TestAct:
 
     def test_program_with_priority(self):
         s = ConsolidationSubstrate()
-        result = s.act({
-            "name": "prog",
-            "action": "program",
-            "priority": "high (signal evidence)",
-        })
+        result = s.act(
+            {
+                "name": "prog",
+                "action": "program",
+                "priority": "high (signal evidence)",
+            }
+        )
         assert result == "program candidate: prog [high (signal evidence)]"
 
     def test_program_without_priority(self):
@@ -546,11 +554,13 @@ class TestAct:
 
     def test_migrate(self):
         s = ConsolidationSubstrate()
-        result = s.act({
-            "name": "ref-doc",
-            "action": "migrate",
-            "target": ("tool-index.md or skill file", "Pointers belong where the action is"),
-        })
+        result = s.act(
+            {
+                "name": "ref-doc",
+                "action": "migrate",
+                "target": ("tool-index.md or skill file", "Pointers belong where the action is"),
+            }
+        )
         assert "migrate to tool-index.md or skill file: ref-doc" in result
         assert "Pointers belong where the action is" in result
 
@@ -568,6 +578,7 @@ class TestAct:
 # ---------------------------------------------------------------------------
 # report
 # ---------------------------------------------------------------------------
+
 
 class TestReport:
     def test_empty_sensed_no_actions(self):
@@ -645,6 +656,7 @@ class TestReport:
 # ---------------------------------------------------------------------------
 # Integration: sense → candidates → act → report pipeline
 # ---------------------------------------------------------------------------
+
 
 class TestPipeline:
     def test_full_pipeline(self, tmp_path):

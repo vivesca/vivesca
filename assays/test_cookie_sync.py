@@ -7,12 +7,11 @@ cookie-sync is a script — loaded via exec(), never imported.
 
 
 import base64
-import hashlib
 import json
 import sqlite3
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -248,20 +247,29 @@ class TestReadCookies:
         db_path = cookie_db / "Chrome" / "Default" / "Cookies"
         rows = read_cookies(db_path)
         row = rows[0]
-        for key in ("domain", "name", "path", "value", "expires", "secure", "httpOnly", "sameSite"):
+        for key in (
+            "domain",
+            "name",
+            "path",
+            "value",
+            "expires",
+            "secure",
+            "httpOnly",
+            "sameSite",
+        ):
             assert key in row, f"Missing key: {key}"
 
     def test_encrypted_value_is_base64(self, cookie_db):
         db_path = cookie_db / "Chrome" / "Default" / "Cookies"
         rows = read_cookies(db_path)
-        enc_row = [r for r in rows if r["_encrypted"]][0]
+        enc_row = next(r for r in rows if r["_encrypted"])
         # value should be valid base64
         base64.b64decode(enc_row["value"])
 
     def test_plaintext_cookie_has_empty_value(self, cookie_db):
         db_path = cookie_db / "Chrome" / "Default" / "Cookies"
         rows = read_cookies(db_path)
-        plain = [r for r in rows if r["name"] == "pref"][0]
+        plain = next(r for r in rows if r["name"] == "pref")
         assert plain["value"] == ""
         assert plain["_encrypted"] is False
 
@@ -293,8 +301,10 @@ class TestDecryptExportedCookies:
 class TestExportCLI:
     def test_export_writes_json(self, cookie_db, tmp_path):
         output = tmp_path / "out.json"
-        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
+        with (
+            patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"),
+            patch.object(_mod, "get_chrome_key", return_value=TEST_KEY),
+        ):
             rc = main(["export", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -306,8 +316,10 @@ class TestExportCLI:
 
     def test_export_domain_filter(self, cookie_db, tmp_path):
         output = tmp_path / "filtered.json"
-        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
+        with (
+            patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"),
+            patch.object(_mod, "get_chrome_key", return_value=TEST_KEY),
+        ):
             rc = main(["export", "--domain", "other", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -323,8 +335,10 @@ class TestExportCLI:
 
     def test_export_creates_parent_dirs(self, cookie_db, tmp_path):
         output = tmp_path / "deep" / "nested" / "cookies.json"
-        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
+        with (
+            patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"),
+            patch.object(_mod, "get_chrome_key", return_value=TEST_KEY),
+        ):
             rc = main(["export", "--output", str(output)])
         assert rc == 0
         assert output.exists()
@@ -339,14 +353,16 @@ class TestExportCLI:
         for c in cookies:
             assert "_encrypted" not in c
         # The session_id cookie was encrypted, so value should be base64
-        enc = [c for c in cookies if c["name"] == "session_id"][0]
+        enc = next(c for c in cookies if c["name"] == "session_id")
         raw = base64.b64decode(enc["value"])
         assert raw[:3] == V10_PREFIX
 
     def test_export_no_encrypted_value_in_output(self, cookie_db, tmp_path):
         output = tmp_path / "clean.json"
-        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
+        with (
+            patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"),
+            patch.object(_mod, "get_chrome_key", return_value=TEST_KEY),
+        ):
             rc = main(["export", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -364,9 +380,13 @@ class TestImportCLI:
 
     def test_import_calls_playwright(self, tmp_path):
         cookies_file = tmp_path / "cookies.json"
-        cookies_file.write_text(json.dumps([
-            {"name": "k", "value": "v", "domain": ".d.com", "path": "/"},
-        ]))
+        cookies_file.write_text(
+            json.dumps(
+                [
+                    {"name": "k", "value": "v", "domain": ".d.com", "path": "/"},
+                ]
+            )
+        )
         with patch.object(_mod, "import_cookies") as mock_imp:
             rc = main(["import", str(cookies_file)])
         assert rc == 0

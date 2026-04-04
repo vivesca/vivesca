@@ -6,19 +6,19 @@ Mock all external I/O and subprocess calls to test core logic in isolation.
 """
 
 
-import json
-import pytest
-from unittest.mock import patch, mock_open
 import datetime
+import json
+from unittest.mock import mock_open, patch
+
+import pytest
 
 from metabolon.vasomotor import (
-    _migrate_path,
-    oxygen_debt,
-    effective_burn,
-    _hours_to_reset,
-    vasomotor_snapshot,
-    _migrated,
     SATURATION_PENALTY,
+    _hours_to_reset,
+    _migrate_path,
+    effective_burn,
+    oxygen_debt,
+    vasomotor_snapshot,
 )
 
 
@@ -30,7 +30,7 @@ class TestMigrationHelpers:
         legacy = tmp_path / "legacy.txt"
         new = tmp_path / "new.txt"
         legacy.write_text("legacy content")
-        
+
         assert not new.exists()
         _migrate_path(new, legacy)
         assert new.exists()
@@ -41,7 +41,7 @@ class TestMigrationHelpers:
         """If legacy doesn't exist, do nothing."""
         legacy = tmp_path / "legacy.txt"
         new = tmp_path / "new.txt"
-        
+
         assert not legacy.exists()
         assert not new.exists()
         _migrate_path(new, legacy)
@@ -53,7 +53,7 @@ class TestMigrationHelpers:
         new = tmp_path / "new.txt"
         legacy.write_text("legacy")
         new.write_text("new")
-        
+
         _migrate_path(new, legacy)
         assert new.exists()
         assert legacy.exists()
@@ -62,7 +62,7 @@ class TestMigrationHelpers:
 
 class TestOxygenDebt:
     """Tests for oxygen_debt pure function.
-    
+
     Oxygen debt: 0.0 (no urgency) to 1.0 (full urgency)
     Ramps from 48h (0.0) to 6h (1.0). Below 6h → 1.0. Above 48h → 0.0.
     Formula: max(0.0, min(1.0, (48 - hours_to_reset) / 42))
@@ -124,13 +124,15 @@ class TestEffectiveBurn:
 
     def test_effective_burn_custom_penalty_from_genome(self):
         """When genome has custom penalty, it's used."""
-        with patch('metabolon.vasomotor.vasomotor_genome', return_value={'saturation_penalty': 2.0}):
+        with patch(
+            "metabolon.vasomotor.vasomotor_genome", return_value={"saturation_penalty": 2.0}
+        ):
             # 10 total, 3 saturated, penalty 2.0 → (7 + 3×2) × 1.0 = 13
             assert effective_burn(10, 3, 1.0) == 13.0
 
     def test_effective_burn_default_penalty_when_genome_empty(self):
         """When genome is empty, default SATURATION_PENALTY used."""
-        with patch('metabolon.vasomotor.vasomotor_genome', return_value={}):
+        with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
             expected = (7 + (3 * SATURATION_PENALTY)) * 1.0
             assert effective_burn(10, 3, 1.0) == pytest.approx(expected)
 
@@ -140,14 +142,10 @@ class TestHoursToReset:
 
     def test_hours_to_reset_uses_telemetry_when_available(self):
         """When telemetry provides resets_at, use it and persist to file."""
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
-        telemetry = {
-            "seven_day": {
-                "resets_at": future.isoformat()
-            }
-        }
-        
-        with patch('metabolon.vasomotor._RESETS_AT_FILE') as mock_file:
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=24)
+        telemetry = {"seven_day": {"resets_at": future.isoformat()}}
+
+        with patch("metabolon.vasomotor._RESETS_AT_FILE") as mock_file:
             mock_file.write_text = lambda x: None
             result = _hours_to_reset(telemetry)
             assert result is not None
@@ -155,10 +153,10 @@ class TestHoursToReset:
 
     def test_hours_to_reset_fallback_to_file(self):
         """When telemetry doesn't have resets_at, read from file fallback."""
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=12)
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=12)
         cached_content = future.isoformat()
-        
-        with patch('metabolon.vasomotor._RESETS_AT_FILE') as mock_file:
+
+        with patch("metabolon.vasomotor._RESETS_AT_FILE") as mock_file:
             mock_file.read_text = lambda: cached_content
             result = _hours_to_reset(None)
             assert result is not None
@@ -166,23 +164,21 @@ class TestHoursToReset:
 
     def test_hours_to_reset_returns_none_when_no_data(self):
         """When neither telemetry nor cached file has data, return None."""
+
         def raise_file_not_found():
             raise FileNotFoundError()
-        with patch('metabolon.vasomotor._RESETS_AT_FILE') as mock_file:
+
+        with patch("metabolon.vasomotor._RESETS_AT_FILE") as mock_file:
             mock_file.read_text = raise_file_not_found
             result = _hours_to_reset(None)
             assert result is None
 
     def test_hours_to_reset_returns_min_half_hour(self):
         """Never returns less than 0.5 hours."""
-        past = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
-        telemetry = {
-            "seven_day": {
-                "resets_at": past.isoformat()
-            }
-        }
-        
-        with patch('metabolon.vasomotor._RESETS_AT_FILE') as mock_file:
+        past = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+        telemetry = {"seven_day": {"resets_at": past.isoformat()}}
+
+        with patch("metabolon.vasomotor._RESETS_AT_FILE") as mock_file:
             mock_file.write_text = lambda x: None
             result = _hours_to_reset(telemetry)
             assert result == 0.5
@@ -197,20 +193,20 @@ class TestVasomotorSnapshot:
             "seven_day": {"utilization": 45},
             "seven_day_sonnet": {"utilization": 60},
         }
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
             snapshot = vasomotor_snapshot()
             assert snapshot == {"weekly": 45, "sonnet": 60}
 
     def test_vasomotor_snapshot_defaults_zero_when_missing(self):
         """When fields are missing, defaults to 0."""
         telemetry = {"seven_day": {}}
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
             snapshot = vasomotor_snapshot()
             assert snapshot == {"weekly": 0, "sonnet": 0}
 
     def test_vasomotor_snapshot_returns_none_when_telemetry_none(self):
         """When telemetry fetch fails, returns None."""
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=None):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
             snapshot = vasomotor_snapshot()
             assert snapshot is None
 
@@ -229,8 +225,8 @@ class TestCircadianCalibration:
             "systole_deltas": [],
         }
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=empty_state):
-            with patch('metabolon.vasomotor._save_circadian_state') as mock_save:
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=empty_state):
+            with patch("metabolon.vasomotor._save_circadian_state") as mock_save:
                 count = breathe(saturated=False, systole_delta=1.0)
                 assert count == 1
                 # Check saved state has incremented count
@@ -250,8 +246,8 @@ class TestCircadianCalibration:
             "systole_deltas": [1.0, 0.0],
         }
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=state):
-            with patch('metabolon.vasomotor._save_circadian_state'):
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=state):
+            with patch("metabolon.vasomotor._save_circadian_state"):
                 count = breathe(saturated=True, systole_delta=0.0)
                 assert count == 6
 
@@ -266,8 +262,8 @@ class TestCircadianCalibration:
             "systole_deltas": [],
         }
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=empty_state):
-            with patch('metabolon.vasomotor._save_circadian_state') as mock_save:
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=empty_state):
+            with patch("metabolon.vasomotor._save_circadian_state") as mock_save:
                 breathe(saturated=False, wave_delta=0.5)
                 saved_state = mock_save.call_args[0][0]
                 assert saved_state["systole_deltas"] == [0.5]
@@ -280,19 +276,22 @@ class TestTidalVolume:
         """Higher interactive pressure reduces tidal volume (pulse share)."""
         from metabolon.vasomotor import tidal_volume
 
-        with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-            'basal_rate': 0.5,
-            'min_basal_rate': 0.15,
-        }):
-            with patch('metabolon.vasomotor.interactive_pressure', return_value=0.0):
+        with patch(
+            "metabolon.vasomotor.vasomotor_genome",
+            return_value={
+                "basal_rate": 0.5,
+                "min_basal_rate": 0.15,
+            },
+        ):
+            with patch("metabolon.vasomotor.interactive_pressure", return_value=0.0):
                 # 0 pressure → full basal rate
                 assert tidal_volume() == pytest.approx(0.5)
 
-            with patch('metabolon.vasomotor.interactive_pressure', return_value=1.0):
+            with patch("metabolon.vasomotor.interactive_pressure", return_value=1.0):
                 # 1 pressure → min basal rate
                 assert tidal_volume() == pytest.approx(0.15)
 
-            with patch('metabolon.vasomotor.interactive_pressure', return_value=0.5):
+            with patch("metabolon.vasomotor.interactive_pressure", return_value=0.5):
                 # 0.5 pressure → midpoint
                 expected = 0.5 - 0.5 * (0.5 - 0.15)
                 assert tidal_volume() == pytest.approx(expected)
@@ -304,19 +303,21 @@ class TestVasomotorGenome:
     def test_vasomotor_genome_returns_empty_dict_when_file_missing(self):
         """When config file doesn't exist, returns empty dict."""
         from metabolon.vasomotor import vasomotor_genome
-        with patch('metabolon.vasomotor.CONF_PATH') as mock_path:
+
+        with patch("metabolon.vasomotor.CONF_PATH") as mock_path:
             mock_path.exists = lambda: False
             assert vasomotor_genome() == {}
 
     def test_vasomotor_genome_returns_parsed_json(self):
         """When config exists, returns parsed JSON dict."""
         from metabolon.vasomotor import vasomotor_genome
+
         test_config = {
             "aerobic_ceiling": 85,
             "sonnet_ceiling": 92,
             "basal_rate": 0.4,
         }
-        with patch('metabolon.vasomotor.CONF_PATH') as mock_path:
+        with patch("metabolon.vasomotor.CONF_PATH") as mock_path:
             mock_path.exists = lambda: True
             mock_path.read_text = lambda: json.dumps(test_config)
             assert vasomotor_genome() == test_config
@@ -332,7 +333,7 @@ class TestApneaCheck:
         def raise_file_not_found():
             raise FileNotFoundError()
 
-        with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
+        with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
             mock_file.read_text = raise_file_not_found
             apneic, reason = is_apneic()
             assert not apneic
@@ -343,7 +344,7 @@ class TestApneaCheck:
         from metabolon.vasomotor import is_apneic
 
         future = datetime.datetime.now() + datetime.timedelta(minutes=30)
-        with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
+        with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
             mock_file.read_text = lambda: future.isoformat()
             apneic, reason = is_apneic()
             assert apneic
@@ -355,9 +356,9 @@ class TestApneaCheck:
         from metabolon.vasomotor import is_apneic
 
         past = datetime.datetime.now() - datetime.timedelta(minutes=10)
-        with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
+        with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
             mock_file.read_text = lambda: past.isoformat()
-            apneic, reason = is_apneic()
+            apneic, _reason = is_apneic()
             assert not apneic
 
 
@@ -372,23 +373,23 @@ class TestMeasuredCostPerSystole:
             "systole_deltas": [0.0, 1.0, 0.0, 1.0, 0.0],
         }
         # Average: (0+1+0+1+0)/5 = 2/5 = 0.4
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=circadian_state):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={}):
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=circadian_state):
+            with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 cost = measured_cost_per_systole()
                 assert cost == pytest.approx(0.4)
 
     def test_falls_back_to_default_when_few_samples_no_history(self):
         """When too few samples today and no historical data, uses default."""
-        from metabolon.vasomotor import measured_cost_per_systole, DEFAULT_COST_PER_SYSTOLE
+        from metabolon.vasomotor import DEFAULT_COST_PER_SYSTOLE, measured_cost_per_systole
 
         circadian_state = {
             "systole_deltas": [0.0, 1.0],  # only 2 samples (<3 required)
         }
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=circadian_state):
-            with patch('builtins.open', mock_open(read_data="")):
-                with patch('metabolon.vasomotor.EVENT_LOG') as mock_log:
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=circadian_state):
+            with patch("builtins.open", mock_open(read_data="")):
+                with patch("metabolon.vasomotor.EVENT_LOG") as mock_log:
                     mock_log.read_text = lambda: ""
-                    with patch('metabolon.vasomotor.vasomotor_genome', return_value={}):
+                    with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                         cost = measured_cost_per_systole()
                         assert cost == DEFAULT_COST_PER_SYSTOLE
 
@@ -399,8 +400,8 @@ class TestMeasuredCostPerSystole:
         circadian_state = {
             "systole_deltas": [0.0, 0.0, 0.0],  # average 0.0
         }
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=circadian_state):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={}):
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=circadian_state):
+            with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 cost = measured_cost_per_systole()
                 assert cost == 0.1  # clamped to minimum
 
@@ -410,48 +411,51 @@ class TestFetchTelemetry:
 
     def test_fetch_telemetry_returns_parsed_json(self):
         """Successful subprocess call returns parsed JSON."""
-        from metabolon.vasomotor import _fetch_telemetry
         import metabolon.vasomotor as vm
+        from metabolon.vasomotor import _fetch_telemetry
+
         vm._telemetry_cache = None
         vm._telemetry_cache_time = 0
 
-        mock_result = type('MockResult', (), {
-            'returncode': 0,
-            'stdout': '{"weekly": 50, "seven_day": {"utilization": 45}}',
-            'stderr': ''
-        })()
+        mock_result = type(
+            "MockResult",
+            (),
+            {
+                "returncode": 0,
+                "stdout": '{"weekly": 50, "seven_day": {"utilization": 45}}',
+                "stderr": "",
+            },
+        )()
 
-        with patch('metabolon.vasomotor.subprocess.run', return_value=mock_result):
+        with patch("metabolon.vasomotor.subprocess.run", return_value=mock_result):
             result = _fetch_telemetry()
             assert result == {"weekly": 50, "seven_day": {"utilization": 45}}
 
     def test_fetch_telemetry_returns_none_on_failure(self):
         """Failed subprocess call returns None."""
-        from metabolon.vasomotor import _fetch_telemetry
         import metabolon.vasomotor as vm
+        from metabolon.vasomotor import _fetch_telemetry
+
         vm._telemetry_cache = None
         vm._telemetry_cache_time = 0
 
-        mock_result = type('MockResult', (), {
-            'returncode': 1,
-            'stdout': '',
-            'stderr': 'error'
-        })()
+        mock_result = type("MockResult", (), {"returncode": 1, "stdout": "", "stderr": "error"})()
 
-        with patch('metabolon.vasomotor.subprocess.run', return_value=mock_result):
+        with patch("metabolon.vasomotor.subprocess.run", return_value=mock_result):
             result = _fetch_telemetry()
             assert result is None
 
     def test_fetch_telemetry_uses_cache_within_ttl(self):
         """Within cache TTL, returns cached value without subprocess call."""
         import time
-        from metabolon.vasomotor import _fetch_telemetry
+
         import metabolon.vasomotor as vm
+        from metabolon.vasomotor import _fetch_telemetry
 
         vm._telemetry_cache = {"cached": True}
         vm._telemetry_cache_time = time.time()
 
-        with patch('metabolon.vasomotor.subprocess.run') as mock_run:
+        with patch("metabolon.vasomotor.subprocess.run") as mock_run:
             result = _fetch_telemetry()
             assert result == {"cached": True}
             mock_run.assert_not_called()
@@ -464,10 +468,10 @@ class TestMeasureVasomotorTone:
         """measure_vasomotor_tone is a thin wrapper around _fetch_telemetry."""
         from metabolon.vasomotor import measure_vasomotor_tone
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value={"test": 1}):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value={"test": 1}):
             assert measure_vasomotor_tone() == {"test": 1}
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=None):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
             assert measure_vasomotor_tone() is None
 
 
@@ -478,32 +482,35 @@ class TestAssessVitalCapacity:
         """When telemetry can't be fetched, returns (False, 'budget_unknown')."""
         from metabolon.vasomotor import assess_vital_capacity
 
-        with patch('metabolon.vasomotor.measure_vasomotor_tone', return_value=None):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={}):
+        with patch("metabolon.vasomotor.measure_vasomotor_tone", return_value=None):
+            with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 ok, reason = assess_vital_capacity()
                 assert not ok
                 assert reason == "budget_unknown"
 
     def test_returns_false_when_weekly_exceeds_ceiling(self):
         """Weekly utilization above ceiling (accounting for oxygen debt) returns False."""
-        from metabolon.vasomotor import assess_vital_capacity, oxygen_debt
+        from metabolon.vasomotor import assess_vital_capacity
 
         telemetry = {
             "seven_day": {"utilization": 95},  # Well above ceiling
-            "seven_day_sonnet": {"utilization": 50}
+            "seven_day_sonnet": {"utilization": 50},
         }
 
-        with patch('metabolon.vasomotor.measure_vasomotor_tone', return_value=telemetry):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-                'aerobic_ceiling': 80,
-                'sonnet_ceiling': 90,
-                'sympathetic_reserve': 15,
-                'tachycardia_threshold': 60
-            }):
+        with patch("metabolon.vasomotor.measure_vasomotor_tone", return_value=telemetry):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome",
+                return_value={
+                    "aerobic_ceiling": 80,
+                    "sonnet_ceiling": 90,
+                    "sympathetic_reserve": 15,
+                    "tachycardia_threshold": 60,
+                },
+            ):
                 # With many hours to reset, debt=0, ceiling stays at 80
                 # 95% > 80% so should fail
-                with patch('metabolon.vasomotor._hours_to_reset', return_value=48):
-                    with patch('metabolon.vasomotor.assess_pacing', return_value=(True, "")):
+                with patch("metabolon.vasomotor._hours_to_reset", return_value=48):
+                    with patch("metabolon.vasomotor.assess_pacing", return_value=(True, "")):
                         ok, reason = assess_vital_capacity()
                         assert not ok
                         assert "exceeds_ceiling" in reason
@@ -512,20 +519,20 @@ class TestAssessVitalCapacity:
         """Sonnet utilization above ceiling returns False."""
         from metabolon.vasomotor import assess_vital_capacity
 
-        telemetry = {
-            "seven_day": {"utilization": 50},
-            "seven_day_sonnet": {"utilization": 95}
-        }
+        telemetry = {"seven_day": {"utilization": 50}, "seven_day_sonnet": {"utilization": 95}}
 
-        with patch('metabolon.vasomotor.measure_vasomotor_tone', return_value=telemetry):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-                'aerobic_ceiling': 80,
-                'sonnet_ceiling': 90,
-                'sympathetic_reserve': 15,
-                'tachycardia_threshold': 60
-            }):
-                with patch('metabolon.vasomotor._hours_to_reset', return_value=48):
-                    with patch('metabolon.vasomotor.assess_pacing', return_value=(True, "")):
+        with patch("metabolon.vasomotor.measure_vasomotor_tone", return_value=telemetry):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome",
+                return_value={
+                    "aerobic_ceiling": 80,
+                    "sonnet_ceiling": 90,
+                    "sympathetic_reserve": 15,
+                    "tachycardia_threshold": 60,
+                },
+            ):
+                with patch("metabolon.vasomotor._hours_to_reset", return_value=48):
+                    with patch("metabolon.vasomotor.assess_pacing", return_value=(True, "")):
                         ok, reason = assess_vital_capacity()
                         assert not ok
                         assert "sonnet" in reason and "exceeds" in reason
@@ -536,19 +543,22 @@ class TestAssessVitalCapacity:
 
         telemetry = {
             "seven_day": {"utilization": 90},  # 10% remaining, below 15% reserve
-            "seven_day_sonnet": {"utilization": 50}
+            "seven_day_sonnet": {"utilization": 50},
         }
 
-        with patch('metabolon.vasomotor.measure_vasomotor_tone', return_value=telemetry):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-                'aerobic_ceiling': 95,  # 90% < 95% ceiling, so passes ceiling check
-                'sonnet_ceiling': 95,
-                'sympathetic_reserve': 15,
-                'tachycardia_threshold': 60
-            }):
+        with patch("metabolon.vasomotor.measure_vasomotor_tone", return_value=telemetry):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome",
+                return_value={
+                    "aerobic_ceiling": 95,  # 90% < 95% ceiling, so passes ceiling check
+                    "sonnet_ceiling": 95,
+                    "sympathetic_reserve": 15,
+                    "tachycardia_threshold": 60,
+                },
+            ):
                 # High hours = low debt = full reserve
-                with patch('metabolon.vasomotor._hours_to_reset', return_value=48):
-                    with patch('metabolon.vasomotor.assess_pacing', return_value=(True, "")):
+                with patch("metabolon.vasomotor._hours_to_reset", return_value=48):
+                    with patch("metabolon.vasomotor.assess_pacing", return_value=(True, "")):
                         ok, reason = assess_vital_capacity()
                         assert not ok
                         assert "reserve" in reason
@@ -557,20 +567,22 @@ class TestAssessVitalCapacity:
         """When all checks pass, returns True."""
         from metabolon.vasomotor import assess_vital_capacity
 
-        telemetry = {
-            "seven_day": {"utilization": 50},
-            "seven_day_sonnet": {"utilization": 40}
-        }
+        telemetry = {"seven_day": {"utilization": 50}, "seven_day_sonnet": {"utilization": 40}}
 
-        with patch('metabolon.vasomotor.measure_vasomotor_tone', return_value=telemetry):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-                'aerobic_ceiling': 80,
-                'sonnet_ceiling': 90,
-                'sympathetic_reserve': 15,
-                'tachycardia_threshold': 60
-            }):
-                with patch('metabolon.vasomotor._hours_to_reset', return_value=24):
-                    with patch('metabolon.vasomotor.assess_pacing', return_value=(True, "pacing_ok")):
+        with patch("metabolon.vasomotor.measure_vasomotor_tone", return_value=telemetry):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome",
+                return_value={
+                    "aerobic_ceiling": 80,
+                    "sonnet_ceiling": 90,
+                    "sympathetic_reserve": 15,
+                    "tachycardia_threshold": 60,
+                },
+            ):
+                with patch("metabolon.vasomotor._hours_to_reset", return_value=24):
+                    with patch(
+                        "metabolon.vasomotor.assess_pacing", return_value=(True, "pacing_ok")
+                    ):
                         ok, reason = assess_vital_capacity()
                         assert ok
                         assert "ok" in reason
@@ -583,52 +595,43 @@ class TestVasomotorStatus:
         """Under 95% utilization returns green."""
         from metabolon.vasomotor import vasomotor_status
 
-        telemetry = {
-            "seven_day": {"utilization": 80},
-            "seven_day_sonnet": {"utilization": 70}
-        }
+        telemetry = {"seven_day": {"utilization": 80}, "seven_day_sonnet": {"utilization": 70}}
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
-            with patch('metabolon.vasomotor.subprocess.run'):
-                with patch('metabolon.vasomotor.record_event'):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
+            with patch("metabolon.vasomotor.subprocess.run"):
+                with patch("metabolon.vasomotor.record_event"):
                     assert vasomotor_status() == "green"
 
     def test_returns_yellow_when_95_to_98(self):
         """95-98% utilization returns yellow."""
         from metabolon.vasomotor import vasomotor_status
 
-        telemetry = {
-            "seven_day": {"utilization": 96},
-            "seven_day_sonnet": {"utilization": 70}
-        }
+        telemetry = {"seven_day": {"utilization": 96}, "seven_day_sonnet": {"utilization": 70}}
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
-            with patch('metabolon.vasomotor.subprocess.run'):
-                with patch('metabolon.vasomotor.record_event'):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
+            with patch("metabolon.vasomotor.subprocess.run"):
+                with patch("metabolon.vasomotor.record_event"):
                     assert vasomotor_status() == "yellow"
 
     def test_returns_red_when_over_98(self):
         """Over 98% utilization returns red."""
         from metabolon.vasomotor import vasomotor_status
 
-        telemetry = {
-            "seven_day": {"utilization": 99},
-            "seven_day_sonnet": {"utilization": 70}
-        }
+        telemetry = {"seven_day": {"utilization": 99}, "seven_day_sonnet": {"utilization": 70}}
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
-            with patch('metabolon.vasomotor.subprocess.run'):
-                with patch('metabolon.vasomotor.record_event'):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
+            with patch("metabolon.vasomotor.subprocess.run"):
+                with patch("metabolon.vasomotor.record_event"):
                     assert vasomotor_status() == "red"
 
     def test_returns_unknown_on_telemetry_failure(self):
         """When telemetry fails, returns unknown."""
         from metabolon.vasomotor import vasomotor_status
 
-        mock_result = type('MockResult', (), {'stdout': 'unknown'})()
+        mock_result = type("MockResult", (), {"stdout": "unknown"})()
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=None):
-            with patch('metabolon.vasomotor.subprocess.run', return_value=mock_result):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
+            with patch("metabolon.vasomotor.subprocess.run", return_value=mock_result):
                 assert vasomotor_status() == "unknown"
 
 
@@ -639,7 +642,7 @@ class TestRecordEvent:
         """record_event appends JSON line to log file."""
         from metabolon.vasomotor import record_event
 
-        with patch('metabolon.vasomotor.EVENT_LOG', tmp_path / "events.jsonl"):
+        with patch("metabolon.vasomotor.EVENT_LOG", tmp_path / "events.jsonl"):
             record_event("test_event", key1="value1", key2=42)
 
             content = (tmp_path / "events.jsonl").read_text()
@@ -657,8 +660,8 @@ class TestEmitDistressSignal:
         """emit_distress_signal delegates to secrete_text."""
         from metabolon.vasomotor import emit_distress_signal
 
-        mock_module = type('M', (), {'secrete_text': lambda msg, html=False, label="": None})()
-        with patch.dict('sys.modules', {'metabolon.organelles.secretory_vesicle': mock_module}):
+        mock_module = type("M", (), {"secrete_text": lambda msg, html=False, label="": None})()
+        with patch.dict("sys.modules", {"metabolon.organelles.secretory_vesicle": mock_module}):
             # Should not raise
             emit_distress_signal("test alert")
 
@@ -667,9 +670,9 @@ class TestEmitDistressSignal:
         from metabolon.vasomotor import emit_distress_signal
 
         # The function catches Exception and logs, so it shouldn't raise
-        with patch('metabolon.vasomotor.log'):
+        with patch("metabolon.vasomotor.log"):
             # Simulate the import succeeding but the call failing
-            with patch.dict('sys.modules'):
+            with patch.dict("sys.modules"):
                 # Just call it - if import fails, it catches and logs
                 emit_distress_signal("test alert")  # Should not raise
 
@@ -681,10 +684,17 @@ class TestInduceApnea:
         """When daily cap reached, skip until midnight."""
         from metabolon.vasomotor import induce_apnea
 
-        with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
-            with patch('metabolon.vasomotor.record_event'):
-                with patch('metabolon.vasomotor.vasomotor_genome', return_value={'max_daily_systoles': 10}):
-                    induce_apnea(daily_budget=5.0, cost_per_systole=1.0, systoles_today=10, sustainable_daily=5.0)
+        with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
+            with patch("metabolon.vasomotor.record_event"):
+                with patch(
+                    "metabolon.vasomotor.vasomotor_genome", return_value={"max_daily_systoles": 10}
+                ):
+                    induce_apnea(
+                        daily_budget=5.0,
+                        cost_per_systole=1.0,
+                        systoles_today=10,
+                        sustainable_daily=5.0,
+                    )
                     # Should have written to file
                     mock_file.write_text.assert_called_once()
                     written = mock_file.write_text.call_args[0][0]
@@ -695,10 +705,17 @@ class TestInduceApnea:
         """When under cap, skip for up to one hour."""
         from metabolon.vasomotor import induce_apnea
 
-        with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
-            with patch('metabolon.vasomotor.record_event'):
-                with patch('metabolon.vasomotor.vasomotor_genome', return_value={'max_daily_systoles': 10}):
-                    induce_apnea(daily_budget=5.0, cost_per_systole=1.0, systoles_today=5, sustainable_daily=5.0)
+        with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
+            with patch("metabolon.vasomotor.record_event"):
+                with patch(
+                    "metabolon.vasomotor.vasomotor_genome", return_value={"max_daily_systoles": 10}
+                ):
+                    induce_apnea(
+                        daily_budget=5.0,
+                        cost_per_systole=1.0,
+                        systoles_today=5,
+                        sustainable_daily=5.0,
+                    )
                     mock_file.write_text.assert_called_once()
 
 
@@ -709,7 +726,7 @@ class TestResumeBreathing:
         """resume_breathing removes the skip_until file."""
         from metabolon.vasomotor import resume_breathing
 
-        with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
+        with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
             resume_breathing()
             mock_file.unlink.assert_called_once_with(missing_ok=True)
 
@@ -721,10 +738,10 @@ class TestSetRecoveryInterval:
         """Recovery interval is shorter with higher oxygen debt."""
         from metabolon.vasomotor import set_recovery_interval
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value={}):
-            with patch('metabolon.vasomotor._hours_to_reset', return_value=10):  # high debt
-                with patch('metabolon.vasomotor.SKIP_UNTIL_FILE') as mock_file:
-                    with patch('metabolon.vasomotor.record_event'):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value={}):
+            with patch("metabolon.vasomotor._hours_to_reset", return_value=10):  # high debt
+                with patch("metabolon.vasomotor.SKIP_UNTIL_FILE") as mock_file:
+                    with patch("metabolon.vasomotor.record_event"):
                         set_recovery_interval()
                         mock_file.write_text.assert_called_once()
 
@@ -741,8 +758,8 @@ class TestCalibrateCircadian:
             "day_start_weekly": None,
         }
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=state):
-            with patch('metabolon.vasomotor._save_circadian_state') as mock_save:
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=state):
+            with patch("metabolon.vasomotor._save_circadian_state") as mock_save:
                 calibrate_circadian(weekly=45.5)
                 saved = mock_save.call_args[0][0]
                 assert saved["day_start_weekly"] == 45.5
@@ -756,8 +773,8 @@ class TestCalibrateCircadian:
             "day_start_weekly": 30.0,
         }
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=state):
-            with patch('metabolon.vasomotor._save_circadian_state') as mock_save:
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=state):
+            with patch("metabolon.vasomotor._save_circadian_state") as mock_save:
                 calibrate_circadian(weekly=50.0)
                 # Should not have saved (baseline already set)
                 mock_save.assert_not_called()
@@ -773,10 +790,10 @@ class TestInteractivePressure:
         telemetry = {"five_hour": {"utilization": 50}}
         pattern = {str(datetime.datetime.now().hour): 30}
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
-            with patch('metabolon.vasomotor._load_sympathetic_pattern', return_value=pattern):
-                with patch('metabolon.vasomotor._record_sympathetic_sample'):
-                    with patch('metabolon.vasomotor.record_event'):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
+            with patch("metabolon.vasomotor._load_sympathetic_pattern", return_value=pattern):
+                with patch("metabolon.vasomotor._record_sympathetic_sample"):
+                    with patch("metabolon.vasomotor.record_event"):
                         pressure = interactive_pressure()
                         # Result should be between 0 and 1
                         assert 0.0 <= pressure <= 1.0
@@ -787,9 +804,9 @@ class TestInteractivePressure:
 
         pattern = {str(datetime.datetime.now().hour): 60}
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=None):
-            with patch('metabolon.vasomotor._load_sympathetic_pattern', return_value=pattern):
-                with patch('metabolon.vasomotor.record_event'):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
+            with patch("metabolon.vasomotor._load_sympathetic_pattern", return_value=pattern):
+                with patch("metabolon.vasomotor.record_event"):
                     pressure = interactive_pressure()
                     assert 0.0 <= pressure <= 1.0
 
@@ -801,7 +818,7 @@ class TestAssessPacing:
         """When no telemetry data, returns pacing_no_data."""
         from metabolon.vasomotor import assess_pacing
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=None):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
             ok, reason = assess_pacing()
             assert not ok
             assert reason == "pacing_no_data"
@@ -814,38 +831,38 @@ class TestAssessPacing:
             "seven_day": {"utilization": 50},
         }
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={}):
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
+            with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 ok, reason = assess_pacing()
                 assert ok
                 assert "no_reset_info" in reason
 
     def test_assess_pacing_checks_burn_vs_budget(self):
         """assess_pacing compares estimated burn to daily budget."""
-        from metabolon.vasomotor import assess_pacing
         import datetime
 
-        future = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3)
+        from metabolon.vasomotor import assess_pacing
+
+        future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=3)
 
         telemetry = {
-            "seven_day": {
-                "utilization": 50,
-                "resets_at": future.isoformat()
-            },
+            "seven_day": {"utilization": 50, "resets_at": future.isoformat()},
         }
 
-        with patch('metabolon.vasomotor._fetch_telemetry', return_value=telemetry):
-            with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-                'sympathetic_reserve': 15,
-                'max_daily_systoles': 10
-            }):
-                with patch('metabolon.vasomotor.daily_systole_count', return_value=2):
-                    with patch('metabolon.vasomotor.daily_saturated_count', return_value=0):
-                        with patch('metabolon.vasomotor.measured_cost_per_systole', return_value=1.0):
-                            with patch('metabolon.vasomotor.tidal_volume', return_value=0.5):
-                                with patch('metabolon.vasomotor.record_event'):
-                                    with patch('metabolon.vasomotor.calibrate_circadian'):
-                                        ok, reason = assess_pacing()
+        with patch("metabolon.vasomotor._fetch_telemetry", return_value=telemetry):
+            with patch(
+                "metabolon.vasomotor.vasomotor_genome",
+                return_value={"sympathetic_reserve": 15, "max_daily_systoles": 10},
+            ):
+                with patch("metabolon.vasomotor.daily_systole_count", return_value=2):
+                    with patch("metabolon.vasomotor.daily_saturated_count", return_value=0):
+                        with patch(
+                            "metabolon.vasomotor.measured_cost_per_systole", return_value=1.0
+                        ):
+                            with patch("metabolon.vasomotor.tidal_volume", return_value=0.5):
+                                with patch("metabolon.vasomotor.record_event"):
+                                    with patch("metabolon.vasomotor.calibrate_circadian"):
+                                        _ok, reason = assess_pacing()
                                         # Should pass with low systole count
                                         assert "pacing" in reason.lower() or "ok" in reason.lower()
 
@@ -859,7 +876,7 @@ class TestDailyCounts:
 
         state = {"count": 5, "date": datetime.date.today().isoformat()}
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=state):
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=state):
             assert daily_systole_count() == 5
 
     def test_daily_saturated_count_returns_count(self):
@@ -868,7 +885,7 @@ class TestDailyCounts:
 
         state = {"saturated": 2, "date": datetime.date.today().isoformat()}
 
-        with patch('metabolon.vasomotor._load_circadian_state', return_value=state):
+        with patch("metabolon.vasomotor._load_circadian_state", return_value=state):
             assert daily_saturated_count() == 2
 
 
@@ -884,8 +901,10 @@ class TestMeasureYield:
         (tmp_path / "pulse-report-2.md").write_text("test")
         (tmp_path / "other-file.txt").write_text("test")
 
-        with patch('metabolon.vasomotor.YIELD_DIRS', [tmp_path]):
-            with patch('metabolon.vasomotor.subprocess.run', return_value=type('R', (), {'stdout': ''})()):
+        with patch("metabolon.vasomotor.YIELD_DIRS", [tmp_path]):
+            with patch(
+                "metabolon.vasomotor.subprocess.run", return_value=type("R", (), {"stdout": ""})()
+            ):
                 result = measure_yield()
                 assert result["files_created"] == 2
 
@@ -893,8 +912,10 @@ class TestMeasureYield:
         """measure_yield returns a summary string."""
         from metabolon.vasomotor import measure_yield
 
-        with patch('metabolon.vasomotor.YIELD_DIRS', [tmp_path]):
-            with patch('metabolon.vasomotor.subprocess.run', return_value=type('R', (), {'stdout': ''})()):
+        with patch("metabolon.vasomotor.YIELD_DIRS", [tmp_path]):
+            with patch(
+                "metabolon.vasomotor.subprocess.run", return_value=type("R", (), {"stdout": ""})()
+            ):
                 result = measure_yield()
                 assert "files" in result["yield_summary"]
                 assert "commits" in result["yield_summary"]
@@ -909,8 +930,8 @@ class TestSendPacingAlertOnce:
 
         alert_file = tmp_path / "alert.json"
 
-        with patch('metabolon.vasomotor.PACING_ALERT_FILE', alert_file):
-            with patch('metabolon.vasomotor.emit_distress_signal') as mock_emit:
+        with patch("metabolon.vasomotor.PACING_ALERT_FILE", alert_file):
+            with patch("metabolon.vasomotor.emit_distress_signal") as mock_emit:
                 _send_pacing_alert_once("test reason")
                 mock_emit.assert_called_once()
                 assert "test reason" in mock_emit.call_args[0][0]
@@ -923,8 +944,8 @@ class TestSendPacingAlertOnce:
         alert_file = tmp_path / "alert.json"
         alert_file.write_text(json.dumps({"date": today}))
 
-        with patch('metabolon.vasomotor.PACING_ALERT_FILE', alert_file):
-            with patch('metabolon.vasomotor.emit_distress_signal') as mock_emit:
+        with patch("metabolon.vasomotor.PACING_ALERT_FILE", alert_file):
+            with patch("metabolon.vasomotor.emit_distress_signal") as mock_emit:
                 _send_pacing_alert_once("test reason")
                 mock_emit.assert_not_called()
 

@@ -79,9 +79,7 @@ def mod_anabolism():
     if not ANAB_LOCK.exists():
         return
     try:
-        r = subprocess.run(
-            ["respirometry", "--budget"], capture_output=True, text=True, timeout=2
-        )
+        r = subprocess.run(["respirometry", "--budget"], capture_output=True, text=True, timeout=2)
         budget = r.stdout.strip().lower() or "unknown"
     except Exception:
         budget = "unknown"
@@ -107,14 +105,14 @@ def mod_anabolism():
 
 # ── consolidation (from consolidation-stop.py) ─────────────
 
-CONSOL_STATE = HOME / ".local/share/respirometry/consolidation-last.json"
-CONSOL_INTERVAL = 6 * 3600
+CONSOLE_STATE = HOME / ".local/share/respirometry/consolidation-last.json"
+CONSOLE_INTERVAL = 6 * 3600
 
 
 def mod_consolidation():
     try:
-        state = json.loads(CONSOL_STATE.read_text())
-        if time.time() - state.get("ts", 0) < CONSOL_INTERVAL:
+        state = json.loads(CONSOLE_STATE.read_text())
+        if time.time() - state.get("ts", 0) < CONSOLE_INTERVAL:
             return
     except Exception:
         pass
@@ -125,8 +123,8 @@ def mod_consolidation():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        CONSOL_STATE.parent.mkdir(parents=True, exist_ok=True)
-        CONSOL_STATE.write_text(json.dumps({"ts": time.time()}))
+        CONSOLE_STATE.parent.mkdir(parents=True, exist_ok=True)
+        CONSOLE_STATE.write_text(json.dumps({"ts": time.time()}))
     except Exception:
         pass
 

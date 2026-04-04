@@ -118,7 +118,7 @@ When encountering an external system's artifacts (skills, plugins, configs), min
 
 1. **Content** — read what they built. Identify overlaps, gaps, things to delete or adopt directly.
 2. **Structure** — extract *how* they built it. Design patterns, workflow shapes, structural ideas. This is specula's core (steps 2-3 above).
-3. **Implicit knowledge** — use the *domain* as an endocytosis probe. The LLM weights that informed the system contain heuristics the system doesn't implement. Run `~/epigenome/chromatin/Fodina Mining Prompt.md` on Gemini + Codex with the same topic.
+3. **Implicit knowledge** — use the *domain* as an endocytosis probe. The LLM weights that informed the system contain heuristics the system doesn't implement. Run `~/epigenome/chromatin/Derepression Mining Prompt.md` on Gemini + Codex with the same topic.
 
 Level 1 is what anyone does. Level 2 is what specula does. Level 3 is what endocytosis does. The compound value comes from doing all three. Don't stop at level 2.
 

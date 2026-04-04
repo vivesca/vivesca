@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 import sys
-from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-
 # ── Load effector via exec ──────────────────────────────────────────────────
+
 
 def _load():
     source = (Path.home() / "germline" / "effectors" / "soma-wake").read_text()
@@ -177,6 +176,7 @@ def test_wake_starts_stopped_machine(monkeypatch, capsys):
     start_response = {"ok": True}
 
     call_count = 0
+
     def fake_urlopen(req, **kw):
         nonlocal call_count
         call_count += 1
@@ -200,6 +200,7 @@ def test_wake_starts_suspended_machine(monkeypatch, capsys):
     machines_data = [{"id": "m-2", "state": "suspended"}]
 
     call_count = 0
+
     def fake_urlopen(req, **kw):
         nonlocal call_count
         call_count += 1

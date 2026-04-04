@@ -6,7 +6,6 @@ import pytest
 
 from metabolon.pinocytosis.photoreception import intake, main
 
-
 # ── module structure ──────────────────────────────────────────────────
 
 
@@ -84,9 +83,7 @@ def test_main_no_args_calls_intake_with_defaults(monkeypatch):
         return "ok"
 
     monkeypatch.setattr("sys.argv", ["photoreception"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", track_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", track_intake)
     main()
     assert captured["as_json"] is False
     assert captured["send_weather"] is False
@@ -101,9 +98,7 @@ def test_main_json_and_send_flags(monkeypatch, capsys):
         return "ok"
 
     monkeypatch.setattr("sys.argv", ["photoreception", "--json", "--send"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", track_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", track_intake)
     main()
     assert captured["as_json"] is True
     assert captured["send_weather"] is True
@@ -118,9 +113,7 @@ def test_main_only_send_flag(monkeypatch):
         return "ok"
 
     monkeypatch.setattr("sys.argv", ["photoreception", "--send"])
-    monkeypatch.setattr(
-        "metabolon.pinocytosis.photoreception.intake", track_intake
-    )
+    monkeypatch.setattr("metabolon.pinocytosis.photoreception.intake", track_intake)
     main()
     assert captured["as_json"] is False
     assert captured["send_weather"] is True

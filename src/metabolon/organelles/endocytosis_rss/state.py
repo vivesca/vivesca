@@ -1,4 +1,3 @@
-
 import contextlib
 import fcntl
 import json
@@ -20,7 +19,7 @@ def lockfile(path: Path) -> Generator[None]:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as err:
-            print(f"Another lustro process is running (lock: {lock_path})", file=sys.stderr)
+            print(f"Another endocytosis process is running (lock: {lock_path})", file=sys.stderr)
             raise SystemExit(1) from err
         yield
     finally:
@@ -44,7 +43,7 @@ def restore_state(path: Path) -> dict[str, str]:
         return {}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}
     if not isinstance(data, dict):
         return {}

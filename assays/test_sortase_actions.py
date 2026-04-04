@@ -8,14 +8,7 @@ with edge cases for empty/missing input.
 """
 
 
-import json
-import subprocess
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.enzymes.sortase import (
     RouteResult,
@@ -24,10 +17,10 @@ from metabolon.enzymes.sortase import (
     sortase,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_task_result(
     task_name: str = "mcp-dispatch",
@@ -63,6 +56,7 @@ _PATCH_SUBPROCESS = "subprocess.run"
 # ---------------------------------------------------------------------------
 # SortaseResult / RouteResult / StatsResult — construction
 # ---------------------------------------------------------------------------
+
 
 class TestSortaseResult:
     def test_defaults(self):
@@ -126,6 +120,7 @@ class TestStatsResult:
 # sortase() — unknown action
 # ---------------------------------------------------------------------------
 
+
 class TestUnknownAction:
     def test_unknown_returns_error(self):
         result = sortase(action="fly")
@@ -145,8 +140,8 @@ class TestUnknownAction:
 # sortase() — dispatch action
 # ---------------------------------------------------------------------------
 
-class TestDispatchAction:
 
+class TestDispatchAction:
     def test_missing_prompt(self, tmp_path):
         result = sortase(action="dispatch", prompt="", project_dir=str(tmp_path))
         assert isinstance(result, SortaseResult)
@@ -279,13 +274,15 @@ class TestDispatchAction:
 # sortase() — route action
 # ---------------------------------------------------------------------------
 
-class TestRouteAction:
 
+class TestRouteAction:
     @patch(_PATCH_ROUTE)
     def test_route_with_description(self, mock_route):
         from metabolon.sortase.router import RouteDecision
 
-        mock_route.return_value = RouteDecision(tool="codex", reason="Rust -> Codex (sandbox + DNS)")
+        mock_route.return_value = RouteDecision(
+            tool="codex", reason="Rust -> Codex (sandbox + DNS)"
+        )
 
         result = sortase(action="route", description="build a rust crate")
 
@@ -323,8 +320,8 @@ class TestRouteAction:
 # sortase() — status action
 # ---------------------------------------------------------------------------
 
-class TestStatusAction:
 
+class TestStatusAction:
     @patch(_PATCH_LIST_RUNNING, return_value=[])
     def test_status_no_running(self, mock_list):
         result = sortase(action="status")
@@ -336,8 +333,18 @@ class TestStatusAction:
     @patch(_PATCH_LIST_RUNNING)
     def test_status_with_running_tasks(self, mock_list):
         mock_list.return_value = [
-            {"task_name": "task-a", "tool": "goose", "project_dir": "/proj", "started_at": "2025-01-01T00:00"},
-            {"task_name": "task-b", "tool": "codex", "project_dir": "/other", "started_at": "2025-01-01T00:01"},
+            {
+                "task_name": "task-a",
+                "tool": "goose",
+                "project_dir": "/proj",
+                "started_at": "2025-01-01T00:00",
+            },
+            {
+                "task_name": "task-b",
+                "tool": "codex",
+                "project_dir": "/other",
+                "started_at": "2025-01-01T00:01",
+            },
         ]
 
         result = sortase(action="status")
@@ -354,8 +361,8 @@ class TestStatusAction:
 # sortase() — stats action
 # ---------------------------------------------------------------------------
 
-class TestStatsAction:
 
+class TestStatsAction:
     @patch(_PATCH_READ_LOGS, return_value=[])
     def test_stats_empty(self, mock_read):
         result = sortase(action="stats")
@@ -388,7 +395,12 @@ class TestStatsAction:
     @patch(_PATCH_READ_LOGS)
     def test_stats_last_n_limits_output(self, mock_read, mock_agg):
         entries = [
-            {"timestamp": f"2025-01-01T{i:02d}:00", "plan": f"p{i}", "tool": "goose", "success": True}
+            {
+                "timestamp": f"2025-01-01T{i:02d}:00",
+                "plan": f"p{i}",
+                "tool": "goose",
+                "success": True,
+            }
             for i in range(20)
         ]
         mock_read.return_value = entries

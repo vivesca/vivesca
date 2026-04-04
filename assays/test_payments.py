@@ -2,24 +2,24 @@ from __future__ import annotations
 
 """Tests for metabolon.respirometry.payments."""
 
+import tempfile
 from datetime import datetime
 from pathlib import Path
-import tempfile
+
 from metabolon.respirometry.payments import (
-    restore_payments,
-    persist_payments,
-    restore_card_config,
-    is_autopay,
-    queue_payment,
-    dequeue_payment,
     assess_missing_statements,
+    dequeue_payment,
     flag_overdue_payments,
+    is_autopay,
+    persist_payments,
+    queue_payment,
+    restore_card_config,
+    restore_payments,
 )
 
 
 class TestRestorePersistPayments:
     """Tests for restore_payments and persist_payments."""
-
 
     def test_restore_nonexistent_returns_empty(self) -> None:
         """Non-existent file returns empty list."""

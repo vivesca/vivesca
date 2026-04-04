@@ -1,4 +1,3 @@
-
 import sys
 from datetime import UTC, datetime, timedelta
 from importlib import metadata
@@ -18,7 +17,7 @@ app = Typer(help="endocytosis_rss — receptor-mediated endocytosis (RSS ingesti
 
 def version_callback(value: bool) -> None:
     if value:
-        echo(f"lustro {_get_version()}")
+        echo(f"endocytosis {_get_version()}")
         raise Exit()
 
 
@@ -53,7 +52,7 @@ def _file_age(path: Path, now: datetime) -> str:
 def _parse_aware(value: str) -> datetime | None:
     try:
         dt = datetime.fromisoformat(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
@@ -159,7 +158,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     _nodriver_profile = Path(
         cfg.config_data.get(
             "nodriver_profile_dir",
-            Path.home() / ".config" / "lustro" / "nodriver-profile",
+            Path.home() / ".config" / "endocytosis" / "nodriver-profile",
         )
     )
 
@@ -262,7 +261,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             batch = new_articles[batch_start : batch_start + BATCH_SIZE]
             batch_tuples = [(a.get("title", ""), name, a.get("summary", "")) for a in batch]
             batch_scores = assess_cargo_batch(batch_tuples)
-            for article, scores in zip(batch, batch_scores):
+            for article, scores in zip(batch, batch_scores, strict=False):
                 if scores.get("unscored"):
                     print(
                         f"  UNSCORED (Opus down): {article.get('title', '')[:60]}",
@@ -490,7 +489,7 @@ def sources(
     cfg = restore_config()
     rows: list[tuple[str, str, int, str]] = []
 
-    for section_name, section in cfg.sources_data.items():
+    for section in cfg.sources_data.values():
         if not isinstance(section, list):
             continue
         for source in section:

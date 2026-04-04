@@ -1,4 +1,3 @@
-
 """expression — Weekly career forge pre-flight checks.
 
 Deterministic pre-flight for the expression/forge skill:
@@ -9,7 +8,6 @@ Deterministic pre-flight for the expression/forge skill:
 Orchestration (Opus planning + Sonnet workers) stays in the skill.
 These tools give the skill grounded facts before dispatch.
 """
-
 
 import datetime
 from pathlib import Path

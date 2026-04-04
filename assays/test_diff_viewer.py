@@ -3,11 +3,8 @@ from __future__ import annotations
 """Tests for metabolon.sortase.diff_viewer module."""
 
 
-import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
-
-import pytest
 
 from metabolon.sortase.diff_viewer import (
     find_task_commit,
@@ -24,10 +21,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "abc123 sortase: my-task-name\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("my-task-name", tmp_path)
-        
+
         assert result == "abc123"
 
     def test_finds_translocon_commit(self, tmp_path: Path) -> None:
@@ -35,10 +32,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "def456 translocon: another-task\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("another-task", tmp_path)
-        
+
         assert result == "def456"
 
     def test_finds_commit_by_task_name_in_message(self, tmp_path: Path) -> None:
@@ -46,10 +43,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "ghi789 fix: update special-task implementation\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("special-task", tmp_path)
-        
+
         assert result == "ghi789"
 
     def test_case_insensitive_matching(self, tmp_path: Path) -> None:
@@ -57,10 +54,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "jkl012 sortase: MY-TASK-NAME\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("my-task-name", tmp_path)
-        
+
         assert result == "jkl012"
 
     def test_returns_first_match(self, tmp_path: Path) -> None:
@@ -68,10 +65,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "abc123 sortase: target-task\nmno345 sortase: target-task\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("target-task", tmp_path)
-        
+
         assert result == "abc123"
 
     def test_returns_none_no_match(self, tmp_path: Path) -> None:
@@ -79,10 +76,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "abc123 sortase: other-task\ndef456 fix: something else\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("nonexistent-task", tmp_path)
-        
+
         assert result is None
 
     def test_returns_none_git_failure(self, tmp_path: Path) -> None:
@@ -90,10 +87,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 128
         mock_result.stdout = ""
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("any-task", tmp_path)
-        
+
         assert result is None
 
     def test_handles_empty_git_log(self, tmp_path: Path) -> None:
@@ -101,10 +98,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = ""
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("any-task", tmp_path)
-        
+
         assert result is None
 
     def test_skips_empty_lines(self, tmp_path: Path) -> None:
@@ -112,10 +109,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "\n\nabc123 sortase: my-task\n\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("my-task", tmp_path)
-        
+
         assert result == "abc123"
 
     def test_skips_lines_without_message(self, tmp_path: Path) -> None:
@@ -123,10 +120,10 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "abc123\nxyz789 sortase: found-task\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = find_task_commit("found-task", tmp_path)
-        
+
         assert result == "xyz789"
 
     def test_git_command_called_with_correct_args(self, tmp_path: Path) -> None:
@@ -134,10 +131,12 @@ class TestFindTaskCommit:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = ""
-        
-        with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result) as mock_run:
+
+        with patch(
+            "metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result
+        ) as mock_run:
             find_task_commit("test-task", tmp_path)
-            
+
             mock_run.assert_called_once()
             args = mock_run.call_args
             assert args[0][0] == ["git", "log", "--all", "--format=%h %s", "--", "."]
@@ -155,10 +154,10 @@ class TestGetTaskDiff:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "diff --git a/file.py b/file.py\n+new line\n"
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = get_task_diff("abc123", tmp_path)
-        
+
         assert result == "diff --git a/file.py b/file.py\n+new line\n"
 
     def test_returns_empty_string_for_empty_diff(self, tmp_path: Path) -> None:
@@ -166,10 +165,10 @@ class TestGetTaskDiff:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = ""
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = get_task_diff("abc123", tmp_path)
-        
+
         assert result == ""
 
     def test_git_command_args(self, tmp_path: Path) -> None:
@@ -177,10 +176,12 @@ class TestGetTaskDiff:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = ""
-        
-        with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result) as mock_run:
+
+        with patch(
+            "metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result
+        ) as mock_run:
             get_task_diff("def456", tmp_path)
-            
+
             mock_run.assert_called_once()
             args = mock_run.call_args
             assert args[0][0] == ["git", "show", "--format=", "--patch", "def456"]
@@ -205,10 +206,10 @@ index 1234567..abcdefg 100644
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = diff_output
-        
+
         with patch("metabolon.sortase.diff_viewer.subprocess.run", return_value=mock_result):
             result = get_task_diff("abc123", tmp_path)
-        
+
         assert result == diff_output
 
 
@@ -242,7 +243,7 @@ index 0000000..abc123
 +
 """
         result = format_diff_summary(diff)
-        
+
         assert "Files changed: 1" in result
         assert "Lines: +3 / -0" in result
         assert "new_file.py  +3 / -0" in result
@@ -258,7 +259,7 @@ deleted file mode 100644
 -    pass
 """
         result = format_diff_summary(diff)
-        
+
         assert "Files changed: 1" in result
         assert "Lines: +0 / -2" in result
         assert "old_file.py  +0 / -2" in result
@@ -276,7 +277,7 @@ deleted file mode 100644
 +    # added comment
 """
         result = format_diff_summary(diff)
-        
+
         assert "Files changed: 1" in result
         assert "Lines: +3 / -2" in result
 
@@ -297,7 +298,7 @@ diff --git b/beta.py b/beta.py
 +extra line
 """
         result = format_diff_summary(diff)
-        
+
         assert "Files changed: 2" in result
         assert "Lines: +3 / -2" in result
         # Files should be sorted alphabetically
@@ -318,7 +319,7 @@ diff --git b/beta.py b/beta.py
 +new
 """
         result = format_diff_summary(diff)
-        
+
         assert "Lines: +1 / -1" in result
 
     def test_extracts_filename_from_b_prefix(self) -> None:
@@ -331,7 +332,7 @@ diff --git b/beta.py b/beta.py
 +modified
 """
         result = format_diff_summary(diff)
-        
+
         assert "path/to/deep/file.txt" in result
 
     def test_handles_filename_with_spaces(self) -> None:
@@ -344,7 +345,7 @@ diff --git b/beta.py b/beta.py
 +new content
 """
         result = format_diff_summary(diff)
-        
+
         assert "my file.txt" in result
 
     def test_summary_format(self) -> None:
@@ -356,7 +357,7 @@ diff --git b/beta.py b/beta.py
 +line
 """
         result = format_diff_summary(diff)
-        
+
         lines = result.splitlines()
         assert lines[0] == "Files changed: 1"
         assert lines[1] == "Lines: +1 / -0"

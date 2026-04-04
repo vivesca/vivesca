@@ -190,7 +190,7 @@ class TestPraxisCheck:
         assert ai["has_open_items_due_within_days"](7) is False
 
     def test_invalid_due_date_handled(self, ai):
-        ai["PRAXIS_FILE"].write_text('- [ ] task `due:not-a-date`\n')
+        ai["PRAXIS_FILE"].write_text("- [ ] task `due:not-a-date`\n")
         assert ai["has_open_items_due_within_days"](7) is False
 
 
@@ -248,7 +248,9 @@ class TestMain:
 
     def test_new_session_resets_counter(self, ai):
         ai["save_state"]({"session_id": "old-session", "publish_count": 10})
-        data = json.dumps({"tool_input": {"skill": "publish-publish"}, "session_id": "new-session"})
+        data = json.dumps(
+            {"tool_input": {"skill": "publish-publish"}, "session_id": "new-session"}
+        )
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit):
                 ai["main"]()

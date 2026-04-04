@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 from unittest.mock import patch
-import pytest
 
 
 def test_histone_actions_unknown_action():
@@ -154,7 +153,16 @@ def test_format_search_results_truncates_long_content():
         result = histone(action="search", query="x")
         # Content should be truncated
         assert "..." in result.results
-        assert len([line for line in result.results.split("\n") if "content:" in line and "x" in line][0]) < 200
+        assert (
+            len(
+                next(
+                    line
+                    for line in result.results.split("\n")
+                    if "content:" in line and "x" in line
+                )
+            )
+            < 200
+        )
 
 
 def test_format_search_results_uses_file_as_name_fallback():

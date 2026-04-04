@@ -1,4 +1,3 @@
-
 """complement — convergent detection and resolution (MAC assembly).
 
 In biology, the complement system converges from multiple detection pathways
@@ -14,7 +13,7 @@ Complement joins these two streams. When the same key appears in both, it
 assembles a MAC to resolve the chronic inflammation.
 """
 
-
+import contextlib
 import datetime
 import json
 from pathlib import Path
@@ -69,10 +68,8 @@ def assemble_mac() -> list[MACEntry]:
     # 1. Load Pathway A (Probe Priming)
     probe_fails = {}
     if _PRIMING_PATH.exists():
-        try:
+        with contextlib.suppress(Exception):
             probe_fails = json.loads(_PRIMING_PATH.read_text())
-        except Exception:
-            pass
 
     # 2. Load Pathway B (Unhealed Infections)
     events: list[InfectionEvent] = recall_infections()

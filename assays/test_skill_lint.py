@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ── Load effector via exec (never import) ────────────────────────────
 
 
@@ -110,7 +109,9 @@ class TestParseFrontmatter:
 
     def test_multiple_fields(self):
         """parse_frontmatter parses all YAML fields correctly."""
-        content = "---\nname: test\ndescription: desc\nrequires: browser\nuser_invocable: true\n---\n"
+        content = (
+            "---\nname: test\ndescription: desc\nrequires: browser\nuser_invocable: true\n---\n"
+        )
         fm, err = parse_frontmatter(content)
         assert err is None
         assert fm["name"] == "test"
@@ -297,10 +298,13 @@ class TestLintReceptors:
     def test_all_valid(self, tmp_path):
         """lint_receptors returns all PASS for valid SKILL.md files."""
         valid = "---\nname: foo\ndescription: bar\n---\nBody\n"
-        receptors = self._make_receptors(tmp_path, {
-            "alpha": valid,
-            "bravo": valid,
-        })
+        receptors = self._make_receptors(
+            tmp_path,
+            {
+                "alpha": valid,
+                "bravo": valid,
+            },
+        )
         with _patch_receptors_dir(receptors):
             results = lint_receptors()
         assert len(results) == 2
@@ -318,11 +322,14 @@ class TestLintReceptors:
         """lint_receptors handles mix of PASS, FAIL, MISSING."""
         valid = "---\nname: foo\ndescription: bar\n---\nBody\n"
         bad = "---\nname: foo\n---\nBody\n"  # missing description
-        receptors = self._make_receptors(tmp_path, {
-            "good": valid,
-            "bad": bad,
-            "empty": None,
-        })
+        receptors = self._make_receptors(
+            tmp_path,
+            {
+                "good": valid,
+                "bad": bad,
+                "empty": None,
+            },
+        )
         with _patch_receptors_dir(receptors):
             results = lint_receptors()
         by_name = {r["receptor"]: r for r in results}
@@ -479,21 +486,23 @@ class TestEdgeCases:
         """validate_skill_md returns FAIL for empty SKILL.md."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "FAIL"
 
     def test_unicode_content(self, tmp_path):
         """validate_skill_md handles unicode in SKILL.md."""
         skill = tmp_path / "SKILL.md"
-        skill.write_text("---\nname: 日本語テスト\ndescription: 説明文\n---\n本文\n", encoding="utf-8")
-        status, issues = validate_skill_md(skill)
+        skill.write_text(
+            "---\nname: 日本語テスト\ndescription: 説明文\n---\n本文\n", encoding="utf-8"
+        )
+        status, _issues = validate_skill_md(skill)
         assert status == "PASS"
 
     def test_yaml_comments_in_frontmatter(self, tmp_path):
         """validate_skill_md ignores YAML comments."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("---\n# a comment\nname: foo\ndescription: bar\n---\nBody\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "PASS"
 
     def test_extra_yaml_fields_ok(self, tmp_path):
@@ -511,7 +520,7 @@ class TestEdgeCases:
         """validate_skill_md passes when frontmatter has no body after ---."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("---\nname: foo\ndescription: bar\n---\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "PASS"
 
     def test_name_is_boolean(self, tmp_path):
@@ -721,14 +730,16 @@ class TestValidateSkillMdRobustness:
         """validate_skill_md passes when name contains newlines (YAML folded scalar)."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("---\nname: |\n  line1\n  line2\ndescription: bar\n---\nBody\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "PASS"
 
     def test_description_with_special_chars(self, tmp_path):
         """validate_skill_md handles special characters in description."""
         skill = tmp_path / "SKILL.md"
-        skill.write_text('---\nname: test\ndescription: "foo: bar & baz < qux > quux"\n---\nBody\n')
-        status, issues = validate_skill_md(skill)
+        skill.write_text(
+            '---\nname: test\ndescription: "foo: bar & baz < qux > quux"\n---\nBody\n'
+        )
+        status, _issues = validate_skill_md(skill)
         assert status == "PASS"
 
     def test_missing_closing_marker_with_body(self, tmp_path):
@@ -743,14 +754,14 @@ class TestValidateSkillMdRobustness:
         """validate_skill_md returns FAIL when frontmatter is only dashes."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("---\n---\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "FAIL"
 
     def test_single_dash_line(self, tmp_path):
         """validate_skill_md does not confuse single - with --- markers."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("-\nname: foo\ndescription: bar\n-\nBody\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "FAIL"
 
     def test_yaml_float_name(self, tmp_path):
@@ -1208,14 +1219,14 @@ class TestRegexEdgeCases:
         """Four dashes ---- are not treated as frontmatter marker."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("----\nname: foo\ndescription: bar\n----\nBody\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "FAIL"
 
     def test_frontmatter_with_trailing_spaces_on_content_lines(self, tmp_path):
         """Frontmatter with trailing spaces on content lines still parses."""
         skill = tmp_path / "SKILL.md"
         skill.write_text("---\nname: foo   \ndescription: bar   \n---\nBody\n")
-        status, issues = validate_skill_md(skill)
+        status, _issues = validate_skill_md(skill)
         assert status == "PASS"
 
     def test_frontmatter_tabs_in_marker_line(self):

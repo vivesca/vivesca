@@ -95,7 +95,7 @@ class TestRGBlocking:
 
     @pytest.mark.skipif(
         os.path.expanduser("~").startswith("/home"),
-        reason="Downloads blocking uses macOS-specific path"
+        reason="Downloads blocking uses macOS-specific path",
     )
     def test_blocks_downloads(self):
         """Test that Downloads directory is blocked."""
@@ -109,7 +109,7 @@ class TestRGBlocking:
 
     @pytest.mark.skipif(
         os.path.expanduser("~").startswith("/home"),
-        reason="Pictures blocking uses macOS-specific path"
+        reason="Pictures blocking uses macOS-specific path",
     )
     def test_blocks_pictures(self):
         """Test that Pictures directory is blocked."""

@@ -9,8 +9,8 @@ import pytest
 
 from metabolon.server import DEFAULT_REQUEST_LOG, RequestLogger
 
-
 # ── helpers ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def log_path(tmp_path: Path) -> Path:
@@ -24,6 +24,7 @@ def _read_lines(path: Path) -> list[dict]:
 
 
 # ── construction ──────────────────────────────────────────────────────
+
 
 def test_default_path_is_under_vivesca_share():
     """RequestLogger() defaults to ~/.local/share/vivesca/requests.jsonl."""
@@ -39,6 +40,7 @@ def test_custom_path_accepted(log_path: Path):
 
 
 # ── log() basic behaviour ────────────────────────────────────────────
+
 
 def test_log_creates_file_and_parent_dirs(tmp_path: Path):
     """log() creates intermediate directories and the JSONL file."""
@@ -95,6 +97,7 @@ def test_log_entry_schema(log_path: Path):
 
 # ── edge cases ───────────────────────────────────────────────────────
 
+
 def test_log_with_zero_duration(log_path: Path):
     """duration_ms=0 is a valid value (e.g. instant cache hit)."""
     logger = RequestLogger(log_path)
@@ -115,7 +118,6 @@ def test_log_with_large_duration(log_path: Path):
 
 def test_log_does_not_raise_on_permission_error(tmp_path: Path, caplog):
     """log() swallows write failures silently (logged at DEBUG)."""
-    import logging
 
     read_only_dir = tmp_path / "readonly"
     read_only_dir.mkdir()

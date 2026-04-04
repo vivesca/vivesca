@@ -2,16 +2,11 @@ from __future__ import annotations
 
 """Tests for metabolon.organelles.chromatin — file-based memory store."""
 
-import re
 import textwrap
-from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.organelles.chromatin import (
-    MARKS_DIR,
     _MarkIndex,
     _parse_frontmatter,
     add,
@@ -23,7 +18,6 @@ from metabolon.organelles.chromatin import (
     status,
     type_counts,
 )
-
 
 # ── helpers ───────────────────────────────────────────────────────────
 
@@ -55,12 +49,14 @@ def _write_mark(directory: Path, filename: str, content: str, mtime_offset: floa
     p.write_text(content)
     if mtime_offset:
         import os
+
         atime = mtime = p.stat().st_mtime - mtime_offset
         os.utime(p, (atime, mtime))
     return p
 
 
 # ── _parse_frontmatter ────────────────────────────────────────────────
+
 
 class TestParseFrontmatter:
     def test_extracts_key_value_pairs(self):
@@ -88,6 +84,7 @@ class TestParseFrontmatter:
 
 
 # ── _MarkIndex ────────────────────────────────────────────────────────
+
 
 class TestMarkIndex:
     def test_load_one_indexes_file(self, tmp_path):
@@ -257,6 +254,7 @@ class TestMarkIndex:
 
 
 # ── Module-level functions (patch MARKS_DIR + _index) ─────────────────
+
 
 class TestRecall:
     def test_recall_queries_index(self, tmp_path):

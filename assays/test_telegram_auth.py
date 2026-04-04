@@ -1,4 +1,5 @@
 """Tests for metabolon.organelles.telegram_auth."""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,7 @@ class TestConstants:
     """Module-level constants are correct."""
 
     def test_session_dir_under_config(self):
-        assert SESSION_DIR == Path.home() / ".config" / "telethon"
+        assert Path.home() / ".config" / "telethon" == SESSION_DIR
 
     def test_session_name(self):
         assert SESSION_NAME == "vivesca"

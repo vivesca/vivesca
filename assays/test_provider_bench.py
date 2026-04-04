@@ -2,14 +2,10 @@ from __future__ import annotations
 
 """Tests for provider-bench — parallel provider benchmarking effector."""
 
-import json
 import os
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
-
-import pytest
-
+from unittest.mock import MagicMock, patch
 
 EFFECTOR = Path(str(Path.home() / "germline/effectors/provider-bench"))
 
@@ -65,7 +61,14 @@ class TestBuildEnv:
     def test_build_env_key_mode(self):
         mod = _load_effector()
         build_env = mod["build_env"]
-        cfg = {"key_env": "TEST_KEY", "auth_mode": "key", "url": "http://x", "opus": "m1", "sonnet": "m2", "haiku": "m3"}
+        cfg = {
+            "key_env": "TEST_KEY",
+            "auth_mode": "key",
+            "url": "http://x",
+            "opus": "m1",
+            "sonnet": "m2",
+            "haiku": "m3",
+        }
         env = build_env(cfg, "testkey123")
         assert env["ANTHROPIC_API_KEY"] == "testkey123"
         assert "ANTHROPIC_AUTH_TOKEN" not in env
@@ -75,7 +78,14 @@ class TestBuildEnv:
     def test_build_env_token_mode(self):
         mod = _load_effector()
         build_env = mod["build_env"]
-        cfg = {"key_env": "TEST_KEY", "auth_mode": "token", "url": "http://y", "opus": "a", "sonnet": "b", "haiku": "c"}
+        cfg = {
+            "key_env": "TEST_KEY",
+            "auth_mode": "token",
+            "url": "http://y",
+            "opus": "a",
+            "sonnet": "b",
+            "haiku": "c",
+        }
         env = build_env(cfg, "token456")
         assert env["ANTHROPIC_AUTH_TOKEN"] == "token456"
         assert env["ANTHROPIC_API_KEY"] == ""
@@ -84,7 +94,14 @@ class TestBuildEnv:
     def test_build_env_inherits_path(self):
         mod = _load_effector()
         build_env = mod["build_env"]
-        cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h"}
+        cfg = {
+            "key_env": "K",
+            "auth_mode": "key",
+            "url": "u",
+            "opus": "o",
+            "sonnet": "s",
+            "haiku": "h",
+        }
         env = build_env(cfg, "k")
         assert "PATH" in env
 
@@ -117,10 +134,12 @@ class TestScoreOutput:
 
     def test_score_output_good_prose(self):
         mod = _load_effector()
-        text = "The quick brown fox jumps over the lazy dog. It was a sunny day. " \
-               "Programming in Python is enjoyable. Tests ensure correctness. " \
-               "Documentation helps everyone. Code review catches bugs. " \
-               "Refactoring improves readability."
+        text = (
+            "The quick brown fox jumps over the lazy dog. It was a sunny day. "
+            "Programming in Python is enjoyable. Tests ensure correctness. "
+            "Documentation helps everyone. Code review catches bugs. "
+            "Refactoring improves readability."
+        )
         result = mod["score_output"](text)
         assert result["words"] > 10
         assert result["sentences"] > 1
@@ -153,7 +172,15 @@ class TestRunProvider:
 
         with patch.dict("os.environ", {"K": "testkey"}):
             with patch.object(subprocess, "run", return_value=mock_completed):
-                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "test"}
+                cfg = {
+                    "key_env": "K",
+                    "auth_mode": "key",
+                    "url": "u",
+                    "opus": "o",
+                    "sonnet": "s",
+                    "haiku": "h",
+                    "name": "test",
+                }
                 result = mod["run_provider"]("test", cfg, "prompt text", timeout=30)
 
         assert "provider" in result
@@ -167,8 +194,18 @@ class TestRunProvider:
     def test_run_provider_handles_timeout(self):
         mod = _load_effector()
         with patch.dict("os.environ", {"K": "testkey"}):
-            with patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=5)):
-                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+            with patch.object(
+                subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=5)
+            ):
+                cfg = {
+                    "key_env": "K",
+                    "auth_mode": "key",
+                    "url": "u",
+                    "opus": "o",
+                    "sonnet": "s",
+                    "haiku": "h",
+                    "name": "t",
+                }
                 result = mod["run_provider"]("t", cfg, "p", timeout=5)
 
         assert result["exit_code"] == -1
@@ -182,7 +219,15 @@ class TestRunProvider:
 
         with patch.dict("os.environ", {"K": "testkey"}):
             with patch.object(subprocess, "run", return_value=mock_completed):
-                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+                cfg = {
+                    "key_env": "K",
+                    "auth_mode": "key",
+                    "url": "u",
+                    "opus": "o",
+                    "sonnet": "s",
+                    "haiku": "h",
+                    "name": "t",
+                }
                 result = mod["run_provider"]("t", cfg, "p", timeout=30)
 
         assert result["exit_code"] == 1
@@ -195,7 +240,15 @@ class TestRunProvider:
 
         with patch.dict("os.environ", {"MY_KEY": "secret"}):
             with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
-                cfg = {"key_env": "MY_KEY", "auth_mode": "key", "url": "http://api.example.com", "opus": "big", "sonnet": "mid", "haiku": "small", "name": "test"}
+                cfg = {
+                    "key_env": "MY_KEY",
+                    "auth_mode": "key",
+                    "url": "http://api.example.com",
+                    "opus": "big",
+                    "sonnet": "mid",
+                    "haiku": "small",
+                    "name": "test",
+                }
                 mod["run_provider"]("test", cfg, "hello", timeout=30)
 
         called_env = mock_run.call_args[1]["env"]
@@ -211,7 +264,15 @@ class TestRunProvider:
 
         with patch.dict("os.environ", {"K": "testkey"}):
             with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
-                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+                cfg = {
+                    "key_env": "K",
+                    "auth_mode": "key",
+                    "url": "u",
+                    "opus": "o",
+                    "sonnet": "s",
+                    "haiku": "h",
+                    "name": "t",
+                }
                 mod["run_provider"]("t", cfg, "write a poem", timeout=30)
 
         cmd_args = mock_run.call_args[0][0]
@@ -224,7 +285,15 @@ class TestRunProvider:
         with patch.dict("os.environ", {}, clear=False):
             # Ensure MISSING_KEY is not set
             os.environ.pop("MISSING_KEY", None)
-            cfg = {"key_env": "MISSING_KEY", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+            cfg = {
+                "key_env": "MISSING_KEY",
+                "auth_mode": "key",
+                "url": "u",
+                "opus": "o",
+                "sonnet": "s",
+                "haiku": "h",
+                "name": "t",
+            }
             result = mod["run_provider"]("t", cfg, "p", timeout=30)
 
         assert result["exit_code"] == -2
@@ -238,10 +307,32 @@ class TestFormatTable:
     def test_format_table_basic(self):
         mod = _load_effector()
         results = [
-            {"provider": "zhipu", "latency_s": 12.3, "exit_code": 0,
-             "output": "Hello world", "score": {"chars": 11, "words": 2, "sentences": 0, "unique_ratio": 1.0, "quality_label": "short"}},
-            {"provider": "volcano", "latency_s": 8.1, "exit_code": 0,
-             "output": "Generated response", "score": {"chars": 18, "words": 2, "sentences": 0, "unique_ratio": 1.0, "quality_label": "short"}},
+            {
+                "provider": "zhipu",
+                "latency_s": 12.3,
+                "exit_code": 0,
+                "output": "Hello world",
+                "score": {
+                    "chars": 11,
+                    "words": 2,
+                    "sentences": 0,
+                    "unique_ratio": 1.0,
+                    "quality_label": "short",
+                },
+            },
+            {
+                "provider": "volcano",
+                "latency_s": 8.1,
+                "exit_code": 0,
+                "output": "Generated response",
+                "score": {
+                    "chars": 18,
+                    "words": 2,
+                    "sentences": 0,
+                    "unique_ratio": 1.0,
+                    "quality_label": "short",
+                },
+            },
         ]
         table = mod["format_table"](results)
         assert "zhipu" in table
@@ -252,8 +343,19 @@ class TestFormatTable:
     def test_format_table_single_result(self):
         mod = _load_effector()
         results = [
-            {"provider": "infini", "latency_s": 15.0, "exit_code": 0,
-             "output": "A" * 100, "score": {"chars": 100, "words": 5, "sentences": 1, "unique_ratio": 0.8, "quality_label": "good"}},
+            {
+                "provider": "infini",
+                "latency_s": 15.0,
+                "exit_code": 0,
+                "output": "A" * 100,
+                "score": {
+                    "chars": 100,
+                    "words": 5,
+                    "sentences": 1,
+                    "unique_ratio": 0.8,
+                    "quality_label": "good",
+                },
+            },
         ]
         table = mod["format_table"](results)
         assert "infini" in table
@@ -261,8 +363,19 @@ class TestFormatTable:
     def test_format_table_failed_provider(self):
         mod = _load_effector()
         results = [
-            {"provider": "zhipu", "latency_s": 5.0, "exit_code": 1,
-             "output": "error", "score": {"chars": 5, "words": 1, "sentences": 0, "unique_ratio": 1.0, "quality_label": "short"}},
+            {
+                "provider": "zhipu",
+                "latency_s": 5.0,
+                "exit_code": 1,
+                "output": "error",
+                "score": {
+                    "chars": 5,
+                    "words": 1,
+                    "sentences": 0,
+                    "unique_ratio": 1.0,
+                    "quality_label": "short",
+                },
+            },
         ]
         table = mod["format_table"](results)
         assert "FAIL" in table or "1" in table
@@ -270,8 +383,19 @@ class TestFormatTable:
     def test_format_table_header_row(self):
         mod = _load_effector()
         results = [
-            {"provider": "zhipu", "latency_s": 1.0, "exit_code": 0,
-             "output": "x", "score": {"chars": 1, "words": 1, "sentences": 0, "unique_ratio": 1.0, "quality_label": "short"}},
+            {
+                "provider": "zhipu",
+                "latency_s": 1.0,
+                "exit_code": 0,
+                "output": "x",
+                "score": {
+                    "chars": 1,
+                    "words": 1,
+                    "sentences": 0,
+                    "unique_ratio": 1.0,
+                    "quality_label": "short",
+                },
+            },
         ]
         table = mod["format_table"](results)
         assert "Provider" in table
@@ -288,8 +412,11 @@ class TestParallelDispatch:
         mock_completed.stdout = "response"
         mock_completed.returncode = 0
 
-        with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
-            with patch.dict("os.environ", {"ZHIPU_API_KEY": "k1", "VOLCANO_API_KEY": "k2", "INFINI_API_KEY": "k3"}):
+        with patch.object(subprocess, "run", return_value=mock_completed):
+            with patch.dict(
+                "os.environ",
+                {"ZHIPU_API_KEY": "k1", "VOLCANO_API_KEY": "k2", "INFINI_API_KEY": "k3"},
+            ):
                 results = mod["run_all"]("test prompt", timeout=30)
 
         assert len(results) == 3
@@ -303,7 +430,10 @@ class TestParallelDispatch:
         mock_completed.returncode = 0
 
         with patch.object(subprocess, "run", return_value=mock_completed):
-            with patch.dict("os.environ", {"ZHIPU_API_KEY": "k1", "VOLCANO_API_KEY": "k2", "INFINI_API_KEY": "k3"}):
+            with patch.dict(
+                "os.environ",
+                {"ZHIPU_API_KEY": "k1", "VOLCANO_API_KEY": "k2", "INFINI_API_KEY": "k3"},
+            ):
                 results = mod["run_all"]("prompt", timeout=30)
 
         for r in results:

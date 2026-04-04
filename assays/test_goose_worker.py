@@ -48,7 +48,9 @@ def test_goose_worker_moves_successful_task_to_done(tmp_path: Path, monkeypatch)
         "run",
         lambda *args, **kwargs: CompletedProcessStub(0, stdout="ok\n", stderr=""),
     )
-    monkeypatch.setattr(module, "emit_signal", lambda name, content: emitted_signals.append((name, content)))
+    monkeypatch.setattr(
+        module, "emit_signal", lambda name, content: emitted_signals.append((name, content))
+    )
 
     assert module.main() == 0
 
@@ -79,7 +81,9 @@ def test_goose_worker_moves_failed_task_to_failed(tmp_path: Path, monkeypatch):
         "run",
         lambda *args, **kwargs: CompletedProcessStub(7, stdout="", stderr="boom\n"),
     )
-    monkeypatch.setattr(module, "emit_signal", lambda name, content: emitted_signals.append((name, content)))
+    monkeypatch.setattr(
+        module, "emit_signal", lambda name, content: emitted_signals.append((name, content))
+    )
 
     assert module.main() == 7
 

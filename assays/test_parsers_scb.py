@@ -1,9 +1,11 @@
 """Tests for metabolon.respirometry.parsers.scb."""
+
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from metabolon.respirometry.parsers.scb import (
     _clean_merchant,
@@ -12,8 +14,7 @@ from metabolon.respirometry.parsers.scb import (
     _parse_transactions,
     extract_scb,
 )
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-
+from metabolon.respirometry.schema import RespirogramMeta
 
 # ---------------------------------------------------------------------------
 # Sample statement text fragments (mimic real SCB PDF output)

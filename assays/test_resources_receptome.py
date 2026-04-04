@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import textwrap
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import yaml
 
 from metabolon.resources.receptome import (
@@ -16,10 +14,10 @@ from metabolon.resources.receptome import (
     express_operon_index,
 )
 
-
 # ---------------------------------------------------------------------------
 # _parse_frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestParseFrontmatter:
     def test_valid_frontmatter(self, tmp_path: Path):
@@ -69,6 +67,7 @@ class TestParseFrontmatter:
 # ---------------------------------------------------------------------------
 # _operon_entry
 # ---------------------------------------------------------------------------
+
 
 class TestOperonEntry:
     def _make_skill(self, tmp_path: Path, fm: dict, name: str = "myskill") -> Path:
@@ -134,10 +133,9 @@ class TestOperonEntry:
 # express_operon_index
 # ---------------------------------------------------------------------------
 
+
 class TestExpressOperonIndex:
-    def _write_skill(
-        self, parent: Path, name: str, fm: dict, mtime: float | None = None
-    ) -> Path:
+    def _write_skill(self, parent: Path, name: str, fm: dict, mtime: float | None = None) -> Path:
         d = parent / name
         d.mkdir(parents=True, exist_ok=True)
         fm_text = yaml.dump(fm)

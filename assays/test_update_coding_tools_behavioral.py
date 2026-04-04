@@ -64,13 +64,17 @@ def _run_script(tmp_path: Path, timeout: int = 30) -> subprocess.CompletedProces
 def fake_tools(tmp_path: Path) -> Path:
     """Set up fake brew + all other commands the script invokes."""
     # Fake brew: must handle "shellenv", "update", "upgrade", "cleanup", "install"
-    _create_fake_bin(tmp_path, "brew", """\
+    _create_fake_bin(
+        tmp_path,
+        "brew",
+        """\
 case "$1" in
     shellenv) echo 'export PATH="/opt/homebrew/bin:$PATH"' ;;
     update|upgrade|cleanup|install) echo "brew $*: ok" ;;
     *) echo "brew $*: ok" ;;
 esac
-""")
+""",
+    )
     # Fake npm, pnpm, uv, cargo, mas — just succeed
     for cmd in ("npm", "pnpm", "uv", "cargo", "mas"):
         _create_fake_bin(tmp_path, cmd, f'echo "{cmd} $*: ok"')
@@ -121,8 +125,14 @@ class TestHappyPath:
     def test_log_contains_updating_sections(self, fake_tools: Path):
         _run_script(fake_tools)
         log = (fake_tools / LOG_NAME).read_text()
-        for section in ["Updating brew", "Updating npm", "Updating pnpm",
-                        "Updating uv", "Updating cargo", "Updating Mac App Store"]:
+        for section in [
+            "Updating brew",
+            "Updating npm",
+            "Updating pnpm",
+            "Updating uv",
+            "Updating cargo",
+            "Updating Mac App Store",
+        ]:
             assert section in log, f"Missing section: {section}"
 
     def test_log_contains_completion_marker(self, fake_tools: Path):
@@ -152,12 +162,16 @@ class TestRepairLoopDegraded:
 
     def _setup_with_missing(self, tmp_path: Path, missing: list[str]) -> Path:
         """Create fake env where named tools are absent."""
-        _create_fake_bin(tmp_path, "brew", """\
+        _create_fake_bin(
+            tmp_path,
+            "brew",
+            """\
 case "$1" in
     shellenv) echo 'export PATH="/opt/homebrew/bin:$PATH"' ;;
     *) echo "brew $*: ok" ;;
 esac
-""")
+""",
+        )
         for cmd in ("npm", "pnpm", "uv", "cargo", "mas"):
             _create_fake_bin(tmp_path, cmd, f'echo "{cmd} ok"')
         # Only provide tools NOT in the missing list
@@ -211,13 +225,17 @@ class TestErrorResilience:
 
     def test_failing_brew_update_does_not_stop_script(self, fake_tools: Path):
         """brew update fails but script continues."""
-        _create_fake_bin(fake_tools, "brew", """\
+        _create_fake_bin(
+            fake_tools,
+            "brew",
+            """\
 case "$1" in
     shellenv) echo 'export PATH="/opt/homebrew/bin:$PATH"' ;;
     update) echo 'update failed' >&2; exit 1 ;;
     *) echo "brew $*: ok" ;;
 esac
-""")
+""",
+        )
         r = _run_script(fake_tools)
         assert r.returncode == 0
 
@@ -264,12 +282,16 @@ class TestHealthFileStructure:
     def test_degraded_health_failures_is_list(self, tmp_path: Path):
         """When degraded, failures field must be a list of strings."""
         # Create minimal fakes with one missing tool
-        _create_fake_bin(tmp_path, "brew", """\
+        _create_fake_bin(
+            tmp_path,
+            "brew",
+            """\
 case "$1" in
     shellenv) echo 'export PATH="/opt/homebrew/bin:$PATH"' ;;
     *) echo "ok" ;;
 esac
-""")
+""",
+        )
         for cmd in ("npm", "pnpm", "uv", "cargo", "mas"):
             _create_fake_bin(tmp_path, cmd, "echo ok")
         # Missing claude, opencode, etc.
@@ -323,7 +345,7 @@ class TestLogFileFormat:
         _run_script(fake_tools)
         log = (fake_tools / LOG_NAME).read_text()
         # Should have at least 2 start markers
-        start_count = log.count("=== $(date)")
+        log.count("=== $(date)")
         # Actually the === markers will have actual timestamps, not $(date)
         # Count "===" lines instead
         marker_count = sum(1 for line in log.splitlines() if line.startswith("==="))

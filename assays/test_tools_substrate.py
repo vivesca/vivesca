@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 from unittest.mock import MagicMock, patch
+
 from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
 
 
@@ -45,7 +46,15 @@ def test_candidates_from_sensed():
 def test_tools_substrate_act_returns_string():
     s = PhenotypeSubstrate()
     from unittest.mock import MagicMock as MM
-    result = s.act({"tool": "rheotaxis", "emotion": MM(valence=0.5, arousal=0.3), "description": "search", "in_store": True})
+
+    result = s.act(
+        {
+            "tool": "rheotaxis",
+            "emotion": MM(valence=0.5, arousal=0.3),
+            "description": "search",
+            "in_store": True,
+        }
+    )
     assert isinstance(result, str)
 
 

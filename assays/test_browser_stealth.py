@@ -12,17 +12,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.organelles.browser_stealth import (
-    CHROME_USER_AGENTS,
     _CHROME_RUNTIME_PATCH_JS,
     _PERMISSIONS_PATCH_JS,
     _PLUGINS_PATCH_JS,
     _WEBDRIVER_PATCH_JS,
+    CHROME_USER_AGENTS,
     human_delay,
-    patch_navigator,
-    set_realistic_headers,
     stealth_context,
 )
-
 
 # ── UA pool diversity ────────────────────────────────────────────────────
 
@@ -130,9 +127,7 @@ class TestStealthContextIntegration:
 
     @pytest.mark.asyncio
     @patch("metabolon.organelles.browser_stealth.random.choice")
-    async def test_ua_rotation_is_deterministic_with_mock(
-        self, mock_choice: MagicMock
-    ) -> None:
+    async def test_ua_rotation_is_deterministic_with_mock(self, mock_choice: MagicMock) -> None:
         mock_choice.return_value = CHROME_USER_AGENTS[0]
         ctx = MagicMock()
 

@@ -7,8 +7,6 @@ import plistlib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.resources.oscillators import (
     _format_calendar_interval,
     _launchctl_status,
@@ -104,22 +102,40 @@ class TestParseSchedule:
 # ---------------------------------------------------------------------------
 class TestStatusLabel:
     def test_unloaded(self):
-        assert _status_label({"loaded": False, "running": False, "pid": None, "last_exit": None}) == "unloaded"
+        assert (
+            _status_label({"loaded": False, "running": False, "pid": None, "last_exit": None})
+            == "unloaded"
+        )
 
     def test_running(self):
-        assert _status_label({"loaded": True, "running": True, "pid": 123, "last_exit": None}) == "running"
+        assert (
+            _status_label({"loaded": True, "running": True, "pid": 123, "last_exit": None})
+            == "running"
+        )
 
     def test_idle_exit_zero(self):
-        assert _status_label({"loaded": True, "running": False, "pid": None, "last_exit": 0}) == "idle"
+        assert (
+            _status_label({"loaded": True, "running": False, "pid": None, "last_exit": 0})
+            == "idle"
+        )
 
     def test_idle_no_exit(self):
-        assert _status_label({"loaded": True, "running": False, "pid": None, "last_exit": None}) == "idle"
+        assert (
+            _status_label({"loaded": True, "running": False, "pid": None, "last_exit": None})
+            == "idle"
+        )
 
     def test_error_nonzero_exit(self):
-        assert _status_label({"loaded": True, "running": False, "pid": None, "last_exit": 1}) == "error"
+        assert (
+            _status_label({"loaded": True, "running": False, "pid": None, "last_exit": 1})
+            == "error"
+        )
 
     def test_error_negative_exit(self):
-        assert _status_label({"loaded": True, "running": False, "pid": None, "last_exit": -2}) == "error"
+        assert (
+            _status_label({"loaded": True, "running": False, "pid": None, "last_exit": -2})
+            == "error"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -233,9 +249,7 @@ class TestScanPacemakerPlists:
 # ---------------------------------------------------------------------------
 class TestExpressPacemakerStatus:
     def test_no_plists_found(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(
-            "metabolon.resources.oscillators._LAUNCH_AGENTS", tmp_path / "empty"
-        )
+        monkeypatch.setattr("metabolon.resources.oscillators._LAUNCH_AGENTS", tmp_path / "empty")
         output = express_pacemaker_status()
         assert "no com.vivesca.* or com.terry.* plists found" in output
 

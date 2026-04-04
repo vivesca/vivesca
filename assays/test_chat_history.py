@@ -4,15 +4,11 @@ from __future__ import annotations
 
 import json
 import subprocess
-import textwrap
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-
 
 # ── Module loading ──────────────────────────────────────────────────────
+
 
 def _load_chat_history():
     """Load chat_history.py by exec-ing its source into a namespace."""
@@ -41,6 +37,7 @@ EFFECTOR_PATH = Path.home() / "germline" / "effectors" / "chat_history.py"
 
 # ── Helpers ─────────────────────────────────────────────────────────────
 
+
 def _hkt_date_str(days_offset: int = 0) -> str:
     """Return YYYY-MM-DD in HKT, offset by days_offset from today."""
     now = datetime.now(HKT) + timedelta(days=days_offset)
@@ -50,7 +47,9 @@ def _hkt_date_str(days_offset: int = 0) -> str:
 def _hkt_ms(days_offset: int = 0, hour: int = 12) -> int:
     """Return epoch-millisecond for a specific date/hour in HKT."""
     now = datetime.now(HKT)
-    target = now.replace(hour=hour, minute=0, second=0, microsecond=0) + timedelta(days=days_offset)
+    target = now.replace(hour=hour, minute=0, second=0, microsecond=0) + timedelta(
+        days=days_offset
+    )
     return int(target.timestamp() * 1000)
 
 
@@ -58,19 +57,18 @@ def _make_history_jsonl(path: Path, entries: list[dict]) -> None:
     """Write a JSONL history file with given entries."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
 
 
 def _make_session_jsonl(path: Path, entries: list[dict]) -> None:
     """Write a session JSONL file with given entries."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
 
 
 # ── extract_text_from_content tests ────────────────────────────────────
+
 
 class TestExtractTextFromContent:
     """Tests for extract_text_from_content helper."""
@@ -136,6 +134,7 @@ class TestExtractTextFromContent:
 
 # ── scan_history tests ─────────────────────────────────────────────────
 
+
 class TestScanHistory:
     """Tests for scan_history function with mock history files."""
 
@@ -143,10 +142,13 @@ class TestScanHistory:
         """scan_history returns prompts from history file for target date."""
         ts = _hkt_ms(0, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "sess1", "display": "hello claude"},
-            {"timestamp": ts + 3600000, "sessionId": "sess1", "display": "second prompt"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "sess1", "display": "hello claude"},
+                {"timestamp": ts + 3600000, "sessionId": "sess1", "display": "second prompt"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -170,10 +172,13 @@ class TestScanHistory:
         today_ts = _hkt_ms(0, 10)
         yesterday_ts = _hkt_ms(-1, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": yesterday_ts, "sessionId": "old", "display": "yesterday"},
-            {"timestamp": today_ts, "sessionId": "new", "display": "today"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": yesterday_ts, "sessionId": "old", "display": "yesterday"},
+                {"timestamp": today_ts, "sessionId": "new", "display": "today"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -221,8 +226,7 @@ class TestScanHistory:
         """scan_history with limit=0 returns all prompts."""
         ts = _hkt_ms(0, 10)
         entries = [
-            {"timestamp": ts + i * 60000, "sessionId": "s1", "display": f"p{i}"}
-            for i in range(10)
+            {"timestamp": ts + i * 60000, "sessionId": "s1", "display": f"p{i}"} for i in range(10)
         ]
         history_path = tmp_path / ".claude" / "history.jsonl"
         _make_history_jsonl(history_path, entries)
@@ -246,11 +250,14 @@ class TestScanHistory:
         """scan_history groups prompts into sessions correctly."""
         ts = _hkt_ms(0, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "aaa111", "display": "p1"},
-            {"timestamp": ts + 60000, "sessionId": "aaa111", "display": "p2"},
-            {"timestamp": ts + 120000, "sessionId": "bbb222", "display": "p3"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "aaa111", "display": "p1"},
+                {"timestamp": ts + 60000, "sessionId": "aaa111", "display": "p2"},
+                {"timestamp": ts + 120000, "sessionId": "bbb222", "display": "p3"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -294,12 +301,18 @@ class TestScanHistory:
         ts = _hkt_ms(0, 10)
         claude_path = tmp_path / ".claude" / "history.jsonl"
         codex_path = tmp_path / ".codex" / "history.jsonl"
-        _make_history_jsonl(claude_path, [
-            {"timestamp": ts, "sessionId": "c1", "display": "claude prompt"},
-        ])
-        _make_history_jsonl(codex_path, [
-            {"timestamp": ts, "sessionId": "x1", "display": "codex prompt"},
-        ])
+        _make_history_jsonl(
+            claude_path,
+            [
+                {"timestamp": ts, "sessionId": "c1", "display": "claude prompt"},
+            ],
+        )
+        _make_history_jsonl(
+            codex_path,
+            [
+                {"timestamp": ts, "sessionId": "x1", "display": "codex prompt"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -321,9 +334,12 @@ class TestScanHistory:
         """scan_history returns empty when tool doesn't match known tools."""
         ts = _hkt_ms(0, 10)
         claude_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(claude_path, [
-            {"timestamp": ts, "sessionId": "c1", "display": "prompt"},
-        ])
+        _make_history_jsonl(
+            claude_path,
+            [
+                {"timestamp": ts, "sessionId": "c1", "display": "prompt"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -344,9 +360,12 @@ class TestScanHistory:
         """scan_history falls back to 'prompt' field when 'display' missing."""
         ts = _hkt_ms(0, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "prompt": "fallback prompt"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "prompt": "fallback prompt"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -368,11 +387,14 @@ class TestScanHistory:
         """scan_history skips entries with non-integer timestamps."""
         ts = _hkt_ms(0, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": "valid"},
-            {"timestamp": "not_a_number", "sessionId": "s2", "display": "bad"},
-            {"timestamp": 12.5, "sessionId": "s3", "display": "float"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": "valid"},
+                {"timestamp": "not_a_number", "sessionId": "s2", "display": "bad"},
+                {"timestamp": 12.5, "sessionId": "s3", "display": "float"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -392,6 +414,7 @@ class TestScanHistory:
 
 # ── search_prompts tests ───────────────────────────────────────────────
 
+
 class TestSearchPrompts:
     """Tests for search_prompts function."""
 
@@ -401,10 +424,13 @@ class TestSearchPrompts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": "find ME please"},
-            {"timestamp": ts + 60000, "sessionId": "s1", "display": "no match here"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": "find ME please"},
+                {"timestamp": ts + 60000, "sessionId": "s1", "display": "no match here"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -428,9 +454,12 @@ class TestSearchPrompts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": "UPPERCASE word"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": "UPPERCASE word"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -452,10 +481,13 @@ class TestSearchPrompts:
         old_ts = _hkt_ms(-10, 10)
         recent_ts = _hkt_ms(0, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": old_ts, "sessionId": "s1", "display": "old keyword match"},
-            {"timestamp": recent_ts, "sessionId": "s2", "display": "recent keyword match"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": old_ts, "sessionId": "s1", "display": "old keyword match"},
+                {"timestamp": recent_ts, "sessionId": "s2", "display": "recent keyword match"},
+            ],
+        )
 
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
@@ -482,9 +514,12 @@ class TestSearchPrompts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": "nothing relevant"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": "nothing relevant"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -535,12 +570,18 @@ class TestSearchPrompts:
         end_ms = _hkt_ms(1, 0)
         claude_path = tmp_path / ".claude" / "history.jsonl"
         codex_path = tmp_path / ".codex" / "history.jsonl"
-        _make_history_jsonl(claude_path, [
-            {"timestamp": ts, "sessionId": "c1", "display": "claude match"},
-        ])
-        _make_history_jsonl(codex_path, [
-            {"timestamp": ts, "sessionId": "x1", "display": "codex match"},
-        ])
+        _make_history_jsonl(
+            claude_path,
+            [
+                {"timestamp": ts, "sessionId": "c1", "display": "claude match"},
+            ],
+        )
+        _make_history_jsonl(
+            codex_path,
+            [
+                {"timestamp": ts, "sessionId": "x1", "display": "codex match"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -564,10 +605,13 @@ class TestSearchPrompts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": "early match"},
-            {"timestamp": ts + 3600000, "sessionId": "s2", "display": "later match"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": "early match"},
+                {"timestamp": ts + 3600000, "sessionId": "s2", "display": "later match"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -592,9 +636,12 @@ class TestSearchPrompts:
         end_ms = _hkt_ms(1, 0)
         long_prefix = "x" * 100
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": f"{long_prefix} keyword here"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": f"{long_prefix} keyword here"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -618,10 +665,13 @@ class TestSearchPrompts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": ""},
-            {"timestamp": ts + 60000, "sessionId": "s2", "display": "actual keyword match"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": ""},
+                {"timestamp": ts + 60000, "sessionId": "s2", "display": "actual keyword match"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -641,6 +691,7 @@ class TestSearchPrompts:
 
 # ── search_transcripts tests ───────────────────────────────────────────
 
+
 class TestSearchTranscripts:
     """Tests for search_transcripts function with mock session files."""
 
@@ -651,18 +702,21 @@ class TestSearchTranscripts:
         end_ms = _hkt_ms(1, 0)
 
         # Create a mock session file
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": ts_iso,
-                "sessionId": "sess1",
-                "message": {"content": "find this unique pattern"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": ts_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "find this unique pattern"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -680,18 +734,21 @@ class TestSearchTranscripts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "assistant",
-                "timestamp": ts_iso,
-                "sessionId": "sess1",
-                "message": {"content": "here is the assistant answer"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "assistant",
+                    "timestamp": ts_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "here is the assistant answer"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -709,18 +766,21 @@ class TestSearchTranscripts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "system",
-                "timestamp": ts_iso,
-                "sessionId": "sess1",
-                "message": {"content": "system keyword message"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "system",
+                    "timestamp": ts_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "system keyword message"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -738,26 +798,31 @@ class TestSearchTranscripts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        old_iso = datetime.fromtimestamp(old_ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
-        recent_iso = datetime.fromtimestamp(recent_ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        old_iso = datetime.fromtimestamp(old_ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
+        recent_iso = (
+            datetime.fromtimestamp(recent_ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
+        )
 
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": old_iso,
-                "sessionId": "sess1",
-                "message": {"content": "old keyword match"},
-            },
-            {
-                "type": "user",
-                "timestamp": recent_iso,
-                "sessionId": "sess1",
-                "message": {"content": "recent keyword match"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": old_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "old keyword match"},
+                },
+                {
+                    "type": "user",
+                    "timestamp": recent_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "recent keyword match"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -786,16 +851,22 @@ class TestSearchTranscripts:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        session_file.write_text("not valid json\n" + json.dumps({
-            "type": "user",
-            "timestamp": ts_iso,
-            "sessionId": "sess1",
-            "message": {"content": "valid keyword entry"},
-        }) + "\n")
+        session_file.write_text(
+            "not valid json\n"
+            + json.dumps(
+                {
+                    "type": "user",
+                    "timestamp": ts_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "valid keyword entry"},
+                }
+            )
+            + "\n"
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -809,6 +880,7 @@ class TestSearchTranscripts:
 
 # ── scan_opencode tests ────────────────────────────────────────────────
 
+
 class TestScanOpencode:
     """Tests for scan_opencode function with mock OpenCode storage."""
 
@@ -821,18 +893,26 @@ class TestScanOpencode:
         storage = tmp_path
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1",
-            "time": {"created": ts, "updated": ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": ts, "updated": ts},
+                }
+            )
+        )
 
         msg_dir = storage / "message" / "sess1"
         msg_dir.mkdir(parents=True)
-        (msg_dir / "msg_001.json").write_text(json.dumps({
-            "id": "msg_001",
-            "role": "user",
-            "time": {"created": ts},
-        }))
+        (msg_dir / "msg_001.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_001",
+                    "role": "user",
+                    "time": {"created": ts},
+                }
+            )
+        )
 
         part_dir = storage / "part" / "msg_001"
         part_dir.mkdir(parents=True)
@@ -872,14 +952,25 @@ class TestScanOpencode:
         # Old session
         old_sess_dir = storage / "session" / "old"
         old_sess_dir.mkdir(parents=True)
-        (old_sess_dir / "old.json").write_text(json.dumps({
-            "id": "old", "time": {"created": old_ts},
-        }))
+        (old_sess_dir / "old.json").write_text(
+            json.dumps(
+                {
+                    "id": "old",
+                    "time": {"created": old_ts},
+                }
+            )
+        )
         old_msg_dir = storage / "message" / "old"
         old_msg_dir.mkdir(parents=True)
-        (old_msg_dir / "msg_old.json").write_text(json.dumps({
-            "id": "msg_old", "role": "user", "time": {"created": old_ts},
-        }))
+        (old_msg_dir / "msg_old.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_old",
+                    "role": "user",
+                    "time": {"created": old_ts},
+                }
+            )
+        )
         old_part_dir = storage / "part" / "msg_old"
         old_part_dir.mkdir(parents=True)
         (old_part_dir / "prt_001.json").write_text(json.dumps({"text": "old prompt"}))
@@ -887,14 +978,25 @@ class TestScanOpencode:
         # Recent session
         rec_sess_dir = storage / "session" / "recent"
         rec_sess_dir.mkdir(parents=True)
-        (rec_sess_dir / "recent.json").write_text(json.dumps({
-            "id": "recent", "time": {"created": recent_ts},
-        }))
+        (rec_sess_dir / "recent.json").write_text(
+            json.dumps(
+                {
+                    "id": "recent",
+                    "time": {"created": recent_ts},
+                }
+            )
+        )
         rec_msg_dir = storage / "message" / "recent"
         rec_msg_dir.mkdir(parents=True)
-        (rec_msg_dir / "msg_rec.json").write_text(json.dumps({
-            "id": "msg_rec", "role": "user", "time": {"created": recent_ts},
-        }))
+        (rec_msg_dir / "msg_rec.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_rec",
+                    "role": "user",
+                    "time": {"created": recent_ts},
+                }
+            )
+        )
         rec_part_dir = storage / "part" / "msg_rec"
         rec_part_dir.mkdir(parents=True)
         (rec_part_dir / "prt_001.json").write_text(json.dumps({"text": "recent prompt"}))
@@ -918,15 +1020,26 @@ class TestScanOpencode:
         storage = tmp_path
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1", "time": {"created": ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": ts},
+                }
+            )
+        )
 
         msg_dir = storage / "message" / "sess1"
         msg_dir.mkdir(parents=True)
-        (msg_dir / "msg_001.json").write_text(json.dumps({
-            "id": "msg_001", "role": "assistant", "time": {"created": ts},
-        }))
+        (msg_dir / "msg_001.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_001",
+                    "role": "assistant",
+                    "time": {"created": ts},
+                }
+            )
+        )
 
         orig = _mod["OPENCODE_STORAGE"]
         try:
@@ -958,6 +1071,7 @@ class TestScanOpencode:
 
 
 # ── print_results tests ────────────────────────────────────────────────
+
 
 class TestPrintResults:
     """Tests for print_results function."""
@@ -1052,6 +1166,7 @@ class TestPrintResults:
 
 # ── print_search_results tests ─────────────────────────────────────────
 
+
 class TestPrintSearchResults:
     """Tests for print_search_results function."""
 
@@ -1119,6 +1234,7 @@ class TestPrintSearchResults:
 
 # ── CLI integration tests (subprocess) ─────────────────────────────────
 
+
 class TestCLI:
     """Integration tests via subprocess.run."""
 
@@ -1126,7 +1242,9 @@ class TestCLI:
         """--help prints usage and exits 0."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--help"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         assert "chat_history.py" in result.stdout or "Scan and search" in result.stdout
@@ -1135,7 +1253,9 @@ class TestCLI:
         """-h prints usage and exits 0."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "-h"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         assert "Scan and search" in result.stdout
@@ -1144,7 +1264,9 @@ class TestCLI:
         """YYYY-MM-DD --json outputs valid JSON."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "2026-01-15", "--json"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1154,7 +1276,9 @@ class TestCLI:
         """Invalid date format exits with error."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "not-a-date"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 1
         assert "Invalid date format" in result.stdout
@@ -1164,7 +1288,9 @@ class TestCLI:
         today_str = datetime.now(HKT).strftime("%Y-%m-%d")
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--json"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1175,7 +1301,9 @@ class TestCLI:
         yesterday_str = (datetime.now(HKT) - timedelta(days=1)).strftime("%Y-%m-%d")
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "yesterday", "--json"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1185,7 +1313,9 @@ class TestCLI:
         """--search with --json outputs a JSON array."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--search=test_query_12345", "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1195,7 +1325,9 @@ class TestCLI:
         """--full --json includes all_prompts key."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "2026-01-15", "--full", "--json"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1205,7 +1337,9 @@ class TestCLI:
         """Without --full, --json omits all_prompts key."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "2026-01-15", "--json"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1215,7 +1349,9 @@ class TestCLI:
         """--search with invalid date exits with error."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--search=test", "bad-date"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 1
         assert "Invalid date format" in result.stdout
@@ -1223,8 +1359,15 @@ class TestCLI:
     def test_search_deep_mode(self):
         """--search --deep searches transcripts and outputs text."""
         result = subprocess.run(
-            ["python3", str(EFFECTOR_PATH), "--search=definitely_not_a_real_match_xyzzy", "--deep"],
-            capture_output=True, text=True, timeout=30,
+            [
+                "python3",
+                str(EFFECTOR_PATH),
+                "--search=definitely_not_a_real_match_xyzzy",
+                "--deep",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         assert "No matches found" in result.stdout
@@ -1233,7 +1376,9 @@ class TestCLI:
         """--search with YYYY-MM-DD searches that specific day."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--search=test", "2026-01-15", "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1243,7 +1388,9 @@ class TestCLI:
         """--days=N overrides default 7-day range."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--search=test", "--days=30", "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1254,7 +1401,9 @@ class TestCLI:
         today_str = datetime.now(HKT).strftime("%Y-%m-%d")
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "today", "--json"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1264,7 +1413,9 @@ class TestCLI:
         """--search --deep --json outputs JSON list."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--search=xyzzy_not_real", "--deep", "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -1274,7 +1425,9 @@ class TestCLI:
         """--search without --json outputs human-readable text."""
         result = subprocess.run(
             ["python3", str(EFFECTOR_PATH), "--search=xyzzy_not_real"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         assert "Search:" in result.stdout
@@ -1291,12 +1444,18 @@ class TestScanHistoryEdgeCases:
         ts = _hkt_ms(0, 10)
         claude_path = tmp_path / ".claude" / "history.jsonl"
         codex_path = tmp_path / ".codex" / "history.jsonl"
-        _make_history_jsonl(claude_path, [
-            {"timestamp": ts, "sessionId": "c1", "display": "claude prompt"},
-        ])
-        _make_history_jsonl(codex_path, [
-            {"timestamp": ts, "sessionId": "x1", "display": "codex prompt"},
-        ])
+        _make_history_jsonl(
+            claude_path,
+            [
+                {"timestamp": ts, "sessionId": "c1", "display": "claude prompt"},
+            ],
+        )
+        _make_history_jsonl(
+            codex_path,
+            [
+                {"timestamp": ts, "sessionId": "x1", "display": "codex prompt"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -1319,11 +1478,14 @@ class TestScanHistoryEdgeCases:
         """scan_history sessions track first/last times correctly."""
         ts = _hkt_ms(0, 10)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "sess1", "display": "first"},
-            {"timestamp": ts + 3600000, "sessionId": "sess1", "display": "second"},
-            {"timestamp": ts + 7200000, "sessionId": "sess1", "display": "third"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "sess1", "display": "first"},
+                {"timestamp": ts + 3600000, "sessionId": "sess1", "display": "second"},
+                {"timestamp": ts + 7200000, "sessionId": "sess1", "display": "third"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -1380,22 +1542,25 @@ class TestSearchTranscriptsEdgeCases:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": ts_iso,
-                "sessionId": "sess1",
-                "message": {
-                    "content": [
-                        {"type": "text", "text": "find this listcontent pattern"},
-                    ]
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": ts_iso,
+                    "sessionId": "sess1",
+                    "message": {
+                        "content": [
+                            {"type": "text", "text": "find this listcontent pattern"},
+                        ]
+                    },
                 },
-            },
-        ])
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -1413,18 +1578,21 @@ class TestSearchTranscriptsEdgeCases:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": ts_iso,
-                "sessionId": "sess1",
-                "message": {"content": ""},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": ts_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": ""},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -1443,14 +1611,17 @@ class TestSearchTranscriptsEdgeCases:
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": "",
-                "sessionId": "sess1",
-                "message": {"content": "no timestamp keyword"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": "",
+                    "sessionId": "sess1",
+                    "message": {"content": "no timestamp keyword"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -1467,18 +1638,21 @@ class TestSearchTranscriptsEdgeCases:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "my_session_file.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": ts_iso,
-                "sessionId": "",
-                "message": {"content": "find fallback pattern"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": ts_iso,
+                    "sessionId": "",
+                    "message": {"content": "find fallback pattern"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -1497,26 +1671,29 @@ class TestSearchTranscriptsEdgeCases:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
 
-        ts1_iso = datetime.fromtimestamp(ts1 / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
-        ts2_iso = datetime.fromtimestamp(ts2 / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts1_iso = datetime.fromtimestamp(ts1 / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
+        ts2_iso = datetime.fromtimestamp(ts2 / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
 
         session_dir = tmp_path / "proj1"
         session_dir.mkdir()
         session_file = session_dir / "sess1.jsonl"
-        _make_session_jsonl(session_file, [
-            {
-                "type": "user",
-                "timestamp": ts1_iso,
-                "sessionId": "sess1",
-                "message": {"content": "early sortmatch"},
-            },
-            {
-                "type": "user",
-                "timestamp": ts2_iso,
-                "sessionId": "sess1",
-                "message": {"content": "later sortmatch"},
-            },
-        ])
+        _make_session_jsonl(
+            session_file,
+            [
+                {
+                    "type": "user",
+                    "timestamp": ts1_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "early sortmatch"},
+                },
+                {
+                    "type": "user",
+                    "timestamp": ts2_iso,
+                    "sessionId": "sess1",
+                    "message": {"content": "later sortmatch"},
+                },
+            ],
+        )
 
         orig_projects = _mod["PROJECTS_DIR"]
         try:
@@ -1544,15 +1721,26 @@ class TestScanOpencodeEdgeCases:
         storage = tmp_path
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1", "time": {"created": ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": ts},
+                }
+            )
+        )
 
         msg_dir = storage / "message" / "sess1"
         msg_dir.mkdir(parents=True)
-        (msg_dir / "msg_001.json").write_text(json.dumps({
-            "id": "msg_001", "role": "user", "time": {"created": ts},
-        }))
+        (msg_dir / "msg_001.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_001",
+                    "role": "user",
+                    "time": {"created": ts},
+                }
+            )
+        )
 
         part_dir = storage / "part" / "msg_001"
         part_dir.mkdir(parents=True)
@@ -1579,16 +1767,26 @@ class TestScanOpencodeEdgeCases:
         storage = tmp_path
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1",
-            "time": {"created": old_ts, "updated": recent_ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": old_ts, "updated": recent_ts},
+                }
+            )
+        )
 
         msg_dir = storage / "message" / "sess1"
         msg_dir.mkdir(parents=True)
-        (msg_dir / "msg_001.json").write_text(json.dumps({
-            "id": "msg_001", "role": "user", "time": {"created": recent_ts},
-        }))
+        (msg_dir / "msg_001.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_001",
+                    "role": "user",
+                    "time": {"created": recent_ts},
+                }
+            )
+        )
 
         part_dir = storage / "part" / "msg_001"
         part_dir.mkdir(parents=True)
@@ -1613,9 +1811,14 @@ class TestScanOpencodeEdgeCases:
         storage = tmp_path
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1", "time": {"created": ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": ts},
+                }
+            )
+        )
         # No message dir created
 
         orig = _mod["OPENCODE_STORAGE"]
@@ -1636,15 +1839,26 @@ class TestScanOpencodeEdgeCases:
         storage = tmp_path
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1", "time": {"created": ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": ts},
+                }
+            )
+        )
 
         msg_dir = storage / "message" / "sess1"
         msg_dir.mkdir(parents=True)
-        (msg_dir / "msg_001.json").write_text(json.dumps({
-            "id": "msg_001", "role": "user", "time": {"created": ts},
-        }))
+        (msg_dir / "msg_001.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_001",
+                    "role": "user",
+                    "time": {"created": ts},
+                }
+            )
+        )
         # No part dir — prompt_text will be empty, so it gets skipped
 
         orig = _mod["OPENCODE_STORAGE"]
@@ -1673,14 +1887,25 @@ class TestSearchPromptsEdgeCases:
         storage = tmp_path / "opencode"
         sess_dir = storage / "session" / "sess1"
         sess_dir.mkdir(parents=True)
-        (sess_dir / "sess1.json").write_text(json.dumps({
-            "id": "sess1", "time": {"created": ts},
-        }))
+        (sess_dir / "sess1.json").write_text(
+            json.dumps(
+                {
+                    "id": "sess1",
+                    "time": {"created": ts},
+                }
+            )
+        )
         msg_dir = storage / "message" / "sess1"
         msg_dir.mkdir(parents=True)
-        (msg_dir / "msg_001.json").write_text(json.dumps({
-            "id": "msg_001", "role": "user", "time": {"created": ts},
-        }))
+        (msg_dir / "msg_001.json").write_text(
+            json.dumps(
+                {
+                    "id": "msg_001",
+                    "role": "user",
+                    "time": {"created": ts},
+                }
+            )
+        )
         part_dir = storage / "part" / "msg_001"
         part_dir.mkdir(parents=True)
         (part_dir / "prt_001.json").write_text(json.dumps({"text": "opencode searchterm match"}))
@@ -1727,9 +1952,12 @@ class TestSearchPromptsEdgeCases:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "s1", "display": "test123 and test456"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "s1", "display": "test123 and test456"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]
@@ -1752,9 +1980,12 @@ class TestSearchPromptsEdgeCases:
         start_ms = _hkt_ms(-1, 0)
         end_ms = _hkt_ms(1, 0)
         history_path = tmp_path / ".claude" / "history.jsonl"
-        _make_history_jsonl(history_path, [
-            {"timestamp": ts, "sessionId": "session12345", "display": "check fields"},
-        ])
+        _make_history_jsonl(
+            history_path,
+            [
+                {"timestamp": ts, "sessionId": "session12345", "display": "check fields"},
+            ],
+        )
 
         orig = dict(_mod["HISTORY_FILES"])
         orig_projects = _mod["PROJECTS_DIR"]

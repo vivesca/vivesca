@@ -1,6 +1,4 @@
-
 """Merchant categorisation via YAML prefix map."""
-
 
 from pathlib import Path
 

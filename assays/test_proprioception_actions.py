@@ -4,13 +4,10 @@ from __future__ import annotations
 
 
 import json
-import os
 from io import StringIO
-from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Structural / import tests
@@ -22,10 +19,10 @@ class TestDispatchStructure:
 
     def test_dispatch_keys_match_target_literal(self) -> None:
         """Every key in _DISPATCH must appear in the Target Literal values."""
-        from metabolon.enzymes.proprioception import Target, _DISPATCH
-
         # typing.get_args gives the literal values for a Literal type
         from typing import get_args
+
+        from metabolon.enzymes.proprioception import _DISPATCH, Target
 
         target_values = set(get_args(Target))
         dispatch_keys = set(_DISPATCH.keys())
@@ -94,8 +91,10 @@ class TestLogAndGradient:
             json.dumps({"ts": f"2026-03-31T0{i}:00:00+08:00", "target": "genome", "size": 100})
             for i in range(4)
         ]
-        new_entry = json.dumps({"ts": "2026-03-31T09:00:00+08:00", "target": "genome", "size": 500})
-        history_lines = "\n".join(old_entries + [new_entry]) + "\n"
+        new_entry = json.dumps(
+            {"ts": "2026-03-31T09:00:00+08:00", "target": "genome", "size": 500}
+        )
+        history_lines = "\n".join([*old_entries, new_entry]) + "\n"
 
         write_handle = MagicMock()
         write_handle.__enter__ = MagicMock(return_value=write_handle)

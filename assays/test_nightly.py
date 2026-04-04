@@ -9,9 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ── Load effector via exec (never import) ─────────────────────────────────────
 
@@ -267,8 +265,10 @@ class TestCheckHealth:
 
         mock_subprocess = MagicMock()
         mock_subprocess.run.return_value = MagicMock(stdout="active\n")
-        with _patch_attr("subprocess", mock_subprocess), \
-             patch("tempfile.gettempdir", return_value=str(cache_dir)):
+        with (
+            _patch_attr("subprocess", mock_subprocess),
+            patch("tempfile.gettempdir", return_value=str(cache_dir)),
+        ):
             rows = nightly.check_health()
         op_rows = [r for r in rows if r[0] == "op-env-cache"]
         assert len(op_rows) == 1
@@ -283,8 +283,10 @@ class TestCheckHealth:
 
         mock_subprocess = MagicMock()
         mock_subprocess.run.return_value = MagicMock(stdout="active\n")
-        with _patch_attr("subprocess", mock_subprocess), \
-             patch("tempfile.gettempdir", return_value=str(cache_dir)):
+        with (
+            _patch_attr("subprocess", mock_subprocess),
+            patch("tempfile.gettempdir", return_value=str(cache_dir)),
+        ):
             rows = nightly.check_health()
         op_rows = [r for r in rows if r[0] == "op-env-cache"]
         assert len(op_rows) == 1
@@ -297,8 +299,10 @@ class TestCheckHealth:
 
         mock_subprocess = MagicMock()
         mock_subprocess.run.return_value = MagicMock(stdout="active\n")
-        with _patch_attr("subprocess", mock_subprocess), \
-             patch("tempfile.gettempdir", return_value=str(cache_dir)):
+        with (
+            _patch_attr("subprocess", mock_subprocess),
+            patch("tempfile.gettempdir", return_value=str(cache_dir)),
+        ):
             rows = nightly.check_health()
         op_rows = [r for r in rows if r[0] == "op-env-cache"]
         assert len(op_rows) == 1
@@ -397,6 +401,7 @@ class TestWriteHealth:
 
         content = health_out.read_text()
         from datetime import datetime
+
         assert datetime.now().strftime("%Y-%m-%d") in content
 
     def test_auto_fix_op_env_cache(self, tmp_path):
@@ -406,8 +411,7 @@ class TestWriteHealth:
         mock_subprocess = MagicMock()
         mock_subprocess.run.return_value = MagicMock(returncode=0)
 
-        with _patch_attr("subprocess", mock_subprocess), \
-             patch("builtins.print"):
+        with _patch_attr("subprocess", mock_subprocess), patch("builtins.print"):
             nightly.write_health(rows)
 
         content = health_out.read_text()
@@ -418,8 +422,7 @@ class TestWriteHealth:
 
         mock_subprocess = MagicMock()
         mock_subprocess.run.return_value = MagicMock(returncode=0)
-        with _patch_attr("subprocess", mock_subprocess), \
-             patch("builtins.print"):
+        with _patch_attr("subprocess", mock_subprocess), patch("builtins.print"):
             nightly.write_health([("MEMORY.md lines", "50/150", "ok")])
 
         content = health_out.read_text()
@@ -464,6 +467,7 @@ class TestWriteFlywheel:
 
         content = flywheel_out.read_text()
         from datetime import datetime
+
         assert datetime.now().strftime("%Y-%m-%d") in content
 
 
@@ -476,9 +480,11 @@ class TestMain:
 
         mock_wh = MagicMock()
         mock_wf = MagicMock()
-        with _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])), \
-             _patch_attr("write_health", mock_wh), \
-             _patch_attr("write_flywheel", mock_wf):
+        with (
+            _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])),
+            _patch_attr("write_health", mock_wh),
+            _patch_attr("write_flywheel", mock_wf),
+        ):
             nightly.main()
             mock_wh.assert_called_once()
             mock_wf.assert_called_once()
@@ -490,9 +496,11 @@ class TestMain:
     def test_main_prints_banner(self, tmp_path, capsys):
         _setup_home(tmp_path)
 
-        with _patch_attr("check_health", MagicMock(return_value=[])), \
-             _patch_attr("write_health", MagicMock()), \
-             _patch_attr("write_flywheel", MagicMock()):
+        with (
+            _patch_attr("check_health", MagicMock(return_value=[])),
+            _patch_attr("write_health", MagicMock()),
+            _patch_attr("write_flywheel", MagicMock()),
+        ):
             nightly.main()
 
         out = capsys.readouterr().out
@@ -552,8 +560,10 @@ class TestMainJson:
         _setup_home(tmp_path)
 
         test_rows = [("MEMORY.md lines", "50/150", "ok")]
-        with patch.object(sys, "argv", ["nightly", "--json"]), \
-             _patch_attr("check_health", MagicMock(return_value=test_rows)):
+        with (
+            patch.object(sys, "argv", ["nightly", "--json"]),
+            _patch_attr("check_health", MagicMock(return_value=test_rows)),
+        ):
             nightly.main()
 
         out = capsys.readouterr().out
@@ -569,8 +579,10 @@ class TestMainJson:
     def test_json_flag_skips_file_writes(self, tmp_path, capsys):
         health_out, flywheel_out = _setup_home(tmp_path)
 
-        with patch.object(sys, "argv", ["nightly", "--json"]), \
-             _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
+        with (
+            patch.object(sys, "argv", ["nightly", "--json"]),
+            _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])),
+        ):
             nightly.main()
 
         assert not health_out.exists()
@@ -579,8 +591,10 @@ class TestMainJson:
     def test_json_flag_no_banner(self, tmp_path, capsys):
         _setup_home(tmp_path)
 
-        with patch.object(sys, "argv", ["nightly", "--json"]), \
-             _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])):
+        with (
+            patch.object(sys, "argv", ["nightly", "--json"]),
+            _patch_attr("check_health", MagicMock(return_value=[("Test", "val", "ok")])),
+        ):
             nightly.main()
 
         out = capsys.readouterr().out

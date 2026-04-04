@@ -1,11 +1,12 @@
 """Tests for respiration — metabolic conversion efficiency."""
 
 from unittest.mock import patch
+
 from metabolon.respiration import (
-    ejection_fraction,
-    _count_ejected,
     _count_converted,
+    _count_ejected,
     _count_stale,
+    ejection_fraction,
 )
 
 
@@ -24,7 +25,9 @@ def test_ejection_fraction_no_ejected(tmp_path):
 
 def test_ejection_fraction_all_converted(tmp_path):
     fake = tmp_path / "Praxis.md"
-    fake.write_text("- [x] agent:terry review memo (done)\n- [x] agent:terry check report (completed)\n")
+    fake.write_text(
+        "- [x] agent:terry review memo (done)\n- [x] agent:terry check report (completed)\n"
+    )
     with patch("metabolon.respiration.PRAXIS_FILE", fake):
         assert ejection_fraction() == 1.0
 

@@ -1,4 +1,3 @@
-
 import configparser
 import json
 import re
@@ -61,7 +60,7 @@ def recall_archived_articles(article_cache_dir: Path, month: str) -> list[dict[s
     for path in sorted(article_cache_dir.glob(f"{month}*.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             continue
         if not isinstance(payload, dict):
             continue
@@ -363,7 +362,7 @@ def recall_affinity_entries(since_date: str) -> list[dict[str, Any]]:
             ts = datetime.fromisoformat(str(raw_ts))
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=UTC)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
         if ts >= cutoff:
             items.append(entry)

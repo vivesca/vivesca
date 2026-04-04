@@ -1,6 +1,4 @@
-
 """CCBA eye Credit Card statement PDF parser."""
-
 
 import re
 from datetime import datetime

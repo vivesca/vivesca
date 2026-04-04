@@ -7,6 +7,7 @@ Usage:
     chromatin-backup.py           # Run backup
     chromatin-backup.py --help    # Show this help
 """
+
 from __future__ import annotations
 
 import os
@@ -18,7 +19,9 @@ from pathlib import Path
 CHROMATIN_DIR = Path.home() / "epigenome" / "chromatin"
 
 
-def _git(*args: str, check: bool = True, capture: bool = True, env: dict | None = None) -> subprocess.CompletedProcess[str]:
+def _git(
+    *args: str, check: bool = True, capture: bool = True, env: dict | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run a git command in the chromatin directory."""
     run_kwargs: dict = {
         "cwd": CHROMATIN_DIR,
@@ -56,8 +59,7 @@ def sync_remote() -> None:
         return
 
     # Try rebase first
-    rebase = _git("rebase", "origin/main", check=False,
-                   env={**os.environ, "GIT_EDITOR": "true"})
+    rebase = _git("rebase", "origin/main", check=False, env={**os.environ, "GIT_EDITOR": "true"})
     if rebase.returncode == 0:
         return
 
@@ -70,8 +72,7 @@ def sync_remote() -> None:
     # Merge failed — accept theirs as last resort
     _git("checkout", "--theirs", ".", check=False)
     _git("add", "-A")
-    _git("commit", "--no-edit", check=False,
-         env={**os.environ, "GIT_EDITOR": "true"})
+    _git("commit", "--no-edit", check=False, env={**os.environ, "GIT_EDITOR": "true"})
 
 
 def backup() -> bool:

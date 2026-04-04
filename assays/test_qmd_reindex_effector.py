@@ -38,9 +38,7 @@ def _run_script(
     )
 
 
-def _create_mock_bin(
-    tmp_path: Path, name: str, exit_code: int = 0, stdout: str = ""
-) -> Path:
+def _create_mock_bin(tmp_path: Path, name: str, exit_code: int = 0, stdout: str = "") -> Path:
     """Create a mock binary in tmp_path/bin."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -231,9 +229,7 @@ class TestExecution:
 
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text(
-            '#!/bin/bash\necho "error output" >&2\nexit 0'
-        )
+        qmd_path.write_text('#!/bin/bash\necho "error output" >&2\nexit 0')
         qmd_path.chmod(0o755)
 
         env = os.environ.copy()
@@ -256,7 +252,7 @@ class TestExecution:
 
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text('#!/bin/bash\nexit 0')
+        qmd_path.write_text("#!/bin/bash\nexit 0")
         qmd_path.chmod(0o755)
 
         env = os.environ.copy()
@@ -295,9 +291,7 @@ class TestExecution:
 
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text(
-            '#!/bin/bash\necho "fatal error" >&2\nexit 1'
-        )
+        qmd_path.write_text('#!/bin/bash\necho "fatal error" >&2\nexit 1')
         qmd_path.chmod(0o755)
 
         env = os.environ.copy()
@@ -341,7 +335,7 @@ class TestExecution:
         env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
 
-        r = _run_script("--random-flag", env=env)
+        _run_script("--random-flag", env=env)
         # Script should attempt to run qmd (not exit early with help)
         assert qmd_call_log.exists()
 
@@ -351,7 +345,7 @@ class TestExecution:
 
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text('#!/bin/bash\nexit 0')
+        qmd_path.write_text("#!/bin/bash\nexit 0")
         qmd_path.chmod(0o755)
 
         env = os.environ.copy()
@@ -530,12 +524,12 @@ class TestUpdateFailureStopsEmbed:
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
         qmd_path.write_text(
-            '#!/bin/bash\n'
+            "#!/bin/bash\n"
             f'echo "$@" >> {qmd_call_log}\n'
             'if [[ "$1" == "update" ]]; then\n'
-            '    exit 1\n'
-            'fi\n'
-            'exit 0\n'
+            "    exit 1\n"
+            "fi\n"
+            "exit 0\n"
         )
         qmd_path.chmod(0o755)
 

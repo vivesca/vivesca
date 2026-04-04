@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import stat
 import subprocess
 from pathlib import Path
 
@@ -106,7 +105,7 @@ class TestPermissionCheck:
     def test_error_message_to_stderr(self):
         """The root-check error message is redirected to stderr (>&2)."""
         src = _src()
-        assert '>&2' in src
+        assert ">&2" in src
         assert "ERROR: This script must be run as root" in src
 
 
@@ -420,6 +419,7 @@ class TestIdempotency:
     def test_all_curl_uses_fail_silent_flags(self):
         """All curl invocations use -f (fail silently on HTTP errors) or -LsSf."""
         import re as _re
+
         src = _src()
         for i, line in enumerate(src.splitlines(), 1):
             stripped = line.strip()
@@ -435,15 +435,12 @@ class TestIdempotency:
         for i, line in enumerate(src.splitlines(), 1):
             stripped = line.strip()
             if "apt-get install" in stripped or "apt-get upgrade" in stripped:
-                assert " -y" in stripped, (
-                    f"Line {i}: apt-get without -y: {stripped}"
-                )
+                assert " -y" in stripped, f"Line {i}: apt-get without -y: {stripped}"
 
     def test_no_interactive_commands(self):
         """Script must not contain interactive prompts (read, select)."""
         src = _src()
         # 'read' at start of command (not in comments/strings)
-        import re
         # Avoid matching 'read' in words like 'unreadable' or in comments
         for i, line in enumerate(src.splitlines(), 1):
             stripped = line.strip()
@@ -483,15 +480,11 @@ class TestShellcheck:
     """Run shellcheck if available; skip otherwise."""
 
     def test_shellcheck_passes(self):
-        r = subprocess.run(
-            ["which", "shellcheck"], capture_output=True, text=True
-        )
+        r = subprocess.run(["which", "shellcheck"], capture_output=True, text=True)
         if r.returncode != 0:
             pytest.skip("shellcheck not installed")
 
-        r = subprocess.run(
-            ["shellcheck", str(SCRIPT)], capture_output=True, text=True
-        )
+        r = subprocess.run(["shellcheck", str(SCRIPT)], capture_output=True, text=True)
         assert r.returncode == 0, f"Shellcheck issues:\n{r.stdout}{r.stderr}"
 
 
@@ -511,7 +504,7 @@ class TestEdgeCases:
                 # Next line should not be just a closing quote
                 if i + 1 < len(lines):
                     next_line = lines[i + 1].strip()
-                    assert next_line != "'", f"Line {i+2}: empty sudo -u terry block"
+                    assert next_line != "'", f"Line {i + 2}: empty sudo -u terry block"
 
     def test_all_urls_use_https(self):
         """All download URLs use HTTPS, not HTTP."""
@@ -520,9 +513,7 @@ class TestEdgeCases:
             stripped = line.strip()
             if "http://" in stripped and "127.0.0" not in stripped and "localhost" not in stripped:
                 # Allow http in comments
-                assert stripped.startswith("#"), (
-                    f"Line {i}: insecure HTTP URL: {stripped}"
-                )
+                assert stripped.startswith("#"), f"Line {i}: insecure HTTP URL: {stripped}"
 
     def test_no_curl_piped_to_sh_without_check(self):
         """Curl | sh patterns should be from trusted sources only."""
@@ -558,7 +549,7 @@ class TestEdgeCases:
         src = _src()
         # Find the fnm install block
         fnm_install = src.index("fnm.vercel.app/install")
-        fnm_block = src[fnm_install:src.index("fnm default lts-latest") + 30]
+        fnm_block = src[fnm_install : src.index("fnm default lts-latest") + 30]
         path_pos = fnm_block.index("PATH")
         eval_pos = fnm_block.index('eval "$(fnm env)"')
         assert path_pos < eval_pos
@@ -568,7 +559,7 @@ class TestEdgeCases:
         src = _src()
         # The tmux section should use a heredoc (<<) for clean multiline write
         tmux_pos = src.index(".tmux.conf")
-        preceding = src[:tmux_pos + 100]
+        preceding = src[: tmux_pos + 100]
         assert "<<" in preceding
 
 
@@ -581,7 +572,7 @@ class TestTmuxExtended:
     _EXTRA_LINES = [
         "bind C-a send-prefix",
         'set -g default-terminal "screen-256color"',
-        ',xterm-256color:Tc',
+        ",xterm-256color:Tc",
         "set -g status-style",
     ]
 
@@ -839,7 +830,11 @@ class TestHeredocIntegrity:
         """The tmux config heredoc has substantive content."""
         src = _src()
         # Count tmux set/bind/unbind directives
-        lines = [l.strip() for l in src.splitlines() if l.strip().startswith(("set ", "bind ", "unbind "))]
+        lines = [
+            l.strip()
+            for l in src.splitlines()
+            if l.strip().startswith(("set ", "bind ", "unbind "))
+        ]
         assert len(lines) >= 6
 
     def test_tmux_heredoc_content_between_delimiters(self):
@@ -894,7 +889,7 @@ class TestSudoUsage:
         src = _src()
         for cmd in ["apt-get update", "adduser", "systemctl restart"]:
             pos = src.index(cmd)
-            preceding = src[max(0, pos - 200):pos]
+            preceding = src[max(0, pos - 200) : pos]
             # These commands should NOT be inside a sudo -u terry block
             # Check there's no open sudo block between the last close and this command
             lines_before = preceding.splitlines()
@@ -945,7 +940,7 @@ class TestCompletionOrdering:
         src = _src()
         next_steps_pos = src.index("Next steps:")
         step1_pos = src.index("1.", next_steps_pos)
-        assert "SSH in as terry" in src[step1_pos:step1_pos + 60]
+        assert "SSH in as terry" in src[step1_pos : step1_pos + 60]
 
     def test_gh_auth_is_last_step(self):
         """Step 5 (gh auth login) is the last numbered step."""

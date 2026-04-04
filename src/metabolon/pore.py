@@ -1414,10 +1414,7 @@ def metabolism_dissolve(memory_dir: str | None, days: int):
     from metabolon.metabolism.signals import SensorySystem
 
     # ── Resolve memory directory ────────────────────────────────────
-    if memory_dir:
-        mem_path = Path(memory_dir)
-    else:
-        mem_path = resolve_memory_dir()
+    mem_path = Path(memory_dir) if memory_dir else resolve_memory_dir()
 
     if not mem_path.exists():
         click.echo(f"Memory directory not found: {mem_path}")
@@ -1702,7 +1699,7 @@ def endocytosis_status():
     def _parse_aware(value: str) -> datetime | None:
         try:
             dt = datetime.fromisoformat(value)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
@@ -2179,7 +2176,7 @@ def replicate_gemini(hooks_only: bool, mcp_only: bool, dry_run: bool):
     """
     from metabolon.organelles.conjugation_engine import replicate_to_gemini
 
-    result, diff_text = replicate_to_gemini(
+    _result, diff_text = replicate_to_gemini(
         hooks_only=hooks_only,
         mcp_only=mcp_only,
         dry_run=dry_run,

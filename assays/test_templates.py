@@ -6,10 +6,10 @@ and structural guarantees that the unit-test files don't cover.
 
 import pytest
 
-from metabolon.codons.templates import research, compose_signal, morning_brief
-
+from metabolon.codons.templates import compose_signal, morning_brief, research
 
 # ── Prompt decorator metadata ──────────────────────────────────────────
+
 
 class TestPromptMetadata:
     """Verify the @prompt decorator exposes correct MCP metadata."""
@@ -36,6 +36,7 @@ class TestPromptMetadata:
 
 # ── Statelessness ──────────────────────────────────────────────────────
 
+
 class TestStatelessness:
     """Repeated calls with same args must produce identical output."""
 
@@ -56,6 +57,7 @@ class TestStatelessness:
 
 
 # ── Special characters & edge inputs ───────────────────────────────────
+
 
 class TestSpecialInputs:
     """Functions must handle unusual inputs without raising."""
@@ -82,6 +84,7 @@ class TestSpecialInputs:
 
 
 # ── Structural guarantees ──────────────────────────────────────────────
+
 
 class TestStructuralGuarantees:
     """Verify cross-cutting structural properties of all templates."""
@@ -119,6 +122,8 @@ class TestStructuralGuarantees:
     def test_all_known_platforms_return_content(self):
         for platform in ("whatsapp", "linkedin", "email", "telegram"):
             result = compose_signal(
-                platform=platform, recipient="X", intent="hello",
+                platform=platform,
+                recipient="X",
+                intent="hello",
             )
             assert platform in result.lower()

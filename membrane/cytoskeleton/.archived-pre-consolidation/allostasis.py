@@ -116,7 +116,7 @@ CIRCADIAN_NOTES = {
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         data = {}
 
     session_id = data.get("session_id", "")

@@ -7,7 +7,6 @@ without error, and adds supplementary tests with mocked external
 calls (datetime.now, subprocess, file I/O) to cover edge cases.
 """
 
-import base64
 import io
 import sys
 from datetime import datetime
@@ -19,10 +18,10 @@ import pytest
 from metabolon.organelles import moneo
 from metabolon.organelles.tests import test_moneo as tm
 
-
 # ---------------------------------------------------------------------------
 # Helpers (mirror the ones in test_moneo.py to avoid coupling)
 # ---------------------------------------------------------------------------
+
 
 def _empty_db() -> dict:
     return {"re": [], "mt": {"ts": 0}, "dl": {}}
@@ -43,6 +42,7 @@ def _db_with_reminders() -> dict:
 # ===================================================================
 
 # --- parse_due_string group ---
+
 
 def test_original_parse_due_time_only() -> None:
     tm.test_parse_due_time_only()
@@ -74,6 +74,7 @@ def test_original_parse_due_tomorrow_keyword_alone() -> None:
 
 # --- resolve_date_keyword ---
 
+
 def test_original_resolve_date_keyword_today_case_insensitive() -> None:
     tm.test_resolve_date_keyword_today_case_insensitive()
 
@@ -84,11 +85,13 @@ def test_original_resolve_date_keyword_passthrough() -> None:
 
 # --- parse_time ---
 
+
 def test_original_parse_time_with_date_defaults_to_0900() -> None:
     tm.test_parse_time_with_date_defaults_to_0900()
 
 
 # --- expand_schedule ---
+
 
 def test_original_expand_schedule_skips_night() -> None:
     tm.test_expand_schedule_skips_night_by_default()
@@ -100,6 +103,7 @@ def test_original_expand_schedule_can_include_night() -> None:
 
 # --- recur_code ---
 
+
 def test_original_recur_code_all_frequencies() -> None:
     tm.test_recur_code_all_frequencies()
 
@@ -110,6 +114,7 @@ def test_original_recur_code_unknown_returns_none() -> None:
 
 # --- generate_uuid ---
 
+
 def test_original_generate_uuid_format() -> None:
     tm.test_generate_uuid_format()
 
@@ -119,6 +124,7 @@ def test_original_generate_uuid_uniqueness() -> None:
 
 
 # --- make_reminder ---
+
 
 def test_original_make_reminder_basic() -> None:
     tm.test_make_reminder_basic()
@@ -142,6 +148,7 @@ def test_original_make_reminder_quarterly_recurrence() -> None:
 
 # --- add_direct ---
 
+
 def test_original_add_direct_appends_to_data() -> None:
     tm.test_add_direct_appends_to_data()
 
@@ -155,6 +162,7 @@ def test_original_add_direct_preserves_existing() -> None:
 
 
 # --- find_duplicate ---
+
 
 def test_original_find_duplicate_same_title_and_time() -> None:
     tm.test_find_duplicate_detects_same_title_and_time()
@@ -174,6 +182,7 @@ def test_original_find_duplicate_different_title() -> None:
 
 # --- short_uuid ---
 
+
 def test_original_short_uuid_first_8() -> None:
     tm.test_short_uuid_returns_first_8_chars()
 
@@ -187,6 +196,7 @@ def test_original_short_uuid_short_input() -> None:
 
 
 # --- is_uuid_prefix ---
+
 
 def test_original_is_uuid_prefix_valid_8() -> None:
     tm.test_is_uuid_prefix_valid_8_chars()
@@ -218,6 +228,7 @@ def test_original_is_uuid_prefix_base64url() -> None:
 
 # --- is_numeric ---
 
+
 def test_original_is_numeric_positive() -> None:
     tm.test_is_numeric_positive_int()
 
@@ -236,6 +247,7 @@ def test_original_is_numeric_non_number() -> None:
 
 # --- find_by_uuid_prefix ---
 
+
 def test_original_find_by_uuid_prefix_exact() -> None:
     tm.test_find_by_uuid_prefix_exact_match()
 
@@ -249,6 +261,7 @@ def test_original_find_by_uuid_prefix_multiple() -> None:
 
 
 # --- resolve_target ---
+
 
 def test_original_resolve_target_numeric() -> None:
     tm.test_resolve_target_by_numeric_index()
@@ -283,6 +296,7 @@ def test_original_resolve_target_prefers_numeric() -> None:
 
 
 # --- confirm_action ---
+
 
 def test_original_confirm_action_eof() -> None:
     tm.test_confirm_action_eof_returns_false()
@@ -395,7 +409,9 @@ class TestMakeReminderWithMockedTimestamp:
 
     @patch.object(moneo, "now_ts", return_value=9999999)
     @patch.object(moneo, "generate_uuid", return_value="fixeduuid1234567890")
-    def test_created_and_modified_use_now_ts(self, mock_uuid: MagicMock, mock_now: MagicMock) -> None:
+    def test_created_and_modified_use_now_ts(
+        self, mock_uuid: MagicMock, mock_now: MagicMock
+    ) -> None:
         reminder = moneo.make_reminder("Test", 5000, None, None)
         assert reminder["b"] == 9999999
         assert reminder["m"] == 9999999
@@ -475,15 +491,12 @@ class TestReadDbWithMockedFile:
 
     @patch.object(moneo, "due_db_path")
     def test_read_db_file_not_found_raises(self, mock_path: MagicMock) -> None:
-        import json
-        from pathlib import Path
         mock_path.return_value = Path("/tmp/nonexistent_due_test_db.duedb")
         with pytest.raises(moneo.MoneoError, match="Failed to read"):
             moneo.read_db()
 
     @patch.object(moneo, "due_db_path")
     def test_read_db_permission_error_returns_empty(self, mock_path: MagicMock) -> None:
-        from pathlib import Path
         mock_path.return_value = Path("/tmp/permission_denied_test.duedb")
         with patch("gzip.open", side_effect=PermissionError("denied")):
             result = moneo.read_db()
@@ -518,8 +531,8 @@ class TestWriteDbWithMockedIO:
     def test_write_db_updates_mt_timestamp(
         self, mock_path: MagicMock, mock_pid: MagicMock, mock_git: MagicMock
     ) -> None:
-        from pathlib import Path
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".duedb", delete=False) as f:
             tmp = Path(f.name)
         mock_path.return_value = tmp
@@ -536,7 +549,6 @@ class TestHomeDir:
     """Tests for home_dir."""
 
     def test_home_dir_from_env(self) -> None:
-        from pathlib import Path
         with patch.dict(moneo.os.environ, {"HOME": "/custom/home"}):
             assert moneo.home_dir() == Path("/custom/home")
 
@@ -646,7 +658,7 @@ class TestEdgeCases:
 
     def test_get_reminder_valid_index(self) -> None:
         data = _db_with_reminders()
-        raw_idx, reminder = moneo.get_reminder(data, 1)
+        _raw_idx, reminder = moneo.get_reminder(data, 1)
         assert reminder["n"] == "Buy milk"
 
     def test_get_reminder_invalid_index_raises(self) -> None:
@@ -679,5 +691,6 @@ class TestEdgeCases:
 def test_import_test_moneo_module() -> None:
     """The test module should import cleanly."""
     import importlib
+
     mod = importlib.import_module("metabolon.organelles.tests.test_moneo")
     assert hasattr(mod, "test_parse_due_time_only")

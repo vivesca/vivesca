@@ -4,22 +4,18 @@ import hashlib
 import json
 from pathlib import Path
 
-import pytest
-
 from metabolon.metabolism.infection import (
-    ChronicPattern,
-    InfectionEvent,
     _fingerprint,
     chronic_infections,
     infection_summary,
-    record_infection,
     recall_infections,
+    record_infection,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fp(tool: str, error: str) -> str:
     """Compute expected fingerprint matching module logic."""
@@ -37,6 +33,7 @@ def _write_events(path: Path, events: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 # _fingerprint
 # ---------------------------------------------------------------------------
+
 
 class TestFingerprint:
     def test_deterministic(self):
@@ -65,6 +62,7 @@ class TestFingerprint:
 # ---------------------------------------------------------------------------
 # record_infection
 # ---------------------------------------------------------------------------
+
 
 class TestRecordInfection:
     def test_returns_event(self, tmp_path):
@@ -119,12 +117,14 @@ class TestRecordInfection:
         ev = record_infection("t", "e", log_path=log)
         # ISO format should parse without error
         from datetime import datetime
+
         datetime.fromisoformat(ev["ts"])
 
 
 # ---------------------------------------------------------------------------
 # recall_infections
 # ---------------------------------------------------------------------------
+
 
 class TestRecallInfections:
     def test_missing_file_returns_empty(self, tmp_path):
@@ -134,8 +134,20 @@ class TestRecallInfections:
     def test_reads_events(self, tmp_path):
         log = tmp_path / "inf.jsonl"
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "a", "error": "e1", "fingerprint": "abc123", "healed": False},
-            {"ts": "2025-01-01T00:01:00", "tool": "b", "error": "e2", "fingerprint": "def456", "healed": True},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "a",
+                "error": "e1",
+                "fingerprint": "abc123",
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:01:00",
+                "tool": "b",
+                "error": "e2",
+                "fingerprint": "def456",
+                "healed": True,
+            },
         ]
         _write_events(log, events)
         result = recall_infections(log)
@@ -166,6 +178,7 @@ class TestRecallInfections:
 # chronic_infections
 # ---------------------------------------------------------------------------
 
+
 class TestChronicInfections:
     def test_empty_log(self, tmp_path):
         log = tmp_path / "inf.jsonl"
@@ -175,10 +188,20 @@ class TestChronicInfections:
         log = tmp_path / "inf.jsonl"
         fp = _fp("tool_a", "err")
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:01:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:01:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
         ]
         _write_events(log, events)
         result = chronic_infections(log, threshold=3)
@@ -188,8 +211,13 @@ class TestChronicInfections:
         log = tmp_path / "inf.jsonl"
         fp = _fp("tool_a", "err")
         events = [
-            {"ts": f"2025-01-01T00:0{i}:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False}
+            {
+                "ts": f"2025-01-01T00:0{i}:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            }
             for i in range(3)
         ]
         _write_events(log, events)
@@ -204,8 +232,13 @@ class TestChronicInfections:
         log = tmp_path / "inf.jsonl"
         fp = _fp("tool_a", "err")
         events = [
-            {"ts": f"2025-01-01T00:0{i}:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": True}
+            {
+                "ts": f"2025-01-01T00:0{i}:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": True,
+            }
             for i in range(5)
         ]
         _write_events(log, events)
@@ -216,16 +249,41 @@ class TestChronicInfections:
         log = tmp_path / "inf.jsonl"
         fp = _fp("tool_a", "err")
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": True},
-            {"ts": "2025-01-01T00:01:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": True},
-            {"ts": "2025-01-01T00:02:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:03:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:04:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": True,
+            },
+            {
+                "ts": "2025-01-01T00:01:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": True,
+            },
+            {
+                "ts": "2025-01-01T00:02:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:03:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:04:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
         ]
         _write_events(log, events)
         result = chronic_infections(log, threshold=3)
@@ -237,12 +295,27 @@ class TestChronicInfections:
         log = tmp_path / "inf.jsonl"
         fp = _fp("tool_a", "err")
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "tool_a", "error": "early err",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:01:00", "tool": "tool_a", "error": "mid err",
-             "fingerprint": fp, "healed": True},
-            {"ts": "2025-01-01T00:02:00", "tool": "tool_a", "error": "latest err",
-             "fingerprint": fp, "healed": False},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "tool_a",
+                "error": "early err",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:01:00",
+                "tool": "tool_a",
+                "error": "mid err",
+                "fingerprint": fp,
+                "healed": True,
+            },
+            {
+                "ts": "2025-01-01T00:02:00",
+                "tool": "tool_a",
+                "error": "latest err",
+                "fingerprint": fp,
+                "healed": False,
+            },
         ]
         _write_events(log, events)
         result = chronic_infections(log, threshold=2)
@@ -254,12 +327,25 @@ class TestChronicInfections:
         log = tmp_path / "inf.jsonl"
         fp_a = _fp("tool_a", "err_a")
         fp_b = _fp("tool_b", "err_b")
-        events = (
-            [{"ts": f"2025-01-01T00:0{i}:00", "tool": "tool_a", "error": "err_a",
-              "fingerprint": fp_a, "healed": False} for i in range(3)]
-            + [{"ts": f"2025-01-02T00:0{i}:00", "tool": "tool_b", "error": "err_b",
-                "fingerprint": fp_b, "healed": False} for i in range(5)]
-        )
+        events = [
+            {
+                "ts": f"2025-01-01T00:0{i}:00",
+                "tool": "tool_a",
+                "error": "err_a",
+                "fingerprint": fp_a,
+                "healed": False,
+            }
+            for i in range(3)
+        ] + [
+            {
+                "ts": f"2025-01-02T00:0{i}:00",
+                "tool": "tool_b",
+                "error": "err_b",
+                "fingerprint": fp_b,
+                "healed": False,
+            }
+            for i in range(5)
+        ]
         _write_events(log, events)
         result = chronic_infections(log, threshold=3)
         assert len(result) == 2
@@ -272,12 +358,27 @@ class TestChronicInfections:
         # Two tools sharing the same fingerprint string (unlikely but possible)
         fp = "aaaa1111bbbb"
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:01:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:02:00", "tool": "tool_a", "error": "err",
-             "fingerprint": fp, "healed": False},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:01:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:02:00",
+                "tool": "tool_a",
+                "error": "err",
+                "fingerprint": fp,
+                "healed": False,
+            },
         ]
         log = tmp_path / "inf.jsonl"
         _write_events(log, events)
@@ -289,6 +390,7 @@ class TestChronicInfections:
 # infection_summary
 # ---------------------------------------------------------------------------
 
+
 class TestInfectionSummary:
     def test_empty_log(self, tmp_path):
         log = tmp_path / "inf.jsonl"
@@ -298,8 +400,13 @@ class TestInfectionSummary:
         log = tmp_path / "inf.jsonl"
         fp = _fp("t", "e")
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "t", "error": "e",
-             "fingerprint": fp, "healed": True},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "t",
+                "error": "e",
+                "fingerprint": fp,
+                "healed": True,
+            },
         ]
         _write_events(log, events)
         summary = infection_summary(log)
@@ -311,10 +418,20 @@ class TestInfectionSummary:
         log = tmp_path / "inf.jsonl"
         fp = _fp("t", "e")
         events = [
-            {"ts": "2025-01-01T00:00:00", "tool": "t", "error": "e",
-             "fingerprint": fp, "healed": False},
-            {"ts": "2025-01-01T00:01:00", "tool": "t", "error": "e",
-             "fingerprint": fp, "healed": True},
+            {
+                "ts": "2025-01-01T00:00:00",
+                "tool": "t",
+                "error": "e",
+                "fingerprint": fp,
+                "healed": False,
+            },
+            {
+                "ts": "2025-01-01T00:01:00",
+                "tool": "t",
+                "error": "e",
+                "fingerprint": fp,
+                "healed": True,
+            },
         ]
         _write_events(log, events)
         summary = infection_summary(log)
@@ -325,8 +442,13 @@ class TestInfectionSummary:
         log = tmp_path / "inf.jsonl"
         fp = _fp("chronic_tool", "persistent error")
         events = [
-            {"ts": f"2025-01-01T00:0{i}:00", "tool": "chronic_tool",
-             "error": "persistent error", "fingerprint": fp, "healed": False}
+            {
+                "ts": f"2025-01-01T00:0{i}:00",
+                "tool": "chronic_tool",
+                "error": "persistent error",
+                "fingerprint": fp,
+                "healed": False,
+            }
             for i in range(4)
         ]
         _write_events(log, events)
@@ -340,8 +462,13 @@ class TestInfectionSummary:
         long_err = "Z" * 200
         fp = _fp("t", long_err)
         events = [
-            {"ts": f"2025-01-01T00:0{i}:00", "tool": "t", "error": long_err,
-             "fingerprint": fp, "healed": False}
+            {
+                "ts": f"2025-01-01T00:0{i}:00",
+                "tool": "t",
+                "error": long_err,
+                "fingerprint": fp,
+                "healed": False,
+            }
             for i in range(3)
         ]
         _write_events(log, events)
@@ -359,11 +486,12 @@ class TestInfectionSummary:
 # Integration: round-trip record -> recall -> chronic
 # ---------------------------------------------------------------------------
 
+
 class TestRoundTrip:
     def test_record_recall_roundtrip(self, tmp_path):
         log = tmp_path / "inf.jsonl"
         ev1 = record_infection("tool_x", "badness", log_path=log)
-        ev2 = record_infection("tool_y", "other badness", healed=True, log_path=log)
+        record_infection("tool_y", "other badness", healed=True, log_path=log)
         recalled = recall_infections(log)
         assert len(recalled) == 2
         assert recalled[0]["tool"] == "tool_x"

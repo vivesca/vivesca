@@ -1,4 +1,3 @@
-
 from fastmcp.prompts.function_prompt import prompt
 
 """Prompt templates for common agent workflows.

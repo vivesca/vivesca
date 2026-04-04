@@ -6,18 +6,16 @@ import json
 import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import pytest
-import tomllib
 import httpx
+import pytest
 
 from metabolon.organelles.statolith import (
     AliasMap,
     Cache,
     ModelScore,
     SourceResult,
-    _build_alias_map,
     _canonical_model_name,
     _extract_cell_value,
     _extract_metric,
@@ -27,17 +25,17 @@ from metabolon.organelles.statolith import (
     _is_image_or_video_model,
     _load_alias_toml,
     _map_command_error,
+    _parse_aider_scores,
     _parse_arena_from_snapshot,
     _parse_arena_json_response,
-    _parse_aider_scores,
     _parse_scored_cached,
     _parse_swebench_scores,
     _percentile,
     _rank_models,
     _std_dev,
     aggregate_results,
-    classify_effort_level,
     apply_aa_effort_filter,
+    classify_effort_level,
 )
 
 
@@ -208,17 +206,21 @@ aliases = ["claude", "sonnet"]
         assert to_canonical == {}
 
     def test_resolve_exact_match(self):
-        alias_map = AliasMap(_map={
-            "gpt-4o": "gpt-4o",
-            "gpt4": "gpt-4o",
-        })
+        alias_map = AliasMap(
+            _map={
+                "gpt-4o": "gpt-4o",
+                "gpt4": "gpt-4o",
+            }
+        )
         assert alias_map.resolve("gpt4") == "gpt-4o"
         assert alias_map.resolve("GPT4") == "gpt-4o"
 
     def test_resolve_prefix_match(self):
-        alias_map = AliasMap(_map={
-            "gpt-4o": "gpt-4o",
-        })
+        alias_map = AliasMap(
+            _map={
+                "gpt-4o": "gpt-4o",
+            }
+        )
         assert alias_map.resolve("GPT-4o (latest)") == "gpt-4o"
         assert alias_map.resolve("gpt-4o-123k") == "gpt-4o"
 
@@ -227,10 +229,12 @@ aliases = ["claude", "sonnet"]
         assert alias_map.resolve("unknown-model") == "unknown-model"
 
     def test_matches(self):
-        alias_map = AliasMap(_map={
-            "gpt-4o": "gpt-4o",
-            "gpt4": "gpt-4o",
-        })
+        alias_map = AliasMap(
+            _map={
+                "gpt-4o": "gpt-4o",
+                "gpt4": "gpt-4o",
+            }
+        )
         assert alias_map.matches("gpt4", "gpt-4o") is True
         assert alias_map.matches("unknown", "gpt-4o") is False
 
@@ -341,11 +345,13 @@ class TestParseSwebenchScores:
     def test_dedup_keeps_highest(self):
         data = {
             "leaderboards": [
-                {"results": [
-                    {"name": "Model A", "resolved": 0.30},
-                    {"name": "Model A", "resolved": 0.35},
-                    {"name": "Model A", "resolved": 0.25},
-                ]}
+                {
+                    "results": [
+                        {"name": "Model A", "resolved": 0.30},
+                        {"name": "Model A", "resolved": 0.35},
+                        {"name": "Model A", "resolved": 0.25},
+                    ]
+                }
             ]
         }
         scores = _parse_swebench_scores(data)
@@ -393,10 +399,9 @@ class TestMathHelpers:
 
     def test_std_dev(self):
         values = [1.0, 2.0, 3.0]
-        mean = 2.0
-        variance = ((1-2)**2 + (2-2)**2 + (3-2)**2)/3
-        variance = (1 + 0 + 1)/3
-        std = math.sqrt(2/3)
+        ((1 - 2) ** 2 + (2 - 2) ** 2 + (3 - 2) ** 2) / 3
+        (1 + 0 + 1) / 3
+        std = math.sqrt(2 / 3)
         assert _std_dev(values) == pytest.approx(std)
         assert _std_dev([5.0]) == 0.0
 
@@ -479,16 +484,33 @@ class TestRankModels:
     def test_ranks_correctly_descending(self):
         spec = {
             "sources": [
-                {"source": "swebench", "label": "SWE-bench", "metric": "resolved_rate", "sort": "desc"},
+                {
+                    "source": "swebench",
+                    "label": "SWE-bench",
+                    "metric": "resolved_rate",
+                    "sort": "desc",
+                },
             ]
         }
         results = [
             SourceResult(
                 source="swebench",
                 scores=[
-                    ModelScore(model="model-a", source_model_name="Model A", metrics={"resolved_rate": 0.40}),
-                    ModelScore(model="model-b", source_model_name="Model B", metrics={"resolved_rate": 0.50}),
-                    ModelScore(model="model-c", source_model_name="Model C", metrics={"resolved_rate": 0.30}),
+                    ModelScore(
+                        model="model-a",
+                        source_model_name="Model A",
+                        metrics={"resolved_rate": 0.40},
+                    ),
+                    ModelScore(
+                        model="model-b",
+                        source_model_name="Model B",
+                        metrics={"resolved_rate": 0.50},
+                    ),
+                    ModelScore(
+                        model="model-c",
+                        source_model_name="Model C",
+                        metrics={"resolved_rate": 0.30},
+                    ),
                 ],
             )
         ]
@@ -504,15 +526,24 @@ class TestRankModels:
     def test_applies_aliases(self):
         spec = {
             "sources": [
-                {"source": "swebench", "label": "SWE-bench", "metric": "resolved_rate", "sort": "desc"},
+                {
+                    "source": "swebench",
+                    "label": "SWE-bench",
+                    "metric": "resolved_rate",
+                    "sort": "desc",
+                },
             ]
         }
         results = [
             SourceResult(
                 source="swebench",
                 scores=[
-                    ModelScore(model="gpt4", source_model_name="GPT 4", metrics={"resolved_rate": 0.40}),
-                    ModelScore(model="gpt-4o", source_model_name="GPT-4o", metrics={"resolved_rate": 0.50}),
+                    ModelScore(
+                        model="gpt4", source_model_name="GPT 4", metrics={"resolved_rate": 0.40}
+                    ),
+                    ModelScore(
+                        model="gpt-4o", source_model_name="GPT-4o", metrics={"resolved_rate": 0.50}
+                    ),
                 ],
             )
         ]
@@ -541,7 +572,7 @@ class TestParseArenaFromSnapshot:
         # Need to properly match the parsing logic conditions:
         # - Line starts with '- row "'
         # - First table found when contains "1503" or starts with '- row "1 '
-        text = '''- row "1 1503 GPT-4o"
+        text = """- row "1 1503 GPT-4o"
   - cell "1"
   - cell "Model"
   - cell "Overall"
@@ -553,7 +584,7 @@ class TestParseArenaFromSnapshot:
   - cell "Overall"
   - cell "1230.0"
   - link "Claude-3-5-Sonnet"
-'''
+"""
         result = _parse_arena_from_snapshot(text)
         assert len(result) == 2
         models = {n for n, _ in result}
@@ -561,7 +592,7 @@ class TestParseArenaFromSnapshot:
         assert "Claude-3-5-Sonnet" in models
 
     def test_filters_image_models(self):
-        text = '''- row "1 1503"
+        text = """- row "1 1503"
   - cell "1"
   - cell "Model"
   - cell "Overall"
@@ -573,7 +604,7 @@ class TestParseArenaFromSnapshot:
   - cell "Overall"
   - cell "1250"
   - link "GPT-4o"
-'''
+"""
         result = _parse_arena_from_snapshot(text)
         assert len(result) == 1
         found = [n for n, _ in result]
@@ -587,9 +618,10 @@ class TestFetchersWithMocks:
         from metabolon.organelles.statolith import _fetch_arena
 
         mock_cache = Mock()
-        mock_cache.get.return_value = (datetime.now(UTC), {
-            "scores": [{"source_model_name": "Model A", "elo_score": 1200}]
-        })
+        mock_cache.get.return_value = (
+            datetime.now(UTC),
+            {"scores": [{"source_model_name": "Model A", "elo_score": 1200}]},
+        )
         mock_client = Mock()
 
         result = _fetch_arena(mock_cache, mock_client)
@@ -602,9 +634,10 @@ class TestFetchersWithMocks:
         from metabolon.organelles.statolith import _fetch_swebench
 
         mock_cache = Mock()
-        mock_cache.get.return_value = (datetime.now(UTC), {
-            "leaderboards": [{"results": [{"name": "Model A", "resolved": 0.35}]}]
-        })
+        mock_cache.get.return_value = (
+            datetime.now(UTC),
+            {"leaderboards": [{"results": [{"name": "Model A", "resolved": 0.35}]}]},
+        )
         mock_client = Mock()
 
         result = _fetch_swebench(mock_cache, mock_client)
@@ -616,9 +649,10 @@ class TestFetchersWithMocks:
         from metabolon.organelles.statolith import _fetch_aider
 
         mock_cache = Mock()
-        mock_cache.get.return_value = (datetime.now(UTC), [
-            {"model": "Model A", "pass_rate_1": 65.0}
-        ])
+        mock_cache.get.return_value = (
+            datetime.now(UTC),
+            [{"model": "Model A", "pass_rate_1": 65.0}],
+        )
         mock_client = Mock()
 
         result = _fetch_aider(mock_cache, mock_client)

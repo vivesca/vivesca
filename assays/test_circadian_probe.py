@@ -2,15 +2,12 @@ from __future__ import annotations
 
 """Tests for circadian-probe effector — AKM Heartbeat nightly digest."""
 
-import configparser
 import subprocess
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 def _load_circadian_probe():
@@ -45,13 +42,13 @@ STALE_DAYS = _mod["STALE_DAYS"]
 
 def test_chromatin_path():
     """CHROMATIN path is correctly defined."""
-    assert CHROMATIN == Path.home() / "epigenome" / "chromatin"
+    assert Path.home() / "epigenome" / "chromatin" == CHROMATIN
 
 
 def test_memory_dir_path():
     """MEMORY_DIR path is correctly defined."""
     expected_stem = str(Path.home()).strip("/").replace("/", "-")
-    assert MEMORY_DIR == Path.home() / ".claude" / "projects" / f"-{expected_stem}" / "memory"
+    assert Path.home() / ".claude" / "projects" / f"-{expected_stem}" / "memory" == MEMORY_DIR
 
 
 def test_praxis_file_path():
@@ -107,6 +104,7 @@ def test_scan_stale_notes_with_mocked_chromatin(tmp_path):
     # Set mtime to 60 days ago
     old_time = time.time() - (60 * 86400)
     import os
+
     os.utime(stale_file, (old_time, old_time))
 
     # Patch CHROMATIN
@@ -134,6 +132,7 @@ def test_scan_stale_notes_excludes_hidden_files(tmp_path):
     hidden_file.write_text("hidden")
     old_time = time.time() - (60 * 86400)
     import os
+
     os.utime(hidden_file, (old_time, old_time))
 
     # Create normal file
@@ -162,6 +161,7 @@ def test_scan_stale_notes_excludes_obsidian_dir(tmp_path):
     stale_in_obsidian.write_text("stale")
     old_time = time.time() - (60 * 86400)
     import os
+
     os.utime(stale_in_obsidian, (old_time, old_time))
 
     original = _mod["CHROMATIN"]
@@ -185,6 +185,7 @@ def test_scan_stale_notes_returns_days_stale(tmp_path):
     stale_file.write_text("old")
     old_time = time.time() - (45 * 86400)
     import os
+
     os.utime(stale_file, (old_time, old_time))
 
     original = _mod["CHROMATIN"]
@@ -212,6 +213,7 @@ def test_scan_stale_notes_sorts_by_days_stale(tmp_path):
         f.write_text(name)
         old_time = time.time() - (days * 86400)
         import os
+
         os.utime(f, (old_time, old_time))
 
     original = _mod["CHROMATIN"]
@@ -474,8 +476,20 @@ def test_scan_prospective_memory_finds_date_proximity(tmp_path):
     today = date.today()
     # Use a date close to today (within proximity window)
     # The code looks for month+day format like "Mar 15"
-    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month_names = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
     today_str = f"{month_names[today.month - 1]} {today.day}"
 
     prospective.write_text(f"""## Active
@@ -556,10 +570,19 @@ def test_build_digest_structure():
     assert "🫀" in result or "AKM" in result
 
     # Should have sections (if any issues found) or healthy message
-    assert any(
-        section in result
-        for section in ["Stale Notes", "Orphan Links", "Overdue TODOs", "Prospective Reminders"]
-    ) or "healthy" in result.lower() or "nothing flagged" in result
+    assert (
+        any(
+            section in result
+            for section in [
+                "Stale Notes",
+                "Orphan Links",
+                "Overdue TODOs",
+                "Prospective Reminders",
+            ]
+        )
+        or "healthy" in result.lower()
+        or "nothing flagged" in result
+    )
 
 
 def test_build_digest_healthy_when_no_issues():

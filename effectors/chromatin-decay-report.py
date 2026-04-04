@@ -5,6 +5,7 @@
 # ///
 
 from __future__ import annotations
+
 """
 Chromatin Decay Report - Find orphan and stale notes.
 
@@ -14,16 +15,17 @@ Cold: Has access_count but last_accessed > 30 days ago.
 """
 
 import argparse
-import os
 import re
-import yaml
-from datetime import datetime, timedelta
-from pathlib import Path
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+import yaml
 
 CHROMATIN_PATH = Path.home() / "epigenome" / "chromatin"
 DAILY_NOTES_PATH = CHROMATIN_PATH / "Daily"
 EXCLUDE_PATTERNS = ["Archive/", "templates/", ".obsidian/"]
+
 
 def parse_frontmatter(content: str) -> dict:
     """Extract YAML frontmatter from markdown."""
@@ -32,19 +34,22 @@ def parse_frontmatter(content: str) -> dict:
     try:
         end = content.index("---", 3)
         return yaml.safe_load(content[3:end]) or {}
-    except (ValueError, yaml.YAMLError):
+    except ValueError, yaml.YAMLError:
         return {}
+
 
 def find_wikilinks(content: str) -> set[str]:
     """Extract all [[wikilinks]] from content."""
     # Match [[link]] or [[link|alias]]
-    pattern = r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]'
+    pattern = r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]"
     return set(re.findall(pattern, content))
+
 
 def should_exclude(path: Path) -> bool:
     """Check if path should be excluded."""
     path_str = str(path)
     return any(ex in path_str for ex in EXCLUDE_PATTERNS)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -72,11 +77,7 @@ def main():
             continue
 
         frontmatter = parse_frontmatter(content)
-        notes[note_name] = {
-            "path": rel_path,
-            "frontmatter": frontmatter,
-            "incoming": set()
-        }
+        notes[note_name] = {"path": rel_path, "frontmatter": frontmatter, "incoming": set()}
 
         # Track outgoing links
         for link in find_wikilinks(content):
@@ -133,7 +134,10 @@ def main():
     print(f"\n📊 Notes with access tracking: {len(tracked)}")
     for name, data in tracked:
         fm = data["frontmatter"]
-        print(f"   - {name}: count={fm.get('access_count', 0)}, last={fm.get('last_accessed', 'N/A')}")
+        print(
+            f"   - {name}: count={fm.get('access_count', 0)}, last={fm.get('last_accessed', 'N/A')}"
+        )
+
 
 if __name__ == "__main__":
     main()

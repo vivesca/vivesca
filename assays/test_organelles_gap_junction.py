@@ -2,8 +2,6 @@ from __future__ import annotations
 
 """Tests for metabolon.organelles.gap_junction — WhatsApp via wacli."""
 
-import json
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +9,13 @@ import pytest
 from metabolon.organelles.gap_junction import (
     GAP_JUNCTION_CONTACTS,
     WACLI,
+    _cli,
+    _dedup_sort,
+    _extract_contacts,
+    _extract_messages,
+    _format_messages,
+    _wacli,
+    _wacli_json,
     active_junctions,
     compose_signal,
     contact_type,
@@ -19,19 +24,12 @@ from metabolon.organelles.gap_junction import (
     resolve_jids,
     search_signals,
     sync_catchup,
-    _cli,
-    _dedup_sort,
-    _extract_contacts,
-    _extract_messages,
-    _format_messages,
-    _wacli,
-    _wacli_json,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_run(stdout: str = "", stderr: str = "", returncode: int = 0) -> MagicMock:
     """Build a subprocess.run-like MagicMock."""
@@ -45,6 +43,7 @@ def _mock_run(stdout: str = "", stderr: str = "", returncode: int = 0) -> MagicM
 # ---------------------------------------------------------------------------
 # _wacli
 # ---------------------------------------------------------------------------
+
 
 class TestWacli:
     @patch("metabolon.organelles.gap_junction.subprocess.run")
@@ -82,6 +81,7 @@ class TestWacli:
 # _wacli_json
 # ---------------------------------------------------------------------------
 
+
 class TestWacliJson:
     @patch("metabolon.organelles.gap_junction._wacli")
     def test_valid_json(self, mock_wacli):
@@ -97,6 +97,7 @@ class TestWacliJson:
 # ---------------------------------------------------------------------------
 # _extract_messages
 # ---------------------------------------------------------------------------
+
 
 class TestExtractMessages:
     def test_normal_envelope(self):
@@ -123,6 +124,7 @@ class TestExtractMessages:
 # _extract_contacts
 # ---------------------------------------------------------------------------
 
+
 class TestExtractContacts:
     def test_list_of_contacts(self):
         raw = {"data": [{"JID": "a@s.whatsapp.net"}, {"JID": "a@lid"}]}
@@ -141,6 +143,7 @@ class TestExtractContacts:
 # ---------------------------------------------------------------------------
 # _dedup_sort
 # ---------------------------------------------------------------------------
+
 
 class TestDedupSort:
     def test_deduplicates_by_msgid(self):
@@ -163,7 +166,10 @@ class TestDedupSort:
         assert len(_dedup_sort(msgs, 2)) == 2
 
     def test_skips_empty_msgid(self):
-        msgs = [{"MsgID": "", "Timestamp": "2025-01-01"}, {"MsgID": "x", "Timestamp": "2025-01-02"}]
+        msgs = [
+            {"MsgID": "", "Timestamp": "2025-01-01"},
+            {"MsgID": "x", "Timestamp": "2025-01-02"},
+        ]
         result = _dedup_sort(msgs, 10)
         assert len(result) == 1
         assert result[0]["MsgID"] == "x"
@@ -172,6 +178,7 @@ class TestDedupSort:
 # ---------------------------------------------------------------------------
 # _format_messages
 # ---------------------------------------------------------------------------
+
 
 class TestFormatMessages:
     def test_formats_sent(self):
@@ -199,6 +206,7 @@ class TestFormatMessages:
 # contact_type
 # ---------------------------------------------------------------------------
 
+
 class TestContactType:
     def test_known_contacts(self):
         for name in GAP_JUNCTION_CONTACTS:
@@ -215,6 +223,7 @@ class TestContactType:
 # ---------------------------------------------------------------------------
 # resolve_jids
 # ---------------------------------------------------------------------------
+
 
 class TestResolveJids:
     @patch("metabolon.organelles.gap_junction._wacli_json")
@@ -238,6 +247,7 @@ class TestResolveJids:
 # receive_signals
 # ---------------------------------------------------------------------------
 
+
 class TestReceiveSignals:
     @patch("metabolon.organelles.gap_junction._wacli_json")
     def test_merges_jid_threads(self, mock_json):
@@ -245,8 +255,30 @@ class TestReceiveSignals:
         # Next 2 calls: messages for each JID
         mock_json.side_effect = [
             {"data": [{"JID": "a@s.whatsapp.net"}, {"JID": "a@lid"}]},
-            {"data": {"messages": [{"MsgID": "1", "Timestamp": "2025-01-01T10:00:00Z", "FromMe": False, "Text": "hi"}]}},
-            {"data": {"messages": [{"MsgID": "2", "Timestamp": "2025-01-01T11:00:00Z", "FromMe": True, "Text": "hey"}]}},
+            {
+                "data": {
+                    "messages": [
+                        {
+                            "MsgID": "1",
+                            "Timestamp": "2025-01-01T10:00:00Z",
+                            "FromMe": False,
+                            "Text": "hi",
+                        }
+                    ]
+                }
+            },
+            {
+                "data": {
+                    "messages": [
+                        {
+                            "MsgID": "2",
+                            "Timestamp": "2025-01-01T11:00:00Z",
+                            "FromMe": True,
+                            "Text": "hey",
+                        }
+                    ]
+                }
+            },
         ]
         out = receive_signals("tara", limit=10)
         assert "tara: hi" in out
@@ -263,11 +295,21 @@ class TestReceiveSignals:
 # search_signals
 # ---------------------------------------------------------------------------
 
+
 class TestSearchSignals:
     @patch("metabolon.organelles.gap_junction._wacli_json")
     def test_global_search(self, mock_json):
         mock_json.return_value = {
-            "data": {"messages": [{"MsgID": "s1", "Timestamp": "2025-03-01T09:00:00Z", "FromMe": False, "Text": "found it"}]}
+            "data": {
+                "messages": [
+                    {
+                        "MsgID": "s1",
+                        "Timestamp": "2025-03-01T09:00:00Z",
+                        "FromMe": False,
+                        "Text": "found it",
+                    }
+                ]
+            }
         }
         out = search_signals("findme")
         assert "them: found it" in out
@@ -276,7 +318,18 @@ class TestSearchSignals:
     def test_scoped_to_contact(self, mock_json):
         mock_json.side_effect = [
             {"data": [{"JID": "tara@s.whatsapp.net"}]},
-            {"data": {"messages": [{"MsgID": "s2", "Timestamp": "2025-03-01T09:00:00Z", "FromMe": True, "Text": "scoped"}]}},
+            {
+                "data": {
+                    "messages": [
+                        {
+                            "MsgID": "s2",
+                            "Timestamp": "2025-03-01T09:00:00Z",
+                            "FromMe": True,
+                            "Text": "scoped",
+                        }
+                    ]
+                }
+            },
         ]
         out = search_signals("findme", name="tara")
         assert "me: scoped" in out
@@ -291,6 +344,7 @@ class TestSearchSignals:
 # ---------------------------------------------------------------------------
 # compose_signal
 # ---------------------------------------------------------------------------
+
 
 class TestComposeSignal:
     @patch("metabolon.organelles.gap_junction._wacli_json")
@@ -315,6 +369,7 @@ class TestComposeSignal:
 # ---------------------------------------------------------------------------
 # active_junctions / junction_status / sync_catchup
 # ---------------------------------------------------------------------------
+
 
 class TestActiveJunctions:
     @patch("metabolon.organelles.gap_junction._wacli")
@@ -342,6 +397,7 @@ class TestSyncCatchup:
 # _cli
 # ---------------------------------------------------------------------------
 
+
 class TestCli:
     @patch("metabolon.organelles.gap_junction.sync_catchup", return_value="synced")
     def test_sync_catchup_success(self, mock_sync, capsys):
@@ -349,7 +405,9 @@ class TestCli:
             _cli()
         assert "synced" in capsys.readouterr().out
 
-    @patch("metabolon.organelles.gap_junction.sync_catchup", side_effect=ValueError("store is locked"))
+    @patch(
+        "metabolon.organelles.gap_junction.sync_catchup", side_effect=ValueError("store is locked")
+    )
     def test_sync_locked_exits_zero(self, mock_sync, capsys):
         with patch("sys.argv", ["gap_junction", "sync", "catchup"]):
             with pytest.raises(SystemExit) as exc_info:

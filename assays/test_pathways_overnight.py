@@ -8,12 +8,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.pathways.overnight import (
-    DRAFT_PROMPT,
-    LOGDIR,
-    PUBLISHED,
     VIVESCA,
     _sterile_env,
     compose_post,
@@ -21,7 +16,6 @@ from metabolon.pathways.overnight import (
     metabolize_pipeline,
     publish,
 )
-
 
 # ---------------------------------------------------------------------------
 # _sterile_env
@@ -57,8 +51,10 @@ class TestMetabolise:
     @patch("metabolon.pathways.overnight.LOGDIR", Path("/fake/logdir"))
     def test_outfile_exists_returns_contents(self, mock_run):
         mock_run.return_value = MagicMock(stdout="", returncode=0)
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "read_text", return_value="crystallised insight"):
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "read_text", return_value="crystallised insight"),
+        ):
             result = metabolise("my seed text", "test-slug")
         assert result == "crystallised insight"
 
@@ -101,8 +97,10 @@ class TestMetabolise:
     @patch("metabolon.pathways.overnight.subprocess.run")
     def test_sterile_env_used(self, mock_run):
         mock_run.return_value = MagicMock(stdout="out", returncode=0)
-        with patch.dict(os.environ, {"CLAUDECODE": "present"}, clear=False), \
-             patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+        with (
+            patch.dict(os.environ, {"CLAUDECODE": "present"}, clear=False),
+            patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")),
+        ):
             metabolise("seed", "slug")
         passed_env = mock_run.call_args[1]["env"]
         assert "CLAUDECODE" not in passed_env
@@ -372,7 +370,9 @@ class TestMetabolizePipeline:
     @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/x.md"))
     @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
     @patch("metabolon.pathways.overnight.LOGDIR")
-    def test_metabolise_called_with_expander_pusher(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+    def test_metabolise_called_with_expander_pusher(
+        self, mock_logdir, mock_meta, mock_compose, mock_pub
+    ):
         mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
         seeds = [{"seed": "s", "slug": "x", "title": "X"}]
         metabolize_pipeline(seeds, expander="opus", pusher="deepseek")
@@ -382,7 +382,9 @@ class TestMetabolizePipeline:
     @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/x.md"))
     @patch("metabolon.pathways.overnight.metabolise")
     @patch("metabolon.pathways.overnight.LOGDIR")
-    def test_compose_receives_crystal_and_title(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+    def test_compose_receives_crystal_and_title(
+        self, mock_logdir, mock_meta, mock_compose, mock_pub
+    ):
         mock_meta.return_value = "the crystallised insight"
         mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
         seeds = [{"seed": "s", "slug": "x", "title": "My Title"}]

@@ -3,10 +3,9 @@ from __future__ import annotations
 
 """Tests for effectors/test-spec-gen — sortase-ready test spec generator."""
 
-import re
 import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -64,7 +63,9 @@ class TestTestFilename:
 
     def test_metabolism_substrate(self):
         """Metabolism subdir with extra nesting → substrate suffix."""
-        assert _test_filename("metabolon/metabolism/spending/parser.py") == "test_parser_substrate.py"
+        assert (
+            _test_filename("metabolon/metabolism/spending/parser.py") == "test_parser_substrate.py"
+        )
 
     def test_flat_module(self):
         """Module without matching subdir falls through to default."""
@@ -120,7 +121,8 @@ class TestGenerateSpec:
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
         mod_file = mod_dir / "chromatin.py"
-        mod_file.write_text(textwrap.dedent("""\
+        mod_file.write_text(
+            textwrap.dedent("""\
             '''Chromatin module.'''
             from metabolon.core import Base
 
@@ -129,7 +131,8 @@ class TestGenerateSpec:
 
             class Handler:
                 pass
-        """))
+        """)
+        )
 
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
@@ -212,14 +215,16 @@ class TestGenerateSpec:
         """Generated spec lists public functions/classes."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
-        (mod_dir / "api.py").write_text(textwrap.dedent("""\
+        (mod_dir / "api.py").write_text(
+            textwrap.dedent("""\
             def public_func():
                 pass
             def _private_func():
                 pass
             class PublicClass:
                 pass
-        """))
+        """)
+        )
 
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)

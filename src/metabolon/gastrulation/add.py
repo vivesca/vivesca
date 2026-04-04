@@ -1,4 +1,3 @@
-
 """vivesca add — add components to an existing project."""
 
 from pathlib import Path

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
-import configparser
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -50,9 +48,7 @@ class TestLoadConf:
 
     def test_load_conf_defaults_when_no_file(self):
         """Test that defaults are returned when config file doesn't exist."""
-        with patch(
-            "metabolon.metabolism.sweep._CONF_PATH", Path("/nonexistent/path.conf")
-        ):
+        with patch("metabolon.metabolism.sweep._CONF_PATH", Path("/nonexistent/path.conf")):
             cfg = _load_conf()
             assert cfg.getint("selection", "min_phenotypes") == 3
             assert cfg.getint("selection", "max_retries") == 3
@@ -61,9 +57,7 @@ class TestLoadConf:
 
     def test_load_conf_merges_existing_file(self):
         """Test that existing config file overrides defaults."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".conf", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write("[selection]\n")
             f.write("min_phenotypes = 10\n")
             f.write("max_retries = 5\n")
@@ -261,9 +255,7 @@ class TestSelectionParametersFromConf:
 
     def test_from_conf_uses_defaults(self):
         """Test from_conf loads defaults when no config file."""
-        with patch(
-            "metabolon.metabolism.sweep._CONF_PATH", Path("/nonexistent/path.conf")
-        ):
+        with patch("metabolon.metabolism.sweep._CONF_PATH", Path("/nonexistent/path.conf")):
             params = SelectionParameters.from_conf()
             assert params.min_phenotypes == 3
             assert params.max_retries == 3
@@ -272,9 +264,7 @@ class TestSelectionParametersFromConf:
 
     def test_from_conf_loads_custom_values(self):
         """Test from_conf loads custom values from config file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".conf", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write("[selection]\n")
             f.write("min_phenotypes = 7\n")
             f.write("max_retries = 5\n")

@@ -1,4 +1,3 @@
-
 """pseudopod — browser cookie bridge + translocon dispatch for LLM tasks."""
 
 from fastmcp.tools.function_tool import tool

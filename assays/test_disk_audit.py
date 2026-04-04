@@ -5,14 +5,13 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 
 def _load_disk_audit():
     """Load the disk-audit effector by exec-ing its Python body."""
-    import sys, types
+    import sys
+    import types
+
     source = open(str(Path.home() / "germline/effectors/disk-audit")).read()
     mod = types.ModuleType("disk_audit")
     sys.modules["disk_audit"] = mod
@@ -56,13 +55,13 @@ class TestFmtBytes:
         assert _fmt_bytes(1024 * 1024) == "1.0 MB"
 
     def test_gigabytes(self):
-        assert _fmt_bytes(1024 ** 3) == "1.0 GB"
+        assert _fmt_bytes(1024**3) == "1.0 GB"
 
     def test_terabytes(self):
-        assert _fmt_bytes(1024 ** 4) == "1.0 TB"
+        assert _fmt_bytes(1024**4) == "1.0 TB"
 
     def test_petabytes(self):
-        assert _fmt_bytes(1024 ** 5) == "1.0 PB"
+        assert _fmt_bytes(1024**5) == "1.0 PB"
 
     def test_fractional(self):
         result = _fmt_bytes(1536)  # 1.5 KB
@@ -71,7 +70,7 @@ class TestFmtBytes:
 
     def test_negative_zero(self):
         result = _fmt_bytes(-0)
-        assert "0.0 B" == result
+        assert result == "0.0 B"
 
 
 # ── _fmt_age tests ──────────────────────────────────────────────────────
@@ -477,17 +476,23 @@ class TestSubprocessInvocation:
 
     def test_exit_code_zero(self):
         import subprocess
+
         result = subprocess.run(
             [str(Path.home() / "germline/effectors/disk-audit")],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
 
     def test_help_via_subprocess(self):
         import subprocess
+
         result = subprocess.run(
             [str(Path.home() / "germline/effectors/disk-audit"), "--help"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0
         assert "disk-audit" in result.stdout

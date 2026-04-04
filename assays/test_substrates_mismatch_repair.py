@@ -3,15 +3,12 @@ from __future__ import annotations
 """Tests for metabolon.metabolism.substrates.mismatch_repair."""
 
 import subprocess
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.metabolism.substrates.mismatch_repair import (
     AnamScanSubstrate,
     _run,
 )
-
 
 # ---------------------------------------------------------------------------
 # _run helper
@@ -57,7 +54,8 @@ class TestSense:
     @patch("metabolon.metabolism.substrates.mismatch_repair._run")
     def test_parses_sessions_line(self, mock_run):
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0,
+            args=[],
+            returncode=0,
             stdout="Sessions: 12\nCorrections: 3 across 2 sessions\n",
             stderr="",
         )
@@ -93,7 +91,8 @@ class TestSense:
     @patch("metabolon.metabolism.substrates.mismatch_repair._run")
     def test_session_prompts_parsed(self, mock_run):
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0,
+            args=[],
+            returncode=0,
             stdout="Sessions: 5\nSession prompts: 42\n",
             stderr="",
         )
@@ -169,7 +168,8 @@ class TestAct:
     @patch("metabolon.metabolism.substrates.mismatch_repair._run")
     def test_daily_scan_success(self, mock_run):
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0,
+            args=[],
+            returncode=0,
             stdout="line1\nscan complete: 3 topics\n",
             stderr="",
         )
@@ -180,7 +180,8 @@ class TestAct:
     @patch("metabolon.metabolism.substrates.mismatch_repair._run")
     def test_weekly_synthesis_success(self, mock_run):
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0,
+            args=[],
+            returncode=0,
             stdout="synthesis done\nall good\n",
             stderr="",
         )

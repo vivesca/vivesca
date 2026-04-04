@@ -35,7 +35,11 @@ def _run_script(
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
     return subprocess.run(
-        cmd, capture_output=True, text=True, env=env, timeout=10,
+        cmd,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
     )
 
 
@@ -54,11 +58,7 @@ def _make_recording_bin(tmp_path: Path, name: str, record_file: Path, exit_code:
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     script = bindir / name
-    script.write_text(
-        "#!/bin/bash\n"
-        f'echo "$@" >> {record_file}\n'
-        f"exit {exit_code}\n"
-    )
+    script.write_text(f'#!/bin/bash\necho "$@" >> {record_file}\nexit {exit_code}\n')
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return bindir
 
@@ -147,7 +147,10 @@ exit 0
         mock_claude.chmod(mock_claude.stat().st_mode | stat.S_IEXEC)
         r = _run_script(
             path_dirs=[bindir],
-            env_extra={"MOONSHOT_API_KEY": "test_key_456", "ANTHROPIC_AUTH_TOKEN": "original_token"},
+            env_extra={
+                "MOONSHOT_API_KEY": "test_key_456",
+                "ANTHROPIC_AUTH_TOKEN": "original_token",
+            },
         )
         assert r.returncode == 0
         output = r.stdout
@@ -162,7 +165,7 @@ exit 0
         _make_mock_bin(tmp_path, "claude")
         # Check directory creation
         kimi_home = tmp_path / "kimi-home"
-        r = _run_script(
+        _run_script(
             path_dirs=[tmp_path / "bin"],
             env_extra={"MOONSHOT_API_KEY": "test_key", "HOME": str(tmp_path)},
         )

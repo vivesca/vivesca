@@ -5,8 +5,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import pytest
-
 EFFECTOR = Path.home() / "germline" / "effectors" / "cleanup-stuck"
 
 
@@ -16,7 +14,7 @@ def _fake_bin(tmp_path: Path, *, pkill_exit: int = 0, process_count: str = "42")
     bin_dir.mkdir()
     # pkill logs every invocation
     (bin_dir / "pkill").write_text(
-        f"#!/bin/bash\necho \"$@\" >> {tmp_path / 'pkill.log'}\nexit {pkill_exit}\n"
+        f'#!/bin/bash\necho "$@" >> {tmp_path / "pkill.log"}\nexit {pkill_exit}\n'
     )
     (bin_dir / "pkill").chmod(0o755)
     # ps + wc + tr produce a deterministic process count
@@ -24,12 +22,16 @@ def _fake_bin(tmp_path: Path, *, pkill_exit: int = 0, process_count: str = "42")
     (bin_dir / "ps").chmod(0o755)
     (bin_dir / "wc").write_text(f"#!/bin/bash\necho ' {process_count}'\n")
     (bin_dir / "wc").chmod(0o755)
-    (bin_dir / "tr").write_text('#!/bin/bash\nif [ "$1" = "-d" ]; then sed "s/ //g"; else cat; fi\n')
+    (bin_dir / "tr").write_text(
+        '#!/bin/bash\nif [ "$1" = "-d" ]; then sed "s/ //g"; else cat; fi\n'
+    )
     (bin_dir / "tr").chmod(0o755)
     return bin_dir
 
 
-def _run(tmp_path: Path, *, pkill_exit: int = 0, process_count: str = "42") -> subprocess.CompletedProcess:
+def _run(
+    tmp_path: Path, *, pkill_exit: int = 0, process_count: str = "42"
+) -> subprocess.CompletedProcess:
     """Run cleanup-stuck with a fake PATH."""
     bin_dir = _fake_bin(tmp_path, pkill_exit=pkill_exit, process_count=process_count)
     env = {"PATH": str(bin_dir) + ":/usr/bin:/bin"}

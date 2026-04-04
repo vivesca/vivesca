@@ -1,10 +1,8 @@
-
 """Polarization gather -- overnight flywheel preflight (was poiesis).
 
 Establishing cell polarity before division: which direction to grow.
 Collects: consumption check, guard status, north stars.
 """
-
 
 import json
 import subprocess
@@ -44,7 +42,7 @@ def _respirometry() -> dict:
         )
         if result.returncode == 0 and result.stdout.strip():
             return json.loads(result.stdout.strip())
-    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError):
+    except subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError:
         pass
     return {"error": "respirometry unavailable"}
 
@@ -279,7 +277,7 @@ def _fmt_resets(resets_at: str | None) -> str:
     try:
         dt = datetime.fromisoformat(resets_at)
         return dt.astimezone(HKT).strftime("%Y-%m-%d %H:%M HKT")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return "?"
 
 

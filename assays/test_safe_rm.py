@@ -11,9 +11,7 @@ It is loaded via exec() into isolated namespaces.
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -69,11 +67,17 @@ class TestProtectedPaths:
 
     def test_ssh_is_protected(self, ns):
         """Test ~/.ssh is in protected paths."""
-        assert "~/.ssh" in ns["PROTECTED_PATHS"] or os.path.expanduser("~/.ssh") in ns["PROTECTED_PATHS"]
+        assert (
+            "~/.ssh" in ns["PROTECTED_PATHS"]
+            or os.path.expanduser("~/.ssh") in ns["PROTECTED_PATHS"]
+        )
 
     def test_gnupg_is_protected(self, ns):
         """Test ~/.gnupg is in protected paths."""
-        assert "~/.gnupg" in ns["PROTECTED_PATHS"] or os.path.expanduser("~/.gnupg") in ns["PROTECTED_PATHS"]
+        assert (
+            "~/.gnupg" in ns["PROTECTED_PATHS"]
+            or os.path.expanduser("~/.gnupg") in ns["PROTECTED_PATHS"]
+        )
 
     def test_root_is_protected(self, ns):
         """Test / is in protected paths."""
@@ -219,7 +223,9 @@ class TestCLISubprocess:
         """Running safe_rm.py with no args should exit nonzero."""
         r = subprocess.run(
             [sys.executable, str(SAFE_RM_PATH)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode != 0
         assert "Usage" in r.stdout
@@ -228,7 +234,9 @@ class TestCLISubprocess:
         """Running safe_rm.py with / should exit nonzero."""
         r = subprocess.run(
             [sys.executable, str(SAFE_RM_PATH), "/"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode != 0
         assert "BLOCKED" in r.stdout
@@ -237,7 +245,9 @@ class TestCLISubprocess:
         """Running safe_rm.py with /tmp/safe_rm_test_xyz should succeed."""
         r = subprocess.run(
             [sys.executable, str(SAFE_RM_PATH), "/tmp/safe_rm_test_xyz_12345"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0
         assert "/tmp/safe_rm_test_xyz_12345" in r.stdout

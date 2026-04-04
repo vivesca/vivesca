@@ -2,14 +2,14 @@ from __future__ import annotations
 
 """Tests for metabolon.respirometry.categories."""
 
-from pathlib import Path
 import tempfile
-from metabolon.respirometry.categories import restore_categories, categorise
+from pathlib import Path
+
+from metabolon.respirometry.categories import categorise, restore_categories
 
 
 class TestRestoreCategories:
     """Tests for restore_categories."""
-
 
     def test_file_not_exists_returns_empty_dict(self) -> None:
         """If file doesn't exist, return empty dict."""

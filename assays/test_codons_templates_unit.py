@@ -5,7 +5,7 @@ Tests focus on return value structure, edge cases, and parameter handling.
 
 import pytest
 
-from metabolon.codons.templates import research, compose_signal, morning_brief
+from metabolon.codons.templates import compose_signal, morning_brief, research
 
 
 class TestResearchPrompt:
@@ -105,7 +105,9 @@ class TestComposeSignalPrompt:
         assert "match platform norms" in result.lower()
 
     def test_context_included_when_provided(self):
-        result = compose_signal(platform="email", recipient="X", intent="Y", context="met yesterday")
+        result = compose_signal(
+            platform="email", recipient="X", intent="Y", context="met yesterday"
+        )
         assert "met yesterday" in result
 
     def test_context_block_not_included_when_empty(self):
@@ -253,6 +255,5 @@ class TestSyntax:
         import ast
         from pathlib import Path
 
-        source = Path(
-            __file__).parent.parent / "metabolon" / "codons" / "templates.py"
+        source = Path(__file__).parent.parent / "metabolon" / "codons" / "templates.py"
         ast.parse(source.read_text())

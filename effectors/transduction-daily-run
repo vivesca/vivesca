@@ -6,16 +6,16 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: transduction-daily-run"
     echo ""
     echo "Run the daily transduction pipeline:"
-    echo "  1. Fetch X personalized feed into lustro cache"
+    echo "  1. Fetch X personalized feed into endocytosis cache"
     echo "  2. Run transduction daily extraction"
     exit 0
 fi
 
 echo "=== $(date) ==="
 
-# Fetch X personalized feed into lustro cache
+# Fetch X personalized feed into endocytosis cache
 echo "Fetching X feed..."
-python3 "${HOME}/reticulum/bin/x-feed-to-lustro" 2>&1 || echo "X feed fetch failed (non-fatal)"
+python3 "${HOME}/reticulum/bin/x-feed-to-endocytosis" 2>&1 || echo "X feed fetch failed (non-fatal)"
 
 # Run transduction daily extraction
 echo "Running transduction daily..."

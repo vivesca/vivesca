@@ -59,7 +59,7 @@ From Aristotle's *Τοπικά* — the "places" you go to find patterns of reas
 | **Hanlon's razor** | Don't attribute to malice what ignorance explains. | Interpreting others' actions, frustration |
 | **Circle of competence** | Know what you know — and what you don't. | Giving advice, career moves, consulting scope |
 | **Incentives** | What is this person rewarded for? | Stakeholder analysis, negotiation, "why won't they…" |
-| **Curse of knowledge** | Once you know it, you can't unknow it — adjust for the audience. | Teaching, presenting, writing for non-experts |
+| **Curse of knowledge** | Once you know it, you can't unknown it — adjust for the audience. | Teaching, presenting, writing for non-experts |
 
 ## AI & Consulting
 

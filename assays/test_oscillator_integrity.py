@@ -29,9 +29,7 @@ def _collect_user_paths(args: list[str]) -> list[str]:
     """
     paths: list[str] = []
     is_shell_c = (
-        len(args) >= 3
-        and args[0] in ("/bin/sh", "/bin/bash", "/bin/zsh")
-        and args[1] == "-c"
+        len(args) >= 3 and args[0] in ("/bin/sh", "/bin/bash", "/bin/zsh") and args[1] == "-c"
     )
 
     for i, arg in enumerate(args):
@@ -53,9 +51,7 @@ def _collect_user_paths(args: list[str]) -> list[str]:
 def _collect_plists() -> list[tuple[str, Path]]:
     if not OSCILLATOR_DIR.is_dir():
         return []
-    return [
-        (p.stem, p) for p in sorted(OSCILLATOR_DIR.glob("*.plist"))
-    ]
+    return [(p.stem, p) for p in sorted(OSCILLATOR_DIR.glob("*.plist"))]
 
 
 _PLISTS = _collect_plists()
@@ -81,9 +77,8 @@ def test_plist_targets_exist(label: str, plist_path: Path) -> None:
         if not target.exists():
             missing.append(str(target))
 
-    assert not missing, (
-        f"{label}: target(s) not found on disk:\n"
-        + "\n".join(f"  {m}" for m in missing)
+    assert not missing, f"{label}: target(s) not found on disk:\n" + "\n".join(
+        f"  {m}" for m in missing
     )
 
 

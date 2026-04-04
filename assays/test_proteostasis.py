@@ -225,7 +225,7 @@ class TestDiagnose:
         assert r["bar"]["required_by"] == "foo"
         assert r["bar"]["installed"] == "1.5"
 
-    def test_unparseable_line(self, ns):
+    def test_unparsable_line(self, ns):
         ns["run"] = MagicMock(return_value=(False, "gibberish"))
         assert ns["diagnose"]() == {}
 
@@ -362,9 +362,11 @@ class TestBisectUpgrades:
     def test_blocked_with_conflict_detail(self, ns):
         ns["_uv_install"] = MagicMock(return_value=(True, ""))
         ns["smoke_test"] = MagicMock(return_value=(False, "boom"))
-        ns["diagnose"] = MagicMock(return_value={
-            "bar": {"required_by": "baz", "constraint": "bar>=2", "installed": "1.0"},
-        })
+        ns["diagnose"] = MagicMock(
+            return_value={
+                "bar": {"required_by": "baz", "constraint": "bar>=2", "installed": "1.0"},
+            }
+        )
         blocked: dict = {}
         alerts: list[str] = []
         ns["_bisect_upgrades"]({"foo": ("1.0", "2.0")}, blocked, alerts)
@@ -382,20 +384,24 @@ class TestAutoUpdateNpm:
 
     def test_upgrades_package(self, ns):
         npm_out = json.dumps({"eslint": {"current": "8.0", "latest": "9.0"}})
-        ns["run"] = MagicMock(side_effect=[
-            (True, npm_out),    # npm outdated
-            (True, "installed"),  # npm install
-        ])
+        ns["run"] = MagicMock(
+            side_effect=[
+                (True, npm_out),  # npm outdated
+                (True, "installed"),  # npm install
+            ]
+        )
         alerts = ns["auto_update_npm"]({})
         assert len(alerts) == 1 and "npm upgraded" in alerts[0]
 
     def test_upgrade_fails_reverts(self, ns):
         npm_out = json.dumps({"eslint": {"current": "8.0", "latest": "9.0"}})
-        ns["run"] = MagicMock(side_effect=[
-            (True, npm_out),    # npm outdated
-            (False, "err"),     # install fails
-            (True, "reverted"),  # revert
-        ])
+        ns["run"] = MagicMock(
+            side_effect=[
+                (True, npm_out),  # npm outdated
+                (False, "err"),  # install fails
+                (True, "reverted"),  # revert
+            ]
+        )
         alerts = ns["auto_update_npm"]({})
         assert len(alerts) == 1 and "npm failed" in alerts[0]
 
@@ -420,21 +426,28 @@ class TestAutoUpdatePython:
         assert ns["auto_update_python"]({"blocked": {}}) == []
 
     def test_dry_run_reports(self, dry_ns):
-        dry_ns["_uv_outdated"] = MagicMock(return_value={
-            "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
-        })
+        dry_ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
+            }
+        )
         dry_ns["emit_signal"] = MagicMock()
         alerts = dry_ns["auto_update_python"]({"blocked": {}})
         assert any("would upgrade" in a for a in alerts)
         assert any("git-pinned" in a for a in alerts)
 
     def test_upgrade_smoke_pass(self, ns):
-        ns["_uv_outdated"] = MagicMock(return_value={
-            "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
-        })
-        ns["_uv_snapshot"] = MagicMock(side_effect=[
-            {"bar": "1.0"}, {"bar": "2.0"},
-        ])
+        ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
+            }
+        )
+        ns["_uv_snapshot"] = MagicMock(
+            side_effect=[
+                {"bar": "1.0"},
+                {"bar": "2.0"},
+            ]
+        )
         ns["_uv_install"] = MagicMock(return_value=(True, ""))
         ns["smoke_test"] = MagicMock(return_value=(True, ""))
         ns["emit_signal"] = MagicMock()
@@ -444,17 +457,24 @@ class TestAutoUpdatePython:
         assert any("pip upgraded: bar" in a for a in alerts)
 
     def test_upgrade_smoke_fail_then_bisect(self, ns):
-        ns["_uv_outdated"] = MagicMock(return_value={
-            "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
-        })
-        ns["_uv_snapshot"] = MagicMock(side_effect=[
-            {"bar": "1.0"}, {"bar": "2.0"},
-        ])
+        ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
+            }
+        )
+        ns["_uv_snapshot"] = MagicMock(
+            side_effect=[
+                {"bar": "1.0"},
+                {"bar": "2.0"},
+            ]
+        )
         ns["_uv_install"] = MagicMock(return_value=(True, ""))
-        ns["smoke_test"] = MagicMock(side_effect=[
-            (False, "ImportError"),  # initial smoke after bulk upgrade
-            (False, "ImportError"),  # bisect smoke
-        ])
+        ns["smoke_test"] = MagicMock(
+            side_effect=[
+                (False, "ImportError"),  # initial smoke after bulk upgrade
+                (False, "ImportError"),  # bisect smoke
+            ]
+        )
         ns["diagnose"] = MagicMock(return_value={})
         ns["emit_signal"] = MagicMock()
         ns["run"] = MagicMock(return_value=(False, ""))  # git-pinned skip
@@ -464,9 +484,11 @@ class TestAutoUpdatePython:
         assert "bar" in state["blocked"]
 
     def test_blocked_same_version_skipped(self, ns):
-        ns["_uv_outdated"] = MagicMock(return_value={
-            "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
-        })
+        ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
+            }
+        )
         ns["emit_signal"] = MagicMock()
         ns["run"] = MagicMock(return_value=(False, ""))
         state = {"blocked": {"bar": {"version": "2.0", "since": "2025"}}}
@@ -474,12 +496,17 @@ class TestAutoUpdatePython:
         assert not any("bar" in a for a in alerts)
 
     def test_blocked_newer_version_unblocks(self, ns):
-        ns["_uv_outdated"] = MagicMock(return_value={
-            "bar": {"name": "bar", "version": "1.0", "latest_version": "3.0"},
-        })
-        ns["_uv_snapshot"] = MagicMock(side_effect=[
-            {"bar": "1.0"}, {"bar": "3.0"},
-        ])
+        ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "bar": {"name": "bar", "version": "1.0", "latest_version": "3.0"},
+            }
+        )
+        ns["_uv_snapshot"] = MagicMock(
+            side_effect=[
+                {"bar": "1.0"},
+                {"bar": "3.0"},
+            ]
+        )
         ns["_uv_install"] = MagicMock(return_value=(True, ""))
         ns["smoke_test"] = MagicMock(return_value=(True, ""))
         ns["emit_signal"] = MagicMock()
@@ -491,13 +518,18 @@ class TestAutoUpdatePython:
 
     def test_git_pinned_unpins_when_available(self, ns):
         # Need a dummy outdated package to avoid the early return on empty
-        ns["_uv_outdated"] = MagicMock(return_value={
-            "somepkg": {"name": "somepkg", "version": "1.0", "latest_version": "2.0"},
-        })
+        ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "somepkg": {"name": "somepkg", "version": "1.0", "latest_version": "2.0"},
+            }
+        )
         # Snapshots show no actual version change → upgraded is empty → skip bisect
-        ns["_uv_snapshot"] = MagicMock(side_effect=[
-            {"somepkg": "1.0"}, {"somepkg": "1.0"},
-        ])
+        ns["_uv_snapshot"] = MagicMock(
+            side_effect=[
+                {"somepkg": "1.0"},
+                {"somepkg": "1.0"},
+            ]
+        )
         ns["_uv_install"] = MagicMock(return_value=(True, ""))
         ns["smoke_test"] = MagicMock(return_value=(True, ""))
         ns["emit_signal"] = MagicMock()
@@ -507,9 +539,11 @@ class TestAutoUpdatePython:
         assert any("unpinned" in a and "fastmcp" in a for a in alerts)
 
     def test_bulk_upgrade_fails(self, ns):
-        ns["_uv_outdated"] = MagicMock(return_value={
-            "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
-        })
+        ns["_uv_outdated"] = MagicMock(
+            return_value={
+                "bar": {"name": "bar", "version": "1.0", "latest_version": "2.0"},
+            }
+        )
         ns["_uv_install"] = MagicMock(return_value=(False, "network error"))
         ns["emit_signal"] = MagicMock()
         ns["run"] = MagicMock(return_value=(False, ""))

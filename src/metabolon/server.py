@@ -1,6 +1,4 @@
-
 """Request logging for MCP tool calls — JSONL persistence of tool name, duration, and outcome."""
-
 
 import json
 import logging

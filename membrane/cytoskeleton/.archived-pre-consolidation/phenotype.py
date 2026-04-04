@@ -70,7 +70,7 @@ def get_label(prompt: str) -> str:
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         sys.exit(0)
 
     if not in_tmux():

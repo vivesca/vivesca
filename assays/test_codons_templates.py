@@ -1,6 +1,6 @@
 """Tests for prompt templates."""
 
-from metabolon.codons.templates import research, compose_signal, morning_brief
+from metabolon.codons.templates import compose_signal, morning_brief, research
 
 
 def test_research_basic():

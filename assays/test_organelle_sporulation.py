@@ -2,30 +2,22 @@ from __future__ import annotations
 
 """Tests for organelles/sporulation — garden publishing for terryli.hm."""
 
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.organelles.sporulation import (
-    PUBLISHED_DIR,
-    INDEX_PATH,
-    SYNC_SCRIPT,
     _now_iso,
-    _to_slug,
     _parse_frontmatter,
     _scan_content,
-    germinate_post,
+    _to_slug,
+    catalog,
     dormant_posts,
-    publish,
+    germinate_post,
+    list_checkpoints,
     mutate_post,
     propagate_site,
-    catalog,
-    list_checkpoints,
-    CHECKPOINT_DIR as ORGANELLE_CHECKPOINT_DIR,
+    publish,
 )
-
 
 # ── _now_iso tests ─────────────────────────────────────────────────────
 
@@ -128,7 +120,7 @@ def test_parse_frontmatter_boolean_parsing():
 
 def test_parse_frontmatter_tags_parsing():
     """_parse_frontmatter parses tags as list."""
-    content = '---\ntags: [python, test, code]\n---\n'
+    content = "---\ntags: [python, test, code]\n---\n"
     result = _parse_frontmatter(content)
     assert result["tags"] == ["python", "test", "code"]
 
@@ -145,7 +137,7 @@ def test_parse_frontmatter_body_offset():
     content = '---\ntitle: "Test"\n---\n\nBody text'
     result = _parse_frontmatter(content)
     assert "_body_offset" in result
-    body = content[result["_body_offset"]:]
+    body = content[result["_body_offset"] :]
     # Offset points after closing ---\n, includes leading newline before body
     assert body == "\nBody text"
 
@@ -212,9 +204,7 @@ def test_scan_content_multiple_issues():
 
 def test_organelle_sporulation_germinate_post_creates_file(tmp_path, monkeypatch):
     """germinate_post creates a new draft post file."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     result = germinate_post("My New Post")
     assert result.get("created") is True
     assert "path" in result
@@ -224,9 +214,7 @@ def test_organelle_sporulation_germinate_post_creates_file(tmp_path, monkeypatch
 
 def test_germinate_post_file_content(tmp_path, monkeypatch):
     """germinate_post creates file with correct frontmatter."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     result = germinate_post("Test Title")
     content = Path(result["path"]).read_text()
     assert 'title: "Test Title"' in content
@@ -237,9 +225,7 @@ def test_germinate_post_file_content(tmp_path, monkeypatch):
 
 def test_germinate_post_existing_file(tmp_path, monkeypatch):
     """germinate_post returns error if file already exists."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Existing Post")
     result = germinate_post("Existing Post")
     assert "error" in result
@@ -249,9 +235,7 @@ def test_germinate_post_existing_file(tmp_path, monkeypatch):
 def test_germinate_post_creates_directory(tmp_path, monkeypatch):
     """germinate_post creates PUBLISHED_DIR if it doesn't exist."""
     new_dir = tmp_path / "new_published"
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", new_dir
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", new_dir)
     result = germinate_post("Test")
     assert result.get("created") is True
     assert new_dir.exists()
@@ -262,9 +246,7 @@ def test_germinate_post_creates_directory(tmp_path, monkeypatch):
 
 def test_dormant_posts_empty_directory(tmp_path, monkeypatch):
     """dormant_posts returns empty list for empty directory."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     result = dormant_posts()
     assert result == []
 
@@ -272,22 +254,18 @@ def test_dormant_posts_empty_directory(tmp_path, monkeypatch):
 def test_dormant_posts_nonexistent_directory(tmp_path, monkeypatch):
     """dormant_posts returns empty list for nonexistent directory."""
     nonexistent = tmp_path / "nonexistent"
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", nonexistent
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", nonexistent)
     result = dormant_posts()
     assert result == []
 
 
 def test_dormant_posts_lists_posts(tmp_path, monkeypatch):
     """dormant_posts lists all posts with correct metadata."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     # Create test post
     germinate_post("First Post")
     germinate_post("Second Post")
-    
+
     posts = dormant_posts()
     assert len(posts) == 2
     slugs = [p["slug"] for p in posts]
@@ -297,12 +275,10 @@ def test_dormant_posts_lists_posts(tmp_path, monkeypatch):
 
 def test_dormant_posts_sorts_by_date(tmp_path, monkeypatch):
     """dormant_posts sorts posts by date (most recent first)."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Post One")
     germinate_post("Post Two")
-    
+
     posts = dormant_posts()
     # Both should have dates
     for post in posts:
@@ -316,9 +292,7 @@ def test_dormant_posts_sorts_by_date(tmp_path, monkeypatch):
 
 def test_publish_nonexistent_post(tmp_path, monkeypatch):
     """publish returns error for nonexistent post."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     result = publish("nonexistent")
     assert "error" in result
     assert "No post found" in result["error"]
@@ -326,14 +300,12 @@ def test_publish_nonexistent_post(tmp_path, monkeypatch):
 
 def test_publish_draft_post(tmp_path, monkeypatch):
     """publish changes draft: true to draft: false."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Draft Post")
     result = publish("draft-post")
     assert result.get("published") is True
     assert "title" in result
-    
+
     # Verify file was updated
     post_path = tmp_path / "draft-post.md"
     content = post_path.read_text()
@@ -342,9 +314,7 @@ def test_publish_draft_post(tmp_path, monkeypatch):
 
 def test_organelle_sporulation_publish_already_published(tmp_path, monkeypatch):
     """publish returns already_published for non-draft."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Already Done")
     # Publish once
     publish("already-done")
@@ -355,16 +325,14 @@ def test_organelle_sporulation_publish_already_published(tmp_path, monkeypatch):
 
 def test_publish_with_warnings(tmp_path, monkeypatch):
     """publish includes warnings for sensitive content."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Sensitive Post")
     # Add sensitive content
     post_path = tmp_path / "sensitive-post.md"
     content = post_path.read_text()
     content = content.replace("draft: true", "draft: true\n\n$500 spent")
     post_path.write_text(content)
-    
+
     result = publish("sensitive-post")
     assert "warnings" in result
     assert len(result["warnings"]) > 0
@@ -372,16 +340,14 @@ def test_publish_with_warnings(tmp_path, monkeypatch):
 
 def test_organelle_sporulation_publish_with_push(tmp_path, monkeypatch):
     """publish with push=True calls propagate_site."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Push Post")
-    
+
     # Mock propagate_site to avoid actual sync
     mock_result = {"pushed": True, "url": "https://terryli.hm"}
     with patch("metabolon.organelles.sporulation.propagate_site", return_value=mock_result):
         result = publish("push-post", push=True)
-    
+
     assert result.get("published") is True
     assert "push" in result
 
@@ -391,24 +357,20 @@ def test_organelle_sporulation_publish_with_push(tmp_path, monkeypatch):
 
 def test_mutate_post_nonexistent(tmp_path, monkeypatch):
     """mutate_post returns error for nonexistent post."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     result = mutate_post("nonexistent", "fixed typo")
     assert "error" in result
 
 
 def test_mutate_post_adds_revision_note(tmp_path, monkeypatch):
     """mutate_post adds revisionNote to frontmatter."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Revision Test")
     result = mutate_post("revision-test", "Fixed typo in intro")
-    
+
     assert result.get("revised") is True
     assert result["note"] == "Fixed typo in intro"
-    
+
     # Verify file was updated
     post_path = tmp_path / "revision-test.md"
     content = post_path.read_text()
@@ -417,12 +379,10 @@ def test_mutate_post_adds_revision_note(tmp_path, monkeypatch):
 
 def test_mutate_post_adds_mod_datetime(tmp_path, monkeypatch):
     """mutate_post adds modDatetime to frontmatter."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Mod Test")
     result = mutate_post("mod-test", "Updated content")
-    
+
     assert result.get("revised") is True
     post_path = tmp_path / "mod-test.md"
     content = post_path.read_text()
@@ -431,13 +391,11 @@ def test_mutate_post_adds_mod_datetime(tmp_path, monkeypatch):
 
 def test_mutate_post_updates_existing_revision_note(tmp_path, monkeypatch):
     """mutate_post updates existing revisionNote."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     germinate_post("Multi Revision")
     mutate_post("multi-revision", "First edit")
     result = mutate_post("multi-revision", "Second edit")
-    
+
     assert result.get("revised") is True
     post_path = tmp_path / "multi-revision.md"
     content = post_path.read_text()
@@ -452,9 +410,7 @@ def test_mutate_post_updates_existing_revision_note(tmp_path, monkeypatch):
 def test_propagate_site_missing_script(monkeypatch):
     """propagate_site returns error if sync script doesn't exist."""
     fake_script = Path("/nonexistent/sync.sh")
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.SYNC_SCRIPT", fake_script
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.SYNC_SCRIPT", fake_script)
     result = propagate_site()
     assert "error" in result
     assert "not found" in result["error"]
@@ -467,7 +423,7 @@ def test_organelle_sporulation_propagate_site_success(monkeypatch):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
             result = propagate_site()
-    
+
     assert result.get("pushed") is True
     assert result["url"] == "https://terryli.hm"
 
@@ -476,11 +432,9 @@ def test_organelle_sporulation_propagate_site_failure(monkeypatch):
     """propagate_site returns error on sync failure."""
     with patch.object(Path, "exists", return_value=True):
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1, stderr="Sync failed"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stderr="Sync failed")
             result = propagate_site()
-    
+
     assert "error" in result
     assert "Sync failed" in result["error"]
 
@@ -493,16 +447,12 @@ def test_organelle_sporulation_catalog_creates_index(tmp_path, monkeypatch):
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"
     published_dir.mkdir()
-    
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.INDEX_PATH", index_path
-    )
-    
+
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir)
+    monkeypatch.setattr("metabolon.organelles.sporulation.INDEX_PATH", index_path)
+
     # Create a valid published post
-    post_content = '''---
+    post_content = """---
 title: "Test Post"
 description: "A test"
 pubDatetime: 2024-01-15T10:00:00.000Z
@@ -511,9 +461,9 @@ tags: [test]
 ---
 
 This is the body content.
-'''
+"""
     (published_dir / "test-post.md").write_text(post_content)
-    
+
     result = catalog()
     assert "indexed" in result
     assert result["indexed"] == 1
@@ -525,16 +475,12 @@ def test_organelle_sporulation_catalog_skips_drafts(tmp_path, monkeypatch):
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"
     published_dir.mkdir()
-    
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.INDEX_PATH", index_path
-    )
-    
+
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir)
+    monkeypatch.setattr("metabolon.organelles.sporulation.INDEX_PATH", index_path)
+
     # Create a draft post
-    draft_content = '''---
+    draft_content = """---
 title: "Draft"
 description: "Draft post"
 pubDatetime: 2024-01-15T10:00:00.000Z
@@ -543,9 +489,9 @@ tags: []
 ---
 
 Draft content.
-'''
+"""
     (published_dir / "draft.md").write_text(draft_content)
-    
+
     result = catalog()
     assert result["indexed"] == 0
 
@@ -555,16 +501,12 @@ def test_catalog_skips_invalid_frontmatter(tmp_path, monkeypatch):
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"
     published_dir.mkdir()
-    
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.INDEX_PATH", index_path
-    )
-    
+
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir)
+    monkeypatch.setattr("metabolon.organelles.sporulation.INDEX_PATH", index_path)
+
     # Create invalid post (missing description)
-    invalid_content = '''---
+    invalid_content = """---
 title: "Invalid"
 pubDatetime: 2024-01-15T10:00:00.000Z
 draft: false
@@ -572,9 +514,9 @@ tags: []
 ---
 
 Content.
-'''
+"""
     (published_dir / "invalid.md").write_text(invalid_content)
-    
+
     result = catalog()
     assert result["indexed"] == 0
 
@@ -584,15 +526,11 @@ def test_catalog_includes_tags(tmp_path, monkeypatch):
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"
     published_dir.mkdir()
-    
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.INDEX_PATH", index_path
-    )
-    
-    post_content = '''---
+
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir)
+    monkeypatch.setattr("metabolon.organelles.sporulation.INDEX_PATH", index_path)
+
+    post_content = """---
 title: "Tagged Post"
 description: "Has tags"
 pubDatetime: 2024-01-15T10:00:00.000Z
@@ -601,9 +539,9 @@ tags: [python, testing]
 ---
 
 Content.
-'''
+"""
     (published_dir / "tagged.md").write_text(post_content)
-    
+
     catalog()
     index_content = index_path.read_text()
     assert "python" in index_content
@@ -615,14 +553,10 @@ def test_catalog_empty_directory(tmp_path, monkeypatch):
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"
     published_dir.mkdir()
-    
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.INDEX_PATH", index_path
-    )
-    
+
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", published_dir)
+    monkeypatch.setattr("metabolon.organelles.sporulation.INDEX_PATH", index_path)
+
     result = catalog()
     assert result["indexed"] == 0
     assert index_path.exists()
@@ -633,37 +567,33 @@ def test_catalog_empty_directory(tmp_path, monkeypatch):
 
 def test_full_workflow(tmp_path, monkeypatch):
     """Test complete workflow: create, list, publish, catalog."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path)
     index_path = tmp_path / "index.md"
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.INDEX_PATH", index_path
-    )
-    
+    monkeypatch.setattr("metabolon.organelles.sporulation.INDEX_PATH", index_path)
+
     # Create post
     create_result = germinate_post("Workflow Test")
     assert create_result.get("created")
-    
+
     # List posts (should be draft)
     posts = dormant_posts()
     assert len(posts) == 1
     assert posts[0]["draft"] is True
-    
+
     # Publish
     pub_result = publish("workflow-test")
     assert pub_result.get("published")
-    
+
     # List again (should not be draft)
     posts = dormant_posts()
     assert posts[0]["draft"] is False
-    
+
     # Update with description for catalog
     post_path = tmp_path / "workflow-test.md"
     content = post_path.read_text()
     content = content.replace('description: ""', 'description: "A test post"')
     post_path.write_text(content)
-    
+
     # Catalog
     cat_result = catalog()
     assert cat_result["indexed"] == 1
@@ -674,9 +604,7 @@ def test_full_workflow(tmp_path, monkeypatch):
 
 def test_list_checkpoints_empty_directory(tmp_path, monkeypatch):
     """list_checkpoints returns empty list when checkpoint dir is empty."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path)
     result = list_checkpoints()
     assert result == []
 
@@ -684,18 +612,14 @@ def test_list_checkpoints_empty_directory(tmp_path, monkeypatch):
 def test_list_checkpoints_nonexistent_directory(tmp_path, monkeypatch):
     """list_checkpoints returns empty list when checkpoint dir doesn't exist."""
     nonexistent = tmp_path / "no_such_dir"
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.CHECKPOINT_DIR", nonexistent
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.CHECKPOINT_DIR", nonexistent)
     result = list_checkpoints()
     assert result == []
 
 
 def test_list_checkpoints_lists_checkpoints(tmp_path, monkeypatch):
     """list_checkpoints lists saved checkpoints with metadata."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path)
     # Create a checkpoint file matching the enzyme's format
     content = """---
 name: bold-fox checkpoint
@@ -727,18 +651,20 @@ Finished the sync script.
 
 def test_list_checkpoints_multiple_sorted_by_age(tmp_path, monkeypatch):
     """list_checkpoints returns checkpoints sorted most recent first."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path)
     import time
 
     # Create two checkpoints with different mtimes
     cp1 = tmp_path / "checkpoint_swift-owl.md"
-    cp1.write_text("---\nname: swift-owl checkpoint\ndescription: Older checkpoint\ntype: project\n---\nBody")
+    cp1.write_text(
+        "---\nname: swift-owl checkpoint\ndescription: Older checkpoint\ntype: project\n---\nBody"
+    )
     # Ensure different mtime
     time.sleep(0.05)
     cp2 = tmp_path / "checkpoint_calm-bee.md"
-    cp2.write_text("---\nname: calm-bee checkpoint\ndescription: Newer checkpoint\ntype: project\n---\nBody")
+    cp2.write_text(
+        "---\nname: calm-bee checkpoint\ndescription: Newer checkpoint\ntype: project\n---\nBody"
+    )
 
     result = list_checkpoints()
     assert len(result) == 2
@@ -749,9 +675,7 @@ def test_list_checkpoints_multiple_sorted_by_age(tmp_path, monkeypatch):
 
 def test_list_checkpoints_ignores_non_checkpoint_files(tmp_path, monkeypatch):
     """list_checkpoints only reads checkpoint_*.md files."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path)
     (tmp_path / "random-file.md").write_text("not a checkpoint")
     (tmp_path / "checkpoint_warm-elk.md").write_text(
         "---\nname: warm-elk checkpoint\ndescription: A checkpoint\ntype: project\n---\nBody"
@@ -764,9 +688,7 @@ def test_list_checkpoints_ignores_non_checkpoint_files(tmp_path, monkeypatch):
 
 def test_list_checkpoints_date_format(tmp_path, monkeypatch):
     """list_checkpoints date field is in YYYY-MM-DD HH:MM UTC format."""
-    monkeypatch.setattr(
-        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
-    )
+    monkeypatch.setattr("metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path)
     (tmp_path / "checkpoint_keen-arc.md").write_text(
         "---\nname: keen-arc checkpoint\ndescription: Test\ntype: project\n---\nBody"
     )
@@ -778,4 +700,4 @@ def test_list_checkpoints_date_format(tmp_path, monkeypatch):
     assert date.endswith(" UTC")
     parts = date.replace(" UTC", "").split(" ")
     assert len(parts[0]) == 10  # YYYY-MM-DD
-    assert len(parts[1]) == 5   # HH:MM
+    assert len(parts[1]) == 5  # HH:MM

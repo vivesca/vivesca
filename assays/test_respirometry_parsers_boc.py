@@ -16,8 +16,6 @@ from metabolon.respirometry.parsers.boc import (
     _parse_transactions,
     extract_boc,
 )
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-
 
 # ── Minimal BOC PDF text fixture ─────────────────────────────────────────────
 # A realistic (but synthetic) single-page BOC statement.  All amounts are
@@ -103,14 +101,10 @@ class TestCleanMerchant(unittest.TestCase):
     """Tests for _clean_merchant."""
 
     def test_removes_hong_kong_hkg_suffix(self) -> None:
-        self.assertEqual(
-            _clean_merchant("COFFEE SHOP HONG KONG     HKG"), "COFFEE SHOP"
-        )
+        self.assertEqual(_clean_merchant("COFFEE SHOP HONG KONG     HKG"), "COFFEE SHOP")
 
     def test_removes_truncated_hong_kon(self) -> None:
-        self.assertEqual(
-            _clean_merchant("STORE HONG KON HONG KONG"), "STORE"
-        )
+        self.assertEqual(_clean_merchant("STORE HONG KON HONG KONG"), "STORE")
 
     def test_removes_trailing_country_code(self) -> None:
         self.assertEqual(_clean_merchant("AMAZON USA"), "AMAZON")
@@ -346,10 +340,7 @@ class TestExtractBoc(unittest.TestCase):
             "BALANCE B/F 1,500.00\n"
             "01-FEB 03-FEB SHOP A HONG KONG     HKG  500.00\n"
         )
-        page2 = (
-            "10-FEB 12-FEB SHOP B HONG KONG     HKG  500.00\n"
-            "CURRENT BALANCE 2,500.00\n"
-        )
+        page2 = "10-FEB 12-FEB SHOP B HONG KONG     HKG  500.00\nCURRENT BALANCE 2,500.00\n"
         # balance=-2500, bf=-1500, payments=0, odd=0
         # expected = -2500 - (-1500) - 0 - 0 = -1000
         # txns = -500 + -500 = -1000 ✓
@@ -364,7 +355,7 @@ class TestExtractBoc(unittest.TestCase):
             "metabolon.respirometry.parsers.boc.PdfReader",
             return_value=reader,
         ):
-            meta, txns = extract_boc(Path("/fake/boc.pdf"))
+            _meta, txns = extract_boc(Path("/fake/boc.pdf"))
 
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].merchant, "SHOP A")
@@ -394,7 +385,7 @@ class TestExtractBoc(unittest.TestCase):
             "metabolon.respirometry.parsers.boc.PdfReader",
             return_value=mock_reader,
         ):
-            meta, txns = extract_boc(Path("/fake/boc.pdf"))
+            _meta, txns = extract_boc(Path("/fake/boc.pdf"))
 
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].hkd, -600.00)

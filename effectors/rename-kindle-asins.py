@@ -5,11 +5,10 @@ Run after overnight queue extraction.
 
 Usage: python3 rename-kindle-asins.py [--dry-run]
 """
+
 from __future__ import annotations
 
-
 import argparse
-import sys
 from pathlib import Path
 
 BOOKS_DIR = Path.home() / "notes" / "Books"
@@ -35,11 +34,14 @@ ASIN_TO_TITLE = {
     "B09QMHZ5KW": "The Abyss - Nuclear Crisis Cuba 1962",
 }
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Rename ASIN-named Kindle extract files to proper titles."
     )
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be renamed without doing it.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be renamed without doing it."
+    )
     args = parser.parse_args()
 
     renamed = 0

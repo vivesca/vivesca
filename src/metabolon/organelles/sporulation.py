@@ -1,4 +1,3 @@
-
 """sporulation — garden publishing for terryli.hm (formerly publish CLI).
 
 Endosymbiosis: Python script (vivesca/effectors/publish) → Python organelle.
@@ -11,7 +10,6 @@ publishing garden posts into the world.
 
 Core functions: new, list_posts, publish, revise, push, index.
 """
-
 
 import re
 import subprocess

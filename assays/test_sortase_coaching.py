@@ -109,7 +109,9 @@ class TestSearchCoaching:
 
 
 class TestLoadCoachingPatterns:
-    def test_load_coaching_patterns_extracts_headings_and_bullets(self, coaching_file: Path) -> None:
+    def test_load_coaching_patterns_extracts_headings_and_bullets(
+        self, coaching_file: Path
+    ) -> None:
         patterns = _load_coaching_patterns(coaching_file)
         assert len(patterns) >= 4
         assert any("Code patterns" in p for p in patterns)

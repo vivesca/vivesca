@@ -3,23 +3,22 @@ from __future__ import annotations
 """Tests for breaking.py"""
 
 
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import tempfile
-import json
 
 import pytest
 
 from metabolon.organelles.endocytosis_rss.breaking import (
-    is_breaking,
+    _age_minutes,
     _article_is_fresh,
     article_hash,
-    title_fingerprint,
-    restore_breaking_state,
+    can_alert,
+    is_breaking,
     persist_breaking_state,
     refractory_daily_counter,
-    can_alert,
-    _age_minutes,
+    restore_breaking_state,
+    title_fingerprint,
 )
 
 

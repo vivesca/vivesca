@@ -1,6 +1,4 @@
-
 """entrainment — circadian zeitgeber sensing and schedule advisory."""
-
 
 import datetime
 import json

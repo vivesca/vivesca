@@ -719,7 +719,7 @@ def parse_reset_date_str(tail: str) -> str | None:
     # Codex billing format: "try again at Apr 8th, 2026 4:01 PM"
     _month = r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
     m = re.search(
-        rf'try again at {_month}\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
+        rf'try again at {_month}\s+(\d{{1,2}})(?:st|and|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
         tail, re.IGNORECASE,
     )
     if m:
@@ -753,7 +753,7 @@ def parse_rate_limit_window(tail: str) -> int | None:
     # 2. Codex billing-cycle format: "try again at Apr 8th, 2026 4:01 PM"
     _month = r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
     m = re.search(
-        rf'try again at {_month}\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
+        rf'try again at {_month}\s+(\d{{1,2}})(?:st|and|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
         tail, re.IGNORECASE,
     )
     if m:

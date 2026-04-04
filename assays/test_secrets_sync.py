@@ -3,7 +3,6 @@ from __future__ import annotations
 """Tests for effectors/secrets-sync -- mocked SSH, no real network."""
 
 import subprocess
-import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -51,7 +50,7 @@ def test_parse_env_unquoted_value(tmp_path: Path):
 
 def test_parse_env_skips_comments_and_blanks(tmp_path: Path):
     env = tmp_path / ".env"
-    env.write_text("# comment\n\nexport X=\"y\"\n# another\n")
+    env.write_text('# comment\n\nexport X="y"\n# another\n')
     assert parse_env_file(env) == [("X", "y")]
 
 
@@ -345,7 +344,7 @@ def test_main_never_logs_secret_values(capsys, tmp_path: Path):
         _mod["SSH_DIR"] = ssh_dir
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
-            rc = main(["--target", "user@host"])
+            main(["--target", "user@host"])
     finally:
         _mod["ENV_FILE"], _mod["GITCONFIG"], _mod["SSH_DIR"] = saved
 
@@ -355,4 +354,3 @@ def test_main_never_logs_secret_values(capsys, tmp_path: Path):
     assert "ANOTHER" in output
     assert "hunter2" not in output
     assert "password123" not in output
-

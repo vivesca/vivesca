@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
-import pytest
-
 from metabolon.organelles.endocytosis_rss.config import restore_config
 from metabolon.organelles.endocytosis_rss.digest import (
     _resolve_week_label,
@@ -46,8 +44,10 @@ def _write_month_data(cfg, month: str):
 
 def _fake_llm_call_factory(outputs: list[str]):
     """Return a fake _llm_call that pops from outputs sequentially."""
+
     def _fake(model, system, user):
         return outputs.pop(0)
+
     return _fake
 
 
@@ -55,18 +55,23 @@ def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
     cfg = restore_config()
     _write_month_data(cfg, "2026-02")
 
-    fake = _fake_llm_call_factory([
-        json.dumps([
-            {
-                "theme": "Agentic orchestration for enterprise ops",
-                "description": "Teams are moving from simple chat to workflow agents.",
-                "article_indices": [0, 1],
-                "banking_relevance": "Impacts ops and compliance design.",
-            }
-        ])
-    ])
+    fake = _fake_llm_call_factory(
+        [
+            json.dumps(
+                [
+                    {
+                        "theme": "Agentic orchestration for enterprise ops",
+                        "description": "Teams are moving from simple chat to workflow agents.",
+                        "article_indices": [0, 1],
+                        "banking_relevance": "Impacts ops and compliance design.",
+                    }
+                ]
+            )
+        ]
+    )
     monkeypatch.setattr(
-        "metabolon.organelles.endocytosis_rss.digest._llm_call", fake,
+        "metabolon.organelles.endocytosis_rss.digest._llm_call",
+        fake,
     )
 
     themes, output_path = metabolize_digest(
@@ -86,20 +91,25 @@ def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
     cfg = restore_config()
     _write_month_data(cfg, "2026-02")
 
-    fake = _fake_llm_call_factory([
-        json.dumps([
-            {
-                "theme": "Regulatory pressure on model governance",
-                "description": "Banks need stronger controls and evidence trails.",
-                "article_indices": [0, 1],
-                "banking_relevance": "Model risk and governance requirements increase.",
-            }
-        ]),
-        "## Regulatory pressure on model governance\n\n"
-        "### Summary\nTighter controls are becoming mandatory.",
-    ])
+    fake = _fake_llm_call_factory(
+        [
+            json.dumps(
+                [
+                    {
+                        "theme": "Regulatory pressure on model governance",
+                        "description": "Banks need stronger controls and evidence trails.",
+                        "article_indices": [0, 1],
+                        "banking_relevance": "Model risk and governance requirements increase.",
+                    }
+                ]
+            ),
+            "## Regulatory pressure on model governance\n\n"
+            "### Summary\nTighter controls are becoming mandatory.",
+        ]
+    )
     monkeypatch.setattr(
-        "metabolon.organelles.endocytosis_rss.digest._llm_call", fake,
+        "metabolon.organelles.endocytosis_rss.digest._llm_call",
+        fake,
     )
 
     _themes_result, output_path = metabolize_digest(
@@ -129,44 +139,47 @@ def _write_weekly_log(cfg, log_date: str) -> None:
 
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
     cfg.cargo_path.parent.mkdir(parents=True, exist_ok=True)
-    append_cargo(cfg.cargo_path, [
-        {
-            "timestamp": f"{log_date}T12:00:00+00:00",
-            "date": log_date,
-            "title": "Claude 3.7 Sonnet released",
-            "source": "Anthropic Blog",
-            "link": "https://anthropic.com/news/claude-3-7",
-            "summary": "New extended thinking capability",
-            "score": 8,
-            "banking_angle": "Major model upgrade for enterprise deployments",
-            "talking_point": "N/A",
-            "fate": "transcytose",
-        },
-        {
-            "timestamp": f"{log_date}T12:00:00+00:00",
-            "date": log_date,
-            "title": "Weekly AI roundup",
-            "source": "The Batch",
-            "link": "https://deeplearning.ai/batch",
-            "summary": "Summary of this week in AI",
-            "score": 5,
-            "banking_angle": "N/A",
-            "talking_point": "N/A",
-            "fate": "store",
-        },
-        {
-            "timestamp": f"{log_date}T12:00:00+00:00",
-            "date": log_date,
-            "title": "LLM tool use patterns",
-            "source": "Simon Willison",
-            "link": "https://simonwillison.net/llm-tool-use",
-            "summary": "Practical patterns for tool-calling agents",
-            "score": 8,
-            "banking_angle": "Agentic workflows for operations automation",
-            "talking_point": "N/A",
-            "fate": "transcytose",
-        },
-    ])
+    append_cargo(
+        cfg.cargo_path,
+        [
+            {
+                "timestamp": f"{log_date}T12:00:00+00:00",
+                "date": log_date,
+                "title": "Claude 3.7 Sonnet released",
+                "source": "Anthropic Blog",
+                "link": "https://anthropic.com/news/claude-3-7",
+                "summary": "New extended thinking capability",
+                "score": 8,
+                "banking_angle": "Major model upgrade for enterprise deployments",
+                "talking_point": "N/A",
+                "fate": "transcytose",
+            },
+            {
+                "timestamp": f"{log_date}T12:00:00+00:00",
+                "date": log_date,
+                "title": "Weekly AI roundup",
+                "source": "The Batch",
+                "link": "https://deeplearning.ai/batch",
+                "summary": "Summary of this week in AI",
+                "score": 5,
+                "banking_angle": "N/A",
+                "talking_point": "N/A",
+                "fate": "store",
+            },
+            {
+                "timestamp": f"{log_date}T12:00:00+00:00",
+                "date": log_date,
+                "title": "LLM tool use patterns",
+                "source": "Simon Willison",
+                "link": "https://simonwillison.net/llm-tool-use",
+                "summary": "Practical patterns for tool-calling agents",
+                "score": 8,
+                "banking_angle": "Agentic workflows for operations automation",
+                "talking_point": "N/A",
+                "fate": "transcytose",
+            },
+        ],
+    )
 
 
 def test_resolve_week_label_returns_correct_format():
@@ -202,32 +215,35 @@ def test_recall_log_entries_filters_by_date(xdg_env):
 
     cfg = restore_config()
     cfg.cargo_path.parent.mkdir(parents=True, exist_ok=True)
-    append_cargo(cfg.cargo_path, [
-        {
-            "timestamp": "2026-03-10T12:00:00+00:00",
-            "date": "2026-03-10",
-            "title": "Old article",
-            "source": "Old Source",
-            "link": "https://example.com/old",
-            "summary": "Old news",
-            "score": 5,
-            "banking_angle": "N/A",
-            "talking_point": "N/A",
-            "fate": "store",
-        },
-        {
-            "timestamp": "2026-03-22T12:00:00+00:00",
-            "date": "2026-03-22",
-            "title": "New article",
-            "source": "New Source",
-            "link": "https://example.com/new",
-            "summary": "Fresh signal",
-            "score": 8,
-            "banking_angle": "N/A",
-            "talking_point": "N/A",
-            "fate": "transcytose",
-        },
-    ])
+    append_cargo(
+        cfg.cargo_path,
+        [
+            {
+                "timestamp": "2026-03-10T12:00:00+00:00",
+                "date": "2026-03-10",
+                "title": "Old article",
+                "source": "Old Source",
+                "link": "https://example.com/old",
+                "summary": "Old news",
+                "score": 5,
+                "banking_angle": "N/A",
+                "talking_point": "N/A",
+                "fate": "store",
+            },
+            {
+                "timestamp": "2026-03-22T12:00:00+00:00",
+                "date": "2026-03-22",
+                "title": "New article",
+                "source": "New Source",
+                "link": "https://example.com/new",
+                "summary": "Fresh signal",
+                "score": 8,
+                "banking_angle": "N/A",
+                "talking_point": "N/A",
+                "fate": "transcytose",
+            },
+        ],
+    )
     # Only entries on or after 2026-03-20 should be returned
     entries = recall_log_entries(cfg.cargo_path, "2026-03-20")
     assert len(entries) == 1
@@ -362,7 +378,7 @@ def test_metabolize_weekly_returns_count_and_path(xdg_env, monkeypatch, tmp_path
 
 
 def test_cli_digest_weekly_flag(xdg_env, monkeypatch, tmp_path):
-    """lustro digest --weekly routes to the weekly secretion pathway."""
+    """endocytosis digest --weekly routes to the weekly secretion pathway."""
     from typer.testing import CliRunner
 
     from metabolon.organelles.endocytosis_rss.cli import app

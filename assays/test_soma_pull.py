@@ -5,10 +5,9 @@ from __future__ import annotations
 import subprocess
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "soma-pull"
 
@@ -53,7 +52,10 @@ def test_pull_already_up_to_date(tmp_path):
         msg, ok = pull(repo)
     mock_run.assert_called_once_with(
         ["git", "pull", "--ff-only", "--quiet"],
-        cwd=repo, capture_output=True, text=True, timeout=30,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     assert ok
     assert "ok" in msg

@@ -53,7 +53,7 @@ def test_worker_pidfiles_paths():
     assert "hatchet" in WORKER_PIDFILES
     assert "temporal" in WORKER_PIDFILES
     # Paths should be under user home directory structure
-    for _backend, path in WORKER_PIDFILES.items():
+    for path in WORKER_PIDFILES.values():
         assert "hatchet-worker.pid" in str(path) or "temporal-worker.pid" in str(path)
 
 

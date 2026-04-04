@@ -11,7 +11,7 @@ SCRIPT = Path.home() / "germline/effectors/start-chrome-debug.sh"
 def _run(args: list[str], **kwargs) -> subprocess.CompletedProcess:
     """Run the script with given args and capture output."""
     return subprocess.run(
-        [str(SCRIPT)] + args,
+        [str(SCRIPT), *args],
         capture_output=True,
         text=True,
         timeout=5,

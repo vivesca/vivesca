@@ -24,6 +24,7 @@ def _article(**overrides):
 
 # ── happy path ──────────────────────────────────────────────────────────────
 
+
 @patch("metabolon.lysin.cli.format_text", return_value="formatted-text")
 @patch("metabolon.lysin.cli.fetch_summary")
 def test_basic_text_output(mock_fetch, mock_fmt):
@@ -77,6 +78,7 @@ def test_full_and_json_flags(mock_fetch, mock_sections, mock_fmt):
 
 # ── error handling ──────────────────────────────────────────────────────────
 
+
 @patch("metabolon.lysin.cli.fetch_summary", side_effect=LookupError("nothing found"))
 def test_lookup_error(mock_fetch):
     runner = CliRunner()
@@ -94,6 +96,7 @@ def test_generic_exception(mock_fetch):
 
 
 # ── no extra flags behavior ─────────────────────────────────────────────────
+
 
 @patch("metabolon.lysin.cli.format_text", return_value="out")
 @patch("metabolon.lysin.cli.fetch_summary")

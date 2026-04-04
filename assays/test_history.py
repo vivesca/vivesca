@@ -2,18 +2,16 @@ from __future__ import annotations
 
 """Tests for metabolon.sortase.history."""
 
-from datetime import datetime
 
 from rich.table import Table
 
 from metabolon.sortase.history import (
-    _format_timestamp,
     _format_duration,
     _format_files_changed,
+    _format_timestamp,
     build_history_entries,
     build_history_table,
 )
-from metabolon.sortase.logger import _parse_iso_timestamp
 
 
 def test_format_timestamp_valid():

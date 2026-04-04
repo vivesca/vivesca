@@ -1,4 +1,3 @@
-
 """demethylase — active memory erasure and consolidation.
 
 Scans histone marks (memory files) for staleness, flags candidates for removal,
@@ -14,7 +13,6 @@ Biology:
 In vivesca: marks accumulate across sessions. The demethylase sweeps for stale
 ones, strengthens accessed ones, and protects critical corrections.
 """
-
 
 import json
 import re
@@ -246,7 +244,7 @@ def _cluster_marks(marks: list[MarkAnalysis]) -> list[dict]:
         stem = m.path.stem
         parts = stem.split("_", 1)
         if len(parts) == 2:
-            prefix, topic = parts
+            _prefix, topic = parts
             # Group by first meaningful word of topic
             topic_key = topic.split("_")[0] if "_" in topic else topic
             clusters.setdefault(topic_key, []).append(stem)

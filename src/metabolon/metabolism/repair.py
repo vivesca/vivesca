@@ -1,6 +1,4 @@
-
 """Immune system — metaprompt-driven healing."""
-
 
 import asyncio
 import configparser

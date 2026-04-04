@@ -1,5 +1,4 @@
 """Tests for metabolon.enzymes._parallel_search."""
-import pytest
 
 
 def test_placeholder():

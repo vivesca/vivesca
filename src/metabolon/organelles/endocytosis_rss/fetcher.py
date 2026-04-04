@@ -1,4 +1,3 @@
-
 import atexit
 import contextlib
 import hashlib
@@ -46,7 +45,7 @@ def _kill_browser_pid(pid: int) -> None:
     # Then kill the parent
     try:
         os.kill(pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
+    except ProcessLookupError, PermissionError:
         pass  # already dead — fine
     except Exception:
         pass
@@ -63,7 +62,7 @@ atexit.register(_atexit_kill_browsers)
 # ---------------------------------------------------------------------------
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; Lustro/0.2; +https://github.com/terry-li-hm/lustro)"
+    "User-Agent": "Mozilla/5.0 (compatible; Endocytosis/0.2; +https://github.com/terry-li-hm/endocytosis)"
 }
 
 
@@ -81,7 +80,7 @@ def _is_safe_url(url: str) -> bool:
             ip = ipaddress.ip_address(sockaddr[0])
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                 return False
-    except (socket.gaierror, ValueError, OSError):
+    except socket.gaierror, ValueError, OSError:
         return False
     return True
 
@@ -129,7 +128,7 @@ def _parse_feed_datetime(entry: Any) -> str:
                 ts = calendar.timegm(parsed)
                 dt = datetime.fromtimestamp(ts, tz=UTC)
                 return dt.isoformat()
-            except (TypeError, OverflowError, OSError):
+            except TypeError, OverflowError, OSError:
                 continue
 
     # Fallback: raw string fields (RFC 2822 / ISO 8601)
@@ -158,7 +157,7 @@ def _parse_tweet_date(date_str: str) -> str:
     try:
         dt = datetime.strptime(date_str, "%a %b %d %H:%M:%S %z %Y")
         return dt.strftime("%Y-%m-%d")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return ""
 
 
@@ -427,7 +426,8 @@ def internalize_rss(
                 try:
                     text = internalize_stealth_url(
                         link,
-                        profile_dir or Path.home() / ".config" / "lustro" / "nodriver-profile",
+                        profile_dir
+                        or Path.home() / ".config" / "endocytosis" / "nodriver-profile",
                     )
                     if text:
                         summary = text.strip().replace("\n", " ")
@@ -479,7 +479,7 @@ def internalize_web(
         if stealth and _is_safe_url(url):
             html = internalize_stealth_html(
                 url,
-                profile_dir or Path.home() / ".config" / "lustro" / "nodriver-profile",
+                profile_dir or Path.home() / ".config" / "endocytosis" / "nodriver-profile",
             )
             if html is None:
                 return []
@@ -717,7 +717,7 @@ def archive_cargo(
                 if hashlib.md5(existing_text.encode()).hexdigest() == content_hash:
                     print(f"  Skipped (duplicate content): {filename}", file=sys.stderr)
                     return
-            except (OSError, json.JSONDecodeError):
+            except OSError, json.JSONDecodeError:
                 continue
 
     record = {
@@ -762,7 +762,7 @@ def probe_receptors(
             try:
                 days = (now - datetime.fromisoformat(last_str)).days
                 scan_col = f"{days}d ago"
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 scan_col = "parse-err"
         else:
             scan_col = "never"
@@ -786,7 +786,7 @@ def probe_receptors(
         if code not in ("200", "301", "302"):
             broken.append(source["name"])
             flag = " <-"
-        elif scan_col not in ("never",) and "d ago" in scan_col:
+        elif scan_col != "never" and "d ago" in scan_col:
             days_num = int(scan_col.replace("d ago", ""))
             if days_num > 60:
                 stale.append(source["name"])

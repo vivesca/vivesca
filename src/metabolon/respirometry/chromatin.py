@@ -1,6 +1,4 @@
-
 """Write parsed statements to chromatin as markdown."""
-
 
 import hashlib
 import re

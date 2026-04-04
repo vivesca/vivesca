@@ -1,6 +1,4 @@
 """Tests for case study packager."""
-from pathlib import Path
-import pytest
 
 SAMPLE_USE_CASE = """---
 domain: banking-ai
@@ -30,25 +28,33 @@ Reduced validation cycle from 6 months to 6 weeks for Tier 2/3 models.
 - Framework adopted by 3 other business units
 """
 
+
 def test_extract_section():
     from metabolon.organelles.case_study import _extract_section
+
     result = _extract_section(SAMPLE_USE_CASE, "Challenge")
     assert "Hong Kong bank" in result
     assert "200+ ML models" in result
 
+
 def test_extract_metrics():
     from metabolon.organelles.case_study import _extract_metrics
+
     result = _extract_metrics(SAMPLE_USE_CASE)
     assert any("70%" in m for m in result)
 
+
 def test_anonymise():
     from metabolon.organelles.case_study import _anonymise
+
     result = _anonymise("HSBC needs to comply with HKMA guidelines")
     assert "HSBC" not in result
     assert "Major International Bank" in result
 
+
 def test_package_use_case(tmp_path):
     from metabolon.organelles.case_study import package_use_case
+
     f = tmp_path / "test-case.md"
     f.write_text(SAMPLE_USE_CASE)
     result = package_use_case(f)
@@ -58,20 +64,26 @@ def test_package_use_case(tmp_path):
     assert result.result != ""
     assert result.domain == "banking-ai"
 
+
 def test_package_use_case_anonymised(tmp_path):
     from metabolon.organelles.case_study import package_use_case
+
     f = tmp_path / "test-case.md"
     f.write_text(SAMPLE_USE_CASE)
     result = package_use_case(f, anonymise=True)
     assert result.anonymised is True
 
+
 def test_package_missing_file():
     from metabolon.organelles.case_study import package_use_case
+
     result = package_use_case("/nonexistent/file.md")
     assert "not found" in result.challenge.lower()
 
+
 def test_case_study_to_car_arc(tmp_path):
     from metabolon.organelles.case_study import package_use_case
+
     f = tmp_path / "test.md"
     f.write_text(SAMPLE_USE_CASE)
     cs = package_use_case(f)
@@ -80,8 +92,10 @@ def test_case_study_to_car_arc(tmp_path):
     assert "## Approach" in arc
     assert "## Result" in arc
 
+
 def test_case_study_to_executive_summary(tmp_path):
     from metabolon.organelles.case_study import package_use_case
+
     f = tmp_path / "test.md"
     f.write_text(SAMPLE_USE_CASE)
     cs = package_use_case(f)
@@ -89,8 +103,10 @@ def test_case_study_to_executive_summary(tmp_path):
     assert isinstance(summary, str)
     assert len(summary) > 50
 
+
 def test_case_study_to_slide_notes(tmp_path):
     from metabolon.organelles.case_study import package_use_case
+
     f = tmp_path / "test.md"
     f.write_text(SAMPLE_USE_CASE)
     cs = package_use_case(f)
@@ -98,8 +114,10 @@ def test_case_study_to_slide_notes(tmp_path):
     assert "Challenge:" in notes
     assert "Result:" in notes
 
+
 def test_list_use_cases():
     from metabolon.organelles.case_study import list_use_cases
+
     result = list_use_cases()
     assert isinstance(result, list)
 

@@ -3,16 +3,12 @@ from __future__ import annotations
 """Tests for metabolon.organelles.polarization_loop."""
 
 import json
-import sqlite3
 import subprocess
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 import metabolon.organelles.polarization_loop as pl
-
 
 # ---------------------------------------------------------------------------
 # _channel
@@ -65,7 +61,7 @@ class TestChannel:
         mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
 
         out = pl._channel("sonnet", "slow", timeout=300)
-        assert "(channel timeout after 300s)" == out
+        assert out == "(channel timeout after 300s)"
 
     @patch.object(pl, "subprocess")
     def test_strips_claudecode_from_env(self, mock_subprocess):
@@ -187,6 +183,7 @@ class TestConsumptionCount:
             old = tmp_path / "old.md"
             old.write_text("x")
             import os
+
             # set mtime to 10 days ago
             os.utime(str(old), (time.time() - 10 * 86400,) * 2)
 
@@ -211,7 +208,11 @@ class TestPreflight:
     @patch.object(pl, "praxis")
     @patch.object(pl, "GUARD_FILE", MagicMock(spec=Path))
     def test_preflight_populates_context(
-        self, mock_praxis, mock_read, mock_budget, mock_consumption,
+        self,
+        mock_praxis,
+        mock_read,
+        mock_budget,
+        mock_consumption,
     ):
         mock_praxis.exists.return_value = True
         mock_praxis.read_text.return_value = "line1\nline2\n" * 50
@@ -250,7 +251,11 @@ class TestPreflight:
     @patch.object(pl, "praxis")
     @patch.object(pl, "GUARD_FILE", MagicMock(spec=Path))
     def test_preflight_no_praxis(
-        self, mock_praxis, mock_read, mock_budget, mock_consumption,
+        self,
+        mock_praxis,
+        mock_read,
+        mock_budget,
+        mock_consumption,
     ):
         mock_praxis.exists.return_value = False
 
@@ -270,8 +275,18 @@ class TestBrainstorm:
     @patch.object(pl, "_channel")
     def test_parses_json_goals(self, mock_channel):
         goals = [
-            {"star": "research", "goal": "write paper", "deliverable": "/tmp/paper.md", "model": "opus"},
-            {"star": "code", "goal": "build tool", "deliverable": "/tmp/tool.py", "model": "sonnet"},
+            {
+                "star": "research",
+                "goal": "write paper",
+                "deliverable": "/tmp/paper.md",
+                "model": "opus",
+            },
+            {
+                "star": "code",
+                "goal": "build tool",
+                "deliverable": "/tmp/tool.py",
+                "model": "sonnet",
+            },
         ]
         mock_channel.return_value = json.dumps(goals)
 
@@ -307,9 +322,18 @@ class TestBrainstorm:
         goals = [{"star": "s", "goal": "g", "deliverable": "d", "model": "sonnet"}]
         mock_channel.return_value = f"Here are the goals:\n{json.dumps(goals)}\nDone."
 
-        state = {"mode": "overnight", "systole_num": 1, "consumption_count": 0,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "overnight",
+            "systole_num": 1,
+            "consumption_count": 0,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         result = pl.brainstorm(state)
         assert len(result["sub_goals"]) == 1
@@ -318,9 +342,18 @@ class TestBrainstorm:
     def test_bad_json_returns_error(self, mock_channel):
         mock_channel.return_value = "[not valid json at all]"
 
-        state = {"mode": "overnight", "systole_num": 1, "consumption_count": 0,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "overnight",
+            "systole_num": 1,
+            "consumption_count": 0,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         result = pl.brainstorm(state)
         assert "errors" in result
@@ -328,26 +361,48 @@ class TestBrainstorm:
 
     @patch.object(pl, "_channel")
     def test_overnight_caps_at_8(self, mock_channel):
-        goals = [{"star": f"s{i}", "goal": f"g{i}", "deliverable": f"d{i}", "model": "sonnet"}
-                 for i in range(20)]
+        goals = [
+            {"star": f"s{i}", "goal": f"g{i}", "deliverable": f"d{i}", "model": "sonnet"}
+            for i in range(20)
+        ]
         mock_channel.return_value = json.dumps(goals)
 
-        state = {"mode": "overnight", "systole_num": 1, "consumption_count": 0,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "overnight",
+            "systole_num": 1,
+            "consumption_count": 0,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         result = pl.brainstorm(state)
         assert len(result["sub_goals"]) == 8
 
     @patch.object(pl, "_channel")
     def test_interactive_caps_at_5(self, mock_channel):
-        goals = [{"star": f"s{i}", "goal": f"g{i}", "deliverable": f"d{i}", "model": "sonnet"}
-                 for i in range(20)]
+        goals = [
+            {"star": f"s{i}", "goal": f"g{i}", "deliverable": f"d{i}", "model": "sonnet"}
+            for i in range(20)
+        ]
         mock_channel.return_value = json.dumps(goals)
 
-        state = {"mode": "interactive", "systole_num": 1, "consumption_count": 0,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "interactive",
+            "systole_num": 1,
+            "consumption_count": 0,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         result = pl.brainstorm(state)
         assert len(result["sub_goals"]) == 5
@@ -412,8 +467,10 @@ class TestDispatch:
         mock_manifest.exists.return_value = False
         mock_channel.return_value = "(channel error: exit 1) something broke"
 
-        state = {"sub_goals": [{"goal": "fail", "star": "s", "model": "sonnet", "deliverable": "d"}],
-                 "systole_num": 1}
+        state = {
+            "sub_goals": [{"goal": "fail", "star": "s", "model": "sonnet", "deliverable": "d"}],
+            "systole_num": 1,
+        }
 
         result = pl.dispatch(state)
         assert result["dispatched_work"][0]["success"] is False
@@ -425,8 +482,10 @@ class TestDispatch:
         mock_manifest.read_text.return_value = "# Existing\n"
         mock_channel.return_value = "ok"
 
-        state = {"sub_goals": [{"goal": "g", "star": "s", "model": "sonnet", "deliverable": "d"}],
-                 "systole_num": 2}
+        state = {
+            "sub_goals": [{"goal": "g", "star": "s", "model": "sonnet", "deliverable": "d"}],
+            "systole_num": 2,
+        }
 
         pl.dispatch(state)
         mock_manifest.write_text.assert_called_once()
@@ -556,7 +615,13 @@ class TestCompoundAndScout:
     @patch.object(pl, "_channel")
     def test_returns_follow_ons(self, mock_channel):
         follow_ons = [
-            {"goal": "next step", "star": "research", "deliverable": "d", "model": "sonnet", "type": "compound"},
+            {
+                "goal": "next step",
+                "star": "research",
+                "deliverable": "d",
+                "model": "sonnet",
+                "type": "compound",
+            },
         ]
         mock_channel.return_value = json.dumps(follow_ons)
 
@@ -590,9 +655,13 @@ class TestCompoundAndScout:
         assert result["follow_ons"][0]["type"] == "compound"
 
     def test_no_work_returns_empty(self):
-        result = pl.compound_and_scout({
-            "dispatched_work": [], "systole_num": 1, "north_stars": "",
-        })
+        result = pl.compound_and_scout(
+            {
+                "dispatched_work": [],
+                "systole_num": 1,
+                "north_stars": "",
+            }
+        )
         assert result == {"follow_ons": []}
 
     @patch.object(pl, "_channel")
@@ -872,6 +941,7 @@ class TestBuildGraph:
         graph = pl.build_graph()
         # Graph nodes are stored internally; check it compiles
         import langgraph.graph as _lg
+
         assert isinstance(graph, _lg.StateGraph)
 
 
@@ -885,11 +955,13 @@ class TestOpenCheckpointer:
 
     def test_in_memory_when_not_persistent(self):
         from langgraph.checkpoint.memory import InMemorySaver
+
         cp = pl._open_checkpointer(persistent=False)
         assert isinstance(cp, InMemorySaver)
 
     def test_sqlite_when_persistent(self, tmp_path):
         from langgraph.checkpoint.sqlite import SqliteSaver
+
         db_path = tmp_path / "checkpoints.db"
         with patch.object(pl, "CHECKPOINT_DB", db_path):
             cp = pl._open_checkpointer(persistent=True)
@@ -910,12 +982,23 @@ class TestConsumptionSignal:
         goals = [{"star": "s", "goal": "g", "deliverable": "d", "model": "sonnet"}]
         mock_channel.return_value = json.dumps(goals)
 
-        state = {"mode": "overnight", "systole_num": 1, "consumption_count": 2,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "overnight",
+            "systole_num": 1,
+            "consumption_count": 2,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         pl.brainstorm(state)
-        prompt = mock_channel.call_args[1].get("prompt", mock_channel.call_args[0][1] if len(mock_channel.call_args[0]) > 1 else "")
+        mock_channel.call_args[1].get(
+            "prompt", mock_channel.call_args[0][1] if len(mock_channel.call_args[0]) > 1 else ""
+        )
         # The prompt is passed as positional arg
         call_args = mock_channel.call_args
         prompt_arg = call_args[0][1]
@@ -927,9 +1010,18 @@ class TestConsumptionSignal:
         goals = [{"star": "s", "goal": "g", "deliverable": "d", "model": "sonnet"}]
         mock_channel.return_value = json.dumps(goals)
 
-        state = {"mode": "overnight", "systole_num": 1, "consumption_count": 5,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "overnight",
+            "systole_num": 1,
+            "consumption_count": 5,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         pl.brainstorm(state)
         prompt_arg = mock_channel.call_args[0][1]
@@ -941,9 +1033,18 @@ class TestConsumptionSignal:
         goals = [{"star": "s", "goal": "g", "deliverable": "d", "model": "sonnet"}]
         mock_channel.return_value = json.dumps(goals)
 
-        state = {"mode": "overnight", "systole_num": 1, "consumption_count": 10,
-                 "budget_status": "green", "north_stars": "", "praxis_items": "",
-                 "shapes": "", "division": "", "now_md": "", "total_produced": 0}
+        state = {
+            "mode": "overnight",
+            "systole_num": 1,
+            "consumption_count": 10,
+            "budget_status": "green",
+            "north_stars": "",
+            "praxis_items": "",
+            "shapes": "",
+            "division": "",
+            "now_md": "",
+            "total_produced": 0,
+        }
 
         pl.brainstorm(state)
         prompt_arg = mock_channel.call_args[0][1]

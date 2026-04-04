@@ -3,9 +3,7 @@ from __future__ import annotations
 """Comprehensive tests for hemostasis enzyme — all actions and branches."""
 
 
-import os
 import subprocess
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -21,6 +19,7 @@ _SUB_RUN = "metabolon.enzymes.hemostasis.subprocess.run"
 # ---------------------------------------------------------------------------
 # Return-type helpers
 # ---------------------------------------------------------------------------
+
 
 def _is_effector(r):
     return isinstance(r, EffectorResult)
@@ -65,7 +64,9 @@ class TestUnknownAction:
 
 class TestPsAction:
     def test_returns_process_list_result(self):
-        with patch(_SUB_RUN, return_value=MagicMock(stdout="123 python\n456 node\n", returncode=0)):
+        with patch(
+            _SUB_RUN, return_value=MagicMock(stdout="123 python\n456 node\n", returncode=0)
+        ):
             result = hemostasis(action="ps", pattern="python")
         assert _is_process_list(result)
         assert result.count == 2
@@ -86,7 +87,9 @@ class TestPsAction:
         assert "1 found" in result.summary
 
     def test_blank_lines_filtered(self):
-        with patch(_SUB_RUN, return_value=MagicMock(stdout="100 proc\n\n\n200 other\n", returncode=0)):
+        with patch(
+            _SUB_RUN, return_value=MagicMock(stdout="100 proc\n\n\n200 other\n", returncode=0)
+        ):
             result = hemostasis(action="ps", pattern="proc")
         assert result.count == 2
         assert "" not in result.matches
@@ -192,7 +195,9 @@ class TestLaunchAgentAction:
 
     @pytest.mark.parametrize("bad_action", ["load", "unload"])
     def test_missing_plist(self, bad_action):
-        result = hemostasis(action="launchagent", plist_path="/no/such/file.plist", launchagent_action=bad_action)
+        result = hemostasis(
+            action="launchagent", plist_path="/no/such/file.plist", launchagent_action=bad_action
+        )
         assert not result.success
         assert "not found" in result.message.lower() or "not found" in result.message
 

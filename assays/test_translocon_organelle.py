@@ -9,12 +9,8 @@ TDD red→green cycle:
 """
 
 import json
-from io import StringIO
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
-
-import pytest
-
+from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # Organelle tests — dispatch()
@@ -46,7 +42,9 @@ class TestDispatchExploreReturnsStructured:
     @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
     @patch("metabolon.organelles.translocon._direct_api")
-    def test_explore_falls_back_to_goose(self, mock_api, mock_ctx, mock_coach, mock_run, mock_cache):
+    def test_explore_falls_back_to_goose(
+        self, mock_api, mock_ctx, mock_coach, mock_run, mock_cache
+    ):
         from metabolon.organelles.translocon import dispatch
 
         mock_api.return_value = {"success": False, "output": "", "returncode": 1}
@@ -74,10 +72,11 @@ class TestDispatchSkillLoadsRecipe:
     @patch("metabolon.organelles.translocon._run_captured")
     @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     def test_skill_routes_to_goose(self, mock_coach, mock_run):
-        from metabolon.organelles.translocon import dispatch
-
         # Create a fake recipe file so the skill validation passes
         import tempfile
+
+        from metabolon.organelles.translocon import dispatch
+
         with tempfile.TemporaryDirectory() as tmpdir:
             skill_dir = Path(tmpdir) / "germline" / "membrane" / "receptors" / "etiology"
             skill_dir.mkdir(parents=True)
@@ -88,9 +87,7 @@ class TestDispatchSkillLoadsRecipe:
             mock_run.return_value = (0, "skill output")
 
             with patch.object(Path, "home", return_value=fake_home):
-                result = dispatch(
-                    "diagnose the bug", mode="skill", skill="etiology"
-                )
+                result = dispatch("diagnose the bug", mode="skill", skill="etiology")
 
         assert result["success"] is True
         assert result["backend"] == "goose"
@@ -231,13 +228,20 @@ class TestRunEval:
 
         traces = [
             json.dumps({"tool": "translocon", "success": True, "duration_s": 5.0}),
-            json.dumps({"tool": "translocon", "success": False, "duration_s": 10.0,
-                        "failure_reason": "timeout"}),
+            json.dumps(
+                {
+                    "tool": "translocon",
+                    "success": False,
+                    "duration_s": 10.0,
+                    "failure_reason": "timeout",
+                }
+            ),
         ]
         fake_file = "\n".join(traces)
 
         # Use a real temp file so open() works naturally
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write(fake_file)
             f.flush()
@@ -298,9 +302,7 @@ class TestReadDirContext:
                 result = _read_dir_context(tmpdir)
             all_names = [f"file_{idx}.py" for idx in range(5)]
             included = [name for name in all_names if name in result]
-            assert 2 <= len(included) <= 3, (
-                f"Expected 2-3 files, got {len(included)}: {included}"
-            )
+            assert 2 <= len(included) <= 3, f"Expected 2-3 files, got {len(included)}: {included}"
             assert len(included) < 5, "Cumulative cap should exclude some files"
 
     def test_read_dir_context_empty_dir(self):

@@ -1,4 +1,3 @@
-
 """phenotype_translate — generate Gemini CLI hook config from Claude Code hook config.
 
 Reads ~/.claude/settings.json (or a given path), extracts the hooks section,
@@ -21,7 +20,6 @@ runtime — without modifying the hook scripts themselves.
 This is deliberately separate from conjugation_engine (which does a simpler
 pass-through). phenotype_translate adds the runtime adapter layer.
 """
-
 
 import json
 import warnings
@@ -96,7 +94,7 @@ def _wrap_command(command: str, adapter_path: Path) -> str:
 
     # Detect interpreter (python3, python, /usr/bin/python3, etc.)
     first = parts[0]
-    if "python" in first.lower() or first in ("/usr/bin/env",):
+    if "python" in first.lower() or first == "/usr/bin/env":
         interpreter = first
         rest = parts[1] if len(parts) > 1 else ""
         script_and_args = rest
@@ -239,7 +237,7 @@ def read_cc_settings(path: Path = CC_SETTINGS_PATH) -> dict[str, Any]:
     try:
         with path.open(encoding="utf-8") as fh:
             return json.load(fh)
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return {}
 
 
@@ -250,7 +248,7 @@ def read_gemini_settings(path: Path = GEMINI_SETTINGS_PATH) -> dict[str, Any]:
     try:
         with path.open(encoding="utf-8") as fh:
             return json.load(fh)
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return {}
 
 

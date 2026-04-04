@@ -7,6 +7,7 @@ resuming from the last aio_wait_for checkpoint.
 Includes cron-triggered tasks for auto-requeue and health monitoring.
 Compare with temporal-golem/ for head-to-head eval.
 """
+
 from __future__ import annotations
 
 import sys
@@ -22,8 +23,6 @@ if "--help" in sys.argv or "-h" in sys.argv:
 import asyncio
 import os
 import random
-import re
-import secrets
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -79,14 +78,20 @@ def _run_golem(input, context, provider: str) -> dict:
         max_turns = 50
 
     cmd = [
-        "bash", str(GOLEM_SCRIPT),
-        "--provider", provider,
-        "--max-turns", str(max_turns),
+        "bash",
+        str(GOLEM_SCRIPT),
+        "--provider",
+        provider,
+        "--max-turns",
+        str(max_turns),
         task,
     ]
 
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=1800,
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=1800,
         env={**os.environ, "GOLEM_PROVIDER": provider},
     )
 
@@ -138,9 +143,12 @@ async def golem_zhipu(input, context):
 
     # Run subprocess in a thread to avoid blocking the event loop
     cmd = [
-        "bash", str(GOLEM_SCRIPT),
-        "--provider", "zhipu",
-        "--max-turns", str(max_turns),
+        "bash",
+        str(GOLEM_SCRIPT),
+        "--provider",
+        "zhipu",
+        "--max-turns",
+        str(max_turns),
         task,
     ]
     proc = await asyncio.to_thread(
@@ -234,8 +242,9 @@ def _count_pending(queue_file: Path = QUEUE_FILE) -> int:
         return 0
     text = queue_file.read_text()
     return sum(
-        1 for line in text.splitlines()
-        if line.strip().startswith(("- [ ] ", "- [!!] ")) and '`' in line
+        1
+        for line in text.splitlines()
+        if line.strip().startswith(("- [ ] ", "- [!!] ")) and "`" in line
     )
 
 
@@ -332,7 +341,9 @@ def golem_health(input, context):
     try:
         proc = subprocess.run(
             ["python3", str(GEMMULE_HEALTH_SCRIPT), "--daemon"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         output = proc.stdout.strip()
         return {
@@ -351,9 +362,13 @@ def main():
     worker = hatchet.worker(
         "golem-worker",
         workflows=[
-            golem_zhipu, golem_infini, golem_volcano,
-            golem_gemini, golem_codex,
-            golem_requeue, golem_health,
+            golem_zhipu,
+            golem_infini,
+            golem_volcano,
+            golem_gemini,
+            golem_codex,
+            golem_requeue,
+            golem_health,
         ],
     )
     print("Hatchet golem worker started")

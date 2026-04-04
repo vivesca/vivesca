@@ -1,4 +1,3 @@
-
 """browser_stealth — make Playwright browser contexts undetectable.
 
 Provides four public functions:
@@ -7,7 +6,6 @@ Provides four public functions:
   - human_delay: random pause between actions (simulates human cadence)
   - stealth_context: create a Playwright context with all patches applied
 """
-
 
 import asyncio
 import random

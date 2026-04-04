@@ -45,7 +45,7 @@ Emoji priority: 🌀 typhoon → 🌧️ rain warning/heavy rain → ⛈️ thun
 
 Fetches three HKO opendata endpoints fresh every run (no `/tmp` caching):
 - `rhrread` — current temperature, humidity, rainfall, UV
-- `fnd` — 9-day forecast (matched to today by `forecastDate`, not blindly `[0]`)
+- `find` — 9-day forecast (matched to today by `forecastDate`, not blindly `[0]`)
 - `warnsum` — active warning signals
 
 Temperature station: Shau Kei Wan → Hong Kong Observatory fallback.

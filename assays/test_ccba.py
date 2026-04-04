@@ -6,7 +6,6 @@ All external calls and file I/O are mocked for isolation.
 """
 
 
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -428,7 +427,7 @@ STORE HK HKD 500.00 Sep 15,2025 Sep 15,2025"""
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
 
-        meta, txns = extract_ccba(Path("/fake/path.pdf"))
+        _meta, txns = extract_ccba(Path("/fake/path.pdf"))
 
         assert len(txns) == 2
         # Note: "HK" suffix is removed as country code by _clean_merchant
@@ -459,7 +458,7 @@ STORE HK HKD 500.00 Sep 15,2025 Sep 15,2025
         mock_pdf_reader.return_value = mock_reader
 
         # Should not raise
-        meta, txns = extract_ccba(Path("/fake/path.pdf"))
+        _meta, txns = extract_ccba(Path("/fake/path.pdf"))
         assert len(txns) == 1
 
     @patch("metabolon.respirometry.parsers.ccba.PdfReader")
@@ -485,7 +484,7 @@ STORE2 HK HKD 100.01 Sep 16,2025 Sep 16,2025
         mock_pdf_reader.return_value = mock_reader
 
         # Should not raise - within 0.02 tolerance
-        meta, txns = extract_ccba(Path("/fake/path.pdf"))
+        _meta, _txns = extract_ccba(Path("/fake/path.pdf"))
 
 
 class TestEdgeCases:

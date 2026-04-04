@@ -34,7 +34,7 @@ NOW = datetime.now(UTC)
 SEVEN_DAYS_AGO_ISO = (NOW - timedelta(days=7)).strftime("%Y-%m-%d")
 
 CLI_TOOLS = [
-    "noesis", "exauro", "defuddle", "grok", "lustro", "qianli",
+    "noesis", "exauro", "defuddle", "grok", "endocytosis", "qianli",
     "pinocytosis", "bird", "auceps", "keryx", "agent-browser",
     "rodney", "comes", "amicus", "fasti", "salus",
 ]

@@ -1,4 +1,3 @@
-
 """telegram_receptor — Read Telegram messages via user client API.
 
 Actions: read|search|list_chats|auth_status

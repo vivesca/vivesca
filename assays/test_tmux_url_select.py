@@ -10,8 +10,6 @@ import subprocess
 import textwrap
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "tmux-url-select.sh"
 BUFFER_FILE = Path("/tmp/tmux-url-buffer")
 
@@ -19,6 +17,7 @@ BUFFER_FILE = Path("/tmp/tmux-url-buffer")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(
     args: list[str] | None = None,
@@ -70,6 +69,7 @@ def _write_buffer(urls: str, tmp_path: Path) -> Path:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestHelp:
     """--help and -h flags."""
 
@@ -90,7 +90,7 @@ class TestNoURLsFound:
 
     def test_missing_buffer_file(self, tmp_path: Path, monkeypatch):
         """Missing buffer file → prints message, exits 0."""
-        buf = tmp_path / "nonexistent"
+        tmp_path / "nonexistent"
         env = _env_with_mocked_path(tmp_path, {})
         # Patch the buffer path by rewriting the script's grep target.
         # Instead, write to /tmp/tmux-url-buffer pointing nowhere:
@@ -140,15 +140,19 @@ class TestURLSelection:
             mock_tmux = textwrap.dedent(f"""\
                 echo "$@" > {display_msg_file}
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0
             # Should contain OSC 52 escape sequence with base64-encoded URL
             import base64
+
             expected_b64 = base64.b64encode(url.encode()).decode()
             assert f"\033]52;c;{expected_b64}\a" in r.stdout
             # tmux display-message should have been called
@@ -161,9 +165,7 @@ class TestURLSelection:
 
     def test_multiple_urls_deduplicated(self, tmp_path: Path):
         """Duplicate URLs in buffer are deduplicated before fzf."""
-        BUFFER_FILE.write_text(
-            "See https://example.com and also https://example.com again\n"
-        )
+        BUFFER_FILE.write_text("See https://example.com and also https://example.com again\n")
         try:
             # Capture what fzf receives on stdin by writing it to a file
             fzf_input_file = tmp_path / "fzf_input"
@@ -175,10 +177,13 @@ class TestURLSelection:
             mock_tmux = textwrap.dedent("""\
                 true
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0
@@ -202,10 +207,13 @@ class TestURLSelection:
             mock_tmux = textwrap.dedent("""\
                 echo "SHOULD NOT BE CALLED" > /tmp/test_tmux_fail
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0
@@ -226,14 +234,18 @@ class TestURLSelection:
             mock_tmux = textwrap.dedent(f"""\
                 echo "$*" > {display_file}
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0
             import base64
+
             expected_b64 = base64.b64encode(url.encode()).decode()
             assert f"\033]52;c;{expected_b64}\a" in r.stdout
         finally:
@@ -250,14 +262,18 @@ class TestURLSelection:
             mock_tmux = textwrap.dedent("""\
                 true
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0
             import base64
+
             expected_b64 = base64.b64encode(url.encode()).decode()
             assert f"\033]52;c;{expected_b64}\a" in r.stdout
         finally:
@@ -279,10 +295,13 @@ class TestURLExtraction:
             mock_tmux = textwrap.dedent("""\
                 true
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0
@@ -311,10 +330,13 @@ class TestURLExtraction:
             mock_tmux = textwrap.dedent("""\
                 true
             """)
-            env = _env_with_mocked_path(tmp_path, {
-                "fzf": mock_fzf,
-                "tmux": mock_tmux,
-            })
+            env = _env_with_mocked_path(
+                tmp_path,
+                {
+                    "fzf": mock_fzf,
+                    "tmux": mock_tmux,
+                },
+            )
 
             r = _run(env_extra=env)
             assert r.returncode == 0

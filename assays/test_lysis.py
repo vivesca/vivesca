@@ -33,7 +33,7 @@ class TestLysisScrape:
 
         mock_run_cli.return_value = "Error: No URL provided"
 
-        result = lysis(action="scrape", url="")
+        lysis(action="scrape", url="")
 
         mock_run_cli.assert_called_once()
 
@@ -85,7 +85,7 @@ class TestLysisSearch:
 
         mock_run_cli.return_value = "No results"
 
-        result = lysis(action="search", query="")
+        lysis(action="search", query="")
 
         mock_run_cli.assert_called_once()
         args = mock_run_cli.call_args
@@ -138,8 +138,9 @@ class TestLysisBinary:
 
     def test_binary_path_uses_home(self):
         """Test binary path uses home directory."""
-        from metabolon.enzymes.lysis import BINARY
         from pathlib import Path
+
+        from metabolon.enzymes.lysis import BINARY
 
         assert str(Path.home()) in BINARY
         assert "germline" in BINARY

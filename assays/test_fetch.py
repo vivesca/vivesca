@@ -1,9 +1,8 @@
 """Tests for metabolon.lysin.fetch – edge cases and uncovered paths."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from metabolon.lysin.fetch import (
     BioArticle,
@@ -13,10 +12,8 @@ from metabolon.lysin.fetch import (
     _looks_like_gene,
     _strip_html,
     _strip_pubmed_refs,
-    fetch_sections,
     fetch_summary,
 )
-
 
 # ── _strip_html edge cases ─────────────────────────────────────────────
 
@@ -79,16 +76,18 @@ def test_fetch_uniprot_extracts_subunit():
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "results": [{
-            "primaryAccession": "P99999",
-            "proteinDescription": {
-                "recommendedName": {"fullName": {"value": "Subunit Protein"}}
-            },
-            "comments": [
-                {"commentType": "FUNCTION", "texts": [{"value": "Test function."}]},
-                {"commentType": "SUBUNIT", "texts": [{"value": "Forms a heterodimer."}]},
-            ],
-        }]
+        "results": [
+            {
+                "primaryAccession": "P99999",
+                "proteinDescription": {
+                    "recommendedName": {"fullName": {"value": "Subunit Protein"}}
+                },
+                "comments": [
+                    {"commentType": "FUNCTION", "texts": [{"value": "Test function."}]},
+                    {"commentType": "SUBUNIT", "texts": [{"value": "Forms a heterodimer."}]},
+                ],
+            }
+        ]
     }
 
     with patch("httpx.Client") as MockClient:
@@ -107,13 +106,13 @@ def test_fetch_uniprot_skips_empty_comments():
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "results": [{
-            "primaryAccession": "P00000",
-            "proteinDescription": {
-                "recommendedName": {"fullName": {"value": "Bare Protein"}}
-            },
-            "comments": [{"commentType": "OTHER", "texts": [{"value": "Ignored."}]}],
-        }]
+        "results": [
+            {
+                "primaryAccession": "P00000",
+                "proteinDescription": {"recommendedName": {"fullName": {"value": "Bare Protein"}}},
+                "comments": [{"commentType": "OTHER", "texts": [{"value": "Ignored."}]}],
+            }
+        ]
     }
 
     with patch("httpx.Client") as MockClient:
@@ -130,7 +129,7 @@ def test_fetch_reactome_strips_html_from_name():
     mock_search = MagicMock()
     mock_search.status_code = 200
     mock_search.json.return_value = {
-        "results": [{"entries": [{"stId": "R-HSA-1", "name": "<b>Apoptosis</b> pathway"}]}]
+        "results": [{"entries": [{"stId": "R-HAS-1", "name": "<b>Apoptosis</b> pathway"}]}]
     }
 
     mock_detail = MagicMock()
@@ -189,7 +188,7 @@ def test_fetch_summary_non_gene_skips_uniprot():
     mock_reactome = MagicMock()
     mock_reactome.status_code = 200
     mock_reactome.json.return_value = {
-        "results": [{"entries": [{"stId": "R-HSA-42", "name": "Apoptosis pathway"}]}]
+        "results": [{"entries": [{"stId": "R-HAS-42", "name": "Apoptosis pathway"}]}]
     }
 
     mock_detail = MagicMock()

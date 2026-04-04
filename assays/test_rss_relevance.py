@@ -3,23 +3,22 @@ from __future__ import annotations
 """Tests for relevance.py"""
 
 
+import json
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import tempfile
-import json
 
 import pytest
 
 from metabolon.organelles.endocytosis_rss.relevance import (
-    _normalize_score_payload,
     _keyword_score,
+    _normalize_score_payload,
     _read_jsonl,
+    affinity_stats,
     receptor_signal_ratio,
     record_affinity,
     record_recycling,
     top_cargo,
-    affinity_stats,
-    BATCH_SIZE,
 )
 
 
@@ -82,7 +81,7 @@ class TestReadJsonl:
 
     def test_reads_valid_jsonl(self):
         """Reads valid JSONL with one dict per line"""
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             f.write(json.dumps({"a": 1}) + "\n")
             f.write(json.dumps({"b": 2}) + "\n")
             f.write("\n")  # empty line skipped
@@ -104,7 +103,7 @@ class TestReadJsonl:
 
     def test_skips_bad_json_lines(self):
         """Skips invalid JSON lines"""
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             f.write(json.dumps({"a": 1}) + "\n")
             f.write("not valid json\n")
             f.write(json.dumps({"c": 3}) + "\n")
@@ -125,6 +124,7 @@ class TestRecordAffinity:
             path = Path(tmpdir) / "affinity.jsonl"
             # Monkeypatch the global AFFINITY_LOG for this test
             from metabolon.organelles.endocytosis_rss import relevance
+
             original = relevance.AFFINITY_LOG
             try:
                 relevance.AFFINITY_LOG = path
@@ -144,6 +144,7 @@ class TestRecordAffinity:
             finally:
                 relevance.AFFINITY_LOG = original
 
+
 class TestRecordRecycling:
     """Tests for recycling (engagement) logging"""
 
@@ -152,6 +153,7 @@ class TestRecordRecycling:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "recycling.jsonl"
             from metabolon.organelles.endocytosis_rss import relevance
+
             original = relevance.RECYCLING_LOG
             try:
                 relevance.RECYCLING_LOG = path
@@ -171,14 +173,20 @@ class TestReceptorSignalRatio:
 
     def test_returns_1_when_fewer_than_five_items(self):
         """<5 items → return 1.0 (no downregulation)"""
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             for i in range(3):
-                f.write(json.dumps({
-                    "source": "TestSource",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "score": 6 + i,
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "source": "TestSource",
+                            "timestamp": datetime.now(UTC).isoformat(),
+                            "score": 6 + i,
+                        }
+                    )
+                    + "\n"
+                )
         from metabolon.organelles.endocytosis_rss import relevance
+
         path = Path(f.name)
         original = relevance.AFFINITY_LOG
         try:
@@ -192,21 +200,27 @@ class TestReceptorSignalRatio:
     def test_calculates_correct_ratio(self):
         """Correctly computes fraction of items >=5"""
         now = datetime.now(UTC)
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             scores = [8, 7, 5, 2, 6]  # 4/5 >=5
             for score in scores:
-                f.write(json.dumps({
-                    "source": "TestSource",
-                    "timestamp": now.isoformat(),
-                    "score": score,
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "source": "TestSource",
+                            "timestamp": now.isoformat(),
+                            "score": score,
+                        }
+                    )
+                    + "\n"
+                )
         from metabolon.organelles.endocytosis_rss import relevance
+
         path = Path(f.name)
         original = relevance.AFFINITY_LOG
         try:
             relevance.AFFINITY_LOG = path
             ratio = receptor_signal_ratio("TestSource", window_days=30)
-            assert abs(ratio - 4/5) < 0.0001
+            assert abs(ratio - 4 / 5) < 0.0001
         finally:
             relevance.AFFINITY_LOG = original
             path.unlink()
@@ -217,9 +231,10 @@ class TestAffinityStats:
 
     def test_returns_insufficient_when_empty(self):
         """Empty data → insufficient status"""
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             pass  # empty
         from metabolon.organelles.endocytosis_rss import relevance
+
         affinity_path = Path(f.name)
         recycling_path = Path(f.name + ".recycling")
         recycling_path.write_text("", encoding="utf-8")
@@ -243,7 +258,7 @@ class TestTopCargo:
     def test_returns_highest_scored_recent(self):
         """Returns highest-scored recent items sorted descending"""
         now = datetime.now(UTC)
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             # Three items: one old (filtered out), two recent
             old_date = (now - timedelta(days=14)).isoformat()
             recent_date1 = (now - timedelta(days=1)).isoformat()
@@ -252,6 +267,7 @@ class TestTopCargo:
             f.write(json.dumps({"timestamp": recent_date1, "score": "5", "title": "Mid"}) + "\n")
             f.write(json.dumps({"timestamp": recent_date2, "score": "9", "title": "High"}) + "\n")
         from metabolon.organelles.endocytosis_rss import relevance
+
         path = Path(f.name)
         original = relevance.AFFINITY_LOG
         try:

@@ -10,7 +10,6 @@ Run manually or via /monthly.
 
 import argparse
 import os
-import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -39,7 +38,7 @@ def extract_description(path: Path, max_len: int = 120) -> str:
                 if stripped.startswith("module:") or stripped.startswith("category:"):
                     continue
                 return stripped[:max_len]
-    except (UnicodeDecodeError, PermissionError):
+    except UnicodeDecodeError, PermissionError:
         pass
     return ""
 
@@ -71,11 +70,13 @@ def generate_index() -> str:
     ]
 
     # Sort categories: 'general' first, then alphabetical
-    sorted_cats = sorted(categories.keys(), key=lambda c: ("" if c == "general" else c))
+    sorted_cats = sorted(categories.keys(), key=lambda c: "" if c == "general" else c)
 
     for cat in sorted_cats:
         entries = sorted(categories[cat], key=lambda x: x[2], reverse=True)
-        display = cat.replace("-", " ").replace("/", " / ").title() if cat != "general" else "General"
+        display = (
+            cat.replace("-", " ").replace("/", " / ").title() if cat != "general" else "General"
+        )
         lines.append(f"## {display} ({len(entries)})")
         lines.append("")
         for rel, desc, _mtime, date_str in entries:
@@ -91,7 +92,9 @@ def generate_index() -> str:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate index for solutions KB")
-    parser.add_argument("--dry-run", action="store_true", help="Print to stdout instead of writing to file")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print to stdout instead of writing to file"
+    )
     args = parser.parse_args()
 
     content = generate_index()

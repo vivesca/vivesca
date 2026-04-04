@@ -6,21 +6,18 @@ import json
 import sys
 from unittest.mock import patch
 
-import pytest
-
 from metabolon.pinocytosis.interphase import (
-    SECTION_ORDER,
     _SCRIPT_GATHERERS,
+    SECTION_ORDER,
     intake,
+    intake_email_threads,
     intake_emails,
     intake_emails_archived,
-    intake_email_threads,
     intake_prospective,
     intake_reminders,
     intake_whatsapp,
     main,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -252,18 +249,31 @@ class TestSectionOrder:
 
     def test_section_order_has_standard_keys(self):
         expected = [
-            "datetime", "emails", "emails_archived", "whatsapp",
-            "calendar_today", "calendar_tomorrow", "todo", "now",
-            "budget", "reminders", "email_threads", "prospective",
+            "datetime",
+            "emails",
+            "emails_archived",
+            "whatsapp",
+            "calendar_today",
+            "calendar_tomorrow",
+            "todo",
+            "now",
+            "budget",
+            "reminders",
+            "email_threads",
+            "prospective",
         ]
-        assert SECTION_ORDER == expected
+        assert expected == SECTION_ORDER
 
 
 class TestScriptGatherers:
     def test_all_six_gatherers_registered(self):
         assert set(_SCRIPT_GATHERERS.keys()) == {
-            "emails", "emails_archived", "whatsapp",
-            "reminders", "email_threads", "prospective",
+            "emails",
+            "emails_archived",
+            "whatsapp",
+            "reminders",
+            "email_threads",
+            "prospective",
         }
 
 

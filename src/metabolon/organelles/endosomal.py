@@ -1,4 +1,3 @@
-
 """endosomal — email classification and triage logic.
 
 Biology: endosomes mature through stages — early (triage), late
@@ -9,7 +8,6 @@ This organelle contains the pure business logic for email classification:
 deterministic keyword matching (glycolysis) and pipeline orchestration.
 No MCP tool wrappers — those live in the enzyme.
 """
-
 
 # Endosomal maturation stages: early → late → recycling
 STAGES = ("triage", "process", "route")

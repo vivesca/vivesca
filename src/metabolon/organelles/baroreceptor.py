@@ -1,4 +1,3 @@
-
 """baroreceptor — HK Observatory environmental sensor (baroreceptor = pressure sensor)."""
 
 import json
@@ -7,7 +6,7 @@ import urllib.request
 from datetime import datetime
 
 NOW_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en"
-FND_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=en"
+FIND_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=en"
 WARN_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en"
 
 WARN_ICONS = {
@@ -54,7 +53,7 @@ def _format_rain(mm: float) -> str:
     return str(int(mm)) if mm == int(mm) else str(mm)
 
 
-def build_weather_line(now: dict, fnd: dict, warn: dict) -> str:
+def build_weather_line(now: dict, find: dict, warn: dict) -> str:
     # humidity — first entry
     humidity = None
     hum_data = now.get("humidity", {}).get("data", [])
@@ -69,7 +68,7 @@ def build_weather_line(now: dict, fnd: dict, warn: dict) -> str:
 
     # today's forecast
     today_str = datetime.now().strftime("%Y%m%d")
-    forecasts = fnd.get("weatherForecast", [])
+    forecasts = find.get("weatherForecast", [])
     if not forecasts:
         raise ValueError("missing weatherForecast data")
 
@@ -151,9 +150,9 @@ def sense() -> str:
     """Fetch current HK weather and return a one-line summary."""
 
     now = _fetch_json(NOW_URL)
-    fnd = _fetch_json(FND_URL)
+    find = _fetch_json(FIND_URL)
     warn = _fetch_json(WARN_URL)
-    return build_weather_line(now, fnd, warn)
+    return build_weather_line(now, find, warn)
 
 
 def _cli() -> None:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 """Tests for compaction hook."""
 
-import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -11,7 +10,6 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "synaptic"))
 import compaction
-
 
 # ── mod_auto_flush ───────────────────────────────────────────
 

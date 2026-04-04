@@ -6,14 +6,12 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import metabolon.organelles.angiogenesis as angiogenesis
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_infection_line(tool: str, ts: str, healed: bool = False) -> str:
     return json.dumps({"tool": tool, "ts": ts, "healed": healed})
@@ -29,6 +27,7 @@ def _write_infection_log(tmp_path: Path, lines: list[str]) -> None:
 # ---------------------------------------------------------------------------
 # detect_hypoxia
 # ---------------------------------------------------------------------------
+
 
 class TestDetectHypoxia:
     """Tests for angiogenesis.detect_hypoxia()."""
@@ -160,6 +159,7 @@ class TestDetectHypoxia:
 # propose_vessel
 # ---------------------------------------------------------------------------
 
+
 class TestProposeVessel:
     """Tests for angiogenesis.propose_vessel()."""
 
@@ -206,12 +206,14 @@ class TestProposeVessel:
         proposal = angiogenesis.propose_vessel("x", "y")
         # Should parse without error
         from datetime import datetime
+
         datetime.fromisoformat(proposal["ts"])
 
 
 # ---------------------------------------------------------------------------
 # vessel_registry
 # ---------------------------------------------------------------------------
+
 
 class TestVesselRegistry:
     """Tests for angiogenesis.vessel_registry()."""
@@ -224,10 +226,12 @@ class TestVesselRegistry:
     @patch.object(angiogenesis, "VESSEL_REGISTRY")
     def test_valid_json_returns_list(self, mock_path):
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps([
-            {"source": "a", "target": "b"},
-            {"source": "c", "target": "d"},
-        ])
+        mock_path.read_text.return_value = json.dumps(
+            [
+                {"source": "a", "target": "b"},
+                {"source": "c", "target": "d"},
+            ]
+        )
         result = angiogenesis.vessel_registry()
         assert len(result) == 2
         assert result[0]["source"] == "a"

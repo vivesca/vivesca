@@ -1,4 +1,3 @@
-
 """glycolysis_rate — symbiont dependency ratio tracker.
 
 Glycolysis = energy extracted without the symbiont (pure deterministic code).
@@ -8,7 +7,6 @@ Registry-based v1: capabilities are classified here and updated as the
 organism evolves. The methylation cycle can update classifications when
 a capability crystallises from LLM to deterministic.
 """
-
 
 import datetime
 import json

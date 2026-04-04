@@ -1,4 +1,3 @@
-
 """Ultradian gather — situational snapshot (situational snapshot).
 
 Sub-circadian rhythm: what's actionable right now?

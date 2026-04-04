@@ -1,10 +1,11 @@
 """Tests for mitosis action-dispatch consolidation."""
-from unittest.mock import patch, MagicMock
-import pytest
+
+from unittest.mock import MagicMock, patch
 
 
 def test_mitosis_actions_unknown_action():
-    from metabolon.enzymes.mitosis import mitosis, EffectorResult
+    from metabolon.enzymes.mitosis import EffectorResult, mitosis
+
     result = mitosis(action="nonexistent")
     assert isinstance(result, EffectorResult)
     assert not result.success
@@ -13,7 +14,8 @@ def test_mitosis_actions_unknown_action():
 
 @patch("metabolon.organelles.mitosis.sync")
 def test_sync_action(mock_sync):
-    from metabolon.enzymes.mitosis import mitosis, EffectorResult
+    from metabolon.enzymes.mitosis import EffectorResult, mitosis
+
     mock_report = MagicMock()
     mock_report.ok = True
     mock_report.summary = "synced all targets"
@@ -32,7 +34,8 @@ def test_sync_action(mock_sync):
 
 @patch("metabolon.organelles.mitosis.status")
 def test_mitosis_actions_status_action(mock_status):
-    from metabolon.enzymes.mitosis import mitosis, Vital
+    from metabolon.enzymes.mitosis import Vital, mitosis
+
     mock_status.return_value = {"reachable": True, "machine_state": "running", "targets": {}}
     result = mitosis(action="status")
     assert isinstance(result, Vital)

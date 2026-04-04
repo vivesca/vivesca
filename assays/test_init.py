@@ -1,16 +1,18 @@
 """Tests for metabolon.gastrulation.init."""
+
 from __future__ import annotations
+
+from pathlib import Path
 
 import click
 import pytest
-from pathlib import Path
 
 from metabolon.gastrulation.init import _to_module, scaffold_project
-
 
 # ---------------------------------------------------------------------------
 # _to_module
 # ---------------------------------------------------------------------------
+
 
 class TestToModule:
     def test_hyphens_to_underscores(self):
@@ -29,6 +31,7 @@ class TestToModule:
 # ---------------------------------------------------------------------------
 # scaffold_project
 # ---------------------------------------------------------------------------
+
 
 class TestScaffoldProject:
     def test_creates_directory_tree(self, tmp_path: Path):
@@ -65,7 +68,7 @@ class TestScaffoldProject:
         target = tmp_path / "demo-app"
         scaffold_project("demo-app", target, "Demo description")
         content = (target / "src" / "demo_app" / "__init__.py").read_text()
-        assert 'demo-app' in content
+        assert "demo-app" in content
         assert "Demo description" in content
         assert '__version__ = "0.1.0"' in content
 

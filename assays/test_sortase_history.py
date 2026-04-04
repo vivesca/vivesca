@@ -62,6 +62,7 @@ def log_file(tmp_path: Path):
 # 1. _format_timestamp parses ISO or returns raw string
 # ---------------------------------------------------------------------------
 
+
 class TestFormatTimestamp:
     def test_valid_iso(self):
         result = _format_timestamp("2026-03-30T14:00:00")
@@ -78,6 +79,7 @@ class TestFormatTimestamp:
 # 2. _format_duration handles seconds, minutes, and None
 # ---------------------------------------------------------------------------
 
+
 class TestFormatDuration:
     def test_seconds_only(self):
         assert _format_duration(45.2) == "45.2s"
@@ -93,6 +95,7 @@ class TestFormatDuration:
 # 3. _format_files_changed handles int, list, and fallback
 # ---------------------------------------------------------------------------
 
+
 class TestFormatFilesChanged:
     def test_integer(self):
         assert _format_files_changed(3) == "3"
@@ -107,6 +110,7 @@ class TestFormatFilesChanged:
 # ---------------------------------------------------------------------------
 # 4. build_history_table respects limit and column count
 # ---------------------------------------------------------------------------
+
 
 class TestBuildHistoryTable:
     def test_limits_rows(self):
@@ -126,6 +130,7 @@ class TestBuildHistoryTable:
 # 5. display_history reads logs and prints (integration)
 # ---------------------------------------------------------------------------
 
+
 class TestDisplayHistory:
     def test_prints_table(self, log_file, capsys):
         with patch("metabolon.sortase.history.read_logs", return_value=SAMPLE_ENTRIES):
@@ -143,6 +148,7 @@ class TestDisplayHistory:
 # ---------------------------------------------------------------------------
 # 6. build_history_entries returns raw dicts
 # ---------------------------------------------------------------------------
+
 
 class TestBuildHistoryEntries:
     def test_returns_list_of_dicts(self):
@@ -180,9 +186,11 @@ class TestBuildHistoryEntries:
 # 7. CLI history --json-output flag
 # ---------------------------------------------------------------------------
 
+
 class TestHistoryJsonFlag:
     def test_history_json_flag(self):
         from click.testing import CliRunner
+
         from metabolon.sortase.cli import main
 
         runner = CliRunner()
@@ -196,6 +204,7 @@ class TestHistoryJsonFlag:
 
     def test_history_json_empty(self):
         from click.testing import CliRunner
+
         from metabolon.sortase.cli import main
 
         runner = CliRunner()
@@ -208,6 +217,7 @@ class TestHistoryJsonFlag:
     def test_history_default_unchanged(self):
         """Non-JSON output still renders a rich table."""
         from click.testing import CliRunner
+
         from metabolon.sortase.cli import main
 
         runner = CliRunner()
@@ -221,6 +231,7 @@ class TestHistoryJsonFlag:
 # ---------------------------------------------------------------------------
 # Module parses cleanly
 # ---------------------------------------------------------------------------
+
 
 def test_module_parses():
     source = Path(__file__).resolve().parent.parent / "metabolon" / "sortase" / "history.py"

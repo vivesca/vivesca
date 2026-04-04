@@ -8,8 +8,6 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 
 def test_read_if_fresh_missing_file():
     """_read_if_fresh returns None for nonexistent file."""
@@ -53,9 +51,9 @@ def test_read_now_md_missing():
 
 def test_pinocytosis_actions_hkt_now_returns_datetime():
     """_hkt_now returns timezone-aware datetime in HKT."""
-    from metabolon.enzymes.pinocytosis import _hkt_now
-
     from datetime import datetime, timedelta
+
+    from metabolon.enzymes.pinocytosis import _hkt_now
 
     result = _hkt_now()
     assert isinstance(result, datetime)

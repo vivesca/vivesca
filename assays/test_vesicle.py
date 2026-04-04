@@ -9,8 +9,7 @@ loaded via the vesicle path. Uses exec() — never imports.
 
 
 import re
-import sys
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -30,6 +29,7 @@ exec(_vesicle_code, ves)
 # Verify it's the same as publish
 # ---------------------------------------------------------------------------
 
+
 class TestVesicleIsPublish:
     def test_vesicle_file_exists(self):
         assert VESICLE_PATH.is_file()
@@ -39,9 +39,20 @@ class TestVesicleIsPublish:
         publish_path = VESICLE_PATH.parent / "publish"
         pub2 = {}
         exec(publish_path.read_text(), pub2)
-        expected_fns = ["cmd_new", "cmd_list", "cmd_publish", "cmd_revise",
-                        "cmd_open", "cmd_index", "cmd_push", "main",
-                        "to_slug", "parse_frontmatter", "scan_content", "now_iso"]
+        expected_fns = [
+            "cmd_new",
+            "cmd_list",
+            "cmd_publish",
+            "cmd_revise",
+            "cmd_open",
+            "cmd_index",
+            "cmd_push",
+            "main",
+            "to_slug",
+            "parse_frontmatter",
+            "scan_content",
+            "now_iso",
+        ]
         for fn in expected_fns:
             assert fn in ves, f"{fn} missing from vesicle"
             assert fn in pub2, f"{fn} missing from publish"
@@ -50,6 +61,7 @@ class TestVesicleIsPublish:
 # ---------------------------------------------------------------------------
 # Pure function tests
 # ---------------------------------------------------------------------------
+
 
 class TestNowIso:
     def test_format(self):
@@ -63,16 +75,19 @@ class TestNowIso:
 
 
 class TestToSlug:
-    @pytest.mark.parametrize("title,expected", [
-        ("Hello World", "hello-world"),
-        ("A & B * C", "a-b-c"),
-        ("  spaces  ", "spaces"),
-        ("UPPER CASE", "upper-case"),
-        ("a-b_c d", "a-b-c-d"),
-        ("post #42!", "post-42"),
-        ("", ""),
-        ("Under_Score", "under-score"),
-    ])
+    @pytest.mark.parametrize(
+        "title,expected",
+        [
+            ("Hello World", "hello-world"),
+            ("A & B * C", "a-b-c"),
+            ("  spaces  ", "spaces"),
+            ("UPPER CASE", "upper-case"),
+            ("a-b_c d", "a-b-c-d"),
+            ("post #42!", "post-42"),
+            ("", ""),
+            ("Under_Score", "under-score"),
+        ],
+    )
     def test_slug_conversion(self, title, expected):
         assert ves["to_slug"](title) == expected
 
@@ -99,7 +114,7 @@ class TestParseFrontmatter:
     def test_body_offset_points_past_frontmatter(self):
         content = "---\ntitle: T\n---\n\nActual body."
         fm = ves["parse_frontmatter"](content)
-        assert content[fm["_body_offset"]:] == "\nActual body."
+        assert content[fm["_body_offset"] :] == "\nActual body."
 
 
 class TestScanContent:
@@ -132,6 +147,7 @@ class TestScanContent:
 # ---------------------------------------------------------------------------
 # cmd_new
 # ---------------------------------------------------------------------------
+
 
 class TestCmdNew:
     def test_creates_draft_file(self, tmp_path, capsys):
@@ -173,6 +189,7 @@ class TestCmdNew:
 # cmd_list
 # ---------------------------------------------------------------------------
 
+
 class TestCmdList:
     def test_no_vault(self, capsys):
         orig = ves["VAULT_DIR"]
@@ -207,6 +224,7 @@ class TestCmdList:
 # ---------------------------------------------------------------------------
 # cmd_publish
 # ---------------------------------------------------------------------------
+
 
 class TestCmdPublish:
     def test_flips_draft_flag(self, tmp_path, capsys):
@@ -264,6 +282,7 @@ class TestCmdPublish:
 # cmd_revise
 # ---------------------------------------------------------------------------
 
+
 class TestCmdRevise:
     def test_adds_note_and_modtime(self, tmp_path):
         vault = tmp_path / "pub"
@@ -299,6 +318,7 @@ class TestCmdRevise:
 # cmd_open
 # ---------------------------------------------------------------------------
 
+
 class TestCmdOpen:
     def test_missing_file(self, tmp_path, capsys):
         vault = tmp_path / "pub"
@@ -332,6 +352,7 @@ class TestCmdOpen:
 # ---------------------------------------------------------------------------
 # cmd_index
 # ---------------------------------------------------------------------------
+
 
 class TestCmdIndex:
     def test_generates_markdown_index(self, tmp_path, capsys):
@@ -383,6 +404,7 @@ class TestCmdIndex:
 # cmd_push
 # ---------------------------------------------------------------------------
 
+
 class TestCmdPush:
     def test_no_sync_script(self, tmp_path, capsys):
         orig = ves["SYNC_SCRIPT"]
@@ -427,6 +449,7 @@ class TestCmdPush:
 # ---------------------------------------------------------------------------
 # Integration: main() via CLI
 # ---------------------------------------------------------------------------
+
 
 class TestMain:
     def test_missing_command_exits(self):

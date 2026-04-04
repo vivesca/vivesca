@@ -55,7 +55,7 @@ def test_env_suppresses_label_warning():
 def test_oci_calls_subprocess_with_args(mock_run):
     """oci() passes arguments to subprocess.run correctly."""
     mock_run.return_value = subprocess.CompletedProcess([], 0, "out", "")
-    rc, out, err = oci("iam", "region-subscription", "list", "--tenancy-id", "x")
+    _rc, _out, _err = oci("iam", "region-subscription", "list", "--tenancy-id", "x")
     mock_run.assert_called_once()
     args = mock_run.call_args
     assert args[0][0] == ["oci", "iam", "region-subscription", "list", "--tenancy-id", "x"]
@@ -79,11 +79,21 @@ def test_oci_returns_exit_code_and_output(mock_run):
 
 def test_get_subscribed_regions_parses_data():
     """get_subscribed_regions extracts region-key from JSON data."""
-    mock_oci = MagicMock(return_value=(0, json.dumps({"data": [
-        {"region-key": "PHX"},
-        {"region-key": "IAD"},
-        {"region-key": "KIX"},
-    ]}), ""))
+    mock_oci = MagicMock(
+        return_value=(
+            0,
+            json.dumps(
+                {
+                    "data": [
+                        {"region-key": "PHX"},
+                        {"region-key": "IAD"},
+                        {"region-key": "KIX"},
+                    ]
+                }
+            ),
+            "",
+        )
+    )
     with patch.dict(_mod, {"oci": mock_oci}):
         assert get_subscribed_regions() == ["PHX", "IAD", "KIX"]
 
@@ -114,9 +124,7 @@ def test_get_subscribed_regions_passes_tenancy():
     mock_oci = MagicMock(return_value=(0, json.dumps({"data": []}), ""))
     with patch.dict(_mod, {"oci": mock_oci}):
         get_subscribed_regions()
-    mock_oci.assert_called_once_with(
-        "iam", "region-subscription", "list", "--tenancy-id", TENANCY
-    )
+    mock_oci.assert_called_once_with("iam", "region-subscription", "list", "--tenancy-id", TENANCY)
 
 
 # ── subscribe_region() ───────────────────────────────────────────────
@@ -165,8 +173,7 @@ def test_subscribe_region_passes_region_key():
     with patch.dict(_mod, {"oci": mock_oci}):
         subscribe_region("SYD")
     mock_oci.assert_called_once_with(
-        "iam", "region-subscription", "create",
-        "--tenancy-id", TENANCY, "--region-key", "SYD"
+        "iam", "region-subscription", "create", "--tenancy-id", TENANCY, "--region-key", "SYD"
     )
 
 
@@ -177,9 +184,7 @@ def test_subscribe_region_passes_region_key():
 def test_notify_calls_deltos(mock_run):
     """notify() calls deltos with the message."""
     notify("hello world")
-    mock_run.assert_called_once_with(
-        ["deltos", "hello world"], capture_output=True, timeout=10
-    )
+    mock_run.assert_called_once_with(["deltos", "hello world"], capture_output=True, timeout=10)
 
 
 @patch("subprocess.run", side_effect=Exception("no deltos"))
@@ -207,23 +212,32 @@ def test_main_all_subscribed(capsys):
 
 def test_main_canary_success_subscribes_rest(capsys):
     """main() subscribes all regions when canary (first needed) succeeds."""
-    mock_get = MagicMock(side_effect=[
-        ["PHX"],                          # first call: only PHX subscribed
-        ["PHX", "KIX", "SYD", "ICN"],    # final call after subscribing
-    ])
-    mock_sub = MagicMock(side_effect=[
-        (True, "OK"),   # KIX canary
-        (True, "OK"),   # SYD
-        (True, "OK"),   # ICN
-    ])
+    mock_get = MagicMock(
+        side_effect=[
+            ["PHX"],  # first call: only PHX subscribed
+            ["PHX", "KIX", "SYD", "ICN"],  # final call after subscribing
+        ]
+    )
+    mock_sub = MagicMock(
+        side_effect=[
+            (True, "OK"),  # KIX canary
+            (True, "OK"),  # SYD
+            (True, "OK"),  # ICN
+        ]
+    )
     mock_notify = MagicMock()
     mock_sleep = MagicMock()
-    with patch.dict(_mod, {
-        "get_subscribed_regions": mock_get,
-        "subscribe_region": mock_sub,
-        "notify": mock_notify,
-        "time": MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00")),
-    }):
+    with patch.dict(
+        _mod,
+        {
+            "get_subscribed_regions": mock_get,
+            "subscribe_region": mock_sub,
+            "notify": mock_notify,
+            "time": MagicMock(
+                sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00")
+            ),
+        },
+    ):
         main()
     captured = capsys.readouterr()
     assert "SUBSCRIBED" in captured.out
@@ -236,24 +250,31 @@ def test_main_canary_success_subscribes_rest(capsys):
 
 def test_main_partial_failure(capsys):
     """main() handles partial subscription failures gracefully."""
-    mock_get = MagicMock(side_effect=[
-        ["PHX"],                         # first call
-        ["PHX", "KIX", "SYD", "ICN"],   # final call
-    ])
-    mock_sub = MagicMock(side_effect=[
-        (True, "OK"),           # KIX canary succeeds
-        (False, "quota error"), # SYD fails
-        (True, "OK"),           # ICN succeeds
-    ])
+    mock_get = MagicMock(
+        side_effect=[
+            ["PHX"],  # first call
+            ["PHX", "KIX", "SYD", "ICN"],  # final call
+        ]
+    )
+    mock_sub = MagicMock(
+        side_effect=[
+            (True, "OK"),  # KIX canary succeeds
+            (False, "quota error"),  # SYD fails
+            (True, "OK"),  # ICN succeeds
+        ]
+    )
     mock_notify = MagicMock()
     mock_sleep = MagicMock()
     mock_time = MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00"))
-    with patch.dict(_mod, {
-        "get_subscribed_regions": mock_get,
-        "subscribe_region": mock_sub,
-        "notify": mock_notify,
-        "time": mock_time,
-    }):
+    with patch.dict(
+        _mod,
+        {
+            "get_subscribed_regions": mock_get,
+            "subscribe_region": mock_sub,
+            "notify": mock_notify,
+            "time": mock_time,
+        },
+    ):
         main()
     captured = capsys.readouterr()
     assert "quota error" in captured.out
@@ -267,11 +288,14 @@ def test_main_payg_not_active_no_loop(capsys):
     """main() exits 1 when PAYG not active without --loop."""
     mock_get = MagicMock(return_value=["PHX"])
     mock_sub = MagicMock(return_value=(False, "PAYG not active yet"))
-    with patch.dict(_mod, {
-        "get_subscribed_regions": mock_get,
-        "subscribe_region": mock_sub,
-        "time": MagicMock(strftime=MagicMock(return_value="2026-01-01 00:00:00")),
-    }):
+    with patch.dict(
+        _mod,
+        {
+            "get_subscribed_regions": mock_get,
+            "subscribe_region": mock_sub,
+            "time": MagicMock(strftime=MagicMock(return_value="2026-01-01 00:00:00")),
+        },
+    ):
         with pytest.raises(SystemExit) as exc_info:
             main()
     assert exc_info.value.code == 1
@@ -305,28 +329,35 @@ def test_main_h_flag(capsys):
 
 def test_main_loop_retries_then_succeeds(capsys):
     """main() --loop retries on PAYG failure, then succeeds."""
-    mock_get = MagicMock(side_effect=[
-        ["PHX"],                         # attempt 1: PAYG not active
-        ["PHX"],                         # attempt 2: PAYG not active
-        ["PHX"],                         # attempt 3: PAYG now active
-        ["PHX", "KIX", "SYD", "ICN"],   # final check
-    ])
-    mock_sub = MagicMock(side_effect=[
-        (False, "PAYG not active yet"),  # attempt 1
-        (False, "PAYG not active yet"),  # attempt 2
-        (True, "OK"),                    # KIX canary attempt 3
-        (True, "OK"),                    # SYD
-        (True, "OK"),                    # ICN
-    ])
+    mock_get = MagicMock(
+        side_effect=[
+            ["PHX"],  # attempt 1: PAYG not active
+            ["PHX"],  # attempt 2: PAYG not active
+            ["PHX"],  # attempt 3: PAYG now active
+            ["PHX", "KIX", "SYD", "ICN"],  # final check
+        ]
+    )
+    mock_sub = MagicMock(
+        side_effect=[
+            (False, "PAYG not active yet"),  # attempt 1
+            (False, "PAYG not active yet"),  # attempt 2
+            (True, "OK"),  # KIX canary attempt 3
+            (True, "OK"),  # SYD
+            (True, "OK"),  # ICN
+        ]
+    )
     mock_sleep = MagicMock()
     mock_notify = MagicMock()
     mock_time = MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00"))
-    with patch.dict(_mod, {
-        "get_subscribed_regions": mock_get,
-        "subscribe_region": mock_sub,
-        "notify": mock_notify,
-        "time": mock_time,
-    }):
+    with patch.dict(
+        _mod,
+        {
+            "get_subscribed_regions": mock_get,
+            "subscribe_region": mock_sub,
+            "notify": mock_notify,
+            "time": mock_time,
+        },
+    ):
         with patch.object(sys, "argv", ["oci-region-subscribe", "--loop"]):
             main()
     captured = capsys.readouterr()
@@ -345,23 +376,30 @@ def test_main_loop_retries_then_succeeds(capsys):
 
 def test_main_partial_already_subscribed(capsys):
     """main() only subscribes regions not already in the list."""
-    mock_get = MagicMock(side_effect=[
-        ["PHX", "KIX"],                  # KIX already done
-        ["PHX", "KIX", "SYD", "ICN"],   # final
-    ])
-    mock_sub = MagicMock(side_effect=[
-        (True, "OK"),   # SYD (first needed)
-        (True, "OK"),   # ICN
-    ])
+    mock_get = MagicMock(
+        side_effect=[
+            ["PHX", "KIX"],  # KIX already done
+            ["PHX", "KIX", "SYD", "ICN"],  # final
+        ]
+    )
+    mock_sub = MagicMock(
+        side_effect=[
+            (True, "OK"),  # SYD (first needed)
+            (True, "OK"),  # ICN
+        ]
+    )
     mock_notify = MagicMock()
     mock_sleep = MagicMock()
     mock_time = MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00"))
-    with patch.dict(_mod, {
-        "get_subscribed_regions": mock_get,
-        "subscribe_region": mock_sub,
-        "notify": mock_notify,
-        "time": mock_time,
-    }):
+    with patch.dict(
+        _mod,
+        {
+            "get_subscribed_regions": mock_get,
+            "subscribe_region": mock_sub,
+            "notify": mock_notify,
+            "time": mock_time,
+        },
+    ):
         main()
     # subscribe_region called only for SYD and ICN (KIX already in)
     assert mock_sub.call_count == 2

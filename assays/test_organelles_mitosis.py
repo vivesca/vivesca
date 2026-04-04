@@ -2,18 +2,17 @@ from __future__ import annotations
 
 """Tests for metabolon/organelles/mitosis.py — asymmetric cell division sync."""
 
-import base64
 import subprocess
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.organelles.mitosis import (
+    SYNC_TARGETS,
     FidelityReport,
     ReplicationResult,
-    SYNC_TARGETS,
     _build_commit_message,
     _expand,
     _fly_cmd,
@@ -27,7 +26,6 @@ from metabolon.organelles.mitosis import (
     status,
     sync,
 )
-
 
 # ── Dataclass tests ──────────────────────────────────────────────────
 
@@ -253,9 +251,7 @@ class TestBuildCommitMessage:
 
     @patch("metabolon.organelles.mitosis.subprocess.run")
     def test_root_level_file(self, mock_run):
-        mock_run.return_value = subprocess.CompletedProcess(
-            [], 0, stdout="README.md"
-        )
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout="README.md")
         msg = _build_commit_message("/fake/repo")
         assert "1 file in (root)/" in msg
 
@@ -349,13 +345,14 @@ class TestGitPullRemote:
         mock_fly.return_value = subprocess.CompletedProcess(
             [], 128, stdout="error: could not pull"
         )
-        ok, msg = _git_pull_remote(str(Path.home() / "germline"))
+        ok, _msg = _git_pull_remote(str(Path.home() / "germline"))
         assert ok is False
 
     @patch("metabolon.organelles.mitosis._fly_cmd")
     def test_pull_filters_fly_noise(self, mock_fly):
         mock_fly.return_value = subprocess.CompletedProcess(
-            [], 0,
+            [],
+            0,
             stdout="Connecting to soma...\nWarning: something\nAlready up to date.\n1234567890",
         )
         ok, msg = _git_pull_remote(str(Path.home() / "germline"))
@@ -396,7 +393,9 @@ class TestSyncTarget:
     @patch("metabolon.organelles.mitosis._git_push")
     def test_push_fails_pull_ok(self, _, mock_pull):
         # time.monotonic needs to return increasing values
-        with patch("metabolon.organelles.mitosis.time.monotonic", side_effect=[100.0, 101.0, 102.0]):
+        with patch(
+            "metabolon.organelles.mitosis.time.monotonic", side_effect=[100.0, 101.0, 102.0]
+        ):
             pass
         # Simpler: just mock push/pull
         pass
@@ -456,9 +455,11 @@ class TestSync:
             # Need home() / ".claude" / ".credentials.json" to not exist
             mock_creds = MagicMock()
             mock_creds.exists.return_value = False
-            mock_home = MagicMock()
+            MagicMock()
             # Handle Path.home() call by making __truediv__ chain work
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_creds
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = (
+                mock_creds
+            )
             report = sync()
 
         assert len(report.results) == len(SYNC_TARGETS)
@@ -471,7 +472,9 @@ class TestSync:
         with patch("metabolon.organelles.mitosis.Path") as mock_path:
             mock_creds = MagicMock()
             mock_creds.exists.return_value = False
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_creds
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = (
+                mock_creds
+            )
             report = sync(targets=["germline"])
 
         assert mock_sync_target.call_count == 1
@@ -490,7 +493,9 @@ class TestSync:
             mock_creds = MagicMock()
             mock_creds.exists.return_value = True
             mock_creds.read_bytes.return_value = fake_creds
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_creds
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = (
+                mock_creds
+            )
             report = sync()
 
         auth_results = [r for r in report.results if r.target == "cc-auth"]
@@ -512,9 +517,7 @@ class TestStatus:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_reachable_with_targets(self, _, mock_fly):
         epoch = str(int(time.time()) - 300)  # 5 min ago
-        mock_fly.return_value = subprocess.CompletedProcess(
-            [], 0, stdout=f"{epoch}\n---\n{epoch}"
-        )
+        mock_fly.return_value = subprocess.CompletedProcess([], 0, stdout=f"{epoch}\n---\n{epoch}")
         info = status()
         assert info["reachable"] is True
         assert info["machine_state"] == "started"
@@ -524,9 +527,7 @@ class TestStatus:
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_missing_target(self, _, mock_fly):
-        mock_fly.return_value = subprocess.CompletedProcess(
-            [], 0, stdout="MISSING\n---\nMISSING"
-        )
+        mock_fly.return_value = subprocess.CompletedProcess([], 0, stdout="MISSING\n---\nMISSING")
         info = status()
         for target in SYNC_TARGETS:
             assert info["targets"][target["name"]]["state"] == "missing"
@@ -544,9 +545,7 @@ class TestStatus:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_stale_target(self, _, mock_fly):
         epoch = str(int(time.time()) - 3600)  # 1 hour ago
-        mock_fly.return_value = subprocess.CompletedProcess(
-            [], 0, stdout=f"{epoch}\n---\n{epoch}"
-        )
+        mock_fly.return_value = subprocess.CompletedProcess([], 0, stdout=f"{epoch}\n---\n{epoch}")
         info = status()
         for target in SYNC_TARGETS:
             assert info["targets"][target["name"]]["state"] == "stale"
@@ -579,7 +578,7 @@ class TestSetup:
         # Second call: clone the repo -> success
         # Repeat for each SYNC_TARGET, then mkdir, uv sync, symlinks, path
         responses = []
-        for t in SYNC_TARGETS:
+        for _t in SYNC_TARGETS:
             responses.append(subprocess.CompletedProcess([], 0, stdout="MISSING"))
             responses.append(subprocess.CompletedProcess([], 0, stdout="Cloning..."))
         # mkdir, uv sync, symlinks, path
@@ -598,7 +597,7 @@ class TestSetup:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_already_present_repos(self, _, mock_fly):
         responses = []
-        for t in SYNC_TARGETS:
+        for _t in SYNC_TARGETS:
             responses.append(subprocess.CompletedProcess([], 0, stdout="EXISTS"))
         # mkdir, uv sync, symlinks, path
         responses.append(subprocess.CompletedProcess([], 0, stdout="ok"))
@@ -614,7 +613,7 @@ class TestSetup:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_clone_failure(self, _, mock_fly):
         responses = []
-        for t in SYNC_TARGETS:
+        for _t in SYNC_TARGETS:
             responses.append(subprocess.CompletedProcess([], 0, stdout="MISSING"))
             responses.append(subprocess.CompletedProcess([], 1, stdout="fatal: clone error"))
         responses.append(subprocess.CompletedProcess([], 0, stdout="ok"))
@@ -631,7 +630,7 @@ class TestSetup:
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_mkdir_exception_recorded(self, _, mock_fly):
         responses = []
-        for t in SYNC_TARGETS:
+        for _t in SYNC_TARGETS:
             responses.append(subprocess.CompletedProcess([], 0, stdout="EXISTS"))
         # mkdir throws
         responses.append(RuntimeError("SSH timeout"))
@@ -660,7 +659,9 @@ class TestSyncCredException:
         mock_creds.read_bytes.side_effect = OSError("permission denied")
 
         with patch("metabolon.organelles.mitosis.Path") as mock_path:
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_creds
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = (
+                mock_creds
+            )
             report = sync()
 
         auth_results = [r for r in report.results if r.target == "cc-auth"]
@@ -707,9 +708,7 @@ class TestSmoketestReadException:
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_read_passcode_exception(self, _, mock_fly, mock_sync):
-        good_report = FidelityReport(
-            results=[ReplicationResult("epigenome", True, 0.1)]
-        )
+        good_report = FidelityReport(results=[ReplicationResult("epigenome", True, 0.1)])
         mock_sync.side_effect = [good_report, FidelityReport()]
         # _fly_cmd raises when trying to cat the passcode file
         mock_fly.side_effect = [
@@ -735,16 +734,12 @@ class TestSmoketestAuthException:
     def test_claude_version_exception(self, _, mock_fly, mock_sync, __):
         passcode = "mitosis-testcode"
 
-        good_report = FidelityReport(
-            results=[ReplicationResult("epigenome", True, 0.1)]
-        )
+        good_report = FidelityReport(results=[ReplicationResult("epigenome", True, 0.1)])
         mock_sync.side_effect = [good_report, FidelityReport()]
 
         # First call: cat returns passcode; second call: claude --version throws
         mock_fly.side_effect = [
-            subprocess.CompletedProcess(
-                [], 0, stdout=f"---\nname: probe\nPasscode: {passcode}\n"
-            ),
+            subprocess.CompletedProcess([], 0, stdout=f"---\nname: probe\nPasscode: {passcode}\n"),
             RuntimeError("command not found"),
         ]
 
@@ -768,16 +763,15 @@ class TestSmoketestFlyNoiseFiltered:
     def test_fly_noise_in_read_response(self, _, mock_fly, mock_sync, __):
         passcode = "mitosis-noiseok1"
 
-        good_report = FidelityReport(
-            results=[ReplicationResult("epigenome", True, 0.1)]
-        )
+        good_report = FidelityReport(results=[ReplicationResult("epigenome", True, 0.1)])
         mock_sync.side_effect = [good_report, FidelityReport()]
 
         # First call: cat returns noisy output with passcode embedded
         # Second call: claude --version
         mock_fly.side_effect = [
             subprocess.CompletedProcess(
-                [], 0,
+                [],
+                0,
                 stdout=f"Connecting to soma...\nWarning: stuff\nPasscode: {passcode}\n",
             ),
             subprocess.CompletedProcess([], 0, stdout="Claude Code v1.0"),
@@ -806,9 +800,7 @@ class TestSmoketest:
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_sync_fails(self, _, mock_fly, mock_sync):
-        bad_report = FidelityReport(
-            results=[ReplicationResult("epigenome", False, 0.0, "err")]
-        )
+        bad_report = FidelityReport(results=[ReplicationResult("epigenome", False, 0.0, "err")])
         # sync called twice: once for test, once for cleanup
         mock_sync.side_effect = [bad_report, FidelityReport()]
         # Mock probe file: Path.home() / "epigenome" / "engrams" / "mitosis_probe.md"
@@ -825,9 +817,7 @@ class TestSmoketest:
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
     def test_passcode_mismatch(self, _, mock_fly, mock_sync):
-        good_report = FidelityReport(
-            results=[ReplicationResult("epigenome", True, 0.1)]
-        )
+        good_report = FidelityReport(results=[ReplicationResult("epigenome", True, 0.1)])
         mock_sync.side_effect = [good_report, FidelityReport()]
         # _fly_cmd returns response without passcode
         mock_fly.side_effect = [
@@ -849,9 +839,7 @@ class TestSmoketest:
     def test_smoketest_success(self, _, mock_fly, mock_sync, __):
         passcode = "mitosis-abcdefgh"
 
-        good_report = FidelityReport(
-            results=[ReplicationResult("epigenome", True, 0.1)]
-        )
+        good_report = FidelityReport(results=[ReplicationResult("epigenome", True, 0.1)])
         mock_sync.side_effect = [good_report, FidelityReport()]
 
         passcode = "mitosis-abcdefgh"

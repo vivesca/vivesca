@@ -2,10 +2,9 @@ from __future__ import annotations
 
 """Tests for effectors/assay — life experiment tracker (effector script)."""
 
-import sys
 from datetime import date, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -133,9 +132,21 @@ def test_extract_keywords_deduplicates():
 def test_assay_effector_summarise_period_basic():
     """summarise_period computes averages from Oura data."""
     data = {
-        "2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {"hrv_balance": 50}},
-        "2024-01-02": {"sleep_score": 82, "readiness_score": 72, "readiness_contributors": {"hrv_balance": 55}},
-        "2024-01-03": {"sleep_score": 78, "readiness_score": 68, "readiness_contributors": {"hrv_balance": 45}},
+        "2024-01-01": {
+            "sleep_score": 80,
+            "readiness_score": 70,
+            "readiness_contributors": {"hrv_balance": 50},
+        },
+        "2024-01-02": {
+            "sleep_score": 82,
+            "readiness_score": 72,
+            "readiness_contributors": {"hrv_balance": 55},
+        },
+        "2024-01-03": {
+            "sleep_score": 78,
+            "readiness_score": 68,
+            "readiness_contributors": {"hrv_balance": 45},
+        },
     }
     summary = summarise_period(data)
 
@@ -459,9 +470,7 @@ def test_pull_intake_filters_by_date(tmp_path):
     """pull_intake filters entries before start date."""
     meal_plan = tmp_path / "meal-plan.md"
     meal_plan.write_text(
-        "## Order log\n"
-        "- 2024-01-01 (Day): Old entry\n"
-        "- 2024-01-15 (Day): New entry\n"
+        "## Order log\n- 2024-01-01 (Day): Old entry\n- 2024-01-15 (Day): New entry\n"
     )
 
     original_meal_plan = _mod["MEAL_PLAN"]
@@ -600,7 +609,9 @@ def test_cmd_new_pulls_baseline(capsys, tmp_path):
 
     def mock_pull_oura(start, end):
         pull_calls.append((start, end))
-        return {"2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {}}}
+        return {
+            "2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {}}
+        }
 
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
@@ -755,7 +766,13 @@ def test_assay_effector_cmd_close_flips_status(capsys, tmp_path):
     )
 
     def mock_pull_oura(start, end):
-        return {"2024-01-15": {"sleep_score": 80, "readiness_score": 75, "readiness_contributors": {"hrv_balance": 55}}}
+        return {
+            "2024-01-15": {
+                "sleep_score": 80,
+                "readiness_score": 75,
+                "readiness_contributors": {"hrv_balance": 55},
+            }
+        }
 
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
@@ -803,8 +820,16 @@ def test_cmd_close_appends_results(capsys, tmp_path):
 
     def mock_pull_oura(start, end):
         return {
-            "2024-01-15": {"sleep_score": 80, "readiness_score": 75, "readiness_contributors": {"hrv_balance": 55}},
-            "2024-01-16": {"sleep_score": 82, "readiness_score": 77, "readiness_contributors": {"hrv_balance": 57}},
+            "2024-01-15": {
+                "sleep_score": 80,
+                "readiness_score": 75,
+                "readiness_contributors": {"hrv_balance": 55},
+            },
+            "2024-01-16": {
+                "sleep_score": 82,
+                "readiness_score": 77,
+                "readiness_contributors": {"hrv_balance": 57},
+            },
         }
 
     original_dir = _mod["EXPERIMENT_DIR"]
@@ -876,7 +901,6 @@ def test_pull_oura_sorts_by_date():
         {"day": "2024-01-01", "score": 80},
         {"day": "2024-01-02", "score": 82},
     ]
-    mock_readiness = []
 
     def mock_fetch(endpoint, start, end, token):
         return mock_sleep if endpoint == "daily_sleep" else []

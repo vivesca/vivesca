@@ -3,20 +3,17 @@ from __future__ import annotations
 """Tests for metabolon.enzymes.hemostasis — emergency process stabilization."""
 
 
-import datetime
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from metabolon.enzymes.hemostasis import hemostasis, ProcessListResult
+from metabolon.enzymes.hemostasis import ProcessListResult, hemostasis
 from metabolon.morphology import EffectorResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_completed(
     stdout: str = "",
@@ -34,12 +31,11 @@ def _make_completed(
 # ps action
 # ===========================================================================
 
+
 class TestPsAction:
     @patch("metabolon.enzymes.hemostasis.subprocess.run")
     def test_ps_returns_matching_processes(self, mock_run):
-        mock_run.return_value = _make_completed(
-            stdout="1234 python app.py\n5678 node server.js\n"
-        )
+        mock_run.return_value = _make_completed(stdout="1234 python app.py\n5678 node server.js\n")
         result = hemostasis(action="ps", pattern="python")
 
         assert isinstance(result, ProcessListResult)
@@ -63,7 +59,10 @@ class TestPsAction:
         assert result.matches == []
         assert "(none)" in result.summary
 
-    @patch("metabolon.enzymes.hemostasis.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="pgrep", timeout=5))
+    @patch(
+        "metabolon.enzymes.hemostasis.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="pgrep", timeout=5),
+    )
     def test_ps_timeout_returns_empty(self, mock_run):
         result = hemostasis(action="ps", pattern="slow")
 
@@ -83,6 +82,7 @@ class TestPsAction:
 # ===========================================================================
 # kill action
 # ===========================================================================
+
 
 class TestKillAction:
     @patch("metabolon.enzymes.hemostasis.subprocess.run")
@@ -120,7 +120,10 @@ class TestKillAction:
         assert "pkill error" in result.message
         assert "permission denied" in result.message
 
-    @patch("metabolon.enzymes.hemostasis.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="pkill", timeout=10))
+    @patch(
+        "metabolon.enzymes.hemostasis.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="pkill", timeout=10),
+    )
     def test_kill_timeout(self, mock_run):
         result = hemostasis(action="kill", pattern="hung")
 
@@ -153,6 +156,7 @@ class TestKillAction:
 # ===========================================================================
 # launchagent action
 # ===========================================================================
+
 
 class TestLaunchAgentAction:
     @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
@@ -239,7 +243,10 @@ class TestLaunchAgentAction:
         assert "launchctl unload failed" in result.message
 
     @patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin")
-    @patch("metabolon.enzymes.hemostasis.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="launchctl", timeout=15))
+    @patch(
+        "metabolon.enzymes.hemostasis.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="launchctl", timeout=15),
+    )
     def test_launchagent_timeout(self, mock_run, _mock_platform, tmp_path):
         plist = tmp_path / "com.example.agent.plist"
         plist.write_text("<plist/>")
@@ -272,11 +279,16 @@ class TestLaunchAgentAction:
 # handoff action
 # ===========================================================================
 
+
 class TestHandoffAction:
-    @patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", new_callable=lambda: lambda: Path("/tmp/hemostasis_test_handoff"))
+    @patch(
+        "metabolon.enzymes.hemostasis._HANDOFF_DIR",
+        new_callable=lambda: lambda: Path("/tmp/hemostasis_test_handoff"),
+    )
     def test_handoff_writes_note(self, tmp_path_factory):
         # Use a real temp dir via patching
         import tempfile
+
         handoff_dir = Path(tempfile.mkdtemp())
         with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", handoff_dir):
             result = hemostasis(
@@ -300,6 +312,7 @@ class TestHandoffAction:
 
     def test_handoff_creates_directory(self):
         import tempfile
+
         handoff_dir = Path(tempfile.mkdtemp()) / "sub" / "dir"
         with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", handoff_dir):
             result = hemostasis(
@@ -316,6 +329,7 @@ class TestHandoffAction:
 # ===========================================================================
 # Unknown action
 # ===========================================================================
+
 
 class TestUnknownAction:
     def test_unknown_action_returns_error(self):

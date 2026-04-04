@@ -5,7 +5,7 @@ from __future__ import annotations
 All engine calls are mocked; no network access.
 """
 
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from metabolon.enzymes.rheotaxis import rheotaxis
 

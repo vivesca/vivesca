@@ -1,4 +1,3 @@
-
 import base64
 import gzip
 import json
@@ -114,12 +113,12 @@ def parse_relative(value: str) -> timedelta:
 
 def parse_interval(value: str) -> timedelta:
     if len(value) < 2:
-        fatal(f"Error: invalid --every '{value}'. Use Nh, Nm, or Nd.")
+        fatal(f"Error: invalid --every '{value}'. Use Nh, Nm, or And.")
     amount, unit = value[:-1], value[-1]
     try:
         n = int(amount)
     except ValueError:
-        fatal(f"Error: invalid --every '{value}'. Use Nh, Nm, or Nd.")
+        fatal(f"Error: invalid --every '{value}'. Use Nh, Nm, or And.")
     if n <= 0:
         fatal(f"Error: invalid --every '{value}'. Use a positive interval.")
     if unit == "m":
@@ -128,7 +127,7 @@ def parse_interval(value: str) -> timedelta:
         return timedelta(hours=n)
     if unit == "d":
         return timedelta(days=n)
-    fatal(f"Error: invalid --every '{value}'. Use Nh, Nm, or Nd.")
+    fatal(f"Error: invalid --every '{value}'. Use Nh, Nm, or And.")
 
 
 def parse_date(value: str) -> date:
@@ -530,7 +529,7 @@ def confirm_action(reminder: dict[str, Any], action: str) -> bool:
     prompt = f"{action} #{uid} '{title}' (due {due_str})? [y/N] "
     try:
         answer = input(prompt).strip().lower()
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         print()
         return False
     return answer in ("y", "yes")

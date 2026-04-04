@@ -2,14 +2,14 @@ from __future__ import annotations
 
 """Tests for metabolon.respirometry.monitors."""
 
-from metabolon.respirometry.schema import ConsumptionEvent
 from metabolon.respirometry.monitors import (
-    flag_anomalies,
-    flag_duplicates,
+    activate_monitors,
     assess_budget,
     assess_subscriptions,
-    activate_monitors,
+    flag_anomalies,
+    flag_duplicates,
 )
+from metabolon.respirometry.schema import ConsumptionEvent
 
 
 def make_event(date: str, merchant: str, category: str, hkd: float) -> ConsumptionEvent:

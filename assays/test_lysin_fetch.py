@@ -3,24 +3,22 @@ from __future__ import annotations
 """Tests for metabolon/lysin/fetch.py - biology article fetching."""
 
 
-import re
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.lysin.fetch import (
     BioArticle,
+    _fetch_reactome,
+    _fetch_uniprot,
+    _fetch_wikipedia,
+    _looks_like_gene,
+    _search_wikipedia,
     _strip_html,
     _strip_pubmed_refs,
-    _looks_like_gene,
-    fetch_summary,
     fetch_sections,
-    _fetch_uniprot,
-    _fetch_reactome,
-    _fetch_wikipedia,
-    _search_wikipedia,
+    fetch_summary,
 )
-
 
 # ── BioArticle dataclass tests ─────────────────────────────────────────
 
@@ -132,16 +130,20 @@ def test_fetch_uniprot_success():
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "results": [{
-            "primaryAccession": "P04637",
-            "proteinDescription": {
-                "recommendedName": {"fullName": {"value": "Cellular tumor antigen p53"}}
-            },
-            "comments": [{
-                "commentType": "FUNCTION",
-                "texts": [{"value": "Tumor suppressor. Acts as a transcription factor."}]
-            }]
-        }]
+        "results": [
+            {
+                "primaryAccession": "P04637",
+                "proteinDescription": {
+                    "recommendedName": {"fullName": {"value": "Cellular tumor antigen p53"}}
+                },
+                "comments": [
+                    {
+                        "commentType": "FUNCTION",
+                        "texts": [{"value": "Tumor suppressor. Acts as a transcription factor."}],
+                    }
+                ],
+            }
+        ]
     }
 
     with patch("httpx.Client") as mock_client:
@@ -183,16 +185,19 @@ def test_fetch_uniprot_extracts_catalytic_activity():
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "results": [{
-            "primaryAccession": "P12345",
-            "proteinDescription": {
-                "recommendedName": {"fullName": {"value": "Test Enzyme"}}
-            },
-            "comments": [
-                {"commentType": "FUNCTION", "texts": [{"value": "Test function."}]},
-                {"commentType": "CATALYTIC ACTIVITY", "reaction": {"name": "ATP hydrolysis", "ecNumber": "3.6.1.3"}}
-            ]
-        }]
+        "results": [
+            {
+                "primaryAccession": "P12345",
+                "proteinDescription": {"recommendedName": {"fullName": {"value": "Test Enzyme"}}},
+                "comments": [
+                    {"commentType": "FUNCTION", "texts": [{"value": "Test function."}]},
+                    {
+                        "commentType": "CATALYTIC ACTIVITY",
+                        "reaction": {"name": "ATP hydrolysis", "ecNumber": "3.6.1.3"},
+                    },
+                ],
+            }
+        ]
     }
 
     with patch("httpx.Client") as mock_client:
@@ -208,16 +213,18 @@ def test_fetch_uniprot_extracts_domains():
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "results": [{
-            "primaryAccession": "P12345",
-            "proteinDescription": {
-                "recommendedName": {"fullName": {"value": "Domain Protein"}}
-            },
-            "comments": [
-                {"commentType": "FUNCTION", "texts": [{"value": "Test function."}]},
-                {"commentType": "DOMAIN", "texts": [{"value": "Kinase domain."}]}
-            ]
-        }]
+        "results": [
+            {
+                "primaryAccession": "P12345",
+                "proteinDescription": {
+                    "recommendedName": {"fullName": {"value": "Domain Protein"}}
+                },
+                "comments": [
+                    {"commentType": "FUNCTION", "texts": [{"value": "Test function."}]},
+                    {"commentType": "DOMAIN", "texts": [{"value": "Kinase domain."}]},
+                ],
+            }
+        ]
     }
 
     with patch("httpx.Client") as mock_client:
@@ -236,12 +243,7 @@ def test_fetch_reactome_success():
     mock_search_response = MagicMock()
     mock_search_response.status_code = 200
     mock_search_response.json.return_value = {
-        "results": [{
-            "entries": [{
-                "stId": "R-HSA-12345",
-                "name": "Apoptosis pathway"
-            }]
-        }]
+        "results": [{"entries": [{"stId": "R-HAS-12345", "name": "Apoptosis pathway"}]}]
     }
 
     mock_detail_response = MagicMock()
@@ -278,12 +280,7 @@ def test_fetch_reactome_skips_irrelevant():
     mock_search_response = MagicMock()
     mock_search_response.status_code = 200
     mock_search_response.json.return_value = {
-        "results": [{
-            "entries": [{
-                "stId": "R-HSA-99999",
-                "name": "Completely unrelated pathway"
-            }]
-        }]
+        "results": [{"entries": [{"stId": "R-HAS-99999", "name": "Completely unrelated pathway"}]}]
     }
 
     with patch("httpx.Client") as mock_client:
@@ -303,14 +300,12 @@ def test_fetch_wikipedia_success():
     mock_summary_response.json.return_value = {
         "title": "Apoptosis",
         "extract": "Apoptosis is programmed cell death.",
-        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Apoptosis"}}
+        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Apoptosis"}},
     }
 
     mock_sections_response = MagicMock()
     mock_sections_response.status_code = 200
-    mock_sections_response.json.return_value = {
-        "remaining": {"sections": []}
-    }
+    mock_sections_response.json.return_value = {"remaining": {"sections": []}}
 
     with patch("httpx.Client") as mock_client:
         client_mock = mock_client.return_value.__enter__.return_value
@@ -329,7 +324,7 @@ def test_fetch_wikipedia_disambiguation():
     mock_response.json.return_value = {
         "title": "Test",
         "extract": "Test may refer to:",
-        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Test"}}
+        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Test"}},
     }
 
     with patch("httpx.Client") as mock_client:
@@ -349,7 +344,7 @@ def test_fetch_wikipedia_404_falls_back_to_search():
     mock_summary_response.json.return_value = {
         "title": "Apoptosis",
         "extract": "Programmed cell death.",
-        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Apoptosis"}}
+        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Apoptosis"}},
     }
 
     mock_sections_response = MagicMock()
@@ -408,16 +403,17 @@ def test_fetch_summary_routes_gene_to_uniprot():
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "results": [{
-            "primaryAccession": "P04637",
-            "proteinDescription": {
-                "recommendedName": {"fullName": {"value": "Tumor protein p53"}}
-            },
-            "comments": [{
-                "commentType": "FUNCTION",
-                "texts": [{"value": "Tumor suppressor protein."}]
-            }]
-        }]
+        "results": [
+            {
+                "primaryAccession": "P04637",
+                "proteinDescription": {
+                    "recommendedName": {"fullName": {"value": "Tumor protein p53"}}
+                },
+                "comments": [
+                    {"commentType": "FUNCTION", "texts": [{"value": "Tumor suppressor protein."}]}
+                ],
+            }
+        ]
     }
 
     with patch("httpx.Client") as mock_client:
@@ -449,7 +445,7 @@ def test_fetch_sections_returns_list():
         "remaining": {
             "sections": [
                 {"line": "Mechanism", "text": "Details about mechanism."},
-                {"line": "Function", "text": "Function details."}
+                {"line": "Function", "text": "Function details."},
             ]
         }
     }

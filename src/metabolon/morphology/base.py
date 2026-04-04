@@ -1,11 +1,9 @@
-
 """Base Pydantic models for vivesca structured output.
 
 Every tool secretes a product into the organism's environment.
 These base classes define the membrane through which all
 tool outputs pass — typed, structured, forward-compatible.
 """
-
 
 from pathlib import Path
 

@@ -249,7 +249,7 @@ Run this alongside the synthesis every Friday:
 3. **Networking status** — Who's in motion, who needs follow-up? (BOCHK bridge, Capco contacts)
 4. **CSB job monitor** — Any new AI-related government vacancies this week? Check `~/logs/cron-csb-jobs.log` for matches
 5. **Priorities for the week** — Top 2-3 actions
-7. **AI landscape** — Run `/lustro --deep` first to pull full source sweep, then `/dialexis` for weekly synthesis (client talking points).
+7. **AI landscape** — Run `/endocytosis --deep` first to pull full source sweep, then `/dialexis` for weekly synthesis (client talking points).
 8. **Capco intel sweep** (until start date only — remove after onboarding):
    - Search: "Capco HK" or "Capco Asia" news this week
    - Search: HKMA AI/fintech guidance, GenAI deployments at HK banks

@@ -875,7 +875,7 @@ def test_summarize_results_prompt_files():
 
 def test_tool_commands_callable():
     """Test TOOL_COMMANDS entries are callable."""
-    for _tool, command_fn in TOOL_COMMANDS.items():
+    for command_fn in TOOL_COMMANDS.values():
         result = command_fn(Path("/project"), "test prompt")
         assert isinstance(result, list)
         assert len(result) > 0

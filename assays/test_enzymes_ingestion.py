@@ -3,13 +3,11 @@ from __future__ import annotations
 """Tests for metabolon/enzymes/ingestion.py — meal planning tool."""
 
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from metabolon.enzymes.ingestion import _cross_link_experiment, ingestion
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -206,9 +204,7 @@ class TestCrossLinkExperiment:
 
     def test_inactive_experiment_skipped(self, experiments_dir):
         exp = experiments_dir / "assay-sugar.md"
-        exp.write_text(
-            "---\nstatus: completed\nwatch_keywords: [sugar, candy]\n---\nDone."
-        )
+        exp.write_text("---\nstatus: completed\nwatch_keywords: [sugar, candy]\n---\nDone.")
         result = _cross_link_experiment("- entry", "candy")
         assert result is None
 
@@ -220,13 +216,9 @@ class TestCrossLinkExperiment:
 
     def test_multiple_experiments_first_match_wins(self, experiments_dir):
         exp1 = experiments_dir / "assay-tea.md"
-        exp1.write_text(
-            "---\nstatus: active\nwatch_keywords: [green tea]\n---\nTea study."
-        )
+        exp1.write_text("---\nstatus: active\nwatch_keywords: [green tea]\n---\nTea study.")
         exp2 = experiments_dir / "assay-caffeine.md"
-        exp2.write_text(
-            "---\nstatus: active\nwatch_keywords: [coffee, tea]\n---\nCaffeine study."
-        )
+        exp2.write_text("---\nstatus: active\nwatch_keywords: [coffee, tea]\n---\nCaffeine study.")
         result = _cross_link_experiment("- entry", "green tea")
         assert result is not None
         # Which file matched depends on glob order, but exactly one should be modified
@@ -236,17 +228,13 @@ class TestCrossLinkExperiment:
 
     def test_keyword_match_is_case_insensitive(self, experiments_dir):
         exp = experiments_dir / "assay-dairy.md"
-        exp.write_text(
-            "---\nstatus: active\nwatch_keywords: [MILK, Cheese]\n---\nDairy study."
-        )
+        exp.write_text("---\nstatus: active\nwatch_keywords: [MILK, Cheese]\n---\nDairy study.")
         result = _cross_link_experiment("- entry", "milk latte")
         assert result is not None
 
     def test_atomic_write_no_leftover_tmp(self, experiments_dir):
         exp = experiments_dir / "assay-chili.md"
-        exp.write_text(
-            "---\nstatus: active\nwatch_keywords: [chili]\n---\nSpice study."
-        )
+        exp.write_text("---\nstatus: active\nwatch_keywords: [chili]\n---\nSpice study.")
         _cross_link_experiment("- entry", "chili con carne")
         assert not exp.with_suffix(".md.tmp").exists()
 
@@ -283,9 +271,7 @@ class TestLogMealCrossLinkIntegration:
         ed = tmp_path / "experiments"
         ed.mkdir()
         exp = ed / "assay-turmeric.md"
-        exp.write_text(
-            "---\nstatus: active\nwatch_keywords: [turmeric]\n---\nTurmeric study."
-        )
+        exp.write_text("---\nstatus: active\nwatch_keywords: [turmeric]\n---\nTurmeric study.")
         with (
             patch("metabolon.enzymes.ingestion.MEAL_PLAN", mp),
             patch("metabolon.enzymes.ingestion.EXPERIMENTS_DIR", ed),

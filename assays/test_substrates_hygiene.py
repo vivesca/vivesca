@@ -6,13 +6,9 @@ from __future__ import annotations
 import os
 import subprocess
 import textwrap
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.metabolism.substrates.hygiene import HygieneSubstrate, _run
-
 
 # ---------------------------------------------------------------------------
 # _run helper
@@ -142,9 +138,13 @@ class TestSenseHooks:
     @patch("metabolon.metabolism.substrates.hygiene._run")
     def test_parses_hook_update(self, mock_run, tmp_path):
         config = tmp_path / ".pre-commit-config.yaml"
-        original = "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.0.0\n"
+        original = (
+            "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.0.0\n"
+        )
         config.write_text(original)
-        updated_text = "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.5.0\n"
+        updated_text = (
+            "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.5.0\n"
+        )
 
         def side_effect(*a, **kw):
             # Simulate autoupdate modifying the config file on disk
@@ -312,8 +312,16 @@ class TestSensePython:
 
 
 class TestSense:
-    @patch.object(HygieneSubstrate, "_sense_python", return_value=[{"kind": "python", "current": "3.12.0", "requires": ">=3.11"}])
-    @patch.object(HygieneSubstrate, "_sense_tests", return_value=[{"kind": "tests", "passed": 10, "failed": 0, "errors": 0, "healthy": True}])
+    @patch.object(
+        HygieneSubstrate,
+        "_sense_python",
+        return_value=[{"kind": "python", "current": "3.12.0", "requires": ">=3.11"}],
+    )
+    @patch.object(
+        HygieneSubstrate,
+        "_sense_tests",
+        return_value=[{"kind": "tests", "passed": 10, "failed": 0, "errors": 0, "healthy": True}],
+    )
     @patch.object(HygieneSubstrate, "_sense_hooks", return_value=[])
     @patch.object(HygieneSubstrate, "_sense_deps", return_value=[])
     def test_aggregates_all_signals(self, mock_deps, mock_hooks, mock_tests, mock_py):
@@ -334,7 +342,13 @@ class TestCandidates:
     def test_filters_actionable_deps(self):
         sub = HygieneSubstrate()
         sensed = [
-            {"kind": "dep", "package": "foo", "current": "1.0", "available": "1.1", "major": False},
+            {
+                "kind": "dep",
+                "package": "foo",
+                "current": "1.0",
+                "available": "1.1",
+                "major": False,
+            },
             {"kind": "dep", "package": "bar", "current": "2.0", "available": "", "major": False},
         ]
         result = sub.candidates(sensed)
@@ -391,26 +405,30 @@ class TestAct:
             args=["uv"], returncode=0, stdout="", stderr=""
         )
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "dep",
-            "package": "foo",
-            "current": "1.0.0",
-            "available": "1.1.0",
-            "major": False,
-        })
+        result = sub.act(
+            {
+                "kind": "dep",
+                "package": "foo",
+                "current": "1.0.0",
+                "available": "1.1.0",
+                "major": False,
+            }
+        )
         assert "upgraded" in result
         assert "foo" in result
 
     @patch("metabolon.metabolism.substrates.hygiene._run")
     def test_major_dep_proposed(self, mock_run):
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "dep",
-            "package": "big",
-            "current": "1.0.0",
-            "available": "2.0.0",
-            "major": True,
-        })
+        result = sub.act(
+            {
+                "kind": "dep",
+                "package": "big",
+                "current": "1.0.0",
+                "available": "2.0.0",
+                "major": True,
+            }
+        )
         assert "propose" in result
         mock_run.assert_not_called()
 
@@ -420,13 +438,15 @@ class TestAct:
             args=["uv"], returncode=1, stdout="", stderr="resolution failed badly"
         )
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "dep",
-            "package": "foo",
-            "current": "1.0",
-            "available": "1.1",
-            "major": False,
-        })
+        result = sub.act(
+            {
+                "kind": "dep",
+                "package": "foo",
+                "current": "1.0",
+                "available": "1.1",
+                "major": False,
+            }
+        )
         assert "failed" in result
 
     @patch("metabolon.metabolism.substrates.hygiene._run")
@@ -435,11 +455,13 @@ class TestAct:
             args=["pre-commit"], returncode=0, stdout="", stderr=""
         )
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "hook",
-            "repo": "https://github.com/example/hooks",
-            "new_rev": "v3.0",
-        })
+        result = sub.act(
+            {
+                "kind": "hook",
+                "repo": "https://github.com/example/hooks",
+                "new_rev": "v3.0",
+            }
+        )
         assert "updated" in result
 
     @patch("metabolon.metabolism.substrates.hygiene._run")
@@ -448,30 +470,36 @@ class TestAct:
             args=["pre-commit"], returncode=1, stdout="", stderr="git error"
         )
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "hook",
-            "repo": "https://github.com/example/hooks",
-            "new_rev": "v3.0",
-        })
+        result = sub.act(
+            {
+                "kind": "hook",
+                "repo": "https://github.com/example/hooks",
+                "new_rev": "v3.0",
+            }
+        )
         assert "failed" in result
 
     def test_tests_propose(self):
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "tests",
-            "failed": 3,
-            "errors": 1,
-        })
+        result = sub.act(
+            {
+                "kind": "tests",
+                "failed": 3,
+                "errors": 1,
+            }
+        )
         assert "propose" in result
         assert "3" in result
         assert "1" in result
 
     def test_error_signal(self):
         sub = HygieneSubstrate()
-        result = sub.act({
-            "kind": "deps",
-            "error": "lockfile conflict",
-        })
+        result = sub.act(
+            {
+                "kind": "deps",
+                "error": "lockfile conflict",
+            }
+        )
         assert "propose" in result
         assert "fix" in result
 
@@ -490,7 +518,13 @@ class TestReport:
     def test_full_report(self):
         sub = HygieneSubstrate()
         sensed = [
-            {"kind": "dep", "package": "foo", "current": "1.0", "available": "1.1", "major": False},
+            {
+                "kind": "dep",
+                "package": "foo",
+                "current": "1.0",
+                "available": "1.1",
+                "major": False,
+            },
             {"kind": "dep", "package": "bar", "current": "2.0", "available": "3.0", "major": True},
             {"kind": "hook", "repo": "https://github.com/example", "new_rev": "v2"},
             {"kind": "tests", "passed": 100, "failed": 2, "errors": 0, "healthy": False},

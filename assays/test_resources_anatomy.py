@@ -4,8 +4,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.resources.anatomy import (
     _extract_decorated_names,
     _extract_module_docstring,
@@ -15,10 +13,10 @@ from metabolon.resources.anatomy import (
     _known_lesions,
     _metabolism_modules,
     _metabolism_summary,
-    _organ_descriptions,
-    _organism_theory,
     _operon_heartbeat,
     _operon_summary,
+    _organ_descriptions,
+    _organism_theory,
     _scan_directory,
     _substrate_map,
     express_anatomy,
@@ -141,7 +139,7 @@ def another(arg):
 def test_extract_substrate_info():
     """Test extracting substrate class info."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write("\"\"\"Cortical substrate for testing.\"\"\"\n")
+        f.write('"""Cortical substrate for testing."""\n')
         f.write("""
 class TestSubstrate:
     \"\"\"Test substrate implementation.\"\"\"
@@ -189,7 +187,7 @@ def test_extract_substrate_info_not_substrate():
 def test_extract_module_summary():
     """Test extracting module summary."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write('"""Module summary testing.\"\"\"\n')
+        f.write('"""Module summary testing."""\n')
         f.write("class TestClass:\n    pass\n")
         f.write("def public_func():\n    pass\n")
         f.write("def _private_func():\n    pass\n")
@@ -313,7 +311,7 @@ def test_express_anatomy_returns_markdown():
 def test_organ_descriptions_handles_missing():
     """Test organ descriptions handles missing enzymes directory."""
     result = _organ_descriptions(Path("/nonexistent"))
-    assert "_(no enzymes directory)_" == result[0]
+    assert result[0] == "_(no enzymes directory)_"
 
 
 def test_substrate_map_handles_missing():

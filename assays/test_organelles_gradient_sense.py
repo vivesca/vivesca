@@ -4,22 +4,17 @@ from __future__ import annotations
 
 
 import json
-import datetime
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
 from metabolon.organelles.gradient_sense import (
-    topology_weight,
-    score_text,
     _read_jsonl,
-    sense_endocytosis,
-    sense_signals,
-    sense_rheotaxis,
     build_gradient_report,
-    GradientVector,
-    GradientReport,
+    score_text,
+    sense_endocytosis,
+    sense_rheotaxis,
+    sense_signals,
+    topology_weight,
 )
 
 
@@ -46,9 +41,7 @@ def test_topology_weight_independent_pair():
 
 def test_topology_weight_all_three_sensors():
     """Test topology_weight with all three sensors active."""
-    weight, bonus = topology_weight(
-        {"endocytosis_signal", "tool_signals", "rheotaxis_queries"}
-    )
+    weight, bonus = topology_weight({"endocytosis_signal", "tool_signals", "rheotaxis_queries"})
     assert weight == 3.0
     assert bonus == "full"
 
@@ -68,9 +61,7 @@ def test_score_text_single_domain_hits():
 
 def test_score_text_multiple_domain_hits():
     """Test score_text returns hits for multiple domains."""
-    result = score_text(
-        "New regulatory framework for AI governance and model deployment."
-    )
+    result = score_text("New regulatory framework for AI governance and model deployment.")
     assert "ai_governance" in result
     assert "ai_models" in result or "ai_infra" in result
 
@@ -95,8 +86,7 @@ def test_read_jsonl_valid_entries(tmp_path):
     path = tmp_path / "test.jsonl"
     entries = [{"a": 1}, {"b": 2}, {"c": 3}]
     with open(path, "w") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in entries)
     result = _read_jsonl(path)
     assert result == entries
 
@@ -143,8 +133,7 @@ def test_sense_endocytosis_with_mocked_file(tmp_path):
         },
     ]
     with open(test_file, "w") as f:
-        for entry in test_entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in test_entries)
 
     with mock.patch("metabolon.organelles.gradient_sense._RELEVANCE_LOG", test_file):
         hits, titles = sense_endocytosis(days=7)
@@ -170,8 +159,7 @@ def test_sense_signals_with_mocked_file(tmp_path):
         {"ts": "2026-03-28T00:00:00+00:00", "tool": "nonexistent_tool"},  # Not in _TOOL_DOMAINS
     ]
     with open(test_file, "w") as f:
-        for entry in test_entries:
-            f.write(json.dumps(entry) + "\n")
+        f.writelines(json.dumps(entry) + "\n" for entry in test_entries)
 
     with mock.patch("metabolon.organelles.gradient_sense._SIGNALS_LOG", test_file):
         hits = sense_signals(days=7)
@@ -191,15 +179,19 @@ def test_sense_rheotaxis_no_file():
 
 def test_build_gradient_report_empty():
     """Test build_gradient_report with no sensors returning data."""
-    with mock.patch(
-        "metabolon.organelles.gradient_sense.sense_endocytosis",
-        return_value=({}, {}),
-    ), mock.patch(
-        "metabolon.organelles.gradient_sense.sense_signals",
-        return_value={},
-    ), mock.patch(
-        "metabolon.organelles.gradient_sense.sense_rheotaxis",
-        return_value=({}, {}),
+    with (
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_endocytosis",
+            return_value=({}, {}),
+        ),
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_signals",
+            return_value={},
+        ),
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_rheotaxis",
+            return_value=({}, {}),
+        ),
     ):
         report = build_gradient_report(days=7)
         assert report.polarity_vector == "diffuse"
@@ -209,15 +201,19 @@ def test_build_gradient_report_empty():
 
 def test_build_gradient_report_single_sensor():
     """Test build_gradient_report with single sensor active."""
-    with mock.patch(
-        "metabolon.organelles.gradient_sense.sense_endocytosis",
-        return_value=({"ai_models": 5}, {"ai_models": ["Model A release"]}),
-    ), mock.patch(
-        "metabolon.organelles.gradient_sense.sense_signals",
-        return_value={},
-    ), mock.patch(
-        "metabolon.organelles.gradient_sense.sense_rheotaxis",
-        return_value=({}, {}),
+    with (
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_endocytosis",
+            return_value=({"ai_models": 5}, {"ai_models": ["Model A release"]}),
+        ),
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_signals",
+            return_value={},
+        ),
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_rheotaxis",
+            return_value=({}, {}),
+        ),
     ):
         report = build_gradient_report(days=7)
         assert "single-sensor" in report.polarity_vector
@@ -227,15 +223,19 @@ def test_build_gradient_report_single_sensor():
 
 def test_build_gradient_report_multiple_sensors():
     """Test build_gradient_report with multiple sensors active."""
-    with mock.patch(
-        "metabolon.organelles.gradient_sense.sense_endocytosis",
-        return_value=({"ai_models": 5, "ai_governance": 3}, {"ai_models": ["Model A"]}),
-    ), mock.patch(
-        "metabolon.organelles.gradient_sense.sense_signals",
-        return_value={"ai_models": 2},
-    ), mock.patch(
-        "metabolon.organelles.gradient_sense.sense_rheotaxis",
-        return_value=({"ai_models": 3}, {"ai_models": ["How does Claude work?"]}),
+    with (
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_endocytosis",
+            return_value=({"ai_models": 5, "ai_governance": 3}, {"ai_models": ["Model A"]}),
+        ),
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_signals",
+            return_value={"ai_models": 2},
+        ),
+        mock.patch(
+            "metabolon.organelles.gradient_sense.sense_rheotaxis",
+            return_value=({"ai_models": 3}, {"ai_models": ["How does Claude work?"]}),
+        ),
     ):
         report = build_gradient_report(days=7)
         assert "ai_models" in report.polarity_vector

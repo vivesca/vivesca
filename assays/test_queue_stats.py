@@ -3,6 +3,7 @@ from __future__ import annotations
 
 """Tests for effectors/queue-stats."""
 
+import contextlib
 import json
 import textwrap
 from pathlib import Path
@@ -82,7 +83,7 @@ class TestParseTask:
         assert task["max_turns"] == 20  # default
 
     def test_task_without_provider(self, ns):
-        line = '- [x] `some other command`'
+        line = "- [x] `some other command`"
         task = ns["parse_task"](line)
         assert task is not None
         assert task["provider"] == "unknown"
@@ -141,10 +142,8 @@ class TestReadGolemLog:
                 for line in f:
                     line = line.strip()
                     if line:
-                        try:
+                        with contextlib.suppress(json.JSONDecodeError, ValueError):
                             entries.append(json.loads(line))
-                        except (json.JSONDecodeError, ValueError):
-                            pass
             assert len(entries) == 2
             assert entries[0]["provider"] == "zhipu"
 
@@ -156,10 +155,8 @@ class TestReadGolemLog:
             for line in f:
                 line = line.strip()
                 if line:
-                    try:
+                    with contextlib.suppress(json.JSONDecodeError, ValueError):
                         entries.append(json.loads(line))
-                    except (json.JSONDecodeError, ValueError):
-                        pass
         assert len(entries) == 2
 
 
@@ -207,17 +204,16 @@ class TestComputeTurnDurations:
 class TestEstimateCompletion:
     def _make_tasks(self, specs):
         """Helper: specs is list of (status, provider, max_turns)."""
-        return [
-            {"status": s, "provider": p, "max_turns": t}
-            for s, p, t in specs
-        ]
+        return [{"status": s, "provider": p, "max_turns": t} for s, p, t in specs]
 
     def test_returns_per_provider(self, ns):
-        tasks = self._make_tasks([
-            ("pending", "zhipu", 40),
-            ("pending", "zhipu", 30),
-            ("failed", "infini", 50),
-        ])
+        tasks = self._make_tasks(
+            [
+                ("pending", "zhipu", 40),
+                ("pending", "zhipu", 30),
+                ("failed", "infini", 50),
+            ]
+        )
         concurrency = {"zhipu": 4, "infini": 6, "volcano": 8}
         sec_per_turn = {"zhipu": 10.0, "infini": 12.0, "volcano": 8.0}
         result = ns["estimate_completion"](tasks, concurrency, sec_per_turn)
@@ -227,10 +223,12 @@ class TestEstimateCompletion:
         assert result["infini"]["tasks"] == 1
 
     def test_done_tasks_excluded(self, ns):
-        tasks = self._make_tasks([
-            ("done", "zhipu", 40),
-            ("pending", "zhipu", 30),
-        ])
+        tasks = self._make_tasks(
+            [
+                ("done", "zhipu", 40),
+                ("pending", "zhipu", 30),
+            ]
+        )
         concurrency = {"zhipu": 4, "infini": 6, "volcano": 8}
         sec_per_turn = {"zhipu": 10.0}
         result = ns["estimate_completion"](tasks, concurrency, sec_per_turn)
@@ -245,9 +243,12 @@ class TestEstimateCompletion:
 
     def test_waves_calculation(self, ns):
         # 5 tasks, 4 slots → 2 waves (ceil(5/4)=2)
-        tasks = self._make_tasks([
-            ("pending", "zhipu", 30),
-        ] * 5)
+        tasks = self._make_tasks(
+            [
+                ("pending", "zhipu", 30),
+            ]
+            * 5
+        )
         concurrency = {"zhipu": 4, "infini": 6, "volcano": 8}
         sec_per_turn = {"zhipu": 10.0}
         result = ns["estimate_completion"](tasks, concurrency, sec_per_turn)

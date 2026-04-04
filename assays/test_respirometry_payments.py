@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.respirometry.payments — payment tracking module."""
 
 import subprocess
-from datetime import datetime, timedelta, timezone, date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,17 +12,16 @@ import yaml
 
 from metabolon.respirometry.payments import (
     HKT,
-    restore_payments,
-    persist_payments,
-    restore_card_config,
-    is_autopay,
-    queue_payment,
-    dequeue_payment,
-    schedule_payment_reminder,
     assess_missing_statements,
+    dequeue_payment,
     flag_overdue_payments,
+    is_autopay,
+    persist_payments,
+    queue_payment,
+    restore_card_config,
+    restore_payments,
+    schedule_payment_reminder,
 )
-
 
 # ── fixtures ─────────────────────────────────────────────────────────
 
@@ -260,7 +259,7 @@ def test_schedule_payment_reminder_fasti_failure(mock_run: MagicMock):
 
 
 def test_schedule_payment_reminder_invalid_date():
-    """Returns None for unparseable due_date."""
+    """Returns None for unparsable due_date."""
     result = schedule_payment_reminder("hsbc", 100.0, "not-a-date")
     assert result is None
 
@@ -296,9 +295,7 @@ def _fmt(d: date) -> str:
 # ── assess_missing_statements ────────────────────────────────────────
 
 
-def test_assess_missing_statements_flags_missing(
-    tmp_config: Path, tmp_path: Path
-):
+def test_assess_missing_statements_flags_missing(tmp_config: Path, tmp_path: Path):
     """Flags cards past their grace period with no statement file."""
     today = _today()
     # statement_day well in the past → grace period definitely passed
@@ -324,9 +321,7 @@ def test_assess_missing_statements_flags_missing(
         assert len(hsbc_alerts) == 0
 
 
-def test_assess_missing_statements_skips_inactive(
-    tmp_config: Path, tmp_path: Path
-):
+def test_assess_missing_statements_skips_inactive(tmp_config: Path, tmp_path: Path):
     """Does not flag inactive cards."""
     config = {
         "cards": {
@@ -341,9 +336,7 @@ def test_assess_missing_statements_skips_inactive(
     assert not any("SC" in a for a in alerts)
 
 
-def test_assess_missing_statements_statement_exists(
-    tmp_config: Path, tmp_path: Path
-):
+def test_assess_missing_statements_statement_exists(tmp_config: Path, tmp_path: Path):
     """Does not flag when statement file already exists."""
     today = _today()
     config = {

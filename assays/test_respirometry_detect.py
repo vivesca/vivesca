@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from metabolon.respirometry.detect import filename_matches, identify_bank
 
-
 # ── filename_matches ────────────────────────────────────────────────
+
 
 class TestFilenameMatches:
     """Positive and negative cases for each filename pattern."""
@@ -62,6 +62,7 @@ class TestFilenameMatches:
 
 
 # ── identify_bank ───────────────────────────────────────────────────
+
 
 class TestIdentifyBank:
     """Signature-based bank detection from page-1 text."""

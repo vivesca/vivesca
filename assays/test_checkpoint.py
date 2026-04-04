@@ -1,6 +1,5 @@
 """Tests for checkpoint — phantom task dispatch filter."""
 
-import json
 from unittest.mock import patch
 
 from metabolon.checkpoint import (
@@ -13,12 +12,11 @@ from metabolon.checkpoint import (
     sweep_praxis_for_phantoms,
 )
 
-
 # --- should_suppress ---
 
 
 def test_approve_sourced_automated():
-    ok, reason = should_suppress({"description": "research HKMA circulars", "sourced": True})
+    ok, _reason = should_suppress({"description": "research HKMA circulars", "sourced": True})
     assert ok is True
 
 
@@ -52,7 +50,7 @@ def test_block_phantom_unsourced():
 
 
 def test_allow_phantom_when_sourced():
-    ok, reason = should_suppress(
+    ok, _reason = should_suppress(
         {
             "description": "submit conference abstract on AI governance",
             "sourced": True,
@@ -62,7 +60,7 @@ def test_allow_phantom_when_sourced():
 
 
 def test_block_linkedin_draft():
-    ok, reason = should_suppress(
+    ok, _reason = should_suppress(
         {
             "description": "draft LinkedIn post about consulting career",
             "sourced": False,
@@ -72,7 +70,7 @@ def test_block_linkedin_draft():
 
 
 def test_allow_code_task():
-    ok, reason = should_suppress(
+    ok, _reason = should_suppress(
         {
             "description": "generate test file for checkpoint module",
             "sourced": False,
@@ -89,7 +87,7 @@ def test_block_non_automated_heuristic_family():
 
 
 def test_allow_automated_category_override():
-    ok, reason = should_suppress(
+    ok, _reason = should_suppress(
         {
             "description": "plan Theo's birthday party",
             "category": "Automated",
@@ -158,14 +156,12 @@ def test_not_study():
 
 
 def test_terry_tag_under_cap():
-    ok, reason = is_terry_tag_approved("review draft memo", current_terry_count=0, sourced=True)
+    ok, _reason = is_terry_tag_approved("review draft memo", current_terry_count=0, sourced=True)
     assert ok is True
 
 
 def test_terry_tag_at_cap():
-    ok, reason = is_terry_tag_approved(
-        "review memo", current_terry_count=MAX_TERRY_PER_SYSTOLE
-    )
+    ok, reason = is_terry_tag_approved("review memo", current_terry_count=MAX_TERRY_PER_SYSTOLE)
     assert ok is False
     assert "cap reached" in reason
 

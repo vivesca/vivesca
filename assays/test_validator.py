@@ -7,13 +7,12 @@ from pathlib import Path
 
 from metabolon.sortase.validator import (
     ValidationIssue,
+    _normalize_dep,
     check_dependency_pollution,
     check_scope,
-    check_test_coverage,
     run_test_command,
     scan_for_placeholders,
     validate_execution,
-    _normalize_dep,
 )
 
 
@@ -42,11 +41,13 @@ class TestCheckDependencyPollution:
 
     def test_clean_pyproject_no_overlap(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write("""
+            f.write(
+                """
 [project]
 dependencies = ["pytest", "requests"]
 optional-dependencies = {"dev" = ["black", "mypy"]}
-            """.strip())
+            """.strip()
+            )
         path = Path(f.name)
         try:
             issues = check_dependency_pollution(pyproject_path=path)
@@ -56,11 +57,13 @@ optional-dependencies = {"dev" = ["black", "mypy"]}
 
     def test_polluted_pyproject_detects_overlap(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write("""
+            f.write(
+                """
 [project]
 dependencies = ["pytest", "requests", "black"]
 optional-dependencies = {"dev" = ["black", "mypy"]}
-            """.strip())
+            """.strip()
+            )
         path = Path(f.name)
         try:
             issues = check_dependency_pollution(pyproject_path=path)
@@ -152,7 +155,7 @@ class TestRunTestCommand:
         assert "hello" in output
 
     def test_failing_command(self):
-        ok, output = run_test_command(Path.cwd(), "false")
+        ok, _output = run_test_command(Path.cwd(), "false")
         assert not ok
 
 

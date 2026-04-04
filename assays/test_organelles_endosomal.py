@@ -11,7 +11,6 @@ Covers:
   - endosomal_pipeline full triage → process → fate flow
 """
 
-import pytest
 
 from metabolon.organelles.endosomal import (
     CATEGORIES,
@@ -24,7 +23,6 @@ from metabolon.organelles.endosomal import (
     extract_subject,
     sender_is_automated,
 )
-
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -178,7 +176,9 @@ class TestClassifySubject:
 class TestClassify:
     def test_sender_automated_short_circuits(self):
         """Automated sender returns archive_now before subject/body checks."""
-        email = "From: noreply@sendgrid.net\nSubject: [URGENT] Action needed!\n\nPlease respond ASAP!"
+        email = (
+            "From: noreply@sendgrid.net\nSubject: [URGENT] Action needed!\n\nPlease respond ASAP!"
+        )
         assert classify(email) == "archive_now"
 
     def test_subject_pattern_short_circuits(self):
@@ -223,7 +223,9 @@ class TestClassify:
 
     def test_security_alert_archive(self):
         """Security alerts are archive_now (automated)."""
-        email = "From: security@example.com\nSubject: Alert\n\nSecurity alert: login attempt detected."
+        email = (
+            "From: security@example.com\nSubject: Alert\n\nSecurity alert: login attempt detected."
+        )
         assert classify(email) == "archive_now"
 
 

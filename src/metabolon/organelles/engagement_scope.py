@@ -1,4 +1,3 @@
-
 """engagement_scope — structured engagement scoping from RFP/RFI text.
 
 Extracts: scope, timeline, budget indicators, deliverables, regulatory context,
@@ -6,7 +5,6 @@ team requirements, and risk flags from unstructured engagement text.
 
 Output is a structured ScopeResult suitable for SOW/proposal generation.
 """
-
 
 import re
 from dataclasses import dataclass, field
@@ -212,7 +210,7 @@ def extract_skills(text: str) -> list[str]:
 
 def detect_engagement_type(text: str) -> str:
     """Detect engagement type from text signals."""
-    scores = {etype: 0 for etype in _ENGAGEMENT_TYPE_SIGNALS}
+    scores = dict.fromkeys(_ENGAGEMENT_TYPE_SIGNALS, 0)
     t = text.lower()
     for etype, signals in _ENGAGEMENT_TYPE_SIGNALS.items():
         for signal in signals:

@@ -2,23 +2,25 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from metabolon.enzymes.gap_junction import (
-    gap_junction,
-    GapJunctionResult,
     GAP_JUNCTION_CONTACTS,
+    GapJunctionResult,
+    gap_junction,
 )
 
-
 # ── helpers ──────────────────────────────────────────────────────────
+
 
 def _result(**kwargs) -> GapJunctionResult:
     return gap_junction(**kwargs)
 
 
 # ── return type consistency ──────────────────────────────────────────
+
 
 class TestReturnType:
     """Every code path must return a GapJunctionResult."""
@@ -50,20 +52,21 @@ class TestReturnType:
 
 # ── whitespace / case handling on action ─────────────────────────────
 
+
 class TestActionNormalization:
     def test_whitespace_stripped_read(self):
         with patch("metabolon.organelles.gap_junction.receive_signals", return_value="msg") as m:
-            r = _result(action="  read  ", name="tara")
+            _result(action="  read  ", name="tara")
             m.assert_called_once()
 
     def test_whitespace_stripped_search(self):
         with patch("metabolon.organelles.gap_junction.search_signals", return_value="x") as m:
-            r = _result(action=" search ", query="hi")
+            _result(action=" search ", query="hi")
             m.assert_called_once()
 
     def test_mixed_case_draft(self):
         with patch("metabolon.organelles.gap_junction.compose_signal", return_value="x") as m:
-            r = _result(action="DrAfT", name="tara", message="hi")
+            _result(action="DrAfT", name="tara", message="hi")
             m.assert_called_once_with("tara", "hi")
 
     def test_empty_string_action(self):
@@ -72,6 +75,7 @@ class TestActionNormalization:
 
 
 # ── default limit propagation ────────────────────────────────────────
+
 
 class TestDefaultLimit:
     """Ensure limit=20 (the default) is forwarded to organelle functions."""
@@ -93,6 +97,7 @@ class TestDefaultLimit:
 
 
 # ── GAP_JUNCTION_CONTACTS prefix coverage ───────────────────────────
+
 
 class TestContactPrefix:
     """Every name in GAP_JUNCTION_CONTACTS should get the [gap_junction] prefix."""
@@ -117,6 +122,7 @@ class TestContactPrefix:
 
 # ── validation edge cases ────────────────────────────────────────────
 
+
 class TestValidation:
     def test_read_empty_string_name(self):
         r = _result(action="read", name="")
@@ -136,6 +142,7 @@ class TestValidation:
 
 
 # ── unknown action lists all valid actions ───────────────────────────
+
 
 class TestUnknownActionMessage:
     def test_message_contains_all_actions(self):

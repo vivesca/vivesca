@@ -7,9 +7,7 @@ import sys
 import time
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 # ── Load effector via exec (never import) ─────────────────────────────────────
 
@@ -206,7 +204,7 @@ class TestCollectDocuments:
         with _patch_attr("REFERENCE_DIR", ref_dir):
             docs = chemo.collect_documents()
         assert len(docs) == 1
-        key = list(docs.keys())[0]
+        key = next(iter(docs.keys()))
         assert "deep.md" in key
         assert "sub" in key
 
@@ -303,10 +301,12 @@ class TestFormatSuggestions:
         (ref_dir / "b.md").write_text("# Beta\nBeta content.")
 
         with _patch_attr("REFERENCE_DIR", ref_dir):
-            result = chemo.format_suggestions([
-                ("a.md", 5.0),
-                ("b.md", 3.0),
-            ])
+            result = chemo.format_suggestions(
+                [
+                    ("a.md", 5.0),
+                    ("b.md", 3.0),
+                ]
+            )
         assert "Alpha" in result
         assert "Beta" in result
 
@@ -351,15 +351,15 @@ class TestMain:
         debounce_file = tmp_path / "state.json"
         debounce_file.write_text(str(0))
 
-        hook_input = json.dumps(
-            {"prompt": "How do I deploy Docker containers to production?"}
-        )
+        hook_input = json.dumps({"prompt": "How do I deploy Docker containers to production?"})
 
-        with _patch_attr("REFERENCE_DIR", ref_dir), \
-             _patch_attr("DEBOUNCE_FILE", debounce_file), \
-             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            _patch_attr("REFERENCE_DIR", ref_dir),
+            _patch_attr("DEBOUNCE_FILE", debounce_file),
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_called_once()
             output = json.loads(mock_print.call_args[0][0])
@@ -368,38 +368,44 @@ class TestMain:
 
     def test_main_short_prompt_skipped(self):
         hook_input = json.dumps({"prompt": "hi"})
-        with patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_not_called()
 
     def test_main_no_prompt_skipped(self):
         hook_input = json.dumps({})
-        with patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_not_called()
 
     def test_main_debounced_skipped(self, tmp_path):
         debounce_file = tmp_path / "state.json"
         debounce_file.write_text(str(time.time()))
-        hook_input = json.dumps(
-            {"prompt": "How do I deploy Docker containers to production?"}
-        )
+        hook_input = json.dumps({"prompt": "How do I deploy Docker containers to production?"})
 
-        with _patch_attr("DEBOUNCE_FILE", debounce_file), \
-             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            _patch_attr("DEBOUNCE_FILE", debounce_file),
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_not_called()
 
     def test_main_invalid_json_skipped(self):
-        with patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO("not json")), \
-             patch("builtins.print") as mock_print:
+        with (
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO("not json")),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_not_called()
 
@@ -408,10 +414,12 @@ class TestMain:
         debounce_file.write_text(str(0))
         hook_input = json.dumps({"prompt": "the is a"})
 
-        with _patch_attr("DEBOUNCE_FILE", debounce_file), \
-             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            _patch_attr("DEBOUNCE_FILE", debounce_file),
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_not_called()
 
@@ -420,15 +428,15 @@ class TestMain:
         ref_dir.mkdir()
         debounce_file = tmp_path / "state.json"
         debounce_file.write_text(str(0))
-        hook_input = json.dumps(
-            {"prompt": "How do I deploy Docker containers to production?"}
-        )
+        hook_input = json.dumps({"prompt": "How do I deploy Docker containers to production?"})
 
-        with _patch_attr("REFERENCE_DIR", ref_dir), \
-             _patch_attr("DEBOUNCE_FILE", debounce_file), \
-             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            _patch_attr("REFERENCE_DIR", ref_dir),
+            _patch_attr("DEBOUNCE_FILE", debounce_file),
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             mock_print.assert_not_called()
 
@@ -441,15 +449,15 @@ class TestMain:
         debounce_file = tmp_path / "state.json"
         debounce_file.write_text(str(0))
 
-        hook_input = json.dumps(
-            {"prompt": "How do I deploy Kubernetes clusters?"}
-        )
+        hook_input = json.dumps({"prompt": "How do I deploy Kubernetes clusters?"})
 
-        with _patch_attr("REFERENCE_DIR", ref_dir), \
-             _patch_attr("DEBOUNCE_FILE", debounce_file), \
-             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
-             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
-             patch("builtins.print") as mock_print:
+        with (
+            _patch_attr("REFERENCE_DIR", ref_dir),
+            _patch_attr("DEBOUNCE_FILE", debounce_file),
+            patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]),
+            patch.object(_mod["sys"], "stdin", StringIO(hook_input)),
+            patch("builtins.print") as mock_print,
+        ):
             chemo.main()
             output = json.loads(mock_print.call_args[0][0])
             suffix = output["metadata"]["system-prompt-suffix"]
@@ -466,9 +474,7 @@ class TestSubprocessExecution:
         assert result.returncode == 0
 
     def test_script_runs_with_valid_json(self):
-        result = _run_script(
-            stdin_data=json.dumps({"prompt": "test query about things"})
-        )
+        result = _run_script(stdin_data=json.dumps({"prompt": "test query about things"}))
         assert result.returncode == 0
 
 

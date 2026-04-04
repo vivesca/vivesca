@@ -5,7 +5,6 @@ from __future__ import annotations
 Covers all public functions, edge cases, branch logic, and to_markdown output.
 """
 
-import pytest
 
 from metabolon.organelles.engagement_scope import (
     RiskFlag,
@@ -20,8 +19,8 @@ from metabolon.organelles.engagement_scope import (
     scope_engagement,
 )
 
-
 # ── extract_timeline ──────────────────────────────────────────────
+
 
 class TestExtractTimeline:
     def test_weeks(self):
@@ -61,6 +60,7 @@ class TestExtractTimeline:
 
 # ── extract_budget ────────────────────────────────────────────────
 
+
 class TestExtractBudget:
     def test_dollar_amount(self):
         assert extract_budget("budget of $500k") != ""
@@ -95,6 +95,7 @@ class TestExtractBudget:
 
 # ── extract_deliverables ─────────────────────────────────────────
 
+
 class TestExtractDeliverables:
     def test_numbered_list_after_deliverable(self):
         text = "Deliverables:\n1. Report\n2. Dashboard\n3. Training"
@@ -123,6 +124,7 @@ class TestExtractDeliverables:
 
 
 # ── extract_regulatory_context ────────────────────────────────────
+
 
 class TestExtractRegulatoryContext:
     def test_hkma(self):
@@ -160,6 +162,7 @@ class TestExtractRegulatoryContext:
 
 # ── extract_skills ────────────────────────────────────────────────
 
+
 class TestExtractSkills:
     def test_python(self):
         result = extract_skills("Requires Python programming")
@@ -190,6 +193,7 @@ class TestExtractSkills:
 
 
 # ── detect_engagement_type ────────────────────────────────────────
+
 
 class TestDetectEngagementType:
     def test_advisory(self):
@@ -223,6 +227,7 @@ class TestDetectEngagementType:
 
 
 # ── detect_risks ──────────────────────────────────────────────────
+
 
 class TestDetectRisks:
     def _make_scope(self, **overrides):
@@ -263,7 +268,9 @@ class TestDetectRisks:
     def test_multi_phase_scope_creep(self):
         scope = self._make_scope()
         risks = detect_risks("This is phase 1 of the engagement", scope)
-        assert any(r.category == "scope_creep" and "multi-phase" in r.description.lower() for r in risks)
+        assert any(
+            r.category == "scope_creep" and "multi-phase" in r.description.lower() for r in risks
+        )
 
     def test_many_regulations_risk(self):
         scope = self._make_scope(regulatory_context=["HKMA", "SFC", "GDPR", "SOX"])
@@ -307,6 +314,7 @@ class TestDetectRisks:
 
 # ── ScopeResult.to_markdown ──────────────────────────────────────
 
+
 class TestScopeResultToMarkdown:
     def test_minimal_fields(self):
         r = ScopeResult(client="Acme", engagement_type="advisory", summary="Test scope")
@@ -320,7 +328,9 @@ class TestScopeResultToMarkdown:
         assert "**Timeline:** 8 weeks" in r.to_markdown()
 
     def test_budget_in_output(self):
-        r = ScopeResult(client="X", engagement_type="advisory", summary="s", budget_indicator="$500k")
+        r = ScopeResult(
+            client="X", engagement_type="advisory", summary="s", budget_indicator="$500k"
+        )
         assert "**Budget:** $500k" in r.to_markdown()
 
     def test_team_size_in_output(self):
@@ -328,20 +338,32 @@ class TestScopeResultToMarkdown:
         assert "**Team Size:** 6" in r.to_markdown()
 
     def test_deliverables_section(self):
-        r = ScopeResult(client="X", engagement_type="advisory", summary="s", deliverables=["Report", "Dashboard"])
+        r = ScopeResult(
+            client="X",
+            engagement_type="advisory",
+            summary="s",
+            deliverables=["Report", "Dashboard"],
+        )
         md = r.to_markdown()
         assert "## Deliverables" in md
         assert "- Report" in md
         assert "- Dashboard" in md
 
     def test_skills_section(self):
-        r = ScopeResult(client="X", engagement_type="advisory", summary="s", required_skills=["Python", "AWS"])
+        r = ScopeResult(
+            client="X", engagement_type="advisory", summary="s", required_skills=["Python", "AWS"]
+        )
         md = r.to_markdown()
         assert "## Required Skills" in md
         assert "- Python" in md
 
     def test_regulatory_section(self):
-        r = ScopeResult(client="X", engagement_type="advisory", summary="s", regulatory_context=["HKMA", "GDPR"])
+        r = ScopeResult(
+            client="X",
+            engagement_type="advisory",
+            summary="s",
+            regulatory_context=["HKMA", "GDPR"],
+        )
         md = r.to_markdown()
         assert "## Regulatory Context" in md
         assert "- HKMA" in md
@@ -372,6 +394,7 @@ class TestScopeResultToMarkdown:
 
 
 # ── scope_engagement (integration) ───────────────────────────────
+
 
 class TestScopeEngagement:
     SAMPLE = """
@@ -446,6 +469,7 @@ class TestScopeEngagement:
 
 # ── RiskFlag dataclass ───────────────────────────────────────────
 
+
 class TestRiskFlag:
     def test_fields(self):
         rf = RiskFlag(category="scope_creep", description="Too broad", severity="high")
@@ -460,6 +484,7 @@ class TestRiskFlag:
 
 
 # ── Edge cases ────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     def test_empty_text(self):

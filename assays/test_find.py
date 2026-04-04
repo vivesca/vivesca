@@ -9,9 +9,8 @@ Loaded via exec() with all external calls mocked.
 
 
 import os
-import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -20,6 +19,7 @@ FIND_LINK_PATH = Path(__file__).resolve().parents[1] / "effectors" / "find"
 
 
 # ── Load module via exec ────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def sg():
@@ -57,7 +57,7 @@ class TestFindBinaries:
         assert "find" in sg._KNOWN_WRAPPERS
 
     def test_all_three_binaries_defined(self, sg):
-        assert sg._KNOWN_WRAPPERS == {"grep", "rg", "find"}
+        assert {"grep", "rg", "find"} == sg._KNOWN_WRAPPERS
 
 
 # ── Root/home blocking ──────────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-
 """inflammasome — innate immune system for the vivesca organism.
 
 Deterministic self-test probes that verify each subsystem actually works.
@@ -16,7 +15,6 @@ Adaptive immune layer (adaptive_response):
   - Unknown failures are logged to the infection log for human review.
   - Repairs are idempotent and never retried within the same probe cycle.
 """
-
 
 import contextlib
 import json

@@ -44,10 +44,7 @@ def _make_installer(tmp_path: Path, exit_code: int = 0, record_file: Path | None
             f"sys.exit({exit_code})\n"
         )
     else:
-        installer.write_text(
-            "#!/usr/bin/env python3\nimport sys\n"
-            f"sys.exit({exit_code})\n"
-        )
+        installer.write_text(f"#!/usr/bin/env python3\nimport sys\nsys.exit({exit_code})\n")
     installer.chmod(installer.stat().st_mode | stat.S_IEXEC)
     return installer
 
@@ -318,7 +315,12 @@ class TestErrorHandling:
         record = tmp_path / "install_calls.log"
         skills_dir = _codex_skills(tmp_path)
         installer_script = (
-            tmp_path / ".codex" / "skills" / ".system" / "skill-installer" / "scripts"
+            tmp_path
+            / ".codex"
+            / "skills"
+            / ".system"
+            / "skill-installer"
+            / "scripts"
             / "install-skill-from-github.py"
         )
         # Create installer that makes a skill dir then fails

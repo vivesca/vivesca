@@ -9,10 +9,10 @@ import pytest
 
 from metabolon.organelles.effector import run_cli
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ok(stdout: str = "", returncode: int = 0) -> subprocess.CompletedProcess:
     """Build a successful CompletedProcess."""
@@ -27,6 +27,7 @@ def _ok(stdout: str = "", returncode: int = 0) -> subprocess.CompletedProcess:
 # ---------------------------------------------------------------------------
 # Success cases
 # ---------------------------------------------------------------------------
+
 
 class TestRunCliSuccess:
     @patch("metabolon.organelles.effector.subprocess.run")
@@ -89,6 +90,7 @@ class TestRunCliSuccess:
 # ---------------------------------------------------------------------------
 # Error cases
 # ---------------------------------------------------------------------------
+
 
 class TestRunCliErrors:
     @patch("metabolon.organelles.effector.subprocess.run")

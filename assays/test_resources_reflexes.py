@@ -7,8 +7,6 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from metabolon.resources.reflexes import _extract_reflex_name, express_reflex_inventory
 
 
@@ -130,18 +128,20 @@ class TestExpressReflexInventory:
         """Render single command hook correctly."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [
-                            {"type": "command", "command": "python ~/.claude/hooks/guard.py"}
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [
+                                {"type": "command", "command": "python ~/.claude/hooks/guard.py"}
+                            ],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -155,18 +155,20 @@ class TestExpressReflexInventory:
         """Render single prompt hook correctly."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "Notification": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "prompt", "prompt": "Remember to check for issues"}
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "Notification": [
+                        {
+                            "matcher": "",
+                            "hooks": [
+                                {"type": "prompt", "prompt": "Remember to check for issues"}
+                            ],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -179,18 +181,15 @@ class TestExpressReflexInventory:
         long_prompt = "x" * 100
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "Notification": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "prompt", "prompt": long_prompt}
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "Notification": [
+                        {"matcher": "", "hooks": [{"type": "prompt", "prompt": long_prompt}]}
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -203,18 +202,18 @@ class TestExpressReflexInventory:
         """Empty matcher displays as _(all)_."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "Stop": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "command", "command": "python ~/hook.py"}
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "Stop": [
+                        {
+                            "matcher": "",
+                            "hooks": [{"type": "command", "command": "python ~/hook.py"}],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
         assert "_(all)_" in result
@@ -223,19 +222,21 @@ class TestExpressReflexInventory:
         """Handle multiple hooks in a single group."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [
-                            {"type": "command", "command": "python ~/hook1.py"},
-                            {"type": "command", "command": "node ~/hook2.js"},
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [
+                                {"type": "command", "command": "python ~/hook1.py"},
+                                {"type": "command", "command": "node ~/hook2.js"},
+                            ],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -248,20 +249,22 @@ class TestExpressReflexInventory:
         """Handle multiple groups for the same event."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [{"type": "command", "command": "python ~/bash-hook.py"}]
-                    },
-                    {
-                        "matcher": "Read",
-                        "hooks": [{"type": "command", "command": "python ~/read-hook.py"}]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [{"type": "command", "command": "python ~/bash-hook.py"}],
+                        },
+                        {
+                            "matcher": "Read",
+                            "hooks": [{"type": "command", "command": "python ~/read-hook.py"}],
+                        },
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -275,28 +278,25 @@ class TestExpressReflexInventory:
         """Handle multiple events with hooks."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [{"type": "command", "command": "python ~/pre.py"}]
-                    }
-                ],
-                "PostToolUse": [
-                    {
-                        "matcher": "Edit",
-                        "hooks": [{"type": "command", "command": "python ~/post.py"}]
-                    }
-                ],
-                "Stop": [
-                    {
-                        "matcher": "",
-                        "hooks": [{"type": "prompt", "prompt": "Goodbye"}]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [{"type": "command", "command": "python ~/pre.py"}],
+                        }
+                    ],
+                    "PostToolUse": [
+                        {
+                            "matcher": "Edit",
+                            "hooks": [{"type": "command", "command": "python ~/post.py"}],
+                        }
+                    ],
+                    "Stop": [{"matcher": "", "hooks": [{"type": "prompt", "prompt": "Goodbye"}]}],
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -309,20 +309,22 @@ class TestExpressReflexInventory:
         """Unknown hook types are not included in output."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [
-                            {"type": "command", "command": "python ~/known.py"},
-                            {"type": "unknown_type", "command": "something"},
-                            {"command": "no-type-field"},  # missing type
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [
+                                {"type": "command", "command": "python ~/known.py"},
+                                {"type": "unknown_type", "command": "something"},
+                                {"command": "no-type-field"},  # missing type
+                            ],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -334,18 +336,20 @@ class TestExpressReflexInventory:
         """Handle command hook without command field gracefully."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [
-                            {"type": "command"}  # missing command
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [
+                                {"type": "command"}  # missing command
+                            ],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -357,18 +361,20 @@ class TestExpressReflexInventory:
         """Handle prompt hook without prompt field gracefully."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "Notification": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "prompt"}  # missing prompt
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "Notification": [
+                        {
+                            "matcher": "",
+                            "hooks": [
+                                {"type": "prompt"}  # missing prompt
+                            ],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -389,16 +395,18 @@ class TestExpressReflexInventory:
         """Verify markdown table format."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [{"type": "command", "command": "python ~/hook.py"}]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [{"type": "command", "command": "python ~/hook.py"}],
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -411,22 +419,24 @@ class TestExpressReflexInventory:
         """Event with no valid hooks should not appear in output."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": []  # Empty hooks list
-                    }
-                ],
-                "PostToolUse": [
-                    {
-                        "matcher": "",
-                        "hooks": [{"type": "command", "command": "python ~/valid.py"}]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [],  # Empty hooks list
+                        }
+                    ],
+                    "PostToolUse": [
+                        {
+                            "matcher": "",
+                            "hooks": [{"type": "command", "command": "python ~/valid.py"}],
+                        }
+                    ],
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -439,16 +449,18 @@ class TestExpressReflexInventory:
         """Group without matcher key defaults to empty string."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "Stop": [
-                    {
-                        # No matcher key
-                        "hooks": [{"type": "command", "command": "python ~/hook.py"}]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "Stop": [
+                        {
+                            # No matcher key
+                            "hooks": [{"type": "command", "command": "python ~/hook.py"}]
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 
@@ -459,49 +471,58 @@ class TestExpressReflexInventory:
         """Test with a realistic hooks configuration."""
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        mock_path.read_text.return_value = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": "Bash",
-                        "hooks": [
-                            {"type": "command", "command": "python3 ~/.claude/hooks/bash-guard.py"}
-                        ]
-                    },
-                    {
-                        "matcher": "Edit",
-                        "hooks": [
-                            {"type": "command", "command": "python3 ~/.claude/hooks/edit-check.py"},
-                            {"type": "prompt", "prompt": "Verify the edit is safe before proceeding with changes"}
-                        ]
-                    }
-                ],
-                "PostToolUse": [
-                    {
-                        "matcher": "Write",
-                        "hooks": [
-                            {"type": "command", "command": "node ~/.claude/hooks/file-log.js"}
-                        ]
-                    }
-                ],
-                "Notification": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "prompt", "prompt": "Log important notifications"}
-                        ]
-                    }
-                ],
-                "Stop": [
-                    {
-                        "matcher": "",
-                        "hooks": [
-                            {"type": "command", "command": "bash ~/.claude/hooks/cleanup.sh"}
-                        ]
-                    }
-                ]
+        mock_path.read_text.return_value = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "python3 ~/.claude/hooks/bash-guard.py",
+                                }
+                            ],
+                        },
+                        {
+                            "matcher": "Edit",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "python3 ~/.claude/hooks/edit-check.py",
+                                },
+                                {
+                                    "type": "prompt",
+                                    "prompt": "Verify the edit is safe before proceeding with changes",
+                                },
+                            ],
+                        },
+                    ],
+                    "PostToolUse": [
+                        {
+                            "matcher": "Write",
+                            "hooks": [
+                                {"type": "command", "command": "node ~/.claude/hooks/file-log.js"}
+                            ],
+                        }
+                    ],
+                    "Notification": [
+                        {
+                            "matcher": "",
+                            "hooks": [{"type": "prompt", "prompt": "Log important notifications"}],
+                        }
+                    ],
+                    "Stop": [
+                        {
+                            "matcher": "",
+                            "hooks": [
+                                {"type": "command", "command": "bash ~/.claude/hooks/cleanup.sh"}
+                            ],
+                        }
+                    ],
+                }
             }
-        })
+        )
 
         result = express_reflex_inventory(mock_path)
 

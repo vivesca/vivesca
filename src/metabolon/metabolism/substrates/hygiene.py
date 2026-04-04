@@ -1,10 +1,8 @@
-
 """HygieneSubstrate — metabolism of the organism's own tooling health.
 
 Senses dependency freshness, pre-commit hook versions, test suite health,
 and Python version. Proposes or executes upgrades for safe changes.
 """
-
 
 import re
 import subprocess

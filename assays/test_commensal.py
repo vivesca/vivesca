@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -123,7 +123,7 @@ class TestRunDirect:
 
     def test_run_direct_failure(self, cm, tmp_path):
         """Test run_direct with a failing command."""
-        output, code = cm["run_direct"](
+        _output, code = cm["run_direct"](
             ["false"],
             str(tmp_path),
             10,
@@ -143,7 +143,7 @@ class TestRunDirect:
         """Test that CLAUDECODE env var is removed."""
         # This test verifies the env filtering logic
         with patch.dict(os.environ, {"CLAUDECODE": "test_value"}):
-            output, code = cm["run_direct"](
+            output, _code = cm["run_direct"](
                 ["python3", "-c", "import os; print('CLAUDECODE' in os.environ)"],
                 str(tmp_path),
                 10,
@@ -167,7 +167,7 @@ class TestRunPty:
 
     def test_run_pty_failure(self, cm, tmp_path):
         """Test run_pty with a failing command."""
-        output, code = cm["run_pty"](
+        _output, code = cm["run_pty"](
             ["false"],
             str(tmp_path),
             10,
@@ -190,7 +190,7 @@ class TestRunPty:
     def test_run_pty_timeout(self, cm, tmp_path):
         """Test run_pty kills process on timeout."""
         start = time.time()
-        output, code = cm["run_pty"](
+        _output, code = cm["run_pty"](
             ["sleep", "30"],
             str(tmp_path),
             2,

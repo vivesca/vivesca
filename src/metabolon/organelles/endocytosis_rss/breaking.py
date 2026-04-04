@@ -1,4 +1,3 @@
-
 import hashlib
 import json
 import os
@@ -63,7 +62,7 @@ def _article_is_fresh(
     """Return True if the article was published within ``max_hours`` of ``now``.
 
     Reads the ``published_at`` field (ISO 8601 UTC string) added by
-    ``fetch_rss``.  If the field is absent or unparseable the article is
+    ``fetch_rss``.  If the field is absent or unparsable the article is
     treated as fresh so the breaking label is NOT suppressed — fail open.
     """
     raw = article.get("published_at", "")
@@ -71,7 +70,7 @@ def _article_is_fresh(
         return True  # no date available → don't suppress
     try:
         pub = datetime.fromisoformat(str(raw))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return True  # malformed date → don't suppress
     if pub.tzinfo is None:
         pub = pub.replace(tzinfo=UTC)
@@ -110,7 +109,7 @@ def restore_breaking_state(path: Path, now: datetime) -> dict[str, Any]:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
                 return payload
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             pass
     return {
         "last_check": None,
@@ -174,7 +173,7 @@ def _age_minutes(published_at: str, now: datetime) -> float | None:
         return None
     try:
         pub = datetime.fromisoformat(str(published_at))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
     if pub.tzinfo is None:
         pub = pub.replace(tzinfo=UTC)
@@ -198,7 +197,7 @@ def emit_alert_signal(
     """Append one record to the alert-signals JSONL log (atomic line append).
 
     Schema:
-      timestamp       - ISO 8601 UTC - when lustro breaking ran
+      timestamp       - ISO 8601 UTC - when endocytosis breaking ran
       title           - article title
       source          - source name from sources.yaml
       url             - article link

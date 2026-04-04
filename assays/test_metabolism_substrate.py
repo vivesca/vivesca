@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from metabolon.metabolism.substrate import Substrate
 
-
 # ---------------------------------------------------------------------------
 # Helpers — concrete implementations
 # ---------------------------------------------------------------------------
@@ -50,7 +49,7 @@ class FilteredSubstrate:
         return f"prune {candidate['name']} (score {candidate['score']})"
 
     def report(self, sensed: list[dict], acted: list[str]) -> str:
-        lines = [f"## {self.name} report"] + acted
+        lines = [f"## {self.name} report", *acted]
         return "\n".join(lines)
 
 
@@ -78,6 +77,7 @@ class TestProtocolConformance:
             def sense(self, days=30): ...
             def candidates(self, sensed): ...
             def act(self, candidate): ...
+
             # no report
 
         assert not isinstance(Partial(), Substrate)
@@ -88,13 +88,17 @@ class TestProtocolConformance:
         class Weird:
             name = "weird"
 
-            def sense(self): return []  # missing 'days' param
+            def sense(self):
+                return []  # missing 'days' param
 
-            def candidates(self, sensed): return sensed
+            def candidates(self, sensed):
+                return sensed
 
-            def act(self, candidate): return "ok"
+            def act(self, candidate):
+                return "ok"
 
-            def report(self, sensed, acted): return ""
+            def report(self, sensed, acted):
+                return ""
 
         # runtime_checkable only checks presence of attrs, not signatures
         assert isinstance(Weird(), Substrate)
@@ -129,10 +133,18 @@ class TestSense:
     def test_empty_sense(self):
         class EmptySubstrate:
             name = "empty"
-            def sense(self, days=30): return []
-            def candidates(self, sensed): return sensed
-            def act(self, candidate): return "nop"
-            def report(self, sensed, acted): return "nothing"
+
+            def sense(self, days=30):
+                return []
+
+            def candidates(self, sensed):
+                return sensed
+
+            def act(self, candidate):
+                return "nop"
+
+            def report(self, sensed, acted):
+                return "nothing"
 
         s = EmptySubstrate()
         assert s.sense() == []

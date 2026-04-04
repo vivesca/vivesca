@@ -1,39 +1,38 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta, UTC
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from datetime import date, timedelta
+from unittest.mock import MagicMock, patch
 
 from metabolon.organelles.glycolysis_rate import (
-    _REGISTRY,
     _CONVERTIBLE_CAPABILITIES,
+    _REGISTRY,
+    get_conversion_report,
     measure_rate,
-    trend,
     snapshot,
     suggest_conversions,
-    get_conversion_report,
+    trend,
 )
 
 
 def test_measure_rate_basic():
     """Test measure_rate returns correct counts and percentage."""
     result = measure_rate()
-    
+
     # Check that we have counts for all types
     assert result["deterministic_count"] > 0
     assert result["symbiont_count"] > 0
     assert result["hybrid_count"] > 0
     assert result["total"] == len(_REGISTRY)
     assert 0 <= result["glycolysis_pct"] <= 100
-    
+
     # Recalculate manually to verify formula
     d = sum(1 for v in _REGISTRY.values() if v == "deterministic")
     s = sum(1 for v in _REGISTRY.values() if v == "symbiont")
     h = sum(1 for v in _REGISTRY.values() if v == "hybrid")
     total = d + s + h
     expected_pct = round(((d + h * 0.5) / total * 100) if total else 0.0, 1)
-    
+
     assert result["deterministic_count"] == d
     assert result["symbiont_count"] == s
     assert result["hybrid_count"] == h
@@ -64,30 +63,34 @@ def test_trend_with_snapshots():
     today = date.today()
     ten_days_ago = (today - timedelta(days=10)).isoformat()
     forty_days_ago = (today - timedelta(days=40)).isoformat()
-    
+
     snapshots = [
-        json.dumps({
-            "timestamp": f"{ten_days_ago}T10:00:00+00:00",
-            "glycolysis_pct": 65.5,
-            "deterministic_count": 40,
-            "symbiont_count": 20,
-            "hybrid_count": 5,
-        }),
-        json.dumps({
-            "timestamp": f"{forty_days_ago}T10:00:00+00:00",
-            "glycolysis_pct": 64.0,
-            "deterministic_count": 39,
-            "symbiont_count": 20,
-            "hybrid_count": 5,
-        }),
+        json.dumps(
+            {
+                "timestamp": f"{ten_days_ago}T10:00:00+00:00",
+                "glycolysis_pct": 65.5,
+                "deterministic_count": 40,
+                "symbiont_count": 20,
+                "hybrid_count": 5,
+            }
+        ),
+        json.dumps(
+            {
+                "timestamp": f"{forty_days_ago}T10:00:00+00:00",
+                "glycolysis_pct": 64.0,
+                "deterministic_count": 39,
+                "symbiont_count": 20,
+                "hybrid_count": 5,
+            }
+        ),
     ]
-    
+
     with patch("metabolon.organelles.glycolysis_rate._SNAPSHOT_PATH") as mock_path:
         mock_path.exists.return_value = True
         mock_file = MagicMock()
         mock_file.__enter__.return_value.readlines.return_value = snapshots
         mock_path.open.return_value = mock_file
-        
+
         result = trend(days=30)
         # Only the 10-day-old entry should be included, 40-day is cutoff
         assert len(result) == 1
@@ -102,13 +105,13 @@ def test_trend_skips_invalid_entries():
         json.dumps({"timestamp": "bad-format", "glycolysis_pct": 50}),
         json.dumps({"timestamp": "2024-13-01T00:00:00", "glycolysis_pct": 50}),
     ]
-    
+
     with patch("metabolon.organelles.glycolysis_rate._SNAPSHOT_PATH") as mock_path:
         mock_path.exists.return_value = True
         mock_file = MagicMock()
         mock_file.__enter__.return_value.readlines.return_value = invalid_entries
         mock_path.open.return_value = mock_file
-        
+
         result = trend(days=30)
         assert len(result) == 0
 
@@ -122,7 +125,7 @@ def test_snapshot_creates_dir_and_writes():
         "total": 65,
         "glycolysis_pct": 65.4,
     }
-    
+
     with patch("metabolon.organelles.glycolysis_rate.measure_rate", return_value=mock_rate):
         with patch("metabolon.organelles.glycolysis_rate._SNAPSHOT_PATH") as mock_path:
             mock_parent = MagicMock()
@@ -131,9 +134,9 @@ def test_snapshot_creates_dir_and_writes():
             mock_path.open.return_value = mock_open
             mock_file = MagicMock()
             mock_open.__enter__.return_value = mock_file
-            
+
             result = snapshot()
-            
+
             # Check directory created
             mock_parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
             # Check file opened for append
@@ -148,14 +151,14 @@ def test_snapshot_creates_dir_and_writes():
 def test_suggest_conversions():
     """Test suggest_conversions returns correct sorted suggestions."""
     suggestions = suggest_conversions()
-    
+
     # Should return all convertible capabilities that are in registry
     assert len(suggestions) == len(_CONVERTIBLE_CAPABILITIES)
-    
+
     # Check sorted by priority descending
     priorities = [s["priority"] for s in suggestions]
     assert priorities == sorted(priorities, reverse=True)
-    
+
     # Check priority calculation: low effort (3) + hybrid bonus (2) = 5 for rss_breaking
     for s in suggestions:
         if s["capability"] == "rss_breaking":
@@ -173,9 +176,11 @@ def test_suggest_conversions_filters_missing_or_deterministic():
             "dependencies": [],
         }
     }
-    
+
     with patch("metabolon.organelles.glycolysis_rate._CONVERTIBLE_CAPABILITIES", test_convertible):
-        with patch("metabolon.organelles.glycolysis_rate._REGISTRY", {"test_cap": "deterministic"}):
+        with patch(
+            "metabolon.organelles.glycolysis_rate._REGISTRY", {"test_cap": "deterministic"}
+        ):
             suggestions = suggest_conversions()
             assert len(suggestions) == 0
 
@@ -183,13 +188,16 @@ def test_suggest_conversions_filters_missing_or_deterministic():
 def test_get_conversion_report():
     """Test get_conversion_report calculates potential gain correctly."""
     report = get_conversion_report()
-    
+
     assert report["total_symbiont"] == measure_rate()["symbiont_count"]
     assert report["total_hybrid"] == measure_rate()["hybrid_count"]
     assert report["conversion_candidates"] == len(_CONVERTIBLE_CAPABILITIES)
     assert report["potential_glycolysis_gain"] >= 0
-    assert report["potential_glycolysis_pct"] == report["potential_glycolysis_gain"] + measure_rate()["glycolysis_pct"]
-    
+    assert (
+        report["potential_glycolysis_pct"]
+        == report["potential_glycolysis_gain"] + measure_rate()["glycolysis_pct"]
+    )
+
     # Check potential gain calculation
     current_rate = measure_rate()
     suggestions = suggest_conversions()
@@ -199,12 +207,12 @@ def test_get_conversion_report():
             expected_gain += 1.0
         elif s["current_type"] == "hybrid":
             expected_gain += 0.5
-    
+
     total = current_rate["total"]
     current_de = current_rate["deterministic_count"] + current_rate["hybrid_count"] * 0.5
     new_de = current_de + expected_gain
     expected_pct = round((new_de / total * 100) if total else 0.0, 1)
     expected_gain_pct = round(expected_pct - current_rate["glycolysis_pct"], 1)
-    
+
     assert report["potential_glycolysis_gain"] == expected_gain_pct
     assert report["potential_glycolysis_pct"] == expected_pct

@@ -1,4 +1,3 @@
-
 """perfusion — are all tissues receiving blood?
 
 Measures whether outputs are reaching all north stars or whether some
@@ -10,7 +9,6 @@ Poor perfusion = tissue death, even if the heart pumps fine.
 The organism equivalent: pulse can run all day, but if Career gets
 11 agents and Marriage gets 0, the marriage star is ischaemic.
 """
-
 
 import datetime
 from pathlib import Path
@@ -54,7 +52,7 @@ def north_star_names() -> list[str]:
 def coverage_map() -> dict[str, int]:
     """Count today's manifest mentions per north star. Returns {star: count}."""
     stars = north_star_names()
-    coverage: dict[str, int] = {s: 0 for s in stars}
+    coverage: dict[str, int] = dict.fromkeys(stars, 0)
 
     # Scan live manifest + today's archived manifests
     texts: list[str] = []

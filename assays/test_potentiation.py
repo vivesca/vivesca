@@ -1,29 +1,21 @@
 """Tests for potentiation organelle — pure FSRS scheduling and logic functions."""
 
-import math
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Import target module
 # ---------------------------------------------------------------------------
-
 from metabolon.organelles.potentiation import (
+    _FSRS_PARAMS,
+    _GOOD,
     DESIRED_RETENTION,
     EXAM_DATE,
     MODE_THRESHOLDS,
-    _AGAIN,
-    _CardState,
-    _EASY,
-    _FSRS_PARAMS,
-    _GOOD,
-    _HARD,
-    _MemoryState,
-    _NextStates,
     _card_due_hkt,
     _card_last_review,
+    _CardState,
     _fsrs_forgetting_curve,
     _fsrs_initial_difficulty,
     _fsrs_initial_stability,
@@ -32,15 +24,16 @@ from metabolon.organelles.potentiation import (
     _fsrs_next_stability_forget,
     _fsrs_next_stability_recall,
     _get_mode,
+    _MemoryState,
     _module_weight,
     _new_card,
+    _NextStates,
     _normalize,
     _parse_datetime,
     _rating_from_str,
     _state_name,
     fsrs_next_states,
 )
-
 
 # ===================================================================
 # Constants
@@ -332,11 +325,7 @@ class TestModuleWeight:
         assert _module_weight("X1-unknown") == 0.0
 
     def test_weights_sum_to_one(self):
-        total = sum(
-            _module_weight(f"M{n}-{t}")
-            for n in range(1, 6)
-            for t in ["test"]
-        )
+        total = sum(_module_weight(f"M{n}-{t}") for n in range(1, 6) for t in ["test"])
         assert total == pytest.approx(1.0)
 
 
