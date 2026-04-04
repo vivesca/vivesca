@@ -240,3 +240,70 @@ class TestListFilters:
             mock_list.assert_called_once_with(
                 limit=10, status="", provider="volcano"
             )
+
+
+# ── result action ───────────────────────────────────────────────────────────
+
+
+class TestResult:
+    """result action should return full workflow output."""
+
+    def test_result_completed(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._get_workflow_result") as mock_res:
+            mock_res.return_value = {
+                "workflow_id": "golem-zhipu-aaa",
+                "status": "COMPLETED",
+                "result": {"total": 1, "approved": 1},
+            }
+            result = golem_dispatch(action="result", workflow_id="golem-zhipu-aaa")
+            assert "completed" in result.output
+
+    def test_result_not_done(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._get_workflow_result") as mock_res:
+            mock_res.return_value = {
+                "workflow_id": "golem-zhipu-bbb",
+                "status": "RUNNING",
+                "result": None,
+            }
+            result = golem_dispatch(action="result", workflow_id="golem-zhipu-bbb")
+            assert "RUNNING" in result.output
+
+    def test_result_requires_workflow_id(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        result = golem_dispatch(action="result")
+        assert not result.success
+
+
+# ── approve / reject actions ────────────────────────────────────────────────
+
+
+class TestSignals:
+    """approve/reject should send signals to workflows."""
+
+    def test_approve_sends_signal(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._signal_workflow") as mock_sig:
+            mock_sig.return_value = True
+            result = golem_dispatch(action="approve", workflow_id="golem-zhipu-aaa")
+            assert "approve" in result.output
+            mock_sig.assert_called_once_with("golem-zhipu-aaa", "approve")
+
+    def test_reject_sends_signal(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        with patch("metabolon.enzymes.golem_dispatch._signal_workflow") as mock_sig:
+            mock_sig.return_value = True
+            result = golem_dispatch(action="reject", workflow_id="golem-zhipu-aaa")
+            assert "reject" in result.output
+
+    def test_signal_requires_workflow_id(self):
+        from metabolon.enzymes.golem_dispatch import golem_dispatch
+
+        result = golem_dispatch(action="approve")
+        assert not result.success

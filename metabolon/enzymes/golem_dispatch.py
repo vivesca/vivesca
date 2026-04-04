@@ -5,8 +5,6 @@ Actions: dispatch|batch|status|list|cancel
 Connects to a Temporal server (default ganglion:7233) and manages
 golem workflows directly — no markdown queue, no poller layer.
 """
-from __future__ import annotations
-
 import asyncio
 import json
 import os
@@ -113,6 +111,28 @@ async def _list_workflows(
     return results
 
 
+async def _get_workflow_result(workflow_id: str) -> dict[str, Any]:
+    """Get the full result of a completed workflow."""
+    client = await _get_client()
+    handle = client.get_workflow_handle(workflow_id)
+    desc = await handle.describe()
+    if desc.status.name != "COMPLETED":
+        return {"workflow_id": workflow_id, "status": desc.status.name, "result": None}
+    result = await handle.result()
+    return {"workflow_id": workflow_id, "status": "COMPLETED", "result": result}
+
+
+async def _signal_workflow(workflow_id: str, signal: str) -> bool:
+    """Send approve or reject signal to a workflow."""
+    client = await _get_client()
+    handle = client.get_workflow_handle(workflow_id)
+    if signal == "approve":
+        await handle.signal("approve_task", workflow_id)
+    else:
+        await handle.signal("reject_task", workflow_id)
+    return True
+
+
 async def _cancel_workflow(workflow_id: str) -> bool:
     """Cancel a running workflow. Returns True on success."""
     client = await _get_client()
@@ -126,7 +146,7 @@ async def _cancel_workflow(workflow_id: str) -> bool:
 
 @tool(
     name="golem_dispatch",
-    description="dispatch|batch|status|list|running|failed|cancel — Temporal golem dispatch",
+    description="dispatch|batch|status|result|list|running|failed|approve|reject|cancel — Temporal golem dispatch",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def golem_dispatch(
@@ -238,25 +258,41 @@ def golem_dispatch(
             data={"workflows": workflows},
         )
 
+    # ── result ─────────────────────────────────────────────────────────────
+    if action == "result":
+        if not workflow_id:
+            return EffectorResult(success=False, message="result requires: workflow_id")
+        data = asyncio.run(_get_workflow_result(workflow_id))
+        if data["result"] is None:
+            return QueueResult(
+                output=f"{workflow_id} is {data['status']} (no result yet)",
+                data=data,
+            )
+        return QueueResult(output=f"{workflow_id}: completed", data=data)
+
+    # ── approve / reject ──────────────────────────────────────────────────
+    if action in ("approve", "reject"):
+        if not workflow_id:
+            return EffectorResult(success=False, message=f"{action} requires: workflow_id")
+        asyncio.run(_signal_workflow(workflow_id, action))
+        return QueueResult(
+            output=f"Sent {action} signal to {workflow_id}",
+            data={"workflow_id": workflow_id, "signal": action},
+        )
+
     # ── cancel ─────────────────────────────────────────────────────────────
     if action == "cancel":
         if not workflow_id:
-            return EffectorResult(
-                success=False,
-                message="cancel requires: workflow_id",
-            )
+            return EffectorResult(success=False, message="cancel requires: workflow_id")
         cancelled = asyncio.run(_cancel_workflow(workflow_id))
         if cancelled:
             return QueueResult(
                 output=f"Cancelled workflow {workflow_id}",
                 data={"workflow_id": workflow_id, "cancelled": True},
             )
-        return EffectorResult(
-            success=False,
-            message=f"Failed to cancel {workflow_id}",
-        )
+        return EffectorResult(success=False, message=f"Failed to cancel {workflow_id}")
 
     return EffectorResult(
         success=False,
-        message="Unknown action. Valid: dispatch, batch, status, list, running, failed, cancel",
+        message="Unknown action. Valid: dispatch, batch, status, result, list, running, failed, approve, reject, cancel",
     )
