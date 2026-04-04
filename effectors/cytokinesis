@@ -437,6 +437,10 @@ def cmd_gather(args):
 
     # Hard gates — deterministic where possible, PENDING where LLM judgment needed
     gates = {}
+    chromatin_dir = Path.home() / "epigenome" / "chromatin"
+    epigenome_dir = Path.home() / "epigenome"
+    CHROMATIN_DIR = chromatin_dir
+    EPIGENOME_DIR = epigenome_dir
 
     # Gate 1: Publish — check if secretome/ was modified in last 4 hours
     secretome = CHROMATIN_DIR / "secretome"
