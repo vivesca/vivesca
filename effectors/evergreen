@@ -98,9 +98,27 @@ if ssh -o ConnectTimeout=5 "$GANGLION" true 2>/dev/null; then
     log "Syncing ganglion"
     ssh "$GANGLION" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" && cd ~/germline && git pull --ff-only && cd effectors/temporal-golem && uv sync' 2>>"$LOG"
     ssh "$GANGLION" 'sudo systemctl restart temporal-worker' 2>>"$LOG"
-    log "Ganglion synced and worker restarted"
+    # Update Temporal Docker images
+    ssh "$GANGLION" 'cd ~/germline/effectors/temporal-golem && docker compose pull && docker compose up -d' 2>>"$LOG" || true
+    log "Ganglion synced, worker restarted, Docker updated"
 else
     log "WARN: ganglion unreachable, skipping sync"
+fi
+
+# ── 7. Update supercronic ─────────────────────────────────────────────────
+
+CRONIC_LATEST=$(curl -sf https://api.github.com/repos/aptible/supercronic/releases/latest 2>/dev/null | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$CRONIC_LATEST" ]; then
+    CRONIC_CURRENT=$(supercronic --version 2>/dev/null | awk '{print $NF}' || echo "unknown")
+    if [ "$CRONIC_CURRENT" != "$CRONIC_LATEST" ]; then
+        ARCH=$(uname -m | sed 's/x86_64/amd64/')
+        curl -sfL "https://github.com/aptible/supercronic/releases/download/${CRONIC_LATEST}/supercronic-linux-${ARCH}" -o /tmp/supercronic-new 2>>"$LOG"
+        if [ -s /tmp/supercronic-new ]; then
+            chmod +x /tmp/supercronic-new
+            mv /tmp/supercronic-new "$HOME/.local/bin/supercronic"
+            log "Supercronic updated to $CRONIC_LATEST"
+        fi
+    fi
 fi
 
 # ── 6. Restart vivesca ──────────────────────────────────────���─────────────
