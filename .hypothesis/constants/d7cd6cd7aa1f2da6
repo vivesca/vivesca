@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/digest.py
-# hypothesis_version: 6.151.10
-
-[180, 200, 500, 3000, 120000, '\n\n---\n\n', '## By Source', '## Table of Contents', '%Y-%m', '%Y-%m-%d', '%Y-W%W-%w', '(no text available)', '-', '---', '-W', '0', '1', 'N/A', 'Unknown', '[', '[^a-z0-9 ]', '\\s*```$', ']', '^```(?:json)?\\s*', '_file', '_score', '_transcytose', '```', 'ai', 'article_indices', 'banking_angle', 'date', 'default_theme_count', 'endocytosis.conf', 'fate', 'germline', 'link', 'name', 'score', 'source', 'summary', 'tags', 'talking_point', 'text', 'theme', 'thresholds', 'timestamp', 'title', 'transcytose', 'unknown', 'utf-8', 'w', '★ ']

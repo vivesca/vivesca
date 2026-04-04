@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/moneo.py
-# hypothesis_version: 6.151.10
-
-[b'=', 0.2, 256, 300, '%-H:%M', '%H:%M', '%Y-%m-%d', '%b %d %H:%M', ',', '--------', '-15', '-C', '-a', '-m', '-x', '.duedb.bak', ':', 'Asia/Hong_Kong', 'Due', 'HOME', 'HOME is not set', '[A-Za-z0-9_-]+', 'add', 'ascii', 'b', 'commit', 'd', 'daily', 'dl', 'due', 'due_ts', 'git', 'h', 'i', 'kill', 'lb', 'm', 'monthly', 'mt', 'n', 'no due date', 'open', 'pgrep', 'q', 'quarterly', 'rb', 'rd', 're', 'recur', 'rf', 'rn', 'rt', 'ru', 's', 'si', 'title', 'tmp/due-snapshot.log', 'today', 'today %H:%M', 'tomorrow', 'tomorrow %H:%M', 'ts', 'u', 'utf-8', 'uuid', 'w', 'weekly', 'wt', 'y', 'yearly', 'yes']

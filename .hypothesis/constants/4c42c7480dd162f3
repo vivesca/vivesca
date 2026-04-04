@@ -1,4 +1,0 @@
-# file: /home/terry/germline/effectors/temporal-golem/workflow.py
-# hypothesis_version: 6.151.10
-
-[2.0, 100, 200, 2000, 'GolemProvider', 'GolemTaskId', 'GolemVerdict', 'activity_failed', 'approve', 'approved', 'approved_with_flags', 'exit_code', 'flagged', 'flags', 'graph', 'max_turns', 'mode', 'output_path', 'provider', 'raw', 'raw_fallback', 'reject', 'rejected', 'rejected_by_signal', 'requeue_prompt', 'results', 'review', 'review_error', 'review_failed', 'stderr', 'stdout', 'succeeded', 'success', 'task', 'total', 'unknown', 'verdict', 'zhipu']

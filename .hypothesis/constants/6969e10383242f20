@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/respirometry/parsers/mox.py
-# hypothesis_version: 6.151.10
-
-[0.0, 0.02, '%Y-%m-%d', '%d %b %Y', '(-?[\\d,]+\\.\\d{2})', ',', 'HKD', 'Move between own Mox', 'Mox Credit', 'Page \\d+ of \\d+', 'Rate summary', 'Repayment calculator', 'Transfer', '\\s+(GOO|II)\\s*$', 'mox']

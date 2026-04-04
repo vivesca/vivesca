@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/talking_points.py
-# hypothesis_version: 6.151.10
-
-[0.0, 0.1, 0.2, 0.3, 0.4, 1.0, 200, 500, '%Y-%m-%d %H:%M', '*.md', 'Architectures', 'Consulting', 'Experiments', 'Policies', 'Use Cases', '\\b\\w{4,}\\b', '^#\\s+(.+)$', 'bank', 'banking', 'capital', 'chromatin', 'compliance', 'content_preview', 'domain', 'domain:\\s*(.+)', 'epigenome', 'filename', 'financial', 'hkma', 'hsbc', 'insurance', 'path', 'payment', 'regulatory', 's', 'title', 'type', 'utf-8', 'wealth']

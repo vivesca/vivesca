@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/gastrulation/add.py
-# hypothesis_version: 6.151.10
-
-['-', '.', '_', 'assays', 'class_name', 'codons', 'component_dir', 'component_type', 'description', 'domain', 'enzymes', 'file_stem', 'func_name', 'metabolon', 'module', 'name', 'prompt', 'prompt.py.j2', 'read_only', 'resource', 'resource.py.j2', 'resources', 'src', 'templates', 'test_component.py.j2', 'tool', 'tool.py.j2', 'uri', 'verb']

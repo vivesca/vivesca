@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/enzymes/mitosis.py
-# hypothesis_version: 6.151.10
-
-['elapsed_s', 'error', 'missing', 'mitosis', 'ok', 'reachable', 'results', 'stale', 'state', 'status', 'sync', 'target', 'targets', 'warning']

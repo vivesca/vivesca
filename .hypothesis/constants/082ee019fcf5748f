@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/retrograde.py
-# hypothesis_version: 6.151.10
-
-[1.0, 3.0, '--author=Claude', '--oneline', '-C', '.cache', '.git', '.local', 'a', 'adapt_start', 'anterograde', 'anterograde_count', 'assessment', 'balanced', 'channel', 'cmd', 'dependent', 'detail', 'direction', 'epigenome', 'event', 'fail_tool', 'failing_tool', 'germline', 'git', 'healed', 'infections.jsonl', 'inflammasome', 'log', 'logs', 'methylation.jsonl', 'ratio', 'retrograde', 'retrograde_count', 'run_start', 'share', 'signals.jsonl', 'sovereign', 'systole_start', 'tool', 'ts', 'type', 'unknown_tool', 'vivesca', 'vivesca-events.jsonl', 'window_days']

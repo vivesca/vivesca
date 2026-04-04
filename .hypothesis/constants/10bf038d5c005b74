@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/enzymes/hemostasis.py
-# hypothesis_version: 6.151.10
-
-['\n  (none)', '-a', '-f', '-l', 'Darwin', 'HUP', 'Hemostasis', 'INT', 'KILL', 'Loaded', 'QUIT', 'System', 'TERM', 'USR1', 'USR2', 'Unloaded', 'action', 'handoff', 'hemostasis', 'kill', 'launchagent', 'launchctl', 'load', 'path', 'pattern', 'pgrep', 'pkill', 'ps', 'signal', 'stderr', 'unload', 'utf-8']

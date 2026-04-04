@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/resources/reflexes.py
-# hypothesis_version: 6.151.10
-
-['# Claude Code Hooks\n', '.claude', '.js', '.py', '.sh', '/', 'No hooks configured.', '_(all)_', 'command', 'hooks', 'matcher', 'name', 'prompt', 'settings.json', 'type', 'unknown', '| Hook | Matcher |', '|------|---------|']

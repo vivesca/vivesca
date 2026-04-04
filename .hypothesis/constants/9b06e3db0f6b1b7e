@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/crispr.py
-# hypothesis_version: 6.151.10
-
-['"[^"]*"', '"{str}"', "'[^']*'", "'{str}'", '.cache', '/[^\\s\'\\"]+', '[A-Z_][A-Z0-9_]*', '[^\'\\"]*', '\\b\\d+\\b', '\\d+', 'a', 'acquired_ts', 'autoimmunity:', 'crispr', 'inflammasome:', 'pattern', 'raw_error', 'regex', 'regex_compiled', 'spacers.jsonl', 'tool', 'ts', '{name}', '{n}', '{path}', '{str}']

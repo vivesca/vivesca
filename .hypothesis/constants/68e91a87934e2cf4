@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/mitophagy.py
-# hypothesis_version: 6.151.10
-
-[0.0, 0.5, 86400, '.cache', 'a', 'attempts', 'blacklist.json', 'blacklisted', 'coding', 'duration_ms', 'hybridization', 'mitophagy', 'model', 'opus', 'outcomes.jsonl', 'probe', 'rate', 'repair', 'research', 'routing', 'success', 'successes', 'synthesis', 'task_type', 'ts']

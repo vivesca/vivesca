@@ -1,4 +1,0 @@
-# file: /home/terry/germline/effectors/regulatory-scrape
-# hypothesis_version: 6.151.10
-
-[200, 500, '#', '-', '--batch', '--date', '--issuer', '--slug', '--status', '--title', '--type', '-H', '-o', '-sL', '.pdf', '?', 'Document status', 'Document title', 'Document type', 'URL to scrape', '[^a-z0-9]+', '\\n{3,}', '__main__', 'bankofengland.co.uk', 'batch_file', 'br', 'curl', 'div', 'doc_type', 'final', 'footer', 'guidance', 'h1', 'h2', 'h3', 'h4', 'header', 'http', 'li', 'main', 'nav', 'p', 'pinocytosis', 'script', 'style', 'url', 'w', 'www.']

@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/symbiont.py
-# hypothesis_version: 6.151.10
-
-[180, '*', '-o', '.config', '.md', 'CLAUDECODE', '\\x1b\\[[0-9;]*m', 'backend', 'cmd', 'codex', 'command_not_found', 'content', 'default', 'description', 'error', 'error_type', 'llm-models.json', 'model', 'ok', 'timeout', 'utf-8', 'w']

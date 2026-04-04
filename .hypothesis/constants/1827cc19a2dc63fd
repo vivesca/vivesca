@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/migration.py
-# hypothesis_version: 6.151.10
-
-['- [', 'N/A', ']', '^### (.+)', 'banking_angle', 'date', 'fate', 'link', 'score', 'source', 'store', 'summary', 'talking_point', 'timestamp', 'title', 'transcytose', 'utf-8']

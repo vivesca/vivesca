@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/metabolism_loop.py
-# hypothesis_version: 6.151.10
-
-[0.0, 0.3, 0.5, 0.7, 1.0, 300, 500, '## Health', '## Verdict', '%Y-%m-%d %H:%M UTC', '--dry-run', '--thread', '.local', '__main__', '_has_infections', '_sweep_found_issues', 'accepted', 'activations', 'analysis', 'attempts', 'candidate', 'checkpoints.db', 'claude', 'configurable', 'count', 'default', 'detect_infections', 'fingerprint', 'gate_passed', 'gate_reason', 'healed_count', 'health_score', 'infections', 'insufficient data', 'iteration', 'last_error', 'last_seen', 'measure_fitness', 'repair', 'repairs_attempted', 'report', 'share', 'store_true', 'success_rate', 'sweep_for_issues', 'sweep_results', 'system', 'thread_id', 'tool', 'unknown', 'valence', 'verify_fix', 'vivesca']

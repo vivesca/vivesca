@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/vasomotor_sensor.py
-# hypothesis_version: 6.151.10
-
-[1000, 3600, 86400, '-s', '-w', '.claude', '.credentials.json', 'Accept', 'Authorization', 'CAUTION', 'DANGER', 'Darwin', 'SAFE', 'User-Agent', 'WARNING', 'a', 'accessToken', 'anthropic-beta', 'application/json', 'claudeAiOauth', 'error', 'expiresAt', 'five_hour', 'metrics', 'oauth-2025-04-20', 'resets_at', 'security', 'session_pct', 'seven_day', 'seven_day_sonnet', 'sonnet_pct', 'stale', 'stale_label', 'status', 'threshold_caution', 'threshold_safe', 'threshold_warning', 'thresholds', 'ts', 'utilization', 'weekly_pct']

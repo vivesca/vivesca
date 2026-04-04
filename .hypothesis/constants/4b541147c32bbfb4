@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/sortase/coaching_cli.py
-# hypothesis_version: 6.151.10
-
-['--category', '--note', 'Category', 'Coaching Notes', 'Matching Notes', 'Notes', 'add', 'category', 'list', 'notes', 'query', 'right', 'search']

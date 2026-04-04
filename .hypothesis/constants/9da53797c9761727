@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/enzymes/telegram_receptor.py
-# hypothesis_version: 6.151.10
-
-['auth_status', 'list_chats', 'me', 'read', 'search', 'telegram_receptor']

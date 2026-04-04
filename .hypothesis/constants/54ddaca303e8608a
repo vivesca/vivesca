@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/respirometry/detect.py
-# hypothesis_version: 6.151.10
-
-['BOC Credit Card', 'HSBC', 'MONTHLY STATEMENT', 'Mox Credit statement', 'SMART CREDIT CARD', 'VISA SIGNATURE', '\\d{1,2}\\s*月\\.pdf$', 'boc', 'ccba', 'eye Credit Card', 'hsbc', 'mox', 'scb']

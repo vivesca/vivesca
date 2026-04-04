@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/respirometry/__init__.py
-# hypothesis_version: 6.151.10
-
-['%Y-%m-%d-%H%M', '%Y-%m-%dT%H:%M%z', '-', '.pdf', '.processed', 'Alerts:', 'Library', 'Mobile Documents', 'Payments:', '[^a-z0-9]+', 'alerts', 'bank', 'card', 'categories.yaml', 'com~apple~CloudDocs', 'config.yaml', 'error', 'file', 'md_path', 'payment_action', 'payments.yaml', 'pdf_archived', 'quarantined', 'statement_date', 'total_hkd', 'transaction_count']

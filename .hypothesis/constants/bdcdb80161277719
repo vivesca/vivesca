@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/config.py
-# hypothesis_version: 6.151.10
-
-['.cache', '.config', '.local/share', 'ENDOCYTOSIS_DATA_DIR', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'articles', 'bird', 'bird_path', 'cargo.jsonl', 'config.yaml', 'default.yaml', 'digest_model', 'digest_output_dir', 'digests', 'endocytosis', 'glm', 'log_path', 'news.md', 'r', 'scripts', 'sources', 'sources.yaml', 'state.json', 'tg-notify.sh', 'tg_notify_path', 'utf-8']

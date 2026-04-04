@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/checkpoint.py
-# hypothesis_version: 6.151.10
-
-['[x]', '\\bself.?audit\\b', 'age_days', 'agent:terry', 'agent:terry approved', 'approved', 'automated', 'category', 'collaborative', 'completed', 'created_at', 'creates_obligation', 'description', 'done', 'dropped', 'line', 'line_number', 'presence', 'reason', 'sharpening', 'sourced']

@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/gmail.py
-# hypothesis_version: 6.151.10
-
-[100, 1000, '%Y-%m-%d %H:%M', '.config', '/', '</(?:p|div|tr)>', '<[^>]+>', '<br\\s*/?\\s*>', 'Content-Disposition', 'From', 'GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'INBOX', 'In-Reply-To', 'Message-ID', 'No messages found.', 'References', 'Subject', 'UNREAD', '[^\\S\\n]+', '\\n{3,}', 'action', 'addLabelIds', 'attachment', 'body', 'cc', 'criteria', 'data', 'from', 'full', 'gmail', 'gog', 'headers', 'id', 'internalDate', 'labelListVisibility', 'labelShow', 'labels', 'maxResults', 'me', 'messages', 'metadata', 'mimeType', 'name', 'nextPageToken', 'pageToken', 'parts', 'payload', 'q', 'raw', 'rb', 'removeLabelIds', 'replace', 'show', 'snippet', 'subject', 'text/html', 'text/plain', 'threadId', 'threads', 'to', 'token.json', 'userId', 'utf-8', 'v1', 'value']

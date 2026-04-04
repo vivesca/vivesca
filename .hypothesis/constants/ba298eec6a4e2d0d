@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/rheotaxis_engine.py
-# hypothesis_version: 6.151.10
-
-[300, '\n\nSources:\n', '  (no results)', 'Authorization', 'Content-Type', 'EXA_API_KEY', 'PERPLEXITY_API_KEY', 'SERPER_API_KEY', 'TAVILY_API_KEY', 'User-Agent', 'X-API-KEY', 'a', 'accept', 'answer', 'application/json', 'basic', 'choices', 'citations', 'content', 'deep', 'exa', 'germline', 'include_answer', 'knowledgeGraph', 'link', 'loci', 'max_results', 'message', 'messages', 'model', 'num', 'numResults', 'organic', 'perplexity', 'q', 'query', 'quick', 'results', 'rheotaxis.jsonl', 'rheotaxis/1.0', 'role', 'search_depth', 'seconds', 'serper', 'signals', 'snippet', 'sonar', 'sonar-deep-research', 'sonar-pro', 'system', 'tavily', 'text', 'thorough', 'title', 'ts', 'url', 'user', 'w', 'x-api-key']

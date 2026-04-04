@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/metabolism/substrates/constitution.py
-# hypothesis_version: 6.151.10
-
-['  (none)', '**', ', ', '-- Actions --', '; ', '[a-z][a-z0-9_]+', '_', 'activated_enzymes', 'body', 'constitution', 'has_evidence', 'line', 'precision_gap', 'references', 'title']

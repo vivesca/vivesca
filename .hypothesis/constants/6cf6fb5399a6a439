@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/gastrulation/epigenome.py
-# hypothesis_version: 6.151.10
-
-[300, '-m', '.', '.gitignore', 'README.md', 'add', 'commit', 'config', 'config/config.yaml', 'config/server.yaml', 'credentials', 'epigenome', 'genome.md', 'git', 'init', 'launchd', 'launchd/README.md', 'templates']

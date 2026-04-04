@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/metabolism/substrates/hygiene.py
-# hypothesis_version: 6.151.10
-
-[200, 300, '\n-- Actions --', '\n-- Errors --', ' [MAJOR]', '(changed)', '(unknown)', '--dry-run', '--no-header', '--tb=no', '--upgrade', '--upgrade-package', '-m', '-q', '.', '1', 'UNHEALTHY', 'autoupdate', 'available', 'current', 'dep', 'deps', 'error', 'errors', 'failed', 'healthy', 'hook', 'hooks', 'hygiene', 'kind', 'lock', 'major', 'new_rev', 'package', 'passed', 'pre-commit', 'pyproject.toml', 'pytest', 'python', 'repo', 'requires', 'skipped', 'tests', 'uv']

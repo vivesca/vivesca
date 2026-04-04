@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/respirometry/parsers/scb.py
-# hypothesis_version: 6.151.10
-
-[0.0, 0.02, 200, '%Y-%m-%d', '%d %b %Y', '%d/%m/%Y', '%m/%d/%Y', ',', 'HKD', 'PAYMENT', '\\s{2,}', 'amount', 'date_raw', 'fx_amount', 'fx_currency', 'merchant_raw', 'scb']

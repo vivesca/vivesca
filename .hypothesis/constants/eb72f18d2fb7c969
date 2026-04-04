@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/sortase/diff_viewer.py
-# hypothesis_version: 6.151.10
-
-[300, '+', '+++', '-', '--', '---', '--all', '--format=', '--format=%h %s', '--patch', '.', 'No changes.', 'added', 'b/(.+)$', 'diff --git', 'git', 'log', 'removed', 'show', 'sortase:', 'translocon:']

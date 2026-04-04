@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/enzymes/navigator.py
-# hypothesis_version: 6.151.10
-
-[1000.0, 300, 3000, '--scale', '-t', '-u', '2', 'agent-browser', 'auth', 'caffeinate', 'check_auth', 'click', 'css_selector', 'current_url', 'darwin', 'device', 'domain', 'eval', 'eval requires: js', 'extract', 'fill', 'fill requires: value', 'get', 'guidance', 'height', 'http', 'is_authenticated', 'js', 'login', 'navigate', 'navigator', 'open', 'output_path', 'resize', 'result', 'scale', 'screenshot', 'set', 'signin', 'snapshot', 'text', 'title', 'url', 'value', 'viewport', 'which agent-browser', 'width']

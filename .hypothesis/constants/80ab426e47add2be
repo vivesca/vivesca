@@ -1,4 +1,0 @@
-# file: /home/terry/germline/synaptic/terminus.py
-# hypothesis_version: 6.151.10
-
-[3600, '*.md', '--budget', '--days', '--porcelain', '-C', '.claude', '30', '^- \\[ \\]', '__main__', 'block', 'contracts', 'decision', 'dissolve', 'git', 'green', 'metabolism', 'notes', 'reason', 'respirometry', 'skills', 'status', 'tmp', 'ts', 'unknown', 'utf-8', 'vivesca', 'yellow']

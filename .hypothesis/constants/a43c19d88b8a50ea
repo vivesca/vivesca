@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/metabolism/sweep.py
-# hypothesis_version: 6.151.10
-
-[0.8, '.conf', '0.8', '2', '3', 'fitness_plateau', 'glm', 'max_retries', 'min_phenotypes', 'selection']

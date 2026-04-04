@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/demethylase.py
-# hypothesis_version: 6.151.10
-
-[300, '\n## Strengthened\n\n', ' [CpG]', '#', '%Y%m%d-%H%M%S', '%Y-%m-%d', '*.md', '-', '- ', '---', '---\n', '.local', '0', '1', ':', 'Daily', 'MEMORY.md', 'Stale candidates:', 'Type distribution:', '_', 'a', 'access_count', 'access_count:', 'access_count: 1', 'acetyl', 'age_days', 'cascades_fired', 'checkpoint_', 'chromatin', 'content', 'count', 'decay-tracker.md', 'deduplicated', 'desensitized', 'downstream', 'downstream:', 'durability', 'epigenome', 'false', 'fire_count', 'marks', 'methyl', 'methylome.md', 'name', 'path', 'project', 'protected', 'resolved_', 'seconds', 'share', 'signal', 'signal-history.jsonl', 'signal_*.md', 'signals', 'source', 'timestamp', 'topic', 'transduced', 'true', 'type', 'unknown', 'utf-8', 'vivesca', 'w', 'yes']

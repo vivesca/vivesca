@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/rename.py
-# hypothesis_version: 6.151.10
-
-[300, '\ngit commits:', '\nnothing to change', '*', '-m', '-u', '.git', '.json', '.md', '.plist', '.py', '.toml', '.yaml', '.yml', 'add', 'commit', 'epigenome', 'germline', 'git', 'locus.py', 'metabolon', 'replace']

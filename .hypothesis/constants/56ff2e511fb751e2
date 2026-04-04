@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/enzymes/sortase.py
-# hypothesis_version: 6.151.10
-
-[0.0, 120, 600, '--name-only', 'Cargo.toml', 'default', 'diff', 'dispatch', 'duration_s', 'error', 'failure_reason', 'fallbacks', 'files_changed', 'git', 'mcp-dispatch', 'message', 'name', 'per_tool', 'plan', 'project', 'project_dir', 'pyproject.toml', 'results', 'route', 'seconds', 'severity', 'sortase', 'started_at', 'stats', 'status', 'success', 'task_name', 'tasks', 'tests', 'tests_passed', 'timestamp', 'tool', 'unknown', 'utf-8']

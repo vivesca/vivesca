@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/resources/vitals.py
-# hypothesis_version: 6.151.10
-
-['## Nightly Report\n', '## Plugins\n', '## Recent Activity\n', ', ', '.claude', '?', 'dailyActivity', 'date', 'enabledPlugins', 'messageCount', 'messages', 'nightly-health.md', 'sessionCount', 'sessions', 'settings.json', 'stats-cache.json', 'toolCallCount', 'tool_calls']

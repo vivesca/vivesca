@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/gemmation.py
-# hypothesis_version: 6.151.10
-
-['%Y-%m-%d-%H%M', '+ on', '-', '- off', '---', '--full-auto', '--queue', '--sandbox', '--title', '--yolo', '-c', '-m', '-p', '-t', '.cache', '.local/bin/claude', '.opencode-lean', '?', 'CLAUDECODE', 'No results found.', 'No tasks in queue.', 'OPENCODE_HOME', 'backend', 'cancel', 'claude', 'cmd', 'codex', 'danger-full-access', 'enabled', 'epigenome', 'exec', 'gemini', 'gemmation', 'gemmation-runs', 'goose', 'hot', 'hot-', 'list', 'marks', 'name', 'opencode', 'opencode/glm-5', 'report.md', 'results', 'run', 'run_now', 'schedule', 'stdout.txt', 'summary.md', 'tasks', 'timeout', 'title', 'utf-8', 'working_dir']

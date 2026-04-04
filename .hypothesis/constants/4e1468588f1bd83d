@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/metabolism/substrates/operon_monitor.py
-# hypothesis_version: 6.151.10
-
-[86400, '-- Actions --', '-- Healthy --', '-- Stale --', 'cadence_days', 'daily', 'days_since', 'enzymes', 'fired_enzyme', 'infradian', 'last_fired', 'monthly', 'operons', 'product', 'reaction', 'stale', 'weekly', 'zeitgeber']

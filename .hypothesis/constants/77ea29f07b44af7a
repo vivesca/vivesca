@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/endocytosis_rss/breaking.py
-# hypothesis_version: 6.151.10
-
-[200, 3600, '%Y-%m-%d', 'Breaking', 'Breaking news', 'N/A', 'No breaking news.', 'Unknown Source', '[^a-z0-9]', 'a', 'age_minutes', 'alert_sent', 'alerts_today', 'banking_angle', 'breaking-state.json', 'date', 'fate', 'last_alert_time', 'last_check', 'link', 'name', 'published_at', 'rss', 'score', 'scripts', 'seen_ids', 'source', 'summary', 'suppressed_stale', 'talking_point', 'tg-notify.sh', 'throttled', 'tier', 'timestamp', 'title', 'today_date', 'transcytose', 'url', 'utf-8', 'w', 'was_breaking', 'web_sources']

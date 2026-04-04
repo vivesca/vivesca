@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/metabolism/nociceptor.py
-# hypothesis_version: 6.151.10
-
-[200, '401', '403', '429', 'assertion', 'attributeerror', 'auth', 'chronic', 'connection refused', 'connection reset', 'correction', 'disk full', 'dns', 'error', 'escalate: file issue', 'fingerprint', 'forbidden', 'hook', 'hook-fire-log.jsonl', 'infection', 'investigate', 'keyerror', 'logic', 'message', 'network', 'no space', 'outcome', 'quota', 'rate limit', 'resource', 'resource exhausted', 'review hook rule', 'rule', 'signal', 'substrate', 'timed out', 'timeout', 'timestamp', 'token expired', 'tool', 'ts', 'typeerror', 'unauthorized', 'unknown', 'valueerror']

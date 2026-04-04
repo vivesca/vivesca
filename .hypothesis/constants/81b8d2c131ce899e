@@ -1,4 +1,0 @@
-# file: /home/terry/germline/metabolon/organelles/tachometer.py
-# hypothesis_version: 6.151.10
-
-[-0.01, 0.0, 0.01, -100, 100, 3600, 'added_at', 'after_failure_rate', 'before_failure_rate', 'declining', 'delta', 'direction', 'duration_s', 'historical_count', 'historical_rate', 'improvement_pct', 'improving', 'no data', 'notes_analyzed', 'plan', 'recent_count', 'recent_rate', 'stable', 'success', 'timestamp', 'tool', 'total_entries', 'unknown']
