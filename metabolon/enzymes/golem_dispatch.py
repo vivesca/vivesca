@@ -90,7 +90,7 @@ async def _list_workflows(limit: int = 10) -> list[dict[str, Any]]:
     client = await _get_client()
     results: list[dict[str, Any]] = []
     async for wf in client.list_workflows(
-        query="WorkflowId STARTS WITH 'golem-'",
+        query='WorkflowId STARTS_WITH "golem-"',
         page_size=limit,
     ):
         results.append(
