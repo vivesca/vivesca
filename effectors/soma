@@ -56,7 +56,7 @@ case "${1:-}" in
         fi
         ;;
     pull)
-        fly ssh console -a "$APP" -C 'su - terry -c "cd ~/germline && git pull --ff-only; cd ~/epigenome && git pull --ff-only"'
+        fly ssh console -a "$APP" -C 'su - vivesca -c "cd ~/germline && git pull --ff-only; cd ~/epigenome && git pull --ff-only"'
         ;;
     *)
         fly "$@" -a "$APP"

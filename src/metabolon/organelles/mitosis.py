@@ -18,7 +18,7 @@ from pathlib import Path
 
 # Soma coordinates
 LUCERNA_APP = "soma"  # fly.io app name
-LUCERNA_USER = "terry"
+LUCERNA_USER = "vivesca"
 LUCERNA_HOME = f"/home/{LUCERNA_USER}"
 
 # Sync targets: git repos that get pushed locally then pulled on soma.
@@ -401,7 +401,7 @@ def setup() -> dict:
 
     # Create directories for non-git state
     dirs = [
-        f"{LUCERNA_HOME}/.claude/projects/-home-terry/memory",
+        f"{LUCERNA_HOME}/.claude/projects/-home-vivesca/memory",
         f"{LUCERNA_HOME}/.config/vivesca",
         f"{LUCERNA_HOME}/.local/share/oghma",
     ]

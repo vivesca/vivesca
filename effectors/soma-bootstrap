@@ -23,7 +23,7 @@ fi
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-USER_NAME="terry"
+USER_NAME="vivesca"
 USER_HOME="/home/${USER_NAME}"
 GITHUB_REPO="https://github.com/terryli-vt/vivesca.git"
 GO_VERSION="1.24.1"
@@ -38,7 +38,7 @@ log()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 ok()   { printf '    \033[32m[ok]\033[0m %s\n' "$*"; }
 skip() { printf '    \033[33m[skip]\033[0m %s already installed\n' "$*"; }
 
-as_terry() { sudo -u "$USER_NAME" bash -c "$1"; }
+as_vivesca() { sudo -u "$USER_NAME" bash -c "$1"; }
 
 command_exists() { command -v "$1" &>/dev/null; }
 
@@ -149,26 +149,26 @@ fi
 log "User-space tools (as ${USER_NAME})"
 
 # Rust
-if as_terry 'command -v rustc &>/dev/null'; then
+if as_vivesca 'command -v rustc &>/dev/null'; then
   skip "rust"
 else
-  as_terry 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet'
+  as_vivesca 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet'
   ok "rust"
 fi
 
 # uv (Python package manager)
-if as_terry 'command -v uv &>/dev/null'; then
+if as_vivesca 'command -v uv &>/dev/null'; then
   skip "uv"
 else
-  as_terry 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+  as_vivesca 'curl -LsSf https://astral.sh/uv/install.sh | sh'
   ok "uv"
 fi
 
 # Bun
-if as_terry 'command -v bun &>/dev/null'; then
+if as_vivesca 'command -v bun &>/dev/null'; then
   skip "bun"
 else
-  as_terry 'curl -fsSL https://bun.sh/install | bash'
+  as_vivesca 'curl -fsSL https://bun.sh/install | bash'
   ok "bun"
 fi
 
@@ -176,10 +176,10 @@ fi
 log "pipx tools"
 PIPX_PKGS=(llm openai sqlite-utils tqdm puremagic httpx tabulate python-ulid)
 for pkg in "${PIPX_PKGS[@]}"; do
-  if as_terry "~/.local/bin/uv tool list 2>/dev/null | grep -q '^${pkg} '"; then
+  if as_vivesca "~/.local/bin/uv tool list 2>/dev/null | grep -q '^${pkg} '"; then
     skip "$pkg"
   else
-    as_terry "~/.local/bin/uv tool install ${pkg} 2>/dev/null" && ok "$pkg" || true
+    as_vivesca "~/.local/bin/uv tool install ${pkg} 2>/dev/null" && ok "$pkg" || true
   fi
 done
 
@@ -192,10 +192,10 @@ for bin in "${CARGO_BINS[@]}"; do
     fd-find) check="fd" ;;
     *) check="$bin" ;;
   esac
-  if as_terry "source ~/.cargo/env 2>/dev/null && command -v ${check} &>/dev/null"; then
+  if as_vivesca "source ~/.cargo/env 2>/dev/null && command -v ${check} &>/dev/null"; then
     skip "$bin"
   else
-    as_terry "source ~/.cargo/env 2>/dev/null && cargo install ${bin} --quiet 2>/dev/null" && ok "$bin" || true
+    as_vivesca "source ~/.cargo/env 2>/dev/null && cargo install ${bin} --quiet 2>/dev/null" && ok "$bin" || true
   fi
 done
 
@@ -222,11 +222,11 @@ fi
 # ---------------------------------------------------------------------------
 log "Claude Code"
 
-if as_terry 'command -v claude &>/dev/null'; then
+if as_vivesca 'command -v claude &>/dev/null'; then
   skip "claude"
 else
-  as_terry 'npm install -g @anthropic-ai/claude-code 2>/dev/null' && ok "claude" || \
-  as_terry 'curl -fsSL https://claude.ai/install.sh | sh' && ok "claude (direct)" || true
+  as_vivesca 'npm install -g @anthropic-ai/claude-code 2>/dev/null' && ok "claude" || \
+  as_vivesca 'curl -fsSL https://claude.ai/install.sh | sh' && ok "claude (direct)" || true
 fi
 
 # ---------------------------------------------------------------------------
@@ -237,7 +237,7 @@ log "Germline repo"
 if [[ -d "${USER_HOME}/germline/.git" ]]; then
   skip "germline"
 else
-  as_terry "git clone ${GITHUB_REPO} ${USER_HOME}/germline 2>/dev/null" && ok "germline" || \
+  as_vivesca "git clone ${GITHUB_REPO} ${USER_HOME}/germline 2>/dev/null" && ok "germline" || \
   echo ">>> Clone manually: git clone ${GITHUB_REPO} ~/germline"
 fi
 
@@ -246,10 +246,10 @@ fi
 # ---------------------------------------------------------------------------
 log "Directory structure"
 
-as_terry 'mkdir -p ~/bin ~/code ~/scripts ~/notes ~/epigenome/chromatin ~/epigenome/marks'
+as_vivesca 'mkdir -p ~/bin ~/code ~/scripts ~/notes ~/epigenome/chromatin ~/epigenome/marks'
 
 # Claude Code hooks -> germline
-as_terry '
+as_vivesca '
   mkdir -p ~/.claude/hooks ~/.claude/skills
   if [[ -d ~/germline/membrane/cytoskeleton ]]; then
     ln -sfn ~/germline/membrane/cytoskeleton/* ~/.claude/hooks/ 2>/dev/null || true
@@ -266,8 +266,8 @@ as_terry '
 '
 
 # Epigenome marks -> claude memory
-as_terry '
-  ln -sfn ~/epigenome/marks ~/.claude/projects/-home-terry/memory 2>/dev/null || true
+as_vivesca '
+  ln -sfn ~/epigenome/marks ~/.claude/projects/-home-vivesca/memory 2>/dev/null || true
 '
 
 ok "directory structure"
@@ -277,7 +277,7 @@ ok "directory structure"
 # ---------------------------------------------------------------------------
 log "Shell config"
 
-as_terry 'cat > ~/.zshrc << "ZSHRC"
+as_vivesca 'cat > ~/.zshrc << "ZSHRC"
 # Fix for Ghostty terminal over SSH
 [[ $TERM == xterm-ghostty ]] && export TERM=xterm-256color
 
@@ -338,7 +338,7 @@ ok ".zshrc"
 # ---------------------------------------------------------------------------
 log "tmux config"
 
-as_terry 'cat > ~/.tmux.conf << "TMUX"
+as_vivesca 'cat > ~/.tmux.conf << "TMUX"
 set -g prefix C-a
 unbind C-b
 bind C-a send-prefix
@@ -358,7 +358,7 @@ ok ".tmux.conf"
 # ---------------------------------------------------------------------------
 log "Git config"
 
-as_terry '
+as_vivesca '
   git config --global user.name "Terry Li"
   git config --global user.email "terry.li.hm@gmail.com"
   git config --global init.defaultBranch main
@@ -373,8 +373,8 @@ ok "git config"
 # ---------------------------------------------------------------------------
 log "Credential injection"
 
-if as_terry 'test -f ~/.env.fly && source ~/.env.fly && test -n "${OP_SERVICE_ACCOUNT_TOKEN:-}"'; then
-  as_terry '
+if as_vivesca 'test -f ~/.env.fly && source ~/.env.fly && test -n "${OP_SERVICE_ACCOUNT_TOKEN:-}"'; then
+  as_vivesca '
     source ~/.env.fly
     export OP_SERVICE_ACCOUNT_TOKEN
     export PATH="$HOME/bin:$PATH"
@@ -400,10 +400,10 @@ log "Custom Rust tools"
 # These are published crates — install from crates.io
 CUSTOM_CRATES=(noesis pondus consilium fasti keryx moneo sarcio grapho caelum stips anam auceps)
 for crate in "${CUSTOM_CRATES[@]}"; do
-  if as_terry "source ~/.cargo/env 2>/dev/null && command -v ${crate} &>/dev/null"; then
+  if as_vivesca "source ~/.cargo/env 2>/dev/null && command -v ${crate} &>/dev/null"; then
     skip "$crate"
   else
-    as_terry "source ~/.cargo/env 2>/dev/null && cargo install ${crate} --quiet 2>/dev/null" && ok "$crate" || \
+    as_vivesca "source ~/.cargo/env 2>/dev/null && cargo install ${crate} --quiet 2>/dev/null" && ok "$crate" || \
     echo "    [warn] ${crate} not on crates.io — build from source"
   fi
 done

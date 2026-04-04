@@ -58,7 +58,7 @@ if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
     flyctl ssh console -a lucerna -C "bash -c 'cat > \$HOME/.claude/.credentials.json << ENDCREDS
 ${CREDS}
 ENDCREDS
-chown terry:terry \$HOME/.claude/.credentials.json'" 2>/dev/null \
+chown vivesca:vivesca \$HOME/.claude/.credentials.json'" 2>/dev/null \
         && echo "updated: .credentials.json → lucerna" || true
 fi
 

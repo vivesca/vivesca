@@ -1,11 +1,11 @@
 #!/bin/bash
 # Shared environment for all supervisor programs.
 # Sources API keys and sets consistent PATH.
-# Usage in supervisor: command=/home/terry/germline/effectors/supervisor-env <actual-command> <args...>
+# Usage in supervisor: command=/home/vivesca/germline/effectors/supervisor-env <actual-command> <args...>
 
-export HOME="/home/terry"
+export HOME="/home/vivesca"
 export TZ="Asia/Hong_Kong"
-export PATH="/home/terry/germline/.venv/bin:/home/terry/germline/effectors:/home/terry/bin:/home/terry/.local/bin:/home/terry/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="/home/vivesca/germline/.venv/bin:/home/vivesca/germline/effectors:/home/vivesca/bin:/home/vivesca/.local/bin:/home/vivesca/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
 
 # Source API keys from resolved env file (written by op read, chmod 600)
 if [ -f "$HOME/germline/.env.vivesca" ]; then

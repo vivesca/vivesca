@@ -9,8 +9,8 @@
 
 ## Hard Constraints
 
-- **Grep**: Scoped `path`. `/home/terry` → `head_limit: 20`. Bash grep on `~` blocked.
-- **Glob**: NEVER `**` on `/home/terry`.
+- **Grep**: Scoped `path`. `/home/vivesca` → `head_limit: 20`. Bash grep on `~` blocked.
+- **Glob**: NEVER `**` on `/home/vivesca`.
 - **tccutil reset**: NEVER.
 - **WhatsApp**: NEVER send — draft for Terry.
 - **Gists**: ALWAYS secret.
@@ -121,7 +121,7 @@ Draft autonomously, pause before "send". Auto-push personal repos. Ask before sh
 
 ## Memory
 
-Memory index: `~/epigenome/marks/MEMORY.md` (also `~/.claude/projects/-home-terry/memory/MEMORY.md`). Read at session start. Each line links to a detailed mark file — read relevant ones when the task matches.
+Memory index: `~/epigenome/marks/MEMORY.md` (also `~/.claude/projects/-home-vivesca/memory/MEMORY.md`). Read at session start. Each line links to a detailed mark file — read relevant ones when the task matches.
 
 Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference/finding), `source` (cc/gemini/codex/goose/user), `durability` (methyl=durable, acetyl=volatile), `protected: true` for core corrections.
 

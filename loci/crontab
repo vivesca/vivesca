@@ -2,4 +2,4 @@
 # Times in UTC — soma runs UTC, HKT = UTC+8
 
 # evergreen: update Python + deps daily at 04:00 UTC (12:00 HKT)
-0 4 * * * /home/terry/germline/effectors/evergreen /home/terry/germline
+0 4 * * * /home/vivesca/germline/effectors/evergreen /home/vivesca/germline

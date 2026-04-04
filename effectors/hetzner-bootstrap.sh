@@ -9,7 +9,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: hetzner-bootstrap.sh"
     echo ""
     echo "Bootstrap a fresh Hetzner Ubuntu 22.04 VPS for Claude Code."
-    echo "Creates user 'terry', installs Node.js, Claude Code, Tailscale, pnpm, uv."
+    echo "Creates user 'vivesca', installs Node.js, Claude Code, Tailscale, pnpm, uv."
     echo "Must be run as root: ssh root@<IP> 'bash -s' < hetzner-bootstrap.sh"
     exit 0
 fi
@@ -25,22 +25,22 @@ echo "=== Hetzner Claude Code Bootstrap ==="
 apt-get update && apt-get upgrade -y
 apt-get install -y curl git tmux htop jq unzip build-essential
 
-# 2. Create user 'terry' with sudo
-if ! id terry &>/dev/null; then
-  adduser --disabled-password --gecos "" terry
-  usermod -aG sudo terry
-  echo "terry ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/terry
+# 2. Create user 'vivesca' with sudo
+if ! id vivesca &>/dev/null; then
+  adduser --disabled-password --gecos "" vivesca
+  usermod -aG sudo vivesca
+  echo "vivesca ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vivesca
 
   # Copy SSH keys from root
-  mkdir -p ~terry/.ssh
-  cp /root/.ssh/authorized_keys ~terry/.ssh/
-  chown -R terry:terry ~terry/.ssh
-  chmod 700 ~terry/.ssh
-  chmod 600 ~terry/.ssh/authorized_keys
+  mkdir -p ~vivesca/.ssh
+  cp /root/.ssh/authorized_keys ~vivesca/.ssh/
+  chown -R vivesca:vivesca ~vivesca/.ssh
+  chmod 700 ~vivesca/.ssh
+  chmod 600 ~vivesca/.ssh/authorized_keys
 fi
 
 # 3. Install Node.js (LTS via fnm)
-sudo -u terry bash -c '
+sudo -u vivesca bash -c '
   curl -fsSL https://fnm.vercel.app/install | bash
   export PATH="$HOME/.local/share/fnm:$PATH"
   eval "$(fnm env)"
@@ -49,7 +49,7 @@ sudo -u terry bash -c '
 '
 
 # 4. Install Claude Code
-sudo -u terry bash -c '
+sudo -u vivesca bash -c '
   export PATH="$HOME/.local/share/fnm:$PATH"
   eval "$(fnm env)"
   npm install -g @anthropic-ai/claude-code
@@ -61,19 +61,19 @@ echo ""
 echo ">>> Run 'sudo tailscale up' after bootstrap to authenticate Tailscale"
 
 # 6. Install pnpm
-sudo -u terry bash -c '
+sudo -u vivesca bash -c '
   export PATH="$HOME/.local/share/fnm:$PATH"
   eval "$(fnm env)"
   npm install -g pnpm
 '
 
 # 7. Install uv (Python)
-sudo -u terry bash -c '
+sudo -u vivesca bash -c '
   curl -LsSf https://astral.sh/uv/install.sh | sh
 '
 
 # 8. tmux config (basic - will be replaced by dotfiles later)
-sudo -u terry bash -c 'cat > ~/.tmux.conf << "TMUX"
+sudo -u vivesca bash -c 'cat > ~/.tmux.conf << "TMUX"
 set -g prefix C-a
 unbind C-b
 bind C-a send-prefix
@@ -87,7 +87,7 @@ set -g status-style "bg=#1e1e2e,fg=#cdd6f4"
 TMUX'
 
 # 9. Clone repos (will need auth - just create dirs for now)
-sudo -u terry bash -c '
+sudo -u vivesca bash -c '
   mkdir -p ~/code ~/scripts ~/code/epigenome/chromatin ~/skills
   echo ">>> Clone your repos:"
   echo "  git clone <agent-config-repo> ~/agent-config"
@@ -104,11 +104,11 @@ echo ""
 echo "=== Bootstrap Complete ==="
 echo ""
 echo "Next steps:"
-echo "  1. SSH in as terry: ssh terry@<IP>"
+echo "  1. SSH in as vivesca: ssh vivesca@<IP>"
 echo "  2. Authenticate Tailscale: sudo tailscale up"
 echo "  3. Authenticate Claude Code: claude (follow browser OAuth)"
 echo "  4. Clone your repos (agent-config, skills, vault)"
 echo "  5. Set up git credentials: gh auth login"
 echo ""
-echo "After Tailscale, connect via: ssh terry@<tailscale-hostname>"
+echo "After Tailscale, connect via: ssh vivesca@<tailscale-hostname>"
 echo "Then the public IP doesn't matter anymore."

@@ -18,9 +18,10 @@ def resolve_memory_dir() -> Path:
     CC project dirs encode the working directory with ``-`` replacing ``/``.
     On macOS (home = /Users/terry) the dir is ``-Users-terry``;
     on Linux/soma (home = /home/vivesca) it's ``-home-vivesca``.
+    Legacy ``-home-terry`` is kept for backward compat.
     """
     base = Path.home() / ".claude" / "projects"
-    for candidate in ("-home-terry", "-Users-terry", "-home-terry-germline"):
+    for candidate in ("-home-vivesca", "-home-terry", "-Users-terry", "-home-terry-germline"):
         d = base / candidate / "memory"
         if d.exists():
             return d
@@ -70,7 +71,7 @@ class Vesicle(Secretion):
     items: list[dict]
     count: int = 0
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: object, /) -> None:
         if self.count == 0 and self.items:
             self.count = len(self.items)
 

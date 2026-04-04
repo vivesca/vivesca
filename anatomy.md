@@ -71,6 +71,10 @@ endocytosis — RSS ingestion and status tools.
 endosomal — Gmail email triage.
 - `endosomal(action, query, thread_id, email_text, message_ids, name, to, subject, body, reply_to_message_id, attach, cc, from_sender, subject_pattern, add_label, archive, mark_read, dry_run)` -- Unified Gmail tool.
 
+### ergometer
+ergometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta
+- `ergometer(action, hours, remaining_tasks)` -- Query sortase dispatch throughput metrics.
+
 ### exocytosis
 exocytosis — publish to terryli.hm garden.
 - `exocytosis(title, content, tags, description)` -- Create a new blog post in secretome. Does NOT deploy -- call exocytosis_push after.
@@ -172,10 +176,6 @@ sporulation — cross-session checkpoint save/load.
 ### synthase
 synthase — spawn headless CC with full organism access.
 - `synthase(prompt, model)` -- Spawn a headless Claude Code session with full organism context.
-
-### ergometer
-ergometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta
-- `ergometer(action, hours, remaining_tasks)` -- Query sortase dispatch throughput metrics.
 
 ### telegram_receptor
 telegram_receptor — Read Telegram messages via user client API.
@@ -296,6 +296,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **emit.py**: `emit`
 - **endocytosis.py**: `endocytosis`
 - **endosomal.py**: `endosomal`
+- **ergometer.py**: `ergometer`
 - **exocytosis.py**: `exocytosis`, `exocytosis_push`
 - **expression.py**: `expression`
 - **fetch.py**: `fetch`
@@ -321,7 +322,6 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **sortase.py**: `sortase`
 - **sporulation.py**: `sporulation`
 - **synthase.py**: `synthase`
-- **ergometer.py**: `ergometer`
 - **telegram_receptor.py**: `telegram_receptor`
 - **transposase.py**: `transposase`
 - **turgor.py**: `tonus`

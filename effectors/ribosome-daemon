@@ -1201,8 +1201,8 @@ def remote_exec(cmd: str, worker: dict) -> tuple[str, int, str, int]:
     inner_cmd = cmd.replace("'", "'\\''")
     docker_cmd = (
         f"docker run --rm"
-        f" -v /home/{user}/germline:/home/terry/germline"
-        f" -w /home/terry/germline"
+        f" -v /home/{user}/germline:/home/vivesca/germline"
+        f" -w /home/vivesca/germline"
         f" gemmule:latest bash -c '{inner_cmd}'"
     )
 
@@ -1382,7 +1382,7 @@ def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
     import shutil
 
     home = Path.home()
-    volume = home  # Fly mounts volume at /home/terry
+    volume = home  # Fly mounts volume at /home/vivesca
     root_tmp = Path("/tmp")
 
     def _free_gb(path: Path) -> float:
