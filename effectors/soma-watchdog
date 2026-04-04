@@ -3,7 +3,7 @@
 
 Every 60 seconds:
 1. Disk space: auto-clean if <2GB, kill golems if <1GB
-2. Log rotation: rotate files >10MB
+2. Log rotation: rotate files >10MB (size-based, Fly native handles 30-day history)
 3. Runaway processes: kill golem processes >30min or >2GB RSS
 4. Root filesystem: clean /tmp if <500MB free
 5. Tailscale: verify connected, warn 30 days before key expiry
@@ -17,7 +17,7 @@ import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 POLL = 60  # seconds
@@ -25,34 +25,7 @@ HOME = Path.home()
 GERMLINE = HOME / "germline"
 LOG = HOME / "tmp" / "soma-watchdog.log"
 
-# Observability: intraday writes stay in place, daily rotation moves raw files to git
-DAILY_DIR = HOME / "epigenome" / "chromatin" / "telemetry" / "daily"
 ALERT_STAMP = HOME / "tmp" / "soma-alert-last.txt"
-
-# JSONL files to rotate daily (raw copy, then truncate)
-JSONL_SOURCES = [
-    HOME / ".local" / "share" / "vivesca" / "soma-resources.jsonl",
-    HOME / ".local" / "share" / "vivesca" / "golem.jsonl",
-    HOME / ".local" / "share" / "vivesca" / "infections.jsonl",
-    HOME / ".local" / "share" / "vivesca" / "requests.jsonl",
-    HOME / ".local" / "share" / "vivesca" / "signal-history.jsonl",
-    HOME / ".local" / "share" / "vivesca" / "signals.jsonl",
-    HOME / ".local" / "share" / "vivesca" / "usage-history.jsonl",
-    HOME / ".local" / "share" / "rheotaxis" / "runs.jsonl",
-    HOME / ".local" / "share" / "sortase" / "log.jsonl",
-    HOME / ".local" / "share" / "translocon" / "log.jsonl",
-    HOME / ".local" / "share" / "translocon" / "metrics.jsonl",
-    HOME / ".local" / "share" / "noesis" / "log.jsonl",
-    HOME / ".local" / "share" / "elencho" / "runs.jsonl",
-    HOME / ".local" / "share" / "respirometry" / "history.jsonl",
-]
-
-# Log files to include in daily rotation
-LOG_SOURCES = [
-    LOG,
-    HOME / ".local" / "share" / "vivesca" / "golem-daemon.log",
-    HOME / ".local" / "share" / "vivesca" / "golem-reviewer.log",
-]
 
 # Thresholds
 DISK_WARN_GB = 2.0
@@ -296,53 +269,6 @@ def check_tailscale() -> dict:
         return {"status": "warn", "reason": str(e)}
 
 
-def daily_rotate():
-    """Rotate all tracked JSONL files into dated daily directory, commit to epigenome."""
-    try:
-        yesterday = (datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d")
-        day_dir = DAILY_DIR / yesterday
-        day_dir.mkdir(parents=True, exist_ok=True)
-
-        rotated = 0
-        for src in JSONL_SOURCES:
-            if not src.exists() or src.stat().st_size == 0:
-                continue
-            dest = day_dir / f"{src.stem}.jsonl"
-            shutil.copy2(src, dest)
-            src.write_text("")
-            rotated += 1
-
-        # Rotate log files
-        for src in LOG_SOURCES:
-            if src.exists() and src.stat().st_size > 0:
-                dest = day_dir / f"{src.stem}.log"
-                shutil.copy2(src, dest)
-                src.write_text("")
-                rotated += 1
-
-        if rotated == 0:
-            return
-
-        # Commit to epigenome
-        epigenome = HOME / "epigenome"
-        rel_dir = day_dir.relative_to(epigenome)
-        subprocess.run(
-            ["git", "add", str(rel_dir)],
-            cwd=str(epigenome), capture_output=True, timeout=10,
-        )
-        subprocess.run(
-            ["git", "commit", "-m", f"telemetry: soma {yesterday} ({rotated} logs)"],
-            cwd=str(epigenome), capture_output=True, timeout=30,
-        )
-        subprocess.run(
-            ["git", "push"],
-            cwd=str(epigenome), capture_output=True, timeout=30,
-        )
-        log(f"Daily rotate: {yesterday}, {rotated} files")
-    except Exception as e:
-        log(f"daily_rotate error: {e}")
-
-
 def check_cycle():
     """One watchdog cycle. Returns health dict."""
     health: dict = {}
@@ -374,15 +300,23 @@ def check_cycle():
     else:
         health["root_fs"] = {"status": "ok", "free_mb": root_free}
 
-    # Log rotation
+    # Log/JSONL rotation (size-based; Fly native covers 30-day searchable history)
     for logfile in [
         HOME / "tmp" / "golem-daemon-supervisor.log",
         HOME / "tmp" / "mcp-server.log",
         HOME / "tmp" / "golem-reviewer.log",
         HOME / "tmp" / "supervisord.log",
         HOME / ".local" / "share" / "vivesca" / "golem-daemon.log",
-        HOME / ".local" / "share" / "vivesca" / "golem.jsonl",
         HOME / ".local" / "share" / "vivesca" / "golem-reviewer.log",
+        HOME / ".local" / "share" / "vivesca" / "golem.jsonl",
+        HOME / ".local" / "share" / "vivesca" / "infections.jsonl",
+        HOME / ".local" / "share" / "vivesca" / "signal-history.jsonl",
+        HOME / ".local" / "share" / "vivesca" / "usage-history.jsonl",
+        HOME / ".local" / "share" / "vivesca" / "soma-resources.jsonl",
+        HOME / ".local" / "share" / "rheotaxis" / "runs.jsonl",
+        HOME / ".local" / "share" / "sortase" / "log.jsonl",
+        HOME / ".local" / "share" / "translocon" / "log.jsonl",
+        HOME / ".local" / "share" / "translocon" / "metrics.jsonl",
         LOG,
     ]:
         rotate_log(logfile)
@@ -401,19 +335,11 @@ def main():
         print(__doc__)
         return 0
     log("Watchdog started")
-    last_rotate_day = datetime.now().strftime("%Y-%m-%d")
     try:
         while True:
             health = check_cycle()
             log_resources()
             alert_on_crit(health)
-
-            # Daily rotation at midnight
-            today = datetime.now().strftime("%Y-%m-%d")
-            if today != last_rotate_day:
-                daily_rotate()
-                last_rotate_day = today
-
             time.sleep(POLL)
     except KeyboardInterrupt:
         log("Watchdog stopped")
