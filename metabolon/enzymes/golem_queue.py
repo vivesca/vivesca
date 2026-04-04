@@ -20,6 +20,7 @@ from typing import Any
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from metabolon.morphology import EffectorResult, Secretion
 
@@ -40,7 +41,7 @@ class QueueResult(Secretion):
     """Structured result for golem-queue operations."""
 
     output: str
-    data: dict[str, Any] = {}
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
