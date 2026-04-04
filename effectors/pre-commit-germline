@@ -1,0 +1,34 @@
+#!/bin/sh
+# germline pre-commit hook: lint + syntax check before push
+# Install: cp effectors/pre-commit-germline .git/hooks/pre-commit
+
+# Guard: never commit symlinks in the hooks directory
+symlinks=$(git diff --cached --diff-filter=ACMR --name-only -- "membrane/cytoskeleton/" | while read f; do
+  blob=$(git ls-files -s "$f" 2>/dev/null | awk "{print \$1}")
+  if [ "$blob" = "120000" ]; then echo "$f"; fi
+done)
+
+if [ -n "$symlinks" ]; then
+  echo "ERROR: Symlinks in membrane/cytoskeleton/ would break CC hooks:"
+  echo "$symlinks"
+  echo "These must be real files, not symlinks."
+  exit 1
+fi
+
+# Lint staged Python files with ruff
+py_files=$(git diff --cached --diff-filter=ACMR --name-only | grep '\.py$')
+if [ -n "$py_files" ]; then
+  if command -v ruff >/dev/null 2>&1; then
+    echo "$py_files" | xargs ruff check --no-fix || exit 1
+  fi
+fi
+
+# Syntax-check staged Python scripts without .py extension (effectors)
+scripts=$(git diff --cached --diff-filter=ACMR --name-only -- "effectors/" | while read f; do
+  head -1 "$f" 2>/dev/null | grep -q python && echo "$f"
+done)
+if [ -n "$scripts" ]; then
+  echo "$scripts" | while read f; do
+    python3 -c "import py_compile; py_compile.compile('$f', doraise=True)" || exit 1
+  done
+fi

@@ -79,6 +79,13 @@ if [[ -d ~/germline/membrane/cytoskeleton ]]; then
   ok "hooks linked ($(ls ~/.claude/hooks/*.py 2>/dev/null | wc -l) files)"
 fi
 
+# Git pre-commit hook for germline
+if [[ -f ~/germline/effectors/pre-commit-germline ]]; then
+  cp ~/germline/effectors/pre-commit-germline ~/germline/.git/hooks/pre-commit
+  chmod +x ~/germline/.git/hooks/pre-commit
+  ok "germline pre-commit hook installed"
+fi
+
 # Skills -> germline/membrane/receptors
 if [[ -d ~/germline/membrane/receptors ]]; then
   for skill_dir in ~/germline/membrane/receptors/*/; do
