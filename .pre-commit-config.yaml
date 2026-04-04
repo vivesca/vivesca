@@ -53,7 +53,7 @@ repos:
         entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_ribosome_dispatch_enzyme.py assays/test_polysome.py -x -q -p no:cacheprovider -p no:hypothesis && uv run pytest assays/test_temporal_integration.py -x -q -p no:cacheprovider -p no:hypothesis'
         language: system
         pass_filenames: false
-        always_run: true
+        files: (polysome/|ribosome_dispatch|temporal)
         stages: [pre-push]
 
       - id: ci-full-suite
