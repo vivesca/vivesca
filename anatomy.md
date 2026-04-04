@@ -397,10 +397,10 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **444**
-- Most active: `server` (146), `rheotaxis` (112), `fetch` (86), `rheotaxis_search` (23), `navigator` (16)
+- Signals (last 7 days): **485**
+- Most active: `server` (146), `rheotaxis` (127), `fetch` (96), `rheotaxis_search` (23), `navigator` (16)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 7 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 8 errors)
