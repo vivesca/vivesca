@@ -1,0 +1,4 @@
+# file: /home/terry/germline/assays/conftest.py
+# hypothesis_version: 6.151.10
+
+['.', '.py', '.sh', 'ENDOCYTOSIS_DATA_DIR', 'Source A', 'Source B', 'Test Feed', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', '_', '_py', 'cache', 'cadence', 'config', 'daily', 'data', 'effectors', 'endocytosis', 'germline', 'https://example.com', 'name', 'pytest-*', 'rss', 'session', 'sources.yaml', 'test_', 'tier', 'url', 'utf-8', 'web_sources']

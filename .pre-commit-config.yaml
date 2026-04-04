@@ -21,3 +21,13 @@ repos:
       - id: pip-audit
         args: [--skip-editable]
         stages: [pre-push]
+
+  - repo: local
+    hooks:
+      - id: temporal-tests
+        name: temporal tests
+        entry: uv run pytest assays/test_golem_dispatch_enzyme.py assays/test_temporal_golem.py assays/test_temporal_integration.py -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

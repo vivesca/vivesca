@@ -1,0 +1,4 @@
+# file: /home/terry/germline/metabolon/metabolism/substrates/memory.py
+# hypothesis_version: 6.151.10
+
+['*.md', '-- Actions --', '---', '.local', ':', 'Already promoted', 'Constitution', 'MEMORY.md', 'Migrate', 'Other', 'Program', 'Promote', 'Prune', 'Unknown', '[a-z][a-z0-9_]+', '_', 'action', 'already', 'already_promoted', 'constitution_overlap', 'dead', 'description', 'feedback', 'finding', 'genome.md', 'memory', 'migrate', 'name', 'path', 'priority', 'program', 'project', 'promote', 'prune', 'reference', 'share', 'signal_match', 'target', 'text', 'type', 'unknown', 'user', 'vivesca']

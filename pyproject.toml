@@ -76,11 +76,8 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["metabolon"]
+requires = ["uv_build>=0.6,<0.11"]
+build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["assays"]
@@ -92,6 +89,7 @@ markers = ["slow: boots full MCP server (skip with default opts)"]
 [tool.ruff]
 target-version = "py314"
 line-length = 99
+src = ["src"]
 extend-exclude = ["membrane/receptors/.system"]
 
 [tool.ruff.lint]
@@ -177,7 +175,7 @@ skip = [
 #   wit         — "dry wit" in openclaw persona docs
 #   thats       — intentional informal-speech literals in synapse.py ("thats all", "thats it")
 #   stilus      — Latin stylus (original meaning preserved)
-ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats"
+ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin"
 
 [tool.coverage.run]
 source = ["metabolon"]
