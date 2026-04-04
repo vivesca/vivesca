@@ -1,8 +1,8 @@
 # Golem Task Scratchpad
 
-> This file is a **planning scratchpad** only. It is NOT in the dispatch path.
-> Dispatch via `golem_dispatch` MCP tool (action=dispatch) or direct `golem` CLI.
-> Check status: `golem_dispatch action=list`
+> **Planning only.** Nothing reads this file for execution.
+> Sole dispatch path: `golem_dispatch` MCP tool (action=dispatch).
+> The markdown poller (`dispatch.py --poll`) was retired 2026-04-04.
 
 ## Ideas (not yet dispatched)
 
