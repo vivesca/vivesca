@@ -505,7 +505,7 @@ PERFECT_SPEC = """\
 # Implement scoring
 
 ## Output path
-Write the result to ~/germline/metabolon/sortase/scoring.py.
+Write the result to ~/germline/src/metabolon/sortase/scoring.py.
 
 ## Scope
 Single deliverable: the scoring module.
@@ -605,7 +605,7 @@ LINT_CLEAN_PLAN = """\
 # Add feature X
 
 ## Output
-Write to ~/germline/metabolon/sortase/feature_x.py.
+Write to ~/germline/src/metabolon/sortase/feature_x.py.
 
 ## Constraints
 - Do NOT modify existing tests.

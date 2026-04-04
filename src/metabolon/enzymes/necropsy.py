@@ -204,7 +204,7 @@ def timeline(claude_home: Path, session_id: str) -> str:
         if ts and ts != "?":
             try:
                 time_part = ts.split("T")[1][:5] if "T" in ts else ts
-            except IndexError, ValueError:
+            except (IndexError, ValueError):
                 time_part = ts
         else:
             time_part = "?"

@@ -29,7 +29,7 @@ def _extract_decorated_names(module_path: Path, decorator_name: str) -> list[dic
     results: list[dict] = []
     try:
         tree = ast.parse(module_path.read_text())
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return results
 
     for node in ast.walk(tree):
@@ -149,7 +149,7 @@ def _extract_module_docstring(module_path: Path) -> str:
     try:
         tree = ast.parse(module_path.read_text())
         return ast.get_docstring(tree) or ""
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return ""
 
 
@@ -158,7 +158,7 @@ def _extract_tool_details(module_path: Path) -> list[dict]:
     results: list[dict] = []
     try:
         tree = ast.parse(module_path.read_text())
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return results
 
     for node in ast.walk(tree):
@@ -239,7 +239,7 @@ def _extract_substrate_info(module_path: Path) -> dict | None:
     try:
         source = module_path.read_text()
         tree = ast.parse(source)
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return None
 
     mod_doc = ast.get_docstring(tree) or ""
@@ -318,7 +318,7 @@ def _extract_module_summary(module_path: Path) -> dict | None:
     try:
         source = module_path.read_text()
         tree = ast.parse(source)
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return None
 
     mod_doc = ast.get_docstring(tree) or ""

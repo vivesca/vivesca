@@ -71,7 +71,7 @@ def _load_entries(days: int | None = None) -> list[dict[str, Any]]:
                     entry_dt = datetime.fromisoformat(ts)
                     if entry_dt < cutoff:
                         continue
-                except ValueError, TypeError:
+                except (ValueError, TypeError):
                     pass  # include unparseable entries
             entries.append(entry)
     return entries

@@ -168,7 +168,7 @@ Return ONLY the JSON array, no other text."""
         end = result.rfind("]") + 1
         if start >= 0 and end > start:
             goals = json.loads(result[start:end])
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         return {"errors": [f"Goal selection failed to parse: {result[:200]}"]}
 
     return {"selected_goals": goals[:max_goals]}
@@ -249,7 +249,7 @@ Return ONLY the JSON array."""
         if start >= 0 and end > start:
             evals = json.loads(eval_text[start:end])
             review = sum(1 for e in evals if e.get("classification") == "needs-review")
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     return {
@@ -287,7 +287,7 @@ Return ONLY the JSON array."""
         end = result.rfind("]") + 1
         if start >= 0 and end > start:
             ideas = [item.get("idea", "") for item in json.loads(result[start:end])]
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     return {"compound_ideas": ideas[:6]}

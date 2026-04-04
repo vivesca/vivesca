@@ -92,19 +92,19 @@ lint.ignore = [
   "E501",
   "SIM115",
 ] # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles
-lint.per-file-ignores."metabolon/enzymes/integrin.py" = [ "E402" ]
-lint.per-file-ignores."metabolon/enzymes/interoception.py" = [ "E402" ]
-lint.per-file-ignores."metabolon/enzymes/secretory.py" = [ "E402" ]
-lint.per-file-ignores."metabolon/organelles/baroreceptor.py" = [ "E402", "RUF001" ]
-lint.per-file-ignores."metabolon/organelles/endocytosis_rss/cli.py" = [
+lint.per-file-ignores."src/metabolon/enzymes/integrin.py" = [ "E402" ]
+lint.per-file-ignores."src/metabolon/enzymes/interoception.py" = [ "E402" ]
+lint.per-file-ignores."src/metabolon/enzymes/secretory.py" = [ "E402" ]
+lint.per-file-ignores."src/metabolon/organelles/baroreceptor.py" = [ "E402", "RUF001" ]
+lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/cli.py" = [
   "B008",
 ] # typer.Option() in signatures is idiomatic
-lint.per-file-ignores."metabolon/organelles/endocytosis_rss/fetcher.py" = [ "RUF001" ] # CJK content
-lint.per-file-ignores."metabolon/organelles/endocytosis_rss/relevance.py" = [ "E402" ]
+lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/fetcher.py" = [ "RUF001" ] # CJK content
+lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/relevance.py" = [ "E402" ]
 # E402: lazy/conditional imports — intentional for optional deps or sys.path manipulation
-lint.per-file-ignores."metabolon/organelles/pacemaker.py" = [ "E402" ]
-lint.per-file-ignores."metabolon/organelles/potentiation.py" = [ "E402", "RUF001" ]
-lint.per-file-ignores."metabolon/pinocytosis/__init__.py" = [ "E402" ]
+lint.per-file-ignores."src/metabolon/organelles/pacemaker.py" = [ "E402" ]
+lint.per-file-ignores."src/metabolon/organelles/potentiation.py" = [ "E402", "RUF001" ]
+lint.per-file-ignores."src/metabolon/pinocytosis/__init__.py" = [ "E402" ]
 lint.isort.known-first-party = [ "metabolon" ]
 
 [tool.codespell]

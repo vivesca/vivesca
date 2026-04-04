@@ -20,7 +20,7 @@ def test_clean_plan_no_issues():
 - Keep changes minimal
 
 ## Output path
-Write the result to ~/germline/metabolon/sortase/new.py
+Write the result to ~/germline/src/metabolon/sortase/new.py
 
 ## Verification
 Run pytest on the test file to verify

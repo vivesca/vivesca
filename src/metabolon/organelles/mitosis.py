@@ -120,7 +120,7 @@ def _is_soma_reachable(retries: int = 3, backoff: float = 5.0) -> bool:
             )
             if result.returncode == 0 and "started" in result.stdout:
                 return True
-        except subprocess.TimeoutExpired, FileNotFoundError:
+        except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
         if attempt < retries - 1:
             time.sleep(backoff * (attempt + 1))

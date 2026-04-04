@@ -99,7 +99,7 @@ def _detect_orphan_gaps(
                 continue
             try:
                 tree = ast.parse(py_file.read_text())
-            except SyntaxError, OSError:
+            except (SyntaxError, OSError):
                 continue
             for node in ast.walk(tree):
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

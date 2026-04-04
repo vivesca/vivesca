@@ -47,7 +47,7 @@ def _kill_browser_pid(pid: int) -> None:
     # Then kill the parent
     try:
         os.kill(pid, signal.SIGKILL)
-    except ProcessLookupError, PermissionError:
+    except (ProcessLookupError, PermissionError):
         pass  # already dead — fine
     except Exception:
         pass
@@ -82,7 +82,7 @@ def _is_safe_url(url: str) -> bool:
             ip = ipaddress.ip_address(sockaddr[0])
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                 return False
-    except socket.gaierror, ValueError, OSError:
+    except (socket.gaierror, ValueError, OSError):
         return False
     return True
 
@@ -130,7 +130,7 @@ def _parse_feed_datetime(entry: Any) -> str:
                 ts = calendar.timegm(parsed)
                 dt = datetime.fromtimestamp(ts, tz=UTC)
                 return dt.isoformat()
-            except TypeError, OverflowError, OSError:
+            except (TypeError, OverflowError, OSError):
                 continue
 
     # Fallback: raw string fields (RFC 2822 / ISO 8601)
@@ -159,7 +159,7 @@ def _parse_tweet_date(date_str: str) -> str:
     try:
         dt = datetime.strptime(date_str, "%a %b %d %H:%M:%S %z %Y")
         return dt.strftime("%Y-%m-%d")
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return ""
 
 
@@ -718,7 +718,7 @@ def archive_cargo(
                 if hashlib.md5(existing_text.encode()).hexdigest() == content_hash:
                     print(f"  Skipped (duplicate content): {filename}", file=sys.stderr)
                     return
-            except OSError, json.JSONDecodeError:
+            except (OSError, json.JSONDecodeError):
                 continue
 
     record = {
@@ -763,7 +763,7 @@ def probe_receptors(
             try:
                 days = (now - datetime.fromisoformat(last_str)).days
                 scan_col = f"{days}d ago"
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 scan_col = "parse-err"
         else:
             scan_col = "never"

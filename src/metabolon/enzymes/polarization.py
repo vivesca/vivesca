@@ -66,7 +66,7 @@ def _preflight() -> PolarizationPreflightResult:
         data: dict = {}
         try:
             data = json.loads(raw_output)
-        except json.JSONDecodeError, ValueError:
+        except (json.JSONDecodeError, ValueError):
             # Fall back to plain text
             data = {"raw_text": raw_output}
 

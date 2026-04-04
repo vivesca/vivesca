@@ -723,7 +723,7 @@ def test_429_in_tee_log_triggers_rate_limit(tmp_path):
 # ── dispatch_stats tests ─────────────────────────────────────────────
 
 
-_TRANSLOCON_MODULE_PATH = os.path.expanduser("~/germline/metabolon/organelles/translocon.py")
+_TRANSLOCON_MODULE_PATH = os.path.expanduser("~/germline/src/metabolon/organelles/translocon.py")
 
 
 def _load_translocon_module():

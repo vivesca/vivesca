@@ -72,7 +72,7 @@ class AnamScanSubstrate:
                 try:
                     count = int(line.split(":")[1].strip())
                     signals.append({"kind": "sessions", "count": count})
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
             elif line.startswith("Corrections:"):
                 parts = line.split("across")
@@ -86,13 +86,13 @@ class AnamScanSubstrate:
                             "sessions": sessions,
                         }
                     )
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
             elif line.startswith("Session prompts:"):
                 try:
                     count = int(line.split(":")[1].strip())
                     signals.append({"kind": "session_prompts", "count": count})
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
 
         return signals if signals else [{"kind": "no_data", "message": "No sessions found"}]

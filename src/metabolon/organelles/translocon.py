@@ -68,7 +68,7 @@ def _cache_get(key: str) -> dict | None:
         # Stale — remove
         path.unlink(missing_ok=True)
         return None
-    except json.JSONDecodeError, KeyError:
+    except (json.JSONDecodeError, KeyError):
         return None
 
 

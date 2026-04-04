@@ -97,7 +97,7 @@ def assess_cargo_batch(
                     result["score"] = max(1, min(result["score"] + boost, 10))
                     results.append(result)
                 return results
-    except subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, Exception:
+    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, Exception):
         pass
 
     # Batch failed — return all items as unscored (no individual fallback)
@@ -113,7 +113,7 @@ def _normalize_score_payload(payload: dict[str, Any]) -> dict[str, Any]:
     score = payload.get("score", 0)
     try:
         numeric_score = int(score)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         numeric_score = 0
     return {
         "score": max(1, min(numeric_score, 10)),
@@ -302,7 +302,7 @@ def receptor_signal_ratio(source: str, window_days: int = 30) -> float:
         raw_timestamp = entry.get("timestamp")
         try:
             timestamp = datetime.fromisoformat(str(raw_timestamp))
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=UTC)
@@ -313,7 +313,7 @@ def receptor_signal_ratio(source: str, window_days: int = 30) -> float:
         try:
             if int(score) >= 5:
                 signal += 1
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             pass
     # Insufficient stimulus history: receptor stays at baseline sensitivity
     if total < 5:

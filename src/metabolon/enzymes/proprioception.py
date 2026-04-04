@@ -88,7 +88,7 @@ def _log_and_gradient(target: str, reading: str) -> str | None:
                 for line in f
                 if line.strip() and json.loads(line).get("target") == target
             ]
-    except FileNotFoundError, json.JSONDecodeError:
+    except (FileNotFoundError, json.JSONDecodeError):
         return None
 
     if len(history) < 2:

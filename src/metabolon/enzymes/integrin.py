@@ -475,7 +475,7 @@ def _probe_responsiveness(binary: str) -> bool:
         # Any output (stdout or stderr) counts as responsive.
         # Many CLIs print help to stderr. Exit code 0 or 1 both OK.
         return bool(result.stdout.strip() or result.stderr.strip())
-    except subprocess.TimeoutExpired, FileNotFoundError, OSError:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return False
 
 

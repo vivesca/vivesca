@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import fcntl as _fcntl
 import os
 import sys
 from datetime import timedelta
@@ -34,6 +35,13 @@ PROVIDER_LIMITS = {
     "gemini": 4,
     "codex": 4,
 }
+
+
+# Serialize merges: only one golem merges at a time (file lock).
+_MERGE_LOCK_PATH = Path(__file__).resolve().parent.parent.parent / ".worktrees" / ".merge.lock"
+
+# Lockfiles: accept branch version on conflict (they get regenerated).
+_LOCKFILE_NAMES = {"uv.lock", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock"}
 
 # How long we wait between heartbeats
 _HEARTBEAT_INTERVAL = 30.0
@@ -119,48 +127,115 @@ def _create_worktree(repo_root: str, branch_name: str) -> str:
 
 
 def _merge_worktree(repo_root: str, branch_name: str, worktree_path: str) -> bool:
-    """Merge worktree branch into main and clean up. Returns True on success."""
+    """Merge worktree branch into main under exclusive lock.
+
+    Strategy:
+    - Serialize via file lock so concurrent golems queue instead of racing.
+    - Fast-forward when main hasn't moved (common case).
+    - Real 3-way merge (--no-ff) when another golem moved main.
+    - Lockfile conflicts (uv.lock etc.): accept branch version automatically.
+    - Code conflicts: abort cleanly, leave branch for inspection.
+    - Worktree always removed; branch deleted only on success.
+    """
+    _MERGE_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(_MERGE_LOCK_PATH, "w")
+    delete_branch = False
     try:
-        # Check if there are any commits on the branch beyond HEAD
-        result = _subprocess.run(
+        _fcntl.flock(lock_fd, _fcntl.LOCK_EX)
+
+        # Check if branch has commits beyond main
+        check = _subprocess.run(
             ["git", "log", "--oneline", f"main..{branch_name}"],
             capture_output=True, text=True, timeout=10, cwd=repo_root,
         )
-        if not result.stdout.strip():
-            # No commits to merge
+        if not check.stdout.strip():
+            delete_branch = True
             return True
 
-        # Merge with fast-forward (will work if main hasn't moved)
+        # Try fast-forward first (zero overhead when no contention)
         merge = _subprocess.run(
             ["git", "merge", "--ff-only", branch_name],
             capture_output=True, text=True, timeout=15, cwd=repo_root,
         )
-        if merge.returncode != 0:
-            # Try rebase merge if ff fails (another golem may have committed)
-            merge = _subprocess.run(
-                ["git", "rebase", branch_name],
-                capture_output=True, text=True, timeout=30, cwd=repo_root,
+        if merge.returncode == 0:
+            delete_branch = True
+            return True
+
+        # FF failed — real 3-way merge
+        merge = _subprocess.run(
+            ["git", "merge", "--no-ff", "--no-edit", branch_name],
+            capture_output=True, text=True, timeout=30, cwd=repo_root,
+        )
+        if merge.returncode == 0:
+            delete_branch = True
+            return True
+
+        # Conflicts — categorise them
+        conflicted = _subprocess.run(
+            ["git", "diff", "--name-only", "--diff-filter=U"],
+            capture_output=True, text=True, timeout=10, cwd=repo_root,
+        )
+        conflicted_files = [f.strip() for f in conflicted.stdout.splitlines() if f.strip()]
+        lockfiles = [f for f in conflicted_files if Path(f).name in _LOCKFILE_NAMES]
+        code_files = [f for f in conflicted_files if Path(f).name not in _LOCKFILE_NAMES]
+
+        # Resolve lockfile conflicts by accepting branch version
+        for lockfile in lockfiles:
+            _subprocess.run(
+                ["git", "checkout", "--theirs", lockfile],
+                capture_output=True, timeout=10, cwd=repo_root,
             )
-            if merge.returncode != 0:
-                print(f"WARNING: merge/rebase of {branch_name} failed: {merge.stderr}", file=sys.stderr)
-                return False
-        return True
+            _subprocess.run(
+                ["git", "add", lockfile],
+                capture_output=True, timeout=10, cwd=repo_root,
+            )
+
+        if not code_files:
+            # All conflicts were lockfiles — commit the resolution
+            commit = _subprocess.run(
+                ["git", "commit", "--no-edit"],
+                capture_output=True, text=True, timeout=15, cwd=repo_root,
+            )
+            if commit.returncode == 0:
+                delete_branch = True
+                return True
+            _subprocess.run(["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root)
+            print(f"ERROR: merge commit failed for {branch_name}: {commit.stderr.strip()}", file=sys.stderr)
+            return False
+
+        # Code conflicts — abort, leave branch for inspection
+        _subprocess.run(["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root)
+        conflict_list = ", ".join(code_files[:5])
+        print(f"CONFLICT: {branch_name} has code conflicts: {conflict_list}", file=sys.stderr)
+        return False
+
     except Exception as exc:
-        print(f"WARNING: merge error for {branch_name}: {exc}", file=sys.stderr)
+        print(f"ERROR: merge error for {branch_name}: {exc}", file=sys.stderr)
+        try:
+            _subprocess.run(["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root)
+        except Exception:
+            pass
         return False
     finally:
-        # Always clean up worktree and branch
+        _fcntl.flock(lock_fd, _fcntl.LOCK_UN)
+        lock_fd.close()
+        # Always remove worktree
         try:
             _subprocess.run(
                 ["git", "worktree", "remove", "--force", worktree_path],
                 capture_output=True, timeout=10, cwd=repo_root,
             )
-            _subprocess.run(
-                ["git", "branch", "-D", branch_name],
-                capture_output=True, timeout=10, cwd=repo_root,
-            )
         except Exception:
             pass
+        # Delete branch only on successful merge
+        if delete_branch:
+            try:
+                _subprocess.run(
+                    ["git", "branch", "-D", branch_name],
+                    capture_output=True, timeout=10, cwd=repo_root,
+                )
+            except Exception:
+                pass
 
 
 def _detect_prior_commits(
@@ -408,7 +483,7 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
             print(f"WARNING: worktree merge failed for {branch_name}", file=sys.stderr)
 
     # Push golem commits to origin so soma can pull without manual intervention
-    if rc == 0 and post_diff.get("stat", "").strip():
+    if rc == 0 and merged and post_diff.get("stat", "").strip():
         await asyncio.to_thread(_git_push, repo_root)
 
     # #5: Extract token/cost info from golem output

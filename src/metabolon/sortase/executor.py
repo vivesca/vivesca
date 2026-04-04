@@ -423,7 +423,7 @@ def list_running() -> list[dict[str, Any] | str]:
             try:
                 os.kill(entry["pid"], 0)  # signal 0 = check liveness
                 entry["alive"] = True
-            except ProcessLookupError, PermissionError:
+            except (ProcessLookupError, PermissionError):
                 entry["alive"] = False
     return entries
 

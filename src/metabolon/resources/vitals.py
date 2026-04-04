@@ -58,7 +58,7 @@ def express_vitals(
                         f"**Disabled ({len(disabled)}):** " + ", ".join(f"`{p}`" for p in disabled)
                     )
                 lines.append("")
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):
             pass
 
     # Recent activity stats
@@ -89,7 +89,7 @@ def express_vitals(
                     tools = day.get("toolCallCount", day.get("tool_calls", 0))
                     lines.append(f"| {date} | {msgs} | {sessions} | {tools} |")
                 lines.append("")
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):
             pass
 
     return "\n".join(lines)

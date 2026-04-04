@@ -123,7 +123,7 @@ def schedule_payment_reminder(
             timeout=30,
         )
         return result.stdout.strip() if result.returncode == 0 else None
-    except FileNotFoundError, subprocess.TimeoutExpired:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
 
 
@@ -183,7 +183,7 @@ def flag_overdue_payments(payments_file: Path) -> list[str]:
                 due = datetime.strptime(due_date_val, "%Y-%m-%d").date()
             else:
                 raise ValueError(f"Unexpected type {type(due_date_val)} for due_date")
-        except KeyError, ValueError:
+        except (KeyError, ValueError):
             continue
 
         days_until = (due - now).days
