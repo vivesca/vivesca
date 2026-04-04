@@ -172,7 +172,7 @@ Don't ask permission. Don't defer. If the insight is real, publish it.
 
 ### 2. Housekeeping (full mode only)
 
-1. **Uncommitted?** `cytokinesis flush` — commits dirty repos touched this session. PreCompact hook is the safety net if this is skipped.
+1. **Uncommitted?** `cytokinesis flush` — warns about dirty repos. Commit atomically with meaningful messages; don't bulk-flush.
 2. **Anatomy refresh:** `cd ~/germline && python3 -c "from metabolon.resources.anatomy import express_anatomy; open('anatomy.md','w').write(express_anatomy())"` — keeps anatomy.md current without a cron job.
 3. **TODO sweep:** `cytokinesis archive`
 4. **Session log:** `cytokinesis daily "title"` — outcomes + session arc prose.
@@ -190,7 +190,7 @@ Don't ask permission. Don't defer. If the insight is real, publish it.
 |---|---|
 | `gather --fast` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age (~1s) |
 | `gather` | Full checks including LLM reflection + methylation audit (~60s) |
-| `flush` | Commit dirty repos (git add -A + commit per repo) |
+| `flush` | Warn about dirty repos (no longer auto-commits) |
 | `gather --semantic` | Human-readable output (JSON is default) |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |
