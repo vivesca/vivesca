@@ -94,7 +94,8 @@ test_results*.txt
 test-output*.txt
 loci/golem-reviews.jsonl
 loci/golem-outputs/
+loci/ribosome-reviews.jsonl
+loci/ribosome-outputs/
 .worktrees/
 .env.vivesca
 .hypothesis/
-loci/golem-reviews.jsonl
