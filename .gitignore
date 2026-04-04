@@ -54,8 +54,10 @@ effectors/theoros
 membrane/claude.json
 membrane/memory
 
-# Operational data
+# Operational data (append-only signal logs — local state, not version-controlled)
+loci/signals/rheotaxis.jsonl
 loci/vivesca-events.jsonl
+methylation.jsonl
 loci/opencode/*.json
 loci/opencode/*.bak.*
 loci/antisera/1/
