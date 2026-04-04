@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """gmail — Gmail API client for headless environments.
 
 Biology: the peroxisome processes and detoxifies cargo. Here, the Gmail
@@ -10,6 +8,8 @@ Auth: uses refresh token from env vars (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET,
 GMAIL_REFRESH_TOKEN) or falls back to gog's token.json file. No browser needed
 after initial setup.
 """
+
+from __future__ import annotations
 
 import base64
 import html
@@ -27,7 +27,6 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import BatchHttpRequest
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 GOG_TOKEN_FILE = Path.home() / ".config" / "gog" / "token.json"
@@ -208,7 +207,7 @@ def _search_messages(svc, query: str, max_results: int) -> str:
         collected.append((int(request_id), _format_message(response)))
 
     for offset in range(0, len(all_stubs), 100):
-        batch = BatchHttpRequest(callback=_callback)
+        batch = svc.new_batch_http_request(callback=_callback)
         for j, stub in enumerate(all_stubs[offset : offset + 100]):
             req = svc.users().messages().get(userId="me", id=stub["id"], format="metadata")
             batch.add(req, request_id=str(offset + j))
@@ -263,7 +262,7 @@ def _search_threads(svc, query: str, max_results: int) -> str:
         collected.append((int(request_id), "\n".join(thread_lines)))
 
     for offset in range(0, len(all_stubs), 100):
-        batch = BatchHttpRequest(callback=_callback)
+        batch = svc.new_batch_http_request(callback=_callback)
         for j, stub in enumerate(all_stubs[offset : offset + 100]):
             req = svc.users().threads().get(userId="me", id=stub["id"], format="metadata")
             batch.add(req, request_id=str(offset + j))
@@ -426,9 +425,9 @@ def create_filter(
         if label_id:
             action["addLabelIds"] = [label_id]
     if archive:
-        action["removeLabelIds"] = action.get("removeLabelIds", []) + ["INBOX"]
+        action["removeLabelIds"] = [*action.get("removeLabelIds", []), "INBOX"]
     if mark_read:
-        action["removeLabelIds"] = action.get("removeLabelIds", []) + ["UNREAD"]
+        action["removeLabelIds"] = [*action.get("removeLabelIds", []), "UNREAD"]
 
     result = (
         svc.users()
