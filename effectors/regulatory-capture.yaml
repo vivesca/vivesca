@@ -1,0 +1,30 @@
+# Relevance filter config for regulatory-capture
+# Updated without code changes — just edit this file.
+
+high_relevance_topics:
+  - Fintech
+  - Technology Risk Management
+
+high_relevance_keywords:
+  - Big data/Artificial intelligence
+  - Cloud
+  - Cyber
+  - AI
+  - Generative AI
+
+medium_relevance_topics:
+  - Operational Risk Management
+  - Corporate Governance
+  - Internal Controls
+  - Banking Conduct & Enforcement
+
+medium_relevance_keywords:
+  - Data Protection
+  - Systems/controls
+
+skip_topics:
+  - Renminbi
+  - Treasury market
+  - Trust Business
+  - Leverage Ratio
+  - Large Exposures
