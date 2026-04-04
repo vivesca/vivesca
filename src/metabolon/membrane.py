@@ -1,10 +1,8 @@
-
 """vivesca — unified MCP server.
 
 Composes tools, resources, and prompts using FastMCP 3's
 FileSystemProvider. Each domain is a standalone .py file.
 """
-
 
 import json
 import logging
@@ -26,12 +24,75 @@ from metabolon.server import RequestLogger
 
 logger = logging.getLogger(__name__)
 
-PHENOTYPE_MANIFEST = (
-    "vivesca — unified MCP server. Tools prefixed by domain: "
-    "deltos (Telegram send), telegram_receptor (Telegram read), rheotaxis (search), fasti (calendar, HKT), "
-    "gap_junction (WhatsApp, NEVER sends), histone (memory DB), "
-    "chemotaxis (browser), interoception (health/system)."
-)
+
+def _build_manifest() -> str:
+    """Build tool catalog from enzyme/codon docstrings for MCP instructions.
+
+    Scans .py files in enzymes/ and codons/ for @tool decorators and extracts
+    the name= and description= so every tool is discoverable without ToolSearch.
+    """
+    import ast
+
+    lines = ["vivesca — unified MCP server. Tool catalog:"]
+    for tool_dir in [_src / "enzymes", _src / "codons"]:
+        if not tool_dir.exists():
+            continue
+        for py_file in sorted(tool_dir.glob("*.py")):
+            if py_file.name.startswith("_"):
+                continue
+            try:
+                source = py_file.read_text()
+            except OSError:
+                continue
+            # Extract all @tool decorated functions
+            try:
+                tree = ast.parse(source)
+            except SyntaxError:
+                continue
+            tool_funcs = []
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for dec in node.decorator_list:
+                    dec_name = ""
+                    if isinstance(dec, ast.Call):
+                        dec_name = (
+                            getattr(dec.func, "id", "")
+                            or getattr(getattr(dec.func, "attr", None), "__str__", lambda: "")()
+                        )
+                    elif isinstance(dec, ast.Name):
+                        dec_name = dec.id
+                    if dec_name == "tool":
+                        # Extract name= from decorator kwargs, or use function name
+                        t_name = node.name
+                        for kw in getattr(dec, "keywords", []):
+                            if kw.arg == "name" and isinstance(kw.value, (ast.Constant,)):
+                                t_name = kw.value.value
+                        tool_funcs.append((t_name, node))
+            for tool_name, func_node in tool_funcs:
+                # Extract description from decorator kwargs or function docstring
+                short = ""
+                for dec in func_node.decorator_list:
+                    if not isinstance(dec, ast.Call):
+                        continue
+                    for kw in dec.keywords:
+                        if kw.arg == "description" and isinstance(kw.value, ast.Constant):
+                            short = str(kw.value.value).split(".")[0].split("\n")[0].strip()[:60]
+                        elif kw.arg == "description" and isinstance(kw.value, ast.JoinedStr):
+                            # f-string: extract literal parts
+                            parts = [
+                                str(v.value)
+                                for v in kw.value.values
+                                if isinstance(v, ast.Constant)
+                            ]
+                            short = "".join(parts).split(".")[0].strip()[:60]
+                if not short:
+                    doc = ast.get_docstring(func_node) or ""
+                    short = doc.split(".")[0].split("\n")[0].strip()[:60]
+                if short:
+                    lines.append(f"  {tool_name}: {short}")
+    return "\n".join(lines)
+
 
 _src = Path(__file__).resolve().parent
 
@@ -260,9 +321,10 @@ def assemble_organism(
     signal_collector: SensorySystem | None = None,
 ) -> FastMCP:
     """Assemble the organism — compose tools, resources, and prompts into a living MCP server."""
+    manifest = _build_manifest()
     mcp = FastMCP(
         "vivesca",
-        instructions=PHENOTYPE_MANIFEST,
+        instructions=manifest,
         providers=[
             FileSystemProvider(_src / "enzymes"),
             FileSystemProvider(_src / "codons"),
@@ -275,7 +337,7 @@ def assemble_organism(
         py_files = list(provider_dir.glob("*.py"))
         non_init = [f for f in py_files if f.name != "__init__.py"]
         assert non_init, f"No tool modules in {provider_dir} — check FileSystemProvider paths"
-    logger.info("vivesca assembled from %s", _src)
+    logger.info("vivesca assembled from %s (%d tools in manifest)", _src, manifest.count("\n"))
 
     return mcp
 
