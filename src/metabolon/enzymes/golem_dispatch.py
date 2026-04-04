@@ -48,14 +48,12 @@ async def _get_client():
 
 async def _start_workflow(specs: list[dict]) -> dict[str, Any]:
     """Start a single Temporal workflow with the given task specs."""
-    from workflow import GolemDispatchWorkflow
-
     client = await _get_client()
     provider = specs[0].get("provider", "zhipu") if specs else "zhipu"
     wf_id = f"golem-{provider}-{uuid.uuid4().hex[:8]}"
 
     handle = await client.start_workflow(
-        GolemDispatchWorkflow.run,
+        "GolemDispatchWorkflow",
         args=[specs],
         id=wf_id,
         task_queue="golem-tasks",
