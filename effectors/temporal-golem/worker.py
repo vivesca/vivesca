@@ -291,6 +291,22 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
                 }
             print(f"cache: stale failure for {tid_str}, re-executing")
 
+    # Syntax pre-check: validate golem script before dispatching
+    try:
+        syntax_check = await asyncio.to_thread(
+            _subprocess.run,
+            ["bash", "-n", str(GOLEM_SCRIPT)],
+            capture_output=True, text=True, timeout=5,
+        )
+        if syntax_check.returncode != 0:
+            return {
+                "exit_code": -1,
+                "success": False,
+                "stderr": f"golem script has syntax error: {syntax_check.stderr.strip()}",
+            }
+    except _subprocess.TimeoutExpired:
+        pass  # proceed anyway if check times out
+
     # Run golem from repo root, not temporal-golem subdir
     repo_root = str(Path.home() / "germline")
 

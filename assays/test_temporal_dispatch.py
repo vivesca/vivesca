@@ -500,3 +500,35 @@ def test_conn_failure_telegram_alert():
         assert "python3" in cmd[0]
         assert "send_message" in cmd[2]
         assert "temporal-dispatch" in cmd[2]
+
+
+# ── golem syntax pre-check tests ──────────────────────────────────────
+
+
+def test_golem_syntax_precheck():
+    """Syntax error in golem script causes early return without running golem."""
+    worker_path = Path.home() / "germline/effectors/temporal-golem/worker.py"
+    source = worker_path.read_text()
+    ns: dict = {"__name__": "worker_under_test", "__file__": str(worker_path)}
+    exec(source, ns)
+
+    run_golem_task = ns["run_golem_task"]
+    worker_subprocess = ns["_subprocess"]
+
+    # Mock _subprocess.run to return syntax error for bash -n
+    mock_result = MagicMock()
+    mock_result.returncode = 2
+    mock_result.stderr = "line 42: syntax error near unexpected token"
+
+    with patch.object(worker_subprocess, "run", return_value=mock_result):
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            result = asyncio.run(
+                run_golem_task("test task [t-syn01]", "zhipu")
+            )
+
+    assert result["exit_code"] == -1
+    assert result["success"] is False
+    assert "golem script has syntax error" in result["stderr"]
+    assert "syntax error near unexpected token" in result["stderr"]
+    # Golem subprocess must NOT have been launched
+    mock_exec.assert_not_called()
