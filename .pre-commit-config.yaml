@@ -1,4 +1,5 @@
 repos:
+  # ── pre-commit (staged files only) ──────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.7
     hooks:
@@ -10,14 +11,20 @@ repos:
         exclude: ^membrane/receptors/\.system/
         stages: [pre-commit]
 
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.32.0
     hooks:
-      - id: codespell
-        additional_dependencies:
-          - tomli
+      - id: typos
+        stages: [pre-commit]
+        exclude: ^(membrane/receptors/\.system/|uv\.lock)
+
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.6.0
+    hooks:
+      - id: pyproject-fmt
         stages: [pre-commit]
 
+  # ── pre-push (full checks) ─────────────────────────────────────────────
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0
     hooks:
@@ -25,11 +32,25 @@ repos:
         args: [--skip-editable]
         stages: [pre-push]
 
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        stages: [pre-push]
+
   - repo: local
     hooks:
+      - id: deptry
+        name: deptry (unused/missing deps)
+        entry: uv run deptry src
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: temporal-tests
         name: temporal tests
-        entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_golem_dispatch_enzyme.py assays/test_temporal_golem.py -x -q -p no:cacheprovider -p no:hypothesis'
+        entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_golem_dispatch_enzyme.py assays/test_temporal_golem.py -x -q -p no:cacheprovider -p no:hypothesis && uv run pytest assays/test_temporal_integration.py -x -q -p no:cacheprovider -p no:hypothesis'
         language: system
         pass_filenames: false
         always_run: true

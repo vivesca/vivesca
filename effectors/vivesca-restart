@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# vivesca-restart — restart the vivesca MCP server via supervisor.
+# Usage: vivesca-restart
+set -euo pipefail
+supervisorctl -s unix:///tmp/supervisor.sock restart vivesca 2>&1
+echo "vivesca restarted"

@@ -80,7 +80,13 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **No fake menus.** If one option is obviously better, do it.
 
-**Bias toward building.** If recurs → build a tool. Systematise decisions, not actions.
+**Bias toward building.** If recurs → build a tool. If you write the same ad-hoc command twice, it's an effector. Systematise decisions, not actions.
+
+**Always latest.** Python, deps, tooling — all at latest stable. No version pinning unless something breaks. `evergreen` (daily cron) handles upgrades automatically. Alpha/beta excluded until all deps ship wheels. The cost of staying current is a daily cron; the cost of falling behind is "upgrade day."
+
+**Everything in git.** If it matters, it's version-controlled. Supervisor config, crontabs, pre-commit config — all backed up in `loci/`. If a file on disk isn't in git and it would take >5 minutes to recreate, add it.
+
+**Branch for exploration, atomic for planned work.** Planned changes commit atomically per logical change. Exploratory sessions (migrations, tooling sweeps) branch first, squash after. Don't amend+force-push through discovery — that's a sign you should have branched.
 
 ## Interaction
 
