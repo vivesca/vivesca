@@ -553,7 +553,7 @@ CIRC_WEEKLY = CHROMATIN_DIR / "Weekly"
 CIRC_MARKER = HOME / ".claude" / ".weekly-reminded"
 
 
-def mod_circaseptan(_):  # noqa: data unused — uniform dispatch signature
+def mod_circaseptan(_):
     now = datetime.now()
     if now.weekday() not in (5, 6):
         return []
@@ -572,7 +572,7 @@ CAL_STATE = HOME / ".local/share/respirometry/autolog-state.json"
 CAL_INTERVAL = _sconf_int("calorimetry", "cal_interval", 1800)
 
 
-def mod_calorimetry(_):  # noqa: data unused — uniform dispatch signature
+def mod_calorimetry(_):
     now = time.time()
     state = {}
     if CAL_STATE.exists():
