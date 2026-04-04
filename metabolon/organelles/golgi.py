@@ -294,10 +294,10 @@ def index() -> int:
 
 
 def _cli() -> None:
-    """CLI entry point (drop-in replacement for Rust sarcio)."""
+    """CLI entry point (drop-in replacement for Rust publish)."""
     import argparse
 
-    parser = argparse.ArgumentParser(prog="sarcio", description="Garden CLI")
+    parser = argparse.ArgumentParser(prog="publish", description="Garden CLI")
     sub = parser.add_subparsers(dest="cmd")
 
     sub.add_parser("list")

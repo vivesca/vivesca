@@ -176,7 +176,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - remote-llm
 - replication
 - rust
-- sarcio
+- publish
 - sched
 - scrinium
 - scrutor

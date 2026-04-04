@@ -19,7 +19,7 @@ When capturing a lesson, correction, or discovery, route it here first.
 | How-to / workflow with steps | `~/docs/solutions/` |
 | Changes *how to act* next time | Skill (update or create) |
 | Temporary "next time X, do Y" | `memory/priming.md` (expires when actioned) |
-| Insight / opinion / analysis / op-ed | Garden post (`sarcio new`, `draft: false`) — low bar, publish by default |
+| Insight / opinion / analysis / op-ed | Garden post (`publish new`, `draft: false`) — low bar, publish by default |
 | Reference data (facts, trackers, account details) | Vault note (the "other" bucket) |
 | One-off correction, not generalizable | Daily note only |
 

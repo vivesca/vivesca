@@ -340,7 +340,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **ribosome** [authored]: Consulting IP compounded from accumulated sparks
   Enzymes: `ribosome`
 - **vesicle** [authored]: Spore shipped in Terry's voice
-  Enzymes: `sarcio`
+  Enzymes: `publish`
 - **scan** [authored]: Transferable patterns surfaced from landscape and peers
   Enzymes: `dialexis`, `rheotaxis`
 - **evaluate** [authored]: Opportunity assessed against constraints and goals

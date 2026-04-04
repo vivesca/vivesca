@@ -86,11 +86,11 @@ class TestState:
         assert ai["load_state"]() == {}
 
     def test_save_load_roundtrip(self, ai):
-        state = {"session_id": "abc", "sarcio_count": 5}
+        state = {"session_id": "abc", "publish_count": 5}
         ai["save_state"](state)
         loaded = ai["load_state"]()
         assert loaded["session_id"] == "abc"
-        assert loaded["sarcio_count"] == 5
+        assert loaded["publish_count"] == 5
 
     def test_save_creates_parent_dirs(self, ai, tmp_path):
         deep = tmp_path / "a" / "b" / "state.json"
@@ -100,9 +100,9 @@ class TestState:
 
     def test_load_state_valid(self, ai):
         ai["STATE_FILE"].parent.mkdir(parents=True, exist_ok=True)
-        ai["STATE_FILE"].write_text(json.dumps({"session_id": "s1", "sarcio_count": 2}))
+        ai["STATE_FILE"].write_text(json.dumps({"session_id": "s1", "publish_count": 2}))
         result = ai["load_state"]()
-        assert result["sarcio_count"] == 2
+        assert result["publish_count"] == 2
 
 
 # ── log_fire ──────────────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ class TestPraxisCheck:
 
 
 class TestMain:
-    def test_non_sarcio_skill_exits_cleanly(self, ai):
+    def test_non_publish_skill_exits_cleanly(self, ai):
         data = json.dumps({"tool_input": {"skill": "other-skill"}, "session_id": "s1"})
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
@@ -206,26 +206,26 @@ class TestMain:
         assert exc_info.value.code == 0
 
     def test_no_session_id_exits_cleanly(self, ai):
-        data = json.dumps({"tool_input": {"skill": "sarcio-publish"}})
+        data = json.dumps({"tool_input": {"skill": "publish-publish"}})
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0
 
     def test_below_threshold_exits_cleanly(self, ai):
-        data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "s1"})
+        data = json.dumps({"tool_input": {"skill": "publish-publish"}, "session_id": "s1"})
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0
         # Should have recorded count = 1
         state = ai["load_state"]()
-        assert state["sarcio_count"] == 1
+        assert state["publish_count"] == 1
 
     def test_threshold_allows_without_deadline_items(self, ai):
         # Set state to count = 2 so next invocation hits threshold (3)
-        ai["save_state"]({"session_id": "s1", "sarcio_count": 2})
-        data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "s1"})
+        ai["save_state"]({"session_id": "s1", "publish_count": 2})
+        data = json.dumps({"tool_input": {"skill": "publish-publish"}, "session_id": "s1"})
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
@@ -233,11 +233,11 @@ class TestMain:
 
     def test_threshold_blocks_with_deadline_items(self, ai, capsys):
         # Set state to count = 2
-        ai["save_state"]({"session_id": "s1", "sarcio_count": 2})
+        ai["save_state"]({"session_id": "s1", "publish_count": 2})
         # Add a Praxis item due soon
         soon = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
         ai["PRAXIS_FILE"].write_text(_praxis_line(True, due=soon))
-        data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "s1"})
+        data = json.dumps({"tool_input": {"skill": "publish-publish"}, "session_id": "s1"})
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
@@ -247,13 +247,13 @@ class TestMain:
         assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     def test_new_session_resets_counter(self, ai):
-        ai["save_state"]({"session_id": "old-session", "sarcio_count": 10})
-        data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "new-session"})
+        ai["save_state"]({"session_id": "old-session", "publish_count": 10})
+        data = json.dumps({"tool_input": {"skill": "publish-publish"}, "session_id": "new-session"})
         with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit):
                 ai["main"]()
         state = ai["load_state"]()
-        assert state["sarcio_count"] == 1
+        assert state["publish_count"] == 1
         assert state["session_id"] == "new-session"
 
     def test_invalid_json_exits_cleanly(self, ai):
@@ -284,7 +284,7 @@ class TestCLI:
         # Should exit 0 (bad JSON → silent exit)
         assert result.returncode == 0
 
-    def test_runs_with_non_sarcio_input(self):
+    def test_runs_with_non_publish_input(self):
         payload = json.dumps({"tool_input": {"skill": "other"}, "session_id": "s1"})
         result = subprocess.run(
             [sys.executable, str(AUTOIMMUNE_PATH)],

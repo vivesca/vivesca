@@ -487,7 +487,7 @@ class TestIndex:
 class TestCli:
     def _run_cli(self, args):
         """Run _cli with patched sys.argv, return captured output."""
-        with patch("sys.argv", ["sarcio"] + args):
+        with patch("sys.argv", ["publish"] + args):
             with patch("builtins.print") as mock_print:
                 golgi._cli()
         return mock_print
@@ -555,7 +555,7 @@ class TestCli:
         assert "Live at" in mock_print.call_args[0][0]
 
     def test_no_command_shows_help(self):
-        with patch("sys.argv", ["sarcio"]), \
+        with patch("sys.argv", ["publish"]), \
              patch.object(golgi, "GARDEN_DIR", MagicMock()), \
              patch("argparse.ArgumentParser.print_help") as mock_help:
             golgi._cli()

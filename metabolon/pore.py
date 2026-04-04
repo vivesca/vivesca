@@ -737,7 +737,7 @@ Respond to the push. Go deeper. 200-400 words."""
 
 
 def _exocytose(result: str, seed: str, title: str | None, draft_model: str = "gemini"):
-    """Draft a spore from crystallised result and publish via sarcio."""
+    """Draft a spore from crystallised result and publish via publish."""
     import subprocess as _sp
     from datetime import datetime
 
@@ -769,7 +769,7 @@ tags: [ai, agents, design, vivesca]
         click.echo(f"Drafted: {post_path}")
 
         r = _sp.run(
-            ["sarcio", "publish", slug, "--push"],
+            ["publish", "publish", slug, "--push"],
             capture_output=True,
             text=True,
             timeout=60,

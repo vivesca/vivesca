@@ -56,7 +56,7 @@ Fast, good for well-understood domains where the model has clear depth.
 3. **Find the bones** — look for: taxonomy (types/categories), failure modes, axes of improvement, key distinctions
 4. **Distill** — capture as a reference skill with `disable-model-invocation: true`
 5. **Wire** — add cross-references to skills that would benefit (this is not optional — unwired skills get forgotten)
-6. **Publish** — if the insight is non-obvious, `sarcio new` for a garden post
+6. **Publish** — if the insight is non-obvious, `publish new` for a garden post
 
 **Output:** One reference skill file. ~50-100 lines. Stable knowledge, not procedures.
 

@@ -115,7 +115,7 @@ Mining abstract topics ("what is judgment?") works but plateaus. **Specimens** a
 5. **Synthesize delta** — merge cross-model extractions. Flag what only one model surfaced (highest novelty signal).
 6. **Distill** — capture as a reference skill with `disable-model-invocation: true`
 7. **Wire** — add cross-references to skills that would benefit (this is not optional — unwired skills get forgotten)
-8. **Publish** — if the insight is non-obvious, `sarcio new` for a garden post
+8. **Publish** — if the insight is non-obvious, `publish new` for a garden post
 
 **Step 6.5: Quality gate** — after distilling, ask: "which of these heuristics would actually change behavior?" Most mines produce 80% theory, 20% behavior-changing insight. Flag the 20%. The skill keeps everything (reference is cheap); the garden post carries only the sharp part.
 

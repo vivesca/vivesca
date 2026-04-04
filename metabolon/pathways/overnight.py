@@ -105,7 +105,7 @@ def publish(slug: str) -> bool:
     """Reaction 3: spore → live on terryli.hm."""
     try:
         result = subprocess.run(
-            ["sarcio", "publish", slug, "--push"],
+            ["publish", "publish", slug, "--push"],
             capture_output=True,
             text=True,
             timeout=60,

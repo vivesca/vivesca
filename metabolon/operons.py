@@ -48,7 +48,7 @@ OPERONS: list[Operon] = [
         reaction="vesicle",
         product="Spore shipped in Terry's voice",
         substrates=["idea survives exocytosis compression", "ribosome output ready"],
-        enzymes=["sarcio"],
+        enzymes=["publish"],
     ),
     Operon(
         reaction="scan",

@@ -257,11 +257,11 @@ class TestPublish:
         assert publish("my-post") is False
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    def test_calls_sarcio_publish_push(self, mock_run):
+    def test_calls_publish_publish_push(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         publish("my-post")
         cmd = mock_run.call_args[0][0]
-        assert cmd == ["sarcio", "publish", "my-post", "--push"]
+        assert cmd == ["publish", "publish", "my-post", "--push"]
 
     @patch("metabolon.pathways.overnight.subprocess.run")
     def test_timeout_60(self, mock_run):

@@ -130,7 +130,7 @@ class TestPublish:
         mock_run.return_value = MagicMock(returncode=0)
         assert publish("my-post") is True
         mock_run.assert_called_once_with(
-            ["sarcio", "publish", "my-post", "--push"],
+            ["publish", "publish", "my-post", "--push"],
             capture_output=True,
             text=True,
             timeout=60,

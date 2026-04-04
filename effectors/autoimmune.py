@@ -2,10 +2,10 @@
 """
 PreToolUse hook — meta-spiral guard.
 
-Prevents productive-feeling meta-work (garden posts via sarcio) from
-displacing deadline work. If 3+ sarcio invocations in this session AND
+Prevents productive-feeling meta-work (garden posts via publish) from
+displacing deadline work. If 3+ publish invocations in this session AND
 no Praxis.md items due within 7 days have been completed, blocks further
-sarcio calls.
+publish calls.
 
 State: ~/.claude/meta-spiral-state.json
 Input: PreToolUse JSON on stdin (tool_input.skill, session_id)
@@ -112,7 +112,7 @@ def has_open_items_due_within_days(days: int = 7) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PreToolUse hook — meta-spiral guard. Blocks excessive sarcio calls when deadline work is pending."
+        description="PreToolUse hook — meta-spiral guard. Blocks excessive publish calls when deadline work is pending."
     )
     parser.parse_args()
 
@@ -121,9 +121,9 @@ def main():
     except (json.JSONDecodeError, EOFError):
         sys.exit(0)
 
-    # Only care about sarcio skill invocations
+    # Only care about publish skill invocations
     skill_name = data.get("tool_input", {}).get("skill", "")
-    if not skill_name.startswith("sarcio"):
+    if not skill_name.startswith("publish"):
         sys.exit(0)
 
     session_id = data.get("session_id", "")
@@ -135,19 +135,19 @@ def main():
 
     # Reset counter on new session
     if state.get("session_id") != session_id:
-        state = {"session_id": session_id, "sarcio_count": 0}
+        state = {"session_id": session_id, "publish_count": 0}
 
-    state["sarcio_count"] = state.get("sarcio_count", 0) + 1
+    state["publish_count"] = state.get("publish_count", 0) + 1
     save_state(state)
 
     # Below threshold — allow
-    if state["sarcio_count"] < THRESHOLD:
+    if state["publish_count"] < THRESHOLD:
         sys.exit(0)
 
     # At or above threshold — check for deadline items
     if has_open_items_due_within_days(7):
         deny(
-            f"[meta-spiral] Blocked: {state['sarcio_count']} garden posts this session "
+            f"[meta-spiral] Blocked: {state['publish_count']} garden posts this session "
             f"with open Praxis.md items due within 7 days. "
             f"Finish a deadline item before publishing more. "
             f"Run: grep 'due:' ~/epigenome/chromatin/Praxis.md to see what's urgent."

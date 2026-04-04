@@ -53,7 +53,7 @@ peira status 2>/dev/null || true
 2. **Deferred?** Anything mentioned as "later/next/TODO" not yet captured? Route by type: has a deadline → TODO.md. Has a context trigger ("next time I'm in X") → `memory/priming.md`. Neither → daily note.
 3. **Uncommitted?** Dirty repos *touched this session*? → offer to commit (leave other repos alone)
 4. **Garden posts + consulting arsenal?** Pause and replay the session arc (or arc since last checkpoint). What did we *learn*, not just *do*? What surprised us? What principle emerged that wasn't obvious at the start? Give yourself 30 seconds of generative thinking before answering — the best posts come from connections between topics, not from any single task.
-   - **Garden test:** Non-obvious insight, clear thesis, Terry's lane, no unverified facts? Publish immediately via `sarcio new` → write → `sarcio publish --push`. Multiple posts per session is normal for meaty sessions.
+   - **Garden test:** Non-obvious insight, clear thesis, Terry's lane, no unverified facts? Publish immediately via `publish new` → write → `publish publish --push`. Multiple posts per session is normal for meaty sessions.
    - **Arsenal test:** Concretely applicable to a bank/client AI engagement? If yes → add bullet to `[[Capco Transition]]` now.
 
 **CLAUDE.md modified?** One-line tightening check: does it belong in CLAUDE.md or in a skill / MEMORY.md / `~/docs/solutions/`?

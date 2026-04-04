@@ -58,7 +58,7 @@ Create a team and dispatch 6 parallel workers. Each worker gets:
 
 | Worker | Scope | Output directory |
 |--------|-------|-----------------|
-| content | Garden post drafts (via sarcio) + LinkedIn seeds | `~/epigenome/chromatin/Writing/Blog/Published/` + append to `_sparks.md` |
+| content | Garden post drafts (via publish) + LinkedIn seeds | `~/epigenome/chromatin/secretome/` + append to `_sparks.md` |
 | policy | P&P templates, regulatory deltas, framework updates | `~/epigenome/chromatin/Consulting/Policies/` |
 | architecture | Reference architectures, patterns, component notes | `~/epigenome/chromatin/Consulting/Architectures/` |
 | use-case | Use case entries with structured frontmatter | `~/epigenome/chromatin/Consulting/Use Cases/` |
@@ -88,7 +88,7 @@ Rules:
 - Include full frontmatter with maturity: draft
 - Draft-grade: substance over polish. Get the ideas down.
 - If a spark enriches an existing asset, update the existing file instead of creating a new one.
-- Content worker: garden posts go through sarcio. LinkedIn items are seeds only (hook + bullets + angle), appended to _sparks.md with #linkedin-seed tag.
+- Content worker: garden posts go through publish. LinkedIn items are seeds only (hook + bullets + angle), appended to _sparks.md with #linkedin-seed tag.
 - Experiment worker: design the experiment (hypothesis, method, expected outcome). Do NOT execute.
 ```
 
@@ -143,7 +143,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**content worker** (`~/epigenome/chromatin/Writing/Blog/Published/`):
+**content worker** (`~/epigenome/chromatin/secretome/`):
 ```yaml
 ---
 title: "Post Title Here"
