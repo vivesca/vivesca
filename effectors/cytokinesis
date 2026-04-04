@@ -435,6 +435,14 @@ def cmd_gather(args):
         except (concurrent.futures.TimeoutError, Exception):
             results["reflect"] = []
 
+    # Hard gates — CC must complete ALL before cytokinesis is done
+    results["gates"] = {
+        "publish_check": "PENDING — scan session for publishable insights. If found, draft and publish. If none, report 'no publishable insights.'",
+        "corrections_filed": "PENDING — scan for Terry corrections/pushback. File each as feedback memory.",
+        "tonus_updated": "PENDING — update Tonus.md with session deltas.",
+        "process_audit": "PENDING — 5 questions: repeated patterns, misallocated work, lazy avoidance, branch discipline, best practices.",
+    }
+
     # Output
     if not args.semantic and not args.perceptual:
         # Summarize rfts for token efficiency — full list only in semantic/perceptual

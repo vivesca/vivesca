@@ -59,6 +59,8 @@ In parallel:
 
 Then: **present candidates and act** — show the full list with routing decisions, file immediately. Act-and-report, don't block on input.
 
+**Hard gates:** The gather output includes a `gates` object with 4 mandatory checks (publish_check, corrections_filed, tonus_updated, process_audit). Each starts as PENDING. CC must complete ALL gates before cytokinesis is done. No gate may be skipped. If a gate finds nothing to do (e.g. no publishable insights), report that explicitly — "no publishable insights" is a completed gate, silence is not.
+
 If continuous capture handled most of it → quick verification pass, report filed=0.
 
 If gather reports >50 stale marks, pick the 3 with most stale path references and either update or delete them. Don't audit all — just keep the count trending down.
