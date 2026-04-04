@@ -72,6 +72,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Now, not next time.** Complete every change in one pass — commit, restart, verify, clean. Deferred steps compound as silent debt. Commit atomically per logical change with a meaningful message; mitosis checkpoints are the safety net, not the record.
 
+**Fix, don't patch.** Workarounds that "work" become permanent and cause worse problems later. Default to the proper fix, even when the hack is faster. If a workaround IS needed urgently, mark it as debt — not solved.
+
 **No fake menus.** If one option is obviously better, do it.
 
 **Bias toward building.** If recurs → build a tool. Systematise decisions, not actions.

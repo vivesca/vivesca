@@ -6,6 +6,7 @@ Every 60 seconds:
 2. Log rotation: rotate files >10MB
 3. Runaway processes: kill golem processes >30min or >2GB RSS
 4. Root filesystem: clean /tmp if <500MB free
+5. Tailscale: verify connected, warn 30 days before key expiry
 """
 from __future__ import annotations
 
@@ -228,6 +229,45 @@ def alert_on_crit(health_json: dict):
         log(f"alert_on_crit error: {e}")
 
 
+TS_KEY_WARN_DAYS = 30
+
+
+def check_tailscale() -> dict:
+    """Check Tailscale connectivity and key expiry."""
+    try:
+        r = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode != 0:
+            log("Tailscale: status command failed")
+            return {"status": "crit", "reason": "status_failed"}
+
+        data = json.loads(r.stdout)
+        self_node = data.get("Self", {})
+
+        # Check backend state (Running = healthy)
+        backend = data.get("BackendState", "")
+        if backend != "Running":
+            log(f"Tailscale: backend state {backend}")
+            return {"status": "crit", "reason": f"backend_{backend}"}
+
+        # Check key expiry
+        expiry_str = self_node.get("KeyExpiry", "")
+        if expiry_str:
+            expiry = datetime.fromisoformat(expiry_str.replace("Z", "+00:00"))
+            now = datetime.now(expiry.tzinfo)
+            days_left = (expiry - now).days
+            if days_left < TS_KEY_WARN_DAYS:
+                log(f"Tailscale: key expires in {days_left} days")
+                return {"status": "warn", "days_until_expiry": days_left}
+
+        return {"status": "ok"}
+    except Exception as e:
+        log(f"check_tailscale error: {e}")
+        return {"status": "warn", "reason": str(e)}
+
+
 def check_cycle():
     """One watchdog cycle. Returns health dict."""
     health: dict = {}
@@ -274,6 +314,9 @@ def check_cycle():
 
     # Runaway processes
     kill_runaway_golems()
+
+    # Tailscale
+    health["tailscale"] = check_tailscale()
 
     return health
 
