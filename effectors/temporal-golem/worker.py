@@ -519,6 +519,18 @@ async def review_golem_result(result: dict) -> dict:
     if exit_code == 0 and len(stdout.strip()) < 5:
         flags.append("empty_stdout_on_success")
 
+    # 5b. No git commit despite success — GLM ran to completion but built nothing
+    post_stat_text = result.get("post_diff", {}).get("stat", "") if isinstance(result.get("post_diff"), dict) else ""
+    if exit_code == 0 and not post_stat_text.strip():
+        flags.append("no_commit_on_success")
+
+    # 5c. Target file missing — prompt names a file that wasn't created/modified
+    target_match = _re.search(r'(?:at|to)\s+([\w/]+\.py)', task)
+    if target_match and exit_code == 0 and post_stat_text:
+        target_file = target_match.group(1)
+        if target_file not in post_stat_text:
+            flags.append(f"target_file_missing: {target_file}")
+
     # 6. Git diff — per-file line count analysis from numstat
     pre_diff = result.get("pre_diff", {})
     post_diff = result.get("post_diff", {})
@@ -542,7 +554,8 @@ async def review_golem_result(result: dict) -> dict:
 
     # Verdict
     approved = exit_code == 0 and not any(
-        f.startswith("destruction") for f in flags
+        f.startswith("destruction") or f == "no_commit_on_success"
+        for f in flags
     )
     verdict = "approved" if approved else "rejected"
     if flags and approved:

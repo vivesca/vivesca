@@ -1091,3 +1091,76 @@ class TestDispatchSwapProvider:
         result = dispatch._swap_provider(cmd, "zhipu", "gemini")
         assert "--max-turns 25" in result
         assert "Do stuff" in result
+
+
+# ============================================================================
+# Review activity: post-mortem checks
+# ============================================================================
+
+
+class TestReviewPostMortem:
+    """Test no_commit_on_success and target_file_missing flags."""
+
+    def test_no_commit_detected(self):
+        """exit_code=0 with empty post_diff flags no_commit_on_success."""
+        import worker
+        result = asyncio.run(worker.review_golem_result({
+            "task": "Build foo at metabolon/enzymes/foo.py",
+            "provider": "zhipu",
+            "exit_code": 0,
+            "stdout": "Done! All tests pass.",
+            "stderr": "",
+            "pre_diff": {"stat": "", "numstat": ""},
+            "post_diff": {"stat": "", "numstat": ""},
+        }))
+        assert "no_commit_on_success" in result["flags"]
+        assert not result["approved"]
+
+    def test_no_commit_not_flagged_on_failure(self):
+        """exit_code=1 with empty diff should NOT flag no_commit."""
+        import worker
+        result = asyncio.run(worker.review_golem_result({
+            "task": "Build foo",
+            "provider": "zhipu",
+            "exit_code": 1,
+            "stdout": "Error",
+            "stderr": "SyntaxError",
+            "pre_diff": {"stat": "", "numstat": ""},
+            "post_diff": {"stat": "", "numstat": ""},
+        }))
+        assert "no_commit_on_success" not in result["flags"]
+
+    def test_target_file_missing_detected(self):
+        """When prompt says 'at X.py' but diff doesn't include it, flag."""
+        import worker
+        result = asyncio.run(worker.review_golem_result({
+            "task": "Build enzyme at metabolon/enzymes/golem_dispatch.py",
+            "provider": "zhipu",
+            "exit_code": 0,
+            "stdout": "Done!",
+            "stderr": "",
+            "pre_diff": {"stat": "", "numstat": ""},
+            "post_diff": {
+                "stat": " assays/test_something.py | 10 +\n 1 file changed\n",
+                "numstat": "10\t0\tassays/test_something.py",
+            },
+        }))
+        assert any("target_file_missing" in f for f in result["flags"])
+
+    def test_target_file_present_no_flag(self):
+        """When target file IS in the diff, no flag."""
+        import worker
+        result = asyncio.run(worker.review_golem_result({
+            "task": "Build enzyme at metabolon/enzymes/golem_dispatch.py",
+            "provider": "zhipu",
+            "exit_code": 0,
+            "stdout": "Done! All good.",
+            "stderr": "",
+            "pre_diff": {"stat": "", "numstat": ""},
+            "post_diff": {
+                "stat": " metabolon/enzymes/golem_dispatch.py | 80 +\n 1 file changed\n",
+                "numstat": "80\t0\tmetabolon/enzymes/golem_dispatch.py",
+            },
+        }))
+        assert not any("target_file_missing" in f for f in result["flags"])
+        assert "no_commit_on_success" not in result["flags"]
