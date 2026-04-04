@@ -173,9 +173,9 @@ sporulation — cross-session checkpoint save/load.
 synthase — spawn headless CC with full organism access.
 - `synthase(prompt, model)` -- Spawn a headless Claude Code session with full organism context.
 
-### tachometer
-tachometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta
-- `tachometer(action, hours, remaining_tasks)` -- Query sortase dispatch throughput metrics.
+### ergometer
+ergometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta
+- `ergometer(action, hours, remaining_tasks)` -- Query sortase dispatch throughput metrics.
 
 ### telegram_receptor
 telegram_receptor — Read Telegram messages via user client API.
@@ -321,7 +321,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **sortase.py**: `sortase`
 - **sporulation.py**: `sporulation`
 - **synthase.py**: `synthase`
-- **tachometer.py**: `tachometer`
+- **ergometer.py**: `ergometer`
 - **telegram_receptor.py**: `telegram_receptor`
 - **transposase.py**: `transposase`
 - **turgor.py**: `tonus`

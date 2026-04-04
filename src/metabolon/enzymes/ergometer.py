@@ -1,5 +1,5 @@
 
-"""tachometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta"""
+"""ergometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta"""
 
 
 from fastmcp.tools.function_tool import tool
@@ -44,11 +44,11 @@ def _fmt_coaching(c: dict) -> str:
 
 
 @tool(
-    name="tachometer",
+    name="ergometer",
     description="Dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def tachometer(
+def ergometer(
     action: str,
     hours: int = 1,
     remaining_tasks: int = 0,

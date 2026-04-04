@@ -1,40 +1,39 @@
-"""Tests for tachometer enzyme — dispatch speed monitor."""
+"""Tests for ergometer enzyme — dispatch speed monitor."""
 from unittest.mock import patch
-import pytest
 
 
-class TestTachometerSpeed:
+class TestErgometerSpeed:
     """Tests for speed action."""
 
-    @patch("metabolon.enzymes.tachometer.current_rate")
+    @patch("metabolon.enzymes.ergometer.current_rate")
     def test_speed_returns_formatted_rate(self, mock_rate):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_rate.return_value = 12.5
-        result = tachometer(action="speed")
+        result = ergometer(action="speed")
 
         assert isinstance(result, str)
         assert "12.5" in result
         assert "tasks/hour" in result
         mock_rate.assert_called_once()
 
-    @patch("metabolon.enzymes.tachometer.current_rate")
+    @patch("metabolon.enzymes.ergometer.current_rate")
     def test_speed_with_zero_rate(self, mock_rate):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_rate.return_value = 0.0
-        result = tachometer(action="speed")
+        result = ergometer(action="speed")
 
         assert "0.0" in result
         assert "tasks/hour" in result
 
 
-class TestTachometerTrend:
+class TestErgometerTrend:
     """Tests for trend action."""
 
-    @patch("metabolon.enzymes.tachometer.success_trend")
+    @patch("metabolon.enzymes.ergometer.success_trend")
     def test_trend_returns_formatted_trend(self, mock_trend):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_trend.return_value = {
             "recent_count": 10,
@@ -44,16 +43,16 @@ class TestTachometerTrend:
             "delta": 0.15,
             "direction": "improving",
         }
-        result = tachometer(action="trend")
+        result = ergometer(action="trend")
 
         assert "85.0%" in result
         assert "70.0%" in result
         assert "improving" in result
         mock_trend.assert_called_once()
 
-    @patch("metabolon.enzymes.tachometer.success_trend")
+    @patch("metabolon.enzymes.ergometer.success_trend")
     def test_trend_with_negative_delta(self, mock_trend):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_trend.return_value = {
             "recent_count": 5,
@@ -63,18 +62,18 @@ class TestTachometerTrend:
             "delta": -0.20,
             "direction": "declining",
         }
-        result = tachometer(action="trend")
+        result = ergometer(action="trend")
 
         assert "declining" in result
         assert "-0.200" in result
 
 
-class TestTachometerSlowest:
+class TestErgometerSlowest:
     """Tests for slowest action."""
 
-    @patch("metabolon.enzymes.tachometer.slowest_recent")
+    @patch("metabolon.enzymes.ergometer.slowest_recent")
     def test_slowest_returns_formatted_task(self, mock_slowest):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_slowest.return_value = {
             "plan": "plan-42",
@@ -83,7 +82,7 @@ class TestTachometerSlowest:
             "timestamp": "2026-04-01T12:00:00",
             "success": True,
         }
-        result = tachometer(action="slowest", hours=2)
+        result = ergometer(action="slowest", hours=2)
 
         assert "plan-42" in result
         assert "123.4s" in result
@@ -91,18 +90,18 @@ class TestTachometerSlowest:
         assert "True" in result
         mock_slowest.assert_called_once_with(hours=2)
 
-    @patch("metabolon.enzymes.tachometer.slowest_recent")
+    @patch("metabolon.enzymes.ergometer.slowest_recent")
     def test_slowest_none_result(self, mock_slowest):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_slowest.return_value = None
-        result = tachometer(action="slowest")
+        result = ergometer(action="slowest")
 
         assert "No tasks in window" in result
 
-    @patch("metabolon.enzymes.tachometer.slowest_recent")
+    @patch("metabolon.enzymes.ergometer.slowest_recent")
     def test_slowest_default_hours(self, mock_slowest):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_slowest.return_value = {
             "plan": "plan-1",
@@ -111,17 +110,17 @@ class TestTachometerSlowest:
             "timestamp": "2026-04-01T10:00:00",
             "success": False,
         }
-        tachometer(action="slowest")
+        ergometer(action="slowest")
 
         mock_slowest.assert_called_once_with(hours=1)
 
 
-class TestTachometerCoaching:
+class TestErgometerCoaching:
     """Tests for coaching action."""
 
-    @patch("metabolon.enzymes.tachometer.coaching_effectiveness")
+    @patch("metabolon.enzymes.ergometer.coaching_effectiveness")
     def test_coaching_returns_formatted_metrics(self, mock_coaching):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_coaching.return_value = {
             "before_failure_rate": 0.25,
@@ -130,7 +129,7 @@ class TestTachometerCoaching:
             "notes_analyzed": 42,
             "total_entries": 100,
         }
-        result = tachometer(action="coaching")
+        result = ergometer(action="coaching")
 
         assert "25.0%" in result
         assert "10.0%" in result
@@ -139,67 +138,67 @@ class TestTachometerCoaching:
         mock_coaching.assert_called_once()
 
 
-class TestTachometerEta:
+class TestErgometerEta:
     """Tests for eta action."""
 
-    @patch("metabolon.enzymes.tachometer.estimate_completion")
+    @patch("metabolon.enzymes.ergometer.estimate_completion")
     def test_eta_returns_formatted_estimate(self, mock_eta):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_eta.return_value = 3.5
-        result = tachometer(action="eta", remaining_tasks=7)
+        result = ergometer(action="eta", remaining_tasks=7)
 
         assert "3.5 hours" in result
         assert "7 remaining tasks" in result
         mock_eta.assert_called_once_with(remaining_tasks=7)
 
-    @patch("metabolon.enzymes.tachometer.estimate_completion")
+    @patch("metabolon.enzymes.ergometer.estimate_completion")
     def test_eta_with_zero_tasks(self, mock_eta):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
         mock_eta.return_value = 0.0
-        result = tachometer(action="eta", remaining_tasks=0)
+        result = ergometer(action="eta", remaining_tasks=0)
 
         assert "0.0 hours" in result
         assert "0 remaining tasks" in result
 
 
-class TestTachometerUnknownAction:
+class TestErgometerUnknownAction:
     """Tests for unknown action handling."""
 
     def test_unknown_action_returns_error_message(self):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
-        result = tachometer(action="invalid")
+        result = ergometer(action="invalid")
         assert "Unknown action" in result
         assert "invalid" in result
 
     def test_unknown_action_suggests_valid_actions(self):
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
-        result = tachometer(action="badaction")
+        result = ergometer(action="badaction")
         assert "speed" in result
         assert "trend" in result
         assert "slowest" in result
 
     def test_action_case_insensitive(self):
         """Test that action is lowercased before matching."""
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
-        with patch("metabolon.enzymes.tachometer.current_rate") as mock_rate:
+        with patch("metabolon.enzymes.ergometer.current_rate") as mock_rate:
             mock_rate.return_value = 5.0
-            result = tachometer(action="SPEED")
+            result = ergometer(action="SPEED")
 
             assert "5.0" in result
             mock_rate.assert_called_once()
 
     def test_action_with_whitespace(self):
         """Test that action is stripped before matching."""
-        from metabolon.enzymes.tachometer import tachometer
+        from metabolon.enzymes.ergometer import ergometer
 
-        with patch("metabolon.enzymes.tachometer.current_rate") as mock_rate:
+        with patch("metabolon.enzymes.ergometer.current_rate") as mock_rate:
             mock_rate.return_value = 5.0
-            result = tachometer(action="  speed  ")
+            result = ergometer(action="  speed  ")
 
             assert "5.0" in result
             mock_rate.assert_called_once()
@@ -209,7 +208,7 @@ class TestFormatHelpers:
     """Tests for internal format helper functions."""
 
     def test_fmt_slowest_with_data(self):
-        from metabolon.enzymes.tachometer import _fmt_slowest
+        from metabolon.enzymes.ergometer import _fmt_slowest
 
         result = _fmt_slowest({
             "plan": "p1",
@@ -225,13 +224,13 @@ class TestFormatHelpers:
         assert "Success: True" in result
 
     def test_fmt_slowest_none(self):
-        from metabolon.enzymes.tachometer import _fmt_slowest
+        from metabolon.enzymes.ergometer import _fmt_slowest
 
         result = _fmt_slowest(None)
         assert result == "No tasks in window."
 
     def test_fmt_trend(self):
-        from metabolon.enzymes.tachometer import _fmt_trend
+        from metabolon.enzymes.ergometer import _fmt_trend
 
         result = _fmt_trend({
             "recent_count": 10,
@@ -248,7 +247,7 @@ class TestFormatHelpers:
         assert "improving" in result
 
     def test_fmt_coaching(self):
-        from metabolon.enzymes.tachometer import _fmt_coaching
+        from metabolon.enzymes.ergometer import _fmt_coaching
 
         result = _fmt_coaching({
             "before_failure_rate": 0.30,

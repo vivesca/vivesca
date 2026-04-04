@@ -81,7 +81,7 @@ def mod_anamnesis(data):
 
     Domain context (anatomy, effectors, circadian, vitals, budget) removed —
     already available on-demand via MCP tools (circadian, interoception,
-    tachometer) or file reads. genome.md removed — duplicate of CLAUDE.md.
+    ergometer) or file reads. genome.md removed — duplicate of CLAUDE.md.
     """
     session_id = data.get("session_id", "")
     if not session_id:
