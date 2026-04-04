@@ -61,7 +61,16 @@ keryx = "metabolon.organelles.gap_junction:_cli"
 sortase = "metabolon.sortase.cli:main"
 
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "pyright",
+    "pre-commit",
+    "codespell",
+    "pytest-cov",
+    "ty>=0.0.28",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -103,12 +112,16 @@ ignore = ["E501", "SIM115"]  # E501: line-length enforced by formatter; SIM115: 
 known-first-party = ["metabolon"]
 
 [tool.pyright]
-pythonVersion = "3.11"
+pythonVersion = "3.14"
 typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"
 reportMissingImports = "warning"
 reportCallIssue = "warning"
+
+[tool.ty.environment]
+python-version = "3.14"
+extra-paths = ["effectors/temporal-golem"]
 
 [tool.codespell]
 # Absorbed external content, reference docs, and generated artefacts are excluded.

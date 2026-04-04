@@ -3,10 +3,12 @@ repos:
     rev: v0.15.7
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^membrane/receptors/\.system/
       - id: ruff-format
+        exclude: ^membrane/receptors/\.system/
 
-- repo: https://github.com/codespell-project/codespell
+  - repo: https://github.com/codespell-project/codespell
     rev: v2.4.2
     hooks:
       - id: codespell
