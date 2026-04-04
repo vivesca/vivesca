@@ -24,6 +24,23 @@ repos:
       - id: pyproject-fmt
         stages: [pre-commit]
 
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty (type check)
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: codespell
+        name: codespell
+        entry: uv run codespell src/ effectors/ assays/ membrane/
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
   # ── pre-push (full checks) ─────────────────────────────────────────────
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0

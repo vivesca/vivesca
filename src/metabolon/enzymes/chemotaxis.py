@@ -1,9 +1,7 @@
-
 """chemotaxis — browser automation via agent-browser.
 
 Actions: navigate|extract|screenshot|click|fill|eval|resize|snapshot|check_auth
 """
-
 
 import atexit
 import os
@@ -49,7 +47,10 @@ _ACTIONS = (
 
 
 def _run_ab(args: list[str]) -> tuple[bool, str]:
-    path = os.popen("which agent-browser").read().strip() or "agent-browser"
+    path = (
+        subprocess.run(["which", "agent-browser"], capture_output=True, text=True).stdout.strip()
+        or "agent-browser"
+    )
     try:
         res = subprocess.run(
             [path, *args], capture_output=True, text=True, check=True, timeout=300
@@ -82,7 +83,9 @@ def _handle_navigate(
 
     ok, out = _run_ab(["open", url])
     if not ok:
-        return ChemotaxisResult(success=False, data={"url": url}, error=f"Navigation failed: {out}")
+        return ChemotaxisResult(
+            success=False, data={"url": url}, error=f"Navigation failed: {out}"
+        )
 
     if wait_ms > 0:
         time.sleep(wait_ms / 1000.0)

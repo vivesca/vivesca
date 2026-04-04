@@ -2,15 +2,16 @@ from __future__ import annotations
 
 """Tests for pharos-sync.sh — syncs Claude config to officina repo and remote machines."""
 
+import os
 import subprocess
 from pathlib import Path
-import tempfile
-import os
 
 SCRIPT_PATH = Path.home() / "germline/effectors/pharos-sync.sh"
 
 
-def run_script(args: list[str] = None, env: dict = None) -> subprocess.CompletedProcess:
+def run_script(
+    args: list[str] | None = None, env: dict | None = None
+) -> subprocess.CompletedProcess:
     """Run pharos-sync.sh with optional args and custom env."""
     cmd = [str(SCRIPT_PATH)] + (args or [])
     run_env = os.environ.copy()
@@ -75,8 +76,8 @@ def test_sync_file_creates_directory_structure(tmp_path):
     # Let's test by sourcing the script and calling sync_file directly
     test_script = f"""
     source {SCRIPT_PATH}
-    src="{tmp_path / 'src.txt'}"
-    dst="{tmp_path / 'deep' / 'nested' / 'dst.txt'}"
+    src="{tmp_path / "src.txt"}"
+    dst="{tmp_path / "deep" / "nested" / "dst.txt"}"
     echo "test content" > "$src"
     sync_file "$src" "$dst"
     """
@@ -90,8 +91,8 @@ def test_sync_file_updates_changed_file(tmp_path):
     """sync_file should update destination if source has changed."""
     test_script = f"""
     source {SCRIPT_PATH}
-    src="{tmp_path / 'src.txt'}"
-    dst="{tmp_path / 'dst.txt'}"
+    src="{tmp_path / "src.txt"}"
+    dst="{tmp_path / "dst.txt"}"
     echo "old" > "$src"
     echo "old" > "$dst"
     # First sync - no change
@@ -109,8 +110,8 @@ def test_sync_file_returns_correct_exit_codes(tmp_path):
     """sync_file should return 0 when file updated, 1 otherwise."""
     test_script = f"""
     source {SCRIPT_PATH}
-    src="{tmp_path / 'src.txt'}"
-    dst="{tmp_path / 'dst.txt'}"
+    src="{tmp_path / "src.txt"}"
+    dst="{tmp_path / "dst.txt"}"
 
     # Test 1: src doesn't exist → should return 1
     sync_file "$src" "$dst" >/dev/null 2>&1
@@ -146,8 +147,8 @@ def test_sync_file_prints_updated_on_change(tmp_path):
     """sync_file should print 'updated: <basename>' when it copies."""
     test_script = f"""
     source {SCRIPT_PATH}
-    src="{tmp_path / 'config.json'}"
-    dst="{tmp_path / 'out' / 'config.json'}"
+    src="{tmp_path / "config.json"}"
+    dst="{tmp_path / "out" / "config.json"}"
     echo '{{"key": "val"}}' > "$src"
     sync_file "$src" "$dst"
     """
@@ -280,7 +281,8 @@ def test_main_git_commits_on_change(tmp_path):
     # Check that a commit was created
     log = subprocess.run(
         ["git", "-C", str(officina), "log", "--oneline"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert "sync: claude config" in log.stdout
 
@@ -350,7 +352,7 @@ def test_sync_file_nested_dest_preserves_sibling(tmp_path):
     src.write_text("new file\n")
     test_script = f"""
     source {SCRIPT_PATH}
-    sync_file "{src}" "{dst_dir / 'new.txt'}"
+    sync_file "{src}" "{dst_dir / "new.txt"}"
     """
     result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
     assert result.returncode == 0
@@ -479,9 +481,7 @@ def test_no_git_commit_when_nothing_changed(tmp_path):
     (officina / "claude").mkdir()
     (officina / "claude" / "settings.json").write_text(settings_content)
     # Make initial commit so git log isn't empty
-    subprocess.run(
-        ["git", "-C", str(officina), "add", "."], capture_output=True
-    )
+    subprocess.run(["git", "-C", str(officina), "add", "."], capture_output=True)
     subprocess.run(
         ["git", "-C", str(officina), "commit", "-m", "initial"],
         capture_output=True,
@@ -490,7 +490,8 @@ def test_no_git_commit_when_nothing_changed(tmp_path):
     run_script(env={"HOME": str(fake_home)})
     log = subprocess.run(
         ["git", "-C", str(officina), "log", "--oneline"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     # Only the initial commit should exist, no "sync:" commit
     assert "sync:" not in log.stdout
@@ -515,7 +516,8 @@ def test_git_commit_message_includes_date(tmp_path):
     run_script(env={"HOME": str(fake_home)})
     log = subprocess.run(
         ["git", "-C", str(officina), "log", "--format=%s"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     from datetime import date
 
