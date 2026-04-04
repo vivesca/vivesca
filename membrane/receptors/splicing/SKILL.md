@@ -19,7 +19,7 @@ The spliceosome removes introns from pre-mRNA, leaving only coding exons. This s
 | File | Role | Budget |
 |---|---|---|
 | `~/germline/genome.md` | Constitutional rules, every session | <100 lines |
-| `~/epigenome/marks/feedback_golem_coaching.md` | GLM coaching, every goose dispatch | <40 lines |
+| `~/epigenome/marks/feedback_ribosome_coaching.md` | GLM coaching, every goose dispatch | <40 lines |
 | `~/epigenome/marks/MEMORY.md` | Memory index, every session | <200 lines |
 
 ## Classification
@@ -51,7 +51,7 @@ For each non-blank, non-heading content line:
 
 ## Coaching-specific rules
 
-The coaching file (`feedback_golem_coaching.md`) has extra constraints:
+The coaching file (`feedback_ribosome_coaching.md`) has extra constraints:
 - **Only GLM-facing items.** CC-facing guidance (spec writing, mode selection, routing) goes to `feedback_translocon_spec_writing.md`.
 - **Compress entries.** One line per pattern where possible. Examples eat tokens.
 - **Retire entries.** If GLM hasn't violated a pattern in 5+ dispatches, delete it.

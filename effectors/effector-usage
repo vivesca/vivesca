@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""effector-usage — scan golem logs and ~/.claude/ skills/hooks for effector references.
+"""effector-usage — scan ribosome logs and ~/.claude/ skills/hooks for effector references.
 
-Scans golem.jsonl, golem-daemon.log, and ~/.claude/skills/ + hooks/.
+Scans ribosome.jsonl, ribosome-daemon.log, and ~/.claude/skills/ + hooks/.
 Reports: most used, never used, recently broken, skill-referenced, orphaned.
 
 Usage:
@@ -13,19 +13,21 @@ Usage:
     effector-usage --orphaned   # show effectors not referenced by any skill/hook
     effector-usage --skills     # show which effectors are referenced by skills/hooks
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 EFFECTORS_DIR = Path.home() / "germline" / "effectors"
-JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
-DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
-ROTATED_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
+JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome.jsonl"
+DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.log"
+ROTATED_LOG = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.log.1"
 SKILLS_DIR = Path.home() / ".claude" / "skills"
 HOOKS_DIR = Path.home() / ".claude" / "hooks"
 DEFAULT_TOP = 20
@@ -68,7 +70,7 @@ def _clean_name(raw: str) -> str:
 
 
 def scan_jsonl(path: Path) -> tuple[Counter, Counter, dict[str, str]]:
-    """Scan golem.jsonl for effector mentions.
+    """Scan ribosome.jsonl for effector mentions.
 
     Returns:
         mention_counts: effector name -> mention count
@@ -116,7 +118,7 @@ def scan_jsonl(path: Path) -> tuple[Counter, Counter, dict[str, str]]:
 
 
 def scan_daemon_log(path: Path) -> tuple[Counter, Counter, dict[str, str]]:
-    """Scan golem-daemon.log for effector mentions.
+    """Scan ribosome-daemon.log for effector mentions.
 
     Returns:
         mention_counts: effector name -> mention count
@@ -188,7 +190,7 @@ def scan_claude_sources(
     Returns:
         effector_name -> sorted list of source labels
         e.g. {"assay": ["skills/assay/SKILL.md", "skills/assay/recipe.yaml"],
-              "golem-daemon": ["hooks/synapse.py"]}
+              "ribosome-daemon": ["hooks/synapse.py"]}
     """
     sd = skills_dir or SKILLS_DIR
     hd = hooks_dir or HOOKS_DIR
@@ -278,7 +280,7 @@ def compute_report(
     never_used = sorted(all_eff - all_mentioned)
 
     # Recently broken: failures seen within the recent window
-    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=recent_days)
+    cutoff_dt = datetime.now(UTC) - timedelta(days=recent_days)
     cutoff = cutoff_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     recently_broken = sorted(
         [
@@ -299,9 +301,7 @@ def compute_report(
         [
             {"name": name, "sources": labels}
             for name, labels in skill_refs.items()
-            if name in all_eff or any(
-                name.split(".")[0] in all_eff for _ in [None]
-            )
+            if name in all_eff or any(name.split(".")[0] in all_eff for _ in [None])
         ],
         key=lambda x: x["name"],
     )
@@ -340,8 +340,7 @@ def format_report(report: dict) -> str:
             fail_str = f"  ({entry['failures']} fail)" if entry["failures"] else ""
             ls = entry["last_seen"][:10] if entry["last_seen"] != "never" else "never"
             lines.append(
-                f"  {entry['name']:<{name_w}}  {entry['mentions']:>4}x  "
-                f"last: {ls}{fail_str}"
+                f"  {entry['name']:<{name_w}}  {entry['mentions']:>4}x  last: {ls}{fail_str}"
             )
     else:
         lines.append("  (none found)")
@@ -364,9 +363,7 @@ def format_report(report: dict) -> str:
     if report["recently_broken"]:
         for entry in report["recently_broken"]:
             ls = entry["last_seen"][:10] if entry["last_seen"] != "unknown" else "unknown"
-            lines.append(
-                f"  {entry['name']:<24}  {entry['failures']:>3} failures  last: {ls}"
-            )
+            lines.append(f"  {entry['name']:<24}  {entry['failures']:>3} failures  last: {ls}")
     else:
         lines.append("  (none)")
     lines.append("")
@@ -403,10 +400,8 @@ def main() -> int:
     top_n = DEFAULT_TOP
     for i, arg in enumerate(args):
         if arg == "--top" and i + 1 < len(args):
-            try:
+            with contextlib.suppress(ValueError):
                 top_n = int(args[i + 1])
-            except ValueError:
-                pass
 
     report = compute_report(top_n=top_n)
 

@@ -1,0 +1,315 @@
+#!/usr/bin/env python3
+"""ribosome-top — Show currently running ribosome processes.
+
+Like top(1) but for ribosomes. Parses ps output to show each active ribosome
+task with its PID, provider, elapsed duration, and a task snippet.
+
+Usage:
+    ribosome-top           # show running ribosomes
+    ribosome-top --watch   # refresh every 5 seconds
+    ribosome-top --json    # machine-readable output
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import time
+from collections import OrderedDict
+from datetime import datetime
+
+# ── parsing helpers ──────────────────────────────────────────────
+
+
+def get_ps_output() -> str:
+    """Run ps and return raw output (pid, etime, args)."""
+    result = subprocess.run(
+        ["ps", "-eo", "pid,etime,args"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    return result.stdout
+
+
+def parse_ps_lines(raw: str) -> list[dict]:
+    """Parse ps -eo pid,etime,args into structured dicts.
+
+    Returns list of dicts with keys: pid, etime, args, raw_line.
+    """
+    entries = []
+    for line in raw.splitlines():
+        line = line.rstrip()
+        if not line:
+            continue
+        # Skip header line
+        if line.strip().startswith("PID"):
+            continue
+        # ps -eo output: PID is right-justified in first column,
+        # ETIME is second column, rest is ARGS
+        parts = line.split(None, 2)
+        if len(parts) < 3:
+            continue
+        pid_str, etime, args = parts
+        try:
+            pid = int(pid_str)
+        except ValueError:
+            continue
+        # Skip our own process and grep
+        # Check if any token ends with ribosome-top or is exactly grep
+        if "ribosome-top" in args or args.split()[0].endswith("grep"):
+            # But don't skip if ribosome-top is only in a task description
+            # (e.g. "Create effectors/ribosome-top as Python")
+            # Only skip if it's the executable itself
+            tokens = args.split()
+            skip = False
+            for t in tokens:
+                base = t.rsplit("/", 1)[-1] if "/" in t else t
+                if base == "ribosome-top":
+                    skip = True
+                    break
+                if t == "grep":
+                    skip = True
+                    break
+            if skip:
+                continue
+        entries.append({"pid": pid, "etime": etime, "args": args, "raw_line": line})
+    return entries
+
+
+PROVIDER_RE = re.compile(r"--provider\s+(\S+)")
+MAX_TURNS_RE = re.compile(r"--max-turns\s+(\d+)")
+RIBOSOME_REVIEWER_RE = re.compile(r"python3\s+\S+/ribosome-reviewer")
+
+
+def classify_process(args: str) -> dict | None:
+    """Classify a ps args line into a ribosome task or None.
+
+    Returns dict with keys: provider, max_turns, task, kind
+    or None if not a ribosome process.
+    """
+    # Match ribosome-runner tasks: either "effectors/ribosome --provider" or
+    # "/bin/sh -c ribosome --provider"
+    is_ribosome_task = (
+        "effectors/ribosome" in args or "/bin/sh -c ribosome " in args
+    ) and "--provider" in args
+    if is_ribosome_task:
+        m_prov = PROVIDER_RE.search(args)
+        m_turns = MAX_TURNS_RE.search(args)
+        provider = m_prov.group(1) if m_prov else "unknown"
+        max_turns = int(m_turns.group(1)) if m_turns else 0
+
+        # Extract task: everything after the last ribosome flag argument
+        # The args after the ribosome script path is the task
+        # Format: bash /path/to/ribosome --provider X --max-turns N <task...>
+        # or:     /bin/sh -c ribosome --provider X --max-turns N "task"
+        task = ""
+        rest = args
+        # Strip the shell prefix
+        if rest.startswith("/bin/sh -c ribosome "):
+            rest = rest[len("/bin/sh -c ribosome ") :]
+        elif rest.startswith("bash "):
+            # Remove "bash /path/to/ribosome "
+            m_path = re.match(r"bash\s+\S+\s+", rest)
+            if m_path:
+                rest = rest[m_path.end() :]
+
+        # Strip --provider X --max-turns N
+        rest = PROVIDER_RE.sub("", rest)
+        rest = MAX_TURNS_RE.sub("", rest)
+        task = rest.strip().strip('"').strip("'")
+
+        return {
+            "provider": provider,
+            "max_turns": max_turns,
+            "task": task,
+            "kind": "ribosome",
+        }
+
+    # Match ribosome-reviewer
+    if RIBOSOME_REVIEWER_RE.search(args):
+        return {
+            "provider": "reviewer",
+            "max_turns": 0,
+            "task": "reviewer daemon",
+            "kind": "reviewer",
+        }
+
+    return None
+
+
+def etime_to_seconds(etime: str) -> int:
+    """Convert ps etime string to total seconds.
+
+    Formats: MM:SS, HH:MM:SS, D-HH:MM:SS, D-HH:MM:SS
+    """
+    day = 0
+    if "-" in etime:
+        day_part, etime = etime.split("-", 1)
+        day = int(day_part)
+
+    parts = etime.split(":")
+    if len(parts) == 2:
+        minutes, seconds = int(parts[0]), int(parts[1])
+        return day * 86400 + minutes * 60 + seconds
+    elif len(parts) == 3:
+        hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+        return day * 86400 + hours * 3600 + minutes * 60 + seconds
+    return 0
+
+
+def format_duration(etime: str) -> str:
+    """Format etime into a compact human-readable string."""
+    secs = etime_to_seconds(etime)
+    if secs < 60:
+        return f"{secs}s"
+    elif secs < 3600:
+        return f"{secs // 60}m{secs % 60:02d}s"
+    elif secs < 86400:
+        h, rem = divmod(secs, 3600)
+        m, _s = divmod(rem, 60)
+        return f"{h}h{m:02d}m"
+    else:
+        d, rem = divmod(secs, 86400)
+        h, _rem2 = divmod(rem, 3600)
+        return f"{d}d{h}h"
+
+
+def group_tasks(entries: list[dict]) -> list[dict]:
+    """Group processes by task, returning one entry per unique task.
+
+    Uses the task text as the grouping key. Picks the parent PID
+    (lowest PID in the group) and longest duration.
+    """
+    groups: OrderedDict[str, list[dict]] = OrderedDict()
+    for entry in entries:
+        info = classify_process(entry["args"])
+        if info is None:
+            continue
+        key = info["task"]
+        if key not in groups:
+            groups[key] = []
+        groups[key].append({**entry, **info})
+
+    results = []
+    for task, procs in groups.items():
+        # Parent PID = lowest PID
+        parent = min(procs, key=lambda p: p["pid"])
+        # Duration = longest etime (parent started first)
+        longest = max(procs, key=lambda p: etime_to_seconds(p["etime"]))
+        results.append(
+            {
+                "pid": parent["pid"],
+                "provider": parent["provider"],
+                "max_turns": parent["max_turns"],
+                "kind": parent["kind"],
+                "etime": longest["etime"],
+                "duration": format_duration(longest["etime"]),
+                "task": task,
+                "num_procs": len(procs),
+            }
+        )
+    return results
+
+
+def truncate(text: str, width: int) -> str:
+    """Truncate text to width, appending … if truncated."""
+    if len(text) <= width:
+        return text
+    return text[: width - 1] + "…"
+
+
+def render_table(tasks: list[dict]) -> str:
+    """Render tasks as a formatted table."""
+    if not tasks:
+        return "No ribosome processes running."
+
+    # Column widths
+    pid_w = max(len(str(t["pid"])) for t in tasks)
+    prov_w = max(len(t["provider"]) for t in tasks)
+    dur_w = max(len(t["duration"]) for t in tasks)
+    proc_w = max(len(str(t["num_procs"])) for t in tasks)
+
+    # Minimum widths for headers
+    pid_w = max(pid_w, 3)
+    prov_w = max(prov_w, 8)
+    dur_w = max(dur_w, 3)
+    proc_w = max(proc_w, 5)
+
+    # Task width: fit in ~80 char terminal
+    task_w = max(20, 80 - pid_w - prov_w - dur_w - proc_w - 10)
+
+    lines = []
+    header = (
+        f"{'PID':>{pid_w}}  {'PROVIDER':<{prov_w}}  {'DUR':>{dur_w}}  {'PROCS':>{proc_w}}  TASK"
+    )
+    lines.append(header)
+    lines.append("-" * len(header))
+
+    for t in tasks:
+        task_snippet = truncate(t["task"], task_w)
+        line = (
+            f"{t['pid']:>{pid_w}}  "
+            f"{t['provider']:<{prov_w}}  "
+            f"{t['duration']:>{dur_w}}  "
+            f"{t['num_procs']:>{proc_w}}  "
+            f"{task_snippet}"
+        )
+        lines.append(line)
+
+    # Summary footer
+    providers: dict[str, int] = {}
+    for t in tasks:
+        providers[t["provider"]] = providers.get(t["provider"], 0) + 1
+    prov_summary = "  ".join(f"{k}:{v}" for k, v in sorted(providers.items()))
+    lines.append("")
+    lines.append(
+        f"Total: {len(tasks)} task(s), {sum(t['num_procs'] for t in tasks)} process(es)  [{prov_summary}]"
+    )
+
+    return "\n".join(lines)
+
+
+def run(json_output: bool = False) -> str:
+    """Main entry: gather ps data, parse, group, render."""
+    raw = get_ps_output()
+    entries = parse_ps_lines(raw)
+    tasks = group_tasks(entries)
+    # Sort by PID for stable output
+    tasks.sort(key=lambda t: t["pid"])
+    if json_output:
+        return json.dumps(tasks, indent=2)
+    return render_table(tasks)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Show currently running ribosome processes.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Like top(1) but for ribosomes.",
+    )
+    parser.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+    parser.add_argument("--watch", action="store_true", help="Refresh every 5 seconds")
+    args = parser.parse_args()
+
+    if args.watch:
+        try:
+            while True:
+                output = run(json_output=args.json)
+                # Clear screen
+                print("\033[2J\033[H", end="")
+                print(f"ribosome-top — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print(output, flush=True)
+                time.sleep(5)
+        except KeyboardInterrupt:
+            print()
+            sys.exit(0)
+    else:
+        print(run(json_output=args.json))
+
+
+if __name__ == "__main__":
+    main()

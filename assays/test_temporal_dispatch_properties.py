@@ -1,22 +1,19 @@
-from __future__ import annotations
-
-"""Property-based tests for temporal-golem queue parsing.
+"""Property-based tests for polysome queue parsing.
 
 Uses Hypothesis to generate random queue lines and verify the parser never
 crashes and that counts are consistent.
 """
 
 import tempfile
-import textwrap
 from pathlib import Path
 
-import pytest
-from hypothesis import given, settings, HealthCheck
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+
 
 # Load dispatch module via exec (standard pattern for effectors)
 def _load_dispatch():
-    source = (Path.home() / "germline/effectors/temporal-golem/dispatch.py").read_text()
+    source = (Path.home() / "germline/effectors/polysome/dispatch.py").read_text()
     ns: dict = {"__name__": "dispatch_under_test_props"}
     exec(source, ns)
     return ns
@@ -29,7 +26,7 @@ parse_queue = _mod["parse_queue"]
 def _with_tmp_queue(content: str) -> Path:
     """Write content to a temp queue file, point the module at it, return path."""
     tmpdir = Path(tempfile.mkdtemp())
-    qfile = tmpdir / "golem-queue.md"
+    qfile = tmpdir / "translation-queue.md"
     qfile.write_text(content)
     _mod["QUEUE_FILE"] = qfile
     return qfile
@@ -57,15 +54,15 @@ def queue_line(draw):
     max_turns = draw(_max_turns)
     prompt = draw(_prompt)
     task_id_part = f"[t-{task_hex}] " if has_task_id else ""
-    return f'{status}`golem {task_id_part}--provider {provider} --max-turns {max_turns} "{prompt}"`'
+    return f'{status}`ribosome {task_id_part}--provider {provider} --max-turns {max_turns} "{prompt}"`'
 
 
 _noise_line = st.one_of(
     st.just("### Section header"),
     st.just("Some explanatory text"),
     st.just(""),
-    st.just('- [x] `golem [t-d0ne11] --provider zhipu "done task"`'),
-    st.just('- [!] `golem [t-fa1l22] --provider zhipu "failed task"`'),
+    st.just('- [x] `ribosome [t-d0ne11] --provider zhipu "done task"`'),
+    st.just('- [!] `ribosome [t-fa1l22] --provider zhipu "failed task"`'),
 )
 
 
@@ -73,7 +70,10 @@ _noise_line = st.one_of(
 
 
 @given(line=queue_line())
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow])
+@settings(
+    max_examples=100,
+    suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow],
+)
 def test_parse_queue_never_crashes(line):
     """Parser should handle any well-formed queue line without exceptions."""
     _with_tmp_queue(line + "\n")
@@ -123,11 +123,15 @@ def test_parse_queue_every_task_has_positive_max_turns(lines):
         assert max_turns > 0
 
 
-@given(task_lines=st.lists(queue_line(), min_size=1, max_size=5), noise=st.lists(_noise_line, min_size=0, max_size=5))
+@given(
+    task_lines=st.lists(queue_line(), min_size=1, max_size=5),
+    noise=st.lists(_noise_line, min_size=0, max_size=5),
+)
 @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_parse_queue_ignores_noise(task_lines, noise):
     """Parser should only return pending tasks, ignoring noise and completed/failed lines."""
     import random
+
     all_lines = task_lines + noise
     random.shuffle(all_lines)
     _with_tmp_queue("\n".join(all_lines) + "\n")

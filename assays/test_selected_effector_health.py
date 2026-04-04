@@ -9,11 +9,10 @@ from pathlib import Path
 
 import pytest
 
-
 EFFECTORS_DIR = Path.home() / "germline" / "effectors"
 TARGET_NAMES = [
     "commensal",
-    "golem-dash",
+    "ribosome-dash",
     "chat_history.py",
     "goose-worker",
     "evident-brief",
@@ -47,8 +46,8 @@ def _tmux_mock_dir(base_dir: Path) -> Path:
     tmux_path = bindir / "tmux"
     tmux_path.write_text(
         "#!/usr/bin/env bash\n"
-        "if [ \"$1\" = \"list-sessions\" ]; then\n"
-        "  echo \"main: 1 windows (created Thu Apr  2 12:00:00 2026)\"\n"
+        'if [ "$1" = "list-sessions" ]; then\n'
+        '  echo "main: 1 windows (created Thu Apr  2 12:00:00 2026)"\n'
         "  exit 0\n"
         "fi\n"
         "exit 0\n",

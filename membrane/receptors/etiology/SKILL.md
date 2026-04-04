@@ -52,7 +52,7 @@ BEFORE attempting ANY fix:
 
 0. **Gather context cheaply** — for unfamiliar components, use droid explore before burning CC tokens:
    ```bash
-   golem -m "custom:glm-4.7" --cwd <project> "Read <files> and summarize: what it does, recent changes, dependencies, error handling patterns"
+   ribosome -m "custom:glm-4.7" --cwd <project> "Read <files> and summarize: what it does, recent changes, dependencies, error handling patterns"
    ```
 1. **Read error messages** — stack traces completely, line numbers, error codes
 2. **Check recent changes** — git diff, new deps, config, environment

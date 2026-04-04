@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import os
@@ -49,7 +48,7 @@ def _compute_adaptive_timeout(spec: str, base_timeout: int) -> int:
 
 
 STATUS_PATH = Path.home() / ".local" / "share" / "sortase" / "status.json"
-COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
+COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_ribosome_coaching.md"
 
 
 def _prepend_coaching(prompt: str, tool: str) -> str:
@@ -61,7 +60,7 @@ def _prepend_coaching(prompt: str, tool: str) -> str:
     """
     if tool in ("goose", "droid"):
         return prompt
-    if tool not in ("opencode", "golem", "crush", "codex") or not COACHING_NOTES.exists():
+    if tool not in ("opencode", "ribosome", "crush", "codex") or not COACHING_NOTES.exists():
         return prompt
     try:
         notes = COACHING_NOTES.read_text(encoding="utf-8")
@@ -109,7 +108,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         str(project),
         prompt,
     ],
-    "golem": lambda project, prompt: [
+    "ribosome": lambda project, prompt: [
         "claude",
         "--print",
         "--bare",
@@ -153,13 +152,13 @@ class ExecutionAttempt:
 
 # ── cost estimation ──────────────────────────────────────────
 
-FLAT_RATE_TOOLS = {"goose", "droid", "golem"}
+FLAT_RATE_TOOLS = {"goose", "droid", "ribosome"}
 MODEL_BY_TOOL: dict[str, str | None] = {
     "gemini": "gemini-3-pro-preview",
     "codex": "gpt-5.3-codex",
     "goose": "glm-5.1",
     "opencode": None,
-    "golem": "glm-5.1",
+    "ribosome": "glm-5.1",
     "droid": "glm-5.1",
     "crush": "zhipu-coding/glm-5",
 }
@@ -176,7 +175,7 @@ TOKEN_PRICING: dict[str, dict[str, float]] = {
 def estimate_cost(tool: str, prompt: str, output: str) -> str:
     """Estimate API cost for a single execution attempt.
 
-    For ZhiPu coding-plan backends (goose, droid, golem) the cost
+    For ZhiPu coding-plan backends (goose, droid, ribosome) the cost
     is covered by a flat-rate subscription so the estimate is "$0.00 (flat-rate)".
 
     For others, approximate input tokens as ``len(prompt) // 4`` and output
@@ -277,7 +276,7 @@ def _clean_env(tool: str) -> dict[str, str]:
     if tool in ("goose", "droid"):
         # translocon handles env vars internally
         pass
-    if tool == "golem":
+    if tool == "ribosome":
         # Headless CC with GLM via ZhiPu Coding Plan Anthropic-compat endpoint
         # Docs: https://docs.bigmodel.cn/cn/coding-plan/tool/claude
         env["ANTHROPIC_AUTH_TOKEN"] = env.get("ZHIPU_API_KEY", "")
@@ -422,7 +421,7 @@ def list_running() -> list[dict[str, Any] | str]:
             try:
                 os.kill(entry["pid"], 0)  # signal 0 = check liveness
                 entry["alive"] = True
-            except (ProcessLookupError, PermissionError):
+            except ProcessLookupError, PermissionError:
                 entry["alive"] = False
     return entries
 
@@ -874,7 +873,7 @@ def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -
         timeout=300,
     )
     untracked = subprocess.run(
-        ["git", "clean", "-nd"],
+        ["git", "clean", "-and"],
         cwd=project_dir,
         capture_output=True,
         text=True,
@@ -985,7 +984,7 @@ async def execute_tasks(
 
         # Convert exceptions into failed TaskExecutionResult so worktree cleanup runs
         results: list[TaskExecutionResult] = []
-        for task, raw in zip(tasks, raw_results):
+        for task, raw in zip(tasks, raw_results, strict=False):
             if isinstance(raw, BaseException):
                 results.append(
                     TaskExecutionResult(

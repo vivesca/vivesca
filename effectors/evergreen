@@ -96,10 +96,10 @@ fi
 
 if ssh -o ConnectTimeout=5 "$GANGLION" true 2>/dev/null; then
     log "Syncing ganglion"
-    ssh "$GANGLION" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" && cd ~/germline && git pull --ff-only && cd effectors/temporal-golem && uv sync' 2>>"$LOG"
+    ssh "$GANGLION" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" && cd ~/germline && git pull --ff-only && cd effectors/polysome && uv sync' 2>>"$LOG"
     ssh "$GANGLION" 'sudo systemctl restart temporal-worker' 2>>"$LOG"
     # Update Temporal Docker images
-    ssh "$GANGLION" 'cd ~/germline/effectors/temporal-golem && docker compose pull && docker compose up -d' 2>>"$LOG" || true
+    ssh "$GANGLION" 'cd ~/germline/effectors/polysome && docker compose pull && docker compose up -d' 2>>"$LOG" || true
     log "Ganglion synced, worker restarted, Docker updated"
 else
     log "WARN: ganglion unreachable, skipping sync"

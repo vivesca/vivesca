@@ -24,13 +24,13 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 # ── Constants ────────────────────────────────────────────────────────────────
 HOME = Path.home()
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 SEVEN_DAYS_AGO_ISO = (NOW - timedelta(days=7)).strftime("%Y-%m-%d")
 
 CLI_TOOLS = [
@@ -49,7 +49,7 @@ BIN_PATHS = [
 MCP_TOOLS = [
     "rheotaxis", "histone", "gap_junction", "circadian",
     "navigator", "interoception", "tachometer", "cytosol",
-    "golem", "porta_inject", "constitution", "nociceptor",
+    "ribosome", "porta_inject", "constitution", "nociceptor",
 ]
 
 SKILL_NAMES = [
@@ -59,7 +59,7 @@ SKILL_NAMES = [
 
 SIGNAL_LOG = HOME / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
 NOESIS_LOG = HOME / ".local" / "share" / "noesis" / "log.jsonl"
-VIVESCA_LOG = HOME / ".local" / "share" / "vivesca" / "golem.jsonl"
+VIVESCA_LOG = HOME / ".local" / "share" / "vivesca" / "ribosome.jsonl"
 
 # Claude session files — grep for tool/skill mentions
 SESSION_DIR = HOME / ".claude" / "sessions"
@@ -175,7 +175,7 @@ def check_mcp(name: str) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["curl", "-sf", "--max-time", "3",
-             f"http://127.0.0.1:8741/mcp",
+             "http://127.0.0.1:8741/mcp",
              "-d", json.dumps({"tool": f"vivesca__{name}", "action": "status"})],
             capture_output=True, text=True,
         )

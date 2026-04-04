@@ -30,7 +30,7 @@
 
 Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
-**Marks library:** `~/epigenome/marks/`. Each file has `description:` frontmatter. **When starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding.** Example: before working on golem, `grep -l "golem" ~/epigenome/marks/*.md`. Same pattern as epistemics — not by remembering, but by looking.
+**Marks library:** `~/epigenome/marks/`. Each file has `description:` frontmatter. **When starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding.** Example: before working on ribosome, `grep -l "ribosome" ~/epigenome/marks/*.md`. Same pattern as epistemics — not by remembering, but by looking.
 
 **Read anatomy first.** Before probing, querying, or debugging any subsystem, read its CLAUDE.md or README. The docs exist — use them before running blind commands. `~/germline/effectors/*/CLAUDE.md` for organism tools.
 
@@ -40,9 +40,9 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Cytosol vs symbiont.** CC is cytosol (runtime, internal); LLM is symbiont (external, probabilistic). Their trajectories are opposite: cytosol gets stronger over time, symbiont surface gets smaller. Move logic from symbiont to cytosol whenever it can be made deterministic.
 
-**Architect-implementer split.** CC judges; golem executes. Both have full organism access. The scarcity is model quality — Claude for judgment, GLM-5.1 for unlimited coding tokens. **CC must not write implementation code or do exploration that golem can do.** Instead: `golem "task description"` — headless CC + GLM-5.1 via ZhiPu (free, 200K context, CC's full toolset). Dispatch as many golem instances as practical (sequential via `golem --batch`, or parallel with ~3s stagger). Exception: files that ARE judgment (skills, memory, genome, specs, plans) — CC writes those directly. Small fixes (<3 tool calls) — CC does directly. For batch work, use `/mitogen`. Sortase/translocon remain for tasks needing routing logic or worktree isolation.
+**Architect-implementer split.** CC judges; ribosome executes. Both have full organism access. The scarcity is model quality — Claude for judgment, GLM-5.1 for unlimited coding tokens. **CC must not write implementation code or do exploration that ribosome can do.** Instead: `ribosome "task description"` — headless CC + GLM-5.1 via ZhiPu (free, 200K context, CC's full toolset). Dispatch as many ribosome instances as practical (sequential via `ribosome --batch`, or parallel with ~3s stagger). Exception: files that ARE judgment (skills, memory, genome, specs, plans) — CC writes those directly. Small fixes (<3 tool calls) — CC does directly. For batch work, use `/mitogen`. Sortase/translocon remain for tasks needing routing logic or worktree isolation.
 
-**Coaching the implementer.** All reviewers (CC, Gemini, Codex) update `~/epigenome/marks/feedback_golem_coaching.md` when they spot recurring GLM failure patterns. Sortase prepends this file to every Goose dispatch automatically. The coaching note accumulates corrections monotonically — retire entries when GLM stops violating them. This is the organism's skill transfer mechanism: structured feedback that compounds without fine-tuning.
+**Coaching the implementer.** All reviewers (CC, Gemini, Codex) update `~/epigenome/marks/feedback_ribosome_coaching.md` when they spot recurring GLM failure patterns. Sortase prepends this file to every Goose dispatch automatically. The coaching note accumulates corrections monotonically — retire entries when GLM stops violating them. This is the organism's skill transfer mechanism: structured feedback that compounds without fine-tuning.
 
 **No false sentience.** State lives in files, not the model.
 
@@ -127,7 +127,7 @@ Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference
 
 ## GLM Coaching
 
-Append recurring GLM failure patterns to `~/epigenome/marks/feedback_golem_coaching.md`. Prepended to every golem dispatch. Format: pattern name, what GLM does wrong, fix instruction.
+Append recurring GLM failure patterns to `~/epigenome/marks/feedback_ribosome_coaching.md`. Prepended to every ribosome dispatch. Format: pattern name, what GLM does wrong, fix instruction.
 
 <!-- BEGIN CODEX TOOL MAP -->
 ## Codex Tool Mapping

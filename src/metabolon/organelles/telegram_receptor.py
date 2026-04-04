@@ -1,8 +1,7 @@
-
 """telegram_receptor — Telegram message reading via Telethon (user client API).
 
 Bot API can only see incoming messages. Reading sent messages (e.g. overnight
-heartbeat/golem notifications) requires the user client API.
+heartbeat/ribosome notifications) requires the user client API.
 
 Auth: one-time interactive phone + OTP via Telethon. Session file persists at
 ~/.config/telethon/vivesca.session.

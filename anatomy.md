@@ -85,13 +85,13 @@ fetch
 gap_junction
 - `gap_junction(action, name, message, query, limit)` -- Unified WhatsApp tool.
 
-### golem_dispatch
-golem_dispatch — MCP tool for direct Temporal workflow dispatch.
-- `golem_dispatch(action, prompt, provider, max_turns, workflow_id, specs, limit)` -- Direct Temporal dispatch for golem tasks.
+### ribosome_dispatch
+ribosome_dispatch — MCP tool for direct Temporal workflow dispatch.
+- `ribosome_dispatch(action, prompt, provider, max_turns, workflow_id, specs, limit)` -- Direct Temporal dispatch for ribosome tasks.
 
-### golem_queue
-golem_queue — MCP tool for managing the golem task queue.
-- `golem_queue(action, task_id, tags, provider, max_turns, prompt)` -- Manage the golem task queue.
+### ribosome_queue
+ribosome_queue — MCP tool for managing the ribosome task queue.
+- `ribosome_queue(action, task_id, tags, provider, max_turns, prompt)` -- Manage the ribosome task queue.
 
 ### hemostasis
 hemostasis
@@ -258,7 +258,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **nociceptor**: 
   Exports: `PainEvent`, `classify_error`, `recommended_action`, `scan`, `report`
 - **preflight**: 
-  Exports: `CheckResult`, `PreflightResult`, `check_repo_reachable`, `check_repo_freshness`, `check_signal_bus`, `check_api_key`, `run_preflight`, `check_golem_binary`, `check_golem_api_key`, `check_provider_health`, `check_golem_log_freshness`, `check_golem_ready`
+  Exports: `CheckResult`, `PreflightResult`, `check_repo_reachable`, `check_repo_freshness`, `check_signal_bus`, `check_api_key`, `run_preflight`, `check_ribosome_binary`, `check_ribosome_api_key`, `check_provider_health`, `check_ribosome_log_freshness`, `check_ribosome_ready`
 - **repair**: 
   Exports: `ImmuneRequest`, `ImmuneResult`, `immune_response`
 - **setpoint**: 
@@ -292,8 +292,8 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **expression.py**: `expression`
 - **fetch.py**: `fetch`
 - **gap_junction.py**: `gap_junction`
-- **golem_dispatch.py**: `golem_dispatch`
-- **golem_queue.py**: `golem_queue`
+- **ribosome_dispatch.py**: `ribosome_dispatch`
+- **ribosome_queue.py**: `ribosome_queue`
 - **hemostasis.py**: `hemostasis`
 - **histone.py**: `histone`
 - **ingestion.py**: `ingestion`

@@ -1,0 +1,25 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling" ]
+
+[project]
+name = "polysome"
+version = "0.1.0"
+description = "Temporal.io orchestrator for translation task dispatch."
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "click>=8",
+  "pyyaml>=6",
+  "temporalio>=1.24",
+]
+
+scripts.polysome = "cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = [ "." ]

@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import shutil
@@ -61,7 +60,7 @@ main.add_command(coaching_group, "coaching")
 @click.option(
     "-b",
     "--backend",
-    type=click.Choice(["gemini", "codex", "goose", "opencode", "golem", "droid", "crush"]),
+    type=click.Choice(["gemini", "codex", "goose", "opencode", "ribosome", "droid", "crush"]),
 )
 @click.option(
     "--decompose", is_flag=True, help="Use Gemini to split the plan into independent tasks."
@@ -369,7 +368,7 @@ def exec_command(
 @click.option(
     "-b",
     "--backend",
-    type=click.Choice(["gemini", "codex", "goose", "opencode", "golem", "droid", "crush"]),
+    type=click.Choice(["gemini", "codex", "goose", "opencode", "ribosome", "droid", "crush"]),
 )
 @click.option("--test-command", default=None, help="Optional test command to run after execution.")
 @click.option("--timeout", default=600, show_default=True, type=int)
@@ -509,7 +508,7 @@ def log(stats: bool, prune: int, export_path: Path | None, last_n: int, json_out
         console.print(f"Failure reasons: {payload['failure_reasons']}")
         console.print(f"Fallback frequency: {payload['fallback_frequency']}")
         # Show coaching notes count
-        coaching_path = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
+        coaching_path = Path.home() / "epigenome" / "marks" / "feedback_ribosome_coaching.md"
         if coaching_path.exists():
             content = coaching_path.read_text(encoding="utf-8")
             pattern_count = content.count("### ")
@@ -732,7 +731,7 @@ def status(clean: bool) -> None:
 @click.option(
     "-b",
     "--backend",
-    type=click.Choice(["gemini", "codex", "goose", "opencode", "golem", "droid", "crush"]),
+    type=click.Choice(["gemini", "codex", "goose", "opencode", "ribosome", "droid", "crush"]),
 )
 @click.option(
     "--interval", default=30, show_default=True, type=int, help="Poll interval in seconds."
@@ -861,8 +860,8 @@ def watch(
                     seen.add(plan_file.name)
                     plan_coros.append(_execute_plan(plan_file.name, plan_file))
 
-                async def _run_batch() -> None:
-                    await asyncio.gather(*plan_coros)
+                async def _run_batch(coros: list = plan_coros) -> None:
+                    await asyncio.gather(*coros)
 
                 asyncio.run(_run_batch())
 

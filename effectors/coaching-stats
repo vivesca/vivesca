@@ -3,41 +3,42 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""coaching-stats — Analyze coaching rule effectiveness from golem.jsonl failure patterns.
+"""coaching-stats — Analyze coaching rule effectiveness from ribosome.jsonl failure patterns.
 
-Reads feedback_golem_coaching.md for rules, scans golem.jsonl and the daemon log
+Reads feedback_golem_coaching.md for rules, scans ribosome.jsonl and the daemon log
 for failures, and reports which rules are most/least effective.
 
 Usage:
     coaching-stats                   # Full report to stdout
     coaching-stats --json             # Machine-readable JSON output
     coaching-stats --coaching PATH    # Override coaching file path
-    coaching-stats --jsonl PATH       # Override golem.jsonl path
+    coaching-stats --jsonl PATH       # Override ribosome.jsonl path
     coaching-stats --daemon-log PATH  # Override daemon log path
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Optional
 
 # Default paths
 COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
-GOLEM_JSONL = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
-DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+RIBOSOME_JSONL = Path.home() / ".local" / "share" / "vivesca" / "ribosome.jsonl"
+DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.log"
 MAC_HOME_PREFIX = str(PurePosixPath("/", "Users", "terry"))
 
-# Keywords that link golem output to specific coaching rules.
+# Keywords that link ribosome output to specific coaching rules.
 # Each entry: (rule_id_suffix, list_of_keywords_to_match_against_tail_and_prompt)
 FAILURE_SIGNALS: list[tuple[str, list[str]]] = [
-    ("hallucinated-imports", ["ImportError", "ModuleNotFoundError", "no module named",
-                               "cannot import"]),
+    (
+        "hallucinated-imports",
+        ["ImportError", "ModuleNotFoundError", "no module named", "cannot import"],
+    ),
     ("return-types", ["TypeError", "unexpected keyword", "missing required argument"]),
     ("format-output", ["str(dict)", "repr(", "__repr__"]),
     ("mock-where-looked-up", ["mock", "patch", "monkeypatch"]),
@@ -60,6 +61,7 @@ FAILURE_SIGNALS: list[tuple[str, list[str]]] = [
 @dataclass
 class CoachingRule:
     """A single coaching rule parsed from the markdown file."""
+
     category: str
     text: str
     keywords: list[str] = field(default_factory=list)
@@ -68,8 +70,9 @@ class CoachingRule:
 
 
 @dataclass
-class GolemEntry:
-    """A single entry from golem.jsonl."""
+class RibosomeEntry:
+    """A single entry from ribosome.jsonl."""
+
     ts: str
     provider: str
     duration: int
@@ -89,7 +92,7 @@ def parse_coaching(path: Path) -> list[CoachingRule]:
         return []
     text = path.read_text(encoding="utf-8", errors="replace")
     rules: list[CoachingRule] = []
-    current_category: Optional[str] = None
+    current_category: str | None = None
 
     for line in text.splitlines():
         heading = re.match(r"^###\s+(.+)$", line)
@@ -103,31 +106,33 @@ def parse_coaching(path: Path) -> list[CoachingRule]:
             full_text = f"{bold_part}. {rest}" if rest else bold_part
             # Extract keywords from the bold title
             keywords = [w.lower() for w in re.findall(r"[a-zA-Z_]+", bold_part)]
-            rules.append(CoachingRule(
-                category=current_category,
-                text=full_text,
-                keywords=keywords,
-            ))
+            rules.append(
+                CoachingRule(
+                    category=current_category,
+                    text=full_text,
+                    keywords=keywords,
+                )
+            )
 
     # Handle the "Correct patterns" section (single non-bullet line)
-    if_block = re.search(
-        r"### Correct patterns.*?\n(`.+?`)", text, re.DOTALL
-    )
+    if_block = re.search(r"### Correct patterns.*?\n(`.+?`)", text, re.DOTALL)
     if if_block:
-        rules.append(CoachingRule(
-            category="Correct patterns (reinforce)",
-            text=if_block.group(1).strip(),
-            keywords=["correct patterns"],
-        ))
+        rules.append(
+            CoachingRule(
+                category="Correct patterns (reinforce)",
+                text=if_block.group(1).strip(),
+                keywords=["correct patterns"],
+            )
+        )
 
     return rules
 
 
-def load_golem_jsonl(path: Path) -> list[GolemEntry]:
-    """Load valid entries from golem.jsonl."""
+def load_ribosome_jsonl(path: Path) -> list[RibosomeEntry]:
+    """Load valid entries from ribosome.jsonl."""
     if not path.exists():
         return []
-    entries: list[GolemEntry] = []
+    entries: list[RibosomeEntry] = []
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
@@ -135,20 +140,22 @@ def load_golem_jsonl(path: Path) -> list[GolemEntry]:
                 continue
             try:
                 d = json.loads(line)
-                entries.append(GolemEntry(
-                    ts=d.get("ts", ""),
-                    provider=d.get("provider", "unknown"),
-                    duration=d.get("duration", 0),
-                    exit_code=d.get("exit", 0),
-                    turns=d.get("turns", 0),
-                    prompt=d.get("prompt", ""),
-                    tail=d.get("tail", ""),
-                    files_created=d.get("files_created", 0),
-                    tests_passed=d.get("tests_passed", 0),
-                    tests_failed=d.get("tests_failed", 0),
-                    pytest_exit=d.get("pytest_exit", 0),
-                ))
-            except (json.JSONDecodeError, KeyError):
+                entries.append(
+                    RibosomeEntry(
+                        ts=d.get("ts", ""),
+                        provider=d.get("provider", "unknown"),
+                        duration=d.get("duration", 0),
+                        exit_code=d.get("exit", 0),
+                        turns=d.get("turns", 0),
+                        prompt=d.get("prompt", ""),
+                        tail=d.get("tail", ""),
+                        files_created=d.get("files_created", 0),
+                        tests_passed=d.get("tests_passed", 0),
+                        tests_failed=d.get("tests_failed", 0),
+                        pytest_exit=d.get("pytest_exit", 0),
+                    )
+                )
+            except json.JSONDecodeError, KeyError:
                 continue
     return entries
 
@@ -161,24 +168,24 @@ def load_daemon_failures(path: Path) -> list[dict]:
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
-            m = re.match(
-                r"\[(.+?)\]\s+FAILED\s+\(exit=(\d+)\):\s+(.*)", line
-            )
+            m = re.match(r"\[(.+?)\]\s+FAILED\s+\(exit=(\d+)\):\s+(.*)", line)
             if m:
-                failures.append({
-                    "ts": m.group(1),
-                    "exit_code": int(m.group(2)),
-                    "prompt": m.group(3),
-                })
+                failures.append(
+                    {
+                        "ts": m.group(1),
+                        "exit_code": int(m.group(2)),
+                        "prompt": m.group(3),
+                    }
+                )
     return failures
 
 
 def analyze(
     rules: list[CoachingRule],
-    entries: list[GolemEntry],
+    entries: list[RibosomeEntry],
     daemon_failures: list[dict],
 ) -> dict:
-    """Run the analysis: correlate rules with golem output."""
+    """Run the analysis: correlate rules with ribosome output."""
     total_entries = len(entries)
     total_failures = len(daemon_failures)
 
@@ -197,11 +204,13 @@ def analyze(
                 rule.failure_correlations += 1
 
     # Build per-category stats
-    categories: dict[str, dict] = defaultdict(lambda: {
-        "rules": 0,
-        "total_mentions": 0,
-        "total_failure_correlations": 0,
-    })
+    categories: dict[str, dict] = defaultdict(
+        lambda: {
+            "rules": 0,
+            "total_mentions": 0,
+            "total_failure_correlations": 0,
+        }
+    )
     for rule in rules:
         cat = categories[rule.category]
         cat["rules"] += 1
@@ -225,13 +234,15 @@ def analyze(
             corpus = fail["prompt"].lower()
             if any(kw.lower() in corpus for kw in keywords):
                 daemon_hits += 1
-        signal_stats.append({
-            "signal": sig_name,
-            "jsonl_mentions": mention_count,
-            "jsonl_failures": failure_count,
-            "daemon_failure_hits": daemon_hits,
-            "keywords": keywords[:3],  # Show first 3 for brevity
-        })
+        signal_stats.append(
+            {
+                "signal": sig_name,
+                "jsonl_mentions": mention_count,
+                "jsonl_failures": failure_count,
+                "daemon_failure_hits": daemon_hits,
+                "keywords": keywords[:3],  # Show first 3 for brevity
+            }
+        )
 
     # Provider breakdown
     provider_stats: dict[str, dict] = defaultdict(
@@ -277,7 +288,7 @@ def format_report(data: dict) -> str:
     lines.append("SUMMARY")
     lines.append("-" * 40)
     lines.append(f"  Coaching rules parsed:     {data['total_rules']}")
-    lines.append(f"  Golem JSONL entries:        {data['total_jsonl_entries']}")
+    lines.append(f"  Ribosome JSONL entries:     {data['total_jsonl_entries']}")
     lines.append(f"  Daemon failures logged:     {data['total_daemon_failures']}")
     lines.append("")
 
@@ -290,12 +301,14 @@ def format_report(data: dict) -> str:
     for cat_name, cat_data in sorted(
         data["categories"].items(), key=lambda x: -x[1]["total_mentions"]
     ):
-        lines.append(cat_fmt.format(
-            cat_name[:30],
-            cat_data["rules"],
-            cat_data["total_mentions"],
-            cat_data["total_failure_correlations"],
-        ))
+        lines.append(
+            cat_fmt.format(
+                cat_name[:30],
+                cat_data["rules"],
+                cat_data["total_mentions"],
+                cat_data["total_failure_correlations"],
+            )
+        )
     lines.append("")
 
     # Most effective signals (high mentions, low failure rate)
@@ -305,12 +318,14 @@ def format_report(data: dict) -> str:
     lines.append(sig_fmt.format("Signal", "Mentions", "Failures", "Daemon"))
     lines.append(sig_fmt.format("-" * 25, "-" * 10, "-" * 10, "-" * 10))
     for sig in sorted(data["signal_stats"], key=lambda s: -s["jsonl_mentions"]):
-        lines.append(sig_fmt.format(
-            sig["signal"][:25],
-            sig["jsonl_mentions"],
-            sig["jsonl_failures"],
-            sig["daemon_failure_hits"],
-        ))
+        lines.append(
+            sig_fmt.format(
+                sig["signal"][:25],
+                sig["jsonl_mentions"],
+                sig["jsonl_failures"],
+                sig["daemon_failure_hits"],
+            )
+        )
     lines.append("")
 
     # Provider stats
@@ -322,13 +337,15 @@ def format_report(data: dict) -> str:
     for pname, pdata in sorted(data["provider_stats"].items()):
         avg_turns = pdata["total_turns"] / max(pdata["runs"], 1)
         avg_dur = pdata["total_duration"] / max(pdata["runs"], 1)
-        lines.append(prov_fmt.format(
-            pname[:12],
-            pdata["runs"],
-            pdata["failures"],
-            f"{avg_turns:.1f}",
-            f"{avg_dur:.0f}s",
-        ))
+        lines.append(
+            prov_fmt.format(
+                pname[:12],
+                pdata["runs"],
+                pdata["failures"],
+                f"{avg_turns:.1f}",
+                f"{avg_dur:.0f}s",
+            )
+        )
     lines.append("")
 
     # Effectiveness ranking
@@ -339,10 +356,9 @@ def format_report(data: dict) -> str:
     scored = []
     for sig in data["signal_stats"]:
         if sig["jsonl_mentions"] > 0:
-            fail_rate = (
-                (sig["jsonl_failures"] + sig["daemon_failure_hits"])
-                / sig["jsonl_mentions"]
-            )
+            fail_rate = (sig["jsonl_failures"] + sig["daemon_failure_hits"]) / sig[
+                "jsonl_mentions"
+            ]
             scored.append((sig["signal"], fail_rate, sig["jsonl_mentions"]))
 
     scored.sort(key=lambda x: x[1])
@@ -360,35 +376,39 @@ def format_report(data: dict) -> str:
     lines.append("-" * 40)
     for rd in data["rules_detail"]:
         lines.append(f"  [{rd['category']}] {rd['text']}")
-        lines.append(f"    mentions={rd['mentions_in_jsonl']} failure_corr={rd['failure_correlations']}")
+        lines.append(
+            f"    mentions={rd['mentions_in_jsonl']} failure_corr={rd['failure_correlations']}"
+        )
     lines.append("")
     lines.append("=" * 72)
     return "\n".join(lines)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Analyze coaching rule effectiveness"
-    )
+    parser = argparse.ArgumentParser(description="Analyze coaching rule effectiveness")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
-    parser.add_argument(
-        "--coaching", type=Path, default=COACHING_PATH,
+        "--coaching",
+        type=Path,
+        default=COACHING_PATH,
         help="Path to coaching markdown file",
     )
     parser.add_argument(
-        "--jsonl", type=Path, default=GOLEM_JSONL,
-        help="Path to golem.jsonl",
+        "--jsonl",
+        type=Path,
+        default=RIBOSOME_JSONL,
+        help="Path to ribosome.jsonl",
     )
     parser.add_argument(
-        "--daemon-log", type=Path, default=DAEMON_LOG,
-        help="Path to golem-daemon.log",
+        "--daemon-log",
+        type=Path,
+        default=DAEMON_LOG,
+        help="Path to ribosome-daemon.log",
     )
     args = parser.parse_args()
 
     rules = parse_coaching(args.coaching)
-    entries = load_golem_jsonl(args.jsonl)
+    entries = load_ribosome_jsonl(args.jsonl)
     daemon_failures = load_daemon_failures(args.daemon_log)
 
     data = analyze(rules, entries, daemon_failures)

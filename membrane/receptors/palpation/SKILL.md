@@ -30,7 +30,7 @@ Be precise: not "the intake pipeline" but "the transduction job's extraction ste
 
 **Use droid explore for initial read** — free recon before CC applies judgment:
 ```bash
-golem -m "custom:glm-4.7" --cwd <project> \
+ribosome -m "custom:glm-4.7" --cwd <project> \
   "Read <component files>, config, and recent logs. Summarize: architecture, dependencies, hardcoded paths, error handling, recent output patterns."
 ```
 

@@ -124,7 +124,7 @@ Five questions to catch meta-failures:
 
 1. **Repeated patterns:** Did CC run the same ad-hoc command 2+ times? (restart a service, check a status, transform files) → Build an effector. The genome says "if recurs, build a tool."
 
-2. **Misallocated work:** Did CC write >50 lines of implementation code? Was any of it mechanical enough for golem? The scarcity is model quality, not tokens. Golem should do mechanical work; CC should judge.
+2. **Misallocated work:** Did CC write >50 lines of implementation code? Was any of it mechanical enough for ribosome? The scarcity is model quality, not tokens. Ribosome should do mechanical work; CC should judge.
 
 3. **Lazy avoidance:** Is there something broken that we worked around instead of fixing? A flaky test we excluded instead of root-causing? A lint warning we suppressed instead of resolving? The genome says "fix, don't patch."
 
@@ -164,7 +164,7 @@ Test: "Would I explain this to a peer over coffee?" If yes, it's a post.
 
 **Mechanism:**
 1. CC identifies the insight and frames it (judgment — what's the takeaway?)
-2. CC drafts the post directly (judgment work — CC writes these, not golem)
+2. CC drafts the post directly (judgment work — CC writes these, not ribosome)
 3. `publish new "<title>"` then write content to the file in `~/epigenome/chromatin/secretome/`
 4. `publish push` — syncs to Astro, commits, deploys
 

@@ -91,7 +91,8 @@ lint.select = [ "B", "E", "F", "I", "RUF", "SIM", "UP" ]
 lint.ignore = [
   "E501",
   "SIM115",
-] # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles
+  "SIM117",
+] # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles; SIM117: multi-with is valid Python 3.14
 lint.per-file-ignores."src/metabolon/enzymes/integrin.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/enzymes/interoception.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/enzymes/secretory.py" = [ "E402" ]
@@ -163,7 +164,7 @@ ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,
 [tool.deptry]
 # cryptography: used by telethon/playwright at runtime, not imported directly
 # google-auth-oauthlib: used by circadian_clock at runtime via google.oauth2
-# hatchet-sdk: effectors/hatchet-golem (not in src/)
+# hatchet-sdk: effectors/polysome (not in src/)
 # hypothesis: used in tests, not src
 # oghma: editable install, used at runtime
 # pygments: used by rich at runtime
@@ -202,4 +203,4 @@ oghma = { path = "../code/oghma", editable = true }
 
 [tool.ty.environment]
 python-version = "3.14"
-extra-paths = [ "effectors/temporal-golem" ]
+extra-paths = [ "effectors/polysome" ]

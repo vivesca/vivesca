@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""bud — lightweight agent dispatch to golem.
+"""bud — lightweight agent dispatch to ribosome.
 
 Drop-in alternative to CC Agent() for tasks that don't need frontier reasoning.
 Full organism access: MCP tools, skills, CLAUDE.md, built-in tools.
@@ -12,23 +12,25 @@ from pathlib import Path
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Dispatch a task to golem")
+    parser = argparse.ArgumentParser(description="Dispatch a task to ribosome")
     parser.add_argument("prompt", help="Task prompt")
-    parser.add_argument("-p", "--project-dir", default=str(Path.home() / "germline"), help="Project directory")
-    parser.add_argument("--auto", default="high", choices=["low", "medium", "high"], help="Autonomy level")
+    parser.add_argument(
+        "-p", "--project-dir", default=str(Path.home() / "germline"), help="Project directory"
+    )
+    parser.add_argument(
+        "--auto", default="high", choices=["low", "medium", "high"], help="Autonomy level"
+    )
     parser.add_argument("--model", default="glm-5.1", help="Model override")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds")
     args = parser.parse_args()
 
-    cmd = ["golem"]
+    cmd = ["ribosome"]
     if args.auto == "high":
         cmd.append("--force")
-    if args.model != "glm-5.1":
-        # Check if the model is one of the golem providers
-        if args.model in ("zhipu", "volcano", "infini"):
-            cmd += ["--provider", args.model]
-    
+    if args.model != "glm-5.1" and args.model in ("zhipu", "volcano", "infini"):
+        cmd += ["--provider", args.model]
+
     cmd.append(args.prompt)
 
     try:
@@ -42,11 +44,16 @@ def main():
         output = result.stdout.strip()
         if args.json:
             import json
-            print(json.dumps({
-                "success": result.returncode == 0,
-                "output": output,
-                "exit_code": result.returncode,
-            }))
+
+            print(
+                json.dumps(
+                    {
+                        "success": result.returncode == 0,
+                        "output": output,
+                        "exit_code": result.returncode,
+                    }
+                )
+            )
         else:
             print(output)
         sys.exit(result.returncode)
@@ -54,7 +61,7 @@ def main():
         print(f"Timed out after {args.timeout}s", file=sys.stderr)
         sys.exit(124)
     except FileNotFoundError:
-        print("Error: 'golem' CLI not found in PATH.", file=sys.stderr)
+        print("Error: 'ribosome' CLI not found in PATH.", file=sys.stderr)
         sys.exit(127)
 
 

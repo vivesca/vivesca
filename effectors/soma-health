@@ -17,7 +17,7 @@ Checks:
   7. Python venv health (uv sync needed?)
   8. Test count (collected, errors)
   9. Stale files (old sessions, caches, logs)
-  10. Golem process count
+  10. Ribosome process count
   11. Hatchet container health
 
 Auto-fix actions:
@@ -29,6 +29,7 @@ Auto-fix actions:
 
 Requires: Python 3.11+, runs on soma (Fly.io machine).
 """
+
 from __future__ import annotations
 
 import json
@@ -37,7 +38,7 @@ import shutil
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 # === Thresholds ===
@@ -52,7 +53,7 @@ HOME = Path.home()
 GERMLINE = HOME / "germline"
 SESSION_DIR = HOME / ".claude" / "projects" / "-home-terry-germline"
 VIVESCA_DIR = HOME / ".local" / "share" / "vivesca"
-PIDFILE = VIVESCA_DIR / "golem-daemon.pid"
+PIDFILE = VIVESCA_DIR / "ribosome-daemon.pid"
 
 
 @dataclass
@@ -118,10 +119,7 @@ def check_memory() -> Check:
         available = info.get("MemAvailable", 0)
         used_pct = ((total - available) / total * 100) if total else 0
 
-        if used_pct >= MEM_WARN_PCT:
-            status = "warn"
-        else:
-            status = "ok"
+        status = "warn" if used_pct >= MEM_WARN_PCT else "ok"
 
         return Check(
             name="memory",
@@ -154,17 +152,24 @@ def check_cpu() -> Check:
 
 
 def check_daemon() -> Check:
-    """Check if golem-daemon is running."""
+    """Check if ribosome-daemon is running."""
     try:
         if not PIDFILE.exists():
-            return Check(name="daemon", status="warn", value="stopped", detail="PID file not found")
+            return Check(
+                name="daemon", status="warn", value="stopped", detail="PID file not found"
+            )
 
         pid = int(PIDFILE.read_text().strip())
         # Check if process exists
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
-            return Check(name="daemon", status="warn", value="stale", detail=f"PID {pid} not running, stale pidfile")
+            return Check(
+                name="daemon",
+                status="warn",
+                value="stale",
+                detail=f"PID {pid} not running, stale pidfile",
+            )
         except PermissionError:
             pass  # Process exists but we can't signal it
 
@@ -179,7 +184,10 @@ def check_git() -> Check:
         # Quick fsck
         r = subprocess.run(
             ["git", "fsck", "--no-dangling", "--no-progress"],
-            cwd=GERMLINE, capture_output=True, text=True, timeout=30
+            cwd=GERMLINE,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode != 0:
             return Check(name="git", status="crit", value="corrupt", detail=r.stderr[:200])
@@ -187,12 +195,20 @@ def check_git() -> Check:
         # Check for uncommitted changes
         r2 = subprocess.run(
             ["git", "status", "--porcelain"],
-            cwd=GERMLINE, capture_output=True, text=True, timeout=10
+            cwd=GERMLINE,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         changed = len(r2.stdout.strip().splitlines()) if r2.stdout.strip() else 0
 
         if changed > 50:
-            return Check(name="git", status="warn", value=f"{changed} dirty", detail="Many uncommitted files")
+            return Check(
+                name="git",
+                status="warn",
+                value=f"{changed} dirty",
+                detail="Many uncommitted files",
+            )
 
         return Check(name="git", status="ok", value=f"{changed} dirty" if changed else "clean")
     except Exception as e:
@@ -203,7 +219,9 @@ def check_venv() -> Check:
     """Check if Python venv is healthy."""
     venv = GERMLINE / ".venv"
     if not venv.exists():
-        return Check(name="venv", status="crit", value="missing", detail=".venv directory not found")
+        return Check(
+            name="venv", status="crit", value="missing", detail=".venv directory not found"
+        )
 
     python = venv / "bin" / "python"
     if not python.exists():
@@ -212,10 +230,14 @@ def check_venv() -> Check:
     try:
         r = subprocess.run(
             [str(python), "-c", "import metabolon; print('ok')"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode != 0:
-            return Check(name="venv", status="warn", value="incomplete", detail="metabolon not importable")
+            return Check(
+                name="venv", status="warn", value="incomplete", detail="metabolon not importable"
+            )
         return Check(name="venv", status="ok", value="healthy")
     except Exception as e:
         return Check(name="venv", status="error", value="?", detail=str(e))
@@ -226,7 +248,10 @@ def check_tests() -> Check:
     try:
         r = subprocess.run(
             ["uv", "run", "pytest", "--co", "-q", "--continue-on-collection-errors"],
-            cwd=GERMLINE, capture_output=True, text=True, timeout=60
+            cwd=GERMLINE,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         output = r.stdout + r.stderr
         # Parse "X tests collected" or "X/Y tests collected, Z errors"
@@ -251,7 +276,12 @@ def check_disk_data() -> Check:
     data_path = Path("/data")
     try:
         if not data_path.is_mount():
-            return Check(name="disk_data", status="warn", value="not mounted", detail="/data is not a separate mount")
+            return Check(
+                name="disk_data",
+                status="warn",
+                value="not mounted",
+                detail="/data is not a separate mount",
+            )
         usage = shutil.disk_usage(data_path)
         pct = (usage.used / usage.total) * 100
         free_gb = usage.free / (1024**3)
@@ -274,31 +304,30 @@ def check_disk_data() -> Check:
         return Check(name="disk_data", status="error", value="?", detail=str(e))
 
 
-def check_golem_processes() -> Check:
-    """Count running golem processes."""
+def check_ribosome_processes() -> Check:
+    """Count running ribosome processes."""
     try:
         r = subprocess.run(
-            ["pgrep", "-c", "-f", "golem"],
-            capture_output=True, text=True, timeout=10
+            ["pgrep", "-c", "-f", "ribosome"], capture_output=True, text=True, timeout=10
         )
         if r.returncode == 0:
             count = int(r.stdout.strip())
             return Check(
-                name="golem_procs",
+                name="ribosome_procs",
                 status="ok",
                 value=str(count),
-                detail=f"{count} golem processes running",
+                detail=f"{count} ribosome processes running",
             )
         else:
             # pgrep returns 1 when no processes match
             return Check(
-                name="golem_procs",
+                name="ribosome_procs",
                 status="ok",
                 value="0",
-                detail="no golem processes running",
+                detail="no ribosome processes running",
             )
     except Exception as e:
-        return Check(name="golem_procs", status="error", value="?", detail=str(e))
+        return Check(name="ribosome_procs", status="error", value="?", detail=str(e))
 
 
 def check_hatchet() -> Check:
@@ -306,14 +335,23 @@ def check_hatchet() -> Check:
     try:
         r = subprocess.run(
             ["docker", "ps", "--filter", "name=hatchet", "--format", "{{.Names}}\t{{.Status}}"],
-            capture_output=True, text=True, timeout=15
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         if r.returncode != 0:
-            return Check(name="hatchet", status="error", value="docker error", detail=r.stderr[:200])
+            return Check(
+                name="hatchet", status="error", value="docker error", detail=r.stderr[:200]
+            )
 
-        lines = [l for l in r.stdout.strip().splitlines() if l]
+        lines = [ln for ln in r.stdout.strip().splitlines() if ln]
         if not lines:
-            return Check(name="hatchet", status="warn", value="not running", detail="No hatchet containers found")
+            return Check(
+                name="hatchet",
+                status="warn",
+                value="not running",
+                detail="No hatchet containers found",
+            )
 
         unhealthy = []
         healthy = []
@@ -341,7 +379,9 @@ def check_hatchet() -> Check:
             detail=", ".join(healthy[:5]),
         )
     except FileNotFoundError:
-        return Check(name="hatchet", status="warn", value="no docker", detail="docker command not found")
+        return Check(
+            name="hatchet", status="warn", value="no docker", detail="docker command not found"
+        )
     except subprocess.TimeoutExpired:
         return Check(name="hatchet", status="warn", value="timeout", detail="docker ps timed out")
     except Exception as e:
@@ -373,11 +413,17 @@ def check_stale_files() -> Check:
             issues.append(f"stale lock: {lock}")
 
     if issues:
-        return Check(name="stale", status="warn", value=f"{len(issues)} issues", detail="; ".join(issues[:5]))
+        return Check(
+            name="stale",
+            status="warn",
+            value=f"{len(issues)} issues",
+            detail="; ".join(issues[:5]),
+        )
     return Check(name="stale", status="ok", value="clean")
 
 
 # === Fix actions ===
+
 
 def fix_disk(report: HealthReport) -> None:
     """Prune old sessions, caches, logs."""
@@ -385,7 +431,9 @@ def fix_disk(report: HealthReport) -> None:
 
     # Prune sessions
     if SESSION_DIR.is_dir():
-        sessions = sorted(SESSION_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        sessions = sorted(
+            SESSION_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
         for old in sessions[SESSION_KEEP:]:
             try:
                 freed += old.stat().st_size
@@ -446,7 +494,7 @@ def fix_daemon(report: HealthReport) -> None:
         try:
             pid = int(PIDFILE.read_text().strip())
             os.kill(pid, 0)
-        except (ProcessLookupError, ValueError):
+        except ProcessLookupError, ValueError:
             PIDFILE.unlink(missing_ok=True)
             report.fixes_applied.append("removed stale daemon pidfile")
         except PermissionError:
@@ -455,7 +503,10 @@ def fix_daemon(report: HealthReport) -> None:
 
 # === Main ===
 
-def run_health(fix: bool = False, as_json: bool = False, daemon_mode: bool = False) -> HealthReport:
+
+def run_health(
+    fix: bool = False, as_json: bool = False, daemon_mode: bool = False
+) -> HealthReport:
     report = HealthReport(timestamp=time.strftime("%Y-%m-%d %H:%M:%S"))
 
     report.add(check_disk())
@@ -463,7 +514,7 @@ def run_health(fix: bool = False, as_json: bool = False, daemon_mode: bool = Fal
     report.add(check_memory())
     report.add(check_cpu())
     report.add(check_daemon())
-    report.add(check_golem_processes())
+    report.add(check_ribosome_processes())
     report.add(check_hatchet())
     report.add(check_git())
     report.add(check_venv())
@@ -525,7 +576,7 @@ def print_report(report: HealthReport, as_json: bool = False, compact: bool = Fa
         print(line)
 
     if report.fixes_applied:
-        print(f"\n  Fixes applied:")
+        print("\n  Fixes applied:")
         for f in report.fixes_applied:
             print(f"    - {f}")
 

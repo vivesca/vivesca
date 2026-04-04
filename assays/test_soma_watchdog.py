@@ -1,14 +1,9 @@
-from __future__ import annotations
-
 """Tests for soma-watchdog — system health monitor."""
 
-import os
-import shutil
 import signal
-import subprocess
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -28,7 +23,7 @@ free_gb = _mod["free_gb"]
 free_mb = _mod["free_mb"]
 clean_temps = _mod["clean_temps"]
 rotate_log = _mod["rotate_log"]
-kill_runaway_golems = _mod["kill_runaway_golems"]
+kill_runaway_ribosomes = _mod["kill_runaway_ribosomes"]
 check_cycle = _mod["check_cycle"]
 main = _mod["main"]
 
@@ -40,8 +35,8 @@ DISK_WARN_GB = _mod["DISK_WARN_GB"]
 DISK_CRIT_GB = _mod["DISK_CRIT_GB"]
 ROOT_WARN_MB = _mod["ROOT_WARN_MB"]
 LOG_MAX_MB = _mod["LOG_MAX_MB"]
-GOLEM_MAX_SECONDS = _mod["GOLEM_MAX_SECONDS"]
-GOLEM_MAX_RSS_MB = _mod["GOLEM_MAX_RSS_MB"]
+RIBOSOME_MAX_SECONDS = _mod["RIBOSOME_MAX_SECONDS"]
+RIBOSOME_MAX_RSS_MB = _mod["RIBOSOME_MAX_RSS_MB"]
 
 
 class _P:
@@ -70,12 +65,12 @@ def test_soma_watchdog_constants():
     assert DISK_CRIT_GB == 1.0
     assert ROOT_WARN_MB == 500
     assert LOG_MAX_MB == 10
-    assert GOLEM_MAX_SECONDS == 2400
-    assert GOLEM_MAX_RSS_MB == 2048
+    assert RIBOSOME_MAX_SECONDS == 2400
+    assert RIBOSOME_MAX_RSS_MB == 2048
 
 
 def test_home_is_path_home():
-    assert HOME == Path.home()
+    assert Path.home() == HOME
 
 
 def test_soma_watchdog_germline_under_home():
@@ -228,12 +223,11 @@ def test_clean_temps_removes_target(tmp_path):
     d = tmp_path / "pytest-of-terry"
     d.mkdir()
     (d / "f.py").write_text("# t")
-    with _P("GERMLINE", tmp_path):
-        with patch("subprocess.run"):
-            with patch.object(Path, "glob", return_value=iter([])):
-                with patch("shutil.rmtree") as mock_rm:
-                    mock_rm.side_effect = lambda p, **kw: None
-                    cleaned = clean_temps()
+    with _P("GERMLINE", tmp_path), patch("subprocess.run"):
+        with patch.object(Path, "glob", return_value=iter([])):
+            with patch("shutil.rmtree") as mock_rm:
+                mock_rm.side_effect = lambda p, **kw: None
+                cleaned = clean_temps()
     assert cleaned >= 1
     # Verify rmtree was called with our target dir
     assert any(str(d) in str(c) for c in mock_rm.call_args_list)
@@ -242,12 +236,11 @@ def test_clean_temps_removes_target(tmp_path):
 def test_clean_temps_no_dirs_zero(tmp_path):
     # Use an isolated dir with no matching subdirs; mock rmtree to prevent
     # real deletion of /tmp/pytest-vivesca etc.
-    with _P("GERMLINE", tmp_path):
-        with patch("subprocess.run"):
-            with patch.object(Path, "glob", return_value=iter([])):
-                with patch("shutil.rmtree") as mock_rm:
-                    mock_rm.side_effect = lambda p, **kw: None
-                    cleaned = clean_temps()
+    with _P("GERMLINE", tmp_path), patch("subprocess.run"):
+        with patch.object(Path, "glob", return_value=iter([])):
+            with patch("shutil.rmtree") as mock_rm:
+                mock_rm.side_effect = lambda p, **kw: None
+                cleaned = clean_temps()
     # None of the hardcoded /tmp paths should match tmp_path
     # but /tmp/pytest-of-terry and /tmp/pytest-vivesca might exist on disk
     # Since we mock rmtree, count depends on whether those paths exist()
@@ -255,28 +248,25 @@ def test_clean_temps_no_dirs_zero(tmp_path):
 
 
 def test_clean_temps_find_pycache(tmp_path):
-    with _P("GERMLINE", tmp_path):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            with patch.object(Path, "glob", return_value=iter([])):
-                with patch("shutil.rmtree"):
-                    clean_temps()
-            assert any("find" in str(c) and "__pycache__" in str(c) for c in mock_run.call_args_list)
+    with _P("GERMLINE", tmp_path), patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        with patch.object(Path, "glob", return_value=iter([])), patch("shutil.rmtree"):
+            clean_temps()
+        assert any("find" in str(c) and "__pycache__" in str(c) for c in mock_run.call_args_list)
 
 
 def test_clean_temps_claude_glob(tmp_path):
     cd = tmp_path / "claude-sess-xyz"
     cd.mkdir()
     (cd / "d").write_text("{}")
-    with _P("GERMLINE", tmp_path):
-        with patch("subprocess.run"):
-            with patch.object(Path, "glob", return_value=iter([cd])):
-                with patch("shutil.rmtree"):
-                    cleaned = clean_temps()
+    with _P("GERMLINE", tmp_path), patch("subprocess.run"):
+        with patch.object(Path, "glob", return_value=iter([cd])):
+            with patch("shutil.rmtree"):
+                cleaned = clean_temps()
     assert cleaned >= 1
 
 
-# ── kill_runaway_golems ────────────────────────────────────────────────
+# ── kill_runaway_ribosomes ────────────────────────────────────────────────
 
 
 def _ps(procs):
@@ -285,49 +275,71 @@ def _ps(procs):
 
 def test_kill_none():
     with patch("subprocess.run", return_value=MagicMock(stdout="", returncode=0)):
-        assert kill_runaway_golems() == 0
+        assert kill_runaway_ribosomes() == 0
 
 
 def test_kill_healthy_spared():
-    with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(1, 100, 512000)]), returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 0
+    with (
+        patch(
+            "subprocess.run", return_value=MagicMock(stdout=_ps([(1, 100, 512000)]), returncode=0)
+        ),
+        patch("os.kill") as mk,
+    ):
+        assert kill_runaway_ribosomes() == 0
     mk.assert_not_called()
 
 
 def test_kill_time():
-    with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(99, GOLEM_MAX_SECONDS + 1, 512000)]), returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 1
+    with (
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=_ps([(99, RIBOSOME_MAX_SECONDS + 1, 512000)]), returncode=0
+            ),
+        ),
+        patch("os.kill") as mk,
+    ):
+        assert kill_runaway_ribosomes() == 1
     mk.assert_called_once_with(99, signal.SIGTERM)
 
 
 def test_kill_memory():
-    rss = (GOLEM_MAX_RSS_MB + 1) * 1024
-    with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(88, 100, rss)]), returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 1
+    rss = (RIBOSOME_MAX_RSS_MB + 1) * 1024
+    with (
+        patch(
+            "subprocess.run", return_value=MagicMock(stdout=_ps([(88, 100, rss)]), returncode=0)
+        ),
+        patch("os.kill") as mk,
+    ):
+        assert kill_runaway_ribosomes() == 1
     mk.assert_called_once_with(88, signal.SIGTERM)
 
 
 def test_kill_time_priority():
-    rss = (GOLEM_MAX_RSS_MB + 1) * 1024
-    with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(77, GOLEM_MAX_SECONDS + 1, rss)]), returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 1
+    rss = (RIBOSOME_MAX_RSS_MB + 1) * 1024
+    with (
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=_ps([(77, RIBOSOME_MAX_SECONDS + 1, rss)]), returncode=0
+            ),
+        ),
+        patch("os.kill") as mk,
+    ):
+        assert kill_runaway_ribosomes() == 1
     mk.assert_called_once_with(77, signal.SIGTERM)
 
 
 def test_kill_multiple():
     procs = [
-        (111, GOLEM_MAX_SECONDS + 1, 512000),
-        (222, 100, (GOLEM_MAX_RSS_MB + 1) * 1024),
+        (111, RIBOSOME_MAX_SECONDS + 1, 512000),
+        (222, 100, (RIBOSOME_MAX_RSS_MB + 1) * 1024),
         (333, 50, 256000),
-        (444, GOLEM_MAX_SECONDS + 1, 256000),
+        (444, RIBOSOME_MAX_SECONDS + 1, 256000),
     ]
     with patch("subprocess.run", return_value=MagicMock(stdout=_ps(procs), returncode=0)):
         with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 3
+            assert kill_runaway_ribosomes() == 3
     pids = [c.args[0] for c in mk.call_args_list]
     assert 111 in pids and 222 in pids and 444 in pids
     assert 333 not in pids
@@ -335,46 +347,68 @@ def test_kill_multiple():
 
 def test_kill_malformed():
     with patch("subprocess.run", return_value=MagicMock(stdout="1 2\n\n", returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 0
+        with patch("os.kill"):
+            assert kill_runaway_ribosomes() == 0
 
 
 def test_kill_exception():
-    with _P("LOG", Path("/dev/null")):
-        with patch("subprocess.run", side_effect=OSError):
-            assert kill_runaway_golems() == 0
+    with _P("LOG", Path("/dev/null")), patch("subprocess.run", side_effect=OSError):
+        assert kill_runaway_ribosomes() == 0
 
 
 def test_kill_boundary_exact():
-    rss = GOLEM_MAX_RSS_MB * 1024
-    with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(1, GOLEM_MAX_SECONDS, rss)]), returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 0
+    rss = RIBOSOME_MAX_RSS_MB * 1024
+    with (
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(stdout=_ps([(1, RIBOSOME_MAX_SECONDS, rss)]), returncode=0),
+        ),
+        patch("os.kill") as mk,
+    ):
+        assert kill_runaway_ribosomes() == 0
     mk.assert_not_called()
 
 
 def test_kill_boundary_plus_one():
-    with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(1, GOLEM_MAX_SECONDS + 1, 512000)]), returncode=0)):
-        with patch("os.kill") as mk:
-            assert kill_runaway_golems() == 1
+    with (
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=_ps([(1, RIBOSOME_MAX_SECONDS + 1, 512000)]), returncode=0
+            ),
+        ),
+        patch("os.kill"),
+    ):
+        assert kill_runaway_ribosomes() == 1
 
 
 def test_kill_log_time(tmp_path):
     lp = tmp_path / "t.log"
-    with _P("LOG", lp):
-        with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(55, GOLEM_MAX_SECONDS + 1, 512000)]), returncode=0)):
-            with patch("os.kill"):
-                kill_runaway_golems()
+    with (
+        _P("LOG", lp),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=_ps([(55, RIBOSOME_MAX_SECONDS + 1, 512000)]), returncode=0
+            ),
+        ),
+        patch("os.kill"),
+    ):
+        kill_runaway_ribosomes()
     assert "KILLED runaway PID 55" in lp.read_text()
 
 
 def test_kill_log_memory(tmp_path):
     lp = tmp_path / "t.log"
-    rss = (GOLEM_MAX_RSS_MB + 1) * 1024
-    with _P("LOG", lp):
-        with patch("subprocess.run", return_value=MagicMock(stdout=_ps([(66, 100, rss)]), returncode=0)):
-            with patch("os.kill"):
-                kill_runaway_golems()
+    rss = (RIBOSOME_MAX_RSS_MB + 1) * 1024
+    with (
+        _P("LOG", lp),
+        patch(
+            "subprocess.run", return_value=MagicMock(stdout=_ps([(66, 100, rss)]), returncode=0)
+        ),
+        patch("os.kill"),
+    ):
+        kill_runaway_ribosomes()
     assert "KILLED memory hog PID 66" in lp.read_text()
 
 
@@ -384,89 +418,117 @@ def test_kill_log_memory(tmp_path):
 def test_cycle_healthy(tmp_path):
     lp = tmp_path / "w.log"
     mc = MagicMock(return_value=0)
-    with _P("LOG", lp), _P("free_gb", MagicMock(return_value=50.0)), \
-         _P("free_mb", MagicMock(return_value=10000.0)), \
-         _P("clean_temps", mc), _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(return_value=50.0)),
+        _P("free_mb", MagicMock(return_value=10000.0)),
+        _P("clean_temps", mc),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     mc.assert_not_called()
 
 
 def test_cycle_disk_warn(tmp_path):
     lp = tmp_path / "w.log"
     mc = MagicMock(return_value=3)
-    with _P("LOG", lp), _P("free_gb", MagicMock(side_effect=[1.5, 1.5])), \
-         _P("free_mb", MagicMock(return_value=10000.0)), \
-         _P("clean_temps", mc), _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(side_effect=[1.5, 1.5])),
+        _P("free_mb", MagicMock(return_value=10000.0)),
+        _P("clean_temps", mc),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     mc.assert_called()
 
 
 def test_cycle_disk_critical(tmp_path):
     lp = tmp_path / "w.log"
-    with _P("LOG", lp), _P("free_gb", MagicMock(side_effect=[0.5, 0.5])), \
-         _P("free_mb", MagicMock(return_value=10000.0)), \
-         _P("clean_temps", MagicMock(return_value=0)), \
-         _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run") as mr:
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(side_effect=[0.5, 0.5])),
+        _P("free_mb", MagicMock(return_value=10000.0)),
+        _P("clean_temps", MagicMock(return_value=0)),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run") as mr,
+    ):
+        check_cycle()
     assert any("pkill" in str(c) for c in mr.call_args_list)
 
 
 def test_cycle_root_warn(tmp_path):
     lp = tmp_path / "w.log"
     mc = MagicMock(return_value=0)
-    with _P("LOG", lp), _P("free_gb", MagicMock(return_value=50.0)), \
-         _P("free_mb", MagicMock(return_value=300.0)), \
-         _P("clean_temps", mc), _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(return_value=50.0)),
+        _P("free_mb", MagicMock(return_value=300.0)),
+        _P("clean_temps", mc),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     mc.assert_called()
 
 
 def test_cycle_rotate(tmp_path):
     lp = tmp_path / "w.log"
     mr = MagicMock()
-    with _P("LOG", lp), _P("free_gb", MagicMock(return_value=50.0)), \
-         _P("free_mb", MagicMock(return_value=10000.0)), \
-         _P("rotate_log", mr), _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(return_value=50.0)),
+        _P("free_mb", MagicMock(return_value=10000.0)),
+        _P("rotate_log", mr),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     assert mr.call_count == 8
 
 
 def test_cycle_kill(tmp_path):
     lp = tmp_path / "w.log"
     mk = MagicMock(return_value=0)
-    with _P("LOG", lp), _P("free_gb", MagicMock(return_value=50.0)), \
-         _P("free_mb", MagicMock(return_value=10000.0)), \
-         _P("kill_runaway_golems", mk):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(return_value=50.0)),
+        _P("free_mb", MagicMock(return_value=10000.0)),
+        _P("kill_runaway_ribosomes", mk),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     mk.assert_called_once()
 
 
 def test_cycle_log_disk_warn(tmp_path):
     lp = tmp_path / "w.log"
-    with _P("LOG", lp), _P("free_gb", MagicMock(side_effect=[1.5, 1.5])), \
-         _P("free_mb", MagicMock(return_value=10000.0)), \
-         _P("clean_temps", MagicMock(return_value=3)), \
-         _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(side_effect=[1.5, 1.5])),
+        _P("free_mb", MagicMock(return_value=10000.0)),
+        _P("clean_temps", MagicMock(return_value=3)),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     c = lp.read_text()
     assert "DISK WARN" in c and "cleaned 3" in c
 
 
 def test_cycle_log_root_warn(tmp_path):
     lp = tmp_path / "w.log"
-    with _P("LOG", lp), _P("free_gb", MagicMock(return_value=50.0)), \
-         _P("free_mb", MagicMock(return_value=200.0)), \
-         _P("clean_temps", MagicMock(return_value=0)), \
-         _P("kill_runaway_golems", MagicMock(return_value=0)):
-        with patch("subprocess.run"):
-            check_cycle()
+    with (
+        _P("LOG", lp),
+        _P("free_gb", MagicMock(return_value=50.0)),
+        _P("free_mb", MagicMock(return_value=200.0)),
+        _P("clean_temps", MagicMock(return_value=0)),
+        _P("kill_runaway_ribosomes", MagicMock(return_value=0)),
+        patch("subprocess.run"),
+    ):
+        check_cycle()
     assert "ROOT WARN" in lp.read_text()
 
 
@@ -476,7 +538,10 @@ def test_cycle_log_root_warn(tmp_path):
 def test_soma_watchdog_main_help(capsys):
     with patch.object(_mod["sys"], "argv", ["w", "--help"]):
         assert main() == 0
-    assert "watchdog" in capsys.readouterr().out.lower() or "system health monitor" in capsys.readouterr().out.lower()
+    assert (
+        "watchdog" in capsys.readouterr().out.lower()
+        or "system health monitor" in capsys.readouterr().out.lower()
+    )
 
 
 def test_main_h(capsys):
@@ -525,8 +590,7 @@ def test_main_multi_cycle(tmp_path):
         if n >= 3:
             raise KeyboardInterrupt
 
-    with _P("LOG", lp), _P("check_cycle", cnt):
-        with patch.object(_mod["sys"], "argv", ["w"]):
-            with patch.object(_mod["time"], "sleep", MagicMock()):
-                main()
+    with _P("LOG", lp), _P("check_cycle", cnt), patch.object(_mod["sys"], "argv", ["w"]):
+        with patch.object(_mod["time"], "sleep", MagicMock()):
+            main()
     assert n == 3

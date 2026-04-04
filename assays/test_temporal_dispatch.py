@@ -1,21 +1,19 @@
-from __future__ import annotations
-
-"""Tests for temporal-golem/dispatch.py — queue parsing, marking, and dispatch logic."""
+"""Tests for polysome/dispatch.py — queue parsing, marking, and dispatch logic."""
 
 import asyncio
+import contextlib
 import textwrap
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ── Load the effector via exec (standard pattern for effectors) ───────
 
 
 def _load_dispatch():
     """Load dispatch.py by exec-ing its source into an isolated namespace."""
-    source = (Path.home() / "germline/effectors/temporal-golem/dispatch.py").read_text()
+    source = (Path.home() / "germline/effectors/polysome/dispatch.py").read_text()
     ns: dict = {"__name__": "dispatch_under_test"}
     exec(source, ns)
     return ns
@@ -38,7 +36,7 @@ LOG_FILE = _mod["LOG_FILE"]
 @pytest.fixture(autouse=True)
 def _use_tmp_queue(tmp_path: Path, monkeypatch):
     """Redirect QUEUE_FILE and LOG_FILE to tmp for every test."""
-    qfile = tmp_path / "golem-queue.md"
+    qfile = tmp_path / "translation-queue.md"
     lfile = tmp_path / "dispatch.log"
     monkeypatch.setitem(_mod, "QUEUE_FILE", qfile)
     monkeypatch.setitem(_mod, "LOG_FILE", lfile)
@@ -57,7 +55,7 @@ def _write_queue(path: Path, content: str) -> None:
 
 def test_parse_queue_empty_file(tmp_path):
     """Empty queue file returns no tasks."""
-    qf = tmp_path / "golem-queue.md"
+    qf = tmp_path / "translation-queue.md"
     _write_queue(qf, "")
     assert parse_queue() == []
 
@@ -72,19 +70,22 @@ def test_parse_queue_no_file(tmp_path):
 
 def test_parse_queue_pending_tasks(tmp_path):
     """Parses - [ ] lines with backtick-enclosed commands."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
         ### Section header
-        - [ ] `golem [t-abc123] --provider zhipu --max-turns 30 "do a thing"`
-        - [ ] `golem [t-def456] --provider volcano --max-turns 50 "do another"`
-    """))
+        - [ ] `ribosome [t-abc123] --provider zhipu --max-turns 30 "do a thing"`
+        - [ ] `ribosome [t-def456] --provider volcano --max-turns 50 "do another"`
+    """),
+    )
     tasks = parse_queue()
     assert len(tasks) == 2
     # (line_num, prompt, provider, task_id, max_turns)
-    assert tasks[0][1] == "do a thing"   # prompt
-    assert tasks[0][2] == "zhipu"        # provider
-    assert tasks[0][3] == "t-abc123"     # task_id
-    assert tasks[0][4] == 30             # max_turns
+    assert tasks[0][1] == "do a thing"  # prompt
+    assert tasks[0][2] == "zhipu"  # provider
+    assert tasks[0][3] == "t-abc123"  # task_id
+    assert tasks[0][4] == 30  # max_turns
 
     assert tasks[1][1] == "do another"
     assert tasks[1][2] == "volcano"
@@ -94,8 +95,10 @@ def test_parse_queue_pending_tasks(tmp_path):
 
 def test_parse_queue_urgent_tasks(tmp_path):
     """Parses - [!!] lines (urgent priority)."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [!!] `golem [t-a1b2c3] --provider codex --max-turns 40 "fix critical bug"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf, '- [!!] `ribosome [t-a1b2c3] --provider codex --max-turns 40 "fix critical bug"`\n'
+    )
     tasks = parse_queue()
     assert len(tasks) == 1
     assert tasks[0][2] == "codex"
@@ -104,8 +107,8 @@ def test_parse_queue_urgent_tasks(tmp_path):
 
 def test_parse_queue_default_provider(tmp_path):
     """Tasks without --provider default to 'zhipu'."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [ ] `golem "just run it"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [ ] `ribosome "just run it"`\n')
     tasks = parse_queue()
     assert len(tasks) == 1
     assert tasks[0][2] == "zhipu"
@@ -113,8 +116,8 @@ def test_parse_queue_default_provider(tmp_path):
 
 def test_parse_queue_default_max_turns(tmp_path):
     """Tasks without --max-turns default to 50."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [ ] `golem --provider infini "no max turns set"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [ ] `ribosome --provider infini "no max turns set"`\n')
     tasks = parse_queue()
     assert len(tasks) == 1
     assert tasks[0][4] == 50
@@ -122,8 +125,8 @@ def test_parse_queue_default_max_turns(tmp_path):
 
 def test_parse_queue_auto_task_id(tmp_path):
     """Tasks without [t-XXXX] get auto-generated hash-based task IDs."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [ ] `golem --provider zhipu "auto id task"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [ ] `ribosome --provider zhipu "auto id task"`\n')
     tasks = parse_queue()
     assert len(tasks) == 1
     # Auto-generated IDs are hash-based: t-XXXXXX
@@ -133,12 +136,15 @@ def test_parse_queue_auto_task_id(tmp_path):
 
 def test_parse_queue_ignores_completed_tasks(tmp_path):
     """Lines with - [x] or - [!] are skipped."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [x] `golem [t-d0ne11] --provider zhipu "completed"`
-        - [!] `golem [t-fa1l22] --provider zhipu "failed"`
-        - [ ] `golem [t-0badbe] --provider zhipu "pending"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [x] `ribosome [t-d0ne11] --provider zhipu "completed"`
+        - [!] `ribosome [t-fa1l22] --provider zhipu "failed"`
+        - [ ] `ribosome [t-0badbe] --provider zhipu "pending"`
+    """),
+    )
     tasks = parse_queue()
     assert len(tasks) == 1
     assert tasks[0][3] == "t-0badbe"
@@ -146,23 +152,29 @@ def test_parse_queue_ignores_completed_tasks(tmp_path):
 
 def test_parse_queue_ignores_non_task_lines(tmp_path):
     """Lines without backtick commands are skipped."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
         ### Section header
         Some explanatory text
         - [ ] 
-    """))
+    """),
+    )
     tasks = parse_queue()
     assert tasks == []
 
 
 def test_parse_queue_line_numbers(tmp_path):
     """Line numbers correspond to actual file line indices."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
         ### Header
-        - [ ] `golem [t-11ne33] --provider zhipu "line 1"`
-    """))
+        - [ ] `ribosome [t-11ne33] --provider zhipu "line 1"`
+    """),
+    )
     # "### Header" is line 0, task is line 1 (dedent removes leading newline)
     tasks = parse_queue()
     assert len(tasks) == 1
@@ -171,8 +183,8 @@ def test_parse_queue_line_numbers(tmp_path):
 
 def test_parse_queue_prompt_is_full_cmd_when_no_quotes(tmp_path):
     """When no quoted prompt, the full backtick content is used as prompt."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, "- [ ] `golem --provider infini --max-turns 20`\n")
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, "- [ ] `ribosome --provider infini --max-turns 20`\n")
     tasks = parse_queue()
     assert len(tasks) == 1
     # prompt_match returns None, so prompt = cmd (full backtick content, with auto-injected task ID)
@@ -184,8 +196,8 @@ def test_parse_queue_prompt_is_full_cmd_when_no_quotes(tmp_path):
 
 def test_mark_done_pending_task(tmp_path):
     """Marking a pending - [ ] task changes it to - [x]."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, "- [ ] `golem [t-abc] --provider zhipu \"task\"`\n")
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [ ] `ribosome [t-abc] --provider zhipu "task"`\n')
     mark_done(0)
     content = qf.read_text()
     assert "- [x] " in content
@@ -194,8 +206,8 @@ def test_mark_done_pending_task(tmp_path):
 
 def test_mark_done_urgent_task(tmp_path):
     """Marking an urgent - [!!] task changes it to - [x]."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [!!] `golem [t-abc] --provider zhipu "urgent task"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [!!] `ribosome [t-abc] --provider zhipu "urgent task"`\n')
     mark_done(0)
     content = qf.read_text()
     assert "- [x] " in content
@@ -204,8 +216,8 @@ def test_mark_done_urgent_task(tmp_path):
 
 def test_mark_done_out_of_range(tmp_path):
     """Marking a line beyond file length is a no-op."""
-    qf = tmp_path / "golem-queue.md"
-    original = "- [ ] `golem \"task\"`\n"
+    qf = tmp_path / "translation-queue.md"
+    original = '- [ ] `ribosome "task"`\n'
     _write_queue(qf, original)
     mark_done(999)
     assert qf.read_text() == original
@@ -213,11 +225,14 @@ def test_mark_done_out_of_range(tmp_path):
 
 def test_mark_done_preserves_other_lines(tmp_path):
     """Marking one line doesn't affect others."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-a] --provider zhipu "first"`
-        - [ ] `golem [t-b] --provider zhipu "second"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [ ] `ribosome [t-a] --provider zhipu "first"`
+        - [ ] `ribosome [t-b] --provider zhipu "second"`
+    """),
+    )
     mark_done(0)
     lines = qf.read_text().splitlines()
     assert "- [x] " in lines[0]
@@ -229,8 +244,8 @@ def test_mark_done_preserves_other_lines(tmp_path):
 
 def test_mark_failed_pending_task_retries_first(tmp_path):
     """First failure on a pending task adds (retry), keeps as [ ]."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [ ] `golem [t-abc] --provider zhipu "task"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [ ] `ribosome [t-abc] --provider zhipu "task"`\n')
     result = mark_failed(0)
     content = qf.read_text()
     assert result["retried"] is True
@@ -240,8 +255,8 @@ def test_mark_failed_pending_task_retries_first(tmp_path):
 
 def test_mark_failed_pending_task_permanent_on_second(tmp_path):
     """Second failure (already has retry) marks as permanently failed [!]."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [ ] `golem [t-abc] --provider zhipu "task (retry)"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [ ] `ribosome [t-abc] --provider zhipu "task (retry)"`\n')
     result = mark_failed(0)
     content = qf.read_text()
     assert result["retried"] is False
@@ -250,8 +265,8 @@ def test_mark_failed_pending_task_permanent_on_second(tmp_path):
 
 def test_mark_failed_urgent_task_retries_first(tmp_path):
     """First failure on an urgent task adds (retry), keeps as [!!]."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [!!] `golem [t-abc] --provider zhipu "urgent"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(qf, '- [!!] `ribosome [t-abc] --provider zhipu "urgent"`\n')
     result = mark_failed(0)
     content = qf.read_text()
     assert result["retried"] is True
@@ -260,8 +275,8 @@ def test_mark_failed_urgent_task_retries_first(tmp_path):
 
 def test_mark_failed_out_of_range(tmp_path):
     """Marking a line beyond file length is a no-op."""
-    qf = tmp_path / "golem-queue.md"
-    original = '- [ ] `golem "task"`\n'
+    qf = tmp_path / "translation-queue.md"
+    original = '- [ ] `ribosome "task"`\n'
     _write_queue(qf, original)
     mark_failed(999)
     assert qf.read_text() == original
@@ -272,8 +287,10 @@ def test_mark_failed_out_of_range(tmp_path):
 
 def test_retry_suffix_stripped(tmp_path):
     """(retry) suffix injected by mark_failed is stripped from the prompt."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, '- [ ] `golem [t-abc123] --provider zhipu --max-turns 30 "do a thing (retry)"`\n')
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf, '- [ ] `ribosome [t-abc123] --provider zhipu --max-turns 30 "do a thing (retry)"`\n'
+    )
     tasks = parse_queue()
     assert len(tasks) == 1
     prompt = tasks[0][1]
@@ -286,7 +303,7 @@ def test_retry_suffix_stripped(tmp_path):
 
 def test_dispatch_all_no_pending(tmp_path, capsys):
     """dispatch_all with empty queue returns 0."""
-    qf = tmp_path / "golem-queue.md"
+    qf = tmp_path / "translation-queue.md"
     _write_queue(qf, "")
     result = asyncio.run(_mod["dispatch_all"]())
     assert result == 0
@@ -294,10 +311,13 @@ def test_dispatch_all_no_pending(tmp_path, capsys):
 
 def test_dispatch_all_dry_run(tmp_path, capsys):
     """dispatch_all with dry_run=True returns count without dispatching."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-abc] --provider zhipu --max-turns 30 "test task"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [ ] `ribosome [t-abc] --provider zhipu --max-turns 30 "test task"`
+    """),
+    )
     result = asyncio.run(_mod["dispatch_all"](dry_run=True))
     assert result == 1
     # Queue should NOT be modified in dry run
@@ -309,10 +329,13 @@ def test_dispatch_all_dry_run(tmp_path, capsys):
 
 def test_dispatch_all_starts_workflow(tmp_path):
     """dispatch_all starts a Temporal workflow and returns count of started tasks."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-abc] --provider zhipu --max-turns 30 "Fix X. Test: uv run pytest assays/test_foo.py -x"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [ ] `ribosome [t-abc] --provider zhipu --max-turns 30 "Fix X. Test: uv run pytest assays/test_foo.py -x"`
+    """),
+    )
 
     mock_client = AsyncMock()
     mock_handle = MagicMock()
@@ -331,11 +354,14 @@ def test_dispatch_all_starts_workflow(tmp_path):
 
 def test_dispatch_all_multiple_tasks(tmp_path):
     """dispatch_all starts multiple workflows for multiple pending tasks."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-a1] --provider zhipu --max-turns 20 "Fix one. Test: uv run pytest assays/test_one.py -x"`
-        - [ ] `golem [t-b2] --provider volcano --max-turns 40 "Fix two. Test: uv run pytest assays/test_two.py -x"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [ ] `ribosome [t-a1] --provider zhipu --max-turns 20 "Fix one. Test: uv run pytest assays/test_one.py -x"`
+        - [ ] `ribosome [t-b2] --provider volcano --max-turns 40 "Fix two. Test: uv run pytest assays/test_two.py -x"`
+    """),
+    )
 
     mock_client = AsyncMock()
     mock_handle = MagicMock()
@@ -355,10 +381,13 @@ def test_dispatch_all_multiple_tasks(tmp_path):
 
 def test_dispatch_all_skips_no_test_ref(tmp_path, capsys):
     """Tasks without test file or spec reference are skipped by test gate."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-notest] --provider zhipu "Do something without tests"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [ ] `ribosome [t-notest] --provider zhipu "Do something without tests"`
+    """),
+    )
     result = asyncio.run(_mod["dispatch_all"]())
     assert result == 0
     captured = capsys.readouterr()
@@ -368,10 +397,13 @@ def test_dispatch_all_skips_no_test_ref(tmp_path, capsys):
 
 def test_dispatch_all_spec_bypasses_test_gate(tmp_path):
     """Tasks referencing a spec file in loci/plans/ bypass the test gate."""
-    qf = tmp_path / "golem-queue.md"
-    _write_queue(qf, textwrap.dedent("""\
-        - [ ] `golem [t-spec] --provider zhipu --max-turns 15 "Execute the spec at ~/germline/loci/plans/my-spec.md"`
-    """))
+    qf = tmp_path / "translation-queue.md"
+    _write_queue(
+        qf,
+        textwrap.dedent("""\
+        - [ ] `ribosome [t-spec] --provider zhipu --max-turns 15 "Execute the spec at ~/germline/loci/plans/my-spec.md"`
+    """),
+    )
 
     mock_client = AsyncMock()
     mock_handle = MagicMock()
@@ -415,9 +447,8 @@ def test_log_json_mode_suppresses_stdout(tmp_path, capsys):
 
 def test_main_help(capsys):
     """--help prints docstring and exits."""
-    with pytest.raises(SystemExit) as exc_info:
-        with patch("sys.argv", ["dispatch.py", "--help"]):
-            main()
+    with pytest.raises(SystemExit) as exc_info, patch("sys.argv", ["dispatch.py", "--help"]):
+        main()
     assert exc_info.value.code == 0
     captured = capsys.readouterr()
     assert "temporal-dispatch" in captured.out
@@ -483,10 +514,8 @@ def test_conn_failure_telegram_alert():
     try:
         with patch("subprocess.Popen", side_effect=_popen_side_effect):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                try:
+                with contextlib.suppress(SystemExit):
                     asyncio.run(poll_loop(interval=1))
-                except SystemExit:
-                    pass
     finally:
         _mod["dispatch_all"] = orig_dispatch
         _mod["collect_results"] = orig_collect
@@ -495,24 +524,24 @@ def test_conn_failure_telegram_alert():
     # Cycle 6: success → streak resets
     # Second streak: failures 7-10 → no alert, failure 11 → second alert
     assert len(popen_calls) == 2, f"expected 2 Popen calls, got {len(popen_calls)}"
-    for call_args, call_kwargs in popen_calls:
+    for call_args, _call_kwargs in popen_calls:
         cmd = call_args[0]
         assert "python3" in cmd[0]
         assert "send_message" in cmd[2]
         assert "temporal-dispatch" in cmd[2]
 
 
-# ── golem syntax pre-check tests ──────────────────────────────────────
+# ── ribosome syntax pre-check tests ──────────────────────────────────────
 
 
-def test_golem_syntax_precheck():
-    """Syntax error in golem script causes early return without running golem."""
-    worker_path = Path.home() / "germline/effectors/temporal-golem/worker.py"
+def test_ribosome_syntax_precheck():
+    """Syntax error in ribosome script causes early return without running ribosome."""
+    worker_path = Path.home() / "germline/effectors/polysome/worker.py"
     source = worker_path.read_text()
     ns: dict = {"__name__": "worker_under_test", "__file__": str(worker_path)}
     exec(source, ns)
 
-    run_golem_task = ns["run_golem_task"]
+    translate = ns["translate"]
     worker_subprocess = ns["_subprocess"]
 
     # Mock _subprocess.run to return syntax error for bash -n
@@ -522,13 +551,11 @@ def test_golem_syntax_precheck():
 
     with patch.object(worker_subprocess, "run", return_value=mock_result):
         with patch("asyncio.create_subprocess_exec") as mock_exec:
-            result = asyncio.run(
-                run_golem_task("test task [t-syn01]", "zhipu")
-            )
+            result = asyncio.run(translate("test task [t-syn01]", "zhipu"))
 
     assert result["exit_code"] == -1
     assert result["success"] is False
-    assert "golem script has syntax error" in result["stderr"]
+    assert "ribosome script has syntax error" in result["stderr"]
     assert "syntax error near unexpected token" in result["stderr"]
-    # Golem subprocess must NOT have been launched
+    # Ribosome subprocess must NOT have been launched
     mock_exec.assert_not_called()

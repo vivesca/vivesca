@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""queue-balance — report task distribution by provider from golem-queue.md.
+"""queue-balance — report task distribution by provider from translation-queue.md.
 
-Reads a golem-queue.md file, counts dispatched tasks per provider,
+Reads a translation-queue.md file, counts dispatched tasks per provider,
 counts unassigned tasks, and suggests rebalancing to maximize throughput
 given provider concurrency limits.
 
-Usage: queue-balance <path-to-golem-queue.md> [--json]
+Usage: queue-balance <path-to-translation-queue.md> [--json]
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 
 # Provider concurrency limits (max simultaneous tasks).
-# Sourced from golem-queue.md header: ZhiPu(4) + Infini(6) + Volcano(8).
+# Sourced from translation-queue.md header: ZhiPu(4) + Infini(6) + Volcano(8).
 PROVIDER_CONCURRENCY: dict[str, int] = {
     "zhipu": 4,
     "infini": 6,
@@ -47,7 +48,7 @@ def parse_queue_v2(text: str) -> tuple[Counter[str], int]:
 
         # Check for #### heading — a potential task
         if re.match(r"^####\s+\S", stripped):
-            heading = re.sub(r"^####\s+", "", stripped)
+            re.sub(r"^####\s+", "", stripped)
             # Look for dispatched task in the block until next heading
             found_dispatch = False
             j = i + 1
@@ -85,6 +86,7 @@ def compute_throughput(provider_counts: Counter[str]) -> dict[str, dict]:
     drain_time = ceil(tasks / concurrency) in rounds.
     """
     import math
+
     result: dict[str, dict] = {}
     for provider, count in provider_counts.items():
         conc = PROVIDER_CONCURRENCY.get(provider, 4)
@@ -109,7 +111,7 @@ def suggest_rebalance(provider_counts: Counter[str], unassigned: int) -> list[st
     lines: list[str] = []
     if not provider_counts:
         if unassigned > 0:
-            lines.append(f"ℹ {unassigned} unassigned task(s) — assign to providers to start")
+            lines.append(f"i {unassigned} unassigned task(s) — assign to providers to start")
         return lines
 
     throughput = compute_throughput(provider_counts)
@@ -124,8 +126,10 @@ def suggest_rebalance(provider_counts: Counter[str], unassigned: int) -> list[st
         info = throughput[provider]
         bar_len = int(info["drain_time"] / max_drain * 20) if max_drain > 0 else 0
         bar = "#" * bar_len
-        lines.append(f"  {provider:<12} {info['tasks']:>3} tasks / {info['concurrency']} slots "
-                     f"= {info['drain_time']:>2} rounds  {bar}")
+        lines.append(
+            f"  {provider:<12} {info['tasks']:>3} tasks / {info['concurrency']} slots "
+            f"= {info['drain_time']:>2} rounds  {bar}"
+        )
     lines.append("")
 
     # Find imbalance: if max drain > 2x min drain, suggest moves
@@ -137,9 +141,11 @@ def suggest_rebalance(provider_counts: Counter[str], unassigned: int) -> list[st
         min_drain_val = drain_times[min_p]
         if max_drain_val > 2 * min_drain_val and min_drain_val > 0:
             ratio = max_drain_val / min_drain_val
-            lines.append(f"⚠ Throughput imbalance: {max_p} drains in "
-                         f"{max_drain_val} rounds vs {min_p} in {min_drain_val} "
-                         f"({ratio:.1f}x)")
+            lines.append(
+                f"⚠ Throughput imbalance: {max_p} drains in "
+                f"{max_drain_val} rounds vs {min_p} in {min_drain_val} "
+                f"({ratio:.1f}x)"
+            )
 
             # Compute how many tasks to move from slow to fast to equalise
             total_tasks = total_dispatched
@@ -177,10 +183,12 @@ def suggest_rebalance(provider_counts: Counter[str], unassigned: int) -> list[st
                 best_spare = spare
                 best_provider = p
         if best_provider:
-            lines.append(f"ℹ {unassigned} unassigned task(s) — assign {min(unassigned, best_spare)} "
-                         f"to {best_provider} (has {best_spare} spare slot(s) this round)")
+            lines.append(
+                f"i {unassigned} unassigned task(s) — assign {min(unassigned, best_spare)} "
+                f"to {best_provider} (has {best_spare} spare slot(s) this round)"
+            )
         else:
-            lines.append(f"ℹ {unassigned} unassigned task(s) — consider dispatching")
+            lines.append(f"i {unassigned} unassigned task(s) — consider dispatching")
 
     return lines
 
@@ -192,7 +200,7 @@ def format_report(provider_counts: Counter[str], unassigned: int) -> str:
 
     lines: list[str] = []
     lines.append("=" * 55)
-    lines.append("Golem Queue — Task Distribution by Provider")
+    lines.append("Ribosome Queue — Task Distribution by Provider")
     lines.append("=" * 55)
     lines.append("")
 
@@ -207,7 +215,7 @@ def format_report(provider_counts: Counter[str], unassigned: int) -> str:
     for provider, count in sorted(provider_counts.items(), key=lambda x: -x[1]):
         share = f"{count / total_dispatched * 100:.1f}%" if total_dispatched else "0%"
         conc = PROVIDER_CONCURRENCY.get(provider, "?")
-        lines.append(f"{provider:<15} {count:>6} {share:>8} {str(conc):>5}")
+        lines.append(f"{provider:<15} {count:>6} {share:>8} {conc!s:>5}")
     if unassigned:
         share = f"{unassigned / total * 100:.1f}%"
         lines.append(f"{'(unassigned)':<15} {unassigned:>6} {share:>8} {'—':>5}")
@@ -225,12 +233,14 @@ def format_report(provider_counts: Counter[str], unassigned: int) -> str:
             max_provider = providers[counts.index(max_count)]
             min_provider = providers[counts.index(min_count)]
             imbalance_ratio = max_count / min_count
-            lines.append(f"⚠ Count imbalance: {max_provider} has "
-                         f"{imbalance_ratio:.1f}x tasks of {min_provider}")
+            lines.append(
+                f"⚠ Count imbalance: {max_provider} has "
+                f"{imbalance_ratio:.1f}x tasks of {min_provider}"
+            )
         else:
             lines.append("✓ Count distribution balanced (no provider >2x another)")
     elif len(provider_counts) == 1:
-        lines.append("ℹ Only one provider has dispatched tasks")
+        lines.append("i Only one provider has dispatched tasks")
 
     # Throughput-aware suggestions
     lines.append("")
@@ -244,14 +254,17 @@ def format_report(provider_counts: Counter[str], unassigned: int) -> str:
 def format_json(provider_counts: Counter[str], unassigned: int) -> str:
     """Format report as JSON for machine consumption."""
     throughput = compute_throughput(provider_counts)
-    return json.dumps({
-        "provider_counts": dict(provider_counts),
-        "unassigned": unassigned,
-        "total_dispatched": sum(provider_counts.values()),
-        "total": sum(provider_counts.values()) + unassigned,
-        "concurrency": PROVIDER_CONCURRENCY,
-        "throughput": throughput,
-    }, indent=2)
+    return json.dumps(
+        {
+            "provider_counts": dict(provider_counts),
+            "unassigned": unassigned,
+            "total_dispatched": sum(provider_counts.values()),
+            "total": sum(provider_counts.values()) + unassigned,
+            "concurrency": PROVIDER_CONCURRENCY,
+            "throughput": throughput,
+        },
+        indent=2,
+    )
 
 
 def main() -> None:
@@ -262,7 +275,7 @@ def main() -> None:
 
     args = [a for a in sys.argv[1:] if a not in ("--json",)]
     if not args:
-        print("Usage: queue-balance <path-to-golem-queue.md> [--json]", file=sys.stderr)
+        print("Usage: queue-balance <path-to-translation-queue.md> [--json]", file=sys.stderr)
         sys.exit(1)
 
     queue_path = Path(args[0])

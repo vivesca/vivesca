@@ -1,4 +1,3 @@
-
 """preflight — pre-operation health validator.
 
 Runs quick deterministic checks before expensive operations.
@@ -6,19 +5,18 @@ Returns a PreflightResult with pass/fail and details.
 Fails fast on critical issues, warns on degraded state.
 """
 
-
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from metabolon.locus import (
     epigenome,
     germline,
-    golem_log,
     infections_log,
+    ribosome_log,
     signals_log,
 )
 
@@ -26,11 +24,11 @@ SIGNAL_BUS = signals_log
 INFECTION_LOG = infections_log
 GERMLINE = germline
 EPIGENOME = epigenome
-GOLEM_LOG = golem_log
+RIBOSOME_LOG = ribosome_log
 
 MAX_REPO_AGE_HOURS = 4
 MAX_SIGNAL_BUS_AGE_HOURS = 12
-MAX_GOLEM_LOG_AGE_HOURS = 24
+MAX_RIBOSOME_LOG_AGE_HOURS = 24
 
 # Provider config: env var name, base URL (for health check), model for ping
 PROVIDER_CONFIG = {
@@ -203,38 +201,38 @@ def run_preflight(api_keys: list[str] | None = None) -> PreflightResult:
     return result
 
 
-def check_golem_binary() -> CheckResult:
-    """Check that the golem binary exists and is executable."""
-    golem_path = shutil.which("golem")
-    if golem_path is None:
+def check_ribosome_binary() -> CheckResult:
+    """Check that the ribosome binary exists and is executable."""
+    ribosome_path = shutil.which("ribosome")
+    if ribosome_path is None:
         # Check default location
-        default_path = Path.home() / "germline" / "effectors" / "golem"
+        default_path = Path.home() / "germline" / "effectors" / "ribosome"
         if default_path.exists():
             if os.access(default_path, os.X_OK):
                 return CheckResult(
-                    name="golem_binary", passed=True, message=f"Found at {default_path}"
+                    name="ribosome_binary", passed=True, message=f"Found at {default_path}"
                 )
             return CheckResult(
-                name="golem_binary",
+                name="ribosome_binary",
                 passed=False,
-                message="Golem not executable",
+                message="Ribosome not executable",
                 severity="critical",
             )
         return CheckResult(
-            name="golem_binary",
+            name="ribosome_binary",
             passed=False,
-            message="Golem binary not found",
+            message="Ribosome binary not found",
             severity="critical",
         )
-    return CheckResult(name="golem_binary", passed=True, message=f"Found at {golem_path}")
+    return CheckResult(name="ribosome_binary", passed=True, message=f"Found at {ribosome_path}")
 
 
-def check_golem_api_key(provider: str = "zhipu") -> CheckResult:
+def check_ribosome_api_key(provider: str = "zhipu") -> CheckResult:
     """Check that the API key for the specified provider is set."""
     config = PROVIDER_CONFIG.get(provider)
     if config is None:
         return CheckResult(
-            name=f"golem_api_key_{provider}",
+            name=f"ribosome_api_key_{provider}",
             passed=False,
             message=f"Unknown provider: {provider}",
             severity="warning",
@@ -309,36 +307,38 @@ def check_provider_health(provider: str = "zhipu", timeout: float = 5.0) -> Chec
         )
 
 
-def check_golem_log_freshness(max_hours: float = MAX_GOLEM_LOG_AGE_HOURS) -> CheckResult:
-    """Check that golem has been used recently (log file freshness)."""
-    if not GOLEM_LOG.exists():
+def check_ribosome_log_freshness(max_hours: float = MAX_RIBOSOME_LOG_AGE_HOURS) -> CheckResult:
+    """Check that ribosome has been used recently (log file freshness)."""
+    if not RIBOSOME_LOG.exists():
         return CheckResult(
-            name="golem_log_freshness",
+            name="ribosome_log_freshness",
             passed=False,
-            message="No golem log found",
+            message="No ribosome log found",
             severity="info",
         )
-    age_hours = (time.time() - GOLEM_LOG.stat().st_mtime) / 3600
+    age_hours = (time.time() - RIBOSOME_LOG.stat().st_mtime) / 3600
     if age_hours > max_hours:
         return CheckResult(
-            name="golem_log_freshness",
+            name="ribosome_log_freshness",
             passed=False,
-            message=f"Golem last used {age_hours:.1f}h ago",
+            message=f"Ribosome last used {age_hours:.1f}h ago",
             severity="info",
         )
     return CheckResult(
-        name="golem_log_freshness", passed=True, message=f"Last used {age_hours:.1f}h ago"
+        name="ribosome_log_freshness", passed=True, message=f"Last used {age_hours:.1f}h ago"
     )
 
 
-def check_golem_ready(provider: str = "zhipu", skip_health_check: bool = False) -> PreflightResult:
-    """Comprehensive golem readiness check.
+def check_ribosome_ready(
+    provider: str = "zhipu", skip_health_check: bool = False
+) -> PreflightResult:
+    """Comprehensive ribosome readiness check.
 
     Verifies:
-    1. Golem binary exists and is executable
+    1. Ribosome binary exists and is executable
     2. API key for the provider is set
     3. Provider API is reachable (optional, can be slow)
-    4. Golem has been used recently (info only)
+    4. Ribosome has been used recently (info only)
 
     Args:
         provider: Provider to check (zhipu, volcano, anthropic)
@@ -349,12 +349,12 @@ def check_golem_ready(provider: str = "zhipu", skip_health_check: bool = False) 
     """
     result = PreflightResult()
 
-    result.add(check_golem_binary())
-    result.add(check_golem_api_key(provider))
+    result.add(check_ribosome_binary())
+    result.add(check_ribosome_api_key(provider))
 
     if not skip_health_check:
         result.add(check_provider_health(provider))
 
-    result.add(check_golem_log_freshness())
+    result.add(check_ribosome_log_freshness())
 
     return result

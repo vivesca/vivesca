@@ -16,7 +16,7 @@ Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference
 
 ## GLM Coaching
 
-Append recurring GLM failure patterns to `~/epigenome/marks/feedback_golem_coaching.md`. Prepended to every golem dispatch. Format: pattern name, what GLM does wrong, fix instruction.
+Append recurring GLM failure patterns to `~/epigenome/marks/feedback_ribosome_coaching.md`. Prepended to every ribosome dispatch. Format: pattern name, what GLM does wrong, fix instruction.
 
 <!-- BEGIN COMPOUND CODEX TOOL MAP -->
 ## Compound Codex Tool Mapping (Claude Compatibility)

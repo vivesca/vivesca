@@ -1,15 +1,14 @@
-"""golem_queue — MCP tool for managing the golem task queue.
+"""ribosome_queue — MCP tool for managing the ribosome task queue.
 
 Actions: list|add|remove|status|complete|fail
 
-The queue lives at ~/germline/loci/golem-queue.md and uses markdown
+The queue lives at ~/germline/loci/translation-queue.md and uses markdown
 checkbox syntax:
 
-    - [ ] `golem [ID] ...`   — pending
-    - [x] ...                — completed
-    - [!] ...                — failed
+    - [ ] `ribosome [ID] ...`   — pending
+    - [x] ...                   — completed
+    - [!] ...                   — failed
 """
-
 
 import fcntl
 import os
@@ -23,12 +22,12 @@ from pydantic import Field
 
 from metabolon.morphology import EffectorResult, Secretion
 
-QUEUE_PATH = Path(os.path.expanduser("~/germline/loci/golem-queue.md"))
+QUEUE_PATH = Path(os.path.expanduser("~/germline/loci/translation-queue.md"))
 
 # Regex that matches a queue entry line.
 # Captures: checkbox state ([ ], [x], [!]), task_id, optional tags, the rest.
 _ENTRY_RE = re.compile(
-    r"^-\s*\[(?P<state>[ x!])\]\s*`?golem\s+\[(?P<task_id>[^\]]+)\]"
+    r"^-\s*\[(?P<state>[ x!])\]\s*`?ribosome\s+\[(?P<task_id>[^\]]+)\]"
     r"(?:\s+\[(?P<tags>[^\]]+)\])?"
     r"\s*(?P<rest>.*?)`?\s*$",
 )
@@ -37,7 +36,7 @@ _PENDING_HEADER = "### Pending"
 
 
 class QueueResult(Secretion):
-    """Structured result for golem-queue operations."""
+    """Structured result for ribosome-queue operations."""
 
     output: str
     data: dict[str, Any] = Field(default_factory=dict)
@@ -121,7 +120,7 @@ def _build_entry_line(
         tag_parts = f" [{tags}]"
     state_char = {"pending": " ", "completed": "x", "failed": "!"}.get(state, " ")
     return (
-        f"- [{state_char}] `golem [{task_id}]{tag_parts}"
+        f"- [{state_char}] `ribosome [{task_id}]{tag_parts}"
         f' --provider {provider} --max-turns {max_turns} "{prompt}"`\n'
     )
 
@@ -130,15 +129,15 @@ def _build_entry_line(
 
 
 @tool(
-    name="golem_queue",
+    name="ribosome_queue",
     description=(
-        "Golem task queue management. "
+        "Ribosome task queue management. "
         "Actions: list|add|remove|status|complete|fail. "
-        "Queue file: ~/germline/loci/golem-queue.md"
+        "Queue file: ~/germline/loci/translation-queue.md"
     ),
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def golem_queue(
+def ribosome_queue(
     action: str,
     task_id: str = "",
     tags: str = "",
@@ -146,7 +145,7 @@ def golem_queue(
     max_turns: int = 15,
     prompt: str = "",
 ) -> QueueResult | EffectorResult:
-    """Manage the golem task queue.
+    """Manage the ribosome task queue.
 
     Parameters
     ----------

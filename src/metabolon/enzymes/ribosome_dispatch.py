@@ -1,9 +1,9 @@
-"""golem_dispatch — MCP tool for direct Temporal workflow dispatch.
+"""ribosome_dispatch — MCP tool for direct Temporal workflow dispatch.
 
 Actions: dispatch|batch|status|list|cancel
 
 Connects to a Temporal server (default ganglion:7233) and manages
-golem workflows directly — no markdown queue, no poller layer.
+ribosome workflows directly — no markdown queue, no poller layer.
 """
 
 import asyncio
@@ -22,15 +22,15 @@ from metabolon.morphology import EffectorResult, Secretion
 # Temporal host — override via TEMPORAL_HOST env var
 TEMPORAL_HOST: str = os.environ.get("TEMPORAL_HOST", "100.120.158.22:7233")
 
-# Allow import of GolemDispatchWorkflow from effectors/temporal-golem
+# Allow import of TranslationWorkflow from effectors/polysome
 sys.path.insert(
     0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "effectors", "temporal-golem"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "effectors", "polysome"),
 )
 
 
 class QueueResult(Secretion):
-    """Structured result for golem-dispatch operations."""
+    """Structured result for ribosome-dispatch operations."""
 
     output: str
     data: dict[str, Any] = Field(default_factory=dict)
@@ -50,13 +50,13 @@ async def _start_workflow(specs: list[dict]) -> dict[str, Any]:
     """Start a single Temporal workflow with the given task specs."""
     client = await _get_client()
     provider = specs[0].get("provider", "zhipu") if specs else "zhipu"
-    wf_id = f"golem-{provider}-{uuid.uuid4().hex[:8]}"
+    wf_id = f"ribosome-{provider}-{uuid.uuid4().hex[:8]}"
 
     handle = await client.start_workflow(
-        "GolemDispatchWorkflow",
+        "TranslationWorkflow",
         args=[specs],
         id=wf_id,
-        task_queue="golem-tasks",
+        task_queue="translation-queue",
     )
     return {
         "workflow_id": handle.id,
@@ -86,13 +86,13 @@ async def _list_workflows(
     status: str = "",
     provider: str = "",
 ) -> list[dict[str, Any]]:
-    """List recent golem workflows, optionally filtered by status/provider."""
+    """List recent ribosome workflows, optionally filtered by status/provider."""
     client = await _get_client()
-    clauses = ['WorkflowId STARTS_WITH "golem-"']
+    clauses = ['WorkflowId STARTS_WITH "ribosome-"']
     if status:
         clauses.append(f'ExecutionStatus = "{status.capitalize()}"')
     if provider:
-        clauses.append(f'GolemProvider = "{provider}"')
+        clauses.append(f'RibosomeProvider = "{provider}"')
     query = " AND ".join(clauses)
     results: list[dict[str, Any]] = []
     async for wf in client.list_workflows(query=query, page_size=limit):
@@ -142,11 +142,11 @@ async def _cancel_workflow(workflow_id: str) -> bool:
 
 
 @tool(
-    name="golem_dispatch",
-    description="dispatch|batch|status|result|list|running|failed|approve|reject|cancel — Temporal golem dispatch",
+    name="ribosome_dispatch",
+    description="dispatch|batch|status|result|list|running|failed|approve|reject|cancel — Temporal ribosome dispatch",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def golem_dispatch(
+def ribosome_dispatch(
     action: str,
     prompt: str = "",
     provider: str = "zhipu",
@@ -156,7 +156,7 @@ def golem_dispatch(
     limit: int = 10,
     status_filter: str = "",
 ) -> QueueResult | EffectorResult:
-    """Direct Temporal dispatch for golem tasks.
+    """Direct Temporal dispatch for ribosome tasks.
 
     Parameters
     ----------

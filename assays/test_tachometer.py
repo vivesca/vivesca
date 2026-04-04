@@ -1,12 +1,6 @@
-from __future__ import annotations
-
 """Tests for metabolon/enzymes/tachometer.py"""
 
-
-from datetime import datetime
 from unittest.mock import patch
-
-import pytest
 
 
 class TestTachometerSpeed:
@@ -113,7 +107,7 @@ class TestTachometerSlowest:
     @patch("metabolon.enzymes.tachometer.slowest_recent")
     def test_slowest_returns_formatted_task(self, mock_slowest):
         mock_slowest.return_value = {
-            "plan": "golem-review-42",
+            "plan": "ribosome-review-42",
             "duration_s": 125.5,
             "tool": "reviewer",
             "timestamp": "2026-04-01T10:30:00",
@@ -122,7 +116,7 @@ class TestTachometerSlowest:
         from metabolon.enzymes.tachometer import tachometer
 
         result = tachometer("slowest")
-        assert "Plan: golem-review-42" in result
+        assert "Plan: ribosome-review-42" in result
         assert "Duration: 125.5s" in result
         assert "Tool: reviewer" in result
         assert "Timestamp: 2026-04-01T10:30:00" in result

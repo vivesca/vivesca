@@ -1,8 +1,10 @@
 """Tests for temporal dispatch poller stalling fix (t-c5eef9)."""
+
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+import contextlib
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,6 +15,7 @@ class TestPollLoopTimeout:
     @pytest.mark.asyncio
     async def test_dispatch_timeout_does_not_crash(self):
         """If dispatch takes >120s, poll loop should log and continue."""
+
         async def slow_dispatch(*args, **kwargs):
             await asyncio.sleep(999)
             return 0
@@ -34,10 +37,8 @@ class TestPollLoopTimeout:
             return 0  # succeeds second time
 
         # First call times out
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(flaky_dispatch(), timeout=0.1)
-        except asyncio.TimeoutError:
-            pass
 
         # Second call succeeds
         result = await asyncio.wait_for(flaky_dispatch(), timeout=1.0)
@@ -57,10 +58,10 @@ class TestWorkflowStartMode:
         mock_client.start_workflow.return_value = mock_handle
 
         handle = await mock_client.start_workflow(
-            "GolemDispatchWorkflow",
+            "TranslationWorkflow",
             args=[[]],
             id="test-id",
-            task_queue="golem-tasks",
+            task_queue="translation-queue",
         )
         assert handle.id == "test-workflow-id"
         mock_client.start_workflow.assert_called_once()

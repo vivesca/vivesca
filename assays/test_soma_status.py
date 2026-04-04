@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for soma-status — system health summary CLI."""
 
 import json
@@ -26,7 +24,7 @@ def _load_module() -> dict:
 
 _mod = _load_module()
 collect_supervisor = _mod["collect_supervisor"]
-collect_golem_stats = _mod["collect_golem_stats"]
+collect_ribosome_stats = _mod["collect_ribosome_stats"]
 collect_disk = _mod["collect_disk"]
 collect_uptime = _mod["collect_uptime"]
 collect_memory = _mod["collect_memory"]
@@ -49,11 +47,11 @@ def _mock_completed(stdout: str = "", returncode: int = 0) -> MagicMock:
 
 class TestCollectSupervisor:
     def test_running_program(self):
-        out = "golem-daemon                    RUNNING   pid 12345, uptime 1:23:45\n"
+        out = "ribosome-daemon                    RUNNING   pid 12345, uptime 1:23:45\n"
         with patch("subprocess.run", return_value=_mock_completed(out)):
             progs = collect_supervisor()
         assert len(progs) == 1
-        assert progs[0]["name"] == "golem-daemon"
+        assert progs[0]["name"] == "ribosome-daemon"
         assert progs[0]["state"] == "RUNNING"
         assert progs[0]["pid"] == 12345
 
@@ -67,7 +65,7 @@ class TestCollectSupervisor:
 
     def test_multiple_programs(self):
         out = (
-            "golem-daemon                    RUNNING   pid 100, uptime 0:10:00\n"
+            "ribosome-daemon                    RUNNING   pid 100, uptime 0:10:00\n"
             "webapp                          RUNNING   pid 200, uptime 0:05:00\n"
             "worker                          STOPPED   Not started\n"
         )
@@ -84,6 +82,7 @@ class TestCollectSupervisor:
 
     def test_supervisorctl_timeout(self):
         import subprocess
+
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 10)):
             progs = collect_supervisor()
         assert progs == []
@@ -101,25 +100,26 @@ class TestCollectSupervisor:
         assert progs[0]["pid"] is None
 
 
-# ── golem stats collector ────────────────────────────────────────────
+# ── ribosome stats collector ────────────────────────────────────────────
 
 
-class TestCollectGolemStats:
+class TestCollectRibosomeStats:
     def test_success(self):
         stats_out = "Total tasks: 100 (passed: 80, failed: 20)\n"
         with patch("subprocess.run", return_value=_mock_completed(stats_out)):
-            result = collect_golem_stats()
+            result = collect_ribosome_stats()
         assert "Total tasks: 100" in result
 
     def test_not_found(self):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            result = collect_golem_stats()
+            result = collect_ribosome_stats()
         assert "unavailable" in result
 
     def test_timeout(self):
         import subprocess
+
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 30)):
-            result = collect_golem_stats()
+            result = collect_ribosome_stats()
         assert "unavailable" in result
 
 
@@ -205,27 +205,48 @@ class TestCollectMemory:
 
 class TestFormatHuman:
     def _make_data(self):
-        supervisor = [{"name": "golem-daemon", "state": "RUNNING", "pid": 123, "info": "pid 123, uptime 1:00:00"}]
-        golem_stats = "Total tasks: 10 (passed: 8, failed: 2)"
-        disk = {"filesystem": "none", "size": "8G", "used": "5G", "avail": "3G", "use_pct": "62%", "mounted": "/"}
+        supervisor = [
+            {
+                "name": "ribosome-daemon",
+                "state": "RUNNING",
+                "pid": 123,
+                "info": "pid 123, uptime 1:00:00",
+            }
+        ]
+        ribosome_stats = "Total tasks: 10 (passed: 8, failed: 2)"
+        disk = {
+            "filesystem": "none",
+            "size": "8G",
+            "used": "5G",
+            "avail": "3G",
+            "use_pct": "62%",
+            "mounted": "/",
+        }
         uptime_str = "10:00:00 up 5 days, 2:00, 1 user, load average: 1.0, 1.5, 2.0"
         memory = {
-            "mem": {"total": "16Gi", "used": "8Gi", "free": "4Gi", "shared": "0", "buff_cache": "4Gi", "available": "8Gi"},
+            "mem": {
+                "total": "16Gi",
+                "used": "8Gi",
+                "free": "4Gi",
+                "shared": "0",
+                "buff_cache": "4Gi",
+                "available": "8Gi",
+            },
             "swap": {"total": "4Gi", "used": "0", "free": "4Gi"},
         }
-        return supervisor, golem_stats, disk, uptime_str, memory
+        return supervisor, ribosome_stats, disk, uptime_str, memory
 
     def test_has_section_headers(self):
         out = format_human(*self._make_data())
         assert "UPTIME" in out
         assert "SERVICES" in out
-        assert "GOLEM STATS" in out
+        assert "RIBOSOME STATS" in out
         assert "DISK" in out
         assert "MEMORY" in out
 
     def test_shows_supervisor_programs(self):
         out = format_human(*self._make_data())
-        assert "golem-daemon" in out
+        assert "ribosome-daemon" in out
         assert "RUNNING" in out
 
     def test_shows_disk_usage(self):
@@ -263,26 +284,35 @@ class TestFormatHuman:
 
 class TestFormatJson:
     def _make_data(self):
-        supervisor = [{"name": "golem-daemon", "state": "RUNNING", "pid": 123, "info": "pid 123"}]
-        golem_stats = "Total tasks: 10"
-        disk = {"filesystem": "none", "size": "8G", "used": "5G", "avail": "3G", "use_pct": "62%", "mounted": "/"}
+        supervisor = [
+            {"name": "ribosome-daemon", "state": "RUNNING", "pid": 123, "info": "pid 123"}
+        ]
+        ribosome_stats = "Total tasks: 10"
+        disk = {
+            "filesystem": "none",
+            "size": "8G",
+            "used": "5G",
+            "avail": "3G",
+            "use_pct": "62%",
+            "mounted": "/",
+        }
         uptime_str = "up 5 days"
         memory = {"mem": {"total": "16Gi", "used": "8Gi"}, "swap": {"total": "4Gi", "used": "0"}}
-        return supervisor, golem_stats, disk, uptime_str, memory
+        return supervisor, ribosome_stats, disk, uptime_str, memory
 
     def test_valid_json(self):
         out = format_json(*self._make_data())
         parsed = json.loads(out)
         assert "uptime" in parsed
         assert "supervisor" in parsed
-        assert "golem_stats" in parsed
+        assert "ribosome_stats" in parsed
         assert "disk" in parsed
         assert "memory" in parsed
 
     def test_json_supervisor_content(self):
         out = format_json(*self._make_data())
         parsed = json.loads(out)
-        assert parsed["supervisor"][0]["name"] == "golem-daemon"
+        assert parsed["supervisor"][0]["name"] == "ribosome-daemon"
 
     def test_json_disk_content(self):
         out = format_json(*self._make_data())
@@ -297,9 +327,13 @@ class TestMain:
     def test_human_output(self):
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
-                _mock_completed("golem-daemon  RUNNING   pid 1, uptime 0:00:01\n"),  # supervisorctl
-                _mock_completed("Total tasks: 5\n"),  # golem stats
-                _mock_completed("Filesystem Size Used Avail Use% Mounted\n/dev 10G 5G 5G 50% /\n"),  # df
+                _mock_completed(
+                    "ribosome-daemon  RUNNING   pid 1, uptime 0:00:01\n"
+                ),  # supervisorctl
+                _mock_completed("Total tasks: 5\n"),  # ribosome stats
+                _mock_completed(
+                    "Filesystem Size Used Avail Use% Mounted\n/dev 10G 5G 5G 50% /\n"
+                ),  # df
                 _mock_completed("up 1 day\n"),  # uptime
                 _mock_completed("Mem: 16Gi 8Gi 4Gi 0 4Gi 8Gi\nSwap: 4Gi 0 4Gi\n"),  # free
             ]
@@ -309,15 +343,17 @@ class TestMain:
         assert rc == 0
         output = buf.getvalue()
         assert "UPTIME" in output
-        assert "GOLEM STATS" in output
+        assert "RIBOSOME STATS" in output
         assert "DISK" in output
 
     def test_json_output(self):
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _mock_completed(""),  # supervisorctl
-                _mock_completed("Total tasks: 0\n"),  # golem stats
-                _mock_completed("Filesystem Size Used Avail Use% Mounted\n/dev 10G 5G 5G 50% /\n"),  # df
+                _mock_completed("Total tasks: 0\n"),  # ribosome stats
+                _mock_completed(
+                    "Filesystem Size Used Avail Use% Mounted\n/dev 10G 5G 5G 50% /\n"
+                ),  # df
                 _mock_completed("up 1 day\n"),  # uptime
                 _mock_completed("Mem: 16Gi 8Gi 4Gi 0 4Gi 8Gi\nSwap: 4Gi 0 4Gi\n"),  # free
             ]

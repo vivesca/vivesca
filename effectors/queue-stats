@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""queue-stats — Golem task queue statistics.
+"""queue-stats — Ribosome task queue statistics.
 
-Reads loci/golem-queue.md and golem.jsonl. Shows:
+Reads loci/translation-queue.md and ribosome.jsonl. Shows:
   - Pending / done / failed counts
   - Tasks per provider breakdown
   - Estimated completion time based on historical turn durations
@@ -9,8 +9,10 @@ Reads loci/golem-queue.md and golem.jsonl. Shows:
 Usage:
     queue-stats
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import sys
@@ -18,10 +20,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 GERMLINE = Path.home() / "germline"
-QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
-GOLEM_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
+QUEUE_FILE = GERMLINE / "loci" / "translation-queue.md"
+RIBOSOME_LOG = Path.home() / ".local" / "share" / "vivesca" / "ribosome.jsonl"
 
-# Provider concurrency (from golem-queue header line 4)
+# Provider concurrency (from translation-queue header line 4)
 DEFAULT_CONCURRENCY: dict[str, int] = {
     "zhipu": 4,
     "infini": 6,
@@ -79,19 +81,17 @@ def parse_queue(text: str) -> list[dict]:
     return tasks
 
 
-def read_golem_log() -> list[dict]:
-    """Read golem.jsonl log entries."""
-    if not GOLEM_LOG.exists():
+def read_ribosome_log() -> list[dict]:
+    """Read ribosome.jsonl log entries."""
+    if not RIBOSOME_LOG.exists():
         return []
     entries = []
-    with open(GOLEM_LOG, errors="replace") as f:
+    with open(RIBOSOME_LOG, errors="replace") as f:
         for line in f:
             line = line.strip()
             if line:
-                try:
+                with contextlib.suppress(json.JSONDecodeError, ValueError):
                     entries.append(json.loads(line))
-                except (json.JSONDecodeError, ValueError):
-                    pass
     return entries
 
 
@@ -186,7 +186,7 @@ def main() -> int:
     text = QUEUE_FILE.read_text()
     tasks = parse_queue(text)
     concurrency = parse_concurrency_header(text)
-    entries = read_golem_log()
+    entries = read_ribosome_log()
     sec_per_turn = compute_turn_durations(entries)
 
     # Status counts
@@ -202,7 +202,7 @@ def main() -> int:
     estimates = estimate_completion(tasks, concurrency, sec_per_turn)
 
     # --- Output ---
-    print("=== Golem Queue Stats ===\n")
+    print("=== Ribosome Queue Stats ===\n")
 
     # Overview
     print(f"Total tasks: {total}")
@@ -217,7 +217,9 @@ def main() -> int:
     print(f"{'Provider':<10} {'Pending':>8} {'Done':>8} {'Failed':>8} {'Total':>8}")
     print("-" * 46)
     all_providers = sorted(
-        set(t["provider"] for t in tasks), key=lambda p: sum(1 for t in tasks if t["provider"] == p), reverse=True
+        set(t["provider"] for t in tasks),
+        key=lambda p: sum(1 for t in tasks if t["provider"] == p),
+        reverse=True,
     )
     for p in all_providers:
         c = by_provider_status.get(p, Counter())

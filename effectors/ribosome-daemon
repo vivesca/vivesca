@@ -1,0 +1,2854 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""ribosome-daemon — Task queue processor for ribosome commands.
+
+Reads ~/germline/loci/translation-queue.md for pending tasks, runs up to 4
+concurrent ribosome subprocesses locally. Overflows to remote workers (ganglion)
+via SSH when local slots are full.
+
+Usage:
+    ribosome-daemon start              # Start daemon (nohup, backgrounds itself)
+    ribosome-daemon stop               # Stop daemon via pidfile
+    ribosome-daemon status             # Check if running
+    ribosome-daemon stats              # Show stats for last 8h (default window)
+    ribosome-daemon stats --all        # Show lifetime stats (no time filter)
+    ribosome-daemon stats --today      # Show stats for today only
+    ribosome-daemon stats --since=2h   # Show stats for custom window (e.g. 30m, 2h, 1d)
+    ribosome-daemon review             # Review recent outputs — flag no-ops, surface real work
+    ribosome-daemon review --since=4h  # Custom time window (default: 2h)
+    ribosome-daemon clean              # Remove completed/failed entries from queue
+    ribosome-daemon retry-all          # Re-queue all [!] failed tasks as [ ]
+    ribosome-daemon --export-stats     # Output per-provider stats as JSON (accepts same time filters)
+    ribosome-daemon clear-cooldown     # Clear all provider cooldowns
+    ribosome-daemon clear-cooldown X   # Clear cooldown for provider X only
+    ribosome-daemon --dry-run          # Show routing decisions without executing tasks
+    ribosome-daemon evict <task_id>    # Remove zombie task from running state
+    ribosome-daemon evict --stale      # Auto-evict all tasks running >2x provider avg
+"""
+import ast
+import calendar as _calendar
+import contextlib
+import fcntl
+import json
+import os
+import re
+import secrets
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
+from pathlib import Path
+
+# Paths
+QUEUE_FILE = Path.home() / "germline" / "loci" / "translation-queue.md"
+PIDFILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.pid"
+LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.log"
+POLL_INTERVAL = 30
+RIBOSOME_TIMEOUT = 1800  # 30 min max per ribosome run
+DISK_SPACE_MIN_BYTES = 1 * 1024 * 1024 * 1024  # 1GB minimum free space
+JSONLFILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome.jsonl"
+ROTATE_MAX_BYTES = 5 * 1024 * 1024  # 5MB rotation threshold
+CLEAR_COOLDOWN_FILE = Path.home() / ".local" / "share" / "vivesca" / "clear-cooldowns"
+
+# Disk hygiene
+SESSION_DIR = Path.home() / ".claude" / "projects" / "-home-terry-germline"
+SESSION_KEEP = 200  # Keep only the N newest session files
+IDLE_STOP_MINUTES = 10  # Stop machine after N minutes idle
+FLY_APP_NAME = "gemmule"
+FLY_API_BASE = "https://api.machines.dev"
+HEALTH_CHECK_INTERVAL = 50  # Run health check every N poll cycles (~25 min)
+PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after excessive failures
+PROVIDER_FAILURE_WINDOW = 600   # 10 min sliding window for failure counting
+PROVIDER_FAILURE_THRESHOLD = 3  # cooldown after N failures within the window
+RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion (matches Infini window)
+# Per-provider rate limit windows (seconds). Used when provider is known to have
+# strict quotas and fast-exit patterns suggest rate-limiting even without
+# explicit 429 text in the output.
+PROVIDER_RATE_WINDOWS: dict[str, int] = {
+    "infini": 18000,  # 1000 req / 5 hours
+    "volcano": 18000,  # 5-hour quota window (parse_rate_limit_window extracts exact reset time)
+    "codex": 3600,    # ~hourly resets (parse_rate_limit_window extracts exact "try again at" time)
+    "gemini": 1200,   # ~20 min resets (parse_rate_limit_window extracts exact "Xm Ys" duration)
+}
+BILLING_EXHAUSTED_THRESHOLD = 86400  # 24h — cooldowns longer indicate billing-cycle exhaustion
+
+# Rate-limit detection patterns (checked against task output/tail)
+RATE_LIMIT_PATTERNS = re.compile(
+    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
+    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
+    r'usage.?limit|hit your.*limit|quota will reset',
+    re.IGNORECASE,
+)
+
+# Month name/abbreviation -> month number.  Used by parse_rate_limit_window
+# to avoid the Python 3.15 deprecation for strptime with day-of-month but no year.
+_MONTH_NAME_MAP: dict[str, int] = {}
+for _i in range(1, 13):
+    _MONTH_NAME_MAP[_calendar.month_abbr[_i].lower()] = _i
+    _MONTH_NAME_MAP[_calendar.month_name[_i].lower()] = _i
+
+
+def disk_hygiene() -> int:
+    """Prune old Claude session files and caches. Returns bytes freed (approx)."""
+    freed = 0
+
+    # 1. Prune old ribosome session JSONL files (keep newest SESSION_KEEP)
+    if SESSION_DIR.is_dir():
+        sessions = sorted(SESSION_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in sessions[SESSION_KEEP:]:
+            try:
+                freed += old.stat().st_size
+                old.unlink()
+            except OSError:
+                pass
+
+    # 2. Prune uv cache (non-blocking)
+    uv_cache = Path.home() / ".cache" / "uv"
+    if uv_cache.is_dir():
+        with contextlib.suppress(Exception):
+            subprocess.run(["uv", "cache", "prune", "--force"], capture_output=True, timeout=60)
+
+    # 3. Prune go-build cache
+    go_cache = Path.home() / ".cache" / "go-build"
+    if go_cache.is_dir():
+        try:
+            shutil.rmtree(go_cache, ignore_errors=True)
+            freed += 400 * 1024 * 1024  # rough estimate
+        except Exception:
+            pass
+
+    # 4. Prune infections.jsonl if > 20MB
+    infections = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
+    if infections.exists():
+        try:
+            sz = infections.stat().st_size
+            if sz > 20 * 1024 * 1024:
+                # Keep last 5000 lines
+                lines = infections.read_text().splitlines()
+                infections.write_text("\n".join(lines[-5000:]) + "\n")
+                freed += sz - infections.stat().st_size
+        except Exception:
+            pass
+
+    return freed
+
+
+def fly_stop_self() -> bool:
+    """Stop this Fly machine via the Machines API. Returns True on success."""
+    token = os.environ.get("FLY_API_TOKEN", "")
+    if not token:
+        return False
+    try:
+        from urllib.request import Request, urlopen
+        # List machines to find our ID
+        url = f"{FLY_API_BASE}/v1/apps/{FLY_APP_NAME}/machines"
+        req = Request(url, method="GET")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        with urlopen(req, timeout=10) as resp:
+            machines = json.loads(resp.read())
+        if not machines:
+            return False
+        mid = machines[0]["id"]
+        # Stop the machine
+        stop_url = f"{FLY_API_BASE}/v1/apps/{FLY_APP_NAME}/machines/{mid}/stop"
+        req = Request(stop_url, method="POST")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        urlopen(req, timeout=10)
+        return True
+    except Exception:
+        return False
+
+
+def check_disk_space() -> tuple[bool, int]:
+    """Check if there's enough disk space.
+
+    Returns:
+        (ok: bool, free_bytes: int)
+        ok is True if free space >= 1GB, False otherwise.
+    """
+    try:
+        usage = shutil.disk_usage(Path.home())
+        return (usage.free >= DISK_SPACE_MIN_BYTES, usage.free)
+    except Exception:
+        # On error, assume OK to avoid blocking unnecessarily
+        return (True, -1)
+
+
+class QueueLock:
+    _lock_path = Path.home() / '.local' / 'share' / 'vivesca' / 'ribosome-queue.lock'
+
+    def __enter__(self):
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = open(self._lock_path, 'w')
+        fcntl.flock(self._fd, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *args):
+        fcntl.flock(self._fd, fcntl.LOCK_UN)
+        self._fd.close()
+
+
+TASK_ID_RE = re.compile(r'\[t-([0-9a-f]{6})\]')
+RUNNING_FILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome-running.json"
+
+# Per-provider concurrency limits
+PROVIDER_LIMITS = {
+    "zhipu": 8,
+    "infini": 2,  # 1000 req/5hr limit — reduced from 4 to prevent parallel 429s triggering crash loop
+    "volcano": 16,
+    "gemini": 4,
+    "codex": 4,
+}
+DEFAULT_LIMIT = 4  # Fallback for unknown providers
+MAX_TOTAL_CONCURRENT = 24  # Global cap across all providers (memory safety on 32GB)
+
+# Remote overflow workers (SSH via Tailscale)
+REMOTE_WORKERS = [{'host': 'ganglion', 'user': 'ubuntu', 'max_concurrent': 2}]
+MAX_LOCAL = 4  # Max concurrent ribosome subprocesses running locally
+SSH_CONNECT_TIMEOUT = 5
+SSH_REMOTE_EXIT_CONNECT_FAIL = 125  # Exit code signalling SSH connection failure
+
+# Provider fallback chain — ordered by pass rate. When a provider is in cooldown,
+# its tasks route to the next available provider in this chain.
+PROVIDER_FALLBACK = {
+    "codex": ["gemini", "zhipu"],
+    "gemini": ["codex", "zhipu"],
+    "zhipu": ["codex", "gemini"],
+    "infini": ["codex", "gemini"],
+    "volcano": ["codex", "gemini"],
+}
+
+COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "ribosome-cooldowns.json"
+
+
+def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event: str = "burnout"):
+    """Append cooldown event to persistent log for visibility."""
+    entry = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "event": event,
+        "provider": provider,
+        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)) if event in ("burnout", "billing-exhausted") else None,
+        "reason": reason[:100],
+    }
+    try:
+        entries = json.loads(COOLDOWN_LOG.read_text()) if COOLDOWN_LOG.exists() else []
+    except (json.JSONDecodeError, OSError):
+        entries = []
+    # Dedupe: don't log burnout if the last entry for this provider is the same reset time
+    if event in ("burnout", "billing-exhausted") and entries:
+        last_for_provider = [e for e in entries if e.get("provider") == provider and e.get("event") in ("burnout", "billing-exhausted")]
+        if last_for_provider and last_for_provider[-1].get("resets_at") == entry.get("resets_at"):
+            return  # already logged this cooldown window
+    entries.append(entry)
+    entries = entries[-100:]
+    COOLDOWN_LOG.write_text(json.dumps(entries, indent=2) + "\n")
+
+
+def _swap_provider(cmd: str, old_provider: str, new_provider: str) -> str:
+    """Swap --provider in a ribosome command string for runtime fallback."""
+    return cmd.replace(f"--provider {old_provider}", f"--provider {new_provider}", 1)
+
+
+def _dispatch_candidates(provider: str) -> list[str]:
+    """Return providers to try for migrated work, preserving preferred order first."""
+    ordered: list[str] = []
+    seen = {provider}
+    for candidate in PROVIDER_FALLBACK.get(provider, []):
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    for candidate in PROVIDER_LIMITS:
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    return ordered
+
+
+def _pick_dispatch_provider(provider: str, provider_cooldown_until: dict, provider_running: dict, provider_disabled: dict | None = None) -> str | None:
+    """Pick the runtime provider for a queued task.
+
+    Skips providers in cooldown OR in PROVIDER_DISABLED (billing-cycle exhaustion).
+    """
+    disabled = provider_disabled or {}
+    if provider not in provider_cooldown_until and provider not in disabled:
+        return provider
+
+    skipped: list[str] = []
+    for candidate in _dispatch_candidates(provider):
+        if candidate in provider_cooldown_until or candidate in disabled:
+            skipped.append(f"{candidate}:cooldown")
+            continue
+        current = provider_running.get(candidate, 0)
+        limit = get_provider_limit(candidate)
+        if current < limit:
+            return candidate
+        skipped.append(f"{candidate}:{current}/{limit}")
+    if skipped:
+        log(f"FALLBACK SKIP [{provider}]: {', '.join(skipped)}")
+    return None
+
+
+def _resolve_dispatch_command(
+    cmd: str,
+    provider_cooldown_until: dict[str, float],
+    provider_running: dict[str, int],
+) -> tuple[str, str, str] | None:
+    """Resolve queued affinity vs runtime dispatch provider for a command."""
+    affinity_provider = parse_provider(cmd)
+    dispatch_provider = _pick_dispatch_provider(
+        affinity_provider, provider_cooldown_until, provider_running,
+        provider_disabled=PROVIDER_DISABLED,
+    )
+    if dispatch_provider is None:
+        return None
+    if dispatch_provider == affinity_provider:
+        return (cmd, affinity_provider, dispatch_provider)
+    if f"--provider {affinity_provider}" in cmd:
+        runtime_cmd = _swap_provider(cmd, affinity_provider, dispatch_provider)
+    else:
+        runtime_cmd = f"{cmd} --provider {dispatch_provider}"
+    return (runtime_cmd, affinity_provider, dispatch_provider)
+
+
+def _running_entry_details(entry: tuple) -> tuple[int, str, str, str, str]:
+    """Normalize running-task state for backward compatibility in tests/helpers."""
+    if len(entry) == 4:
+        line_num, cmd, provider, task_id = entry
+        return line_num, cmd, provider, provider, task_id
+    if len(entry) >= 6:
+        line_num, cmd, provider, task_id, dispatch_provider, _started_at = entry[:6]
+        return line_num, cmd, provider, dispatch_provider, task_id
+    line_num, cmd, provider, task_id, dispatch_provider = entry
+    return line_num, cmd, provider, dispatch_provider, task_id
+
+
+# Counter for successful mark_done calls (reset on auto-commit)
+_mark_done_count = 0
+
+# Graceful shutdown state
+_shutdown_event = threading.Event()
+
+
+def _handle_sigterm(signum, frame):
+    """SIGTERM handler: request graceful shutdown."""
+    log("SIGTERM received — initiating graceful shutdown")
+    _shutdown_event.set()
+
+
+def _drain_running(running: dict, timeout: int = 60) -> int:
+    """Wait for running ribosome futures to complete, up to timeout seconds.
+
+    Processes each completed future (mark done/failed, write JSONL).
+    Returns count of tasks still running after timeout.
+    """
+    if not running:
+        return 0
+
+    log(f"Graceful shutdown: waiting up to {timeout}s for {len(running)} running tasks")
+    deadline = time.time() + timeout
+
+    while running and time.time() < deadline:
+        done_futures = [f for f in running if f.done()]
+        for future in done_futures:
+            entry = running.pop(future)
+            line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+            node = _running_entry_node(entry)
+            try:
+                _, exit_code, tail, duration = future.result()
+                _write_jsonl_record(
+                    task_id, provider, exit_code, duration, cmd, tail=tail,
+                    dispatch_provider=dispatch_provider,
+                )
+                # SSH failure: don't mark queue, let task be re-dispatched locally
+                if node != 'soma' and exit_code == SSH_REMOTE_EXIT_CONNECT_FAIL:
+                    log(f"SHUTDOWN DRAIN: [{task_id}] remote SSH fail on {node}, stays pending")
+                    continue
+                if exit_code == 0:
+                    mark_done(line_num, f"exit={exit_code}", task_id=task_id, node=node)
+                else:
+                    mark_failed(
+                        line_num, f"exit={exit_code} {tail[:60]}",
+                        exit_code=exit_code, task_id=task_id, tail=tail,
+                    )
+                    log(f"SHUTDOWN DRAIN: [{task_id}] failed (exit={exit_code})")
+            except Exception as e:
+                log(f"SHUTDOWN DRAIN: error processing [{task_id}]: {e}")
+                _write_jsonl_record(
+                    task_id, provider, 1, 0, cmd, dispatch_provider=dispatch_provider,
+                )
+                mark_failed(line_num, str(e), task_id=task_id)
+        if running:
+            time.sleep(2)
+
+    remaining = len(running)
+    if remaining:
+        log(f"Graceful shutdown: {remaining} tasks still running after {timeout}s timeout")
+    else:
+        log("Graceful shutdown: all tasks completed")
+    return remaining
+
+
+def _interruptible_sleep(seconds: int):
+    """Sleep that wakes early if shutdown is requested."""
+    end = time.time() + seconds
+    while time.time() < end and not _shutdown_event.is_set():
+        left = end - time.time()
+        if left <= 0:
+            break
+        time.sleep(min(1, left))
+
+
+def rotate_logs():
+    """Rotate log/jsonl files if they exceed 5MB.
+
+    Renames file to file.1 (overwriting old .1) if > ROTATE_MAX_BYTES.
+    """
+    for path in (LOGFILE, JSONLFILE):
+        try:
+            if path.exists() and path.stat().st_size > ROTATE_MAX_BYTES:
+                rotated = Path(str(path) + ".1")
+                path.replace(rotated)
+        except OSError:
+            pass  # Don't block daemon start on rotation failure
+
+
+def log(msg: str):
+    """Append timestamped message to log file."""
+    try:
+        LOGFILE.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(LOGFILE, "a") as f:
+            f.write(f"[{ts}] {msg}\n")
+    except OSError:
+        pass  # Don't crash daemon on log failure
+
+
+def startup_pull() -> str:
+    """Pull latest changes at startup. Continues with local state on failure.
+
+    Returns:
+        'ok' on success, or a description of the failure.
+    """
+    germline_dir = Path.home() / "germline"
+    try:
+        result = subprocess.run(
+            f"git -C {germline_dir} pull --rebase",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            log(f"startup pull: {result.stdout.strip()[:80] or 'up to date'}")
+            return "ok"
+        log(f"startup pull failed (continuing with local state): {result.stderr[:80]}")
+        return f"pull failed: {result.stderr[:60]}"
+    except subprocess.TimeoutExpired:
+        log("startup pull timed out (continuing with local state)")
+        return "pull timed out"
+    except Exception as e:
+        log(f"startup pull error (continuing with local state): {e}")
+        return f"pull error: {e}"
+
+
+def auto_commit() -> str:
+    """Auto-commit staged changes from assays/, effectors/, metabolon/.
+
+    After a successful commit, pushes to remote with 3 retries and 30s backoff.
+    If all push retries fail, logs the error but does not crash — the commit
+    is still local and will be pushed on the next successful attempt.
+
+    Returns:
+        Commit hash if committed, or 'nothing to commit' if no changes.
+    """
+    germline_dir = Path.home() / "germline"
+    try:
+        # Stage the directories
+        subprocess.run(
+            f"git -C {germline_dir} add assays/ effectors/ metabolon/",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        # Check if there's anything staged
+        check = subprocess.run(
+            f"git -C {germline_dir} diff --cached --quiet",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if check.returncode == 0:
+            return "nothing to commit"
+        # Commit
+        result = subprocess.run(
+            f"git -C {germline_dir} commit -m 'ribosome: daemon auto-commit'",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            # Extract commit hash from output
+            commit_hash = "committed"
+            for line in result.stdout.splitlines():
+                if line.startswith("["):
+                    # Format: [main abc1234] ...
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        commit_hash = parts[1].rstrip("]")
+                        break
+            # Push with retry: 3 attempts, 30s backoff
+            for attempt in range(1, 4):
+                try:
+                    push_result = subprocess.run(
+                        f"git -C {germline_dir} push",
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if push_result.returncode == 0:
+                        return commit_hash
+                    log(f"git push failed (attempt {attempt}/3): {push_result.stderr[:80]}")
+                except subprocess.TimeoutExpired:
+                    log(f"git push timed out (attempt {attempt}/3)")
+                except Exception as e:
+                    log(f"git push error (attempt {attempt}/3): {e}")
+                if attempt < 3:
+                    time.sleep(30)
+            log(f"git push failed after 3 attempts for {commit_hash}, continuing with local state")
+            return commit_hash
+        return f"commit failed: {result.stderr[:60]}"
+    except Exception as e:
+        return f"auto_commit error: {e}"
+
+
+def read_pid() -> int | None:
+    """Read PID from pidfile, return None if not running."""
+    if not PIDFILE.exists():
+        return None
+    try:
+        pid = int(PIDFILE.read_text().strip())
+        os.kill(pid, 0)  # Check if process exists
+        return pid
+    except (ValueError, ProcessLookupError, PermissionError):
+        PIDFILE.unlink(missing_ok=True)
+        return None
+
+def write_pid():
+    """Write current PID to pidfile."""
+    PIDFILE.parent.mkdir(parents=True, exist_ok=True)
+    PIDFILE.write_text(str(os.getpid()))
+
+def remove_pid():
+    """Remove pidfile."""
+    PIDFILE.unlink(missing_ok=True)
+
+def _extract_task_id(cmd: str) -> str:
+    """Extract task ID (t-xxxxxx) from command, or empty string if none."""
+    m = TASK_ID_RE.search(cmd)
+    return f"t-{m.group(1)}" if m else ""
+
+
+def _normalize_prompt(cmd: str) -> str:
+    """Normalize a ribosome command for dedup comparison.
+
+    Strips task ID, provider, max-turns flags, and (retry) tags,
+    returning just the prompt text with normalized whitespace.
+    """
+    c = TASK_ID_RE.sub('', cmd).strip()
+    if c.startswith('ribosome '):
+        c = c[6:]
+    c = re.sub(r'--provider\s+\w+\s*', '', c).strip()
+    c = re.sub(r'--max-turns\s+\d+\s*', '', c).strip()
+    c = re.sub(r'\s*\(retry\)\s*$', '', c).strip()
+    c = ' '.join(c.split())
+    return c
+
+
+def _get_pending_prompts() -> set[str]:
+    """Get set of normalized prompts from pending queue entries."""
+    if not QUEUE_FILE.exists():
+        return set()
+    prompts: set[str] = set()
+    try:
+        for line in QUEUE_FILE.read_text().splitlines():
+            m = re.match(r'^- \[( |!!)\] `([^`]+)`', line)
+            if m:
+                prompts.add(_normalize_prompt(m.group(2)))
+    except (PermissionError, OSError, UnicodeDecodeError):
+        pass
+    return prompts
+
+
+def _generate_task_id() -> str:
+    """Generate a short task ID: t-xxxxxx (6 hex chars)."""
+    return f"t-{secrets.token_hex(3)}"
+
+
+def _write_jsonl_record(task_id: str, provider: str, exit_code: int,
+                        duration: int, cmd: str, tail: str = "",
+                        dispatch_provider: str | None = None):
+    """Append a JSONL record for a completed task."""
+    record = {
+        "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "task_id": task_id,
+        "provider": provider,
+        "exit": exit_code,
+        "duration": duration,
+        "cmd": cmd[:120],
+        "tail": tail[:300],
+    }
+    if dispatch_provider and dispatch_provider != provider:
+        record["dispatch_provider"] = dispatch_provider
+    try:
+        JSONLFILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(JSONLFILE, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except OSError:
+        pass
+
+
+def parse_queue() -> list[tuple[int, str, str]]:
+    """Parse queue file, return list of (line_number, command, task_id) for pending tasks.
+
+    High-priority tasks ([!!]) are sorted before normal tasks ([ ]).
+    Generates a unique task ID (t-xxxxxx) for each task that doesn't have one,
+    and writes it back into the queue file inside the backtick.
+    """
+    if not QUEUE_FILE.exists():
+        return []
+
+    try:
+        lines = QUEUE_FILE.read_text().splitlines()
+    except (PermissionError, OSError, UnicodeDecodeError):
+        return []
+
+    pending = []
+    modified = False
+
+    for i, line in enumerate(lines):
+        # Match: - [!!] `ribosome ...` (high priority, priority=0)
+        m = re.match(r'^- \[!!] `([^`]+)`', line)
+        if m:
+            cmd = m.group(1).strip()
+            if cmd.startswith("ribosome "):
+                tid_match = TASK_ID_RE.search(cmd)
+                if tid_match:
+                    task_id = f"t-{tid_match.group(1)}"
+                else:
+                    task_id = _generate_task_id()
+                    new_cmd = cmd.replace("ribosome ", f"ribosome [{task_id}] ", 1)
+                    lines[i] = line.replace(f'`{cmd}`', f'`{new_cmd}`', 1)
+                    cmd = new_cmd
+                    modified = True
+                pending.append((i, cmd, task_id, 0))
+            continue
+        # Match: - [ ] `ribosome ...` (normal priority, priority=1)
+        m = re.match(r'^- \[ \] `([^`]+)`', line)
+        if m:
+            cmd = m.group(1).strip()
+            if cmd.startswith("ribosome "):
+                tid_match = TASK_ID_RE.search(cmd)
+                if tid_match:
+                    task_id = f"t-{tid_match.group(1)}"
+                else:
+                    task_id = _generate_task_id()
+                    new_cmd = cmd.replace("ribosome ", f"ribosome [{task_id}] ", 1)
+                    lines[i] = line.replace(f'`{cmd}`', f'`{new_cmd}`', 1)
+                    cmd = new_cmd
+                    modified = True
+                pending.append((i, cmd, task_id, 1))
+
+    # Write back if any IDs were generated
+    if modified:
+        try:
+            with QueueLock():
+                QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            pass  # Don't crash on write failure
+
+    # Sort: high priority (0) first, then normal (1); stable sort preserves file order
+    pending.sort(key=lambda x: x[3])
+    return [(i, cmd, tid) for i, cmd, tid, _ in pending]
+
+
+def parse_provider(cmd: str) -> str:
+    """Extract --provider value from command, or 'default' if not found."""
+    m = re.search(r'--provider\s+(\w+)', cmd)
+    return m.group(1) if m else "default"
+
+
+def is_rate_limited(tail: str) -> bool:
+    """Check if task output contains rate-limit/quota-exhaustion indicators."""
+    return bool(RATE_LIMIT_PATTERNS.search(tail))
+
+
+_BILLING_LIMIT_PATTERNS = re.compile(
+    r'usage.?limit|hit your.*limit|billing.?limit|monthly.?limit|'
+    r'plan.?limit|subscription.?limit',
+    re.IGNORECASE,
+)
+
+
+def is_billing_exhausted(tail: str) -> bool:
+    """Check if error output indicates billing-cycle exhaustion (not transient rate-limit)."""
+    return bool(_BILLING_LIMIT_PATTERNS.search(tail))
+
+
+def parse_reset_date_str(tail: str) -> str | None:
+    """Extract human-readable reset date string from error message.
+
+    Returns date like 'Apr 8, 2026 4:01 PM' or None if not parseable.
+    """
+    # Codex billing format: "try again at Apr 8th, 2026 4:01 PM"
+    _month = r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+    m = re.search(
+        rf'try again at {_month}\s+(\d{{1,2}})(?:st|and|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
+        tail, re.IGNORECASE,
+    )
+    if m:
+        return f"{m.group(1)} {m.group(2)}, {m.group(3)} {m.group(4)}:{m.group(5)} {m.group(6)}"
+    # ISO format: "reset at 2026-04-01 21:09:32"
+    m = re.search(r'reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', tail)
+    if m:
+        return m.group(1)
+    return None
+
+
+def parse_rate_limit_window(tail: str) -> int | None:
+    """Try to extract rate-limit window in seconds from error message.
+
+    Priority:
+    1. Exact reset timestamp (e.g. "reset at 2026-04-01 21:09:32 +0800 CST")
+    2. Duration patterns (e.g. "5-hour", "30-minute")
+    Returns seconds until reset, or None if not parseable.
+    """
+    # 1. Try exact reset timestamp (Volcano format: "reset at YYYY-MM-DD HH:MM:SS +TZTZ TZ")
+    m = re.search(r'reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', tail)
+    if m:
+        try:
+            reset_time = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+            delta = (reset_time - datetime.now()).total_seconds()
+            if delta > 0:
+                return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 2. Codex billing-cycle format: "try again at Apr 8th, 2026 4:01 PM"
+    _month = r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+    m = re.search(
+        rf'try again at {_month}\s+(\d{{1,2}})(?:st|and|rd|th)?,?\s+(\d{{4}})\s+(\d{{1,2}}):(\d{{2}})\s*([AP]M)',
+        tail, re.IGNORECASE,
+    )
+    if m:
+        try:
+            month_str = m.group(1).lower()
+            day = int(m.group(2))
+            year = int(m.group(3))
+            hour = int(m.group(4))
+            minute = int(m.group(5))
+            if m.group(6).upper() == "PM" and hour != 12:
+                hour += 12
+            elif m.group(6).upper() == "AM" and hour == 12:
+                hour = 0
+            # Map month name/abbreviation to month number without strptime
+            # to avoid Python 3.15 deprecation for day-of-month without year.
+            month_num = _MONTH_NAME_MAP.get(month_str)
+            if month_num is not None:
+                reset_time = datetime(year, month_num, day, hour, minute)
+                delta = (reset_time - datetime.now()).total_seconds()
+                if delta > 0:
+                    return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 3. Codex short format: "try again at 9:01 PM"
+    m = re.search(r'try again at (\d{1,2}):(\d{2})\s*([AP]M)', tail, re.IGNORECASE)
+    if m:
+        try:
+            hour = int(m.group(1))
+            minute = int(m.group(2))
+            if m.group(3).upper() == "PM" and hour != 12:
+                hour += 12
+            elif m.group(3).upper() == "AM" and hour == 12:
+                hour = 0
+            now = datetime.now()
+            reset_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if reset_time <= now:
+                reset_time = reset_time.replace(day=now.day + 1)
+            delta = (reset_time - now).total_seconds()
+            if 0 < delta < 86400:
+                return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 4. Gemini format: "quota will reset after 18m38s"
+    m = re.search(r'quota will reset after (\d+)m(\d+)s', tail)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2))
+
+    # 5. Duration patterns
+    m = re.search(r'(\d+)[- ]hour', tail)
+    if m:
+        return int(m.group(1)) * 3600
+    m = re.search(r'(\d+)[- ]minute', tail)
+    if m:
+        return int(m.group(1)) * 60
+    return None
+
+
+_provider_throttle: dict[str, int] = {}  # provider -> temporary reduction in concurrency
+PROVIDER_DISABLED: dict[str, dict] = {}  # provider -> {"resets_at": float, "resets_str": str} for billing-cycle exhaustion
+
+def get_provider_limit(provider: str) -> int:
+    """Get concurrency limit for a provider, reduced by adaptive throttle."""
+    base = PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    throttle = _provider_throttle.get(provider, 0)
+    return max(1, base - throttle)
+
+
+def _throttle_provider(provider: str):
+    """Reduce provider concurrency by 1 after a failure (adaptive back-pressure)."""
+    base = PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    current = _provider_throttle.get(provider, 0)
+    if current < base - 1:  # always keep at least 1 slot
+        _provider_throttle[provider] = current + 1
+
+
+def _unthrottle_provider(provider: str):
+    """Restore 1 slot of provider concurrency after a success."""
+    current = _provider_throttle.get(provider, 0)
+    if current > 0:
+        _provider_throttle[provider] = current - 1
+
+_PENDING_PREFIXES = ("- [ ] ", "- [!!] ", "- [!] ")  # pending, high-priority, failed (retryable)
+
+def _find_task_line(lines: list[str], line_num: int, task_id: str) -> int:
+    """Find task line by task_id, falling back to line_num.
+
+    External edits to the queue file can shift line numbers. When the line at
+    line_num doesn't match, scan for the task_id to find the correct line.
+    Matches [ ], [!!], and [!] states — tasks may change state between dispatch
+    and completion due to concurrent daemon restarts.
+    Returns -1 if not found.
+    """
+    def _is_task(s: str) -> bool:
+        return any(s.startswith(p) for p in _PENDING_PREFIXES)
+
+    # Fast path: line_num is still correct
+    if 0 <= line_num < len(lines):
+        line = lines[line_num].strip()
+        if task_id and f"[{task_id}]" in line and _is_task(line):
+            return line_num
+    # Slow path: scan by task_id
+    if task_id:
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if f"[{task_id}]" in stripped and _is_task(stripped):
+                return i
+    # Final fallback: original line_num if it's a pending task
+    if 0 <= line_num < len(lines):
+        stripped = lines[line_num].strip()
+        if _is_task(stripped):
+            return line_num
+    return -1
+
+
+def mark_done(line_num: int, result: str = "", task_id: str = "", node: str = "soma"):
+    """Mark task as done in queue file, move to Done section."""
+    with QueueLock():
+        if not QUEUE_FILE.exists():
+            return
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            return
+        actual_line = _find_task_line(lines, line_num, task_id)
+        if actual_line < 0:
+            log(f"WARN mark_done: task [{task_id}] not found at line {line_num} (queue may have been edited)")
+            return
+        original = lines[actual_line]
+        # Verify the line is still a pending task (normal or high-priority)
+        stripped = original.strip()
+        if stripped.startswith("- [!!] "):
+            done_line = original.replace("- [!!] ", "- [x] ", 1)
+        elif stripped.startswith("- [ ] "):
+            done_line = original.replace("- [ ] ", "- [x] ", 1)
+        else:
+            return
+        lines[actual_line] = done_line
+        for i, line in enumerate(lines):
+            if line.strip() == "## Done":
+                prefix = f"[{task_id}] " if task_id else ""
+                node_tag = f" [{node}]"
+                result_line = f"{done_line} \u2192 {prefix}{result[:80]}{node_tag}" if result else done_line
+                lines.insert(i + 2, result_line)
+                break
+        try:
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            return
+
+
+def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
+                task_id: str = "", tail: str = "") -> dict:
+    """Mark task as failed. Retry once unless genuinely permanent.
+
+    Permanent failures: exit_code=2 (command error) UNLESS rate-limited.
+    Rate-limited tasks (detected via output patterns) are always retried.
+    High-priority [!!] tasks keep their priority on retry; they become [!] on
+    permanent failure just like normal tasks.
+    """
+    rate_limited = is_rate_limited(result) or not tail.strip()  # empty output = rate-limit exhaustion
+    with QueueLock():
+        if not QUEUE_FILE.exists():
+            return {"retried": False, "rate_limited": rate_limited}
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            return {"retried": False, "rate_limited": rate_limited}
+        actual_line = _find_task_line(lines, line_num, task_id)
+        if actual_line < 0:
+            log(f"WARN mark_failed: task [{task_id}] not found at line {line_num} (queue may have been edited)")
+            return {"retried": False, "rate_limited": rate_limited}
+        original = lines[actual_line]
+        # Verify the line is still a pending task (normal or high-priority)
+        stripped = original.strip()
+        is_high = stripped.startswith("- [!!] ")
+        if not is_high and not stripped.startswith("- [ ] "):
+            return {"retried": False, "rate_limited": rate_limited}
+        cmd_match = re.search(r'`([^`]+)`', original)
+
+        def _to_failed(line: str) -> str:
+            """Replace pending marker with failed marker."""
+            if "- [!!] " in line:
+                return line.replace("- [!!] ", "- [!] ", 1)
+            return line.replace("- [ ] ", "- [!] ", 1)
+
+        # Determine new line content
+        retried = False
+        # Exit 2 = command not found / usage error — don't retry IF there's meaningful
+        # error output. But exit=2 with empty/whitespace output often means the API
+        # rejected the request silently (rate-limit, quota exhaustion) — retry those.
+        # Use raw tail for empty check (result always contains "exit=..." prefix).
+        empty_output = not tail or not tail.strip()
+        if (exit_code == 2 and not rate_limited and not empty_output) or not cmd_match:
+            lines[actual_line] = _to_failed(original)
+        elif '(retry)' not in cmd_match.group(1):
+            old_cmd = cmd_match.group(1)
+            # Insert (retry) BEFORE the closing double-quote so dash/sh won't
+            # hit a syntax error on the bare parentheses outside quotes.
+            # E.g. "…Commit." → "…Commit. (retry)"
+            if old_cmd.rstrip().endswith('"'):
+                new_cmd = old_cmd.rstrip()[:-1] + ' (retry)"'
+            else:
+                new_cmd = old_cmd + ' (retry)'
+            lines[actual_line] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
+            retried = True
+        else:
+            lines[actual_line] = _to_failed(original)
+
+        try:
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            return {"retried": False, "rate_limited": rate_limited}
+
+        if retried:
+            suffix = " (rate-limited)" if rate_limited else ""
+            log(f"Re-queued [{task_id}] (retry){suffix}: {cmd_match.group(1)[:60]}...")
+        return {"retried": retried, "rate_limited": rate_limited}
+
+
+def _provider_preflight(provider: str, env: dict) -> tuple[bool, int | None]:
+    """Proactive per-provider health check before dispatching tasks.
+
+    Pings the provider's /v1/messages endpoint with a minimal request.
+    Returns (healthy, cooldown_seconds).
+      - (True, None) if provider is responsive
+      - (False, cooldown_secs) if rate-limited (includes window duration)
+      - (False, None) if connection/auth error (transient)
+    """
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+
+    provider_cfg = {
+        "zhipu": {
+            "url": "https://open.bigmodel.cn/api/anthropic/v1/messages",
+            "header": "x-api-key",
+            "key_env": "ZHIPU_API_KEY",
+            "model": "GLM-4.5-air",
+        },
+        "infini": {
+            "url": "https://cloud.infini-ai.com/maas/coding/v1/messages",
+            "header": "x-api-key",
+            "key_env": "INFINI_API_KEY",
+            "model": "glm-4.7",
+        },
+        "volcano": {
+            "url": "https://ark.cn-beijing.volces.com/api/coding/v1/messages",
+            "header": "x-api-key",
+            "key_env": "VOLCANO_API_KEY",
+            "model": "ark-code-latest",
+        },
+    }
+    if provider not in provider_cfg:
+        return (True, None)  # unknown providers skip preflight
+
+    cfg = provider_cfg[provider]
+    key = env.get(cfg["key_env"], "")
+    if not key:
+        return (False, None)  # missing key, let ribosome report the error
+
+    body = json.dumps({
+        "model": cfg["model"],
+        "max_tokens": 1,
+        "messages": [{"role": "user", "content": "ping"}],
+    }).encode()
+
+    try:
+        req = Request(cfg["url"], data=body, method="POST")
+        req.add_header(cfg["header"], key)
+        req.add_header("Content-Type", "application/json")
+        req.add_header("anthropic-version", "2023-06-01")
+        with urlopen(req, timeout=15):
+            return (True, None)
+    except HTTPError as e:
+        body_text = ""
+        with contextlib.suppress(Exception):
+            body_text = e.read().decode("utf-8", errors="replace")
+        if e.code == 429 or '"code":20013' in body_text:
+            # Rate-limited — parse window duration
+            window_secs = parse_rate_limit_window(body_text)
+            return (False, window_secs)
+        # Other HTTP errors — treat as transient, let ribosome try
+        return (True, None)
+    except (URLError, OSError, TimeoutError):
+        # Connection error — transient, let ribosome try
+        return (True, None)
+    except Exception:
+        return (True, None)
+
+
+def _ribosome_env() -> dict:
+    """Build environment for ribosome subprocesses.
+
+    Sources ~/.env.fly for API keys and adds effectors to PATH.
+    """
+    env = os.environ.copy()
+    env_file = Path.home() / ".env.fly"
+    if env_file.exists():
+        try:
+            env_text = env_file.read_text()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            env_text = ""
+        for line in env_text.splitlines():
+            line = line.strip()
+            if line.startswith("export "):
+                line = line[7:]
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    effectors = str(Path.home() / "germline" / "effectors")
+    venv_bin = str(Path.home() / "germline" / ".venv" / "bin")
+    local_bin = str(Path.home() / ".local" / "bin")
+    env["PATH"] = f"{effectors}:{venv_bin}:{local_bin}:{env.get('PATH', '/usr/bin:/bin')}"
+    return env
+
+def _ssh_health_check(worker: dict) -> bool:
+    """Quick SSH ping to check if remote worker is reachable."""
+    host = worker['host']
+    user = worker['user']
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', f'ConnectTimeout={SSH_CONNECT_TIMEOUT}',
+             '-o', 'BatchMode=yes',
+             '-o', 'StrictHostKeyChecking=accept-new',
+             f'{user}@{host}', 'true'],
+            capture_output=True,
+            text=True,
+            timeout=SSH_CONNECT_TIMEOUT + 2,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, Exception):
+        return False
+
+
+def run_ribosome(cmd: str) -> tuple[str, int, str, int]:
+    """Run a ribosome command, return (cmd, exit_code, output_tail, duration).
+
+    Uses subprocess.Popen so we can poll stdout for rate-limit patterns during
+    the first 60 seconds. If a rate-limit is detected, the process group is
+    killed early (SIGTERM then SIGKILL) to free slots fast.
+    """
+    task_id = _extract_task_id(cmd)
+    env = _ribosome_env()
+    env["RIBOSOME_TASK_ID"] = task_id
+
+    log(f"Starting [{task_id}]: {cmd[:80]}...")
+    start = time.time()
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=str(Path.home() / "germline"),
+            env=env,
+            start_new_session=True,
+        )
+        accumulated: list[str] = []
+        rate_limited = False
+        fd = proc.stdout.fileno()
+        poll_deadline = start + 60
+
+        # Phase 1: Poll for rate-limit patterns every 2s during first 60s
+        while time.time() < poll_deadline and proc.poll() is None:
+            ready, _, _ = select.select([fd], [], [], 2.0)
+            if ready:
+                chunk = os.read(fd, 65536)
+                if chunk:
+                    text = chunk.decode('utf-8', errors='replace')
+                    accumulated.append(text)
+                    if RATE_LIMIT_PATTERNS.search("".join(accumulated)):
+                        rate_limited = True
+                        break
+
+        if rate_limited:
+            # Kill the process group: SIGTERM, wait 5s, SIGKILL if still alive
+            with contextlib.suppress(ProcessLookupError, OSError):
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                with contextlib.suppress(ProcessLookupError, OSError):
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                proc.wait(timeout=5)
+            # Drain any remaining output from the pipe
+            while True:
+                try:
+                    chunk = os.read(fd, 65536)
+                    if not chunk:
+                        break
+                    accumulated.append(chunk.decode('utf-8', errors='replace'))
+                except OSError:
+                    break
+            duration = int(time.time() - start)
+            tail = "".join(accumulated)[-200:].replace("\n", " ")
+            log(f"RATE-LIMIT KILL [{task_id}] ({duration}s): {cmd[:50]}...")
+            return (cmd, -signal.SIGTERM, tail, duration)
+
+        # Phase 2: Wait for normal completion (process may have already exited)
+        if proc.poll() is None:
+            remaining_time = max(1, RIBOSOME_TIMEOUT - (time.time() - start))
+            proc.wait(timeout=remaining_time)
+
+        # Drain remaining output
+        while True:
+            try:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    break
+                accumulated.append(chunk.decode('utf-8', errors='replace'))
+            except OSError:
+                break
+
+        duration = int(time.time() - start)
+        tail = "".join(accumulated)[-200:].replace("\n", " ")
+        log(f"Finished [{task_id}] ({duration}s, exit={proc.returncode}): {cmd[:50]}...")
+        return (cmd, proc.returncode, tail, duration)
+    except subprocess.TimeoutExpired:
+        duration = int(time.time() - start)
+        with contextlib.suppress(ProcessLookupError, OSError):
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(timeout=5)
+        log(f"TIMEOUT [{task_id}] ({duration}s): {cmd[:50]}...")
+        return (cmd, 124, f"timeout after {RIBOSOME_TIMEOUT}s", duration)
+    except Exception as e:
+        log(f"ERROR [{task_id}]: {cmd[:50]}... - {e}")
+        return (cmd, 1, str(e), 0)
+
+
+def remote_exec(cmd: str, worker: dict) -> tuple[str, int, str, int]:
+    """Run a ribosome command on a remote worker via SSH + Docker.
+
+    Returns (cmd, exit_code, output_tail, duration) — same shape as run_ribosome.
+    On SSH connection failure returns exit_code=125 so the caller can re-mark
+    the task as pending for local fallback.
+    """
+    task_id = _extract_task_id(cmd)
+    host = worker['host']
+    user = worker['user']
+
+    # Build the command to run inside Docker on the remote host.
+    # Escape single quotes for the nested bash -c '...' layer.
+    # Volume-mount the host's germline clone into the container and set
+    # the workdir so ribosome commands run in the right directory.
+    inner_cmd = cmd.replace("'", "'\\''")
+    docker_cmd = (
+        f"docker run --rm"
+        f" -v /home/{user}/germline:/home/terry/germline"
+        f" -w /home/terry/germline"
+        f" gemmule:latest bash -c '{inner_cmd}'"
+    )
+
+    ssh_cmd = [
+        'ssh',
+        '-o', f'ConnectTimeout={SSH_CONNECT_TIMEOUT}',
+        '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new',
+        f'{user}@{host}',
+        docker_cmd,
+    ]
+
+    log(f"REMOTE [{task_id}] -> {host}: {cmd[:60]}...")
+    start = time.time()
+
+    try:
+        result = subprocess.run(
+            ssh_cmd,
+            capture_output=True,
+            text=True,
+            timeout=RIBOSOME_TIMEOUT + 60,  # extra 60s for SSH overhead
+        )
+        duration = int(time.time() - start)
+        tail = (result.stdout + result.stderr)[-200:].replace("\n", " ")
+        # SSH itself failed to connect (exit 255 = SSH error)
+        if result.returncode == 255:
+            log(f"REMOTE SSH FAIL [{task_id}]: {host} — {tail[:60]}")
+            return (cmd, SSH_REMOTE_EXIT_CONNECT_FAIL, tail, duration)
+        log(f"REMOTE DONE [{task_id}] ({duration}s, exit={result.returncode}): {host}")
+        return (cmd, result.returncode, tail, duration)
+    except subprocess.TimeoutExpired:
+        duration = int(time.time() - start)
+        log(f"REMOTE TIMEOUT [{task_id}] ({duration}s): {host}")
+        return (cmd, 124, f"remote timeout after {RIBOSOME_TIMEOUT}s on {host}", duration)
+    except Exception as e:
+        duration = int(time.time() - start)
+        log(f"REMOTE ERROR [{task_id}] {host}: {e}")
+        return (cmd, SSH_REMOTE_EXIT_CONNECT_FAIL, str(e), duration)
+
+
+
+
+def validate_ribosome_output() -> tuple[bool, list[str]]:
+    """Validate new/modified .py files before pytest gate.
+
+    Checks:
+        1. ast.parse() each .py — fail on SyntaxError
+        2. grep for TODO/FIXME/stub — fail if found
+        3. test_*.py must be flat in assays/ — reject assays/subdir/test_foo.py
+        4. No __pycache__/.pyc
+
+    Returns:
+        (passed: bool, errors: list[str])
+    """
+    errors: list[str] = []
+    germline_dir = Path.home() / "germline"
+
+    try:
+        # Get new/modified .py files
+        git_result = subprocess.run(
+            f"git -C {germline_dir} diff --name-only --diff-filter=AM HEAD 2>/dev/null",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if git_result.returncode != 0:
+            return (True, [])  # git diff failed (e.g., no commits), pass silently
+
+        py_files = [f for f in git_result.stdout.strip().splitlines() if f.endswith(".py")]
+
+        for rel_path in py_files:
+            file_path = germline_dir / rel_path
+
+            # Check 1: ast.parse() — fail on SyntaxError
+            try:
+                source = file_path.read_text()
+                ast.parse(source)
+            except SyntaxError as e:
+                errors.append(f"SyntaxError in {rel_path}: {e}")
+                continue  # skip further checks if syntax is broken
+            except FileNotFoundError:
+                errors.append(f"File not found: {rel_path}")
+                continue
+
+            # Check 2: grep for TODO/FIXME/stub
+            for line_num, line in enumerate(source.splitlines(), 1):
+                line_upper = line.upper()
+                if ("TODO" in line_upper or "FIXME" in line_upper) and (
+                    '"TODO' not in line and "'TODO" not in line and '"FIXME' not in line and "'FIXME" not in line
+                ):
+                    errors.append(f"TODO/FIXME in {rel_path}:{line_num}: {line.strip()[:60]}")
+                if "stub" in line.lower() and not line.strip().startswith("#"):
+                    errors.append(f"stub in {rel_path}:{line_num}: {line.strip()[:60]}")
+
+            # Check 3: test_*.py must be flat in assays/
+            if rel_path.startswith("assays/") and "/test_" in rel_path:
+                # assays/test_foo.py is OK, assays/subdir/test_foo.py is not
+                parts = rel_path.split("/")
+                if len(parts) > 2:  # more than assays/test_*.py
+                    errors.append(f"test file not flat in assays/: {rel_path}")
+
+        # Check 4: No __pycache__/.pyc in new/modified files
+        pycache_result = subprocess.run(
+            f"git -C {germline_dir} diff --name-only --diff-filter=AM HEAD 2>/dev/null | grep -E '(__pycache__|\\.pyc)' || true",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if pycache_result.stdout.strip():
+            for f in pycache_result.stdout.strip().splitlines():
+                errors.append(f"__pycache__/.pyc not allowed: {f}")
+
+        return (len(errors) == 0, errors)
+
+    except Exception as e:
+        errors.append(f"validate_ribosome_output exception: {e}")
+        return (False, errors)
+
+
+def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
+    """Check for new assays/test_*.py files, run pytest, return (passed, summary)."""
+    germline_dir = str(Path.home() / "germline")
+    try:
+        # Get list of newly added files from git
+        git_result = subprocess.run(
+            f"git -C {germline_dir} diff --name-only --diff-filter=A HEAD~1 2>/dev/null",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if git_result.returncode != 0:
+            # If diff fails (e.g., first commit), just pass
+            return (True, "git diff failed, skipping test check")
+
+        new_files = git_result.stdout.strip().splitlines()
+        # Filter for assays/test_*.py pattern
+        new_test_files = [f for f in new_files if f.startswith("assays/") and f.endswith(".py") and "/test_" in ("/" + f)]
+
+        if not new_test_files:
+            return (True, "no new test files found")
+
+        # Run pytest on new test files
+        pytest_cmd = "uv run pytest {} -q --tb=line".format(" ".join(new_test_files))
+        pytest_result = subprocess.run(
+            pytest_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=germline_dir,
+            timeout=300,
+        )
+
+        summary = pytest_result.stdout.strip().splitlines()[-3:] if pytest_result.stdout else []
+        summary_str = " | ".join(summary).replace("\n", " ")
+        log(f"pytest on new tests: exit={pytest_result.returncode}, {summary_str}")
+
+        if pytest_result.returncode == 0:
+            return (True, f"pytest passed: {summary_str}")
+        else:
+            return (False, f"pytest failed: {summary_str}")
+
+    except Exception as e:
+        log(f"ERROR in check_new_test_files_and_run_pytest: {e}")
+        # On error, proceed but log
+        return (True, f"test check exception: {e}")
+
+
+
+def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
+    """Check disk space. Auto-clean if low. Pause dispatch if critical.
+
+    Returns True if safe to dispatch, False if disk is too full.
+    """
+    import shutil
+
+    home = Path.home()
+    volume = home  # Fly mounts volume at /home/terry
+    root_tmp = Path("/tmp")
+
+    def _free_gb(path: Path) -> float:
+        usage = shutil.disk_usage(str(path))
+        return usage.free / (1024**3)
+
+    # Check both volume and root
+    vol_free = _free_gb(volume)
+    root_free = _free_gb(root_tmp)
+
+    # Auto-clean if either is below warn threshold
+    if vol_free < warn_gb or root_free < warn_gb:
+        import subprocess
+        cleaned = 0
+
+        # Clean pytest temps
+        for d in [volume / "germline" / "pytest-of-terry",
+                  root_tmp / "pytest-of-terry",
+                  root_tmp / "pytest-vivesca"]:
+            if d.exists():
+                try:
+                    subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
+                    cleaned += 1
+                except subprocess.TimeoutExpired:
+                    log(f"DISK GUARD: rm -rf {d} timed out, skipping")
+
+        # Clean Claude Code session temps
+        for d in root_tmp.glob("claude-*"):
+            if d.is_dir():
+                try:
+                    subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
+                    cleaned += 1
+                except subprocess.TimeoutExpired:
+                    log(f"DISK GUARD: rm -rf {d} timed out, skipping")
+
+        # Clean Python cache
+        subprocess.run(
+            f"find {Path.home()}/germline -name __pycache__ -type d -exec rm -rf {{}} + 2>/dev/null",
+            shell=True, timeout=30
+        )
+
+        # Clean uv cache if desperate
+        if _free_gb(volume) < clean_gb:
+            cache = home / ".cache" / "uv"
+            if cache.exists():
+                subprocess.run(f"rm -rf {cache}", shell=True, timeout=30)
+                cleaned += 1
+
+        vol_after = _free_gb(volume)
+        root_after = _free_gb(root_tmp)
+        log(f"DISK GUARD: vol={vol_free:.1f}GB→{vol_after:.1f}GB, root={root_free:.1f}GB→{root_after:.1f}GB, cleaned={cleaned}")
+
+        vol_free = vol_after
+        root_free = root_after
+
+    # Critical: refuse to dispatch
+    if vol_free < clean_gb or root_free < clean_gb:
+        log(f"DISK CRITICAL: vol={vol_free:.1f}GB root={root_free:.1f}GB — pausing dispatch")
+        return False
+
+    return True
+
+def auto_requeue(min_pending: int = 20) -> int:
+    """Generate diverse high-value tasks when queue runs low.
+    Only build tasks — maintenance (pyright/ruff/health) handled by cron."""
+    return 0
+    import os
+    import random
+    pending = parse_queue()
+    if len(pending) >= min_pending:
+        return 0
+
+    # Build set of prompts already in queue (pending OR completed) to avoid duplication
+    _existing_norms: set[str] = _get_pending_prompts()
+    if QUEUE_FILE.exists():
+        for line in QUEUE_FILE.read_text().splitlines():
+            m = re.search(r'`ribosome\s+(?:\[t-[a-f0-9]+\]\s+)?(.+)`', line)
+            if m:
+                _existing_norms.add(_normalize_prompt(m.group(1)))
+
+    germline = Path.home() / "germline"
+    Path.home() / "epigenome"
+    tasks = []
+    providers = ["zhipu", "infini", "volcano"]
+    pi = random.randint(0, 2)
+
+    def add(prompt, turns=25):
+        nonlocal pi
+        # Skip if a similar prompt was already queued (pending or completed)
+        test_cmd = f'ribosome --provider zhipu --max-turns {turns} "{prompt}"'
+        if _normalize_prompt(test_cmd) in _existing_norms:
+            return
+        p = providers[pi % 3]
+        pi += 1
+        prompt = prompt.replace('"', '\\"')
+        task_line = f'- [ ] `ribosome --provider {p} --max-turns {turns} "{prompt}"`'
+        tasks.append(task_line)
+        _existing_norms.add(_normalize_prompt(f'ribosome --provider {p} --max-turns {turns} "{prompt.replace(chr(92) + chr(34), chr(34))}"'))
+
+    existing_tests = set()
+    assays = germline / "assays"
+    if assays.exists():
+        for f in assays.glob("test_*.py"):
+            existing_tests.add(f.stem)
+
+    # === 1. Fix failing tests (top 5 by failure count — always fresh) ===
+    add("Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit.", turns=50)
+
+    # === 2. Review recent ribosome commits for quality ===
+    add("Run git log --oneline --since='24 hours ago' --author=ribosome | head -10. For each commit: git show <hash> --stat. Pick the 3 largest diffs. For each: read the changed file, check for assert True stubs, empty functions, broken logic, missing error handling. Fix issues. Run uv run pytest on affected files. Commit.", turns=40)
+
+    # === 4. Replace stub tests with real ones ===
+    # Find test files that only contain assert True placeholders
+    stub_tests = []
+    for f in assays.glob("test_*.py"):
+        try:
+            content = f.read_text()
+            if "assert True" in content and content.count("def test_") <= 2 and len(content) < 500:
+                stub_tests.append(str(f))
+        except (OSError, UnicodeDecodeError):
+            pass
+    for stub in random.sample(stub_tests, min(3, len(stub_tests))):
+        name = Path(stub).stem
+        add(f"Read {stub}. It's a placeholder with only assert True. Find the source module it should test. Replace the placeholder with 5+ real tests covering actual functionality. Run uv run pytest {stub} -v --tb=short. Commit.", turns=35)
+
+    # === 5. Untested modules (random 3 — targeted, not bulk) ===
+    untested_mods = []
+    for root, dirs, files in os.walk(str(germline / "metabolon")):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for f in files:
+            if f.endswith(".py") and not f.startswith("_"):
+                clean = f.replace(".py", "")
+                parent = Path(root).name
+                test_name = f"test_{parent}_{clean}" if parent != "metabolon" else f"test_{clean}"
+                if test_name not in existing_tests:
+                    untested_mods.append(os.path.join(root, f))
+    for mod in random.sample(untested_mods, min(3, len(untested_mods))):
+        name = Path(mod).stem
+        parent = Path(mod).parent.name
+        tn = f"test_{parent}_{name}" if parent != "metabolon" else f"test_{name}"
+        add(f"Read {mod} carefully first. Write assays/{tn}.py with tests for every public function. No assert True placeholders — test real behavior. Run uv run pytest assays/{tn}.py -v --tb=short. Commit.", turns=35)
+
+    if not tasks:
+        return 0
+
+    with QueueLock():
+        lines = QUEUE_FILE.read_text().splitlines()
+        insert_idx = len(lines)
+        for i, line in enumerate(lines):
+            if line.strip().startswith("## Done"):
+                insert_idx = i
+                break
+        ts = datetime.now().strftime("%H:%M")
+        header = f"\n### Auto-requeue ({len(tasks)} tasks @ {ts})"
+        lines.insert(insert_idx, header)
+        for j, t in enumerate(tasks):
+            lines.insert(insert_idx + 1 + j, t)
+        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+
+    log(f"Auto-requeued {len(tasks)} diverse tasks (queue was {len(pending)} pending)")
+    return len(tasks)
+
+
+def _running_entry_details_full(entry: tuple) -> tuple[int, str, str, str, str, float]:
+    """Return full entry including started_at timestamp."""
+    if len(entry) >= 6:
+        return entry[0], entry[1], entry[2], entry[3], entry[4], entry[5]
+    # Fallback for old-format entries
+    line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+    return line_num, cmd, provider, task_id, dispatch_provider, 0.0
+
+
+def _running_entry_node(entry: tuple) -> str:
+    """Extract node name from running entry ('soma', 'ganglion', etc.)."""
+    return entry[6] if len(entry) >= 7 else 'soma'
+
+
+def _update_running_file(running: dict):
+    """Write current running tasks to state file for cmd_status."""
+    tasks = []
+    for _, entry in running.items():
+        _, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+        task = {"task_id": task_id, "provider": provider, "cmd": cmd[:80]}
+        if dispatch_provider != provider:
+            task["dispatch_provider"] = dispatch_provider
+        # Include started_at for dashboard elapsed-time tracking
+        started_at = entry[5] if len(entry) >= 6 else 0.0
+        if started_at > 0:
+            task["started_at"] = started_at
+        node = _running_entry_node(entry)
+        task["node"] = node
+        tasks.append(task)
+    try:
+        RUNNING_FILE.parent.mkdir(parents=True, exist_ok=True)
+        RUNNING_FILE.write_text(json.dumps(tasks))
+    except OSError:
+        pass
+
+
+def daemon_loop(dry_run: bool = False):
+    """Main daemon loop: poll queue, run tasks, mark done.
+
+    When dry_run is True, shows routing decisions without executing tasks,
+    then exits after one poll cycle.
+    """
+    rotate_logs()
+    startup_pull()
+    # Kill stale daemon if one exists (prevents dual-daemon auto-requeue spam)
+    old_pid = read_pid()
+    if old_pid and old_pid != os.getpid():
+        log(f"Killing stale daemon PID {old_pid} before starting")
+        try:
+            os.kill(old_pid, signal.SIGTERM)
+            time.sleep(2)
+        except ProcessLookupError:
+            pass
+    log("Daemon started")
+    write_pid()
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+    _shutdown_event.clear()
+
+    max_workers = MAX_TOTAL_CONCURRENT
+    running = {}  # future -> (line_num, cmd, provider, task_id, dispatch_provider)
+    provider_running: dict[str, int] = {}  # provider -> count of running tasks
+    provider_failure_times: dict[str, list[float]] = {}  # provider -> list of failure timestamps
+    provider_cooldown_until: dict[str, float] = {}  # provider -> timestamp when cooldown ends
+    _cooldown_probe_times: dict[str, float] = {}  # provider -> last probe timestamp
+    poll_cycle = 0
+    disk_space_paused = False
+
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    try:
+        while not _shutdown_event.is_set():
+                poll_cycle += 1
+
+                # Check disk space every 10 poll cycles + run hygiene
+                if poll_cycle % 10 == 0:
+                    ok, free_bytes = check_disk_space()
+                    if not ok:
+                        free_gb = free_bytes / (1024 * 1024 * 1024)
+                        if not disk_space_paused:
+                            log(f"WARNING: Low disk space ({free_gb:.2f}GB free), running disk hygiene")
+                            freed = disk_hygiene()
+                            if freed > 0:
+                                log(f"Disk hygiene freed ~{freed // (1024*1024)}MB")
+                            # Re-check after hygiene
+                            ok, free_bytes = check_disk_space()
+                            if not ok:
+                                log(f"Still low after hygiene ({free_bytes // (1024*1024)}MB free), pausing dispatch")
+                                disk_space_paused = True
+                    elif disk_space_paused:
+                        free_gb = free_bytes / (1024 * 1024 * 1024)
+                        log(f"Disk space recovered ({free_gb:.2f}GB free), resuming task dispatch")
+                        disk_space_paused = False
+                    # Periodic hygiene even when not low (every 100 cycles = ~50 min)
+                    if poll_cycle % 100 == 0:
+                        freed = disk_hygiene()
+                        if freed > 0:
+                            log(f"Periodic hygiene freed ~{freed // (1024*1024)}MB")
+
+                # Periodic health check (every HEALTH_CHECK_INTERVAL cycles)
+                if poll_cycle % HEALTH_CHECK_INTERVAL == 0:
+                    try:
+                        r = subprocess.run(
+                            ["python3", str(Path.home() / "germline" / "effectors" / "gemmule-health"), "--daemon"],
+                            capture_output=True, text=True, timeout=120
+                        )
+                        if r.stdout.strip():
+                            log(f"HEALTH: {r.stdout.strip()}")
+                        if r.returncode == 2:  # critical
+                            log("HEALTH CRITICAL — pausing dispatch for safety")
+                            disk_space_paused = True
+                    except Exception as e:
+                        log(f"Health check error: {e}")
+
+                # Check for completed tasks
+                done_futures = [f for f in running if f.done()]
+                for future in done_futures:
+                    entry = running.pop(future)
+                    line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+                    node = _running_entry_node(entry)
+                    provider_running[dispatch_provider] = max(0, provider_running.get(dispatch_provider, 0) - 1)
+                    try:
+                        _, exit_code, tail, duration = future.result()
+                        _write_jsonl_record(
+                            task_id, provider, exit_code, duration, cmd, tail=tail,
+                            dispatch_provider=dispatch_provider,
+                        )
+                        # SSH connection failure: leave task pending for local pickup
+                        if node != 'soma' and exit_code == SSH_REMOTE_EXIT_CONNECT_FAIL:
+                            log(f"REMOTE SSH FAIL [{task_id}]: {node} unreachable, task stays pending for local pickup")
+                            continue
+                        if exit_code == 0:
+                            # Ribosome succeeded — run advisory checks (don't block on them)
+                            passed, errors = validate_ribosome_output()
+                            if not passed:
+                                log(f"VALIDATION WARN [{task_id}]: {cmd[:50]}... → {'; '.join(errors[:3])}")
+                            test_passed, test_result = check_new_test_files_and_run_pytest()
+                            if not test_passed:
+                                log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
+                            mark_done(line_num, f"exit={exit_code}", task_id=task_id, node=node)
+                            _unthrottle_provider(dispatch_provider)  # adaptive: restore concurrency on success
+                            # Auto-commit every 5 successful completions
+                            global _mark_done_count
+                            _mark_done_count += 1
+                            if _mark_done_count >= 5:
+                                commit_hash = auto_commit()
+                                log(f"auto-commit ({_mark_done_count} tasks): {commit_hash}")
+                                _mark_done_count = 0
+                        else:
+                            failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id, tail=tail)
+                            _throttle_provider(dispatch_provider)  # adaptive: reduce concurrency on failure
+                            log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
+                            # Detect rate-limiting from task output, fast-exit, or empty output
+                            is_explicit_ratelimit = failed_result.get("rate_limited") or is_rate_limited(tail)
+                            # Fast-exit: exit 1/2 in ≤5s with empty output = silent rate-limit
+                            is_fast_exit = exit_code in (1, 2) and duration <= 5 and not tail.strip()
+                            # Empty output: model never produced work — rate-limit retry exhaustion
+                            is_empty_output = not tail.strip() and exit_code != 0
+                            if is_explicit_ratelimit or is_fast_exit or is_empty_output:
+                                # Rate-limited: apply proportional cooldown immediately
+                                window = parse_rate_limit_window(tail)
+                                # Billing-exhausted: enforce minimum 24h cooldown even if
+                                # parse_rate_limit_window returned a short value (e.g. the
+                                # message only had "try again at 9:01 PM" without a full date).
+                                if is_billing_exhausted(tail):
+                                    window = max(window or 0, BILLING_EXHAUSTED_THRESHOLD)
+                                cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
+                                cooldown_end = time.time() + cooldown
+                                # Only extend, never shorten existing cooldown
+                                if provider_cooldown_until.get(dispatch_provider, 0) < cooldown_end:
+                                    provider_cooldown_until[dispatch_provider] = cooldown_end
+                                    if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
+                                        # Billing-cycle exhaustion: long cooldown, no early-recovery probing
+                                        reset_tm = time.localtime(cooldown_end)
+                                        reset_str = time.strftime("%b %d", reset_tm).replace(" 0", " ")
+                                        PROVIDER_DISABLED[dispatch_provider] = {
+                                            "resets_at": cooldown_end,
+                                            "resets_str": reset_str,
+                                        }
+                                        _log_cooldown(dispatch_provider, cooldown_end, f"billing exhausted: task {task_id} exit={exit_code}", event="billing-exhausted")
+                                    else:
+                                        _log_cooldown(dispatch_provider, cooldown_end, f"task {task_id} exit={exit_code}")
+                                cd_min = int(cooldown // 60)
+                                cd_hrs = int(cooldown // 3600)
+                                reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "empty-output" if is_empty_output and not is_explicit_ratelimit else "output-match"
+                                if cooldown >= BILLING_EXHAUSTED_THRESHOLD:
+                                    log(f"BILLING-EXHAUSTED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_hrs}h (exit={exit_code}, dur={duration}s)")
+                                else:
+                                    log(f"RATE-LIMITED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
+                                # Don't count rate-limit failures toward failure threshold
+                            else:
+                                # Track non-rate-limit failures in sliding window per provider
+                                now = time.time()
+                                if dispatch_provider not in provider_failure_times:
+                                    provider_failure_times[dispatch_provider] = []
+                                times = provider_failure_times[dispatch_provider]
+                                times.append(now)
+                                # Prune entries outside the window
+                                window_start = now - PROVIDER_FAILURE_WINDOW
+                                provider_failure_times[dispatch_provider] = [t for t in times if t >= window_start]
+                                recent_fails = len(provider_failure_times[dispatch_provider])
+                                if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
+                                    # If failures suggest silent rate-limiting, use the
+                                    # longer RATE_LIMIT cooldown instead of the shorter
+                                    # PROVIDER cooldown.  Detect via:
+                                    #   1. exit=2 with empty output (claude init failure)
+                                    #   2. exit=1 or 2 with short duration (≤10s) — rate-limited
+                                    #      preflight/retry exhaustion completes fast
+                                    #   3. Provider has a known rate-limit window (PROVIDER_RATE_WINDOWS)
+                                    known_window = dispatch_provider in PROVIDER_RATE_WINDOWS
+                                    silent_ratelimit = (
+                                        (exit_code == 2 and not tail.strip())
+                                        or (exit_code in (1, 2) and duration <= 10)
+                                        or (known_window and duration <= 10)
+                                    )
+                                    if silent_ratelimit:
+                                        cooldown_dur = PROVIDER_RATE_WINDOWS.get(dispatch_provider, RATE_LIMIT_COOLDOWN_SECONDS)
+                                    else:
+                                        cooldown_dur = PROVIDER_COOLDOWN_SECONDS
+                                    cooldown_end = now + cooldown_dur
+                                    provider_cooldown_until[dispatch_provider] = cooldown_end
+                                    _log_cooldown(dispatch_provider, cooldown_end, f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW//60}min")
+                                    log(f"COOLDOWN: {dispatch_provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{f' (rate-limit suspected, exit={exit_code} dur={duration}s)' if silent_ratelimit else ''}")
+                    except Exception as e:
+                        log(f"Future error: {e}")
+                        _write_jsonl_record(
+                            task_id, provider, 1, 0, cmd, dispatch_provider=dispatch_provider,
+                        )
+                        mark_failed(line_num, str(e), task_id=task_id)
+                if done_futures:
+                    _update_running_file(running)
+
+                # Fill available slots per provider (skip if disk space is low)
+                if disk_space_paused:
+                    pending = parse_queue()
+                    log(f"Disk space low, skipping dispatch ({len(pending)} pending)")
+                else:
+                    pending = parse_queue()
+
+                # Always-on: when queue empty and nothing running, sleep 60s then re-poll
+                if not pending and not running:
+                    log("Idle: queue empty, sleeping 60s")
+                    _interruptible_sleep(60)
+                    continue
+
+                # Auto-requeue when queue runs low
+                if len(pending) < 50:
+                    added = auto_requeue()
+                    if added > 0:
+                        pending = parse_queue()
+
+                # Disk guard — pause dispatch if disk is full
+                if not disk_guard():
+                    log("Disk guard: skipping dispatch this cycle")
+                    time.sleep(POLL_INTERVAL)
+                    continue
+
+                # Check for manual cooldown clear signal
+                if CLEAR_COOLDOWN_FILE.exists():
+                    try:
+                        target = CLEAR_COOLDOWN_FILE.read_text().strip()
+                        CLEAR_COOLDOWN_FILE.unlink()
+                        cleared = []
+                        for p in list(provider_cooldown_until):
+                            if not target or target == "all" or p == target:
+                                _log_cooldown(p, provider_cooldown_until[p], "manual clear", event="resumed")
+                                del provider_cooldown_until[p]
+                                provider_failure_times.pop(p, None)
+                                _provider_throttle.pop(p, None)
+                                _cooldown_probe_times.pop(p, None)
+                                PROVIDER_DISABLED.pop(p, None)
+                                cleared.append(p)
+                        if cleared:
+                            log(f"MANUAL COOLDOWN CLEAR: {', '.join(cleared)}")
+                    except OSError:
+                        pass
+
+                # Clear expired cooldowns + probe providers that might have recovered early
+                now = time.time()
+                for p in list(provider_cooldown_until):
+                    if now >= provider_cooldown_until[p]:
+                        _log_cooldown(p, provider_cooldown_until[p], "quota reset", event="resumed")
+                        log(f"COOLDOWN LIFTED: {p} — resuming dispatch")
+                        del provider_cooldown_until[p]
+                        provider_failure_times.pop(p, None)
+                        PROVIDER_DISABLED.pop(p, None)
+                    elif p not in PROVIDER_DISABLED and p not in ("gemini", "codex"):
+                        # Probe every 5 min: provider may have recovered before cooldown expires
+                        last_probe = _cooldown_probe_times.get(p, 0)
+                        if now - last_probe >= 300:
+                            _cooldown_probe_times[p] = now
+                            healthy, _ = _provider_preflight(p, _ribosome_env())
+                            if healthy:
+                                _log_cooldown(p, provider_cooldown_until[p], "early recovery (probe)", event="resumed")
+                                log(f"COOLDOWN EARLY LIFT: {p} — preflight probe succeeded, resuming dispatch")
+                                del provider_cooldown_until[p]
+                                provider_failure_times.pop(p, None)
+                                _provider_throttle.pop(p, None)
+
+                # Always-on backoff: all providers in cooldown, tasks pending but undeliverable
+                if pending and not running:
+                    any_dispatchable = any(
+                        _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running) is not None
+                        for _, cmd, _ in pending
+                    )
+                    if not any_dispatchable:
+                        log("Backoff: all providers cooled, sleeping 300s")
+                        _interruptible_sleep(300)
+                        continue
+
+                # Per-provider preflight health check: ping each provider once per
+                # dispatch cycle before submitting tasks. Detects rate-limits proactively
+                # and prevents the "thundering herd" where N tasks get dispatched to a
+                # rate-limited provider simultaneously.
+                _preflight_checked: set[str] = set()
+                _ribosome_env_cache = _ribosome_env()
+
+                # Health-check remote workers once per dispatch cycle
+                _ssh_health_cache: dict[str, bool] = {}
+                for w in REMOTE_WORKERS:
+                    _ssh_health_cache[w['host']] = _ssh_health_check(w)
+
+                # Build cache of prompts that already passed (for dedup)
+                _completed_prompts_cache: set[str] = set()
+                try:
+                    for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
+                        if path.exists():
+                            for line in path.read_text(errors="replace").splitlines():
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                try:
+                                    rec = json.loads(line)
+                                    if rec.get("exit") == 0:
+                                        c = rec.get("cmd", "") or rec.get("prompt", "")
+                                        if c:
+                                            _completed_prompts_cache.add(_normalize_prompt(c))
+                                except (json.JSONDecodeError, ValueError):
+                                    pass
+                except (PermissionError, OSError):
+                    pass
+
+                dispatched_this_cycle = 0
+                # Sort pending tasks so that fallback tasks (affinity provider
+                # in cooldown) are dispatched first, AND within each group
+                # tasks are sorted so under-capacity providers get served
+                # before over-capacity ones.  This prevents a queue full of
+                # zhipu-affinity tasks from consuming all local/remote slots
+                # before infini/volcano fallback tasks can reach codex.
+                def _dispatch_sort_key(item):
+                    """Sort key: fallback tasks first, then by provider capacity headroom."""
+                    _, cmd, _ = item
+                    affinity = parse_provider(cmd)
+                    is_fallback = affinity in provider_cooldown_until
+                    # Resolve where this task would dispatch to (without logging)
+                    if is_fallback:
+                        dp = None
+                        for candidate in _dispatch_candidates(affinity):
+                            if candidate not in provider_cooldown_until:
+                                lim = get_provider_limit(candidate)
+                                cur = provider_running.get(candidate, 0)
+                                if cur < lim:
+                                    dp = candidate
+                                    break
+                    else:
+                        dp = affinity
+                    if dp is None:
+                        headroom = -1  # undeliverable, sort last
+                    else:
+                        limit = get_provider_limit(dp)
+                        current = provider_running.get(dp, 0)
+                        headroom = limit - current
+                    # (is_fallback: False=1 sorts after True=0, headroom descending)
+                    return (0 if is_fallback else 1, -headroom)
+
+                sorted_pending = sorted(pending, key=_dispatch_sort_key)
+                for line_num, cmd, task_id in sorted_pending:
+                    dispatch = _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running)
+                    if dispatch is None:
+                        continue  # all providers burnt
+                    cmd, provider, dispatch_provider = dispatch
+
+                    # Per-provider preflight: check once per cycle, before first dispatch
+                    if dispatch_provider not in _preflight_checked and dispatch_provider not in ("default", "gemini", "codex"):
+                        _preflight_checked.add(dispatch_provider)
+                        healthy, cooldown_secs = _provider_preflight(dispatch_provider, _ribosome_env_cache)
+                        if not healthy and cooldown_secs is not None:
+                            # Rate-limited — set cooldown immediately
+                            cooldown_end = time.time() + cooldown_secs
+                            provider_cooldown_until[dispatch_provider] = cooldown_end
+                            _log_cooldown(dispatch_provider, cooldown_end, "preflight rate-limit")
+                            provider_failure_times.pop(dispatch_provider, None)
+                            cd_min = cooldown_secs // 60
+                            log(f"PREFLIGHT: {dispatch_provider} rate-limited — cooldown {cd_min}min")
+                            continue
+                        elif not healthy:
+                            # Connection/auth error — transient, skip this cycle but no cooldown
+                            log(f"PREFLIGHT: {dispatch_provider} connection error — skipping dispatch this cycle")
+                            continue
+
+                    # Global cap: don't exceed MAX_TOTAL_CONCURRENT across all providers
+                    if len(running) >= MAX_TOTAL_CONCURRENT:
+                        break
+
+                    current = provider_running.get(dispatch_provider, 0)
+                    limit = get_provider_limit(dispatch_provider)
+
+                    if current >= limit:
+                        if provider != dispatch_provider:
+                            log(f"DISPATCH SKIP [{task_id}]: {provider}->{dispatch_provider} at capacity ({current}/{limit})")
+                        continue
+
+                    # Check if already running (avoid duplicate dispatch via normalized prompt)
+                    norm_prompt = _normalize_prompt(cmd)
+                    already_running = any(
+                        _normalize_prompt(_running_entry_details(entry)[1]) == norm_prompt
+                        for entry in running.values()
+                    )
+                    if already_running:
+                        log(f"skipping duplicate: [{task_id}]")
+                        continue
+
+                    # Check if same prompt already succeeded — skip without re-running
+                    if norm_prompt in _completed_prompts_cache:
+                        log(f"already passed: [{task_id}] — auto-marking done")
+                        mark_done(line_num, result="auto-dedup (already passed)", task_id=task_id)
+                        continue
+
+                    # Routing: local vs remote overflow
+                    local_count = sum(1 for e in running.values() if _running_entry_node(e) == 'soma')
+                    started_at = time.time()
+
+                    if local_count < MAX_LOCAL:
+                        # Local execution
+                        if dry_run:
+                            log(f"DRY-RUN: would run locally [{task_id}]: {cmd[:60]}...")
+                            continue
+                        future = executor.submit(run_ribosome, cmd)
+                        running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, 'soma')
+                        provider_running[dispatch_provider] = current + 1
+                        dispatched_this_cycle += 1
+                        if dispatch_provider == provider:
+                            log(f"Queued [soma] [{provider}] [{task_id}]: {cmd[:60]}...")
+                        else:
+                            log(f"Queued [soma] [{provider}->{dispatch_provider}] [{task_id}]: {cmd[:60]}...")
+                    else:
+                        # Local slots full — try remote overflow
+                        dispatched_remote = False
+                        for w in REMOTE_WORKERS:
+                            wkey = w['host']
+                            remote_count = sum(1 for e in running.values() if _running_entry_node(e) == wkey)
+                            if remote_count >= w['max_concurrent']:
+                                log(f"REMOTE SKIP [{wkey}]: {remote_count}/{w['max_concurrent']} slots full")
+                                continue
+                            if not _ssh_health_cache.get(wkey, False):
+                                log(f"REMOTE SKIP [{wkey}]: health check failed")
+                                continue
+                            if dry_run:
+                                log(f"DRY-RUN: would run remotely on {wkey} [{task_id}]: {cmd[:60]}...")
+                                dispatched_remote = True
+                                break
+                            future = executor.submit(remote_exec, cmd, w)
+                            running[future] = (line_num, cmd, provider, task_id, dispatch_provider, started_at, wkey)
+                            provider_running[dispatch_provider] = current + 1
+                            dispatched_this_cycle += 1
+                            log(f"Queued [{wkey}] [{provider}] [{task_id}]: {cmd[:60]}...")
+                            dispatched_remote = True
+                            break
+                        if not dispatched_remote and not dry_run:
+                            log(f"OVERFLOW FULL [{task_id}]: all local+remote slots occupied, skipping")
+                if pending:
+                    _update_running_file(running)
+
+                # Status check
+                if running:
+                    running_by_provider = ", ".join(
+                        f"{p}:{n}" for p, n in sorted(provider_running.items()) if n > 0
+                    )
+                    local_count = sum(1 for e in running.values() if _running_entry_node(e) == 'soma')
+                    remote_counts = " ".join(
+                        f"{w['host']}:{sum(1 for e in running.values() if _running_entry_node(e) == w['host'])}/{w['max_concurrent']}"
+                        for w in REMOTE_WORKERS
+                    )
+                    log(f"Running: {len(running)} tasks ({running_by_provider}) local={local_count}/{MAX_LOCAL} remote=[{remote_counts}], {len(pending)} pending")
+                else:
+                    log(f"Idle: {len(pending)} pending")
+
+                # Backoff: all providers cooled, nothing dispatched, nothing running
+                if pending and dispatched_this_cycle == 0 and not running:
+                    log("Backoff: all providers cooled, sleeping 300s")
+                    _interruptible_sleep(300)
+                    continue
+
+                # In dry-run mode, exit after one poll cycle
+                if dry_run:
+                    log("DRY-RUN: exiting after one poll cycle")
+                    break
+
+                time.sleep(POLL_INTERVAL)
+
+        # Graceful shutdown: drain running tasks, then commit+push
+        remaining = _drain_running(running, timeout=60)
+        if remaining:
+            log(f"SIGTERM: {remaining} tasks still running after 60s drain, forcing shutdown")
+        else:
+            log("SIGTERM: all running tasks completed during drain")
+
+    except KeyboardInterrupt:
+        log("Interrupted")
+    except Exception as e:
+        log(f"Fatal error: {e}")
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+        auto_commit()
+        remove_pid()
+        log("Daemon stopped")
+
+def cmd_start(foreground: bool = False):
+    """Start daemon. Use --foreground/-f for supervisor compatibility."""
+    pid = read_pid()
+    if pid:
+        print(f"Daemon already running (PID {pid})")
+        return 1
+
+    if foreground:
+        daemon_loop()
+        return 0
+
+    # Double-fork to fully detach
+    if os.fork() > 0:
+        print("Daemon started")
+        return 0
+
+    os.setsid()
+
+    if os.fork() > 0:
+        os._exit(0)
+
+    # Redirect stdio
+    sys.stdin.close()
+    sys.stdout = open(os.devnull, "w")
+    sys.stderr = open(os.devnull, "w")
+
+    daemon_loop()
+    return 0
+
+def cmd_stop():
+    """Stop daemon via pidfile."""
+    pid = read_pid()
+    if not pid:
+        print("Daemon not running")
+        return 1
+    
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"Sent SIGTERM to PID {pid}")
+        # Wait for process to exit
+        for _ in range(10):
+            time.sleep(0.5)
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                print("Daemon stopped")
+                return 0
+        # Force kill if still running
+        os.kill(pid, signal.SIGKILL)
+        print("Force killed")
+        return 0
+    except ProcessLookupError:
+        print("Daemon already stopped")
+        return 0
+
+def cmd_status():
+    """Check daemon status."""
+    pid = read_pid()
+    if pid:
+        # Count pending tasks by provider
+        pending = parse_queue()
+        by_provider: dict[str, int] = {}
+        for _, cmd, _ in pending:
+            p = parse_provider(cmd)
+            by_provider[p] = by_provider.get(p, 0) + 1
+
+        provider_info = ", ".join(
+            f"{p}:{n}/{PROVIDER_LIMITS.get(p, DEFAULT_LIMIT)}"
+            for p, n in sorted(by_provider.items())
+        ) if by_provider else "none"
+
+        print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info}), global cap {MAX_TOTAL_CONCURRENT}")
+
+        # Show cooldown status from log (deduplicated per provider)
+        if COOLDOWN_LOG.exists():
+            try:
+                entries = json.loads(COOLDOWN_LOG.read_text())
+                now = time.time()
+                # Latest cooldown per provider, not yet resumed
+                active = {}
+                for e in entries:
+                    p = e.get("provider", "?")
+                    if e.get("event") == "resumed":
+                        active.pop(p, None)
+                    elif e.get("event") in ("burnout", "billing-exhausted") and e.get("resets_at"):
+                        reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                        if reset_time > now:
+                            active[p] = {"event": e["event"], "resets_at": e["resets_at"]}
+                if active:
+                    parts = []
+                    for p, info in sorted(active.items()):
+                        if info["event"] == "billing-exhausted":
+                            dt = time.strptime(info["resets_at"], "%Y-%m-%d %H:%M:%S")
+                            label = time.strftime("%b %d", dt).replace(" 0", " ")
+                            parts.append(f"{p} (billing limit, resets {label})")
+                        else:
+                            parts.append(f"{p} (resets {info['resets_at'][11:16]})")
+                    print(f"Cooldowns: {', '.join(parts)}")
+            except (json.JSONDecodeError, OSError, KeyError, ValueError):
+                pass
+
+        # Show running task IDs from state file
+        if RUNNING_FILE.exists():
+            try:
+                running_tasks = json.loads(RUNNING_FILE.read_text())
+                if running_tasks:
+                    print("Running tasks:")
+                    for t in running_tasks:
+                        tid = t.get("task_id", "?")
+                        prov = t.get("provider", "?")
+                        node = t.get("node", "soma")
+                        print(f"  [{tid}] {prov} [{node}] — {t.get('cmd', '')[:60]}")
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        return 0
+    else:
+        print("Daemon not running")
+        return 1
+
+def cmd_clean() -> int:
+    """Remove completed ([x]) and failed ([!]) entries from the queue.
+
+    Preserves headers, blank lines, and pending ([ ]) tasks.
+    Rewrites the queue file and prints the count of removed entries.
+    """
+    if not QUEUE_FILE.exists():
+        print("Queue file not found")
+        return 1
+
+    with QueueLock():
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            print("Queue file unreadable")
+            return 1
+        kept = []
+        removed = 0
+        for line in lines:
+            if re.match(r'^- \[[!x]\]', line):
+                removed += 1
+            else:
+                kept.append(line)
+        try:
+            QUEUE_FILE.write_text("\n".join(kept) + "\n")
+        except (PermissionError, OSError):
+            print("Queue file not writable")
+            return 1
+
+    print(f"Removed {removed} entries from queue")
+    return 0
+
+
+def cmd_retry_all() -> int:
+    """Re-queue all [!] failed tasks as [ ] pending for another attempt.
+
+    Strips any trailing (retry) tag so each task gets a fresh retry cycle.
+    Returns count of re-queued tasks.
+    """
+    if not QUEUE_FILE.exists():
+        print("Queue file not found")
+        return 1
+
+    with QueueLock():
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            print("Queue file unreadable")
+            return 1
+
+        requeued = 0
+        new_lines: list[str] = []
+        for line in lines:
+            m = re.match(r'^- \[!\] `([^`]+)`', line)
+            if m:
+                cmd = m.group(1).strip()
+                # Strip trailing (retry) to give a fresh cycle
+                cmd = re.sub(r'\s*\(retry\)\s*$', '', cmd)
+                new_lines.append(f"- [ ] `{cmd}`")
+                requeued += 1
+            else:
+                new_lines.append(line)
+
+        try:
+            QUEUE_FILE.write_text("\n".join(new_lines) + "\n")
+        except (PermissionError, OSError):
+            print("Queue file not writable")
+            return 1
+
+    print(f"Re-queued {requeued} failed tasks")
+    return 0
+
+
+def _classify_task(record: dict) -> str:
+    prompt = record.get('prompt', '') or record.get('cmd', '') or ''
+    prompt_lower = prompt.lower()
+    if 'pyright' in prompt_lower and ('metabolon/' in prompt or '--outputjson' in prompt_lower):
+        return 'maintenance'
+    if prompt_lower.startswith('health check:') or '"health check:' in prompt_lower:
+        return 'maintenance'
+    if 'ruff check' in prompt_lower or 'ruff format' in prompt_lower:
+        return 'maintenance'
+    if prompt.startswith('Run uv run pytest --co'):
+        return 'maintenance'
+    if 'git log --oneline' in prompt_lower:
+        return 'maintenance'
+    return 'build'
+
+
+def _parse_ts_epoch(ts_str: str) -> float | None:
+    """Parse ts string to epoch seconds. Supports 'YYYY-MM-DD HH:MM:SS' and ISO 'YYYY-MM-DDTHH:MM:SSZ'."""
+    if not ts_str:
+        return None
+    for fmt, is_utc in (("%Y-%m-%dT%H:%M:%SZ", True), ("%Y-%m-%d %H:%M:%S", False)):
+        try:
+            dt = datetime.strptime(ts_str, fmt)
+            if is_utc:
+                return dt.replace(tzinfo=UTC).timestamp()
+            return dt.timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_since_duration(s: str) -> int | None:
+    """Parse --since duration string (e.g. '2h', '30m', '1d') to seconds."""
+    m = re.match(r'^(\d+)([smhd])$', s)
+    if not m:
+        return None
+    val = int(m.group(1))
+    unit = m.group(2)
+    multipliers = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
+    return val * multipliers[unit]
+
+
+def _resolve_stats_filter(args: list[str]) -> tuple[float | None, str]:
+    """Resolve time filter from stats command arguments.
+
+    Returns (cutoff_epoch | None, window_description).
+    None cutoff means no filter (--all behavior).
+    """
+    for arg in args:
+        if arg == "--all":
+            return None, "all time"
+        if arg == "--today":
+            midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            return midnight.timestamp(), "today"
+        if arg.startswith("--since="):
+            dur_str = arg.split("=", 1)[1]
+            secs = _parse_since_duration(dur_str)
+            if secs is not None:
+                cutoff = time.time() - secs
+                return cutoff, f"last {dur_str}"
+    # Default: last 8 hours
+    return time.time() - 8 * 3600, "last 8h"
+
+
+def _count_pending_tasks() -> int:
+    """Count pending tasks ([ ] and [!!]) from queue file."""
+    if not QUEUE_FILE.exists():
+        return 0
+    try:
+        count = 0
+        for line in QUEUE_FILE.read_text().splitlines():
+            if re.match(r'^- \[( |!!)\] ', line):
+                count += 1
+        return count
+    except (PermissionError, OSError, UnicodeDecodeError):
+        return 0
+
+
+def _get_running_tasks() -> list[dict]:
+    """Read running tasks from RUNNING_FILE."""
+    if not RUNNING_FILE.exists():
+        return []
+    try:
+        return json.loads(RUNNING_FILE.read_text())
+    except (json.JSONDecodeError, OSError):
+        return []
+
+def cmd_stats(args: list[str] | None = None) -> int:
+    """Show pass/fail/retry counts, avg duration by provider, tasks completed today."""
+    if args is None:
+        args = sys.argv[2:]
+
+    cutoff, window_desc = _resolve_stats_filter(args)
+
+    # Daemon status header
+    pid = read_pid()
+    running_tasks = _get_running_tasks()
+    pending_count = _count_pending_tasks()
+    daemon_status = "running" if pid else "stopped"
+    print(f"Daemon: {daemon_status} — {pending_count} tasks pending, {len(running_tasks)} running")
+
+    # Currently running section
+    if running_tasks:
+        print("\nCurrently running:")
+        now = time.time()
+        for t in running_tasks:
+            tid = t.get("task_id", "?")
+            prov = t.get("provider", "?")
+            cmd_short = t.get("cmd", "")[:50]
+            started_at = t.get("started_at", 0)
+            if started_at > 0:
+                elapsed = int(now - started_at)
+                em, es = divmod(elapsed, 60)
+                print(f"  [{tid}] {prov} — {em}m{es:02d}s elapsed — {cmd_short}")
+            else:
+                print(f"  [{tid}] {prov} — {cmd_short}")
+
+    # Load records
+    records: list[dict] = []
+    for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
+        if path.exists():
+            try:
+                for line in path.read_text(errors="replace").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    with contextlib.suppress(json.JSONDecodeError, ValueError):
+                        records.append(json.loads(line))
+            except (PermissionError, OSError, UnicodeDecodeError):
+                pass
+
+    if not records:
+        print("\nNo task history found")
+        return 0
+
+    # Filter by time window
+    if cutoff is not None:
+        filtered = []
+        for r in records:
+            ts_epoch = _parse_ts_epoch(r.get("ts", ""))
+            if ts_epoch is not None and ts_epoch >= cutoff:
+                filtered.append(r)
+        records = filtered
+
+    if not records:
+        print(f"\nNo tasks in window ({window_desc})")
+        return 0
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Overall counts
+    total = len(records)
+    passed = sum(1 for r in records if r.get("exit") == 0)
+    failed = total - passed
+
+    # Retries exhausted (permanently failed in queue)
+    retries = 0
+    perma_failed_ids: list[str] = []
+    if QUEUE_FILE.exists():
+        try:
+            for line in QUEUE_FILE.read_text().splitlines():
+                m = re.match(r'^- \[!\] `([^`]+)`', line)
+                if m:
+                    retries += 1
+                    cmd = m.group(1)
+                    tid_match = TASK_ID_RE.search(cmd)
+                    if tid_match:
+                        perma_failed_ids.append(f"t-{tid_match.group(1)}")
+                    else:
+                        perma_failed_ids.append(f"#{retries}")
+        except (PermissionError, OSError, UnicodeDecodeError):
+            pass
+
+    # Today's tasks
+    today_records = [r for r in records if r.get("ts", "").startswith(today)]
+    today_total = len(today_records)
+    today_passed = sum(1 for r in today_records if r.get("exit") == 0)
+
+    # Per-provider stats with rate-limit classification
+    provider_stats: dict[str, dict] = {}
+    for r in records:
+        p = r.get("provider", "unknown")
+        d = r.get("duration", 0)
+        if p not in provider_stats:
+            provider_stats[p] = {"count": 0, "total_dur": 0, "passed": 0, "failed": 0, "rate_limited": 0}
+        provider_stats[p]["count"] += 1
+        provider_stats[p]["total_dur"] += d
+        if r.get("exit") == 0:
+            provider_stats[p]["passed"] += 1
+        else:
+            provider_stats[p]["failed"] += 1
+            # Classify as rate-limited if: fast exit, killed, empty output, or tail has RL markers
+            tail = r.get("tail", "")
+            tail_lower = tail.lower()
+            if (r.get("duration", 999) <= 10
+                    or r.get("exit") == 137
+                    or not tail.strip()  # empty output = model never produced work = rate-limited
+                    or "accountquota" in tail_lower
+                    or "429" in tail
+                    or ("rate" in tail_lower and "limit" in tail_lower)
+                    or ("usage" in tail_lower and "limit" in tail_lower)
+                    or "quota will reset" in tail_lower
+                    or "ribosome_rate_limit" in tail):
+                provider_stats[p]["rate_limited"] += 1
+
+    # Build vs maintenance breakdown
+    build_records = [r for r in records if _classify_task(r) == 'build']
+    maint_records = [r for r in records if _classify_task(r) == 'maintenance']
+    build_passed = sum(1 for r in build_records if r.get('exit') == 0)
+    maint_passed = sum(1 for r in maint_records if r.get('exit') == 0)
+
+    # Print stats
+    print(f"\nWindow: {window_desc}")
+    print(f"Total tasks: {total} (passed: {passed}, failed: {failed})")
+    print(f"Permanently failed (retries exhausted): {retries}")
+    if perma_failed_ids:
+        for tid in perma_failed_ids:
+            print(f"  [{tid}]")
+    print(f"Build tasks: {len(build_records)} (passed: {build_passed}, failed: {len(build_records) - build_passed})")
+    print(f"Maintenance tasks: {len(maint_records)} (passed: {maint_passed}, failed: {len(maint_records) - maint_passed})")
+    print(f"Tasks today ({today}): {today_total} (passed: {today_passed}, failed: {today_total - today_passed})")
+
+    # Today breakdown by type
+    today_build = [r for r in today_records if _classify_task(r) == 'build']
+    today_maint = [r for r in today_records if _classify_task(r) == 'maintenance']
+    today_bp = sum(1 for r in today_build if r.get('exit') == 0)
+    today_mp = sum(1 for r in today_maint if r.get('exit') == 0)
+    print(f"  Today build: {len(today_build)} (passed: {today_bp})  maintenance: {len(today_maint)} (passed: {today_mp})")
+    print()
+    print("By provider:                                                          capability")
+    for provider in sorted(provider_stats):
+        s = provider_stats[provider]
+        avg_dur = s["total_dur"] / s["count"] if s["count"] else 0
+        avg_min = int(avg_dur // 60)
+        avg_sec = int(avg_dur % 60)
+        rl = s["rate_limited"]
+        real_fail = s["failed"] - rl
+        real_total = s["passed"] + real_fail
+        cap_pct = f"{100 * s['passed'] // real_total}%" if real_total else "n/a"
+        print(f"  {provider:10s}  {s['count']:4d} tasks  {s['passed']:4d} pass  {rl:4d} rate-limited  {real_fail:4d} real-fail  avg {avg_min}m{avg_sec:02d}s  {cap_pct:>4s}")
+
+    return 0
+
+
+def cmd_export_stats(args: list[str] | None = None) -> int:
+    """Output per-provider stats as JSON to stdout.
+
+    Each entry contains: provider, total, passed, failed, rate_limited,
+    real_fail, capability_pct. Accepts same time filters as stats.
+    """
+    if args is None:
+        args = sys.argv[2:]
+    cutoff, _ = _resolve_stats_filter(args)
+
+    records: list[dict] = []
+    for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
+        if path.exists():
+            try:
+                for line in path.read_text(errors="replace").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    with contextlib.suppress(json.JSONDecodeError, ValueError):
+                        records.append(json.loads(line))
+            except (PermissionError, OSError, UnicodeDecodeError):
+                pass
+
+    if not records:
+        print(json.dumps([]))
+        return 0
+
+    # Filter by time window
+    if cutoff is not None:
+        filtered = []
+        for r in records:
+            ts_epoch = _parse_ts_epoch(r.get("ts", ""))
+            if ts_epoch is not None and ts_epoch >= cutoff:
+                filtered.append(r)
+        records = filtered
+
+    if not records:
+        print(json.dumps([]))
+        return 0
+
+    provider_stats: dict[str, dict] = {}
+    for r in records:
+        p = r.get("provider", "unknown")
+        if p not in provider_stats:
+            provider_stats[p] = {"count": 0, "passed": 0, "failed": 0, "rate_limited": 0, "build_count": 0, "maint_count": 0}
+        provider_stats[p]["count"] += 1
+        if _classify_task(r) == 'build':
+            provider_stats[p]["build_count"] += 1
+        else:
+            provider_stats[p]["maint_count"] += 1
+        if r.get("exit") == 0:
+            provider_stats[p]["passed"] += 1
+        else:
+            provider_stats[p]["failed"] += 1
+            tail = r.get("tail", "")
+            tail_lower = tail.lower()
+            if (r.get("duration", 999) <= 10
+                    or r.get("exit") == 137
+                    or not tail.strip()
+                    or "accountquota" in tail_lower
+                    or "429" in tail
+                    or ("rate" in tail_lower and "limit" in tail_lower)
+                    or ("usage" in tail_lower and "limit" in tail_lower)
+                    or "quota will reset" in tail_lower
+                    or "ribosome_rate_limit" in tail):
+                provider_stats[p]["rate_limited"] += 1
+
+    result = []
+    for provider in sorted(provider_stats):
+        s = provider_stats[provider]
+        rl = s["rate_limited"]
+        real_fail = s["failed"] - rl
+        real_total = s["passed"] + real_fail
+        cap_pct = round(100 * s["passed"] / real_total, 1) if real_total else 0
+        result.append({
+            "provider": provider,
+            "total": s["count"],
+            "passed": s["passed"],
+            "failed": s["failed"],
+            "rate_limited": rl,
+            "real_fail": real_fail,
+            "capability_pct": cap_pct,
+            "build_count": s["build_count"],
+            "maint_count": s["maint_count"],
+        })
+
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_clear_cooldown(provider: str = "all") -> int:
+    """Signal the daemon to clear provider cooldowns.
+
+    Writes a signal file that the daemon picks up on next poll cycle.
+    """
+    pid = read_pid()
+    if not pid:
+        print("Daemon not running")
+        return 1
+    CLEAR_COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CLEAR_COOLDOWN_FILE.write_text(provider)
+    print(f"Signaled daemon to clear cooldown for: {provider}")
+    print(f"Daemon (PID {pid}) will process on next poll cycle (~{POLL_INTERVAL}s)")
+    return 0
+
+
+def cmd_review(args: list[str]) -> int:
+    """Review recent ribosome outputs — flag no-ops, surface real work."""
+    # Parse time filter (default: last 2h)
+    window_hours = 2
+    for a in args:
+        if a.startswith("--since="):
+            val = a[8:]
+            if val.endswith("h"):
+                window_hours = int(val[:-1])
+            elif val.endswith("m"):
+                window_hours = int(val[:-1]) / 60
+
+    if not JSONLFILE.exists():
+        print("No JSONL log found")
+        return 1
+
+    cutoff = time.time() - (window_hours * 3600)
+    records = []
+    for line in JSONLFILE.read_text(errors="replace").splitlines():
+        try:
+            d = json.loads(line.strip())
+            ts_epoch = _parse_ts_epoch(d.get("ts", ""))
+            if ts_epoch and ts_epoch >= cutoff:
+                records.append(d)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    if not records:
+        print(f"No completions in last {window_hours}h")
+        return 0
+
+    # Classify each record
+    productive = []  # changed something
+    no_ops = []      # passed but did nothing
+    failed = []      # exit != 0
+
+    NO_OP_SIGNALS = [
+        "no fixes needed", "nothing to fix", "no changes needed",
+        "no errors", "no issues", "no broken", "0 errors",
+        "already clean", "clean —", "no type errors",
+        "no diagnostics", "nothing to commit", "pyright clean",
+    ]
+
+    for r in records:
+        exit_code = r.get("exit", 1)
+        tail = (r.get("tail") or "").lower()
+        files = r.get("files_created", 0) or 0
+        r.get("tests_passed", 0) or 0
+
+        full_text = (r.get("cmd") or r.get("prompt") or "").lower()
+        is_maintenance = (_classify_task(r) == "maintenance"
+                          or "health check:" in full_text
+                          or ("pyright" in full_text and "metabolon" in full_text)
+                          or "ruff check" in full_text
+                          or "no fixes needed" in tail
+                          or "all shebangs" in tail
+                          or "no broken" in tail
+                          or "not a code bug" in tail)
+
+        if exit_code != 0:
+            failed.append(r)
+        elif (any(sig in tail for sig in NO_OP_SIGNALS) and files == 0) or (is_maintenance and files == 0):
+            no_ops.append(r)
+        else:
+            productive.append(r)
+
+    # Print summary
+    total = len(records)
+    print(f"=== Ribosome Review (last {window_hours}h) ===")
+    print(f"Total: {total}  Productive: {len(productive)}  No-op: {len(no_ops)}  Failed: {len(failed)}")
+    waste_pct = (len(no_ops) / total * 100) if total else 0
+    print(f"Waste: {waste_pct:.0f}%")
+    print()
+
+    if productive:
+        print(f"--- Productive ({len(productive)}) ---")
+        for r in productive:
+            tid = r.get("task_id", "?")
+            prov = r.get("provider", "?")
+            dur = r.get("duration", 0)
+            tail = (r.get("tail") or "")[:120].replace("\n", " ")
+            files = r.get("files_created", 0) or 0
+            tests = r.get("tests_passed", 0) or 0
+            print(f"  {tid} {prov:8} {dur:>4}s  files={files} tests={tests} | {tail}")
+        print()
+
+    if no_ops:
+        print(f"--- No-op ({len(no_ops)}) ---")
+        # Group by prompt type
+        noop_types: dict[str, int] = {}
+        for r in no_ops:
+            cmd = r.get("cmd") or r.get("prompt") or ""
+            if "pyright" in cmd.lower():
+                key = "pyright"
+            elif "health check" in cmd.lower():
+                key = "health-check"
+            elif "ruff" in cmd.lower():
+                key = "ruff"
+            else:
+                key = "other"
+            noop_types[key] = noop_types.get(key, 0) + 1
+        for k, v in sorted(noop_types.items(), key=lambda x: -x[1]):
+            print(f"  {k}: {v}")
+        print()
+
+    if failed:
+        print(f"--- Failed ({len(failed)}) ---")
+        for r in failed[:5]:
+            tid = r.get("task_id", "?")
+            prov = r.get("provider", "?")
+            tail = (r.get("tail") or "")[:100].replace("\n", " ")
+            print(f"  {tid} {prov:8} | {tail}")
+        if len(failed) > 5:
+            print(f"  ... and {len(failed) - 5} more")
+
+    return 0
+
+
+def cmd_evict(args: list[str]) -> int:
+    """Remove zombie tasks from ribosome-running.json.
+
+    Usage:
+        ribosome-daemon evict <task_id>   — evict a specific task by ID
+        ribosome-daemon evict --stale     — auto-evict tasks running >2x provider average
+        ribosome-daemon evict --all       — clear all running tasks (nuclear option)
+    """
+    if not RUNNING_FILE.exists():
+        print("No running tasks file")
+        return 0
+
+    try:
+        tasks = json.loads(RUNNING_FILE.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"Failed to read {RUNNING_FILE}: {exc}")
+        return 1
+
+    if not tasks:
+        print("No running tasks")
+        return 0
+
+    # --all: clear everything
+    if "--all" in args:
+        count = len(tasks)
+        RUNNING_FILE.write_text("[]")
+        print(f"Evicted all {count} running tasks")
+        log(f"EVICT: cleared all {count} running tasks")
+        return 0
+
+    # --stale: auto-detect and evict stale tasks
+    if "--stale" in args:
+        now = time.time()
+        # Default stale threshold: 2 hours (ribosome tasks rarely exceed 30min)
+        threshold = 7200
+        stale = [t for t in tasks if now - t.get("started_at", now) > threshold]
+        if not stale:
+            print(f"No stale tasks (threshold: {threshold // 3600}h)")
+            return 0
+        kept = [t for t in tasks if t not in stale]
+        RUNNING_FILE.write_text(json.dumps(kept))
+        for task in stale:
+            tid = task.get("task_id", "?")
+            prov = task.get("provider", "?")
+            elapsed_h = (now - task.get("started_at", now)) / 3600
+            print(f"  Evicted [{tid}] {prov} — stale {elapsed_h:.1f}h")
+            log(f"EVICT: [{tid}] {prov} stale {elapsed_h:.1f}h")
+        print(f"Evicted {len(stale)} stale tasks, {len(kept)} still running")
+        return 0
+
+    # Specific task_id
+    target = args[0] if args else None
+    if not target:
+        print("Usage: ribosome-daemon evict <task_id> | --stale | --all")
+        return 1
+
+    # Normalize: accept "t-abc123" or just "abc123"
+    if not target.startswith("t-"):
+        target = f"t-{target}"
+
+    found_idx = None
+    for idx, task in enumerate(tasks):
+        if task.get("task_id") == target:
+            found_idx = idx
+            break
+
+    if found_idx is None:
+        print(f"Task {target} not in running list")
+        print("Running tasks:")
+        for task in tasks:
+            print(f"  [{task.get('task_id', '?')}] {task.get('provider', '?')} [{task.get('node', 'soma')}]")
+        return 1
+
+    evicted = tasks.pop(found_idx)
+    RUNNING_FILE.write_text(json.dumps(tasks))
+    tid = evicted.get("task_id", "?")
+    prov = evicted.get("provider", "?")
+    node = evicted.get("node", "soma")
+    cmd_str = evicted.get("cmd", "")[:60]
+    print(f"Evicted [{tid}] {prov} [{node}] — {cmd_str}")
+    log(f"EVICT: [{tid}] {prov} [{node}]")
+    return 0
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return 1
+
+    cmd = sys.argv[1]
+
+    if cmd in ("-h", "--help"):
+        print(__doc__)
+        return 0
+
+    if cmd == "--dry-run":
+        # Run one poll cycle, show routing decisions without executing
+        print("DRY-RUN: showing routing decisions without task execution")
+        daemon_loop(dry_run=True)
+        return 0
+
+    if cmd == "start":
+        fg = "--foreground" in sys.argv or "-f" in sys.argv
+        return cmd_start(foreground=fg)
+    elif cmd == "stop":
+        return cmd_stop()
+    elif cmd == "status":
+        return cmd_status()
+    elif cmd == "stats":
+        return cmd_stats(sys.argv[2:])
+    elif cmd == "--export-stats":
+        return cmd_export_stats(sys.argv[2:])
+    elif cmd == "clean":
+        return cmd_clean()
+    elif cmd == "retry-all":
+        return cmd_retry_all()
+    elif cmd == "clear-cooldown":
+        provider = sys.argv[2] if len(sys.argv) > 2 else "all"
+        return cmd_clear_cooldown(provider)
+    elif cmd == "review":
+        return cmd_review(sys.argv[2:])
+    elif cmd == "evict":
+        return cmd_evict(sys.argv[2:])
+    else:
+        print(f"Unknown command: {cmd}")
+        print("Commands: start, stop, status, stats, review, clean, retry-all, clear-cooldown [provider], evict, --dry-run")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,8 +1,5 @@
-from __future__ import annotations
+"""Tests for metabolon.organelles.circadian_clock — full coverage with mocked Google Calendar API."""
 
-"""Tests for metabolon.organelles.circadian_clock — full coverage with mocked Calendar API."""
-
-import json
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -24,54 +21,76 @@ MOD = "metabolon.organelles.circadian_clock"
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _mock_service(events=None):
+    """Build a mock Google Calendar service with events().list().execute() chain."""
+    svc = MagicMock()
+    execute = MagicMock(return_value={"items": events or []})
+    svc.events.return_value.list.return_value.execute = execute
+    return svc
+
+
+# ---------------------------------------------------------------------------
 # scheduled_events / scheduled_events_json
 # ---------------------------------------------------------------------------
 
 
+class TestScheduledEventsJson:
+    @patch(f"{MOD}.service")
+    def test_returns_items(self, mock_svc_fn):
+        items = [{"summary": "Standup", "start": {"dateTime": "2026-04-01T10:00:00+08:00"}}]
+        mock_svc_fn.return_value = _mock_service(events=items)
+        result = scheduled_events_json("2026-04-01")
+        assert result == items
+
+    @patch(f"{MOD}.service")
+    def test_empty_calendar(self, mock_svc_fn):
+        mock_svc_fn.return_value = _mock_service(events=[])
+        result = scheduled_events_json("2026-04-01")
+        assert result == []
+
+    @patch(f"{MOD}.service")
+    def test_api_error_returns_empty(self, mock_svc_fn):
+        mock_svc_fn.side_effect = RuntimeError("auth failed")
+        result = scheduled_events_json("2026-04-01")
+        assert result == []
+
+
 class TestScheduledEvents:
-    @patch(f"{MOD}.scheduled_events_json", return_value=[])
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_formats_timed_events(self, mock_json):
+        mock_json.return_value = [
+            {"summary": "Standup", "start": {"dateTime": "2026-04-01T10:00:00+08:00"}},
+            {"summary": "Lunch", "start": {"dateTime": "2026-04-01T12:30:00+08:00"}},
+        ]
+        result = scheduled_events("2026-04-01")
+        assert "10:00  Standup" in result
+        assert "12:30  Lunch" in result
+
+    @patch(f"{MOD}.scheduled_events_json")
+    def test_formats_all_day_events(self, mock_json):
+        mock_json.return_value = [
+            {"summary": "Holiday", "start": {"date": "2026-04-01"}},
+        ]
+        result = scheduled_events("2026-04-01")
+        assert "all-day  Holiday" in result
+
+    @patch(f"{MOD}.scheduled_events_json")
     def test_no_events(self, mock_json):
-        result = scheduled_events()
+        mock_json.return_value = []
+        result = scheduled_events("2026-04-01")
         assert result == "No events."
 
     @patch(f"{MOD}.scheduled_events_json")
-    def test_timed_events(self, mock_json):
+    def test_missing_summary(self, mock_json):
         mock_json.return_value = [
-            {"start": {"dateTime": "2026-04-01T10:00:00+08:00"}, "summary": "Standup"},
-            {"start": {"dateTime": "2026-04-01T14:30:00+08:00"}, "summary": "Review"},
+            {"start": {"dateTime": "2026-04-01T09:00:00+08:00"}},
         ]
-        result = scheduled_events()
-        assert "10:00  Standup" in result
-        assert "14:30  Review" in result
-
-    @patch(f"{MOD}.scheduled_events_json")
-    def test_all_day_event(self, mock_json):
-        mock_json.return_value = [
-            {"start": {"date": "2026-04-01"}, "summary": "Holiday"},
-        ]
-        result = scheduled_events()
-        assert "all-day  Holiday" in result
-
-
-class TestScheduledEventsJson:
-    @patch(f"{MOD}.service")
-    def test_valid_events(self, mock_service):
-        mock_service.return_value.events.return_value.list.return_value.execute.return_value = {
-            "items": [{"summary": "Standup"}]
-        }
-        result = scheduled_events_json()
-        assert result == [{"summary": "Standup"}]
-
-    @patch(f"{MOD}.service")
-    def test_no_items_key(self, mock_service):
-        mock_service.return_value.events.return_value.list.return_value.execute.return_value = {}
-        result = scheduled_events_json()
-        assert result == []
-
-    @patch(f"{MOD}.service", side_effect=Exception("API error"))
-    def test_exception_returns_empty(self, mock_service):
-        result = scheduled_events_json()
-        assert result == []
+        result = scheduled_events("2026-04-01")
+        assert "(no title)" in result
 
 
 # ---------------------------------------------------------------------------
@@ -81,41 +100,57 @@ class TestScheduledEventsJson:
 
 class TestScheduleEvent:
     @patch(f"{MOD}.service")
-    def test_create_with_defaults(self, mock_service):
-        mock_service.return_value.events.return_value.insert.return_value.execute.return_value = {
-            "id": "evt_123"
-        }
+    def test_create_with_defaults(self, mock_svc_fn):
+        svc = MagicMock()
+        svc.events.return_value.insert.return_value.execute.return_value = {"id": "evt123"}
+        mock_svc_fn.return_value = svc
         result = schedule_event("Sync", "2026-04-01", "10:00")
-        assert result == "evt_123"
+        assert result == "evt123"
+        svc.events.return_value.insert.assert_called_once()
+        call_kwargs = svc.events.return_value.insert.call_args[1]
+        assert call_kwargs["calendarId"] == "primary"
+        assert call_kwargs["body"]["summary"] == "Sync"
 
     @patch(f"{MOD}.service")
-    def test_create_with_custom_duration(self, mock_service):
-        mock_service.return_value.events.return_value.insert.return_value.execute.return_value = {
-            "id": "evt_456"
-        }
+    def test_create_with_custom_duration(self, mock_svc_fn):
+        svc = MagicMock()
+        svc.events.return_value.insert.return_value.execute.return_value = {"id": "evt456"}
+        mock_svc_fn.return_value = svc
         result = schedule_event("Deep work", "2026-04-01", "09:00", duration=120)
-        assert result == "evt_456"
+        assert result == "evt456"
+        call_kwargs = svc.events.return_value.insert.call_args[1]
+        body = call_kwargs["body"]
+        start_dt = datetime.fromisoformat(body["start"]["dateTime"])
+        end_dt = datetime.fromisoformat(body["end"]["dateTime"])
+        assert (end_dt - start_dt) == timedelta(minutes=120)
 
 
 class TestRescheduleEvent:
     @patch(f"{MOD}.service")
-    def test_reschedule(self, mock_service):
-        mock_svc = mock_service.return_value
-        mock_svc.events.return_value.get.return_value.execute.return_value = {
+    def test_reschedule(self, mock_svc_fn):
+        svc = MagicMock()
+        svc.events.return_value.get.return_value.execute.return_value = {
+            "summary": "Meeting",
             "start": {"dateTime": "2026-04-01T10:00:00+08:00"},
             "end": {"dateTime": "2026-04-01T11:00:00+08:00"},
         }
-        mock_svc.events.return_value.update.return_value.execute.return_value = {}
+        svc.events.return_value.update.return_value.execute.return_value = {"id": "evt_abc"}
+        mock_svc_fn.return_value = svc
         result = reschedule_event("evt_abc", "2026-04-02", "14:00")
         assert result == "evt_abc"
+        svc.events.return_value.get.assert_called_once()
+        svc.events.return_value.update.assert_called_once()
 
 
 class TestCancelEvent:
     @patch(f"{MOD}.service")
-    def test_cancel(self, mock_service):
-        mock_service.return_value.events.return_value.delete.return_value.execute.return_value = None
+    def test_cancel(self, mock_svc_fn):
+        svc = MagicMock()
+        svc.events.return_value.delete.return_value.execute.return_value = None
+        mock_svc_fn.return_value = svc
         result = cancel_event("evt_xyz")
         assert result == "evt_xyz"
+        svc.events.return_value.delete.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -154,21 +189,21 @@ class TestIsHoliday:
     @patch(f"{MOD}.scheduled_events_json")
     def test_holiday_keyword_match(self, mock_json):
         mock_json.return_value = [
-            {"start": {"date": "2026-03-30"}, "summary": "Public Holiday"}
+            {"start": {"date": "2026-03-30"}, "summary": "Public Holiday"},
         ]
         assert is_holiday(date(2026, 3, 30)) is True
 
     @patch(f"{MOD}.scheduled_events_json")
     def test_chinese_keyword(self, mock_json):
         mock_json.return_value = [
-            {"start": {"date": "2026-10-01"}, "summary": "假期"}
+            {"start": {"date": "2026-10-01"}, "summary": "\u5047\u671f"},
         ]
         assert is_holiday(date(2026, 10, 1)) is True
 
     @patch(f"{MOD}.scheduled_events_json")
     def test_timed_event_not_holiday(self, mock_json):
         mock_json.return_value = [
-            {"start": {"dateTime": "2026-03-30T10:00:00"}, "summary": "Team Sync"}
+            {"start": {"dateTime": "2026-03-30T10:00:00+08:00"}, "summary": "Team Sync"},
         ]
         assert is_holiday(date(2026, 3, 30)) is False
 
@@ -180,11 +215,11 @@ class TestIsHoliday:
     @patch(f"{MOD}.scheduled_events_json")
     def test_null_summary_treated_as_empty(self, mock_json):
         mock_json.return_value = [
-            {"start": {"date": "2026-03-30"}, "summary": None}
+            {"start": {"date": "2026-03-30"}, "summary": None},
         ]
         assert is_holiday(date(2026, 3, 30)) is False
 
-    @patch(f"{MOD}.scheduled_events_json", side_effect=Exception("API error"))
+    @patch(f"{MOD}.scheduled_events_json", side_effect=Exception("api down"))
     def test_api_error_returns_false(self, mock_json):
         assert is_holiday(date(2026, 3, 30)) is False
 
@@ -192,9 +227,10 @@ class TestIsHoliday:
     def test_all_keywords_covered(self, mock_json):
         """Every keyword in _HOLIDAY_KEYWORDS should trigger a match."""
         from metabolon.organelles.circadian_clock import _HOLIDAY_KEYWORDS
+
         for kw in _HOLIDAY_KEYWORDS:
             mock_json.return_value = [
-                {"start": {"date": "2026-04-01"}, "summary": kw}
+                {"start": {"date": "2026-04-01"}, "summary": kw},
             ]
             assert is_holiday(date(2026, 4, 1)) is True, f"keyword {kw!r} not detected"
 

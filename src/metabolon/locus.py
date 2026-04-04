@@ -1,4 +1,3 @@
-
 """Locus — canonical paths for the organism.
 
 Single source of truth. Effectors, tools, and scripts import from here
@@ -7,7 +6,6 @@ instead of hardcoding paths. When the organism moves, update this file only.
 Usage:
     from metabolon.locus import germline, chromatin, praxis, marks
 """
-
 
 from pathlib import Path
 
@@ -95,7 +93,7 @@ phantoms_db = vivesca_data / "phantoms.json"
 requests_log = vivesca_data / "requests.jsonl"
 skill_registry = vivesca_data / "skill-forks.yaml"
 signal_history = vivesca_data / "signal-history.jsonl"
-golem_log = vivesca_data / "golem.jsonl"
+ribosome_log = vivesca_data / "ribosome.jsonl"
 complement_state = vivesca_data / "complement.json"
 variants_root = vivesca_data / "variants"
 setpoints_dir = vivesca_data / "setpoints"

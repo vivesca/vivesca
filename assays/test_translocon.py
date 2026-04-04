@@ -1,15 +1,9 @@
-from __future__ import annotations
-
 """Tests for translocon — unified dispatch CLI."""
 
 import json
 import os
-import subprocess
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 _TRANSLOCON_PATH = os.path.expanduser("~/germline/effectors/translocon")
 
@@ -19,7 +13,7 @@ def _load_translocon():
     source = open(_TRANSLOCON_PATH).read()
     idx = source.index("# ///\n")
     idx = source.index("\n", idx + 1)
-    body = source[idx + 1:]
+    body = source[idx + 1 :]
     ns: dict = {"__file__": _TRANSLOCON_PATH}
     exec(body, ns)
     return ns
@@ -43,9 +37,13 @@ def _mock_run(returncode: int = 0) -> MagicMock:
 def test_default_mode_uses_direct_api():
     """Default mode (no flags) tries direct API first."""
     fake_api = MagicMock(return_value=0)
-    with patch.dict(_mod, {"_direct_api": fake_api, "_read_dir_context": MagicMock(return_value="")}):
-        with patch("subprocess.run", return_value=_mock_run()) as mock_run:
-            rc = main([".", "hello"])
+    with (
+        patch.dict(
+            _mod, {"_direct_api": fake_api, "_read_dir_context": MagicMock(return_value="")}
+        ),
+        patch("subprocess.run", return_value=_mock_run()) as mock_run,
+    ):
+        rc = main([".", "hello"])
     assert rc == 0
     fake_api.assert_called_once()
     # subprocess.run should NOT be called — direct API succeeded
@@ -65,9 +63,13 @@ def test_default_direct_api_fallback_to_goose(tmp_path):
 def test_safe_mode_uses_direct_api():
     """--safe routes to direct API first."""
     fake_api = MagicMock(return_value=0)
-    with patch.dict(_mod, {"_direct_api": fake_api, "_read_dir_context": MagicMock(return_value="")}):
-        with patch("subprocess.run", return_value=_mock_run()) as mock_run:
-            rc = main(["--safe", ".", "audit this"])
+    with (
+        patch.dict(
+            _mod, {"_direct_api": fake_api, "_read_dir_context": MagicMock(return_value="")}
+        ),
+        patch("subprocess.run", return_value=_mock_run()) as mock_run,
+    ):
+        rc = main(["--safe", ".", "audit this"])
     assert rc == 0
     # Verify prompt contains READ ONLY guard
     call_args = fake_api.call_args[0]
@@ -86,7 +88,7 @@ def test_build_mode_skips_direct_api(tmp_path):
     fake_api.assert_not_called()
     # First subprocess.run call is the goose dispatch (auto-commit adds git calls after)
     first_cmd = mock_run.call_args_list[0][0][0]
-    assert first_cmd[0] == "golem"
+    assert first_cmd[0] == "ribosome"
 
 
 def test_mcp_mode_skips_direct_api():
@@ -98,7 +100,7 @@ def test_mcp_mode_skips_direct_api():
     assert rc == 0
     fake_api.assert_not_called()
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "golem"
+    assert cmd[0] == "ribosome"
     assert "--force" in cmd
 
 
@@ -111,7 +113,7 @@ def test_backend_override_skips_direct():
     assert rc == 0
     fake_api.assert_not_called()
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "golem"
+    assert cmd[0] == "ribosome"
 
 
 def test_model_override():
@@ -148,7 +150,7 @@ def test_file_prompt(tmp_path):
 
 
 def test_goose_fallback_to_droid(tmp_path):
-    """If golem fails and no backend override, still returns result."""
+    """If ribosome fails and no backend override, still returns result."""
     calls: list[list[str]] = []
 
     def fake_run(cmd, **kwargs):
@@ -158,12 +160,16 @@ def test_goose_fallback_to_droid(tmp_path):
         m.stdout = ""
         return m
 
-    # direct API fails too, so we hit golem
-    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
-        with patch("subprocess.run", side_effect=fake_run):
-            rc = main(["--build", str(tmp_path), "failing task"])
+    # direct API fails too, so we hit ribosome
+    with (
+        patch.dict(
+            _mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}
+        ),
+        patch("subprocess.run", side_effect=fake_run),
+    ):
+        rc = main(["--build", str(tmp_path), "failing task"])
     assert rc == 0
-    assert calls[0][0] == "golem"
+    assert calls[0][0] == "ribosome"
 
 
 # ── _direct_api unit tests ────────────────────────────────────────
@@ -253,7 +259,7 @@ def _make_recipe(tmp_path, skill="etiology", content="title: test\nprompt: defau
 
 def test_skill_uses_recipe(tmp_path):
     """--skill loads recipe.yaml and passes to goose."""
-    recipe_dir = _make_recipe(tmp_path)
+    _make_recipe(tmp_path)
 
     with patch.object(Path, "home", return_value=tmp_path):
         with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
@@ -262,7 +268,7 @@ def test_skill_uses_recipe(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "golem"
+    assert cmd[0] == "ribosome"
 
 
 def test_skill_not_found(tmp_path, capsys):
@@ -280,15 +286,19 @@ def test_skill_with_build_uses_glm51(tmp_path):
     """--skill --build upgrades model to GLM-5.1."""
     _make_recipe(tmp_path)
 
-    with patch.object(Path, "home", return_value=tmp_path):
-        with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
-            with patch("subprocess.run", return_value=_mock_run()) as mock_run:
-                rc = main(["--skill", "etiology", "--build", str(tmp_path), "fix bug"])
+    with (
+        patch.object(Path, "home", return_value=tmp_path),
+        patch.dict(
+            _mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}
+        ),
+        patch("subprocess.run", return_value=_mock_run()) as mock_run,
+    ):
+        rc = main(["--skill", "etiology", "--build", str(tmp_path), "fix bug"])
 
     assert rc == 0
-    # First subprocess.run call is the golem dispatch (auto-commit adds git calls after)
+    # First subprocess.run call is the ribosome dispatch (auto-commit adds git calls after)
     first_cmd = mock_run.call_args_list[0][0][0]
-    assert first_cmd[0] == "golem"
+    assert first_cmd[0] == "ribosome"
 
 
 def test_skill_with_mcp_uses_droid(tmp_path):
@@ -301,7 +311,7 @@ def test_skill_with_mcp_uses_droid(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "golem"
+    assert cmd[0] == "ribosome"
     assert "--force" in cmd
 
 
@@ -317,7 +327,7 @@ def test_skill_no_prompt_uses_default(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "golem"
+    assert cmd[0] == "ribosome"
 
 
 def test_skill_skips_direct_api(tmp_path):
@@ -359,6 +369,7 @@ def test_translocon_output_to_file(tmp_path):
 
 def test_output_telegram(tmp_path):
     """--output telegram pipes result to efferens telegram."""
+
     # This test verifies the routing logic — actual telegram call is mocked
     def fake_run(cmd, **kwargs):
         m = MagicMock()
@@ -399,16 +410,46 @@ def _make_sortase_log(tmp_path, traces: list[dict]) -> Path:
 
 
 _SORTASE_TRACES = [
-    {"duration_s": 75.2, "failure_reason": None, "plan": "noesis.md",
-     "success": True, "tool": "droid", "timestamp": "2026-03-30T09:37:39"},
-    {"duration_s": 85.4, "failure_reason": None, "plan": "ingestion.md",
-     "success": True, "tool": "droid", "timestamp": "2026-03-30T09:37:40"},
-    {"duration_s": 460.3, "failure_reason": "tests", "plan": "scout-spec.md",
-     "success": False, "tool": "goose", "timestamp": "2026-03-30T16:59:06"},
-    {"duration_s": 665.7, "failure_reason": "placeholder-scan", "plan": "skill-sync-spec.md",
-     "success": False, "tool": "goose", "timestamp": "2026-03-30T17:01:32"},
-    {"duration_s": 109.6, "failure_reason": None, "plan": "expression.md",
-     "success": True, "tool": "droid", "timestamp": "2026-03-30T09:38:05"},
+    {
+        "duration_s": 75.2,
+        "failure_reason": None,
+        "plan": "noesis.md",
+        "success": True,
+        "tool": "droid",
+        "timestamp": "2026-03-30T09:37:39",
+    },
+    {
+        "duration_s": 85.4,
+        "failure_reason": None,
+        "plan": "ingestion.md",
+        "success": True,
+        "tool": "droid",
+        "timestamp": "2026-03-30T09:37:40",
+    },
+    {
+        "duration_s": 460.3,
+        "failure_reason": "tests",
+        "plan": "scout-spec.md",
+        "success": False,
+        "tool": "goose",
+        "timestamp": "2026-03-30T16:59:06",
+    },
+    {
+        "duration_s": 665.7,
+        "failure_reason": "placeholder-scan",
+        "plan": "skill-sync-spec.md",
+        "success": False,
+        "tool": "goose",
+        "timestamp": "2026-03-30T17:01:32",
+    },
+    {
+        "duration_s": 109.6,
+        "failure_reason": None,
+        "plan": "expression.md",
+        "success": True,
+        "tool": "droid",
+        "timestamp": "2026-03-30T09:38:05",
+    },
 ]
 
 
@@ -470,10 +511,22 @@ def test_eval_count_limits_traces(tmp_path, capsys):
 def test_eval_all_success(tmp_path, capsys):
     """--eval with 100% success rate."""
     traces = [
-        {"duration_s": 50, "failure_reason": None, "plan": "a.md",
-         "success": True, "tool": "droid", "timestamp": "2026-03-30T10:00:00"},
-        {"duration_s": 60, "failure_reason": None, "plan": "b.md",
-         "success": True, "tool": "goose", "timestamp": "2026-03-30T10:01:00"},
+        {
+            "duration_s": 50,
+            "failure_reason": None,
+            "plan": "a.md",
+            "success": True,
+            "tool": "droid",
+            "timestamp": "2026-03-30T10:00:00",
+        },
+        {
+            "duration_s": 60,
+            "failure_reason": None,
+            "plan": "b.md",
+            "success": True,
+            "tool": "goose",
+            "timestamp": "2026-03-30T10:01:00",
+        },
     ]
     _make_sortase_log(tmp_path, traces)
     with patch.object(Path, "home", return_value=tmp_path):
@@ -518,6 +571,7 @@ def test_load_routes_from_yaml(tmp_path):
     cfg_dir = tmp_path / ".config" / "translocon"
     cfg_dir.mkdir(parents=True)
     import yaml
+
     custom = {
         "explore": {"model": "GLM-5.1", "chain": ["droid", "goose"]},
         "custom_mode": {"model": "GLM-4.7", "chain": ["goose"]},
@@ -560,6 +614,7 @@ def test_cooldown_expires(tmp_path):
     health_dir = tmp_path / ".local" / "share" / "translocon"
     health_dir.mkdir(parents=True)
     import datetime
+
     # Write a health file with cooldown that expired 1 second ago
     past = (datetime.datetime.now() - datetime.timedelta(seconds=1)).isoformat()
     health_data = {
@@ -601,10 +656,24 @@ def test_per_call_logging(tmp_path):
 
     with patch.dict(_mod, {"LOG_PATH": log_file}):
         log_fn = _mod["_log_call"]
-        log_fn({"mode": "explore", "backend": "goose", "model": "GLM-4.7",
-                "success": True, "duration_s": 5.2})
-        log_fn({"mode": "build", "backend": "droid", "model": "GLM-5.1",
-                "success": False, "duration_s": 12.0})
+        log_fn(
+            {
+                "mode": "explore",
+                "backend": "goose",
+                "model": "GLM-4.7",
+                "success": True,
+                "duration_s": 5.2,
+            }
+        )
+        log_fn(
+            {
+                "mode": "build",
+                "backend": "droid",
+                "model": "GLM-5.1",
+                "success": False,
+                "duration_s": 12.0,
+            }
+        )
 
     assert log_file.exists()
     lines = log_file.read_text().strip().split("\n")
@@ -622,7 +691,7 @@ def test_per_call_logging(tmp_path):
 
 
 def test_chain_fallback(tmp_path):
-    """Single golem backend: if it fails, returns 1."""
+    """Single ribosome backend: if it fails, returns 1."""
     calls: list[str] = []
 
     def fake_run(cmd, **kwargs):
@@ -632,12 +701,16 @@ def test_chain_fallback(tmp_path):
         m.stdout = "ok\n"
         return m
 
-    # Use --build mode which now uses single golem backend
-    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
-        with patch("subprocess.run", side_effect=fake_run):
-            rc = main(["--build", str(tmp_path), "implement X"])
+    # Use --build mode which now uses single ribosome backend
+    with (
+        patch.dict(
+            _mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}
+        ),
+        patch("subprocess.run", side_effect=fake_run),
+    ):
+        rc = main(["--build", str(tmp_path), "implement X"])
     assert rc == 0
-    assert calls[0] == "golem"
+    assert calls[0] == "ribosome"
 
 
 # ── v5: Batch retry flag ──────────────────────────────────────────
@@ -671,6 +744,7 @@ def test_record_rate_limit_sets_short_cooldown(tmp_path):
     assert "last_rate_limit" in entry
     # Cooldown should be ~60 seconds from now
     import datetime
+
     cooldown_at = datetime.datetime.fromisoformat(entry["cooldown_until"])
     delta = (cooldown_at - datetime.datetime.now()).total_seconds()
     assert 50 < delta < 70, f"Expected ~60s cooldown, got {delta:.0f}s"
@@ -681,9 +755,13 @@ def test_rate_limit_preserves_existing_state(tmp_path):
     health_dir = tmp_path / ".local" / "share" / "translocon"
     health_dir.mkdir(parents=True)
     health_file = health_dir / "health.json"
-    health_file.write_text(json.dumps({
-        "droid": {"consecutive_failures": 1, "cooldown_until": None},
-    }))
+    health_file.write_text(
+        json.dumps(
+            {
+                "droid": {"consecutive_failures": 1, "cooldown_until": None},
+            }
+        )
+    )
 
     with patch.dict(_mod, {"HEALTH_PATH": health_file}):
         _mod["_record_rate_limit"]("goose")
@@ -708,7 +786,14 @@ def test_429_in_tee_log_triggers_rate_limit(tmp_path):
     record_result = _mod["_record_result"]
     record_rate_limit = _mod["_record_rate_limit"]
 
-    with patch.dict(_mod, {"HEALTH_PATH": health_file, "_record_result": record_result, "_record_rate_limit": record_rate_limit}):
+    with patch.dict(
+        _mod,
+        {
+            "HEALTH_PATH": health_file,
+            "_record_result": record_result,
+            "_record_rate_limit": record_rate_limit,
+        },
+    ):
         # Record a failure, then check if 429 was in log → call _record_rate_limit
         record_result("goose", False)
         tail = tee_log.read_text()[-500:]
@@ -738,33 +823,73 @@ _translocon_mod = _load_translocon_module()
 dispatch_stats = _translocon_mod["dispatch_stats"]
 
 
-def _make_golem_log(tmp_path: Path, entries: list[dict]) -> Path:
-    """Create a fake golem.jsonl in tmp_path."""
+def _make_ribosome_log(tmp_path: Path, entries: list[dict]) -> Path:
+    """Create a fake ribosome.jsonl in tmp_path."""
     log_dir = tmp_path / ".local" / "share" / "vivesca"
     log_dir.mkdir(parents=True)
-    log_path = log_dir / "golem.jsonl"
+    log_path = log_dir / "ribosome.jsonl"
     lines = [json.dumps(e) for e in entries]
     log_path.write_text("\n".join(lines) + "\n")
     return log_path
 
 
-_GOLEM_ENTRIES = [
-    {"ts": "2026-03-31T06:54:50Z", "duration": 122, "exit": 0, "turns": 30, "provider": "infini", "prompt": "Test task 1", "tail": " "},
-    {"ts": "2026-03-31T07:29:39Z", "duration": 913, "exit": 1, "turns": 20, "provider": "volcano", "prompt": "Test task 2", "tail": " "},
-    {"ts": "2026-03-31T07:32:18Z", "duration": 1074, "exit": 0, "turns": 25, "provider": "infini", "prompt": "Test task 3", "tail": " "},
-    {"ts": "2026-03-31T07:34:58Z", "duration": 1235, "exit": 1, "turns": 40, "provider": "zhipu", "prompt": "Test task 4", "tail": " "},
-    {"ts": "2026-03-31T07:38:23Z", "duration": 524, "exit": 0, "turns": 15, "provider": "volcano", "prompt": "Test task 5", "tail": " "},
+_RIBOSOME_ENTRIES = [
+    {
+        "ts": "2026-03-31T06:54:50Z",
+        "duration": 122,
+        "exit": 0,
+        "turns": 30,
+        "provider": "infini",
+        "prompt": "Test task 1",
+        "tail": " ",
+    },
+    {
+        "ts": "2026-03-31T07:29:39Z",
+        "duration": 913,
+        "exit": 1,
+        "turns": 20,
+        "provider": "volcano",
+        "prompt": "Test task 2",
+        "tail": " ",
+    },
+    {
+        "ts": "2026-03-31T07:32:18Z",
+        "duration": 1074,
+        "exit": 0,
+        "turns": 25,
+        "provider": "infini",
+        "prompt": "Test task 3",
+        "tail": " ",
+    },
+    {
+        "ts": "2026-03-31T07:34:58Z",
+        "duration": 1235,
+        "exit": 1,
+        "turns": 40,
+        "provider": "zhipu",
+        "prompt": "Test task 4",
+        "tail": " ",
+    },
+    {
+        "ts": "2026-03-31T07:38:23Z",
+        "duration": 524,
+        "exit": 0,
+        "turns": 15,
+        "provider": "volcano",
+        "prompt": "Test task 5",
+        "tail": " ",
+    },
 ]
 
 
 def test_dispatch_stats_reads_log_and_returns_summary(tmp_path):
-    """dispatch_stats reads golem.jsonl and returns success rate + provider breakdown."""
-    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    """dispatch_stats reads ribosome.jsonl and returns success rate + provider breakdown."""
+    log_path = _make_ribosome_log(tmp_path, _RIBOSOME_ENTRIES)
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats(count=50)
 
     assert result["success"] is True
-    assert "Golem runs: 5" in result["output"]
+    assert "Ribosome runs: 5" in result["output"]
     assert "Success: 3 (60%)" in result["output"]
     assert "Fail: 2" in result["output"]
     # Provider breakdown
@@ -780,17 +905,17 @@ def test_dispatch_stats_reads_log_and_returns_summary(tmp_path):
 
 def test_dispatch_stats_no_log(tmp_path):
     """dispatch_stats with no log file returns error."""
-    nonexistent = tmp_path / ".local" / "share" / "vivesca" / "golem.jsonl"
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": nonexistent}):
+    nonexistent = tmp_path / ".local" / "share" / "vivesca" / "ribosome.jsonl"
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": nonexistent}):
         result = dispatch_stats()
     assert result["success"] is False
-    assert "no golem log" in result["output"]
+    assert "no ribosome log" in result["output"]
 
 
 def test_dispatch_stats_count_limits_entries(tmp_path):
     """dispatch_stats --count N analyzes only last N entries."""
-    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    log_path = _make_ribosome_log(tmp_path, _RIBOSOME_ENTRIES)
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats(count=2)
 
     assert result["success"] is True
@@ -801,8 +926,8 @@ def test_dispatch_stats_count_limits_entries(tmp_path):
 
 def test_dispatch_stats_provider_success_breakdown(tmp_path):
     """dispatch_stats correctly tracks success per provider."""
-    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    log_path = _make_ribosome_log(tmp_path, _RIBOSOME_ENTRIES)
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats()
 
     # infini: 2 runs, 2 success (100%)
@@ -815,8 +940,8 @@ def test_dispatch_stats_provider_success_breakdown(tmp_path):
 
 def test_dispatch_stats_shows_recent_failures(tmp_path):
     """dispatch_stats includes recent failures in output."""
-    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    log_path = _make_ribosome_log(tmp_path, _RIBOSOME_ENTRIES)
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats()
 
     assert "Recent failures:" in result["output"]
@@ -826,8 +951,8 @@ def test_dispatch_stats_shows_recent_failures(tmp_path):
 
 def test_dispatch_stats_empty_log(tmp_path):
     """dispatch_stats with empty log returns appropriate message."""
-    log_path = _make_golem_log(tmp_path, [])
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    log_path = _make_ribosome_log(tmp_path, [])
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats()
 
     assert result["success"] is True
@@ -837,11 +962,27 @@ def test_dispatch_stats_empty_log(tmp_path):
 def test_dispatch_stats_all_success(tmp_path):
     """dispatch_stats with 100% success rate."""
     entries = [
-        {"ts": "2026-03-31T10:00:00Z", "duration": 100, "exit": 0, "turns": 10, "provider": "infini", "prompt": "OK 1", "tail": " "},
-        {"ts": "2026-03-31T10:01:00Z", "duration": 200, "exit": 0, "turns": 20, "provider": "volcano", "prompt": "OK 2", "tail": " "},
+        {
+            "ts": "2026-03-31T10:00:00Z",
+            "duration": 100,
+            "exit": 0,
+            "turns": 10,
+            "provider": "infini",
+            "prompt": "OK 1",
+            "tail": " ",
+        },
+        {
+            "ts": "2026-03-31T10:01:00Z",
+            "duration": 200,
+            "exit": 0,
+            "turns": 20,
+            "provider": "volcano",
+            "prompt": "OK 2",
+            "tail": " ",
+        },
     ]
-    log_path = _make_golem_log(tmp_path, entries)
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    log_path = _make_ribosome_log(tmp_path, entries)
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats()
 
     assert result["stats"]["success_rate"] == 100.0
@@ -852,8 +993,8 @@ def test_dispatch_stats_all_success(tmp_path):
 
 def test_dispatch_stats_includes_provider_limits(tmp_path):
     """dispatch_stats shows provider limits in output."""
-    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
+    log_path = _make_ribosome_log(tmp_path, _RIBOSOME_ENTRIES)
+    with patch.dict(_translocon_mod, {"RIBOSOME_LOG": log_path}):
         result = dispatch_stats()
 
     # Check that provider limits are shown

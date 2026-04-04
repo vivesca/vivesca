@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 HOME = Path.home()
@@ -40,14 +40,14 @@ _SYNAPSE_CONF.read(_VIVESCA_ROOT / "germline" / "synapse.conf")
 def _sconf_float(section, key, default):
     try:
         return float(_SYNAPSE_CONF[section][key])
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return default
 
 
 def _sconf_int(section, key, default):
     try:
         return int(_SYNAPSE_CONF[section][key])
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return default
 
 
@@ -116,16 +116,16 @@ def mod_anamnesis(data):
 
 # ── allostasis: budget/phase/depth regulation ──────────────
 
-ALLO_STATE = HOME / ".local/share/respirometry/budget-tier.json"
-ALLO_GUIDANCE = {
+ALLOW_STATE = HOME / ".local/share/respirometry/budget-tier.json"
+ALLOW_GUIDANCE = {
     "anabolic": "",
-    "homeostatic": "Delegate implementation to Goose (`sortase exec -b goose` or spec the task). CC designs and reviews only. Prefer Sonnet subagents for heavy CC work.",
+    "homeostatic": "Delegate implementation to ribosome (`ribosome_dispatch` MCP or spec the task). CC designs and reviews only. Prefer Sonnet subagents for heavy CC work.",
     "catabolic": "STOP CODING. CC is architect only — spec tasks for Goose, review results. No direct implementation. Minimize tool calls — verify critical facts only.",
     "autophagic": "WRAP UP. Deliver what you have now. /sporulation immediately. No new work — checkpoint and stop.",
 }
 # Map respirometry budget tiers to metabolic states
 _BUDGET_TO_STATE = {"green": "anabolic", "yellow": "homeostatic", "red": "catabolic"}
-ALLO_CIRCADIAN = {
+ALLOW_CIRCADIAN = {
     "night": "Late night — consider wrapping up.",
     "evening": "",
     "morning": "",
@@ -138,22 +138,20 @@ BURN_HOURS = _sconf_float("burn", "hours_threshold", 6.0)
 BURN_UTIL = _sconf_float("burn", "util_threshold", 70.0)
 
 
-def _allo_respirometry():
+def _allow_respirometry():
     """Fetch respirometry JSON once, return (budget_tier, util, hours_left).
 
     Single subprocess call replaces the previous two (--json + --budget).
     """
     try:
-        r = subprocess.run(
-            ["respirometry", "--json"], capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(["respirometry", "--json"], capture_output=True, text=True, timeout=5)
         d = json.loads(r.stdout)
         w = d.get("seven_day", {})
         util = w.get("utilization", 0)
         resets_at = w.get("resets_at", "")
         if resets_at:
             reset_time = datetime.fromisoformat(resets_at)
-            hours_left = max(0, (reset_time - datetime.now(timezone.utc)).total_seconds() / 3600)
+            hours_left = max(0, (reset_time - datetime.now(UTC)).total_seconds() / 3600)
         else:
             hours_left = -1
         # Derive budget tier from utilization (matches respirometry --budget logic)
@@ -176,13 +174,13 @@ def _burn_mode(util, hours_left):
             content = BURN_FLAG.read_text().strip()
             if content:
                 expires = datetime.fromisoformat(content)
-                if datetime.now(timezone.utc) > expires:
+                if datetime.now(UTC) > expires:
                     BURN_FLAG.unlink(missing_ok=True)
                 else:
                     return "manual", hours_left, util
             else:
                 return "manual", hours_left, util
-        except (ValueError, OSError):
+        except ValueError, OSError:
             return "manual", hours_left, util
 
     # Auto: high utilization + imminent reset
@@ -192,7 +190,7 @@ def _burn_mode(util, hours_left):
     return None
 
 
-def _allo_phase():
+def _allow_phase():
     h = datetime.now(HKT).hour
     if 6 <= h < 10:
         return "morning"
@@ -203,7 +201,7 @@ def _allo_phase():
     return "night"
 
 
-def _allo_effective(budget, phase, depth):
+def _allow_effective(budget, phase, depth):
     states = ["anabolic", "homeostatic", "catabolic", "autophagic"]
     metabolic = _BUDGET_TO_STATE.get(budget)
     if metabolic is None:
@@ -222,15 +220,15 @@ def mod_allostasis(data):
     session_id = data.get("session_id", "")
     state = {}
     with contextlib.suppress(Exception):
-        state = json.loads(ALLO_STATE.read_text())
+        state = json.loads(ALLOW_STATE.read_text())
 
     prev_tier = state.get("tier", "")
     prev_session = state.get("session_id", "")
     depth = 1 if session_id != prev_session else state.get("depth", 0) + 1
 
     # Single respirometry call for both burn-mode and normal budget logic
-    budget, util, hours_left = _allo_respirometry()
-    phase = _allo_phase()
+    budget, util, hours_left = _allow_respirometry()
+    phase = _allow_phase()
 
     # Check burn mode before normal budget logic
     burn = _burn_mode(util, hours_left)
@@ -238,8 +236,8 @@ def mod_allostasis(data):
         reason, hours_left, util = burn
         tier = "anabolic"
 
-        ALLO_STATE.parent.mkdir(parents=True, exist_ok=True)
-        ALLO_STATE.write_text(
+        ALLOW_STATE.parent.mkdir(parents=True, exist_ok=True)
+        ALLOW_STATE.write_text(
             json.dumps(
                 {
                     "tier": tier,
@@ -269,10 +267,10 @@ def mod_allostasis(data):
                 )
         return [msg]
 
-    tier = _allo_effective(budget, phase, depth)
+    tier = _allow_effective(budget, phase, depth)
 
-    ALLO_STATE.parent.mkdir(parents=True, exist_ok=True)
-    ALLO_STATE.write_text(
+    ALLOW_STATE.parent.mkdir(parents=True, exist_ok=True)
+    ALLOW_STATE.write_text(
         json.dumps(
             {
                 "tier": tier,
@@ -292,10 +290,10 @@ def mod_allostasis(data):
     elif tier in ("catabolic", "autophagic"):
         parts.append(f"Metabolic state: {tier} (budget={budget}, phase={phase}, depth={depth})")
 
-    g = ALLO_GUIDANCE.get(tier, "")
+    g = ALLOW_GUIDANCE.get(tier, "")
     if g:
         parts.append(g)
-    c = ALLO_CIRCADIAN.get(phase, "")
+    c = ALLOW_CIRCADIAN.get(phase, "")
     if c and depth <= 2:
         parts.append(c)
 
@@ -335,10 +333,14 @@ CHEMO_KEYWORDS = [
     (r"\brun exp(eriment)?\b", "Experiment -> use `/build` skill (phase=experiment)"),
     (r"\bcompare .{3,40} vs\b", "Comparison -> use `/build` skill (phase=experiment)"),
     (r"\bbenchmark\b", "Benchmark -> use `/build` skill (phase=experiment)"),
-    (r"\b(worked before|used to work|stopped working|broke[n]?|not found|command not found|regression|troubleshoot)\b",
-     "Diagnosis -> use `/diagnose` skill. Frame the problem (regression? new issue?) before attempting fixes"),
-    (r"\b(dispatch|build it|implement|sortase exec|translocon|write.{0,10}spec)\b",
-     "Dispatch -> use `/mitogen` skill for build/dispatch tasks."),
+    (
+        r"\b(worked before|used to work|stopped working|broke[n]?|not found|command not found|regression|troubleshoot)\b",
+        "Diagnosis -> use `/diagnose` skill. Frame the problem (regression? new issue?) before attempting fixes",
+    ),
+    (
+        r"\b(dispatch|build it|implement|sortase exec|translocon|write.{0,10}spec)\b",
+        "Dispatch -> use `/mitogen` skill for build/dispatch tasks.",
+    ),
 ]
 
 
@@ -389,12 +391,12 @@ def mod_priming(data):
     except Exception:
         return []
 
-    pn = _prim_norm(prompt)
+    on = _prim_norm(prompt)
     matches = []
     for skill, phrases in triggers.items():
         for phrase in phrases:
             phn = _prim_norm(phrase)
-            if len(phn) >= 4 and phn in pn:
+            if len(phn) >= 4 and phn in on:
                 matches.append((skill, phrase))
                 break
 
@@ -647,8 +649,6 @@ def mod_phenotype(data):
 # Replaced by on-demand search via rheotaxis/histone MCP tools.
 
 
-
-
 # ── rheotaxis: factual question detection ─────────────────
 
 _RHEO_PATTERNS = [
@@ -739,10 +739,8 @@ def mod_context(data):
 
 # ── entrainment: compact morning brief on "gm" ──────────────
 
-_ENTRAIN_RE = re.compile(
-    r"^(g+m+|good\s+morning|morning)[.!,\s]*$", re.IGNORECASE
-)
-_ENTRAIN_QUEUE = HOME / "germline" / "loci" / "golem-queue.md"
+_ENTRAIN_RE = re.compile(r"^(g+m+|good\s+morning|morning)[.!,\s]*$", re.IGNORECASE)
+_ENTRAIN_QUEUE = HOME / "germline" / "loci" / "translation-queue.md"
 
 
 def mod_entrainment(data):
@@ -781,7 +779,7 @@ def mod_entrainment(data):
                 events = [e.strip() for e in stdout.strip().splitlines()[:6] if e.strip()]
                 parts.append("Today: " + " | ".join(events))
 
-    # Golem queue summary
+    # Ribosome queue summary
     with contextlib.suppress(Exception):
         content = _ENTRAIN_QUEUE.read_text()
         pending = len(re.findall(r"^- \[ \]", content, re.MULTILINE))
@@ -801,9 +799,9 @@ _OVERNIGHT_RE = re.compile(
     r"^(what ran|overnight|overnight results|queue status|what ran overnight)[?.!\s]*$",
     re.IGNORECASE,
 )
-_OVERNIGHT_QUEUE = HOME / "germline" / "loci" / "golem-queue.md"
+_OVERNIGHT_QUEUE = HOME / "germline" / "loci" / "translation-queue.md"
 _OVERNIGHT_TASK_RE = re.compile(
-    r"^- \[([x!])\] `golem \[([^\]]+)\](?:\s*\[[^\]]*\])*\s*"
+    r"^- \[([x!])\] `ribosome \[([^\]]+)\](?:\s*\[[^\]]*\])*\s*"
     r'(?:--\S+\s+\S+\s+)*"([^"]{0,80})'
 )
 
@@ -855,7 +853,7 @@ def mod_overnight(data):
 def main():
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         sys.exit(0)
 
     modules = [

@@ -3,10 +3,10 @@
 # requires-python = ">=3.11"
 # ///
 """
-maintenance-cron - Deterministic maintenance checks (replaces golem-queue tasks).
+maintenance-cron - Deterministic maintenance checks (replaces translation-queue tasks).
 
 Runs type-checking, linting, and effector health checks without using LLM tokens.
-Designed to run as a cron job, not through the golem queue.
+Designed to run as a cron job, not through the translation queue.
 
 Checks performed:
   pyright  - Type-check metabolon/ via pyright, report error count
@@ -112,7 +112,7 @@ def check_pyright(dry_run: bool, verbose: bool) -> tuple[bool, int]:
 def check_ruff(dry_run: bool, verbose: bool) -> tuple[bool, int]:
     """Run ruff check on metabolon/, return (pass, issue_count)."""
     print("\n[ruff] Linting metabolon/ ...")
-    rc, stdout = run_cmd(
+    _rc, stdout = run_cmd(
         ["uv", "run", "ruff", "check", "metabolon/", "--output-format=concise"],
         cwd=GERMLINE,
         timeout=120,
@@ -178,7 +178,7 @@ def check_effector_health(
         # 3. Python files pass ast.parse
         is_python = (
             eff.suffix == ".py"
-            or first_line.startswith("#!") and "python" in first_line
+            or (first_line.startswith("#!") and "python" in first_line)
         )
         if is_python:
             try:
@@ -228,9 +228,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="maintenance-cron",
         description=(
-            "Deterministic maintenance checks that previously ran as golem tasks. "
+            "Deterministic maintenance checks that previously ran as ribosome tasks. "
             "Runs pyright type-checking, ruff linting, and effector health checks "
-            "without using any LLM tokens. Designed for cron, not the golem queue."
+            "without using any LLM tokens. Designed for cron, not the translation queue."
         ),
     )
     parser.add_argument(

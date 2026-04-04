@@ -1,35 +1,33 @@
-from __future__ import annotations
+"""Integration tests for polysome workflow using Temporal WorkflowEnvironment.
 
-"""Integration tests for temporal-golem workflow using Temporal WorkflowEnvironment.
-
-Uses time-skipping server to test the actual GolemDispatchWorkflow without a
+Uses time-skipping server to test the actual TranslationWorkflow without a
 real Temporal instance.  Activities are mocked via @activity.defn replacements.
 """
 
 import asyncio
+import contextlib
+
+# Load workflow source
+import sys
 from pathlib import Path
 
 import pytest
-from temporalio import activity, workflow
+from temporalio import activity
 from temporalio.api.enums.v1 import IndexedValueType
 from temporalio.api.operatorservice.v1 import AddSearchAttributesRequest
 from temporalio.testing import ActivityEnvironment, WorkflowEnvironment
 from temporalio.worker import Worker
 
-# Load workflow source
-import sys
-
-sys.path.insert(0, str(Path.home() / "germline/effectors/temporal-golem"))
-from workflow import GolemDispatchWorkflow
-
+sys.path.insert(0, str(Path.home() / "germline/effectors/polysome"))
+from workflow import TranslationWorkflow
 
 # ── Shared helpers ────────────────────────────────────────────────────────
 
-# Search attributes used by GolemDispatchWorkflow
+# Search attributes used by TranslationWorkflow
 _SEARCH_ATTRS = {
-    "GolemProvider": IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD,
-    "GolemVerdict": IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD,
-    "GolemTaskId": IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD,
+    "RibosomeProvider": IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD,
+    "RibosomeVerdict": IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD,
+    "RibosomeTaskId": IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD,
 }
 
 
@@ -60,24 +58,29 @@ def _review_approved():
 
 
 def _review_flagged():
-    return {"approved": True, "verdict": "approved_with_flags", "flags": ["thin_output"], "requeue_prompt": ""}
+    return {
+        "approved": True,
+        "verdict": "approved_with_flags",
+        "flags": ["thin_output"],
+        "requeue_prompt": "",
+    }
 
 
 async def _run_workflow(env, activities, specs, *, wf_id="test-wf", signals=None):
-    """Run GolemDispatchWorkflow with given mocked activities.
+    """Run TranslationWorkflow with given mocked activities.
 
     signals: list of (method_name, args, delay_seconds) to send after starting.
     """
-    task_queue = "test-golem"
+    task_queue = "test-translation"
     async with Worker(
         env.client,
         task_queue=task_queue,
-        workflows=[GolemDispatchWorkflow],
+        workflows=[TranslationWorkflow],
         activities=activities,
     ):
         if signals:
             handle = await env.client.start_workflow(
-                GolemDispatchWorkflow.run,
+                TranslationWorkflow.run,
                 args=[specs],
                 id=wf_id,
                 task_queue=task_queue,
@@ -88,7 +91,7 @@ async def _run_workflow(env, activities, specs, *, wf_id="test-wf", signals=None
             result = await handle.result()
         else:
             result = await env.client.execute_workflow(
-                GolemDispatchWorkflow.run,
+                TranslationWorkflow.run,
                 args=[specs],
                 id=wf_id,
                 task_queue=task_queue,
@@ -103,11 +106,11 @@ async def _run_workflow(env, activities, specs, *, wf_id="test-wf", signals=None
 async def test_workflow_single_task_success():
     """Single spec: activity succeeds, review approves -> total=1 succeeded=1 approved=1."""
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         return _success_result(task, provider)
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         return _review_approved()
 
@@ -129,11 +132,11 @@ async def test_workflow_single_task_success():
 async def test_workflow_task_failure():
     """Activity raises -> outer except catches, review has activity_failed flag."""
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         raise RuntimeError("subprocess exploded")
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         return _review_approved()
 
@@ -156,11 +159,11 @@ async def test_workflow_task_failure():
 async def test_workflow_review_failure():
     """Task succeeds but review raises -> succeeded=1, review has review_failed flag."""
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         return _success_result(task, provider)
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         raise RuntimeError("review crashed")
 
@@ -182,15 +185,15 @@ async def test_workflow_review_failure():
 async def test_workflow_graph_fallback_to_raw():
     """mode=graph: graph_task raises -> falls back to raw, mode becomes raw_fallback."""
 
-    @activity.defn(name="run_golem_graph_task")
+    @activity.defn(name="translate_graph")
     async def mock_graph(task: str, provider: str, max_turns: int = 50) -> dict:
         raise RuntimeError("graph unavailable")
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         return _success_result(task, provider)
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         return _review_approved()
 
@@ -211,11 +214,11 @@ async def test_workflow_graph_fallback_to_raw():
 async def test_workflow_approval_signal_reject():
     """verdict=approved_with_flags + reject_task signal -> verdict becomes rejected_by_signal."""
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         return _success_result(task, provider)
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         return _review_flagged()
 
@@ -238,25 +241,25 @@ async def test_workflow_approval_signal_reject():
 async def test_workflow_approval_timeout_auto_approves():
     """verdict=approved_with_flags + skip 1h -> auto-approved (not rejected)."""
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         return _success_result(task, provider)
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         return _review_flagged()
 
-    task_queue = "test-golem"
+    task_queue = "test-translation"
     async with await WorkflowEnvironment.start_time_skipping() as env:
         await _register_search_attrs(env)
         async with Worker(
             env.client,
             task_queue=task_queue,
-            workflows=[GolemDispatchWorkflow],
+            workflows=[TranslationWorkflow],
             activities=[mock_run, mock_review],
         ):
             handle = await env.client.start_workflow(
-                GolemDispatchWorkflow.run,
+                TranslationWorkflow.run,
                 args=[[{"task": "auto-approve", "provider": "zhipu", "max_turns": 5}]],
                 id="test-auto-approve",
                 task_queue=task_queue,
@@ -275,19 +278,16 @@ async def test_workflow_approval_timeout_auto_approves():
 async def test_workflow_multiple_tasks_concurrent():
     """3 specs submitted concurrently -> all 3 complete, results aggregated."""
 
-    @activity.defn(name="run_golem_task")
+    @activity.defn(name="translate")
     async def mock_run(task: str, provider: str, max_turns: int = 50) -> dict:
         await asyncio.sleep(0.01)  # small delay to exercise concurrency
         return _success_result(task, provider)
 
-    @activity.defn(name="review_golem_result")
+    @activity.defn(name="chaperone")
     async def mock_review(result: dict) -> dict:
         return _review_approved()
 
-    specs = [
-        {"task": f"task-{i}", "provider": "zhipu", "max_turns": 5}
-        for i in range(3)
-    ]
+    specs = [{"task": f"task-{i}", "provider": "zhipu", "max_turns": 5} for i in range(3)]
 
     async with await WorkflowEnvironment.start_time_skipping() as env:
         await _register_search_attrs(env)
@@ -308,7 +308,7 @@ async def test_workflow_multiple_tasks_concurrent():
 @pytest.mark.asyncio
 async def test_activity_heartbeat():
     """Activity sends heartbeats while subprocess runs."""
-    from worker import run_golem_task
+    from worker import translate
 
     heartbeats = []
 
@@ -318,7 +318,10 @@ async def test_activity_heartbeat():
     env = ActivityEnvironment()
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("worker._subprocess.run", lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+        m.setattr(
+            "worker._subprocess.run",
+            lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+        )
         m.setattr("worker._git_snapshot", lambda *a, **kw: {"stat": "", "numstat": ""})
         m.setattr("worker._create_worktree", lambda *a, **kw: "/tmp/fake-worktree")
         m.setattr("worker._merge_worktree", lambda *a, **kw: True)
@@ -335,12 +338,14 @@ async def test_activity_heartbeat():
                     # Sleep long enough for at least one heartbeat
                     await asyncio.sleep(0.15)
                     return b"output", b""
+
                 returncode = 0
+
             return FakeProc()
 
         m.setattr(asyncio, "create_subprocess_exec", fake_exec)
 
-        result = await env.run(run_golem_task, "test heartbeat task [t-beat01]", "zhipu", 5)
+        result = await env.run(translate, "test heartbeat task [t-beat01]", "zhipu", 5)
 
     assert result["success"] is True
     # Heartbeats should have been sent
@@ -350,12 +355,15 @@ async def test_activity_heartbeat():
 @pytest.mark.asyncio
 async def test_activity_timeout_cancellation():
     """Activity handles cancellation gracefully."""
-    from worker import run_golem_task
+    from worker import translate
 
     env = ActivityEnvironment()
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("worker._subprocess.run", lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+        m.setattr(
+            "worker._subprocess.run",
+            lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+        )
         m.setattr("worker._git_snapshot", lambda *a, **kw: {"stat": "", "numstat": ""})
         m.setattr("worker._create_worktree", lambda *a, **kw: "/tmp/fake-worktree")
         m.setattr("worker._merge_worktree", lambda *a, **kw: True)
@@ -369,7 +377,9 @@ async def test_activity_timeout_cancellation():
                 async def communicate(self):
                     await asyncio.sleep(0.1)
                     return b"output", b""
+
                 returncode = 0
+
             return FakeProc()
 
         m.setattr(asyncio, "create_subprocess_exec", fake_exec)
@@ -379,13 +389,12 @@ async def test_activity_timeout_cancellation():
             await asyncio.sleep(0.02)
             env.cancel()
 
-        asyncio.create_task(cancel_soon())
+        cancel_task = asyncio.create_task(cancel_soon())
 
-        try:
-            result = await env.run(run_golem_task, "test cancel [t-can001]", "zhipu", 5)
-            # If it completes before cancel, that's fine
-        except asyncio.CancelledError:
-            pass  # cancellation handled gracefully
+        with contextlib.suppress(asyncio.CancelledError):
+            await env.run(translate, "test cancel [t-can001]", "zhipu", 5)
+
+        cancel_task.cancel()
 
     # Activity should either complete or handle cancellation
     # The key assertion: no unhandled exception

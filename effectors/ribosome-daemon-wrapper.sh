@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Wrapper for ribosome-daemon under supervisor.
+# Sources ~/.env.fly for API keys before launching the daemon in foreground mode.
+set -euo pipefail
+
+# Handle --help without starting the daemon
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "ribosome-daemon-wrapper — sources API keys then launches ribosome-daemon in foreground"
+    echo "Usage: ribosome-daemon-wrapper"
+    echo "  No user-facing options. Managed by launchd/supervisor."
+    exit 0
+fi
+
+# Source environment file if it exists
+if [ -f "$HOME/.env.fly" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$HOME/.env.fly"
+    set +a
+fi
+
+exec uv run "$HOME/germline/effectors/ribosome-daemon" start --foreground

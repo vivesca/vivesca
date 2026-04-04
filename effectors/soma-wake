@@ -6,12 +6,13 @@ Usage:
     soma-wake --status     # Print current state without starting
 
 Designed to be called from:
-  - Git post-push hook (after pushing golem-queue.md changes)
-  - GitHub Actions workflow (on push to loci/golem-queue.md)
+  - Git post-push hook (after pushing translation-queue.md changes)
+  - GitHub Actions workflow (on push to loci/translation-queue.md)
   - Manual invocation
 
 Requires FLY_API_TOKEN in environment.
 """
+
 from __future__ import annotations
 
 import json
@@ -78,7 +79,9 @@ def status() -> int:
     guest = m.get("config", {}).get("guest", {})
     cpus = guest.get("cpus", "?")
     mem = guest.get("memory_mb", "?")
-    print(f"machine {m['id']}  state={m.get('state', '?')}  region={m.get('region', '?')}  {cpus}CPU/{mem}MB")
+    print(
+        f"machine {m['id']}  state={m.get('state', '?')}  region={m.get('region', '?')}  {cpus}CPU/{mem}MB"
+    )
     return 0
 
 

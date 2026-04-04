@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """test-dashboard — Test coverage and execution dashboard.
 
-Reads golem.jsonl log + runs pytest collection. Outputs:
+Reads ribosome.jsonl log + runs pytest collection. Outputs:
   - Total tests
   - Pass rate
   - Tests per provider
@@ -11,32 +11,32 @@ Reads golem.jsonl log + runs pytest collection. Outputs:
 Usage:
     test-dashboard
 """
+
+import contextlib
 import json
-import subprocess
 import re
+import subprocess
 import sys
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 # Paths
 GERMLINE_DIR = Path.home() / "germline"
-GOLEM_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
+RIBOSOME_LOG = Path.home() / ".local" / "share" / "vivesca" / "ribosome.jsonl"
 
 
-def read_golem_log() -> list[dict]:
-    """Read golem.jsonl and return list of entries."""
-    if not GOLEM_LOG.exists():
+def read_ribosome_log() -> list[dict]:
+    """Read ribosome.jsonl and return list of entries."""
+    if not RIBOSOME_LOG.exists():
         return []
     entries = []
     try:
-        with open(GOLEM_LOG, errors="replace") as f:
+        with open(RIBOSOME_LOG, errors="replace") as f:
             for line in f:
                 line = line.strip()
                 if line:
-                    try:
+                    with contextlib.suppress(json.JSONDecodeError):
                         entries.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
     except OSError:
         pass
     return entries
@@ -50,15 +50,15 @@ def run_pytest_collection() -> tuple[int, dict[str, int]]:
             capture_output=True,
             text=True,
             cwd=GERMLINE_DIR,
-            timeout=60
+            timeout=60,
         )
         output = result.stdout + result.stderr
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except subprocess.TimeoutExpired, FileNotFoundError:
         return 0, {}
-    
+
     tests_per_file: dict[str, int] = defaultdict(int)
     total = 0
-    
+
     for line in output.splitlines():
         # Match: assays/test_foo.py::TestClass::test_method
         m = re.match(r"^(assays/test_.*\.py)::", line)
@@ -66,7 +66,7 @@ def run_pytest_collection() -> tuple[int, dict[str, int]]:
             test_file = m.group(1)
             tests_per_file[test_file] += 1
             total += 1
-    
+
     return total, dict(tests_per_file)
 
 
@@ -74,15 +74,15 @@ def get_metabolon_modules() -> set[str]:
     """Get all Python modules in metabolon/ (excluding __init__.py and __pycache__)."""
     modules = set()
     metabolon_dir = GERMLINE_DIR / "metabolon"
-    
+
     if not metabolon_dir.exists():
         return modules
-    
+
     # Root-level modules
     for f in metabolon_dir.glob("*.py"):
         if f.name not in ("__init__.py",):
             modules.add(f.stem)
-    
+
     # Subdirectory modules
     for subdir in metabolon_dir.iterdir():
         if subdir.is_dir() and not subdir.name.startswith("__"):
@@ -90,7 +90,7 @@ def get_metabolon_modules() -> set[str]:
                 if f.name not in ("__init__.py",):
                     # Store as subdir/module format
                     modules.add(f"{subdir.name}/{f.stem}")
-    
+
     return modules
 
 
@@ -98,37 +98,37 @@ def get_tested_modules() -> set[str]:
     """Extract module names from test file names in assays/test_*.py."""
     tested = set()
     assays_dir = GERMLINE_DIR / "assays"
-    
+
     if not assays_dir.exists():
         return tested
-    
+
     for f in assays_dir.glob("test_*.py"):
         # test_foo.py -> foo
         name = f.stem[5:]  # Remove "test_" prefix
         if name:
             tested.add(name)
-    
+
     return tested
 
 
 def calculate_pass_rate(entries: list[dict]) -> float:
-    """Calculate pass rate from golem.jsonl entries."""
+    """Calculate pass rate from ribosome.jsonl entries."""
     if not entries:
         return 0.0
-    
+
     passed = sum(1 for e in entries if e.get("exit") == 0)
     total = len(entries)
     return passed / total if total > 0 else 0.0
 
 
 def get_tests_per_provider(entries: list[dict]) -> dict[str, int]:
-    """Get count of golem invocations per provider from log."""
+    """Get count of ribosome invocations per provider from log."""
     provider_counts: dict[str, int] = defaultdict(int)
-    
+
     for entry in entries:
         provider = entry.get("provider", "unknown")
         provider_counts[provider] += 1
-    
+
     return dict(sorted(provider_counts.items(), key=lambda x: -x[1]))
 
 
@@ -137,13 +137,17 @@ def get_recent_trend(entries: list[dict], n: int = 5) -> list[dict]:
     recent = entries[-n:] if len(entries) >= n else entries
     trend = []
     for e in recent:
-        trend.append({
-            "ts": e.get("ts", ""),
-            "provider": e.get("provider", "unknown"),
-            "exit": e.get("exit"),
-            "duration": e.get("duration"),
-            "prompt": e.get("prompt", "")[:50] + "..." if len(e.get("prompt", "")) > 50 else e.get("prompt", "")
-        })
+        trend.append(
+            {
+                "ts": e.get("ts", ""),
+                "provider": e.get("provider", "unknown"),
+                "exit": e.get("exit"),
+                "duration": e.get("duration"),
+                "prompt": e.get("prompt", "")[:50] + "..."
+                if len(e.get("prompt", "")) > 50
+                else e.get("prompt", ""),
+            }
+        )
     return trend
 
 
@@ -151,16 +155,16 @@ def main():
     if "--help" in sys.argv or "-h" in sys.argv:
         print(__doc__)
         return 0
-    # Read golem log
-    entries = read_golem_log()
-    
+    # Read ribosome log
+    entries = read_ribosome_log()
+
     # Run pytest collection
-    total_tests, tests_per_file = run_pytest_collection()
-    
+    total_tests, _tests_per_file = run_pytest_collection()
+
     # Get module coverage
     metabolon_modules = get_metabolon_modules()
     tested_modules = get_tested_modules()
-    
+
     # Calculate untested - map test names to module names
     untested = set()
     for module in metabolon_modules:
@@ -168,33 +172,35 @@ def main():
         module_name = module.split("/")[-1]  # Get last part for subdir modules
         if module_name not in tested_modules and module not in tested_modules:
             untested.add(module)
-    
+
     # Calculate stats
     pass_rate = calculate_pass_rate(entries)
     tests_per_provider = get_tests_per_provider(entries)
     recent_trend = get_recent_trend(entries, 5)
-    
+
     # Output
     print("=== Test Dashboard ===\n")
-    
+
     print(f"Total tests: {total_tests}")
-    print(f"Pass rate: {pass_rate:.1%} ({sum(1 for e in entries if e.get('exit') == 0)}/{len(entries)} golem runs)")
-    
-    print(f"\nGolem runs by provider:")
+    print(
+        f"Pass rate: {pass_rate:.1%} ({sum(1 for e in entries if e.get('exit') == 0)}/{len(entries)} ribosome runs)"
+    )
+
+    print("\nRibosome runs by provider:")
     if tests_per_provider:
         for provider, count in tests_per_provider.items():
             print(f"  {provider}: {count}")
     else:
         print("  (no data)")
-    
-    print(f"\nRecent trend (last 5):")
+
+    print("\nRecent trend (last 5):")
     if recent_trend:
         for entry in recent_trend:
             status = "✓" if entry["exit"] == 0 else "✗"
             print(f"  {status} [{entry['provider']}] {entry['duration']}s - {entry['prompt']}")
     else:
         print("  (no entries)")
-    
+
     print(f"\nUntested modules: {len(untested)}")
     if untested and len(untested) <= 20:
         for m in sorted(untested)[:20]:
@@ -203,7 +209,7 @@ def main():
         for m in sorted(untested)[:10]:
             print(f"  - {m}")
         print(f"  ... and {len(untested) - 10} more")
-    
+
     return 0
 
 

@@ -25,7 +25,7 @@ def gh(tmp_path):
     ns["GERMLINE"] = tmp_path / "germline"
     ns["SESSION_DIR"] = tmp_path / "sessions"
     ns["VIVESCA_DIR"] = tmp_path / "vivesca"
-    ns["PIDFILE"] = tmp_path / "golem-daemon.pid"
+    ns["PIDFILE"] = tmp_path / "ribosome-daemon.pid"
     # Ensure dirs exist
     ns["GERMLINE"].mkdir(parents=True, exist_ok=True)
     ns["SESSION_DIR"].mkdir(parents=True, exist_ok=True)
@@ -243,6 +243,7 @@ class TestCheckVenv:
         venv = g / ".venv"
         if venv.exists():
             import shutil
+
             shutil.rmtree(venv)
         c = gh["check_venv"]()
         assert c.status == "crit"
@@ -270,9 +271,7 @@ class TestCheckVenv:
         venv = tmp_path / "germline" / ".venv" / "bin"
         venv.mkdir(parents=True, exist_ok=True)
         (venv / "python").touch()
-        with mock.patch(
-            "subprocess.run", return_value=mock.Mock(returncode=0, stdout="ok\n")
-        ):
+        with mock.patch("subprocess.run", return_value=mock.Mock(returncode=0, stdout="ok\n")):
             c = gh["check_venv"]()
         assert c.status == "ok"
         assert c.value == "healthy"
@@ -386,9 +385,8 @@ class TestFixDisk:
             return original_stat(self, follow_symlinks=follow_symlinks)
 
         report = gh["HealthReport"]()
-        with mock.patch.object(Path, "stat", fake_stat):
-            with mock.patch("subprocess.run"):
-                gh["fix_disk"](report)
+        with mock.patch.object(Path, "stat", fake_stat), mock.patch("subprocess.run"):
+            gh["fix_disk"](report)
         assert any("truncated" in f for f in report.fixes_applied)
 
 
@@ -448,10 +446,15 @@ class TestFixDaemon:
 class TestRunHealth:
     def test_runs_all_checks(self, gh):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](fix=False)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](fix=False)
         names = [c.name for c in report.checks]
         assert "disk" in names
         assert "memory" in names
@@ -463,19 +466,29 @@ class TestRunHealth:
 
     def test_daemon_mode_skips_tests(self, gh):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](daemon_mode=True)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](daemon_mode=True)
         names = [c.name for c in report.checks]
         assert "tests" not in names
 
     def test_fix_mode_applies_disk_fix(self, gh, tmp_path):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=92, total=100, free=8)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](fix=True)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=92, total=100, free=8)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](fix=True)
         disk = next(c for c in report.checks if c.name == "disk")
         assert disk.fixed is True
 
@@ -588,14 +601,17 @@ class TestMain:
                 gh["main"]()
         gh["run_health"].assert_called_once()
         call_kwargs = gh["run_health"].call_args
-        assert call_kwargs.kwargs.get("fix") is True or call_kwargs[0][0] if call_kwargs[0] else call_kwargs.kwargs.get("fix") is True
+        assert (
+            call_kwargs.kwargs.get("fix") is True or call_kwargs[0][0]
+            if call_kwargs[0]
+            else call_kwargs.kwargs.get("fix") is True
+        )
 
     def test_default_no_fix_no_json(self, gh):
         report = gh["HealthReport"]()
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["soma-health"]):
-            with pytest.raises(SystemExit):
-                gh["main"]()
+        with mock.patch.object(sys, "argv", ["soma-health"]), pytest.raises(SystemExit):
+            gh["main"]()
         kw = gh["run_health"].call_args.kwargs
         assert kw["fix"] is False
         assert kw["as_json"] is False
@@ -859,7 +875,10 @@ class TestFixDiskExtended:
         report = gh["HealthReport"]()
         with mock.patch("subprocess.run") as mr:
             gh["fix_disk"](report)
-        cmd_strs = [" ".join(str(a) for a in call[0][0]) if call[0][0] else "" for call in mr.call_args_list]
+        cmd_strs = [
+            " ".join(str(a) for a in call[0][0]) if call[0][0] else ""
+            for call in mr.call_args_list
+        ]
         assert any("uv" in c and "cache" in c for c in cmd_strs)
 
     def test_session_unlink_oserror(self, gh, tmp_path):
@@ -888,9 +907,8 @@ class TestFixDiskExtended:
             return original_stat(self, follow_symlinks=follow_symlinks)
 
         report = gh["HealthReport"]()
-        with mock.patch.object(Path, "stat", fake_stat):
-            with mock.patch("subprocess.run"):
-                gh["fix_disk"](report)
+        with mock.patch.object(Path, "stat", fake_stat), mock.patch("subprocess.run"):
+            gh["fix_disk"](report)
         # After truncation should keep last 5000 lines
         remaining = big.read_text().strip().splitlines()
         assert len(remaining) <= 5000
@@ -963,10 +981,15 @@ class TestRunHealthExtended:
         old = time.time() - 7200
         os.utime(lock, (old, old))
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](fix=True)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](fix=True)
         assert any("stale lock" in f for f in report.fixes_applied)
 
     def test_daemon_mode_implies_fix(self, gh, tmp_path):
@@ -974,34 +997,54 @@ class TestRunHealthExtended:
         pf.write_text("999999999")
         gh["PIDFILE"] = pf
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](daemon_mode=True)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](daemon_mode=True)
         assert any("stale" in f for f in report.fixes_applied)
 
     def test_overall_reflects_worst(self, gh):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=92, total=100, free=8)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](fix=False)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=92, total=100, free=8)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](fix=False)
         assert report.overall == "crit"
 
     def test_no_fix_by_default(self, gh):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"](fix=False)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"](fix=False)
         assert report.fixes_applied == []
 
     def test_timestamp_set(self, gh):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    report = gh["run_health"]()
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+        ):
+            report = gh["run_health"]()
         assert report.timestamp  # non-empty string
 
 
@@ -1124,18 +1167,18 @@ class TestCheckDiskData:
         assert "total" in c.detail
 
 
-# ── check_golem_processes ──────────────────────────────────────────────────────
+# ── check_ribosome_processes ──────────────────────────────────────────────────────
 
 
-class TestCheckGolemProcesses:
+class TestCheckRibosomeProcesses:
     def test_count_running(self, gh):
         with mock.patch(
             "subprocess.run",
             return_value=mock.Mock(returncode=0, stdout="3\n", stderr=""),
         ):
-            c = gh["check_golem_processes"]()
+            c = gh["check_ribosome_processes"]()
         assert c.status == "ok"
-        assert c.name == "golem_procs"
+        assert c.name == "ribosome_procs"
         assert c.value == "3"
 
     def test_zero_processes(self, gh):
@@ -1143,13 +1186,13 @@ class TestCheckGolemProcesses:
             "subprocess.run",
             return_value=mock.Mock(returncode=1, stdout="", stderr=""),
         ):
-            c = gh["check_golem_processes"]()
+            c = gh["check_ribosome_processes"]()
         assert c.status == "ok"
         assert c.value == "0"
 
     def test_error(self, gh):
         with mock.patch("subprocess.run", side_effect=Exception("pgrep fail")):
-            c = gh["check_golem_processes"]()
+            c = gh["check_ribosome_processes"]()
         assert c.status == "error"
         assert "pgrep fail" in c.detail
 
@@ -1158,7 +1201,7 @@ class TestCheckGolemProcesses:
             "subprocess.run",
             return_value=mock.Mock(returncode=0, stdout="5\n", stderr=""),
         ):
-            c = gh["check_golem_processes"]()
+            c = gh["check_ribosome_processes"]()
         assert "5" in c.detail
 
 
@@ -1211,7 +1254,9 @@ class TestCheckHatchet:
     def test_docker_error(self, gh):
         with mock.patch(
             "subprocess.run",
-            return_value=mock.Mock(returncode=1, stdout="", stderr="Cannot connect to Docker daemon"),
+            return_value=mock.Mock(
+                returncode=1, stdout="", stderr="Cannot connect to Docker daemon"
+            ),
         ):
             c = gh["check_hatchet"]()
         assert c.status == "error"
@@ -1259,12 +1304,17 @@ class TestCheckHatchet:
 class TestRunHealthNewChecks:
     def test_all_new_checks_present(self, gh):
         mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
-        with mock.patch("subprocess.run", mock_run):
-            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
-                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
-                    with mock.patch.object(Path, "is_mount", return_value=True):
-                        report = gh["run_health"](fix=False)
+        with (
+            mock.patch("subprocess.run", mock_run),
+            mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)),
+            mock.patch(
+                "builtins.open",
+                mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n"),
+            ),
+            mock.patch.object(Path, "is_mount", return_value=True),
+        ):
+            report = gh["run_health"](fix=False)
         names = [c.name for c in report.checks]
         assert "disk_data" in names
-        assert "golem_procs" in names
+        assert "ribosome_procs" in names
         assert "hatchet" in names

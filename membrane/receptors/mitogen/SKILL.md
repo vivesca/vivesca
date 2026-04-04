@@ -1,6 +1,6 @@
 ---
 name: mitogen
-description: Dispatch golem for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", "blitz", "batch"
+description: Dispatch ribosome for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", "blitz", "batch"
 model: opus
 user_invocable: true
 allowed-tools:
@@ -18,7 +18,7 @@ epistemics: [audit, delegate, verify]
 
 Biology: a mitogen is a signal that triggers rapid cell proliferation. `/mitogen` is the signal that tells the organism to mass-produce improvements autonomously.
 
-**Philosophy: CC judges, golem implements. CC writes tests, post-gate verifies. No Opus review of passing output.**
+**Philosophy: CC judges, ribosome implements. CC writes tests, post-gate verifies. No Opus review of passing output.**
 
 ## When to trigger
 
@@ -30,17 +30,17 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 
 ## Architecture
 
-**Temporal on ganglion is the sole dispatch path.** CC dispatches directly via `golem_dispatch` MCP tool — no markdown queue, no poller.
+**Temporal on ganglion is the sole dispatch path.** CC dispatches directly via `ribosome_dispatch` MCP tool — no markdown queue, no poller.
 
 ```
-CC (soma) --golem_dispatch MCP--> Temporal server (ganglion:7233) --> worker.py (ganglion) --> golem script --> zhipu/GLM-5.1
+CC (soma) --ribosome_dispatch MCP--> Temporal server (ganglion:7233) --> worker.py (ganglion) --> ribosome script --> zhipu/GLM-5.1
 ```
 
-- **MCP tool:** `golem_dispatch` — dispatch, batch, status, list, cancel actions
-- **Worker:** `temporal-golem/worker.py` on ganglion, executes golem subprocess
-- **Workflow:** `temporal-golem/workflow.py`, retry policy (2 attempts), review activity
+- **MCP tool:** `ribosome_dispatch` — dispatch, batch, status, list, cancel actions
+- **Worker:** `polysome/worker.py` on ganglion, executes ribosome subprocess
+- **Workflow:** `polysome/workflow.py`, retry policy (2 attempts), review activity
 - **Review:** auto-rejects no_commit_on_success, target_file_missing, destruction patterns
-- **Logs:** `~/germline/loci/golem-outputs/` on ganglion, `~/germline/loci/golem-reviews.jsonl`
+- **Logs:** `~/germline/loci/ribosome-outputs/` on ganglion, `~/germline/loci/ribosome-reviews.jsonl`
 
 **Provider reality (2026-04):**
 - **zhipu (GLM-5.1):** Only working provider on ganglion. ~44% rate-limited on heavy days. 90% capability when not rate-limited.
@@ -54,10 +54,10 @@ CC (soma) --golem_dispatch MCP--> Temporal server (ganglion:7233) --> worker.py 
 Check dispatch health:
 ```bash
 # MCP tool — list recent workflows
-golem_dispatch action=list limit=5
+ribosome_dispatch action=list limit=5
 
 # Or via SSH
-ssh ganglion 'export PATH="$HOME/.local/bin:$PATH" && cd ~/germline/effectors/temporal-golem && uv run python cli.py list -n 5'
+ssh ganglion 'export PATH="$HOME/.local/bin:$PATH" && cd ~/germline/effectors/polysome && uv run python cli.py list -n 5'
 
 # Worker status
 ssh ganglion "sudo systemctl status temporal-worker --no-pager"
@@ -70,7 +70,7 @@ Before planning, classify the task:
 | Size | Signal | Action |
 |------|--------|--------|
 | Trivial | Single file, <20 lines, obvious fix | CC does it directly — no dispatch |
-| Small | 1-3 files, clear scope | Single golem dispatch, skip Phase 1 audit |
+| Small | 1-3 files, clear scope | Single ribosome dispatch, skip Phase 1 audit |
 | Large | Multi-file, ambiguity, dependencies | Full Phase 1 audit + multi-task batch |
 
 Don't build a 5-task campaign for a one-liner fix.
@@ -97,13 +97,13 @@ Then prioritize:
 4. **Features** — new capabilities, effectors
 5. **Tests** — coverage for untested modules (filler, not main course)
 
-**Prose is not golem work.** Consulting cards, case studies, briefings — single-turn generation. Generate inline in CC.
+**Prose is not ribosome work.** Consulting cards, case studies, briefings — single-turn generation. Generate inline in CC.
 
 ### Phase 2: Write tasks with test gates
 
-**CC writes tests first, golem implements to pass them.** This is the core loop.
+**CC writes tests first, ribosome implements to pass them.** This is the core loop.
 
-**Controller extracts, subagents don't read.** CC reads specs/plans once and injects exactly what the golem needs into its prompt. Never tell golem "read the plan file and do what it says" — that wastes turns and lets the golem misinterpret. State the action directly.
+**Controller extracts, subagents don't read.** CC reads specs/plans once and injects exactly what the ribosome needs into its prompt. Never tell ribosome "read the plan file and do what it says" — that wastes turns and lets the ribosome misinterpret. State the action directly.
 
 **Prompt quality matters more than prompt length.** Include:
 - Exact file path to create/modify
@@ -113,24 +113,24 @@ Then prioritize:
 
 1. CC writes `assays/test_<feature>.py` with concrete test cases
 2. CC dispatches via MCP tool with clear prompt
-3. Golem implements until tests pass
+3. Ribosome implements until tests pass
 4. Post-gate (ast + test suite + scope check + no_commit check) auto-approves or rejects
 
 ### Phase 3: Dispatch via MCP
 
 **Single task:**
 ```
-golem_dispatch action=dispatch prompt="<prompt>" provider=zhipu max_turns=25
+ribosome_dispatch action=dispatch prompt="<prompt>" provider=zhipu max_turns=25
 ```
 
 **Batch (multiple tasks):**
 ```
-golem_dispatch action=batch specs='[{"task": "...", "provider": "zhipu", "max_turns": 25}, ...]'
+ribosome_dispatch action=batch specs='[{"task": "...", "provider": "zhipu", "max_turns": 25}, ...]'
 ```
 
 **Direct execution (debugging/urgent, bypasses Temporal):**
 ```bash
-golem --provider zhipu --max-turns 15 "prompt"
+ribosome --provider zhipu --max-turns 15 "prompt"
 ```
 
 ### Phase 4: Verify
@@ -139,15 +139,15 @@ golem --provider zhipu --max-turns 15 "prompt"
 - ast_check: all modified `.py` files parse
 - test_check: full test suite passes
 - scope_check: warns if files outside target modified
-- no_commit_on_success: rejects if golem exits 0 but produced no git changes
+- no_commit_on_success: rejects if ribosome exits 0 but produced no git changes
 - target_file_missing: flags if named target file isn't in the diff
 
 If all pass -> auto-approved. If any fail -> rejected.
 
 **Check status:**
 ```
-golem_dispatch action=status workflow_id=<id>
-golem_dispatch action=list limit=10
+ribosome_dispatch action=status workflow_id=<id>
+ribosome_dispatch action=list limit=10
 ```
 
 ### Phase 5: Report
@@ -163,7 +163,7 @@ golem_dispatch action=list limit=10
 ## Timeout alignment
 
 Three timeout layers (must be nested correctly):
-1. **Golem wall-limit** (`GOLEM_WALL_LIMIT`, default 28min) — gates retries, never kills active work
+1. **Ribosome wall-limit** (`RIBOSOME_WALL_LIMIT`, default 28min) — gates retries, never kills active work
 2. **Worker activity timeout** (`_ACTIVITY_TIMEOUT`, 30min) — asyncio.wait_for kills subprocess
 3. **Workflow start_to_close** (35min) — Temporal cancels the activity
 
@@ -171,9 +171,9 @@ Three timeout layers (must be nested correctly):
 
 - **Only zhipu on ganglion.** Other providers exit 127 or quota-exhaust.
 - **Rate-limits are billing reality.** Tasks trickle through as capacity frees up.
-- **Golem may not commit.** Review gate now catches this — no_commit_on_success = rejected.
+- **Ribosome may not commit.** Review gate now catches this — no_commit_on_success = rejected.
 - **Mac-only tasks can't run on ganglion** (ARM Linux). Drop or tag for local.
-- **`--dangerously-skip-permissions` is in the golem script.** Never remove it.
+- **`--dangerously-skip-permissions` is in the ribosome script.** Never remove it.
 - **Don't pad queue with filler** — 10 high-value tasks beat 50 generic ones.
 - **Prior discussion is NOT a plan.** Always run solutions KB check first.
 - **Never write non-trivial code in-session** without proposing delegation first.

@@ -78,7 +78,7 @@ An enzyme's activity is controlled by molecules binding at a DIFFERENT site from
 ### 13. Prevent futile cycles
 When opposing pathways run simultaneously (synthesis + breakdown of same molecule), energy is wasted with no net progress. **Agents that simultaneously generate and critique in the same loop create futile cycles.** Separate generation from evaluation temporally.
 - **Anti-pattern:** "write code and review it" in one prompt
-- **Pattern:** sortase separates build from review. Golems write, CC judges.
+- **Pattern:** sortase separates build from review. Ribosomes write, CC judges.
 
 ### 14. Distinct modes for catabolism and anabolism
 Breaking down vs building up. Both essential, but not simultaneously on the same substrate. **Agent systems need distinct modes for cleanup (debugging, auditing, deleting) vs creation (building, extending).** Running both on the same codebase creates confusion.
@@ -88,11 +88,11 @@ Breaking down vs building up. Both essential, but not simultaneously on the same
 
 ### 15. Identify keystones by connectivity, not throughput
 A keystone species isn't the most abundant — it's the most connected. Remove it and the ecosystem collapses. **The critical agent isn't the one doing the most work — it's the one with the most dependencies.** Identify keystones before modifying.
-- **In vivesca:** CC is the keystone — not most work (golem does more) but most dependencies route through it.
+- **In vivesca:** CC is the keystone — not most work (ribosome does more) but most dependencies route through it.
 
 ### 16. Ecological succession: stages create conditions for the next
 Bare rock -> lichens -> moss -> forest. Each stage enables the next. **Don't design complex agents from nothing.** Let simple agents (reliable CLIs, basic automation) establish conditions before layering complex ones (multi-model councils, autonomous repair).
-- **Vivesca trajectory:** scripts -> skills -> golems -> temporal dispatch -> autonomous teams. Each stage only worked because the previous was stable.
+- **Vivesca trajectory:** scripts -> skills -> ribosomes -> temporal dispatch -> autonomous teams. Each stage only worked because the previous was stable.
 
 ### 17. Niche partitioning prevents competitive exclusion
 Species sharing the same resource either specialize or one goes extinct (competitive exclusion principle). **Multiple agents sharing the same task type must specialize or they create waste.** Explicit niche assignment.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""log-summary — Summarize golem-daemon.log activity.
+"""log-summary — Summarize ribosome-daemon.log activity.
 
 Parses the daemon log and reports task counts, failure rates, and top errors
 over sliding time windows.
@@ -11,6 +11,7 @@ Usage:
     log-summary --window 24h
     log-summary --json    # Machine-readable output
 """
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,8 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
-LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
-ROTATED_LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
+LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.log"
+ROTATED_LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "ribosome-daemon.log.1"
 
 # Regex for timestamped log lines: [2026-03-31 10:53:29] message
 RE_TS = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$")
@@ -69,18 +70,18 @@ def classify_events(
 ) -> dict:
     """Classify all log entries into structured events."""
     events: dict[str, list] = {
-        "starts": [],       # (ts, cmd)
-        "finishes": [],     # (ts, duration_s, exit_code, cmd)
-        "failures": [],     # (ts, exit_code, cmd)
-        "timeouts": [],     # (ts, duration_s, cmd)
-        "errors": [],       # (ts, message)
-        "queued": [],       # (ts, provider, cmd)
-        "running": [],      # (ts, n_tasks, provider_str, n_pending)
-        "idle": [],         # (ts, n_pending)
-        "daemon": [],       # (ts, action)
+        "starts": [],  # (ts, cmd)
+        "finishes": [],  # (ts, duration_s, exit_code, cmd)
+        "failures": [],  # (ts, exit_code, cmd)
+        "timeouts": [],  # (ts, duration_s, cmd)
+        "errors": [],  # (ts, message)
+        "queued": [],  # (ts, provider, cmd)
+        "running": [],  # (ts, n_tasks, provider_str, n_pending)
+        "idle": [],  # (ts, n_pending)
+        "daemon": [],  # (ts, action)
         "autocommits": [],  # (ts, n_tasks, hash)
-        "warnings": [],     # (ts, message)
-        "fatals": [],       # (ts, message)
+        "warnings": [],  # (ts, message)
+        "fatals": [],  # (ts, message)
     }
 
     for ts, msg in entries:
@@ -112,16 +113,12 @@ def classify_events(
     return events
 
 
-def window_filter(
-    items: list[tuple], ts_index: int, cutoff: datetime
-) -> list[tuple]:
+def window_filter(items: list[tuple], ts_index: int, cutoff: datetime) -> list[tuple]:
     """Filter items to those with timestamp >= cutoff."""
     return [item for item in items if item[ts_index] >= cutoff]
 
 
-def compute_window_stats(
-    events: dict, window_name: str, cutoff: datetime
-) -> dict:
+def compute_window_stats(events: dict, window_name: str, cutoff: datetime) -> dict:
     """Compute statistics for a single time window."""
     starts = window_filter(events["starts"], 0, cutoff)
     finishes = window_filter(events["finishes"], 0, cutoff)
@@ -188,7 +185,7 @@ def format_report(stats_list: list[dict]) -> str:
     """Format window stats into a human-readable report."""
     lines: list[str] = []
     lines.append("=" * 60)
-    lines.append("GOLEM DAEMON LOG SUMMARY")
+    lines.append("RIBOSOME DAEMON LOG SUMMARY")
     lines.append("=" * 60)
 
     for stats in stats_list:
@@ -202,7 +199,9 @@ def format_report(stats_list: list[dict]) -> str:
         lines.append(f"    timed out:      {stats['tasks_timed_out']}")
         lines.append(f"  Failure rate:     {stats['failure_rate_pct']}%")
         lines.append(f"  Avg duration:     {stats['avg_duration_s']}s")
-        lines.append(f"  Auto-commits:     {stats['autocommits']} ({stats['autocommit_tasks']} tasks)")
+        lines.append(
+            f"  Auto-commits:     {stats['autocommits']} ({stats['autocommit_tasks']} tasks)"
+        )
         lines.append(f"  Warnings:         {stats['warnings']}")
 
         if stats["providers"]:
@@ -267,17 +266,13 @@ def run(
         stats_list = [stats]
     else:
         stats_list = [
-            compute_window_stats(events, name, cutoff)
-            for name, cutoff in windows.items()
+            compute_window_stats(events, name, cutoff) for name, cutoff in windows.items()
         ]
 
     if as_json:
         # Convert Counter tuples to dicts for JSON serialization
         for s in stats_list:
-            s["top_errors"] = [
-                {"error": desc, "count": count}
-                for desc, count in s["top_errors"]
-            ]
+            s["top_errors"] = [{"error": desc, "count": count} for desc, count in s["top_errors"]]
         return json.dumps(stats_list, indent=2)
 
     return format_report(stats_list)

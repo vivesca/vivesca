@@ -1,4 +1,3 @@
-
 """translocon — dispatch cheap LLM tasks via goose/droid on ZhiPu plan.
 
 Organelle: pure functions returning structured dicts.
@@ -11,7 +10,6 @@ Modes:
   safe    — read-only audit (droid)
   skill   — execute an organism skill (goose + recipe, or droid for --mcp)
 """
-
 
 import hashlib
 import json
@@ -29,13 +27,13 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-COACHING_NOTES = Path.home() / "epigenome/marks/feedback_golem_coaching.md"
+COACHING_NOTES = Path.home() / "epigenome/marks/feedback_ribosome_coaching.md"
 SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
-GOLEM_LOG = Path.home() / ".local/share/vivesca/golem.jsonl"
+RIBOSOME_LOG = Path.home() / ".local/share/vivesca/ribosome.jsonl"
 CACHE_DIR = Path.home() / ".cache/translocon"
 CACHE_TTL = 3600  # 1 hour in seconds
 
-# Provider concurrency limits for golem-daemon
+# Provider concurrency limits for ribosome-daemon
 PROVIDER_LIMITS = {
     "zhipu": 4,
     "infini": 6,
@@ -67,7 +65,7 @@ def _cache_get(key: str) -> dict | None:
         # Stale — remove
         path.unlink(missing_ok=True)
         return None
-    except (json.JSONDecodeError, KeyError):
+    except json.JSONDecodeError, KeyError:
         return None
 
 
@@ -510,27 +508,27 @@ def run_eval(count: int = 20, failures_only: bool = False) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Dispatch stats — golem run analysis
+# Dispatch stats — ribosome run analysis
 # ---------------------------------------------------------------------------
 
 
 def dispatch_stats(count: int = 50) -> dict:
-    """Analyze golem runs from golem.jsonl. Returns structured summary.
+    """Analyze ribosome runs from ribosome.jsonl. Returns structured summary.
 
     Returns:
         dict with keys: success (bool), output (str), duration_s (float).
     """
     start = time.perf_counter()
 
-    if not GOLEM_LOG.exists():
+    if not RIBOSOME_LOG.exists():
         return {
             "success": False,
-            "output": "no golem log found",
+            "output": "no ribosome log found",
             "duration_s": round(time.perf_counter() - start, 2),
         }
 
     entries: list[dict] = []
-    with open(GOLEM_LOG) as f:
+    with open(RIBOSOME_LOG) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -572,7 +570,7 @@ def dispatch_stats(count: int = 50) -> dict:
     avg_turns = sum(turns) / len(turns) if turns else 0
 
     lines: list[str] = [
-        f"Golem runs: {total} | Success: {success_count} ({success_rate:.0f}%) | Fail: {fail_count}",
+        f"Ribosome runs: {total} | Success: {success_count} ({success_rate:.0f}%) | Fail: {fail_count}",
         f"Duration: total={total_duration:.0f}s, avg={avg_duration:.0f}s | Turns: avg={avg_turns:.1f}",
         "",
         "By provider:",

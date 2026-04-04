@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for metabolon/sortase/executor.py — task execution, fallback, and cost logic.
 
 Pure-function and mock-heavy tests covering adaptive timeout, coaching prep,
@@ -7,59 +5,57 @@ cost estimation, failure classification, tool chain, status bookkeeping,
 git worktree helpers, and async execute_task / execute_tasks orchestration.
 """
 
-
 import json
 import os
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.sortase.executor import (
-    _compute_adaptive_timeout,
-    _prepend_coaching,
-    estimate_cost,
-    summarize_cost_estimates,
-    classify_failure,
-    _tool_chain,
-    _validate_backend,
-    _clean_env,
-    _status_path,
-    _legacy_tombstone,
-    _read_status_entries,
-    _write_status_entries,
-    _is_git_repo,
-    summarize_results,
-    _reset_git_state,
-    _create_worktree,
-    _merge_worktree,
-    _remove_worktree,
-    _force_remove_worktree,
-    _run_command,
-    _emit_completion_signal,
-    _analyze_for_coaching,
-    register_running,
-    unregister_running,
-    list_running,
-    execute_task,
-    execute_tasks,
-    ExecutionAttempt,
-    FallbackStep,
-    TaskExecutionResult,
-    TOOL_COMMANDS,
+    DEFAULT_TIMEOUT_SEC,
     FALLBACK_ORDER,
     FLAT_RATE_TOOLS,
     MODEL_BY_TOOL,
-    TOKEN_PRICING,
     STATUS_PATH,
-    COACHING_NOTES,
-    DEFAULT_TIMEOUT_SEC,
+    TOKEN_PRICING,
+    TOOL_COMMANDS,
+    ExecutionAttempt,
+    FallbackStep,
+    TaskExecutionResult,
+    _analyze_for_coaching,
+    _clean_env,
+    _compute_adaptive_timeout,
+    _create_worktree,
+    _emit_completion_signal,
+    _force_remove_worktree,
+    _is_git_repo,
+    _legacy_tombstone,
+    _merge_worktree,
+    _prepend_coaching,
+    _read_status_entries,
+    _remove_worktree,
+    _reset_git_state,
+    _run_command,
+    _status_path,
+    _tool_chain,
+    _validate_backend,
+    _write_status_entries,
+    classify_failure,
+    estimate_cost,
+    execute_task,
+    execute_tasks,
+    list_running,
+    register_running,
+    summarize_cost_estimates,
+    summarize_results,
+    unregister_running,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_default_timeout_value():
     """Test DEFAULT_TIMEOUT_SEC is reasonable (10 minutes)."""
@@ -83,7 +79,7 @@ def test_flat_rate_tools():
     """Test FLAT_RATE_TOOLS contains subscription-based backends."""
     assert "goose" in FLAT_RATE_TOOLS
     assert "droid" in FLAT_RATE_TOOLS
-    assert "golem" in FLAT_RATE_TOOLS
+    assert "ribosome" in FLAT_RATE_TOOLS
 
 
 def test_model_by_tool_has_all_tools():
@@ -101,6 +97,7 @@ def test_token_pricing_keys_match_models():
 # ─────────────────────────────────────────────────────────────────────────────
 # _compute_adaptive_timeout tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_compute_adaptive_timeout_base_case():
     """Test base timeout returned for generic spec."""
@@ -170,6 +167,7 @@ def test_compute_adaptive_timeout_custom_base():
 # _prepend_coaching tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_prepend_coaching_translocon_tools_excluded():
     """Test coaching is NOT prepended for translocon tools."""
     prompt = "Write a function"
@@ -184,7 +182,7 @@ def test_prepend_coaching_unknown_tool():
     assert _prepend_coaching(prompt, "unknown-tool") == prompt
 
 
-@patch.object(Path, 'exists', return_value=False)
+@patch.object(Path, "exists", return_value=False)
 def test_prepend_coaching_no_notes_file(mock_exists):
     """Test coaching is NOT prepended when notes file doesn't exist."""
     prompt = "Write a function"
@@ -193,8 +191,8 @@ def test_prepend_coaching_no_notes_file(mock_exists):
     assert result == prompt
 
 
-@patch.object(Path, 'exists', return_value=True)
-@patch.object(Path, 'read_text', return_value="---\nlayout: default\n---\nCoaching note here.")
+@patch.object(Path, "exists", return_value=True)
+@patch.object(Path, "read_text", return_value="---\nlayout: default\n---\nCoaching note here.")
 def test_prepend_coaching_strips_yaml_frontmatter(mock_read, mock_exists):
     """Test YAML frontmatter is stripped from coaching notes."""
     prompt = "Write a function"
@@ -205,18 +203,18 @@ def test_prepend_coaching_strips_yaml_frontmatter(mock_read, mock_exists):
     assert prompt in result
 
 
-@patch.object(Path, 'exists', return_value=True)
-@patch.object(Path, 'read_text', return_value="Plain coaching without frontmatter.")
+@patch.object(Path, "exists", return_value=True)
+@patch.object(Path, "read_text", return_value="Plain coaching without frontmatter.")
 def test_prepend_coaching_no_frontmatter(mock_read, mock_exists):
     """Test coaching works when there's no YAML frontmatter."""
     prompt = "Write a function"
-    result = _prepend_coaching(prompt, "golem")
+    result = _prepend_coaching(prompt, "ribosome")
     assert "Plain coaching without frontmatter" in result
     assert prompt in result
 
 
-@patch.object(Path, 'exists', return_value=True)
-@patch.object(Path, 'read_text', side_effect=PermissionError("No access"))
+@patch.object(Path, "exists", return_value=True)
+@patch.object(Path, "read_text", side_effect=PermissionError("No access"))
 def test_prepend_coaching_exception_returns_original(mock_read, mock_exists):
     """Test coaching returns original prompt on exception."""
     prompt = "Write a function"
@@ -227,6 +225,7 @@ def test_prepend_coaching_exception_returns_original(mock_read, mock_exists):
 # ─────────────────────────────────────────────────────────────────────────────
 # estimate_cost tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_estimate_cost_flat_rate_tools():
     """Test flat-rate tools return $0.00 (flat-rate)."""
@@ -289,6 +288,7 @@ def test_estimate_cost_small_prompt():
 # summarize_cost_estimates tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_summarize_cost_estimates_empty():
     """Test empty list returns N/A."""
     assert summarize_cost_estimates([]) == "N/A"
@@ -332,11 +332,7 @@ def test_summarize_cost_estimates_mixed_unknown():
 
 def test_summarize_cost_estimates_mixed_all():
     """Test mixed with both notes both."""
-    result = summarize_cost_estimates([
-        "$0.0100",
-        "$0.00 (flat-rate)",
-        "$0.00 (unknown pricing)"
-    ])
+    result = summarize_cost_estimates(["$0.0100", "$0.00 (flat-rate)", "$0.00 (unknown pricing)"])
     assert "flat-rate backends" in result
     assert "unknown-priced backends" in result
 
@@ -349,10 +345,7 @@ def test_summarize_cost_estimates_invalid_format():
 
 def test_summarize_cost_estimates_zero_total_with_flat_and_unknown():
     """Test zero total with both flat and unknown shows both notes."""
-    result = summarize_cost_estimates([
-        "$0.00 (flat-rate)",
-        "$0.00 (unknown pricing)"
-    ])
+    result = summarize_cost_estimates(["$0.00 (flat-rate)", "$0.00 (unknown pricing)"])
     # Zero total with both flat and unknown shows both notes
     assert "flat-rate backends" in result
     assert "unknown-priced backends" in result
@@ -361,6 +354,7 @@ def test_summarize_cost_estimates_zero_total_with_flat_and_unknown():
 # ─────────────────────────────────────────────────────────────────────────────
 # classify_failure tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_classify_failure_success():
     """Test exit code 0 returns None."""
@@ -408,6 +402,7 @@ def test_classify_failure_generic_process_error():
 # ─────────────────────────────────────────────────────────────────────────────
 # _tool_chain tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_tool_chain_starts_with_initial():
     """Test tool chain starts with initial tool."""
@@ -472,7 +467,8 @@ def test_tool_chain_gemini_excludes_from_fallback():
 # _validate_backend tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-@patch('shutil.which', return_value="/usr/bin/gemini")
+
+@patch("shutil.which", return_value="/usr/bin/gemini")
 def test_validate_backend_found(mock_which):
     """Test validation passes when binary is found."""
     # Should not raise
@@ -480,7 +476,7 @@ def test_validate_backend_found(mock_which):
     mock_which.assert_called_once_with("gemini")
 
 
-@patch('shutil.which', return_value=None)
+@patch("shutil.which", return_value=None)
 def test_validate_backend_not_found(mock_which):
     """Test validation raises FileNotFoundError when binary not found."""
     with pytest.raises(FileNotFoundError) as exc_info:
@@ -489,15 +485,15 @@ def test_validate_backend_not_found(mock_which):
     assert "not found on PATH" in str(exc_info.value)
 
 
-@patch('shutil.which', return_value="/usr/local/bin/claude")
+@patch("shutil.which", return_value="/usr/local/bin/claude")
 def test_validate_backend_uses_command_binary(mock_which):
     """Test validation uses the binary from TOOL_COMMANDS."""
-    _validate_backend("golem", Path("/project"), "prompt")
-    # golem uses 'claude' binary
+    _validate_backend("ribosome", Path("/project"), "prompt")
+    # ribosome uses 'claude' binary
     mock_which.assert_called_once_with("claude")
 
 
-@patch('shutil.which', return_value="/usr/bin/translocon")
+@patch("shutil.which", return_value="/usr/bin/translocon")
 def test_validate_backend_translocon_tools(mock_which):
     """Test translocon-based tools check for translocon binary."""
     _validate_backend("goose", Path("/project"), "prompt")
@@ -508,6 +504,7 @@ def test_validate_backend_translocon_tools(mock_which):
 # _clean_env tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_clean_env_removes_claudecode():
     """Test CLAUDECODE is removed from environment."""
     with patch.dict(os.environ, {"CLAUDECODE": "test-value"}, clear=False):
@@ -515,10 +512,10 @@ def test_clean_env_removes_claudecode():
         assert "CLAUDECODE" not in env
 
 
-def test_clean_env_golem_sets_anthropic_vars():
-    """Test golem sets Anthropic compatibility variables."""
+def test_clean_env_ribosome_sets_anthropic_vars():
+    """Test ribosome sets Anthropic compatibility variables."""
     with patch.dict(os.environ, {"ZHIPU_API_KEY": "test-key"}, clear=False):
-        env = _clean_env("golem")
+        env = _clean_env("ribosome")
         assert env["ANTHROPIC_AUTH_TOKEN"] == "test-key"
         assert env["ANTHROPIC_BASE_URL"] == "https://open.bigmodel.cn/api/anthropic"
         assert env["ANTHROPIC_DEFAULT_OPUS_MODEL"] == "GLM-5.1"
@@ -528,13 +525,13 @@ def test_clean_env_golem_sets_anthropic_vars():
         assert env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"
 
 
-def test_clean_env_golem_missing_zhipu_key():
-    """Test golem handles missing ZHIPU_API_KEY."""
+def test_clean_env_ribosome_missing_zhipu_key():
+    """Test ribosome handles missing ZHIPU_API_KEY."""
     # Make sure ZHIPU_API_KEY is not set
     env_copy = os.environ.copy()
     env_copy.pop("ZHIPU_API_KEY", None)
     with patch.dict(os.environ, env_copy, clear=True):
-        env = _clean_env("golem")
+        env = _clean_env("ribosome")
         assert env["ANTHROPIC_AUTH_TOKEN"] == ""
 
 
@@ -552,7 +549,7 @@ def test_clean_env_other_tools_no_special_vars():
     env_copy = os.environ.copy()
     for key in ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"]:
         env_copy.pop(key, None)
-    
+
     with patch.dict(os.environ, env_copy, clear=True):
         env = _clean_env("gemini")
         assert "ANTHROPIC_AUTH_TOKEN" not in env
@@ -561,6 +558,7 @@ def test_clean_env_other_tools_no_special_vars():
 # ─────────────────────────────────────────────────────────────────────────────
 # _status_path tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_status_path_default():
     """Test default status path."""
@@ -580,6 +578,7 @@ def test_status_path_override():
 # _legacy_tombstone tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_legacy_tombstone_format():
     """Test legacy tombstone format."""
     result = _legacy_tombstone("my-task")
@@ -596,9 +595,10 @@ def test_legacy_tombstone_with_special_chars():
 # _read_status_entries tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_read_status_entries_nonexistent_file(tmp_path):
     """Test reading status from nonexistent file returns empty list."""
-    with patch('metabolon.sortase.executor._status_path', return_value=tmp_path / "missing.json"):
+    with patch("metabolon.sortase.executor._status_path", return_value=tmp_path / "missing.json"):
         result = _read_status_entries()
         assert result == []
 
@@ -607,8 +607,8 @@ def test_read_status_entries_valid_json(tmp_path):
     """Test reading status from valid JSON file."""
     status_path = tmp_path / "status.json"
     status_path.write_text('[{"task_name": "task1", "tool": "gemini"}]')
-    
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = _read_status_entries()
         assert len(result) == 1
         assert result[0]["task_name"] == "task1"
@@ -617,9 +617,9 @@ def test_read_status_entries_valid_json(tmp_path):
 def test_read_status_entries_invalid_json(tmp_path):
     """Test reading status from invalid JSON returns empty list."""
     status_path = tmp_path / "status.json"
-    status_path.write_text('not valid json')
-    
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    status_path.write_text("not valid json")
+
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = _read_status_entries()
         assert result == []
 
@@ -628,35 +628,35 @@ def test_read_status_entries_invalid_json(tmp_path):
 # _write_status_entries tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_write_status_entries_creates_file(tmp_path):
     """Test writing status entries creates file."""
     status_path = tmp_path / "status.json"
-    
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         _write_status_entries([{"task_name": "task1"}])
-    
+
     assert status_path.exists()
 
 
 def test_write_status_entries_creates_parent_dirs(tmp_path):
     """Test writing status entries creates parent directories."""
     status_path = tmp_path / "nested" / "dir" / "status.json"
-    
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         _write_status_entries([{"task_name": "task1"}])
-    
+
     assert status_path.exists()
 
 
 def test_write_status_entries_valid_json(tmp_path):
     """Test written JSON is valid and properly formatted."""
-    import json
     status_path = tmp_path / "status.json"
     entries = [{"task_name": "task1"}, {"task_name": "task2"}]
-    
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         _write_status_entries(entries)
-    
+
     loaded = json.loads(status_path.read_text())
     assert loaded == entries
 
@@ -664,6 +664,7 @@ def test_write_status_entries_valid_json(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # _is_git_repo tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_is_git_repo_true(tmp_path):
     """Test returns True when .git directory exists."""
@@ -688,6 +689,7 @@ def test_is_git_repo_file_not_dir(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # Dataclass tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_execution_attempt_dataclass():
     """Test ExecutionAttempt dataclass creation."""
@@ -784,6 +786,7 @@ def test_task_execution_result_with_attempts():
 # summarize_results tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_summarize_results_empty():
     """Test summarize_results with empty list."""
     result = summarize_results([])
@@ -834,12 +837,14 @@ def test_summarize_results_counts_fallbacks():
     """Test summarize_results counts fallbacks correctly."""
     results = [
         TaskExecutionResult(
-            task_name="t1", tool="gemini", prompt_file=None, success=True,
-            fallbacks=["codex"]
+            task_name="t1", tool="gemini", prompt_file=None, success=True, fallbacks=["codex"]
         ),
         TaskExecutionResult(
-            task_name="t2", tool="goose", prompt_file=None, success=False,
-            fallbacks=["droid", "gemini", "codex"]
+            task_name="t2",
+            tool="goose",
+            prompt_file=None,
+            success=False,
+            fallbacks=["droid", "gemini", "codex"],
         ),
     ]
     summary = summarize_results(results)
@@ -849,8 +854,12 @@ def test_summarize_results_counts_fallbacks():
 def test_summarize_results_prompt_files():
     """Test summarize_results includes prompt files."""
     results = [
-        TaskExecutionResult(task_name="t1", tool="gemini", prompt_file="/tmp/p1.txt", success=True),
-        TaskExecutionResult(task_name="t2", tool="gemini", prompt_file="/tmp/p2.txt", success=True),
+        TaskExecutionResult(
+            task_name="t1", tool="gemini", prompt_file="/tmp/p1.txt", success=True
+        ),
+        TaskExecutionResult(
+            task_name="t2", tool="gemini", prompt_file="/tmp/p2.txt", success=True
+        ),
         TaskExecutionResult(task_name="t3", tool="gemini", prompt_file=None, success=True),
     ]
     summary = summarize_results(results)
@@ -863,9 +872,10 @@ def test_summarize_results_prompt_files():
 # TOOL_COMMANDS tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_tool_commands_callable():
     """Test TOOL_COMMANDS entries are callable."""
-    for tool, command_fn in TOOL_COMMANDS.items():
+    for _tool, command_fn in TOOL_COMMANDS.items():
         result = command_fn(Path("/project"), "test prompt")
         assert isinstance(result, list)
         assert len(result) > 0
@@ -875,15 +885,15 @@ def test_tool_commands_callable():
 def test_tool_commands_include_project():
     """Test TOOL_COMMANDS include project directory where appropriate."""
     project = Path("/my/project")
-    
+
     # goose includes project
     goose_cmd = TOOL_COMMANDS["goose"](project, "prompt")
     assert str(project) in goose_cmd
-    
+
     # opencode includes project
     opencode_cmd = TOOL_COMMANDS["opencode"](project, "prompt")
     assert str(project) in opencode_cmd
-    
+
     # crush includes project
     crush_cmd = TOOL_COMMANDS["crush"](project, "prompt")
     assert str(project) in crush_cmd
@@ -900,6 +910,7 @@ def test_tool_commands_include_prompt():
 # ─────────────────────────────────────────────────────────────────────────────
 # Additional edge case tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_compute_adaptive_timeout_empty_spec():
     """Test timeout for empty spec returns base."""
@@ -1002,9 +1013,9 @@ def test_status_path_uses_path_object():
 def test_read_status_entries_empty_json_array(tmp_path):
     """Test reading status from empty JSON array."""
     status_path = tmp_path / "status.json"
-    status_path.write_text('[]')
+    status_path.write_text("[]")
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = _read_status_entries()
         assert result == []
 
@@ -1014,7 +1025,7 @@ def test_read_status_entries_non_list_json(tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text('{"key": "value"}')
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = _read_status_entries()
         # JSON that's not a list will still be returned as-is
         assert isinstance(result, dict)
@@ -1038,6 +1049,7 @@ def test_clean_env_preserves_home():
 # TOOL_COMMANDS detailed tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_tool_command_gemini_structure():
     """Test gemini command has expected structure."""
     cmd = TOOL_COMMANDS["gemini"](Path("/project"), "test prompt")
@@ -1056,9 +1068,9 @@ def test_tool_command_codex_structure():
     assert "--full-auto" in cmd
 
 
-def test_tool_command_golem_structure():
-    """Test golem command has expected structure."""
-    cmd = TOOL_COMMANDS["golem"](Path("/project"), "test prompt")
+def test_tool_command_ribosome_structure():
+    """Test ribosome command has expected structure."""
+    cmd = TOOL_COMMANDS["ribosome"](Path("/project"), "test prompt")
     assert cmd[0] == "claude"
     assert "--print" in cmd
     assert "--bare" in cmd
@@ -1103,11 +1115,12 @@ def test_tool_command_droid_uses_translocon():
 # register_running / unregister_running / list_running tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_register_running_legacy_mode(tmp_path):
     """Test register_running in legacy mode (no tool/project_dir)."""
     status_path = tmp_path / "status.json"
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         register_running("task-1")
 
         entries = _read_status_entries()
@@ -1119,10 +1132,11 @@ def test_register_running_legacy_removes_tombstone(tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text('["__removed__:task-1"]')
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path), \
-         patch('metabolon.sortase.executor._locked_status_update') as mock_locked:
+    with (
+        patch("metabolon.sortase.executor._status_path", return_value=status_path),
+        patch("metabolon.sortase.executor._locked_status_update"),
+    ):
         # Call the inner function directly to test the logic
-        from metabolon.sortase.executor import register_running
         # Manually test the logic by calling _add directly
         entries = ["__removed__:task-1"]
         # Simulate the _add inner function
@@ -1138,7 +1152,7 @@ def test_register_running_full_mode(tmp_path):
     """Test register_running with tool and project_dir."""
     status_path = tmp_path / "status.json"
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         register_running("task-1", tool="gemini", project_dir=Path("/project"))
 
         entries = _read_status_entries()
@@ -1155,7 +1169,7 @@ def test_unregister_running_legacy_mode(tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text('["task-1", "task-2"]')
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         unregister_running("task-1")
 
         entries = _read_status_entries()
@@ -1168,7 +1182,7 @@ def test_unregister_running_legacy_creates_tombstone(tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text('["task-2"]')
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         unregister_running("task-1")
 
         entries = _read_status_entries()
@@ -1178,9 +1192,11 @@ def test_unregister_running_legacy_creates_tombstone(tmp_path):
 def test_unregister_running_full_mode(tmp_path):
     """Test unregister_running with project_dir."""
     status_path = tmp_path / "status.json"
-    status_path.write_text('[{"task_name": "task-1", "project_dir": "/project", "tool": "gemini"}]')
+    status_path.write_text(
+        '[{"task_name": "task-1", "project_dir": "/project", "tool": "gemini"}]'
+    )
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         unregister_running("task-1", project_dir=Path("/project"))
 
         entries = _read_status_entries()
@@ -1190,9 +1206,11 @@ def test_unregister_running_full_mode(tmp_path):
 def test_unregister_running_full_mode_different_project(tmp_path):
     """Test unregister_running only removes matching project_dir."""
     status_path = tmp_path / "status.json"
-    status_path.write_text('[{"task_name": "task-1", "project_dir": "/project1", "tool": "gemini"}]')
+    status_path.write_text(
+        '[{"task_name": "task-1", "project_dir": "/project1", "tool": "gemini"}]'
+    )
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         unregister_running("task-1", project_dir=Path("/project2"))
 
         entries = _read_status_entries()
@@ -1203,7 +1221,7 @@ def test_list_running_empty(tmp_path):
     """Test list_running with empty status."""
     status_path = tmp_path / "status.json"
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = list_running()
         assert result == []
 
@@ -1213,7 +1231,7 @@ def test_list_running_with_entries(tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text('[{"task_name": "task-1", "tool": "gemini"}]')
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = list_running()
         assert len(result) == 1
         assert result[0]["task_name"] == "task-1"
@@ -1222,16 +1240,17 @@ def test_list_running_with_entries(tmp_path):
 def test_list_running_checks_pid_liveness(tmp_path):
     """Test list_running checks process liveness."""
     import os
+
     status_path = tmp_path / "status.json"
     # Use current PID (alive) and a definitely-dead PID
     current_pid = os.getpid()
     dead_pid = 999999  # Very unlikely to exist
-    status_path.write_text(f'''[
+    status_path.write_text(f"""[
         {{"task_name": "alive-task", "pid": {current_pid}}},
         {{"task_name": "dead-task", "pid": {dead_pid}}}
-    ]''')
+    ]""")
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = list_running()
         alive_entry = next(e for e in result if e["task_name"] == "alive-task")
         dead_entry = next(e for e in result if e["task_name"] == "dead-task")
@@ -1244,7 +1263,7 @@ def test_list_running_legacy_entries_no_pid(tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text('["legacy-task-1", "legacy-task-2"]')
 
-    with patch('metabolon.sortase.executor._status_path', return_value=status_path):
+    with patch("metabolon.sortase.executor._status_path", return_value=status_path):
         result = list_running()
         assert "legacy-task-1" in result
         assert "legacy-task-2" in result
@@ -1258,6 +1277,7 @@ def test_list_running_legacy_entries_no_pid(tmp_path):
 # without awaiting it.  The fix is to use an async side_effect that awaits the
 # coroutine (so the inner mock .read() actually runs).
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def _await_coro(coro, timeout):
     """Helper: await a coroutine — used as wait_for side_effect."""
@@ -1290,10 +1310,12 @@ async def test_run_command_success(tmp_path):
     """Test _run_command with successful execution."""
     mock_process = _make_mock_process([b"output data", b""], returncode=0)
 
-    with patch('metabolon.sortase.executor._validate_backend'), \
-         patch('metabolon.sortase.executor._prepend_coaching', return_value="prompt"), \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend"),
+        patch("metabolon.sortase.executor._prepend_coaching", return_value="prompt"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         result = await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1321,10 +1343,12 @@ async def test_run_command_timeout(tmp_path):
     mock_process.kill = _kill
     mock_process.communicate = _communicate
 
-    with patch('metabolon.sortase.executor._validate_backend'), \
-         patch('metabolon.sortase.executor._prepend_coaching', return_value="prompt"), \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=TimeoutError):
+    with (
+        patch("metabolon.sortase.executor._validate_backend"),
+        patch("metabolon.sortase.executor._prepend_coaching", return_value="prompt"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=TimeoutError),
+    ):
         result = await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1341,13 +1365,16 @@ async def test_run_command_timeout(tmp_path):
 async def test_run_command_failure(tmp_path):
     """Test _run_command with non-zero exit code."""
     mock_process = _make_mock_process(
-        [b"Error: 429 quota exceeded", b""], returncode=1,
+        [b"Error: 429 quota exceeded", b""],
+        returncode=1,
     )
 
-    with patch('metabolon.sortase.executor._validate_backend'), \
-         patch('metabolon.sortase.executor._prepend_coaching', return_value="prompt"), \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend"),
+        patch("metabolon.sortase.executor._prepend_coaching", return_value="prompt"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         result = await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1364,9 +1391,11 @@ async def test_run_command_dry_run(tmp_path):
     """Test _run_command with dry_run flag prepends DRY RUN MODE."""
     mock_process = _make_mock_process([b"output", b""], returncode=0)
 
-    with patch('metabolon.sortase.executor._validate_backend') as mock_validate, \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend") as mock_validate,
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1384,9 +1413,11 @@ async def test_run_command_coaching_disabled(tmp_path):
     """Test _run_command with coaching=False leaves prompt untouched."""
     mock_process = _make_mock_process([b"output", b""], returncode=0)
 
-    with patch('metabolon.sortase.executor._validate_backend') as mock_validate, \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend") as mock_validate,
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1404,10 +1435,12 @@ async def test_run_command_cost_estimate_populated(tmp_path):
     """Test _run_command populates cost_estimate on the attempt."""
     mock_process = _make_mock_process([b"result", b""], returncode=0)
 
-    with patch('metabolon.sortase.executor._validate_backend'), \
-         patch('metabolon.sortase.executor._prepend_coaching', return_value="prompt"), \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend"),
+        patch("metabolon.sortase.executor._prepend_coaching", return_value="prompt"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         result = await _run_command(
             tool="goose",
             project_dir=tmp_path,
@@ -1423,13 +1456,16 @@ async def test_run_command_cost_estimate_populated(tmp_path):
 async def test_run_command_multiple_chunks(tmp_path):
     """Test _run_command correctly joins multiple stdout chunks."""
     mock_process = _make_mock_process(
-        [b"chunk1 ", b"chunk2 ", b"chunk3", b""], returncode=0,
+        [b"chunk1 ", b"chunk2 ", b"chunk3", b""],
+        returncode=0,
     )
 
-    with patch('metabolon.sortase.executor._validate_backend'), \
-         patch('metabolon.sortase.executor._prepend_coaching', return_value="prompt"), \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend"),
+        patch("metabolon.sortase.executor._prepend_coaching", return_value="prompt"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         result = await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1445,10 +1481,12 @@ async def test_run_command_duration_is_recorded(tmp_path):
     """Test _run_command records a non-negative duration."""
     mock_process = _make_mock_process([b"ok", b""], returncode=0)
 
-    with patch('metabolon.sortase.executor._validate_backend'), \
-         patch('metabolon.sortase.executor._prepend_coaching', return_value="prompt"), \
-         patch('asyncio.create_subprocess_exec', return_value=mock_process), \
-         patch('asyncio.wait_for', side_effect=_await_coro):
+    with (
+        patch("metabolon.sortase.executor._validate_backend"),
+        patch("metabolon.sortase.executor._prepend_coaching", return_value="prompt"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("asyncio.wait_for", side_effect=_await_coro),
+    ):
         result = await _run_command(
             tool="gemini",
             project_dir=tmp_path,
@@ -1463,9 +1501,10 @@ async def test_run_command_duration_is_recorded(tmp_path):
 # _reset_git_state tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_reset_git_state_not_a_repo(tmp_path):
     """Test _reset_git_state skips non-git directories."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         _reset_git_state(tmp_path, "task-name")
         mock_run.assert_not_called()
 
@@ -1474,7 +1513,7 @@ def test_reset_git_state_git_repo(tmp_path):
     """Test _reset_git_state runs git commands in git repo."""
     (tmp_path / ".git").mkdir()
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         _reset_git_state(tmp_path, "task-name")
         assert mock_run.call_count >= 2
@@ -1484,7 +1523,7 @@ def test_reset_git_state_verbose_mode(tmp_path, capsys):
     """Test _reset_git_state with verbose mode does not raise."""
     (tmp_path / ".git").mkdir()
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
         _reset_git_state(tmp_path, "task-name", verbose=True)
 
@@ -1493,10 +1532,10 @@ def test_reset_git_state_discards_dirty_files(tmp_path, capsys):
     """Test _reset_git_state logs dirty files before discarding."""
     (tmp_path / ".git").mkdir()
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="main.py\nutils.py\n", stderr=""),  # git diff
-            MagicMock(returncode=0, stdout="Would remove build/\n", stderr=""),  # git clean -nd
+            MagicMock(returncode=0, stdout="Would remove build/\n", stderr=""),  # git clean -and
             MagicMock(returncode=0, stdout="", stderr=""),  # git checkout
             MagicMock(returncode=0, stdout="", stderr=""),  # git clean -fd
         ]
@@ -1511,19 +1550,22 @@ def test_reset_git_state_discards_dirty_files(tmp_path, capsys):
 # _create_worktree tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_create_worktree(tmp_path):
     """Test _create_worktree creates worktree."""
     (tmp_path / ".git").mkdir()
     (tmp_path / ".venv").mkdir()
     (tmp_path / ".claude").mkdir()
 
-    with patch('subprocess.run') as mock_run, \
-         patch('uuid.uuid4') as mock_uuid, \
-         patch.object(Path, 'symlink_to') as mock_symlink:
+    with (
+        patch("subprocess.run") as mock_run,
+        patch("uuid.uuid4") as mock_uuid,
+        patch.object(Path, "symlink_to") as mock_symlink,
+    ):
         mock_run.return_value = MagicMock(returncode=0)
         mock_uuid.return_value.hex = "abcd1234"
 
-        result = _create_worktree(tmp_path, "test-task")
+        _create_worktree(tmp_path, "test-task")
 
         assert mock_run.called
         call_args = mock_run.call_args[0][0]
@@ -1537,9 +1579,11 @@ def test_create_worktree_no_venv_or_claude(tmp_path):
     (tmp_path / ".git").mkdir()
     # No .venv or .claude directories
 
-    with patch('subprocess.run') as mock_run, \
-         patch('uuid.uuid4') as mock_uuid, \
-         patch.object(Path, 'symlink_to') as mock_symlink:
+    with (
+        patch("subprocess.run") as mock_run,
+        patch("uuid.uuid4") as mock_uuid,
+        patch.object(Path, "symlink_to") as mock_symlink,
+    ):
         mock_run.return_value = MagicMock(returncode=0)
         mock_uuid.return_value.hex = "abcd1234"
 
@@ -1554,9 +1598,11 @@ def test_create_worktree_symlinks_dirs(tmp_path):
     (tmp_path / ".venv").mkdir()
     (tmp_path / ".claude").mkdir()
 
-    with patch('subprocess.run') as mock_run, \
-         patch('uuid.uuid4') as mock_uuid, \
-         patch.object(Path, 'symlink_to') as mock_symlink:
+    with (
+        patch("subprocess.run") as mock_run,
+        patch("uuid.uuid4") as mock_uuid,
+        patch.object(Path, "symlink_to") as mock_symlink,
+    ):
         mock_run.return_value = MagicMock(returncode=0)
         mock_uuid.return_value.hex = "abcd1234"
 
@@ -1569,14 +1615,19 @@ def test_create_worktree_symlinks_dirs(tmp_path):
 # _merge_worktree tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_sortase_executor_merge_worktree_no_changes(tmp_path):
     """Test _merge_worktree with no changes."""
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/sortase-test")
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=f"worktree {worktree_path}\nbranch refs/heads/sortase/test-task-abcd1234\n", stderr=""),
+            MagicMock(
+                returncode=0,
+                stdout=f"worktree {worktree_path}\nbranch refs/heads/sortase/test-task-abcd1234\n",
+                stderr="",
+            ),
             MagicMock(returncode=0, stdout="", stderr=""),  # No diff
             MagicMock(returncode=0, stdout="", stderr=""),  # git worktree remove
             MagicMock(returncode=0, stdout="", stderr=""),  # git branch -D
@@ -1593,9 +1644,13 @@ def test_merge_worktree_conflict(tmp_path, capsys):
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/sortase-test")
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=f"worktree {worktree_path}\nbranch refs/heads/feature\n", stderr=""),
+            MagicMock(
+                returncode=0,
+                stdout=f"worktree {worktree_path}\nbranch refs/heads/feature\n",
+                stderr="",
+            ),
             MagicMock(returncode=0, stdout="file.py\n", stderr=""),  # diff stat
             MagicMock(returncode=0, stdout="file.py\n", stderr=""),  # worktree changed
             MagicMock(returncode=0, stdout="file.py\n", stderr=""),  # main changed (conflict!)
@@ -1613,7 +1668,7 @@ def test_merge_worktree_branch_not_found(tmp_path):
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/sortase-test")
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="worktree /other\n", stderr="")
 
         success, msg = _merge_worktree(tmp_path, worktree_path)
@@ -1627,10 +1682,14 @@ def test_merge_worktree_success(tmp_path):
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/sortase-test")
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             # git worktree list
-            MagicMock(returncode=0, stdout=f"worktree {worktree_path}\nbranch refs/heads/feature\n", stderr=""),
+            MagicMock(
+                returncode=0,
+                stdout=f"worktree {worktree_path}\nbranch refs/heads/feature\n",
+                stderr="",
+            ),
             # git diff --stat (has changes)
             MagicMock(returncode=0, stdout="file.py | 5 +++--\n1 file changed\n", stderr=""),
             # worktree changed files
@@ -1655,11 +1714,12 @@ def test_merge_worktree_success(tmp_path):
 # _remove_worktree tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_remove_worktree(tmp_path):
     """Test _remove_worktree removes worktree and branch."""
     (tmp_path / ".git").mkdir()
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         _remove_worktree(tmp_path, Path("/tmp/worktree"), "feature-branch")
 
@@ -1673,14 +1733,19 @@ def test_remove_worktree(tmp_path):
 # _force_remove_worktree tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_force_remove_worktree(tmp_path):
     """Test _force_remove_worktree removes worktree."""
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/worktree")
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=f"worktree {worktree_path}\nbranch refs/heads/feature\n", stderr=""),
+            MagicMock(
+                returncode=0,
+                stdout=f"worktree {worktree_path}\nbranch refs/heads/feature\n",
+                stderr="",
+            ),
             MagicMock(returncode=0, stdout="", stderr=""),  # worktree remove
             MagicMock(returncode=0, stdout="", stderr=""),  # branch delete
         ]
@@ -1695,7 +1760,7 @@ def test_force_remove_worktree_no_branch(tmp_path):
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/worktree")
 
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="worktree /other\n", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),  # fallback remove
@@ -1710,6 +1775,7 @@ def test_force_remove_worktree_no_branch(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # _emit_completion_signal tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_emit_completion_signal_success():
     """Test _emit_completion_signal with successful result never raises."""
@@ -1750,16 +1816,17 @@ def test_emit_completion_signal_failed_result():
 # _analyze_for_coaching tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_analyze_for_coaching_skips_short_success():
     """Test _analyze_for_coaching skips short successful output."""
     result = TaskExecutionResult(
         task_name="test-task",
-        tool="golem",
+        tool="ribosome",
         prompt_file=None,
         success=True,
         output="OK",
     )
-    with patch('shutil.which', return_value=None):
+    with patch("shutil.which", return_value=None):
         _analyze_for_coaching(result)
 
 
@@ -1767,12 +1834,12 @@ def test_analyze_for_coaching_no_channel_binary():
     """Test _analyze_for_coaching when channel binary not found."""
     result = TaskExecutionResult(
         task_name="test-task",
-        tool="golem",
+        tool="ribosome",
         prompt_file=None,
         success=False,
         output="x" * 500,
     )
-    with patch('shutil.which', return_value=None):
+    with patch("shutil.which", return_value=None):
         _analyze_for_coaching(result)
 
 
@@ -1780,12 +1847,12 @@ def test_analyze_for_coaching_empty_output():
     """Test _analyze_for_coaching with empty output."""
     result = TaskExecutionResult(
         task_name="test-task",
-        tool="golem",
+        tool="ribosome",
         prompt_file=None,
         success=False,
         output="",
     )
-    with patch('shutil.which', return_value="/usr/bin/channel"):
+    with patch("shutil.which", return_value="/usr/bin/channel"):
         _analyze_for_coaching(result)
 
 
@@ -1793,14 +1860,16 @@ def test_analyze_for_coaching_channel_returns_no_patterns(tmp_path):
     """Test _analyze_for_coaching when channel says NO_NEW_PATTERNS."""
     result = TaskExecutionResult(
         task_name="test-task",
-        tool="golem",
+        tool="ribosome",
         prompt_file=None,
         success=False,
         output="x" * 500,
     )
     mock_proc = MagicMock(returncode=0, stdout="NO_NEW_PATTERNS")
-    with patch('shutil.which', return_value="/usr/bin/channel"), \
-         patch('subprocess.run', return_value=mock_proc):
+    with (
+        patch("shutil.which", return_value="/usr/bin/channel"),
+        patch("subprocess.run", return_value=mock_proc),
+    ):
         _analyze_for_coaching(result)  # Should not write to coaching notes
 
 
@@ -1808,20 +1877,23 @@ def test_analyze_for_coaching_channel_fails(tmp_path):
     """Test _analyze_for_coaching when channel subprocess fails."""
     result = TaskExecutionResult(
         task_name="test-task",
-        tool="golem",
+        tool="ribosome",
         prompt_file=None,
         success=False,
         output="x" * 500,
     )
     mock_proc = MagicMock(returncode=1, stdout="")
-    with patch('shutil.which', return_value="/usr/bin/channel"), \
-         patch('subprocess.run', return_value=mock_proc):
+    with (
+        patch("shutil.which", return_value="/usr/bin/channel"),
+        patch("subprocess.run", return_value=mock_proc),
+    ):
         _analyze_for_coaching(result)  # Should not raise
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # execute_task async tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_execute_task_success(tmp_path):
@@ -1831,14 +1903,19 @@ async def test_execute_task_success(tmp_path):
     task = TaskSpec(name="test-task", description="Test task", spec="Do something", files=[])
 
     mock_attempt = ExecutionAttempt(
-        tool="gemini", exit_code=0, duration_s=1.0, output="Success",
+        tool="gemini",
+        exit_code=0,
+        duration_s=1.0,
+        output="Success",
     )
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', return_value=mock_attempt), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", return_value=mock_attempt),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         result = await execute_task(task, tmp_path, "gemini")
 
     assert result.success is True
@@ -1854,18 +1931,29 @@ async def test_execute_task_fallback(tmp_path):
     task = TaskSpec(name="test-task", description="Test task", spec="Do something", files=[])
 
     failed_attempt = ExecutionAttempt(
-        tool="gemini", exit_code=1, duration_s=1.0, output="Failed",
+        tool="gemini",
+        exit_code=1,
+        duration_s=1.0,
+        output="Failed",
         failure_reason="process-error",
     )
     success_attempt = ExecutionAttempt(
-        tool="goose", exit_code=0, duration_s=2.0, output="Success",
+        tool="goose",
+        exit_code=0,
+        duration_s=2.0,
+        output="Success",
     )
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', side_effect=[failed_attempt, success_attempt]), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch(
+            "metabolon.sortase.executor._run_command",
+            side_effect=[failed_attempt, success_attempt],
+        ),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         result = await execute_task(task, tmp_path, "gemini")
 
     assert result.success is True
@@ -1881,15 +1969,20 @@ async def test_execute_task_all_backends_fail(tmp_path):
     task = TaskSpec(name="test-task", description="Test task", spec="Do something", files=[])
 
     failed_attempt = ExecutionAttempt(
-        tool="gemini", exit_code=1, duration_s=1.0, output="Failed",
+        tool="gemini",
+        exit_code=1,
+        duration_s=1.0,
+        output="Failed",
         failure_reason="process-error",
     )
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', return_value=failed_attempt), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", return_value=failed_attempt),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         result = await execute_task(task, tmp_path, "gemini")
 
     assert result.success is False
@@ -1904,18 +1997,23 @@ async def test_execute_task_adaptive_timeout(tmp_path):
     task = TaskSpec(name="read-task", description="Read", spec="Read file.py", files=[])
 
     mock_attempt = ExecutionAttempt(
-        tool="gemini", exit_code=0, duration_s=1.0, output="Done",
+        tool="gemini",
+        exit_code=0,
+        duration_s=1.0,
+        output="Done",
     )
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', return_value=mock_attempt) as mock_run, \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", return_value=mock_attempt) as mock_run,
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         await execute_task(task, tmp_path, "gemini", timeout_sec=100)
 
     # timeout_sec passed to _run_command should be 200 (doubled)
-    _, kwargs = mock_run.call_args
+    _, _kwargs = mock_run.call_args
     # _run_command receives timeout_sec as positional — check the call
     call_args = mock_run.call_args[0]
     assert call_args[3] == 200
@@ -1929,11 +2027,13 @@ async def test_execute_task_unregisters_on_success(tmp_path):
     task = TaskSpec(name="test-task", description="T", spec="Do it", files=[])
     mock_attempt = ExecutionAttempt(tool="gemini", exit_code=0, duration_s=0.1, output="ok")
 
-    with patch('metabolon.sortase.executor.register_running') as mock_reg, \
-         patch('metabolon.sortase.executor.unregister_running') as mock_unreg, \
-         patch('metabolon.sortase.executor._run_command', return_value=mock_attempt), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running") as mock_reg,
+        patch("metabolon.sortase.executor.unregister_running") as mock_unreg,
+        patch("metabolon.sortase.executor._run_command", return_value=mock_attempt),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         await execute_task(task, tmp_path, "gemini")
 
     mock_reg.assert_called_once()
@@ -1946,14 +2046,17 @@ async def test_execute_task_unregisters_on_failure(tmp_path):
     from metabolon.sortase.decompose import TaskSpec
 
     task = TaskSpec(name="test-task", description="T", spec="Do it", files=[])
-    fail = ExecutionAttempt(tool="gemini", exit_code=1, duration_s=0.1, output="err",
-                            failure_reason="process-error")
+    fail = ExecutionAttempt(
+        tool="gemini", exit_code=1, duration_s=0.1, output="err", failure_reason="process-error"
+    )
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running') as mock_unreg, \
-         patch('metabolon.sortase.executor._run_command', return_value=fail), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running") as mock_unreg,
+        patch("metabolon.sortase.executor._run_command", return_value=fail),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         await execute_task(task, tmp_path, "gemini")
 
     mock_unreg.assert_called_once()
@@ -1962,6 +2065,7 @@ async def test_execute_task_unregisters_on_failure(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # execute_tasks async tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_execute_tasks_serial(tmp_path):
@@ -1974,13 +2078,16 @@ async def test_execute_tasks_serial(tmp_path):
     ]
     mock_attempt = ExecutionAttempt(tool="gemini", exit_code=0, duration_s=1.0, output="OK")
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', return_value=mock_attempt), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", return_value=mock_attempt),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         results = await execute_tasks(
-            tasks, tmp_path,
+            tasks,
+            tmp_path,
             tool_by_task={"task-1": "gemini", "task-2": "gemini"},
             serial=True,
         )
@@ -2000,13 +2107,16 @@ async def test_execute_tasks_parallel(tmp_path):
     ]
     mock_attempt = ExecutionAttempt(tool="gemini", exit_code=0, duration_s=1.0, output="OK")
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', return_value=mock_attempt), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", return_value=mock_attempt),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         results = await execute_tasks(
-            tasks, tmp_path,
+            tasks,
+            tmp_path,
             tool_by_task={"task-1": "gemini", "task-2": "gemini"},
             serial=False,
         )
@@ -2023,11 +2133,14 @@ async def test_execute_tasks_handles_exception(tmp_path):
         TaskSpec(name="task-1", description="Task 1", spec="Do 1", files=[]),
     ]
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', side_effect=RuntimeError("Test error")):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", side_effect=RuntimeError("Test error")),
+    ):
         results = await execute_tasks(
-            tasks, tmp_path,
+            tasks,
+            tmp_path,
             tool_by_task={"task-1": "gemini"},
         )
 
@@ -2039,8 +2152,10 @@ async def test_execute_tasks_handles_exception(tmp_path):
 @pytest.mark.asyncio
 async def test_execute_tasks_empty_tasks(tmp_path):
     """Test execute_tasks with empty task list returns empty results."""
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+    ):
         results = await execute_tasks([], tmp_path, tool_by_task={})
 
     assert results == []
@@ -2054,16 +2169,19 @@ async def test_execute_tasks_single_task_parallel(tmp_path):
     tasks = [
         TaskSpec(name="solo", description="Solo", spec="Do it", files=[]),
     ]
-    mock_attempt = ExecutionAttempt(tool="golem", exit_code=0, duration_s=0.5, output="done")
+    mock_attempt = ExecutionAttempt(tool="ribosome", exit_code=0, duration_s=0.5, output="done")
 
-    with patch('metabolon.sortase.executor.register_running'), \
-         patch('metabolon.sortase.executor.unregister_running'), \
-         patch('metabolon.sortase.executor._run_command', return_value=mock_attempt), \
-         patch('metabolon.sortase.executor._emit_completion_signal'), \
-         patch('metabolon.sortase.executor._analyze_for_coaching'):
+    with (
+        patch("metabolon.sortase.executor.register_running"),
+        patch("metabolon.sortase.executor.unregister_running"),
+        patch("metabolon.sortase.executor._run_command", return_value=mock_attempt),
+        patch("metabolon.sortase.executor._emit_completion_signal"),
+        patch("metabolon.sortase.executor._analyze_for_coaching"),
+    ):
         results = await execute_tasks(
-            tasks, tmp_path,
-            tool_by_task={"solo": "golem"},
+            tasks,
+            tmp_path,
+            tool_by_task={"solo": "ribosome"},
             serial=False,
         )
 

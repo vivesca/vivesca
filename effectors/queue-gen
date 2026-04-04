@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""queue-gen — generate golem-queue.md entries for untested files.
+"""queue-gen — generate translation-queue.md entries for untested files.
 
 Scans a directory, finds files without corresponding tests in assays/,
 and generates formatted queue entries with smart batching by size.
@@ -19,13 +19,13 @@ Smart batching:
 import argparse
 import re
 import sys
-from pathlib import Path
 from collections import namedtuple
+from pathlib import Path
 
 FileEntry = namedtuple("FileEntry", ["path", "lines", "test_name"])
 
 GERMLINE = Path.home() / "germline"
-QUEUE_PATH = GERMLINE / "loci" / "golem-queue.md"
+QUEUE_PATH = GERMLINE / "loci" / "translation-queue.md"
 ASSAYS_DIR = GERMLINE / "assays"
 
 # Size thresholds
@@ -130,7 +130,7 @@ def batch_entries(entries: list[FileEntry]) -> list[list[FileEntry]]:
 
 
 def generate_entry(batch: list[FileEntry], provider: str, max_turns: int) -> str:
-    """Generate a golem-queue entry for a batch."""
+    """Generate a translation-queue entry for a batch."""
     if len(batch) == 1:
         entry = batch[0]
         rel_path = entry.path.relative_to(GERMLINE)
@@ -146,7 +146,7 @@ def generate_entry(batch: list[FileEntry], provider: str, max_turns: int) -> str
         modules = str(rel_path)
 
         return f"""#### {title} {lines_str}
-- [ ] `golem --provider {provider} --max-turns {turns} "Write tests for {modules}. Write {test_file}. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`"""
+- [ ] `ribosome --provider {provider} --max-turns {turns} "Write tests for {modules}. Write {test_file}. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`"""
 
     # Multiple files in batch
     rel_paths = [str(e.path.relative_to(GERMLINE)) for e in batch]
@@ -158,7 +158,7 @@ def generate_entry(batch: list[FileEntry], provider: str, max_turns: int) -> str
     tests_str = " ".join(test_files)
 
     return f"""#### {title}
-- [ ] `golem --provider {provider} --max-turns {max_turns} "Write tests: {tests_str}. Run pytest. Fix failures. Modules: {modules_str}"`"""
+- [ ] `ribosome --provider {provider} --max-turns {max_turns} "Write tests: {tests_str}. Run pytest. Fix failures. Modules: {modules_str}"`"""
 
 
 def main():
@@ -175,13 +175,13 @@ def main():
         "--provider",
         default="volcano",
         choices=["zhipu", "infini", "volcano"],
-        help="Golem provider to use (default: volcano)",
+        help="Ribosome provider to use (default: volcano)",
     )
     parser.add_argument(
         "--max-turns",
         type=int,
         default=30,
-        help="Maximum turns for golem tasks (default: 30)",
+        help="Maximum turns for ribosome tasks (default: 30)",
     )
     parser.add_argument(
         "--dry-run",
@@ -191,7 +191,7 @@ def main():
     parser.add_argument(
         "--output",
         type=Path,
-        help="Write to this file instead of golem-queue.md",
+        help="Write to this file instead of translation-queue.md",
     )
 
     args = parser.parse_args()

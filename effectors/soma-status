@@ -1,34 +1,37 @@
 #!/usr/bin/env python3
 """soma-status — single-screen system health summary.
 
-Collects supervisorctl status, golem-daemon stats, disk usage, uptime,
+Collects supervisorctl status, ribosome-daemon stats, disk usage, uptime,
 and memory info into a unified report.
 
 Usage:
     soma-status          # human-readable summary
     soma-status --json   # machine-readable JSON
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-GOLEM_DAEMON = Path.home() / "germline" / "effectors" / "golem-daemon"
+RIBOSOME_DAEMON = Path.home() / "germline" / "effectors" / "ribosome-daemon"
 
 
 # ── data collectors ──────────────────────────────────────────────────
+
 
 def collect_supervisor() -> list[dict]:
     """Parse supervisorctl status into list of program dicts."""
     try:
         result = subprocess.run(
             ["supervisorctl", "status"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except FileNotFoundError:
         return []
@@ -38,9 +41,9 @@ def collect_supervisor() -> list[dict]:
     programs: list[dict] = []
     for line in result.stdout.splitlines():
         # Format: program:name  STATE   pid  uptime
-        # e.g.: golem-daemon                    RUNNING   pid 12345, uptime 1:23:45
+        # e.g.: ribosome-daemon                    RUNNING   pid 12345, uptime 1:23:45
         m = re.match(
-            r'^(\S+)\s+(RUNNING|STOPPED|STARTING|BACKOFF|STOPPING|EXITED|FATAL|UNKNOWN)\s*(.*)',
+            r"^(\S+)\s+(RUNNING|STOPPED|STARTING|BACKOFF|STOPPING|EXITED|FATAL|UNKNOWN)\s*(.*)",
             line,
         )
         if m:
@@ -49,23 +52,25 @@ def collect_supervisor() -> list[dict]:
             info = m.group(3).strip()
             pid: int | None = None
             if state == "RUNNING":
-                pid_m = re.search(r'pid (\d+)', info)
+                pid_m = re.search(r"pid (\d+)", info)
                 if pid_m:
                     pid = int(pid_m.group(1))
             programs.append({"name": name, "state": state, "pid": pid, "info": info})
     return programs
 
 
-def collect_golem_stats() -> str:
-    """Run golem-daemon stats and return its stdout."""
+def collect_ribosome_stats() -> str:
+    """Run ribosome-daemon stats and return its stdout."""
     try:
         result = subprocess.run(
-            [sys.executable, str(GOLEM_DAEMON), "stats"],
-            capture_output=True, text=True, timeout=30,
+            [sys.executable, str(RIBOSOME_DAEMON), "stats"],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         return result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return "(golem-daemon stats unavailable)"
+    except FileNotFoundError, subprocess.TimeoutExpired:
+        return "(ribosome-daemon stats unavailable)"
 
 
 def collect_disk() -> dict:
@@ -73,7 +78,9 @@ def collect_disk() -> dict:
     try:
         result = subprocess.run(
             ["df", "-h", "/"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except FileNotFoundError:
         return {"error": "df not found"}
@@ -102,7 +109,9 @@ def collect_uptime() -> str:
     try:
         result = subprocess.run(
             ["uptime"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return result.stdout.strip()
     except FileNotFoundError:
@@ -114,7 +123,9 @@ def collect_memory() -> dict:
     try:
         result = subprocess.run(
             ["free", "-h"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except FileNotFoundError:
         return {"error": "free not found"}
@@ -148,9 +159,10 @@ def collect_memory() -> dict:
 
 # ── formatting ───────────────────────────────────────────────────────
 
+
 def format_human(
     supervisor: list[dict],
-    golem_stats: str,
+    ribosome_stats: str,
     disk: dict,
     uptime_str: str,
     memory: dict,
@@ -177,11 +189,11 @@ def format_human(
         lines.append("  (supervisor not running or no programs)")
     lines.append("")
 
-    # ── Golem Stats ──
+    # ── Ribosome Stats ──
     lines.append("═" * 60)
-    lines.append(" GOLEM STATS")
+    lines.append(" RIBOSOME STATS")
     lines.append("═" * 60)
-    for gl in golem_stats.splitlines():
+    for gl in ribosome_stats.splitlines():
         lines.append(f"  {gl}")
     lines.append("")
 
@@ -210,9 +222,7 @@ def format_human(
             f"({mem.get('available', '?')} available)"
         )
     if swap:
-        lines.append(
-            f"  Swap: {swap.get('used', '?')} used / {swap.get('total', '?')} total"
-        )
+        lines.append(f"  Swap: {swap.get('used', '?')} used / {swap.get('total', '?')} total")
     if not mem and not swap:
         lines.append("  (memory info unavailable)")
 
@@ -222,7 +232,7 @@ def format_human(
 
 def format_json(
     supervisor: list[dict],
-    golem_stats: str,
+    ribosome_stats: str,
     disk: dict,
     uptime_str: str,
     memory: dict,
@@ -231,7 +241,7 @@ def format_json(
     payload = {
         "uptime": uptime_str,
         "supervisor": supervisor,
-        "golem_stats": golem_stats,
+        "ribosome_stats": ribosome_stats,
         "disk": disk,
         "memory": memory,
     }
@@ -240,24 +250,27 @@ def format_json(
 
 # ── main ─────────────────────────────────────────────────────────────
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="System health summary")
     parser.add_argument(
-        "--json", action="store_true", dest="json_output",
+        "--json",
+        action="store_true",
+        dest="json_output",
         help="Output machine-readable JSON",
     )
     args = parser.parse_args(argv)
 
     supervisor = collect_supervisor()
-    golem_stats = collect_golem_stats()
+    ribosome_stats = collect_ribosome_stats()
     disk = collect_disk()
     uptime_str = collect_uptime()
     memory = collect_memory()
 
     if args.json_output:
-        print(format_json(supervisor, golem_stats, disk, uptime_str, memory))
+        print(format_json(supervisor, ribosome_stats, disk, uptime_str, memory))
     else:
-        print(format_human(supervisor, golem_stats, disk, uptime_str, memory))
+        print(format_human(supervisor, ribosome_stats, disk, uptime_str, memory))
 
     return 0
 
