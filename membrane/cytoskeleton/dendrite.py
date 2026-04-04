@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """dendrite.py — consolidated PostToolUse hook.
 
 Replaces 17 hooks (7 JS + 10 Python) with a single process.
 Routes by tool name and file path internally.
 """
+from __future__ import annotations
 
 import contextlib
 import json
@@ -1145,6 +1144,7 @@ def mod_recipe_sync(data):
         return
 
     import re as _re
+
     import yaml as _yaml
 
     skill_text = skill_path.read_text(encoding="utf-8")
@@ -1181,7 +1181,7 @@ def mod_recipe_sync(data):
             if key in recipe_data:
                 val = recipe_data[key]
                 output_lines.append(f'{key}: "{val}"')
-        output_lines.append(f"instructions: |")
+        output_lines.append("instructions: |")
         for line in new_instructions.split("\n"):
             output_lines.append(f"  {line}" if line.strip() else "")
         # Preserve any extra keys (extensions, etc.)
