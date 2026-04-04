@@ -545,6 +545,7 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
     post_diff = await asyncio.to_thread(_git_snapshot, work_dir)
 
     # Merge worktree back to main if ribosome made commits
+    merged = False
     if worktree_path:
         merged = await asyncio.to_thread(_merge_worktree, repo_root, branch_name, worktree_path)
         if not merged:
