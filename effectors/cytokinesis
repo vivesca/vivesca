@@ -480,7 +480,7 @@ def cmd_gather(args):
     # Gate 5: Repos flushed — check if any dirty
     dirty_repos = [name for name, info in results["repos"].items() if not info.get("clean") and info.get("clean") is not None]
     if dirty_repos:
-        gates["repos_flushed"] = f"PENDING — dirty: {', '.join(dirty_repos)}. Run cytokinesis flush."
+        gates["repos_flushed"] = f"WARNING — dirty: {', '.join(dirty_repos)}. Commit atomically with meaningful messages."
     else:
         gates["repos_flushed"] = "DONE — all repos clean"
 
@@ -1083,30 +1083,22 @@ def cmd_extract(args):
 
 # ── Flush ───────────────────────────────────────────────────────────────────
 def cmd_flush(args):
-    """Commit dirty repos touched this session."""
-    committed = []
+    """Warn about dirty repos — atomic commits mean nothing to flush."""
+    dirty = []
     for label, path in sorted(DEFAULT_REPOS.items()):
         status = git_status(path)
-        if status is None:
-            print(f"  {DIM}  {label}: unavailable{RESET}")
+        if status is None or not status:
             continue
-        if not status:
-            print(f"  {DIM}  {label}: clean{RESET}")
-            continue
-        count = len([l for l in status.splitlines() if l.strip()])
-        try:
-            subprocess.run(
-                ["git", "-C", str(path), "add", "-A"],
-                capture_output=True, text=True, timeout=10,
-            )
-            subprocess.run(
-                ["git", "-C", str(path), "commit", "-m", "chore: cytokinesis flush"],
-                capture_output=True, text=True, timeout=10,
-            )
-            print(f"  {OK}  {label}: committed ({count} file{'s' if count != 1 else ''})")
-            committed.append(label)
-        except Exception as e:
-            print(f"  {ERR}  {label}: commit failed — {e}")
+        count = len([line for line in status.splitlines() if line.strip()])
+        dirty.append((label, count, status))
+    if not dirty:
+        print(f"  {OK}  All repos clean.")
+        return
+    print(f"  {WARN}  {len(dirty)} dirty repo(s) — commit atomically with meaningful messages:")
+    for label, count, status in dirty:
+        print(f"    {label}: {count} file{'s' if count != 1 else ''}")
+        for line in status.splitlines()[:5]:
+            print(f"      {line.strip()}")
     if not committed:
         print(f"  {OK}  All repos clean")
     return committed
