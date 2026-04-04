@@ -275,14 +275,25 @@ def _post_golem_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
     rc_override = 0
     stderr_parts: list[str] = []
 
-    # Get modified files from git
+    # Get modified files from git — check committed changes (not just working tree)
+    # Golem commits its work, so `git diff --name-only` shows nothing.
+    # Use `git diff --name-only HEAD~5..HEAD` to catch recent golem commits,
+    # falling back to working tree diff if that fails.
     try:
         diff_result = _subprocess.run(
-            ["git", "diff", "--name-only"],
+            ["git", "diff", "--name-only", "HEAD~5..HEAD"],
             capture_output=True, text=True, timeout=10,
             cwd=repo_root,
         )
         modified_files = [f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()]
+        if not modified_files:
+            # Fallback: check working tree (uncommitted changes)
+            diff_result = _subprocess.run(
+                ["git", "diff", "--name-only"],
+                capture_output=True, text=True, timeout=10,
+                cwd=repo_root,
+            )
+            modified_files = [f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()]
     except Exception:
         return (0, "", post_checks)
 
