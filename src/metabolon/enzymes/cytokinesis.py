@@ -1,90 +1,145 @@
-"""cytokinesis — session consolidation pre-checks.
+"""cytokinesis — session consolidation MCP tool.
 
-Wraps the cytokinesis CLI gather command as an MCP tool.
-Returns structured JSON for skill consumption.
+Actions: gather|verify|flush|wrap
+
+gather: deterministic pre-wrap checks (repos, skills, memory, tonus, gates)
+verify: re-check all gates, report DONE/PENDING
+flush: commit dirty repos
+wrap: gather + verify, refuses to return success until all gates pass
 """
-
-from __future__ import annotations
 
 import json
 import subprocess
+from typing import Any
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
-from metabolon.morphology import Secretion
+from metabolon.morphology import EffectorResult, Secretion
 
 
-class GatherResult(Secretion):
-    """Structured output from cytokinesis gather."""
+class CytoResult(Secretion):
+    """Structured output from cytokinesis."""
 
-    status: str  # "ok", "warning", "error"
-    message: str
-    repos: dict = {}
-    skills: dict = {}
-    memory: dict = {}
-    tonus: dict = {}
-    rfts: list = []
-    deps: list = []
-    peira: str | None = None
-    reflect: list = []
-    methylation: list = []
+    output: str
+    data: dict[str, Any] = Field(default_factory=dict)
+    gates: dict[str, str] = Field(default_factory=dict)
+    all_gates_passed: bool = False
+
+
+def _run_cli(subcommand: str, extra_args: list[str] | None = None) -> tuple[int, str]:
+    """Run cytokinesis CLI and return (exit_code, stdout)."""
+    cmd = ["cytokinesis", subcommand] + (extra_args or [])
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        return result.returncode, result.stdout
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        return 1, str(exc)
 
 
 @tool(
-    name="cytokinesis_gather",
-    description=(
-        "Deterministic pre-wrap checks: dirty repos, "
-        "skill gaps, memory budget, tonus age, stale marks."
-    ),
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+    name="cytokinesis",
+    description="gather|verify|flush|wrap — session consolidation with enforced gates",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def cytokinesis_gather() -> GatherResult:
-    """Run all deterministic session-end checks via cytokinesis CLI."""
-    try:
-        result = subprocess.run(
-            ["cytokinesis", "gather", "--syntactic"],
-            capture_output=True,
-            text=True,
-            timeout=90,
-        )
-        if result.returncode != 0:
-            return GatherResult(
-                status="error",
-                message=f"cytokinesis gather failed (exit {result.returncode})",
+def cytokinesis(
+    action: str = "gather",
+) -> CytoResult | EffectorResult:
+    """Session consolidation tool.
+
+    Parameters
+    ----------
+    action : str
+        gather: run pre-wrap checks, return gates status
+        verify: re-check gates deterministically
+        flush: commit dirty repos
+        wrap: gather + verify, FAILS if any gate is PENDING
+    """
+    action = action.lower().strip()
+
+    if action == "gather":
+        exit_code, stdout = _run_cli("gather")
+        if exit_code != 0:
+            return EffectorResult(success=False, message=f"gather failed: {stdout[:500]}")
+        try:
+            data = json.loads(stdout)
+        except json.JSONDecodeError:
+            return EffectorResult(
+                success=False, message=f"gather returned invalid JSON: {stdout[:200]}"
             )
-        data = json.loads(result.stdout)
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError) as e:
-        return GatherResult(
-            status="error",
-            message=f"cytokinesis gather failed: {e}",
+        gates = data.get("gates", {})
+        pending = [gate_name for gate_name, status in gates.items() if "PENDING" in status]
+        return CytoResult(
+            output=f"{len(gates)} gates, {len(pending)} pending",
+            data=data,
+            gates=gates,
+            all_gates_passed=len(pending) == 0,
         )
 
-    # Derive status from findings
-    warnings = []
-    mem = data.get("memory", {})
-    if mem.get("lines", 0) > mem.get("limit", 150):
-        warnings.append(f"MEMORY.md {mem['lines']}/{mem['limit']}")
-    now = data.get("now", {})
-    if now.get("age_label") in ("stale", "very stale"):
-        warnings.append("tonus stale")
-    rfts = data.get("rfts", [])
-    if rfts:
-        warnings.append(f"{len(rfts)} stale marks")
-    dirty = [k for k, v in data.get("repos", {}).items() if v.get("clean") is False]
-    if dirty:
-        warnings.append(f"dirty: {', '.join(dirty)}")
+    if action == "verify":
+        exit_code, stdout = _run_cli("verify")
+        try:
+            data = json.loads(stdout)
+        except json.JSONDecodeError:
+            return EffectorResult(
+                success=False, message=f"verify returned invalid JSON: {stdout[:200]}"
+            )
+        gates = data.get("gates", {})
+        all_passed = data.get("all_passed", False)
+        pending = [gate_name for gate_name, status in gates.items() if "PENDING" in status]
+        if all_passed:
+            return CytoResult(
+                output="All gates passed. Session properly closed.",
+                gates=gates,
+                all_gates_passed=True,
+            )
+        return CytoResult(
+            output=f"BLOCKED: {len(pending)} gates still pending: {', '.join(pending)}",
+            gates=gates,
+            all_gates_passed=False,
+        )
 
-    return GatherResult(
-        status="warning" if warnings else "ok",
-        message="; ".join(warnings) if warnings else "clean",
-        repos=data.get("repos", {}),
-        skills=data.get("skills", {}),
-        memory=mem,
-        tonus=now,
-        rfts=rfts,
-        deps=data.get("deps", []),
-        peira=data.get("peira"),
-        reflect=data.get("reflect", []),
-        methylation=data.get("methylation", []),
+    if action == "flush":
+        exit_code, stdout = _run_cli("flush")
+        return CytoResult(output=stdout.strip() or "flushed", data={"exit_code": exit_code})
+
+    if action == "wrap":
+        # Gather first
+        exit_code, stdout = _run_cli("gather", ["--fast"])
+        if exit_code != 0:
+            return EffectorResult(success=False, message=f"gather failed: {stdout[:500]}")
+        try:
+            gather_data = json.loads(stdout)
+        except json.JSONDecodeError:
+            return EffectorResult(success=False, message="gather returned invalid JSON")
+
+        # Then verify
+        exit_code, stdout = _run_cli("verify")
+        try:
+            verify_data = json.loads(stdout)
+        except json.JSONDecodeError:
+            return EffectorResult(success=False, message="verify returned invalid JSON")
+
+        gates = verify_data.get("gates", {})
+        all_passed = verify_data.get("all_passed", False)
+        pending = [gate_name for gate_name, status in gates.items() if "PENDING" in status]
+
+        if all_passed:
+            return CytoResult(
+                output="Session wrapped. All gates passed.",
+                data=gather_data,
+                gates=gates,
+                all_gates_passed=True,
+            )
+        return CytoResult(
+            output=f"CANNOT WRAP: {len(pending)} gates pending: {', '.join(pending)}. Complete these before wrapping.",
+            data=gather_data,
+            gates=gates,
+            all_gates_passed=False,
+        )
+
+    return EffectorResult(
+        success=False,
+        message="Unknown action. Valid: gather, verify, flush, wrap",
     )
