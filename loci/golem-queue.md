@@ -1,5 +1,95 @@
 ### Pending
 - [ ] `golem [t-langfuse01] [mcp,langfuse,audit] --provider zhipu --max-turns 15 "Add Langfuse audit tracing to the vivesca MCP server. Every tool call should create a Langfuse trace.
+- [ ] `golem [t-phoenix01] [mcp,phoenix,audit,otel] --provider zhipu --max-turns 15 "Add Arize Phoenix as a second observability backend alongside Langfuse in the vivesca MCP server.
+- [ ] `golem [t-auditlog01] [audit,logging,cron] --provider zhipu --max-turns 15 "Build a daily log rotation + git backup script for vivesca MCP audit logs.
+
+## What to build
+
+Create `~/germline/effectors/audit-rotate` (Python, executable) that:
+
+1. Rotates JSONL logs from ~/.local/share/vivesca/ into date-stamped files:
+   - requests.jsonl -> ~/epigenome/chromatin/audit/requests-YYYY-MM-DD.jsonl
+   - signals.jsonl -> ~/epigenome/chromatin/audit/signals-YYYY-MM-DD.jsonl
+   - infections.jsonl -> ~/epigenome/chromatin/audit/infections-YYYY-MM-DD.jsonl
+
+2. Rotation logic:
+   - Read current JSONL, split entries by date (from "ts" field in each JSON line)
+   - Append entries to the correct date-stamped file in audit/
+   - Truncate the source JSONL after successful copy (keep it as active log for today)
+   - If date-stamped file already exists, append (idempotent re-runs are safe)
+   - Create ~/epigenome/chromatin/audit/ directory if missing
+
+3. After rotation, git commit the new/updated files:
+   - cd ~/epigenome && git add chromatin/audit/ && git commit -m "audit: rotate logs YYYY-MM-DD"
+   - Skip commit if no changes (git diff --cached --quiet)
+
+4. Add a supercronic entry or document the cron line:
+   - Run daily at 23:55 HKT
+   - Line: `55 15 * * * /home/terry/germline/effectors/audit-rotate` (15:55 UTC = 23:55 HKT)
+
+## Key details
+- Source logs: ~/.local/share/vivesca/requests.jsonl, signals.jsonl, infections.jsonl (see metabolon/locus.py for exact paths)
+- Each line is JSON with a "ts" field (ISO-8601)
+- Destination: ~/epigenome/chromatin/audit/
+- The rotated files are immutable once written (append-only per date, never modified after rotation)
+- signal-history.jsonl should NOT be rotated (it is already an archive)
+
+## Tests
+Write assays/test_audit_rotate.py:
+- Test: entries split correctly by date from ts field
+- Test: source truncated after rotation (only today's entries remain)
+- Test: idempotent -- running twice does not duplicate entries
+- Test: missing source files handled gracefully (no crash)
+- Test: git commit skipped when no changes
+
+## Constraints
+- ASCII only
+- Never lose log entries -- copy first, truncate after verify
+- Use fcntl lock on source files during rotation (prevent concurrent writes)
+- Keep it simple -- single script, no external deps beyond stdlib"`
+
+## Context
+
+t-langfuse01 creates `metabolon/audit.py` with Langfuse tracing. This task adds Phoenix as a second backend so both receive tool call traces. The audit module should support multiple backends simultaneously.
+
+## What to build
+
+1. Refactor `metabolon/audit.py` to support multiple audit backends:
+   - `AuditBackend` protocol/ABC with `record(tool_name, args, result, latency_ms, outcome, error)`
+   - `LangfuseBackend` — wraps existing Langfuse code from t-langfuse01
+   - `PhoenixBackend` — new, sends traces to Arize Phoenix
+   - `get_audit_backends() -> list[AuditBackend]` — returns all configured backends (based on env vars)
+   - `record_tool_trace()` iterates all backends, never lets one failure block others
+
+2. Phoenix integration:
+   - `pip install arize-phoenix-otel openinference-instrumentation` 
+   - Phoenix uses OpenTelemetry spans. Create a span per tool call with:
+     - span name = tool_name
+     - attributes: tool.name, tool.args (PII-redacted), tool.result (truncated), tool.latency_ms, tool.outcome
+   - Phoenix collector URL from env: PHOENIX_COLLECTOR_URL (default http://localhost:6006)
+   - If PHOENIX_COLLECTOR_URL not set, skip Phoenix backend
+
+3. Update `metabolon/membrane.py` SensoryMiddleware to use `get_audit_backends()` instead of direct Langfuse client
+
+## Key files
+- metabolon/audit.py — refactor to multi-backend (created by t-langfuse01, extend it)
+- metabolon/membrane.py — update to use get_audit_backends()
+
+## Dependencies
+- Depends on t-langfuse01 completing first
+- Add arize-phoenix-otel and openinference-instrumentation to deps
+
+## Tests
+- Extend assays/test_langfuse_audit.py or create assays/test_phoenix_audit.py
+- Test: Phoenix backend creates OTel span with correct attributes
+- Test: Multiple backends fire independently (one failure does not block others)
+- Test: Backends skipped when env vars not set
+
+## Constraints
+- ASCII only
+- Never break existing tool call flow
+- Each backend is optional and independent
+- PII redaction applies to all backends (reuse same sanitize function)"`
 
 ## What to build
 
@@ -43,7 +133,7 @@ Tests already written at `assays/test_langfuse_audit.py`. All 8 tests must pass.
 - [ ] `golem --max-turns 15 "Fix three shell-safety bugs in ~/germline/effectors/golem. READ the file first. Bug 1 -- ZSH GLOB: queue entries like golem [t-a82f01] fail because zsh expands brackets as glob. Fix: add --task and --tag flags to the while loop at line 166. --task TASKID sets GOLEM_TASK_ID (same as the bracket parser does), --tag TAGNAME sets new env var GOLEM_TASK_TAG. Keep the existing bracket regex (lines 157-163) for backwards compat with programmatic callers that quote properly. Bug 2 -- SECOND BRACKET DROPPED: queue entries have a second bracket alias e.g. [t-phenotype] but only the first is parsed. After the existing bracket block (line 163), add a loop: while next arg matches bracket pattern, if it looks like a hex ID set GOLEM_TASK_ID, if it looks like a name set GOLEM_TASK_TAG. Add task_tag to the JSON log line at ~line 524. Bug 3 -- NON-ASCII CORRUPTION: em-dashes and curly quotes in prompts get mangled to ??? when passed through shell argv. Add a sanitize step after the prompt is captured (~line where prompt is assembled): replace em-dash with --, en-dash with -, curly quotes with straight quotes, and any remaining non-ASCII with space. Use sed or bash parameter expansion. Test: (a) run golem --task t-test01 --tag t-fix --max-turns 1 echo hello and verify env vars, (b) create a temp file with em-dash in a golem prompt, verify it gets sanitized. Commit with message 'golem: shell-safe task IDs, tag parsing, and ASCII sanitization'. (retry)"`
 - [!] `golem [t-a82f01] [t-phenotype] --provider zhipu --max-turns 15 "Improve tmux tab renaming in ~/germline/membrane/cytoskeleton/phenotype_rename.py. READ the file first (155 lines). Currently extracts first 3 content words after stopword filtering. Improve the algorithm while keeping it fully deterministic (no LLM): (1) FILE PATHS — detect tokens containing / or ~ or ending in .py/.md/.js/.sh etc. Extract the basename (stem without extension), split snake_case parts. Prioritize these tokens. (2) ACTION VERBS — move fix/debug/refactor/deploy/build/test/update/migrate/revert from STOP set to a new ACTION set. If the first content word is an action verb, keep it as the first token in the label (e.g. fix-rheotaxis not just rheotaxis). (3) SNAKE_CASE/CamelCase SPLITTING — before stopword filtering, split tokens on _ and on camelCase boundaries (re.sub(r'([a-z])([A-Z])', r'\1 \2', word)). Each part enters the word pool individually. (4) QUOTED STRINGS — extract text inside single or double quotes first. If found, use quoted content as the primary token source. (5) Keep existing slash-command logic unchanged. (6) Keep 20-char truncation. Priority order for token selection: quoted strings > file basenames > action verb + next content words > plain content words. Test: cd ~/germline && uv run pytest assays/test_phenotype_rename.py -x -q. All 16 tests must pass (13 currently pass, 3 file-path tests are the new contract). Commit with message 'phenotype_rename: smarter token extraction for tmux tab names'. (retry)"`
 - [!] `golem [t-4376dc] [t-dispatch01] --provider zhipu --max-turns 50 "Build the golem_dispatch MCP enzyme at ~/germline/metabolon/enzymes/golem_dispatch.py. READ the existing golem_queue.py enzyme at ~/germline/metabolon/enzymes/golem_queue.py for the pattern (FastMCP @tool, EffectorResult/Secretion types, QueueResult). READ the spec at ~/germline/loci/plans/temporal-direct-dispatch.md for full requirements. READ ~/germline/effectors/temporal-golem/cli.py for the Temporal client pattern (connect to TEMPORAL_HOST, start_workflow, list_workflows). The enzyme must: (1) import temporalio.client and connect to TEMPORAL_HOST env var (default ganglion:7233). (2) Expose actions: dispatch (single task), batch (multiple specs as JSON), status (workflow_id), list (limit), cancel (workflow_id). (3) Use _start_workflow, _get_workflow_status, _list_workflows, _cancel_workflow as internal async helpers called via asyncio.run(). (4) Register as @tool(name='golem_dispatch'). (5) Return QueueResult with output string and data dict, or EffectorResult on error. (6) Import GolemDispatchWorkflow from temporal-golem workflow.py — use sys.path.insert to add ~/germline/effectors/temporal-golem/. Test: cd ~/germline && uv run pytest assays/test_golem_dispatch_enzyme.py -x -q. All tests must pass. Commit with message 'golem_dispatch: MCP enzyme for direct Temporal dispatch'. (retry)"`
-- [ ] `golem [t-e01d4e] [t-syncheck01] --provider zhipu --max-turns 15 "Add a golem script syntax pre-check to ~/germline/effectors/temporal-golem/worker.py. READ the file first. In the run_golem_task activity function, BEFORE running the golem subprocess, add a syntax check: run subprocess.run(['bash', '-n', str(GOLEM_SCRIPT)], capture_output=True, timeout=5). If it returns non-zero exit code, skip the golem run entirely and return a result dict with exit_code=-1, success=False, stderr='golem script has syntax error: <stderr output>'. This prevents cascading failures when golem is broken. Add test test_golem_syntax_precheck to ~/germline/assays/test_temporal_dispatch.py: mock subprocess.run to return exit_code=2 for bash -n, verify the activity returns immediately without running golem. Test: cd ~/germline && uv run pytest assays/test_temporal_dispatch.py -x -q. Commit with message 'temporal: golem syntax pre-check before dispatch'."`
+- [!] `golem [t-e01d4e] [t-syncheck01] --provider zhipu --max-turns 15 "Add a golem script syntax pre-check to ~/germline/effectors/temporal-golem/worker.py. READ the file first. In the run_golem_task activity function, BEFORE running the golem subprocess, add a syntax check: run subprocess.run(['bash', '-n', str(GOLEM_SCRIPT)], capture_output=True, timeout=5). If it returns non-zero exit code, skip the golem run entirely and return a result dict with exit_code=-1, success=False, stderr='golem script has syntax error: <stderr output>'. This prevents cascading failures when golem is broken. Add test test_golem_syntax_precheck to ~/germline/assays/test_temporal_dispatch.py: mock subprocess.run to return exit_code=2 for bash -n, verify the activity returns immediately without running golem. Test: cd ~/germline && uv run pytest assays/test_temporal_dispatch.py -x -q. Commit with message 'temporal: golem syntax pre-check before dispatch'. (retry)"`
 
 - [!] `golem [t-3444cd] [t-regcap2] --provider zhipu --max-turns 25 "Execute the spec at ~/germline/loci/plans/regulatory-capture-v2.md — read it fully first. The current broken scraper is at ~/germline/effectors/regulatory-capture — read it to understand the structure, then rewrite per the spec. The BRDR page content is plain text extractable via urllib (no Playwright needed). Test: cd ~/germline && uv run pytest assays/test_regulatory_capture.py -x -q. Commit with message 'regulatory-capture: rebuild for BRDR, add relevance filter and dedup'. (retry)"`
 - [!] `golem [t-4839b6] [t-evident02] --provider zhipu --max-turns 15 "Execute the spec at ~/germline/loci/plans/golem-article-analysis-training.md — this is batch 2 with the revised structured extraction format (Use cases, Talent moves, Peer benchmarks, Narrative, Quotable). Read the spec fully, then process each of the 5 briefs. Commit with message 'golem: evident batch 2 structured extraction'. (retry)"`
