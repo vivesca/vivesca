@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# soma — convenience wrapper for Fly.io soma machine
+set -euo pipefail
+
+APP=soma
+BUILD_DIR="$HOME/code/gemmule"
+
+usage() {
+    cat <<'EOF'
+Usage: soma <command> [args]
+
+Commands:
+  ssh <cmd>       Run command on soma (fly ssh console)
+  deploy [opts]   Deploy from ~/code/gemmule
+  status          Machine status
+  logs [opts]     Tail logs
+  restart [svc]   Restart a supervisor service (or the whole machine)
+  pull            Git pull germline + epigenome on soma
+  *               Pass through to fly -a soma
+
+Examples:
+  soma ssh 'uptime'
+  soma ssh 'tail -20 ~/tmp/soma-watchdog.log'
+  soma deploy --strategy immediate
+  soma restart soma-watchdog
+  soma pull
+EOF
+}
+
+case "${1:-}" in
+    -h|--help|help|"")
+        usage
+        ;;
+    ssh)
+        shift
+        fly ssh console -a "$APP" -C "$*"
+        ;;
+    deploy)
+        shift
+        cd "$BUILD_DIR"
+        fly deploy -a "$APP" "${@:---strategy immediate}"
+        ;;
+    status)
+        fly status -a "$APP"
+        ;;
+    logs)
+        shift
+        fly logs -a "$APP" "$@"
+        ;;
+    restart)
+        shift
+        if [ -z "${1:-}" ]; then
+            fly machines restart -a "$APP" "$(fly machines list -a "$APP" --json | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')"
+        else
+            fly ssh console -a "$APP" -C "supervisorctl -s unix:///tmp/supervisor.sock restart $1"
+        fi
+        ;;
+    pull)
+        fly ssh console -a "$APP" -C 'su - terry -c "cd ~/germline && git pull --ff-only; cd ~/epigenome && git pull --ff-only"'
+        ;;
+    *)
+        fly "$@" -a "$APP"
+        ;;
+esac

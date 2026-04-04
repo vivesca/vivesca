@@ -31,7 +31,7 @@ ALERT_STAMP = HOME / "tmp" / "soma-alert-last.txt"
 
 # JSONL files to rotate daily (raw copy, then truncate)
 JSONL_SOURCES = [
-    HOME / "tmp" / "soma-resources.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "soma-resources.jsonl",
     HOME / ".local" / "share" / "vivesca" / "golem.jsonl",
     HOME / ".local" / "share" / "vivesca" / "infections.jsonl",
     HOME / ".local" / "share" / "vivesca" / "requests.jsonl",
@@ -45,6 +45,13 @@ JSONL_SOURCES = [
     HOME / ".local" / "share" / "noesis" / "log.jsonl",
     HOME / ".local" / "share" / "elencho" / "runs.jsonl",
     HOME / ".local" / "share" / "respirometry" / "history.jsonl",
+]
+
+# Log files to include in daily rotation
+LOG_SOURCES = [
+    LOG,
+    HOME / ".local" / "share" / "vivesca" / "golem-daemon.log",
+    HOME / ".local" / "share" / "vivesca" / "golem-reviewer.log",
 ]
 
 # Thresholds
@@ -153,7 +160,7 @@ def kill_runaway_golems():
     return killed
 
 
-METRICS_PATH = HOME / "tmp" / "soma-resources.jsonl"
+METRICS_PATH = HOME / ".local" / "share" / "vivesca" / "soma-resources.jsonl"
 
 
 def log_resources():
@@ -305,10 +312,13 @@ def daily_rotate():
             src.write_text("")
             rotated += 1
 
-        # Also rotate watchdog log
-        if LOG.exists() and LOG.stat().st_size > 0:
-            shutil.copy2(LOG, day_dir / "watchdog.log")
-            LOG.write_text("")
+        # Rotate log files
+        for src in LOG_SOURCES:
+            if src.exists() and src.stat().st_size > 0:
+                dest = day_dir / f"{src.stem}.log"
+                shutil.copy2(src, dest)
+                src.write_text("")
+                rotated += 1
 
         if rotated == 0:
             return
