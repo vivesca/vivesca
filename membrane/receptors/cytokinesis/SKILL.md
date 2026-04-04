@@ -116,7 +116,23 @@ For each match: **edit the skill now** (add gotcha, update anti-pattern, fix ins
 
 **The test:** "If a fresh CC follows this skill tomorrow, will it repeat the mistake?" If yes, the skill needs updating, not just the memory.
 
-### 1c. Directory context crystallization (2 min max)
+### 1c. Process audit (3 min max)
+
+Five questions to catch meta-failures:
+
+1. **Repeated patterns:** Did CC run the same ad-hoc command 2+ times? (restart a service, check a status, transform files) → Build an effector. The genome says "if recurs, build a tool."
+
+2. **Misallocated work:** Did CC write >50 lines of implementation code? Was any of it mechanical enough for golem? The scarcity is model quality, not tokens. Golem should do mechanical work; CC should judge.
+
+3. **Lazy avoidance:** Is there something broken that we worked around instead of fixing? A flaky test we excluded instead of root-causing? A lint warning we suppressed instead of resolving? The genome says "fix, don't patch."
+
+4. **Branch discipline:** Did we work on main during exploratory changes? Did we amend+force-push repeatedly? Should we have branched, explored, and squashed?
+
+5. **Best practices skipped:** Did we run the full test suite before pushing? Did we test locally before committing (`pre-commit run --all-files`)? Did we review our own diff before committing?
+
+For each "yes": file a feedback memory with the specific failure and the fix. These compound — a session that catches zero process failures is the goal.
+
+### 1c2. Directory context crystallization (2 min max)
 
 Scan directories where this session did 3+ file reads or edits. For each, check: does a `CLAUDE.md` exist? If not, and the directory has non-obvious structure (multiple files, config, architecture worth explaining), write one.
 
