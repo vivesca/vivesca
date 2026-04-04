@@ -47,6 +47,11 @@ def main():
         print("       Run with --help for more information.")
         sys.exit(1)
 
+    # Only guard on macOS (slow disk, huge home dir). Linux servers are fine.
+    if sys.platform != "darwin":
+        real_bin = _find_real_binary(binary_name)
+        os.execv(real_bin, [real_bin] + args)
+
     # Identify the target path in arguments
     search_path = None
     for arg in args:
