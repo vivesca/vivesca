@@ -30,35 +30,37 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 
 ## Architecture
 
-**Temporal on ganglion is the sole dispatch path.** Local golem-daemon is stopped.
+**Temporal on ganglion is the sole dispatch path.** CC dispatches directly via `golem_dispatch` MCP tool — no markdown queue, no poller.
 
 ```
-soma (dispatch.py --poll) -> Temporal server (ganglion:7233) -> worker.py (ganglion) -> golem script -> zhipu/GLM-5.1
+CC (soma) --golem_dispatch MCP--> Temporal server (ganglion:7233) --> worker.py (ganglion) --> golem script --> zhipu/GLM-5.1
 ```
 
-- **Dispatch poller:** supervisor-managed `temporal-dispatch` on soma, polls `golem-queue.md` every 60s
+- **MCP tool:** `golem_dispatch` — dispatch, batch, status, list, cancel actions
 - **Worker:** `temporal-golem/worker.py` on ganglion, executes golem subprocess
 - **Workflow:** `temporal-golem/workflow.py`, retry policy (2 attempts), review activity
-- **Logs:** `~/tmp/temporal-dispatch.log` on soma, `~/germline/loci/golem-outputs/` on ganglion
-- **Queue:** `~/germline/loci/golem-queue.md` — single source of truth
+- **Review:** auto-rejects no_commit_on_success, target_file_missing, destruction patterns
+- **Logs:** `~/germline/loci/golem-outputs/` on ganglion, `~/germline/loci/golem-reviews.jsonl`
 
 **Provider reality (2026-04):**
 - **zhipu (GLM-5.1):** Only working provider on ganglion. ~44% rate-limited on heavy days. 90% capability when not rate-limited.
 - **volcano/infini:** Cheap tiers, quota-exhausted frequently. Not worth retrying.
 - **codex:** Not installed on ganglion.
 
-**Auto-generation is disabled.** Queue is manually curated by CC.
-
 ## Process
 
-### Phase 0: Check dispatch status
+### Phase 0: Pre-flight
 
+Check dispatch health:
 ```bash
-# On soma
-supervisorctl -s unix:///tmp/supervisor.sock status temporal-dispatch
-tail -10 ~/tmp/temporal-dispatch.log
-python3 ~/germline/effectors/temporal-golem/dispatch.py --status | head -20
-cat ~/germline/loci/golem-queue.md
+# MCP tool — list recent workflows
+golem_dispatch action=list limit=5
+
+# Or via SSH
+ssh ganglion 'export PATH="$HOME/.local/bin:$PATH" && cd ~/germline/effectors/temporal-golem && uv run python cli.py list -n 5'
+
+# Worker status
+ssh ganglion "sudo systemctl status temporal-worker --no-pager"
 ```
 
 ### Phase 0.5: Complexity routing
@@ -67,13 +69,20 @@ Before planning, classify the task:
 
 | Size | Signal | Action |
 |------|--------|--------|
-| Trivial | Single file, <20 lines, obvious fix | CC does it directly — no queue, no golem |
-| Small | 1-3 files, clear scope | Single golem task, skip Phase 1 audit |
-| Large | Multi-file, ambiguity, dependencies | Full Phase 1 audit + multi-task queue |
+| Trivial | Single file, <20 lines, obvious fix | CC does it directly — no dispatch |
+| Small | 1-3 files, clear scope | Single golem dispatch, skip Phase 1 audit |
+| Large | Multi-file, ambiguity, dependencies | Full Phase 1 audit + multi-task batch |
 
 Don't build a 5-task campaign for a one-liner fix.
 
-### Phase 1: What matters? (CC judgment — do this BEFORE queuing)
+### Phase 0.75: Pre-flight (from rector)
+
+- **Data governance:** can this code leave the machine? No `.env`, secrets, proprietary code.
+- **Parallel sessions?** → `lucus new <branch>` first.
+- **Naming?** → HARD GATE: name before code. Check registry availability (PyPI/crates.io). See `artifex`.
+- **Solutions KB:** `cerno "<topic>"` before starting.
+
+### Phase 1: What matters? (CC judgment — do this BEFORE dispatch)
 
 **Stop and think:** what is the most impactful work right now? Check:
 - **Tonus.md** — what's active, what's perishable, what deadline is next?
@@ -96,70 +105,49 @@ Then prioritize:
 
 **Controller extracts, subagents don't read.** CC reads specs/plans once and injects exactly what the golem needs into its prompt. Never tell golem "read the plan file and do what it says" — that wastes turns and lets the golem misinterpret. State the action directly.
 
-**Manufactured skepticism in review.** When reviewing golem output, assume the report is optimistic. Verify independently — don't trust "all tests pass" without running them.
+**Prompt quality matters more than prompt length.** Include:
+- Exact file path to create/modify
+- Pattern file to copy from (if applicable)
+- Test command to verify
+- Commit message
 
 1. CC writes `assays/test_<feature>.py` with concrete test cases
-2. CC writes queue entry referencing the test file
+2. CC dispatches via MCP tool with clear prompt
 3. Golem implements until tests pass
-4. Post-gate (ast + test suite + scope check) auto-approves or rejects
+4. Post-gate (ast + test suite + scope check + no_commit check) auto-approves or rejects
 
-**Task format:**
-```markdown
-- [ ] `golem [t-<id>] --provider zhipu --max-turns <N> "<prompt>"`
+### Phase 3: Dispatch via MCP
+
+**Single task:**
+```
+golem_dispatch action=dispatch prompt="<prompt>" provider=zhipu max_turns=25
 ```
 
-- `[t-<hex>]` — unique task ID for tracking
-- `--provider zhipu` — only working provider on ganglion
-- `--max-turns 30` for fixes/tests, `40-50` for features
-- Prompt must include: READ the file, what to change, test gate command, COMMIT
-
-**Task types:**
-- **Fix** — read failing test, diagnose, fix, verify. `--max-turns 30`.
-- **Build** — create new feature + tests. `--max-turns 50`.
-- **Test** — write tests for existing module. `--max-turns 30`.
-
-**Group related tasks into operons** when they share context.
-
-**File-level conflict check before parallel dispatch.** Before launching parallel golem tasks, check file overlaps. If two tasks touch the same file, serialize them. Non-overlapping tasks run in parallel. Prevents agent write collisions.
-
-### Phase 3: Queue writes (use fcntl lock)
-
-```python
-import fcntl
-from pathlib import Path
-
-lock_path = Path.home() / '.local' / 'share' / 'vivesca' / 'golem-queue.lock'
-queue_path = Path.home() / 'germline' / 'loci' / 'golem-queue.md'
-
-with open(lock_path, 'w') as fd:
-    fcntl.flock(fd, fcntl.LOCK_EX)
-    try:
-        content = queue_path.read_text()
-        content += new_tasks
-        queue_path.write_text(content)
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
+**Batch (multiple tasks):**
+```
+golem_dispatch action=batch specs='[{"task": "...", "provider": "zhipu", "max_turns": 25}, ...]'
 ```
 
-No need to trigger dispatch — temporal poller picks up within 60s.
+**Direct execution (debugging/urgent, bypasses Temporal):**
+```bash
+golem --provider zhipu --max-turns 15 "prompt"
+```
 
 ### Phase 4: Verify
 
-**Post-gate handles verification automatically** (once t-postgate ships):
+**Post-gate handles verification automatically:**
 - ast_check: all modified `.py` files parse
 - test_check: full test suite passes
 - scope_check: warns if files outside target modified
+- no_commit_on_success: rejects if golem exits 0 but produced no git changes
+- target_file_missing: flags if named target file isn't in the diff
 
-If all pass -> auto-approved, no review. If any fail -> `[!]`, no retry.
+If all pass -> auto-approved. If any fail -> rejected.
 
-**Manual spot-check** (until post-gate ships):
-```bash
-# Check outputs on ganglion
-ssh ganglion "ls -lt ~/germline/loci/golem-outputs/ | head -10"
-ssh ganglion "cat ~/germline/loci/golem-outputs/<latest>.txt"
-
-# Or via temporal
-python3 ~/germline/effectors/temporal-golem/dispatch.py --status
+**Check status:**
+```
+golem_dispatch action=status workflow_id=<id>
+golem_dispatch action=list limit=10
 ```
 
 ### Phase 5: Report
@@ -169,7 +157,7 @@ python3 ~/germline/effectors/temporal-golem/dispatch.py --status
 - Dispatched: N tasks
 - Provider: zhipu (ganglion via Temporal)
 - Tests written: [list of test files]
-- Queue: N pending
+- Status: N approved, N rejected, N running
 ```
 
 ## Timeout alignment
@@ -183,17 +171,11 @@ Three timeout layers (must be nested correctly):
 
 - **Only zhipu on ganglion.** Other providers exit 127 or quota-exhaust.
 - **Rate-limits are billing reality.** Tasks trickle through as capacity frees up.
-- **Golem may not commit.** Check `git status` on ganglion after batch.
+- **Golem may not commit.** Review gate now catches this — no_commit_on_success = rejected.
 - **Mac-only tasks can't run on ganglion** (ARM Linux). Drop or tag for local.
 - **`--dangerously-skip-permissions` is in the golem script.** Never remove it.
-- **Don't run full pytest from CC.** Queue a golem or check outputs.
-- **Don't duplicate tasks across providers** — one task per unique job.
 - **Don't pad queue with filler** — 10 high-value tasks beat 50 generic ones.
-
-## Switching back to local daemon
-
-```bash
-# Stop temporal, start daemon
-supervisorctl -s unix:///tmp/supervisor.sock stop temporal-dispatch
-supervisorctl -s unix:///tmp/supervisor.sock start golem-daemon
-```
+- **Prior discussion is NOT a plan.** Always run solutions KB check first.
+- **Never write non-trivial code in-session** without proposing delegation first.
+- **One task per delegation.** 3 tasks = 3 dispatches.
+- **Write tests** for any non-trivial fix or feature.
