@@ -17,7 +17,7 @@ def resolve_memory_dir() -> Path:
 
     CC project dirs encode the working directory with ``-`` replacing ``/``.
     On macOS (home = /Users/terry) the dir is ``-Users-terry``;
-    on Linux/soma (home = /home/terry) it's ``-home-terry``.
+    on Linux/soma (home = /home/vivesca) it's ``-home-vivesca``.
     """
     base = Path.home() / ".claude" / "projects"
     for candidate in ("-home-terry", "-Users-terry", "-home-terry-germline"):

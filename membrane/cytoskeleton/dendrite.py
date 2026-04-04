@@ -308,7 +308,7 @@ def mod_perseveration(data):
 
 _PROJECT_SLUG = "-" + str(HOME).lstrip("/").replace(
     "/", "-"
-)  # e.g. /home/terry -> -home-terry
+)  # e.g. /home/vivesca -> -home-vivesca
 CHROMATIN_PATH = HOME / ".claude" / "projects" / _PROJECT_SLUG / "memory" / "MEMORY.md"
 CHROMATIN_BUDGET = 150
 
