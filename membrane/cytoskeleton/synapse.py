@@ -795,6 +795,60 @@ def mod_entrainment(data):
     return []
 
 
+# ── overnight: queue results on "what ran" ───────────────────
+
+_OVERNIGHT_RE = re.compile(
+    r"^(what ran|overnight|overnight results|queue status|what ran overnight)[?.!\s]*$",
+    re.IGNORECASE,
+)
+_OVERNIGHT_QUEUE = HOME / "germline" / "loci" / "golem-queue.md"
+_OVERNIGHT_TASK_RE = re.compile(
+    r"^- \[([x!])\] `golem \[([^\]]+)\](?:\s*\[[^\]]*\])*\s*"
+    r'(?:--\S+\s+\S+\s+)*"([^"]{0,80})'
+)
+
+
+def mod_overnight(data):
+    """Inject queue results when 'what ran' / 'overnight' detected."""
+    prompt = data.get("prompt", "").strip()
+    if not prompt or len(prompt) > 40 or not _OVERNIGHT_RE.match(prompt):
+        return []
+
+    # Once per session
+    session_id = data.get("session_id", "")
+    marker = TMP_DIR / f"overnight-{session_id}.done"
+    if marker.exists():
+        return []
+    marker.touch()
+
+    try:
+        content = _OVERNIGHT_QUEUE.read_text()
+    except Exception:
+        return []
+
+    items = []
+    for line in content.splitlines():
+        match = _OVERNIGHT_TASK_RE.match(line)
+        if match:
+            status, task_id, desc = match.groups()
+            icon = "done" if status == "x" else "RETRY"
+            snippet = desc[:60].rstrip()
+            if len(desc) > 60:
+                snippet += "..."
+            items.append(f"  {icon}: {task_id} — {snippet}")
+
+    if not items:
+        return ["[overnight] Queue is empty."]
+
+    pending = len(re.findall(r"^- \[ \]", content, re.MULTILINE))
+    header = f"[overnight] {len(items)} resolved, {pending} pending:"
+    # Cap at 10 items to keep tokens low
+    body = "\n".join(items[:10])
+    if len(items) > 10:
+        body += f"\n  ... and {len(items) - 10} more"
+    return [f"{header}\n{body}"]
+
+
 # ── main ───────────────────────────────────────────────────
 
 
@@ -817,6 +871,7 @@ def main():
         mod_phenotype,
         mod_context,
         mod_entrainment,
+        mod_overnight,
     ]
 
     output = []
