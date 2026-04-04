@@ -21,4 +21,4 @@ for i in $(seq 1 30); do
 done
 
 echo "==> Starting ribosome worker..."
-exec "$HOME/germline/.venv/bin/python3" "$SCRIPT_DIR/worker.py"
+exec "$HOME/germline/.venv/bin/python3" "$SCRIPT_DIR/translocase.py"

@@ -18,7 +18,7 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy, SearchAttributeKey
 
 with workflow.unsafe.imports_passed_through():
-    from worker import chaperone, translate, translate_graph
+    from translocase import chaperone, translate, translate_graph
 
 # #6: Search attributes (registered on server)
 SA_PROVIDER = SearchAttributeKey.for_keyword("TranslationProvider")
@@ -70,7 +70,7 @@ class TranslationWorkflow:
                 try:
                     result = await workflow.execute_activity(
                         translate_graph,
-                        args=[task, provider, max_turns],
+                        args=[task, provider],
                         start_to_close_timeout=timedelta(minutes=35),
                         heartbeat_timeout=timedelta(minutes=10),
                         retry_policy=_RETRY_POLICY,

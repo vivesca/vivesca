@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-"""Tests for metabolon/enzymes/navigator.py — browser automation."""
+"""Tests for metabolon/enzymes/chemotaxis.py — browser automation."""
 
 
 from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -14,15 +11,15 @@ import pytest
 
 def _fn():
     """Return the raw function behind the @tool decorator."""
-    from metabolon.enzymes import navigator as mod
+    from metabolon.enzymes import chemotaxis as mod
 
-    return mod.navigator
+    return mod.chemotaxis
 
 
 def _result_class():
-    from metabolon.enzymes.navigator import NavigatorResult
+    from metabolon.enzymes.chemotaxis import ChemotaxisResult
 
-    return NavigatorResult
+    return ChemotaxisResult
 
 
 # ---------------------------------------------------------------------------
@@ -33,13 +30,13 @@ class TestRunAb:
     """Tests for _run_ab helper."""
 
     def test_success_returns_true_and_stdout(self):
-        from metabolon.enzymes.navigator import _run_ab
+        from metabolon.enzymes.chemotaxis import _run_ab
 
         mock_proc = MagicMock()
         mock_proc.stdout = "  page content  \n"
         with (
-            patch("metabolon.enzymes.navigator.os.popen") as mock_popen,
-            patch("metabolon.enzymes.navigator.subprocess.run", return_value=mock_proc),
+            patch("metabolon.enzymes.chemotaxis.os.popen") as mock_popen,
+            patch("metabolon.enzymes.chemotaxis.subprocess.run", return_value=mock_proc),
         ):
             mock_popen.return_value.read.return_value = "/usr/local/bin/agent-browser\n"
             ok, out = _run_ab(["open", "https://example.com"])
@@ -48,11 +45,11 @@ class TestRunAb:
         assert out == "page content"
 
     def test_failure_returns_false_and_stderr(self):
-        from metabolon.enzymes.navigator import _run_ab
+        from metabolon.enzymes.chemotaxis import _run_ab
 
         with (
-            patch("metabolon.enzymes.navigator.os.popen") as mock_popen,
-            patch("metabolon.enzymes.navigator.subprocess.run") as mock_run,
+            patch("metabolon.enzymes.chemotaxis.os.popen") as mock_popen,
+            patch("metabolon.enzymes.chemotaxis.subprocess.run") as mock_run,
         ):
             import subprocess
 
@@ -66,11 +63,11 @@ class TestRunAb:
         assert out == "connection refused"
 
     def test_failure_returns_stdout_if_no_stderr(self):
-        from metabolon.enzymes.navigator import _run_ab
+        from metabolon.enzymes.chemotaxis import _run_ab
 
         with (
-            patch("metabolon.enzymes.navigator.os.popen") as mock_popen,
-            patch("metabolon.enzymes.navigator.subprocess.run") as mock_run,
+            patch("metabolon.enzymes.chemotaxis.os.popen") as mock_popen,
+            patch("metabolon.enzymes.chemotaxis.subprocess.run") as mock_run,
         ):
             import subprocess
 
@@ -86,7 +83,7 @@ class TestRunAb:
 
 
 # ---------------------------------------------------------------------------
-# navigator — extract action
+# chemotaxis — extract action
 # ---------------------------------------------------------------------------
 
 class TestExtract:
@@ -98,13 +95,12 @@ class TestExtract:
         assert "url" in result.error
 
     def test_navigation_failure(self):
-        with patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "timeout")):
+        with patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "timeout")):
             result = _fn()(action="extract", url="https://fail.com")
         assert result.success is False
         assert "Navigation failed" in result.error
 
     def test_successful_extract(self):
-        call_count = 0
         responses = {
             ("open", "https://example.com"): (True, "ok"),
             ("get", "title"): (True, "Example Page"),
@@ -117,8 +113,8 @@ class TestExtract:
             return responses.get(key, (True, ""))
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="extract", url="https://example.com")
 
@@ -136,8 +132,8 @@ class TestExtract:
             return (False, "not available")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="extract", url="https://example.com")
 
@@ -148,8 +144,8 @@ class TestExtract:
 
     def test_zero_wait_skips_sleep(self):
         with (
-            patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok")),
-            patch("metabolon.enzymes.navigator.time.sleep") as mock_sleep,
+            patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok")),
+            patch("metabolon.enzymes.chemotaxis.time.sleep") as mock_sleep,
         ):
             _fn()(action="extract", url="https://x.com", wait_ms=0)
 
@@ -162,7 +158,7 @@ class TestExtract:
 
 
 # ---------------------------------------------------------------------------
-# navigator — screenshot action
+# chemotaxis — screenshot action
 # ---------------------------------------------------------------------------
 
 class TestScreenshot:
@@ -175,8 +171,8 @@ class TestScreenshot:
 
     def test_navigation_failure(self):
         with (
-            patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "err")),
-            patch("metabolon.enzymes.navigator.subprocess.run"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "err")),
+            patch("metabolon.enzymes.chemotaxis.subprocess.run"),
         ):
             result = _fn()(action="screenshot", url="https://fail.com")
         assert result.success is False
@@ -189,9 +185,9 @@ class TestScreenshot:
             return (False, "disk full")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.subprocess.run"),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.subprocess.run"),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="screenshot", url="https://example.com", output_path="/tmp/x.png")
 
@@ -205,9 +201,9 @@ class TestScreenshot:
             return (True, "saved")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.subprocess.run"),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.subprocess.run"),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(
                 action="screenshot",
@@ -226,9 +222,9 @@ class TestScreenshot:
             return (True, "saved")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.subprocess.run"),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.subprocess.run"),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="screenshot", url="https://example.com")
 
@@ -236,10 +232,10 @@ class TestScreenshot:
         assert "screenshot_" in result.data["output_path"]
         assert result.data["output_path"].endswith(".png")
 
-    @patch("metabolon.enzymes.navigator.sys")
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
-    @patch("metabolon.enzymes.navigator.subprocess.run")
-    @patch("metabolon.enzymes.navigator.time.sleep")
+    @patch("metabolon.enzymes.chemotaxis.sys")
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis.subprocess.run")
+    @patch("metabolon.enzymes.chemotaxis.time.sleep")
     def test_caffeinate_called(self, mock_sleep, mock_run, mock_ab, mock_sys):
         mock_sys.platform = "darwin"
         _fn()(action="screenshot", url="https://example.com", output_path="/tmp/x.png")
@@ -250,7 +246,7 @@ class TestScreenshot:
 
 
 # ---------------------------------------------------------------------------
-# navigator — check_auth action
+# chemotaxis — check_auth action
 # ---------------------------------------------------------------------------
 
 class TestCheckAuth:
@@ -262,7 +258,7 @@ class TestCheckAuth:
         assert "domain" in result.error
 
     def test_navigation_failure(self):
-        with patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "err")):
+        with patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "err")):
             result = _fn()(action="check_auth", domain="fail.com")
         assert result.success is False
         assert "Navigation failed" in result.error
@@ -276,8 +272,8 @@ class TestCheckAuth:
             return (True, "")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="check_auth", domain="example.com")
 
@@ -295,8 +291,8 @@ class TestCheckAuth:
             return (True, "")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="check_auth", domain="example.com")
 
@@ -314,8 +310,8 @@ class TestCheckAuth:
             return (True, "")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="check_auth", domain="example.com")
 
@@ -330,8 +326,8 @@ class TestCheckAuth:
             return (True, "")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="check_auth", domain="example.com")
 
@@ -345,8 +341,8 @@ class TestCheckAuth:
             return (True, "ok")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab) as mock,
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab) as mock,
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             # The mock only handles the first call; need full mock for subsequent calls
             call_idx = 0
@@ -374,8 +370,8 @@ class TestCheckAuth:
             return (True, "http://already.http/page")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=side_effect),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=side_effect),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             _fn()(action="check_auth", domain="http://already.http")
 
@@ -386,8 +382,8 @@ class TestCheckAuth:
             return (False, "unavailable")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="check_auth", domain="example.com")
 
@@ -397,7 +393,7 @@ class TestCheckAuth:
 
 
 # ---------------------------------------------------------------------------
-# navigator — unknown action
+# chemotaxis — unknown action
 # ---------------------------------------------------------------------------
 
 class TestUnknownAction:
@@ -412,8 +408,8 @@ class TestUnknownAction:
     def test_action_case_insensitive(self):
         """Action is lowercased and stripped."""
         with (
-            patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok")),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok")),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="  EXTRACT  ", url="https://x.com")
         assert result.success is True
@@ -424,7 +420,7 @@ class TestUnknownAction:
 # ---------------------------------------------------------------------------
 
 class TestResultType:
-    """Tests for NavigatorResult."""
+    """Tests for ChemotaxisResult."""
 
     def test_is_secretion_subclass(self):
         from metabolon.morphology import Secretion
@@ -444,7 +440,7 @@ class TestCleanup:
     """Tests for temp screenshot cleanup."""
 
     def test_cleanup_unlinks_pending(self, tmp_path):
-        from metabolon.enzymes.navigator import _cleanup_temp_screenshots, _pending_screenshots
+        from metabolon.enzymes.chemotaxis import _cleanup_temp_screenshots, _pending_screenshots
 
         f = tmp_path / "disposable.png"
         f.write_text("fake")
@@ -460,7 +456,7 @@ class TestCleanup:
 
 
 # ---------------------------------------------------------------------------
-# navigator — navigate action (primary name for extract)
+# chemotaxis — navigate action (primary name for extract)
 # ---------------------------------------------------------------------------
 
 class TestNavigate:
@@ -480,8 +476,8 @@ class TestNavigate:
             return (True, "")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="navigate", url="https://nav.co")
 
@@ -508,8 +504,8 @@ class TestNavigate:
             return (True, "")
 
         with (
-            patch("metabolon.enzymes.navigator._run_ab", side_effect=mock_run_ab),
-            patch("metabolon.enzymes.navigator.time.sleep"),
+            patch("metabolon.enzymes.chemotaxis._run_ab", side_effect=mock_run_ab),
+            patch("metabolon.enzymes.chemotaxis.time.sleep"),
         ):
             result = _fn()(action="extract", url="https://alias.co")
 
@@ -524,55 +520,55 @@ class TestNavigate:
 class TestHelpers:
     """Tests for _set_viewport and _set_device helpers."""
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_viewport_basic(self, mock_run):
-        from metabolon.enzymes.navigator import _set_viewport
+        from metabolon.enzymes.chemotaxis import _set_viewport
         ok, out = _set_viewport(1920, 1080)
         assert ok is True
         assert out == "ok"
         mock_run.assert_called_once_with(["set", "viewport", "1920", "1080"])
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_viewport_with_scale(self, mock_run):
-        from metabolon.enzymes.navigator import _set_viewport
-        ok, out = _set_viewport(1280, 720, scale=2.0)
+        from metabolon.enzymes.chemotaxis import _set_viewport
+        ok, _out = _set_viewport(1280, 720, scale=2.0)
         assert ok is True
         mock_run.assert_called_once_with(
             ["set", "viewport", "1280", "720", "--scale", "2.0"]
         )
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_viewport_scale_zero_omits_flag(self, mock_run):
-        from metabolon.enzymes.navigator import _set_viewport
+        from metabolon.enzymes.chemotaxis import _set_viewport
         _set_viewport(800, 600, scale=0)
         call_args = mock_run.call_args[0][0]
         assert "--scale" not in call_args
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_set_device(self, mock_run):
-        from metabolon.enzymes.navigator import _set_device
-        ok, out = _set_device("iPhone 14")
+        from metabolon.enzymes.chemotaxis import _set_device
+        ok, _out = _set_device("iPhone 14")
         assert ok is True
         mock_run.assert_called_once_with(["set", "device", "iPhone 14"])
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "no such device"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "no such device"))
     def test_set_device_failure(self, mock_run):
-        from metabolon.enzymes.navigator import _set_device
+        from metabolon.enzymes.chemotaxis import _set_device
         ok, out = _set_device("FakeDevice")
         assert ok is False
         assert "no such device" in out
 
 
 # ---------------------------------------------------------------------------
-# navigator — screenshot with viewport/device params
+# chemotaxis — screenshot with viewport/device params
 # ---------------------------------------------------------------------------
 
 class TestScreenshotViewportDevice:
     """Tests for screenshot action with viewport and device parameters."""
 
-    @patch("metabolon.enzymes.navigator.time.sleep")
-    @patch("metabolon.enzymes.navigator._run_ab")
-    @patch("metabolon.enzymes.navigator.subprocess.run")
+    @patch("metabolon.enzymes.chemotaxis.time.sleep")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
+    @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     def test_screenshot_with_viewport(self, mock_sp, mock_run, mock_sleep):
         mock_run.side_effect = [
             (True, "ok"),  # set viewport
@@ -594,9 +590,9 @@ class TestScreenshotViewportDevice:
         first_call = mock_run.call_args_list[0][0][0]
         assert first_call == ["set", "viewport", "1920", "1080"]
 
-    @patch("metabolon.enzymes.navigator.time.sleep")
-    @patch("metabolon.enzymes.navigator._run_ab")
-    @patch("metabolon.enzymes.navigator.subprocess.run")
+    @patch("metabolon.enzymes.chemotaxis.time.sleep")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
+    @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     def test_screenshot_with_viewport_and_scale(self, mock_sp, mock_run, mock_sleep):
         mock_run.side_effect = [
             (True, "ok"),  # set viewport
@@ -617,9 +613,9 @@ class TestScreenshotViewportDevice:
         first_call = mock_run.call_args_list[0][0][0]
         assert first_call == ["set", "viewport", "1280", "720", "--scale", "2.0"]
 
-    @patch("metabolon.enzymes.navigator.time.sleep")
-    @patch("metabolon.enzymes.navigator._run_ab")
-    @patch("metabolon.enzymes.navigator.subprocess.run")
+    @patch("metabolon.enzymes.chemotaxis.time.sleep")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
+    @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     def test_screenshot_with_device(self, mock_sp, mock_run, mock_sleep):
         mock_run.side_effect = [
             (True, "ok"),  # set device
@@ -638,9 +634,9 @@ class TestScreenshotViewportDevice:
         first_call = mock_run.call_args_list[0][0][0]
         assert first_call == ["set", "device", "iPhone 14"]
 
-    @patch("metabolon.enzymes.navigator.time.sleep")
-    @patch("metabolon.enzymes.navigator._run_ab")
-    @patch("metabolon.enzymes.navigator.subprocess.run")
+    @patch("metabolon.enzymes.chemotaxis.time.sleep")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
+    @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     def test_screenshot_device_and_viewport(self, mock_sp, mock_run, mock_sleep):
         """Both device and viewport can be set — device first, then viewport."""
         mock_run.side_effect = [
@@ -664,7 +660,7 @@ class TestScreenshotViewportDevice:
         assert calls[0] == ["set", "device", "Pixel 7"]
         assert calls[1] == ["set", "viewport", "800", "600"]
 
-    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
     def test_screenshot_device_failure_aborts(self, mock_run):
         mock_run.return_value = (False, "unknown device")
         result = _fn()(
@@ -676,7 +672,7 @@ class TestScreenshotViewportDevice:
         assert result.success is False
         assert "Set device failed" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
     def test_screenshot_viewport_failure_aborts(self, mock_run):
         mock_run.side_effect = [
             (False, "viewport error"),  # set viewport
@@ -691,9 +687,9 @@ class TestScreenshotViewportDevice:
         assert result.success is False
         assert "Set viewport failed" in result.error
 
-    @patch("metabolon.enzymes.navigator.time.sleep")
-    @patch("metabolon.enzymes.navigator._run_ab")
-    @patch("metabolon.enzymes.navigator.subprocess.run")
+    @patch("metabolon.enzymes.chemotaxis.time.sleep")
+    @patch("metabolon.enzymes.chemotaxis._run_ab")
+    @patch("metabolon.enzymes.chemotaxis.subprocess.run")
     def test_screenshot_no_viewport_when_zero(self, mock_sp, mock_run, mock_sleep):
         """width=0, height=0 should NOT call set viewport."""
         mock_run.side_effect = [
@@ -715,13 +711,13 @@ class TestScreenshotViewportDevice:
 
 
 # ---------------------------------------------------------------------------
-# navigator — click action
+# chemotaxis — click action
 # ---------------------------------------------------------------------------
 
 class TestClick:
     """Tests for the click action."""
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "clicked"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "clicked"))
     def test_click_success(self, mock_run):
         result = _fn()(action="click", css_selector="#submit-btn")
         assert result.success is True
@@ -734,14 +730,14 @@ class TestClick:
         assert result.success is False
         assert "css_selector" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "element not found"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "element not found"))
     def test_click_failure(self, mock_run):
         result = _fn()(action="click", css_selector=".missing")
         assert result.success is False
         assert "Click failed" in result.error
         assert "element not found" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_click_complex_selector(self, mock_run):
         result = _fn()(action="click", css_selector="div.card > button.primary")
         assert result.success is True
@@ -749,13 +745,13 @@ class TestClick:
 
 
 # ---------------------------------------------------------------------------
-# navigator — fill action
+# chemotaxis — fill action
 # ---------------------------------------------------------------------------
 
 class TestFill:
     """Tests for the fill action."""
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "filled"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "filled"))
     def test_fill_success(self, mock_run):
         result = _fn()(action="fill", css_selector="#email", value="user@example.com")
         assert result.success is True
@@ -774,7 +770,7 @@ class TestFill:
         assert result.success is False
         assert "value" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "not interactable"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "not interactable"))
     def test_fill_failure(self, mock_run):
         result = _fn()(action="fill", css_selector="#locked", value="test")
         assert result.success is False
@@ -789,13 +785,13 @@ class TestFill:
 
 
 # ---------------------------------------------------------------------------
-# navigator — eval action
+# chemotaxis — eval action
 # ---------------------------------------------------------------------------
 
 class TestEval:
     """Tests for the eval action."""
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "42"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "42"))
     def test_eval_success(self, mock_run):
         result = _fn()(action="eval", js="document.title")
         assert result.success is True
@@ -808,14 +804,14 @@ class TestEval:
         assert result.success is False
         assert "js" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "SyntaxError"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "SyntaxError"))
     def test_eval_failure(self, mock_run):
         result = _fn()(action="eval", js="invalid{{")
         assert result.success is False
         assert "Eval failed" in result.error
         assert "SyntaxError" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, '{"key":"value"}'))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, '{"key":"value"}'))
     def test_eval_returns_complex_output(self, mock_run):
         result = _fn()(action="eval", js="JSON.stringify({key:'value'})")
         assert result.success is True
@@ -823,13 +819,13 @@ class TestEval:
 
 
 # ---------------------------------------------------------------------------
-# navigator — resize action
+# chemotaxis — resize action
 # ---------------------------------------------------------------------------
 
 class TestResize:
     """Tests for the resize action."""
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_resize_success(self, mock_run):
         result = _fn()(action="resize", width=1920, height=1080)
         assert result.success is True
@@ -838,7 +834,7 @@ class TestResize:
         assert "scale" not in result.data
         mock_run.assert_called_once_with(["set", "viewport", "1920", "1080"])
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_resize_with_scale(self, mock_run):
         result = _fn()(action="resize", width=1280, height=720, scale=2.0)
         assert result.success is True
@@ -865,13 +861,13 @@ class TestResize:
         result = _fn()(action="resize", width=-100, height=200)
         assert result.success is False
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "unsupported size"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "unsupported size"))
     def test_resize_failure(self, mock_run):
         result = _fn()(action="resize", width=50000, height=50000)
         assert result.success is False
         assert "Resize failed" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "ok"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "ok"))
     def test_resize_scale_zero_not_in_data(self, mock_run):
         """scale=0 should be omitted from result data."""
         result = _fn()(action="resize", width=800, height=600, scale=0)
@@ -880,27 +876,27 @@ class TestResize:
 
 
 # ---------------------------------------------------------------------------
-# navigator — snapshot action
+# chemotaxis — snapshot action
 # ---------------------------------------------------------------------------
 
 class TestSnapshot:
     """Tests for the snapshot action."""
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, "<accessibility tree>"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, "<accessibility tree>"))
     def test_snapshot_success(self, mock_run):
         result = _fn()(action="snapshot")
         assert result.success is True
         assert result.data["snapshot"] == "<accessibility tree>"
         mock_run.assert_called_once_with(["snapshot"])
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "no page"))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(False, "no page"))
     def test_snapshot_failure(self, mock_run):
         result = _fn()(action="snapshot")
         assert result.success is False
         assert "Snapshot failed" in result.error
         assert "no page" in result.error
 
-    @patch("metabolon.enzymes.navigator._run_ab", return_value=(True, ""))
+    @patch("metabolon.enzymes.chemotaxis._run_ab", return_value=(True, ""))
     def test_snapshot_empty_page(self, mock_run):
         result = _fn()(action="snapshot")
         assert result.success is True
@@ -908,7 +904,7 @@ class TestSnapshot:
 
 
 # ---------------------------------------------------------------------------
-# navigator — updated unknown action message
+# chemotaxis — updated unknown action message
 # ---------------------------------------------------------------------------
 
 class TestUpdatedUnknownAction:

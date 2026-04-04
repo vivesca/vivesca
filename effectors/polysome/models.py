@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared data models for polysome.
 
-Extracted to avoid circular imports between worker.py and workflow.py.
+Extracted to avoid circular imports between translocase.py and workflow.py.
 """
 
 from dataclasses import dataclass, field

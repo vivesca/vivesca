@@ -7,7 +7,7 @@ Runs from **soma** (dispatch) through **ganglion** (Temporal + worker).
 
 ```
 soma                           ganglion
-dispatch.py ──submit──> Temporal Server ──dispatch──> worker.py
+dispatch.py ──submit──> Temporal Server ──dispatch──> translocase.py
                (gRPC)    (ganglion:7233)    (poll)    (translation-queue Q)
                                                     │
                                                bash effectors/ribosome

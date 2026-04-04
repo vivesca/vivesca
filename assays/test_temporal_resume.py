@@ -80,7 +80,7 @@ class TestDetectPriorCommits:
             capture_output=True,
         )
 
-        from worker import _detect_prior_commits
+        from translocase import _detect_prior_commits
 
         result = _detect_prior_commits(
             str(tmp_git_repo), time_window_minutes=40, author="ribosome"
@@ -90,7 +90,7 @@ class TestDetectPriorCommits:
 
     def test_no_prior_commits(self, tmp_git_repo: Path) -> None:
         """Clean git state returns empty list."""
-        from worker import _detect_prior_commits
+        from translocase import _detect_prior_commits
 
         result = _detect_prior_commits(
             str(tmp_git_repo), time_window_minutes=40, author="ribosome"
@@ -119,7 +119,7 @@ class TestDetectPriorCommits:
             env=env,
         )
 
-        from worker import _detect_prior_commits
+        from translocase import _detect_prior_commits
 
         result = _detect_prior_commits(
             str(tmp_git_repo), time_window_minutes=40, author="ribosome"

@@ -33,11 +33,11 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 **Temporal on ganglion is the sole dispatch path.** CC dispatches directly via `ribosome_dispatch` MCP tool — no markdown queue, no poller.
 
 ```
-CC (soma) --ribosome_dispatch MCP--> Temporal server (ganglion:7233) --> worker.py (ganglion) --> ribosome script --> zhipu/GLM-5.1
+CC (soma) --ribosome_dispatch MCP--> Temporal server (ganglion:7233) --> translocase.py (ganglion) --> ribosome script --> zhipu/GLM-5.1
 ```
 
 - **MCP tool:** `ribosome_dispatch` — dispatch, batch, status, list, cancel actions
-- **Worker:** `polysome/worker.py` on ganglion, executes ribosome subprocess
+- **Translocase:** `polysome/translocase.py` on ganglion (eEF2 — drives the translation cycle)
 - **Workflow:** `polysome/workflow.py`, retry policy (2 attempts), review activity
 - **Review:** auto-rejects no_commit_on_success, target_file_missing, destruction patterns
 - **Logs:** `~/germline/loci/ribosome-outputs/` on ganglion, `~/germline/loci/ribosome-reviews.jsonl`

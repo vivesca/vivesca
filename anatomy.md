@@ -23,6 +23,14 @@ auscultation — deterministic log reading for system diagnostics.
 spending -- catabolic metabolism of credit card statements.
 - `catabolism(action, days, bank)` -- Financial tracking — spending summaries and payment confirmation.
 
+### censor
+censor — LLM quality gate against named rubrics.
+- `censor_evaluate(rubric, content, context, model)` -- Evaluate content against a named rubric.
+
+### chemotaxis
+chemotaxis — browser automation via agent-browser.
+- `chemotaxis(action, url, domain, output_path, wait_ms, css_selector, value, js, width, height, scale, device)` -- Browser automation tool.
+
 ### circadian
 circadian — calendar management plus sleep and heart-rate sensing.
 - `circadian(action, date, summary, from_time, to_time, description, location, event_id, time, period, start_datetime, end_datetime)`
@@ -100,10 +108,6 @@ integrin
 interoception - sensing internal state.
 - `interoception(action, query, period, start_datetime, end_datetime, symptom, severity, notes, trend_days, recent_n, task_type, days)` -- Unified internal state sensor.
 
-### censor
-censor — LLM quality gate against named rubrics.
-- `censor_evaluate(rubric, content, context, model)` -- Evaluate content against a named rubric.
-
 ### kinesin
 kinesin — session-independent agent dispatcher.
 - `translocation(action, name)` -- Dispatch and manage async kinesin tasks.
@@ -119,10 +123,6 @@ lysis — Firecrawl URL scraper, fallback for bot-protected pages.
 ### mitosis
 mitosis — DR sync tools for soma hot standby.
 - `mitosis(action, targets)` -- Git sync and DR status for soma hot standby.
-
-### navigator
-navigator — browser automation via agent-browser.
-- `navigator(action, url, domain, output_path, wait_ms, css_selector, value, js, width, height, scale, device)` -- Browser automation tool.
 
 ### necropsy
 necropsy — dead session forensics for Claude Code JSONL files.
@@ -284,6 +284,8 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **assay.py**: `assay`
 - **auscultation.py**: `auscultation`
 - **catabolism.py**: `catabolism`
+- **censor.py**: `censor_evaluate`
+- **chemotaxis.py**: `chemotaxis`
 - **circadian.py**: `circadian`
 - **cytokinesis.py**: `cytokinesis`
 - **demethylase.py**: `demethylase`
@@ -303,12 +305,10 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **ingestion.py**: `ingestion`
 - **integrin.py**: `integrin`
 - **interoception.py**: `interoception`
-- **censor.py**: `censor_evaluate`
 - **kinesin.py**: `translocation`
 - **lysin.py**: `lysin`
 - **lysis.py**: `lysis`
 - **mitosis.py**: `mitosis`
-- **navigator.py**: `navigator`
 - **necropsy.py**: `necropsy`
 - **noesis.py**: `noesis`
 - **pinocytosis.py**: `pinocytosis`
@@ -386,26 +386,24 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Operon Heartbeat
 
-**2** healthy, **12** stale (of 14 expressed)
+**4** healthy, **10** stale (of 14 expressed)
 
 - prepare: never fired (cadence: 14d)
 - ribosome: never fired (cadence: 35d)
 - vesicle: never fired (cadence: 14d)
+- scan: never fired (cadence: 35d)
 - evaluate: never fired (cadence: 14d)
-- network: never fired (cadence: 14d)
 - homeostasis: never fired (cadence: 35d)
 - triage: never fired (cadence: 2d)
-- monitor: never fired (cadence: 2d)
+- monitor: 7d ago (cadence: 2d)
 - move: never fired (cadence: 14d)
-- log: never fired (cadence: 14d)
-- exocytosis: never fired (cadence: 14d)
 - reflect: never fired (cadence: 35d)
 
 ## Metabolism State
 
-- Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **540**
-- Most active: `server` (146), `rheotaxis` (143), `fetch` (101), `golem_dispatch` (33), `navigator` (23)
+- Variant store: **24** tool(s), **28** total variant(s)
+- Signals (last 7 days): **290**
+- Most active: `rheotaxis_search` (62), `ecphory` (28), `cytokinesis_gather` (23), `endosomal` (20), `proprioception` (19)
 
 ## Known Lesions
 

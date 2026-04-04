@@ -541,8 +541,8 @@ Site-specific login flows, gotchas, and credentials → see [sites.md](sites.md)
 
 ## Soma (Linux) Compatibility
 
-- `caffeinate` is macOS-only — navigator.py guards with `sys.platform == "darwin"` (fixed 2026-04-02)
-- After editing navigator.py or other enzymes, must restart vivesca MCP (kill PID or SIGHUP)
+- `caffeinate` is macOS-only — chemotaxis.py guards with `sys.platform == "darwin"` (fixed 2026-04-02)
+- After editing chemotaxis.py or other enzymes, must restart vivesca MCP (kill PID or SIGHUP)
 - `__pycache__` clearing alone doesn't help — the MCP process has bytecode in memory
 - Headed mode requires Xvfb (`Xvfb :99 &`), no VNC available for visual interaction
 

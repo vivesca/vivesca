@@ -30,7 +30,7 @@ PHENOTYPE_MANIFEST = (
     "vivesca — unified MCP server. Tools prefixed by domain: "
     "deltos (Telegram send), telegram_receptor (Telegram read), rheotaxis (search), fasti (calendar, HKT), "
     "gap_junction (WhatsApp, NEVER sends), histone (memory DB), "
-    "navigator (browser), interoception (health/system)."
+    "chemotaxis (browser), interoception (health/system)."
 )
 
 _src = Path(__file__).resolve().parent

@@ -5,7 +5,7 @@ Temporal.io-based workflow orchestrator for translation task dispatch. Replaces 
 ## Architecture
 
 - **dispatch.py** — Reads `~/germline/loci/translation-queue.md`, submits tasks to Temporal on ganglion. Runs from soma.
-- **worker.py** — Polls `translation-queue` queue, executes `bash effectors/ribosome --provider X task`. Runs as systemd service on ganglion.
+- **translocase.py** — Temporal worker (eEF2). Polls `translation-queue` queue, executes `bash effectors/ribosome --provider X task`. Runs as systemd service on ganglion.
 - **workflow.py** — `TranslationWorkflow`: dispatches batch of activities via `asyncio.gather`, 3 retries, 35min timeout.
 - **cli.py** — Click CLI: `submit`, `status`, `list` commands. Connects to `localhost:7233` (run on ganglion).
 
@@ -31,4 +31,4 @@ Temporal.io-based workflow orchestrator for translation task dispatch. Replaces 
 - Heartbeat interval: 30s (worker), timeout: 5min (workflow)
 - Per-provider concurrency: zhipu=8, volcano=16, gemini=4, codex=4, infini=2
 - dispatch.py connects to `TEMPORAL_HOST` (default: `ganglion:7233`)
-- worker.py connects to `TEMPORAL_HOST` (default: `localhost:7233` via systemd env)
+- translocase.py connects to `TEMPORAL_HOST` (default: `localhost:7233` via systemd env)

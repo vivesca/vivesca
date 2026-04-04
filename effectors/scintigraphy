@@ -48,7 +48,7 @@ BIN_PATHS = [
 
 MCP_TOOLS = [
     "rheotaxis", "histone", "gap_junction", "circadian",
-    "navigator", "interoception", "tachometer", "cytosol",
+    "chemotaxis", "interoception", "tachometer", "cytosol",
     "ribosome", "porta_inject", "constitution", "nociceptor",
 ]
 

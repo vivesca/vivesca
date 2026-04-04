@@ -1,17 +1,17 @@
 
 """lysis — Firecrawl URL scraper, fallback for bot-protected pages.
 
-Extends navigator with Firecrawl-backed scraping for sites that block
+Extends chemotaxis with Firecrawl-backed scraping for sites that block
 headless browsers. Returns clean markdown.
 """
 
 
 from pathlib import Path
 
-from fastmcp.tools.function_tool import tool  # noqa: E402
-from mcp.types import ToolAnnotations  # noqa: E402
+from fastmcp.tools.function_tool import tool
+from mcp.types import ToolAnnotations
 
-from metabolon.organelles.effector import run_cli  # noqa: E402
+from metabolon.organelles.effector import run_cli
 
 BINARY = str(Path.home() / "germline/effectors/lysis")
 

@@ -1,5 +1,5 @@
 
-"""navigator — browser automation via agent-browser.
+"""chemotaxis — browser automation via agent-browser.
 
 Actions: navigate|extract|screenshot|click|fill|eval|resize|snapshot|check_auth
 """
@@ -28,7 +28,7 @@ def _cleanup_temp_screenshots() -> None:
         Path(p).unlink(missing_ok=True)
 
 
-class NavigatorResult(Secretion):
+class ChemotaxisResult(Secretion):
     success: bool
     data: dict[str, Any]
     error: str | None = None
@@ -52,7 +52,7 @@ def _run_ab(args: list[str]) -> tuple[bool, str]:
     path = os.popen("which agent-browser").read().strip() or "agent-browser"
     try:
         res = subprocess.run(
-            [path] + args, capture_output=True, text=True, check=True, timeout=300
+            [path, *args], capture_output=True, text=True, check=True, timeout=300
         )
         return True, res.stdout.strip()
     except subprocess.CalledProcessError as e:
@@ -75,14 +75,14 @@ def _set_device(name: str) -> tuple[bool, str]:
 def _handle_navigate(
     url: str,
     wait_ms: int,
-) -> NavigatorResult:
+) -> ChemotaxisResult:
     """Shared logic for navigate / extract actions."""
     if not url:
-        return NavigatorResult(success=False, data={}, error="navigate requires: url")
+        return ChemotaxisResult(success=False, data={}, error="navigate requires: url")
 
     ok, out = _run_ab(["open", url])
     if not ok:
-        return NavigatorResult(success=False, data={"url": url}, error=f"Navigation failed: {out}")
+        return ChemotaxisResult(success=False, data={"url": url}, error=f"Navigation failed: {out}")
 
     if wait_ms > 0:
         time.sleep(wait_ms / 1000.0)
@@ -91,7 +91,7 @@ def _handle_navigate(
     ok_text, text = _run_ab(["get", "text"])
     ok_url, current_url = _run_ab(["get", "url"])
 
-    return NavigatorResult(
+    return ChemotaxisResult(
         success=True,
         data={
             "url": current_url if ok_url else url,
@@ -102,11 +102,11 @@ def _handle_navigate(
 
 
 @tool(
-    name="navigator",
+    name="chemotaxis",
     description=f"Browser automation. Actions: {_ACTIONS}",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def navigator(
+def chemotaxis(
     action: str,
     url: str = "",
     domain: str = "",
@@ -119,7 +119,7 @@ def navigator(
     height: int = 0,
     scale: float = 0,
     device: str = "",
-) -> NavigatorResult:
+) -> ChemotaxisResult:
     """Browser automation tool.
 
     Parameters
@@ -159,13 +159,13 @@ def navigator(
     # ── screenshot ───────────────────────────────────────────────────────
     elif action == "screenshot":
         if not url:
-            return NavigatorResult(success=False, data={}, error="screenshot requires: url")
+            return ChemotaxisResult(success=False, data={}, error="screenshot requires: url")
 
         # Apply optional viewport / device presets before capture.
         if device:
             ok_dev, err_dev = _set_device(device)
             if not ok_dev:
-                return NavigatorResult(
+                return ChemotaxisResult(
                     success=False,
                     data={"url": url},
                     error=f"Set device failed: {err_dev}",
@@ -173,7 +173,7 @@ def navigator(
         if width > 0 and height > 0:
             ok_vp, err_vp = _set_viewport(width, height, scale)
             if not ok_vp:
-                return NavigatorResult(
+                return ChemotaxisResult(
                     success=False,
                     data={"url": url},
                     error=f"Set viewport failed: {err_vp}",
@@ -185,7 +185,7 @@ def navigator(
 
         ok, out = _run_ab(["open", url])
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False, data={"url": url}, error=f"Navigation failed: {out}"
             )
 
@@ -200,11 +200,11 @@ def navigator(
 
         ok, out = _run_ab(["screenshot", output_path])
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False, data={"url": url}, error=f"Screenshot failed: {out}"
             )
 
-        return NavigatorResult(
+        return ChemotaxisResult(
             success=True,
             data={"url": url, "output_path": output_path},
         )
@@ -212,15 +212,15 @@ def navigator(
     # ── click ────────────────────────────────────────────────────────────
     elif action == "click":
         if not css_selector:
-            return NavigatorResult(success=False, data={}, error="click requires: css_selector")
+            return ChemotaxisResult(success=False, data={}, error="click requires: css_selector")
         ok, out = _run_ab(["click", css_selector])
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False,
                 data={"css_selector": css_selector},
                 error=f"Click failed: {out}",
             )
-        return NavigatorResult(
+        return ChemotaxisResult(
             success=True,
             data={"css_selector": css_selector, "result": out},
         )
@@ -228,17 +228,17 @@ def navigator(
     # ── fill ─────────────────────────────────────────────────────────────
     elif action == "fill":
         if not css_selector:
-            return NavigatorResult(success=False, data={}, error="fill requires: css_selector")
+            return ChemotaxisResult(success=False, data={}, error="fill requires: css_selector")
         if not value:
-            return NavigatorResult(success=False, data={}, error="fill requires: value")
+            return ChemotaxisResult(success=False, data={}, error="fill requires: value")
         ok, out = _run_ab(["fill", css_selector, value])
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False,
                 data={"css_selector": css_selector, "value": value},
                 error=f"Fill failed: {out}",
             )
-        return NavigatorResult(
+        return ChemotaxisResult(
             success=True,
             data={"css_selector": css_selector, "value": value, "result": out},
         )
@@ -246,15 +246,15 @@ def navigator(
     # ── eval ─────────────────────────────────────────────────────────────
     elif action == "eval":
         if not js:
-            return NavigatorResult(success=False, data={}, error="eval requires: js")
+            return ChemotaxisResult(success=False, data={}, error="eval requires: js")
         ok, out = _run_ab(["eval", js])
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False,
                 data={"js": js},
                 error=f"Eval failed: {out}",
             )
-        return NavigatorResult(
+        return ChemotaxisResult(
             success=True,
             data={"js": js, "result": out},
         )
@@ -262,14 +262,14 @@ def navigator(
     # ── resize ───────────────────────────────────────────────────────────
     elif action == "resize":
         if width <= 0 or height <= 0:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False,
                 data={},
                 error="resize requires: width (>0) and height (>0)",
             )
         ok, out = _set_viewport(width, height, scale)
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False,
                 data={"width": width, "height": height},
                 error=f"Resize failed: {out}",
@@ -277,24 +277,24 @@ def navigator(
         result_data: dict[str, Any] = {"width": width, "height": height}
         if scale > 0:
             result_data["scale"] = scale
-        return NavigatorResult(success=True, data=result_data)
+        return ChemotaxisResult(success=True, data=result_data)
 
     # ── snapshot ─────────────────────────────────────────────────────────
     elif action == "snapshot":
         ok, out = _run_ab(["snapshot"])
         if not ok:
-            return NavigatorResult(success=False, data={}, error=f"Snapshot failed: {out}")
-        return NavigatorResult(success=True, data={"snapshot": out})
+            return ChemotaxisResult(success=False, data={}, error=f"Snapshot failed: {out}")
+        return ChemotaxisResult(success=True, data={"snapshot": out})
 
     # ── check_auth ───────────────────────────────────────────────────────
     elif action == "check_auth":
         if not domain:
-            return NavigatorResult(success=False, data={}, error="check_auth requires: domain")
+            return ChemotaxisResult(success=False, data={}, error="check_auth requires: domain")
 
         target_url = f"https://{domain}" if not domain.startswith("http") else domain
         ok, out = _run_ab(["open", target_url])
         if not ok:
-            return NavigatorResult(
+            return ChemotaxisResult(
                 success=False, data={"domain": domain}, error=f"Navigation failed: {out}"
             )
 
@@ -318,10 +318,10 @@ def navigator(
         if not is_authenticated:
             data["guidance"] = f"Not authenticated. Use 'porta inject {domain}' to inject cookies."
 
-        return NavigatorResult(success=True, data=data)
+        return ChemotaxisResult(success=True, data=data)
 
     else:
-        return NavigatorResult(
+        return ChemotaxisResult(
             success=False,
             data={},
             error=(

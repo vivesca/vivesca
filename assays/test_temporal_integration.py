@@ -308,7 +308,7 @@ async def test_workflow_multiple_tasks_concurrent():
 @pytest.mark.asyncio
 async def test_activity_heartbeat():
     """Activity sends heartbeats while subprocess runs."""
-    from worker import translate
+    from translocase import translate
 
     heartbeats = []
 
@@ -355,7 +355,7 @@ async def test_activity_heartbeat():
 @pytest.mark.asyncio
 async def test_activity_timeout_cancellation():
     """Activity handles cancellation gracefully."""
-    from worker import translate
+    from translocase import translate
 
     env = ActivityEnvironment()
 

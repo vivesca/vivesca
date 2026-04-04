@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Temporal worker for ribosome task orchestration.
+"""Translocase — Temporal worker for ribosome task orchestration.
+
+Named after eEF2/EF-G, the elongation factor that drives the ribosome along mRNA
+during translation. This process polls the task queue and drives tasks to completion.
 
 Polls the 'translation-queue' task queue and executes ribosome commands as activities.
 Each activity runs `bash effectors/ribosome --provider X task`, heartbeats every
 30s, has a 30min timeout, and a retry policy (3 attempts, exponential backoff).
 
 Usage:
-    python worker.py                # Start worker
-    python worker.py --help         # Show this help
+    python translocase.py                # Start worker
+    python translocase.py --help         # Show this help
 """
 
 import asyncio
@@ -310,101 +313,6 @@ def _detect_prior_commits(
         return []
 
 
-def _post_translation_checks(repo_root: str, task: str) -> tuple[int, str, dict]:
-    """Run post-translation verification checks (ast, test, scope).
-
-    Only call when the ribosome subprocess exited successfully (rc == 0).
-    Returns (rc_override, stderr_append, post_checks).
-    """
-    import ast as _ast
-
-    post_checks: dict = {"ast": True, "tests": True, "scope_warnings": []}
-    rc_override = 0
-    stderr_parts: list[str] = []
-
-    # Get modified files from git — check committed changes (not just working tree)
-    # Ribosome commits its work, so `git diff --name-only` shows nothing.
-    # Use `git diff --name-only HEAD~5..HEAD` to catch recent ribosome commits,
-    # falling back to working tree diff if that fails.
-    try:
-        diff_result = _subprocess.run(
-            ["git", "diff", "--name-only", "HEAD~5..HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=repo_root,
-        )
-        modified_files = [f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()]
-        if not modified_files:
-            # Fallback: check working tree (uncommitted changes)
-            diff_result = _subprocess.run(
-                ["git", "diff", "--name-only"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                cwd=repo_root,
-            )
-            modified_files = [
-                f.strip() for f in diff_result.stdout.strip().splitlines() if f.strip()
-            ]
-    except Exception:
-        return (0, "", post_checks)
-
-    # (1) ast_check: validate syntax of every modified .py file
-    for mf in list(modified_files):
-        if mf.endswith(".py"):
-            fpath = os.path.join(repo_root, mf)
-            if os.path.isfile(fpath):
-                try:
-                    _ast.parse(open(fpath).read())
-                except SyntaxError:
-                    rc_override = 1
-                    stderr_parts.append(f"ast_check_failed: {mf}")
-                    post_checks["ast"] = False
-
-    # (2) test_check: run pytest suite (skip if ast failed)
-    if post_checks["ast"]:
-        try:
-            test_result = _subprocess.run(
-                ["uv", "run", "pytest", "assays/", "-q", "--tb=line", "-x", "--timeout=120"],
-                capture_output=True,
-                text=True,
-                timeout=150,
-                cwd=repo_root,
-            )
-            if test_result.returncode != 0:
-                rc_override = 1
-                last_lines = "\n".join(test_result.stdout.splitlines()[-10:])
-                stderr_parts.append(f"test_regression: {last_lines}")
-                post_checks["tests"] = False
-        except _subprocess.TimeoutExpired:
-            rc_override = 1
-            stderr_parts.append("test_regression: timed out")
-            post_checks["tests"] = False
-        except Exception as exc:
-            rc_override = 1
-            stderr_parts.append(f"test_regression: {exc}")
-            post_checks["tests"] = False
-    else:
-        post_checks["tests"] = False
-
-    # (3) scope_check: warn if files modified outside target directory
-    target_match = _re.search(r"~/germline/[\w/.-]+", task)
-    if target_match:
-        target_path = os.path.normpath(target_match.group(0).replace("~/", str(Path.home()) + "/"))
-        # If target looks like a file, use its parent directory
-        if os.path.splitext(target_path)[1]:
-            target_path = os.path.dirname(target_path)
-        for mf in modified_files:
-            full_mf = os.path.normpath(os.path.join(repo_root, mf))
-            in_target = full_mf.startswith(target_path + os.sep) or full_mf == target_path
-            if not in_target and not mf.startswith("assays/"):
-                post_checks["scope_warnings"].append(mf)
-                stderr_parts.append(f"scope_drift: {mf}")
-
-    return (rc_override, "\n".join(stderr_parts), post_checks)
-
-
 @activity.defn
 async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
     """Execute a single ribosome task as a subprocess."""
@@ -593,9 +501,8 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
 
 
 @activity.defn
-async def translate_graph(task: str, provider: str, max_turns: int = 50) -> dict:
+async def translate_graph(task: str, provider: str) -> dict:
     """Execute a ribosome task via LangGraph agent graph (plan→execute→verify→review)."""
-    # Run synchronously in a thread to avoid blocking the event loop
     import asyncio
 
     from translation_graph import run_translation_graph

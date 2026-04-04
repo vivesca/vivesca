@@ -1,4 +1,4 @@
-"""Tests for polysome: worker activities, workflow logic, and CLI — all mocked."""
+"""Tests for polysome: translocase activities, workflow logic, and CLI — all mocked."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class TestTranslate:
 
     def test_imports_worker(self):
         """Worker module imports cleanly."""
-        import worker
+        import translocase as worker
 
         assert hasattr(worker, "translate")
         assert hasattr(worker, "TASK_QUEUE")
@@ -36,7 +36,7 @@ class TestTranslate:
 
     def test_provider_semaphores_defined(self):
         """Per-provider semaphores are initialised with correct limits."""
-        import worker
+        import translocase as worker
 
         assert "zhipu" in worker.PROVIDER_LIMITS
         assert "volcano" in worker.PROVIDER_LIMITS
@@ -46,7 +46,7 @@ class TestTranslate:
     @pytest.mark.asyncio
     async def test_successful_translation_run(self):
         """translate activity returns success dict on exit 0."""
-        import worker
+        import translocase as worker
 
         mock_proc = AsyncMock()
         mock_proc.returncode = None
@@ -69,7 +69,7 @@ class TestTranslate:
 
     def test_ribosome_script_path(self):
         """RIBOSOME_SCRIPT points to the ribosome effector."""
-        import worker
+        import translocase as worker
 
         assert worker.RIBOSOME_SCRIPT.name == "ribosome"
         assert worker.RIBOSOME_SCRIPT.parent.name == "effectors"
@@ -77,7 +77,7 @@ class TestTranslate:
     @pytest.mark.asyncio
     async def test_command_includes_provider_and_turns(self):
         """The subprocess command includes --provider and --max-turns."""
-        import worker
+        import translocase as worker
 
         captured_cmd = None
         mock_proc = AsyncMock()
@@ -507,7 +507,7 @@ class TestReviewPostMortem:
 
     def test_no_commit_detected(self):
         """exit_code=0 with empty post_diff flags no_commit_on_success."""
-        import worker
+        import translocase as worker
 
         result = asyncio.run(
             worker.chaperone(
@@ -527,7 +527,7 @@ class TestReviewPostMortem:
 
     def test_no_commit_not_flagged_on_failure(self):
         """exit_code=1 with empty diff should NOT flag no_commit."""
-        import worker
+        import translocase as worker
 
         result = asyncio.run(
             worker.chaperone(
@@ -546,7 +546,7 @@ class TestReviewPostMortem:
 
     def test_target_file_missing_detected(self):
         """When prompt says 'at X.py' but diff doesn't include it, flag."""
-        import worker
+        import translocase as worker
 
         result = asyncio.run(
             worker.chaperone(
@@ -568,7 +568,7 @@ class TestReviewPostMortem:
 
     def test_target_file_present_no_flag(self):
         """When target file IS in the diff, no flag."""
-        import worker
+        import translocase as worker
 
         result = asyncio.run(
             worker.chaperone(
