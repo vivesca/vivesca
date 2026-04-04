@@ -1,13 +1,9 @@
-from __future__ import annotations
-
-"""Tests for Hatchet server-side rate limits in hatchet-golem/worker.py."""
+"""Tests for Hatchet server-side rate limits in hatchet-ribosome/worker.py."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-golem/worker.py")
+WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-ribosome/worker.py")
 
 
 def _exec_worker(mock_hatchet):
@@ -65,6 +61,7 @@ def test_zhipu_rate_limit_params():
     assert call_args.args[0] == "zhipu-rpm"
     assert call_args.kwargs["limit"] == 200
     from hatchet_sdk.rate_limit import RateLimitDuration
+
     assert call_args.kwargs["duration"] == RateLimitDuration.HOUR
 
 
@@ -77,6 +74,7 @@ def test_infini_rate_limit_params():
     assert call_args.args[0] == "infini-rpm"
     assert call_args.kwargs["limit"] == 200
     from hatchet_sdk.rate_limit import RateLimitDuration
+
     assert call_args.kwargs["duration"] == RateLimitDuration.HOUR
 
 
@@ -89,6 +87,7 @@ def test_volcano_rate_limit_params():
     assert call_args.args[0] == "volcano-rpm"
     assert call_args.kwargs["limit"] == 200
     from hatchet_sdk.rate_limit import RateLimitDuration
+
     assert call_args.kwargs["duration"] == RateLimitDuration.HOUR
 
 
@@ -101,6 +100,7 @@ def test_gemini_rate_limit_params():
     assert call_args.args[0] == "gemini-rpm"
     assert call_args.kwargs["limit"] == 60
     from hatchet_sdk.rate_limit import RateLimitDuration
+
     assert call_args.kwargs["duration"] == RateLimitDuration.MINUTE
 
 
@@ -113,6 +113,7 @@ def test_codex_rate_limit_params():
     assert call_args.args[0] == "codex-rpm"
     assert call_args.kwargs["limit"] == 60
     from hatchet_sdk.rate_limit import RateLimitDuration
+
     assert call_args.kwargs["duration"] == RateLimitDuration.MINUTE
 
 
@@ -128,45 +129,45 @@ def test_all_tasks_have_rate_limits():
 
 
 def test_zhipu_task_rate_limit_key():
-    """golem-zhipu task uses 'zhipu-rpm' rate limit key."""
+    """ribosome-zhipu task uses 'zhipu-rpm' rate limit key."""
     calls = _capture_task_calls()
-    zhipu = next(c for c in calls if c["name"] == "golem-zhipu")
+    zhipu = next(c for c in calls if c["name"] == "ribosome-zhipu")
     rl = zhipu["rate_limits"][0]
     assert rl.static_key == "zhipu-rpm"
     assert rl.units == 1
 
 
 def test_infini_task_rate_limit_key():
-    """golem-infini task uses 'infini-rpm' rate limit key."""
+    """ribosome-infini task uses 'infini-rpm' rate limit key."""
     calls = _capture_task_calls()
-    infini = next(c for c in calls if c["name"] == "golem-infini")
+    infini = next(c for c in calls if c["name"] == "ribosome-infini")
     rl = infini["rate_limits"][0]
     assert rl.static_key == "infini-rpm"
     assert rl.units == 1
 
 
 def test_volcano_task_rate_limit_key():
-    """golem-volcano task uses 'volcano-rpm' rate limit key."""
+    """ribosome-volcano task uses 'volcano-rpm' rate limit key."""
     calls = _capture_task_calls()
-    volcano = next(c for c in calls if c["name"] == "golem-volcano")
+    volcano = next(c for c in calls if c["name"] == "ribosome-volcano")
     rl = volcano["rate_limits"][0]
     assert rl.static_key == "volcano-rpm"
     assert rl.units == 1
 
 
 def test_gemini_task_rate_limit_key():
-    """golem-gemini task uses 'gemini-rpm' rate limit key."""
+    """ribosome-gemini task uses 'gemini-rpm' rate limit key."""
     calls = _capture_task_calls()
-    gemini = next(c for c in calls if c["name"] == "golem-gemini")
+    gemini = next(c for c in calls if c["name"] == "ribosome-gemini")
     rl = gemini["rate_limits"][0]
     assert rl.static_key == "gemini-rpm"
     assert rl.units == 1
 
 
 def test_codex_task_rate_limit_key():
-    """golem-codex task uses 'codex-rpm' rate limit key."""
+    """ribosome-codex task uses 'codex-rpm' rate limit key."""
     calls = _capture_task_calls()
-    codex = next(c for c in calls if c["name"] == "golem-codex")
+    codex = next(c for c in calls if c["name"] == "ribosome-codex")
     rl = codex["rate_limits"][0]
     assert rl.static_key == "codex-rpm"
     assert rl.units == 1
@@ -177,4 +178,10 @@ def test_five_tasks_registered():
     calls = _capture_task_calls()
     assert len(calls) == 5
     names = {c["name"] for c in calls}
-    assert names == {"golem-zhipu", "golem-infini", "golem-volcano", "golem-gemini", "golem-codex"}
+    assert names == {
+        "ribosome-zhipu",
+        "ribosome-infini",
+        "ribosome-volcano",
+        "ribosome-gemini",
+        "ribosome-codex",
+    }

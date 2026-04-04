@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Tests for effectors/golem-tools validate subcommand — Python file quality validator.
+"""Tests for effectors/ribosome-tools validate subcommand — Python file quality validator.
 
 The validator is loaded via exec() (not imported), following the effector testing pattern.
 """
@@ -12,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-EFFECTOR = Path(__file__).resolve().parents[1] / "effectors" / "golem-tools"
+EFFECTOR = Path(__file__).resolve().parents[1] / "effectors" / "ribosome-tools"
 GERMLINE_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run_validator(*files: str) -> subprocess.CompletedProcess[str]:
-    """Invoke golem-tools validate as a subprocess."""
+    """Invoke ribosome-tools validate as a subprocess."""
     return subprocess.run(
         [sys.executable, str(EFFECTOR), "validate", *files],
         capture_output=True,
@@ -39,10 +37,14 @@ def _write_py(tmp_path: Path, name: str, content: str) -> Path:
 
 class TestSyntaxCheck:
     def test_valid_syntax_passes(self, tmp_path: Path):
-        f = _write_py(tmp_path, "clean.py", """\
+        f = _write_py(
+            tmp_path,
+            "clean.py",
+            """\
             x = 1
             y = x + 2
-        """)
+        """,
+        )
         r = _run_validator(str(f))
         assert r.returncode == 0
         assert "PASS" in r.stdout
@@ -59,18 +61,26 @@ class TestSyntaxCheck:
 
 class TestHardcodedPath:
     def test_no_bad_path_passes(self, tmp_path: Path):
-        f = _write_py(tmp_path, "good.py", """\
+        f = _write_py(
+            tmp_path,
+            "good.py",
+            """\
             from pathlib import Path
             home = Path.home()
-        """)
+        """,
+        )
         r = _run_validator(str(f))
         assert r.returncode == 0
         assert "PASS" in r.stdout
 
     def test_users_terry_detected(self, tmp_path: Path):
-        f = _write_py(tmp_path, "bad_path.py", """\
+        f = _write_py(
+            tmp_path,
+            "bad_path.py",
+            """\
             config = str(Path.home() / "germline/config.yaml")
-        """)
+        """,
+        )
         r = _run_validator(str(f))
         assert r.returncode == 1
         assert "hardcoded" in r.stdout.lower()
@@ -93,10 +103,14 @@ class TestMarkers:
         assert marker.lower() in r.stdout.lower() or "marker" in r.stdout.lower()
 
     def test_stub_in_function_name_is_flagged(self, tmp_path: Path):
-        f = _write_py(tmp_path, "stub_func.py", """\
+        f = _write_py(
+            tmp_path,
+            "stub_func.py",
+            """\
             def stub_handler():
                 pass
-        """)
+        """,
+        )
         r = _run_validator(str(f))
         assert r.returncode == 1
         assert "stub" in r.stdout.lower()
@@ -107,20 +121,28 @@ class TestMarkers:
 
 class TestPytestCollection:
     def test_collectable_test_passes(self, tmp_path: Path):
-        f = _write_py(tmp_path, "test_sample.py", """\
+        f = _write_py(
+            tmp_path,
+            "test_sample.py",
+            """\
             def test_one():
                 assert 1 + 1 == 2
-        """)
+        """,
+        )
         r = _run_validator(str(f))
         assert r.returncode == 0
         assert "PASS" in r.stdout
 
     def test_broken_test_file_fails_collection(self, tmp_path: Path):
-        f = _write_py(tmp_path, "test_broken.py", """\
+        f = _write_py(
+            tmp_path,
+            "test_broken.py",
+            """\
             import nonexistent_module_xyz
             def test_one():
                 pass
-        """)
+        """,
+        )
         r = _run_validator(str(f))
         assert r.returncode == 1
         assert "pytest --co failed" in r.stdout
@@ -139,7 +161,7 @@ class TestCLI:
         f2 = _write_py(tmp_path, "b.py", "y = 2\n")
         r = _run_validator(str(f1), str(f2))
         assert r.returncode == 0
-        lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
+        lines = [ln for ln in r.stdout.strip().splitlines() if ln.strip()]
         assert len(lines) == 2
 
     def test_mixed_pass_fail_returns_1(self, tmp_path: Path):

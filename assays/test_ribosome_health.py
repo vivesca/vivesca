@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for effectors/golem-health — golem provider health check."""
+"""Tests for effectors/ribosome-health — ribosome provider health check."""
 
 import json
 import subprocess
@@ -8,35 +8,33 @@ import types
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
-GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-health"
+RIBOSOME_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "ribosome-health"
 
 
 def _load_module():
-    """Load golem-health effector into a module object via exec()."""
-    mod = types.ModuleType("golem_health")
-    mod.__file__ = str(GOLEM_HEALTH_PATH)
-    sys.modules["golem_health"] = mod
-    exec(GOLEM_HEALTH_PATH.read_text(), mod.__dict__)
+    """Load ribosome-health effector into a module object via exec()."""
+    mod = types.ModuleType("ribosome_health")
+    mod.__file__ = str(RIBOSOME_HEALTH_PATH)
+    sys.modules["ribosome_health"] = mod
+    exec(RIBOSOME_HEALTH_PATH.read_text(), mod.__dict__)
     return mod
 
 
 # ── Script structure tests ────────────────────────────────────────────────────
 
 
-class TestGolemHealthScript:
+class TestRibosomeHealthScript:
     def test_script_exists(self):
-        """Test golem-health script exists."""
-        assert GOLEM_HEALTH_PATH.exists()
+        """Test ribosome-health script exists."""
+        assert RIBOSOME_HEALTH_PATH.exists()
 
     def test_script_is_executable(self):
-        """Test golem-health script is executable."""
-        assert GOLEM_HEALTH_PATH.stat().st_mode & 0o111
+        """Test ribosome-health script is executable."""
+        assert RIBOSOME_HEALTH_PATH.stat().st_mode & 0o111
 
     def test_script_has_shebang(self):
-        """Test golem-health script has Python shebang."""
-        first_line = GOLEM_HEALTH_PATH.read_text().splitlines()[0]
+        """Test ribosome-health script has Python shebang."""
+        first_line = RIBOSOME_HEALTH_PATH.read_text().splitlines()[0]
         assert "python" in first_line.lower()
 
 
@@ -47,7 +45,7 @@ class TestArgumentParsing:
     def test_help_runs(self):
         """Test --help runs without error."""
         result = subprocess.run(
-            [sys.executable, str(GOLEM_HEALTH_PATH), "--help"],
+            [sys.executable, str(RIBOSOME_HEALTH_PATH), "--help"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -58,7 +56,7 @@ class TestArgumentParsing:
     def test_invalid_provider_fails(self):
         """Test invalid provider name is rejected."""
         result = subprocess.run(
-            [sys.executable, str(GOLEM_HEALTH_PATH), "--provider", "invalid"],
+            [sys.executable, str(RIBOSOME_HEALTH_PATH), "--provider", "invalid"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -124,7 +122,7 @@ class TestCheckProvider:
         result = module.check_provider(
             provider="unknown",
             env={},
-            golem_path=Path("/fake/golem"),
+            ribosome_path=Path("/fake/ribosome"),
         )
         assert result.status == "ERROR"
         assert "Unknown provider" in (result.error or "")
@@ -136,13 +134,13 @@ class TestCheckProvider:
         result = module.check_provider(
             provider="zhipu",
             env={},  # No ZHIPU_API_KEY
-            golem_path=Path("/fake/golem"),
+            ribosome_path=Path("/fake/ribosome"),
         )
         assert result.status == "FAIL"
         assert "ZHIPU_API_KEY" in (result.error or "")
 
     def test_check_provider_success(self):
-        """Test check_provider with successful golem run."""
+        """Test check_provider with successful ribosome run."""
         module = _load_module()
 
         mock_run = mock.Mock(
@@ -154,14 +152,14 @@ class TestCheckProvider:
             result = module.check_provider(
                 provider="zhipu",
                 env={"ZHIPU_API_KEY": "test-key"},
-                golem_path=Path("/fake/golem"),
+                ribosome_path=Path("/fake/ribosome"),
             )
         assert result.status == "OK"
         assert result.exit_code == 0
         assert result.has_output is True
 
     def test_check_provider_failure(self):
-        """Test check_provider when golem fails."""
+        """Test check_provider when ribosome fails."""
         module = _load_module()
 
         mock_run = mock.Mock(
@@ -173,23 +171,24 @@ class TestCheckProvider:
             result = module.check_provider(
                 provider="zhipu",
                 env={"ZHIPU_API_KEY": "test-key"},
-                golem_path=Path("/fake/golem"),
+                ribosome_path=Path("/fake/ribosome"),
             )
         assert result.status == "FAIL"
         assert result.exit_code == 1
 
     def test_check_provider_timeout(self):
-        """Test check_provider when golem times out."""
+        """Test check_provider when ribosome times out."""
         module = _load_module()
 
         with mock.patch.object(
-            module.subprocess, "run",
-            side_effect=subprocess.TimeoutExpired(cmd="golem", timeout=60),
+            module.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(cmd="ribosome", timeout=60),
         ):
             result = module.check_provider(
                 provider="zhipu",
                 env={"ZHIPU_API_KEY": "test-key"},
-                golem_path=Path("/fake/golem"),
+                ribosome_path=Path("/fake/ribosome"),
             )
         assert result.status == "FAIL"
         assert "timeout" in (result.error or "").lower()
@@ -293,15 +292,19 @@ class TestMainFunction:
             stderr="",
         )
         with mock.patch.object(module.subprocess, "run", return_value=mock_run):
-            # Mock the golem path check
+            # Mock the ribosome path check
             with mock.patch.object(Path, "exists", return_value=True):
-                with mock.patch.object(Path, "__truediv__", return_value=Path("/fake/golem")):
+                with mock.patch.object(Path, "__truediv__", return_value=Path("/fake/ribosome")):
                     # Patch source_env_file to return keys
-                    with mock.patch.object(module, "source_env_file", return_value={
-                        "ZHIPU_API_KEY": "key",
-                        "INFINI_API_KEY": "key",
-                        "VOLCANO_API_KEY": "key",
-                    }):
+                    with mock.patch.object(
+                        module,
+                        "source_env_file",
+                        return_value={
+                            "ZHIPU_API_KEY": "key",
+                            "INFINI_API_KEY": "key",
+                            "VOLCANO_API_KEY": "key",
+                        },
+                    ):
                         exit_code = module.main(["--provider", "zhipu", "--json"])
         assert exit_code == 0
 
@@ -316,8 +319,12 @@ class TestMainFunction:
         )
         with mock.patch.object(module.subprocess, "run", return_value=mock_run):
             with mock.patch.object(Path, "exists", return_value=True):
-                with mock.patch.object(module, "source_env_file", return_value={
-                    "ZHIPU_API_KEY": "key",
-                }):
+                with mock.patch.object(
+                    module,
+                    "source_env_file",
+                    return_value={
+                        "ZHIPU_API_KEY": "key",
+                    },
+                ):
                     exit_code = module.main(["--provider", "zhipu", "--json"])
         assert exit_code == 1

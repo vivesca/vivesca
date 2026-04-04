@@ -1,10 +1,8 @@
-from __future__ import annotations
-
-"""Tests for golem-daemon graceful SIGTERM shutdown.
+"""Tests for ribosome-daemon graceful SIGTERM shutdown.
 
 Tests the shutdown sequence:
   1) stop accepting new tasks
-  2) wait up to 60s for running golems to finish
+  2) wait up to 60s for running ribosomes to finish
   3) auto-commit any uncommitted work
   4) push to remote
   5) then exit
@@ -12,23 +10,21 @@ Tests the shutdown sequence:
 
 import json
 import signal
-import time
 from concurrent.futures import Future
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 
-def _load_golem_daemon():
-    """Load the golem-daemon module by exec-ing its Python body."""
-    source = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
-    ns: dict = {"__name__": "golem_daemon"}
+def _load_ribosome_daemon():
+    """Load the ribosome-daemon module by exec-ing its Python body."""
+    source = open(str(Path.home() / "germline/effectors/ribosome-daemon")).read()
+    ns: dict = {"__name__": "ribosome_daemon"}
     exec(source, ns)
     return ns
 
 
-_mod = _load_golem_daemon()
+_mod = _load_ribosome_daemon()
 
 _handle_sigterm = _mod.get("_handle_sigterm")
 _shutdown_event = _mod.get("_shutdown_event")
@@ -42,15 +38,15 @@ def _make_queue_dir(tmp_path: Path) -> Path:
     """Create the queue directory structure and return queue file path."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True)
-    return queue_dir / "golem-queue.md"
+    return queue_dir / "translation-queue.md"
 
 
 def _setup_paths(tmp_path: Path):
     """Set module paths to tmp and return originals for restoration."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text("- [ ] `golem \"placeholder\"`\n\n## Done\n")
-    jsonl_path = tmp_path / "golem.jsonl"
-    log_path = tmp_path / "golem-daemon.log"
+    queue_path.write_text('- [ ] `ribosome "placeholder"`\n\n## Done\n')
+    jsonl_path = tmp_path / "ribosome.jsonl"
+    log_path = tmp_path / "ribosome-daemon.log"
     log_path.touch()
     saved = {
         "QUEUE_FILE": _mod["QUEUE_FILE"],
@@ -116,12 +112,12 @@ class TestDrainRunning:
 
     def test_completed_future_marked_done(self, tmp_path):
         """_drain_running processes a successful future and marks it done."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n\n## Done\n")
+        saved, queue_path, _jsonl_path, _log_path = _setup_paths(tmp_path)
+        queue_path.write_text('- [ ] `ribosome "task1"`\n\n## Done\n')
         try:
             future = Future()
-            future.set_result(('golem "task1"', 0, "ok", 10))
-            running = {future: (0, 'golem "task1"', "infini", "t-abc123")}
+            future.set_result(('ribosome "task1"', 0, "ok", 10))
+            running = {future: (0, 'ribosome "task1"', "infini", "t-abc123")}
 
             remaining = _drain_running(running, timeout=5)
         finally:
@@ -134,12 +130,12 @@ class TestDrainRunning:
 
     def test_failed_future_marked_retry(self, tmp_path):
         """_drain_running processes a failed future and marks it for retry."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        saved, queue_path, _jsonl_path, _log_path = _setup_paths(tmp_path)
+        queue_path.write_text('- [ ] `ribosome "task1"`\n')
         try:
             future = Future()
-            future.set_result(('golem "task1"', 1, "error output", 5))
-            running = {future: (0, 'golem "task1"', "infini", "t-abc123")}
+            future.set_result(('ribosome "task1"', 1, "error output", 5))
+            running = {future: (0, 'ribosome "task1"', "infini", "t-abc123")}
 
             remaining = _drain_running(running, timeout=5)
         finally:
@@ -151,10 +147,10 @@ class TestDrainRunning:
 
     def test_timeout_returns_remaining_count(self, tmp_path):
         """_drain_running returns count of unfinished futures after timeout."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
+        saved, _queue_path, _jsonl_path, _log_path = _setup_paths(tmp_path)
         try:
             future = Future()  # Never completes
-            running = {future: (0, 'golem "slow"', "infini", "t-def456")}
+            running = {future: (0, 'ribosome "slow"', "infini", "t-def456")}
 
             remaining = _drain_running(running, timeout=1)
         finally:
@@ -165,19 +161,16 @@ class TestDrainRunning:
 
     def test_mixed_completed_and_running(self, tmp_path):
         """_drain_running handles mix of done and still-running futures."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
-        queue_path.write_text(
-            "- [ ] `golem \"done_task\"`\n"
-            "- [ ] `golem \"slow_task\"`\n"
-        )
+        saved, queue_path, _jsonl_path, _log_path = _setup_paths(tmp_path)
+        queue_path.write_text('- [ ] `ribosome "done_task"`\n- [ ] `ribosome "slow_task"`\n')
         try:
             done_future = Future()
-            done_future.set_result(('golem "done_task"', 0, "ok", 10))
+            done_future.set_result(('ribosome "done_task"', 0, "ok", 10))
             slow_future = Future()  # Never completes
 
             running = {
-                done_future: (0, 'golem "done_task"', "infini", "t-001"),
-                slow_future: (1, 'golem "slow_task"', "volcano", "t-002"),
+                done_future: (0, 'ribosome "done_task"', "infini", "t-001"),
+                slow_future: (1, 'ribosome "slow_task"', "volcano", "t-002"),
             }
 
             remaining = _drain_running(running, timeout=1)
@@ -192,12 +185,12 @@ class TestDrainRunning:
 
     def test_writes_jsonl_record(self, tmp_path):
         """_drain_running writes JSONL records for completed tasks."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n\n## Done\n")
+        saved, queue_path, jsonl_path, _log_path = _setup_paths(tmp_path)
+        queue_path.write_text('- [ ] `ribosome "task1"`\n\n## Done\n')
         try:
             future = Future()
-            future.set_result(('golem "task1"', 0, "ok", 42))
-            running = {future: (0, 'golem "task1"', "infini", "t-abc123")}
+            future.set_result(('ribosome "task1"', 0, "ok", 42))
+            running = {future: (0, 'ribosome "task1"', "infini", "t-abc123")}
 
             _drain_running(running, timeout=5)
         finally:
@@ -213,12 +206,12 @@ class TestDrainRunning:
 
     def test_handles_future_exception(self, tmp_path):
         """_drain_running handles futures that raised exceptions."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        saved, queue_path, _jsonl_path, _log_path = _setup_paths(tmp_path)
+        queue_path.write_text('- [ ] `ribosome "task1"`\n')
         try:
             future = Future()
             future.set_exception(RuntimeError("boom"))
-            running = {future: (0, 'golem "task1"', "infini", "t-abc123")}
+            running = {future: (0, 'ribosome "task1"', "infini", "t-abc123")}
 
             remaining = _drain_running(running, timeout=5)
         finally:
@@ -229,21 +222,17 @@ class TestDrainRunning:
 
     def test_multiple_completed_futures(self, tmp_path):
         """_drain_running processes multiple completed futures."""
-        saved, queue_path, jsonl_path, log_path = _setup_paths(tmp_path)
-        queue_path.write_text(
-            "- [ ] `golem \"task1\"`\n"
-            "- [ ] `golem \"task2\"`\n\n"
-            "## Done\n"
-        )
+        saved, queue_path, _jsonl_path, _log_path = _setup_paths(tmp_path)
+        queue_path.write_text('- [ ] `ribosome "task1"`\n- [ ] `ribosome "task2"`\n\n## Done\n')
         try:
             f1 = Future()
-            f1.set_result(('golem "task1"', 0, "ok", 10))
+            f1.set_result(('ribosome "task1"', 0, "ok", 10))
             f2 = Future()
-            f2.set_result(('golem "task2"', 0, "ok", 20))
+            f2.set_result(('ribosome "task2"', 0, "ok", 20))
 
             running = {
-                f1: (0, 'golem "task1"', "infini", "t-001"),
-                f2: (1, 'golem "task2"', "volcano", "t-002"),
+                f1: (0, 'ribosome "task1"', "infini", "t-001"),
+                f2: (1, 'ribosome "task2"', "volcano", "t-002"),
             }
 
             remaining = _drain_running(running, timeout=5)
@@ -259,6 +248,7 @@ class TestDrainRunning:
     def test_default_timeout_is_60(self):
         """_drain_running default timeout parameter is 60 seconds."""
         import inspect
+
         sig = inspect.signature(_drain_running)
         assert sig.parameters["timeout"].default == 60
 
@@ -277,6 +267,7 @@ class TestShutdownAutoCommit:
     def test_shutdown_event_module_level(self):
         """_shutdown_event is a threading.Event at module level."""
         import threading
+
         assert isinstance(_shutdown_event, threading.Event)
 
     def test_drain_running_is_callable(self):

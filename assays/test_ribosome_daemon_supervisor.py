@@ -1,23 +1,19 @@
-from __future__ import annotations
-
 import configparser
 import os
 import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 # Paths (no hardcoded macOS home path)
-SUPERVISOR_CONF = Path("/etc/supervisor/conf.d/golem-daemon.conf")
-WRAPPER_SCRIPT = Path.home() / "germline" / "effectors" / "golem-daemon-wrapper.sh"
-DAEMON_SCRIPT = Path.home() / "germline" / "effectors" / "golem-daemon"
+SUPERVISOR_CONF = Path("/etc/supervisor/conf.d/ribosome-daemon.conf")
+WRAPPER_SCRIPT = Path.home() / "germline" / "effectors" / "ribosome-daemon-wrapper.sh"
+DAEMON_SCRIPT = Path.home() / "germline" / "effectors" / "ribosome-daemon"
 LOG_DIR = Path.home() / ".local" / "share" / "vivesca"
 ENV_FILE = Path.home() / ".env.fly"
 
 
 class TestSupervisorConfig:
-    """Tests for /etc/supervisor/conf.d/golem-daemon.conf."""
+    """Tests for /etc/supervisor/conf.d/ribosome-daemon.conf."""
 
     def test_config_file_exists(self):
         assert SUPERVISOR_CONF.exists(), f"Supervisor config not found at {SUPERVISOR_CONF}"
@@ -25,63 +21,63 @@ class TestSupervisorConfig:
     def test_config_parses_as_ini(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        assert "program:golem-daemon" in c.sections()
+        assert "program:ribosome-daemon" in c.sections()
 
     def test_command_points_to_wrapper(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        cmd = c.get("program:golem-daemon", "command")
+        cmd = c.get("program:ribosome-daemon", "command")
         assert cmd == str(WRAPPER_SCRIPT)
 
     def test_user_is_terry(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        assert c.get("program:golem-daemon", "user") == "terry"
+        assert c.get("program:ribosome-daemon", "user") == "terry"
 
     def test_autorestart_enabled(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        assert c.get("program:golem-daemon", "autorestart") == "true"
+        assert c.get("program:ribosome-daemon", "autorestart") == "true"
 
     def test_autostart_enabled(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        assert c.get("program:golem-daemon", "autostart") == "true"
+        assert c.get("program:ribosome-daemon", "autostart") == "true"
 
     def test_redirect_stderr_true(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        assert c.get("program:golem-daemon", "redirect_stderr") == "true"
+        assert c.get("program:ribosome-daemon", "redirect_stderr") == "true"
 
     def test_stdout_logfile_in_vivesca(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        logfile = c.get("program:golem-daemon", "stdout_logfile")
+        logfile = c.get("program:ribosome-daemon", "stdout_logfile")
         assert str(LOG_DIR) in logfile
         assert logfile.endswith(".log")
 
     def test_stdout_logfile_maxbytes_set(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        maxbytes = c.get("program:golem-daemon", "stdout_logfile_maxbytes")
+        maxbytes = c.get("program:ribosome-daemon", "stdout_logfile_maxbytes")
         assert maxbytes.endswith("MB")
 
     def test_stopasgroup_and_killasgroup(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        assert c.get("program:golem-daemon", "stopasgroup") == "true"
-        assert c.get("program:golem-daemon", "killasgroup") == "true"
+        assert c.get("program:ribosome-daemon", "stopasgroup") == "true"
+        assert c.get("program:ribosome-daemon", "killasgroup") == "true"
 
     def test_environment_sets_home(self):
         c = configparser.ConfigParser()
         c.read(str(SUPERVISOR_CONF))
-        env = c.get("program:golem-daemon", "environment")
+        env = c.get("program:ribosome-daemon", "environment")
         assert 'HOME="/home/terry"' in env
         assert 'USER="terry"' in env
 
 
 class TestWrapperScript:
-    """Tests for the golem-daemon-wrapper.sh script."""
+    """Tests for the ribosome-daemon-wrapper.sh script."""
 
     def test_wrapper_script_exists(self):
         assert WRAPPER_SCRIPT.exists(), f"Wrapper script not found at {WRAPPER_SCRIPT}"
@@ -112,7 +108,9 @@ class TestWrapperScript:
     def test_wrapper_script_checks_env_file_exists(self):
         """Wrapper should gracefully handle missing .env.fly."""
         content = WRAPPER_SCRIPT.read_text()
-        assert 'if [ -f' in content or "[ -f " in content, "Wrapper should check if .env.fly exists before sourcing"
+        assert "if [ -f" in content or "[ -f " in content, (
+            "Wrapper should check if .env.fly exists before sourcing"
+        )
 
     def test_wrapper_script_syntax_valid(self):
         """bash -n checks syntax without executing."""
@@ -176,9 +174,10 @@ class TestEnvFileHandling:
         env_file.write_text('export TEST_VAR_123="hello_world"\n')
 
         # Run a test that checks if the env var is set after sourcing
-        result = subprocess.run(
+        subprocess.run(
             [
-                "bash", "-c",
+                "bash",
+                "-c",
                 f"set -a; source {WRAPPER_SCRIPT} --dry-run 2>/dev/null; echo $TEST_VAR_123",
             ],
             capture_output=True,
@@ -189,7 +188,8 @@ class TestEnvFileHandling:
         # but we can test the sourcing part separately
         source_result = subprocess.run(
             [
-                "bash", "-c",
+                "bash",
+                "-c",
                 f"if [ -f '{fake_home}/.env.fly' ]; then set -a; source '{fake_home}/.env.fly'; set +a; fi; echo $TEST_VAR_123",
             ],
             capture_output=True,

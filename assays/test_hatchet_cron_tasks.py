@@ -1,14 +1,10 @@
-from __future__ import annotations
-
-"""Tests for cron-triggered Hatchet tasks (golem-requeue, golem-health)."""
+"""Tests for cron-triggered Hatchet tasks (ribosome-requeue, ribosome-health)."""
 
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-golem/worker.py")
+WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-ribosome/worker.py")
 
 
 def _make_mock_hatchet():
@@ -51,45 +47,48 @@ def test_seven_tasks_registered():
     assert len(calls) == 6  # 4 provider + 2 cron (zhipu moved to durable_task)
     names = {c["name"] for c in calls}
     expected = {
-        "golem-infini", "golem-volcano",
-        "golem-gemini", "golem-codex",
-        "golem-requeue", "golem-health",
+        "ribosome-infini",
+        "ribosome-volcano",
+        "ribosome-gemini",
+        "ribosome-codex",
+        "ribosome-requeue",
+        "ribosome-health",
     }
     assert names == expected
 
 
-def test_golem_requeue_has_cron():
-    """golem-requeue task has on_crons schedule."""
+def test_ribosome_requeue_has_cron():
+    """ribosome-requeue task has on_crons schedule."""
     calls = _capture_task_calls()
-    rq = next(c for c in calls if c["name"] == "golem-requeue")
+    rq = next(c for c in calls if c["name"] == "ribosome-requeue")
     assert rq["on_crons"] == ["*/30 * * * *"]
 
 
-def test_golem_requeue_timeout():
-    """golem-requeue has 5m execution timeout."""
+def test_ribosome_requeue_timeout():
+    """ribosome-requeue has 5m execution timeout."""
     calls = _capture_task_calls()
-    rq = next(c for c in calls if c["name"] == "golem-requeue")
+    rq = next(c for c in calls if c["name"] == "ribosome-requeue")
     assert rq["execution_timeout"] == "5m"
 
 
-def test_golem_health_has_cron():
-    """golem-health task has on_crons schedule."""
+def test_ribosome_health_has_cron():
+    """ribosome-health task has on_crons schedule."""
     calls = _capture_task_calls()
-    h = next(c for c in calls if c["name"] == "golem-health")
+    h = next(c for c in calls if c["name"] == "ribosome-health")
     assert h["on_crons"] == ["*/15 * * * *"]
 
 
-def test_golem_health_timeout():
-    """golem-health has 3m execution timeout."""
+def test_ribosome_health_timeout():
+    """ribosome-health has 3m execution timeout."""
     calls = _capture_task_calls()
-    h = next(c for c in calls if c["name"] == "golem-health")
+    h = next(c for c in calls if c["name"] == "ribosome-health")
     assert h["execution_timeout"] == "3m"
 
 
 def test_cron_tasks_no_concurrency_limit():
     """Cron tasks should not have per-provider concurrency constraints."""
     calls = _capture_task_calls()
-    for name in ("golem-requeue", "golem-health"):
+    for name in ("ribosome-requeue", "ribosome-health"):
         t = next(c for c in calls if c["name"] == name)
         assert "concurrency" not in t
 
@@ -97,7 +96,7 @@ def test_cron_tasks_no_concurrency_limit():
 def test_cron_tasks_no_rate_limits():
     """Cron tasks should not consume provider rate limits."""
     calls = _capture_task_calls()
-    for name in ("golem-requeue", "golem-health"):
+    for name in ("ribosome-requeue", "ribosome-health"):
         t = next(c for c in calls if c["name"] == name)
         assert "rate_limits" not in t
 
@@ -121,29 +120,33 @@ class TestCountPending:
     def test_only_pending(self, tmp_path):
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
-            - [ ] `golem --provider zhipu "task A"`
-            - [ ] `golem --provider volcano "task B"`
-        """))
+        qf.write_text(
+            textwrap.dedent("""\
+            - [ ] `ribosome --provider zhipu "task A"`
+            - [ ] `ribosome --provider volcano "task B"`
+        """)
+        )
         result = ns["_count_pending"](qf)
         assert result == 2
 
     def test_high_priority_counted(self, tmp_path):
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text('- [!!] `golem --provider zhipu "urgent"`\n')
+        qf.write_text('- [!!] `ribosome --provider zhipu "urgent"`\n')
         result = ns["_count_pending"](qf)
         assert result == 1
 
     def test_mixed_pending_and_done(self, tmp_path):
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
-            - [ ] `golem --provider zhipu "pending"`
-            - [x] `golem --provider zhipu "done"`
-            - [!] `golem --provider zhipu "failed"`
-            - [!!] `golem --provider zhipu "urgent"`
-        """))
+        qf.write_text(
+            textwrap.dedent("""\
+            - [ ] `ribosome --provider zhipu "pending"`
+            - [x] `ribosome --provider zhipu "done"`
+            - [!] `ribosome --provider zhipu "failed"`
+            - [!!] `ribosome --provider zhipu "urgent"`
+        """)
+        )
         result = ns["_count_pending"](qf)
         assert result == 2  # only [ ] and [!!]
 
@@ -157,10 +160,12 @@ class TestCountPending:
     def test_no_done_counted(self, tmp_path):
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
-            - [x] `golem --provider zhipu "done A"`
-            - [x] `golem --provider zhipu "done B"`
-        """))
+        qf.write_text(
+            textwrap.dedent("""\
+            - [x] `ribosome --provider zhipu "done A"`
+            - [x] `ribosome --provider zhipu "done B"`
+        """)
+        )
         result = ns["_count_pending"](qf)
         assert result == 0
 
@@ -174,7 +179,7 @@ class TestAutoRequeue:
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
         # Write 25 pending tasks (> threshold of 20)
-        lines = [f'- [ ] `golem --provider zhipu "task {i}"`' for i in range(25)]
+        lines = [f'- [ ] `ribosome --provider zhipu "task {i}"`' for i in range(25)]
         qf.write_text("\n".join(lines) + "\n")
         result = ns["_auto_requeue"](min_pending=20, queue_file=qf)
         assert result == 0
@@ -183,12 +188,14 @@ class TestAutoRequeue:
         """Generates tasks when pending < threshold."""
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf.write_text(
+            textwrap.dedent("""\
             # Queue
             ## Pending
-            - [ ] `golem --provider zhipu "only task"`
+            - [ ] `ribosome --provider zhipu "only task"`
             ## Done
-        """))
+        """)
+        )
         result = ns["_auto_requeue"](min_pending=20, queue_file=qf)
         assert result > 0
 
@@ -196,12 +203,14 @@ class TestAutoRequeue:
         """Appended tasks are written to the queue file."""
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf.write_text(
+            textwrap.dedent("""\
             # Queue
             ## Pending
-            - [ ] `golem --provider zhipu "existing"`
+            - [ ] `ribosome --provider zhipu "existing"`
             ## Done
-        """))
+        """)
+        )
         added = ns["_auto_requeue"](min_pending=20, queue_file=qf)
         assert added > 0
         text = qf.read_text()
@@ -212,19 +221,21 @@ class TestAutoRequeue:
         """New tasks go before ## Done, not after."""
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf.write_text(
+            textwrap.dedent("""\
             # Queue
             ## Pending
-            - [ ] `golem --provider zhipu "existing"`
+            - [ ] `ribosome --provider zhipu "existing"`
             ## Done
-            - [x] `golem --provider zhipu "old"`
-        """))
+            - [x] `ribosome --provider zhipu "old"`
+        """)
+        )
         ns["_auto_requeue"](min_pending=20, queue_file=qf)
         lines = qf.read_text().splitlines()
-        done_idx = next(i for i, l in enumerate(lines) if l.strip() == "## Done")
+        done_idx = next(i for i, ln in enumerate(lines) if ln.strip() == "## Done")
         # Something should appear between pending and done (the header + tasks)
         requeue_idx = next(
-            (i for i, l in enumerate(lines) if "Auto-requeue" in l),
+            (i for i, ln in enumerate(lines) if "Auto-requeue" in ln),
             None,
         )
         assert requeue_idx is not None
@@ -247,10 +258,7 @@ class TestAutoRequeue:
         added = ns["_auto_requeue"](min_pending=20, queue_file=qf)
         text = qf.read_text()
         # Count lines matching the task pattern (excluding header)
-        task_lines = [
-            l for l in text.splitlines()
-            if l.strip().startswith("- [ ] `golem")
-        ]
+        task_lines = [ln for ln in text.splitlines() if ln.strip().startswith("- [ ] `ribosome")]
         assert len(task_lines) == added
 
     def test_generated_tasks_have_provider(self, tmp_path):
@@ -260,10 +268,7 @@ class TestAutoRequeue:
         qf.write_text("# Queue\n\n## Done\n")
         ns["_auto_requeue"](min_pending=20, queue_file=qf)
         text = qf.read_text()
-        task_lines = [
-            l for l in text.splitlines()
-            if l.strip().startswith("- [ ] `golem")
-        ]
+        task_lines = [ln for ln in text.splitlines() if ln.strip().startswith("- [ ] `ribosome")]
         for tl in task_lines:
             assert "--provider" in tl
 
@@ -274,32 +279,31 @@ class TestAutoRequeue:
         qf.write_text("# Queue\n\n## Done\n")
         ns["_auto_requeue"](min_pending=20, queue_file=qf)
         text = qf.read_text()
-        task_lines = [
-            l for l in text.splitlines()
-            if l.strip().startswith("- [ ] `golem")
-        ]
+        task_lines = [ln for ln in text.splitlines() if ln.strip().startswith("- [ ] `ribosome")]
         for tl in task_lines:
             assert "--max-turns" in tl
 
 
-# ── golem_requeue task function tests ───────────────────────────────────
+# ── ribosome_requeue task function tests ───────────────────────────────────
 
 
-class TestGolemRequeueTask:
+class TestRibosomeRequeueTask:
     def test_returns_pending_count_and_added(self, tmp_path):
         """Task returns dict with pending_count and added keys."""
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf.write_text(
+            textwrap.dedent("""\
             # Queue
             ## Pending
-            - [ ] `golem --provider zhipu "task A"`
-            - [ ] `golem --provider zhipu "task B"`
+            - [ ] `ribosome --provider zhipu "task A"`
+            - [ ] `ribosome --provider zhipu "task B"`
             ## Done
-        """))
+        """)
+        )
         # Override QUEUE_FILE in namespace so _count_pending uses it
         ns["QUEUE_FILE"] = qf
-        result = ns["golem_requeue"]({}, {})
+        result = ns["ribosome_requeue"]({}, {})
         assert "pending_count" in result
         assert "added" in result
         assert isinstance(result["pending_count"], int)
@@ -309,27 +313,27 @@ class TestGolemRequeueTask:
         """No tasks added when queue already has enough."""
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        lines = [f'- [ ] `golem --provider zhipu "task {i}"`' for i in range(25)]
+        lines = [f'- [ ] `ribosome --provider zhipu "task {i}"`' for i in range(25)]
         qf.write_text("\n".join(lines) + "\n")
         ns["QUEUE_FILE"] = qf
-        result = ns["golem_requeue"]({}, {})
+        result = ns["ribosome_requeue"]({}, {})
         assert result["added"] == 0
 
     def test_added_positive_when_low(self, tmp_path):
         """Tasks are added when queue is low."""
         ns = _exec_worker(_make_mock_hatchet())
         qf = tmp_path / "queue.md"
-        qf.write_text('- [ ] `golem --provider zhipu "only one"`\n')
+        qf.write_text('- [ ] `ribosome --provider zhipu "only one"`\n')
         ns["QUEUE_FILE"] = qf
-        result = ns["golem_requeue"]({}, {})
+        result = ns["ribosome_requeue"]({}, {})
         assert result["added"] > 0
         assert result["pending_count"] > 1
 
 
-# ── golem_health task function tests ────────────────────────────────────
+# ── ribosome_health task function tests ────────────────────────────────────
 
 
-class TestGolemHealthTask:
+class TestRibosomeHealthTask:
     def test_returns_success_on_zero_exit(self):
         """Returns success dict when health script exits 0."""
         ns = _exec_worker(_make_mock_hatchet())
@@ -338,7 +342,7 @@ class TestGolemHealthTask:
         mock_subprocess.run.return_value = mock_proc
         mock_subprocess.TimeoutExpired = Exception
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert result["success"] is True
         assert result["exit_code"] == 0
         assert "all systems go" in result["output"]
@@ -351,7 +355,7 @@ class TestGolemHealthTask:
         mock_subprocess.run.return_value = mock_proc
         mock_subprocess.TimeoutExpired = Exception
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert result["success"] is True
         assert result["exit_code"] == 2
 
@@ -363,7 +367,7 @@ class TestGolemHealthTask:
         mock_subprocess.run.return_value = mock_proc
         mock_subprocess.TimeoutExpired = Exception
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert result["success"] is False
         assert result["exit_code"] == 1
 
@@ -374,7 +378,7 @@ class TestGolemHealthTask:
         mock_subprocess.TimeoutExpired = type("TimeoutExpired", (Exception,), {})
         mock_subprocess.run.side_effect = mock_subprocess.TimeoutExpired()
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert result["success"] is False
         assert result["exit_code"] == -1
         assert result["error"] == "timeout"
@@ -386,7 +390,7 @@ class TestGolemHealthTask:
         mock_subprocess.TimeoutExpired = type("TimeoutExpired", (Exception,), {})
         mock_subprocess.run.side_effect = FileNotFoundError("script missing")
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert result["success"] is False
         assert result["exit_code"] == -1
         assert "script missing" in result["error"]
@@ -399,7 +403,7 @@ class TestGolemHealthTask:
         mock_subprocess.run.return_value = mock_proc
         mock_subprocess.TimeoutExpired = Exception
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert len(result["output"]) <= 2000
 
     def test_calls_correct_script(self):
@@ -410,7 +414,7 @@ class TestGolemHealthTask:
         mock_subprocess.run.return_value = mock_proc
         mock_subprocess.TimeoutExpired = Exception
         ns["subprocess"] = mock_subprocess
-        ns["golem_health"]({}, {})
+        ns["ribosome_health"]({}, {})
         call_args = mock_subprocess.run.call_args
         cmd = call_args[0][0]
         assert "gemmule-health" in cmd[1]
@@ -424,7 +428,7 @@ class TestGolemHealthTask:
         mock_subprocess.run.return_value = mock_proc
         mock_subprocess.TimeoutExpired = Exception
         ns["subprocess"] = mock_subprocess
-        result = ns["golem_health"]({}, {})
+        result = ns["ribosome_health"]({}, {})
         assert "exit_code" in result
         assert "output" in result
         assert "success" in result
@@ -443,18 +447,24 @@ class TestWorkerRegistration:
         ns["main"]()
         mock_hatchet.worker.assert_called_once()
         call_kwargs = mock_hatchet.worker.call_args
-        workflows = call_kwargs[1]["workflows"] if "workflows" in call_kwargs[1] else call_kwargs[0][1]
+        workflows = (
+            call_kwargs[1]["workflows"] if "workflows" in call_kwargs[1] else call_kwargs[0][1]
+        )
         assert len(workflows) == 7  # 5 providers + requeue + health
 
-    def test_worker_name_is_golem_worker(self):
-        """Worker is named 'golem-worker'."""
+    def test_worker_name_is_ribosome_worker(self):
+        """Worker is named 'ribosome-worker'."""
         mock_hatchet = _make_mock_hatchet()
         mock_worker = MagicMock()
         mock_hatchet.worker.return_value = mock_worker
         ns = _exec_worker(mock_hatchet)
         ns["main"]()
         call_args = mock_hatchet.worker.call_args
-        assert call_args[0][0] == "golem-worker" or call_args[1].get("name") == "golem-worker" or "golem-worker" in str(call_args)
+        assert (
+            call_args[0][0] == "ribosome-worker"
+            or call_args[1].get("name") == "ribosome-worker"
+            or "ribosome-worker" in str(call_args)
+        )
 
 
 # ── REQUEUE_THRESHOLD constant test ─────────────────────────────────────

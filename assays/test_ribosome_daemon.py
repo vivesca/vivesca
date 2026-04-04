@@ -1,11 +1,8 @@
-from __future__ import annotations
-
-"""Tests for golem-daemon — provider-aware task queue processor."""
+"""Tests for ribosome-daemon — provider-aware task queue processor."""
 
 import json
 import signal
 import time
-from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,16 +15,16 @@ def _ensure_tmp_path(tmp_path: Path) -> None:
     tmp_path.mkdir(parents=True, exist_ok=True)
 
 
-def _load_golem_daemon():
-    """Load the golem-daemon module by exec-ing its Python body."""
-    source = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
+def _load_ribosome_daemon():
+    """Load the ribosome-daemon module by exec-ing its Python body."""
+    source = open(str(Path.home() / "germline/effectors/ribosome-daemon")).read()
     # Skip the shebang and find the first import
-    ns: dict = {"__name__": "golem_daemon"}
+    ns: dict = {"__name__": "ribosome_daemon"}
     exec(source, ns)
     return ns
 
 
-_mod = _load_golem_daemon()
+_mod = _load_ribosome_daemon()
 parse_provider = _mod["parse_provider"]
 get_provider_limit = _mod["get_provider_limit"]
 parse_queue = _mod["parse_queue"]
@@ -46,32 +43,32 @@ cmd_status = _mod["cmd_status"]
 
 def test_parse_provider_extracts_provider():
     """parse_provider extracts --provider value from command."""
-    cmd = 'golem --provider infini --max-turns 50 "do something"'
+    cmd = 'ribosome --provider infini --max-turns 50 "do something"'
     assert parse_provider(cmd) == "infini"
 
 
 def test_parse_provider_different_providers():
     """parse_provider works for all known providers."""
-    assert parse_provider('golem --provider volcano "test"') == "volcano"
-    assert parse_provider('golem --provider zhipu "test"') == "zhipu"
-    assert parse_provider('golem --provider infini "test"') == "infini"
+    assert parse_provider('ribosome --provider volcano "test"') == "volcano"
+    assert parse_provider('ribosome --provider zhipu "test"') == "zhipu"
+    assert parse_provider('ribosome --provider infini "test"') == "infini"
 
 
 def test_parse_provider_no_provider_returns_default():
     """parse_provider returns 'default' when no --provider flag."""
-    cmd = 'golem "do something"'
+    cmd = 'ribosome "do something"'
     assert parse_provider(cmd) == "default"
 
 
 def test_parse_provider_provider_before_other_flags():
     """parse_provider handles --provider with other flags."""
-    cmd = 'golem --provider infini --batch file1.py file2.py'
+    cmd = "ribosome --provider infini --batch file1.py file2.py"
     assert parse_provider(cmd) == "infini"
 
 
 def test_parse_provider_full_mode():
     """parse_provider handles --full and --provider combination."""
-    cmd = 'golem --provider infini --full --max-turns 50 "research"'
+    cmd = 'ribosome --provider infini --full --max-turns 50 "research"'
     assert parse_provider(cmd) == "infini"
 
 
@@ -102,25 +99,25 @@ def test_provider_limits_constant():
 
 
 def _make_queue_file(tmp_path: Path, content: str) -> Path:
-    """Create a fake golem-queue.md in tmp_path."""
+    """Create a fake translation-queue.md in tmp_path."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True, exist_ok=True)
-    queue_path = queue_dir / "golem-queue.md"
+    queue_path = queue_dir / "translation-queue.md"
     queue_path.write_text(content)
     return queue_path
 
 
-_QUEUE_CONTENT = """# Golem Task Queue
+_QUEUE_CONTENT = """# Ribosome Task Queue
 
 ## Pending
 
-- [ ] `golem --provider infini --max-turns 50 "Task 1"`
-- [ ] `golem --provider volcano "Task 2"`
-- [ ] `golem "Task 3 without provider"`
+- [ ] `ribosome --provider infini --max-turns 50 "Task 1"`
+- [ ] `ribosome --provider volcano "Task 2"`
+- [ ] `ribosome "Task 3 without provider"`
 
 ## Done
 
-- [x] `golem --provider infini "Completed task"`
+- [x] `ribosome --provider infini "Completed task"`
 """
 
 
@@ -135,7 +132,7 @@ def test_parse_queue_returns_pending_tasks(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     assert len(pending) == 3
-    # Commands should include the golem prefix
+    # Commands should include the ribosome prefix
     commands = [cmd for _, cmd, _ in pending]
     assert any("infini" in c for c in commands)
     assert any("volcano" in c for c in commands)
@@ -254,8 +251,8 @@ def test_mark_failed_retries_first_attempt(tmp_path):
     """mark_failed re-queues task on first failure (appends ' (retry)')."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True)
-    queue_path = queue_dir / "golem-queue.md"
-    queue_path.write_text("- [ ] `golem --provider infini \"task1\"`\n")
+    queue_path = queue_dir / "translation-queue.md"
+    queue_path.write_text('- [ ] `ribosome --provider infini "task1"`\n')
 
     original_queue = _mod["QUEUE_FILE"]
     try:
@@ -272,32 +269,31 @@ def test_mark_failed_retries_first_attempt(tmp_path):
     assert "- [ ] " in content  # Still pending
     assert "- [!]" not in content  # Not marked failed
     assert "(retry)" in content
-    assert 'golem --provider infini "task1 (retry)"' in content
+    assert 'ribosome --provider infini "task1 (retry)"' in content
 
 
 def test_mark_failed_marks_failed_on_retry(tmp_path):
     """mark_failed marks [!] when task already has (retry)."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True)
-    queue_path = queue_dir / "golem-queue.md"
+    queue_path = queue_dir / "translation-queue.md"
     # Task already has (retry) from previous failure
-    queue_path.write_text("- [ ] `golem --provider infini \"task1\" (retry)`\n")
+    queue_path.write_text('- [ ] `ribosome --provider infini "task1" (retry)`\n')
 
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
-        result = mark_failed(0)
+        mark_failed(0)
     finally:
         _mod["QUEUE_FILE"] = original_queue
-
 
 
 def test_mark_failed_only_retries_once(tmp_path):
     """Verify retry only happens once - second failure gets [!]."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True)
-    queue_path = queue_dir / "golem-queue.md"
-    queue_path.write_text("- [ ] `golem \"original task\"`\n")
+    queue_path = queue_dir / "translation-queue.md"
+    queue_path.write_text('- [ ] `ribosome "original task"`\n')
 
     original_queue = _mod["QUEUE_FILE"]
     try:
@@ -315,7 +311,7 @@ def test_mark_failed_only_retries_once(tmp_path):
         # Simulate daemon re-parsing and re-queueing the same line number
         # (in real daemon, line_num would be recalculated)
         # For this test, we write a fresh line with (retry) already there
-        queue_path.write_text("- [ ] `golem \"original task\" (retry)`\n")
+        queue_path.write_text('- [ ] `ribosome "original task" (retry)`\n')
 
         # Second failure: should mark as [!]
         result2 = mark_failed(0)
@@ -331,11 +327,9 @@ def test_mark_failed_handles_multiple_tasks(tmp_path):
     """mark_failed correctly handles multiple tasks with retry logic."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True)
-    queue_path = queue_dir / "golem-queue.md"
+    queue_path = queue_dir / "translation-queue.md"
     queue_path.write_text(
-        "- [ ] `golem \"task1\"`\n"
-        "- [ ] `golem \"task2\" (retry)`\n"
-        "- [ ] `golem \"task3\"`\n"
+        '- [ ] `ribosome "task1"`\n- [ ] `ribosome "task2" (retry)`\n- [ ] `ribosome "task3"`\n'
     )
 
     original_queue = _mod["QUEUE_FILE"]
@@ -362,15 +356,14 @@ def test_mark_failed_handles_multiple_tasks(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
 
-# ── validate_golem_output tests ─────────────────────────────────────────
+# ── validate_ribosome_output tests ─────────────────────────────────────────
 
 
-validate_golem_output = _mod["validate_golem_output"]
-
+validate_ribosome_output = _mod["validate_ribosome_output"]
 
 
 def test_validate_syntax_error_detection(tmp_path, monkeypatch):
-    """validate_golem_output detects SyntaxError in .py files."""
+    """validate_ribosome_output detects SyntaxError in .py files."""
     # Create a file with syntax error
     bad_file = tmp_path / "germline" / "assays" / "test_bad.py"
     bad_file.parent.mkdir(parents=True, exist_ok=True)
@@ -394,7 +387,7 @@ def test_validate_syntax_error_detection(tmp_path, monkeypatch):
         original_home = _mod["Path"].home
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
         try:
-            passed, errors = validate_golem_output()
+            passed, errors = validate_ribosome_output()
         finally:
             monkeypatch.setattr(_mod["Path"], "home", original_home)
 
@@ -403,11 +396,11 @@ def test_validate_syntax_error_detection(tmp_path, monkeypatch):
 
 
 def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
-    """validate_golem_output detects TODO/FIXME comments."""
+    """validate_ribosome_output detects TODO/FIXME comments."""
     # Create a file with TODO
     todo_file = tmp_path / "germline" / "assays" / "test_todo.py"
     todo_file.parent.mkdir(parents=True, exist_ok=True)
-    todo_file.write_text('def foo():\n    # TODO: implement this\n    pass\n')
+    todo_file.write_text("def foo():\n    # TODO: implement this\n    pass\n")
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
@@ -423,17 +416,17 @@ def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert not passed
     assert any("TODO" in e or "FIXME" in e for e in errors)
 
 
 def test_validate_stub_detection(tmp_path, monkeypatch):
-    """validate_golem_output detects 'stub' in code."""
+    """validate_ribosome_output detects 'stub' in code."""
     stub_file = tmp_path / "germline" / "assays" / "test_stub.py"
     stub_file.parent.mkdir(parents=True, exist_ok=True)
-    stub_file.write_text('def foo():\n    return stub_function()\n')
+    stub_file.write_text("def foo():\n    return stub_function()\n")
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
@@ -449,18 +442,18 @@ def test_validate_stub_detection(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert not passed
     assert any("stub" in e.lower() for e in errors)
 
 
 def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
-    """validate_golem_output rejects test files not flat in assays/."""
+    """validate_ribosome_output rejects test files not flat in assays/."""
     # Create nested test file
     nested_file = tmp_path / "germline" / "assays" / "subdir" / "test_nested.py"
     nested_file.parent.mkdir(parents=True, exist_ok=True)
-    nested_file.write_text('def test_foo(): pass\n')
+    nested_file.write_text("def test_foo(): pass\n")
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
@@ -476,14 +469,15 @@ def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert not passed
     assert any("not flat" in e for e in errors)
 
 
 def test_validate_pycache_detection():
-    """validate_golem_output rejects __pycache__/.pyc files."""
+    """validate_ribosome_output rejects __pycache__/.pyc files."""
+
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         # Check for the grep command for __pycache__/.pyc
@@ -500,17 +494,17 @@ def test_validate_pycache_detection():
         return result
 
     with patch("subprocess.run", side_effect=mock_run):
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert not passed
     assert any("__pycache__" in e or ".pyc" in e for e in errors)
 
 
 def test_validate_passes_clean_files(tmp_path, monkeypatch):
-    """validate_golem_output passes clean .py files."""
+    """validate_ribosome_output passes clean .py files."""
     clean_file = tmp_path / "germline" / "assays" / "test_clean.py"
     clean_file.parent.mkdir(parents=True, exist_ok=True)
-    clean_file.write_text('def test_foo():\n    assert True\n')
+    clean_file.write_text("def test_foo():\n    assert True\n")
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
@@ -529,14 +523,15 @@ def test_validate_passes_clean_files(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert passed
     assert errors == []
 
 
 def test_validate_no_py_files_passes():
-    """validate_golem_output passes when no .py files changed."""
+    """validate_ribosome_output passes when no .py files changed."""
+
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         result.returncode = 0
@@ -544,7 +539,7 @@ def test_validate_no_py_files_passes():
         return result
 
     with patch("subprocess.run", side_effect=mock_run):
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     # Actually setup.py is a .py file, but let's test empty case
     # The function should pass if git diff returns empty
@@ -559,14 +554,15 @@ def test_validate_no_py_files_passes():
         return r
 
     with patch("subprocess.run", side_effect=mock_run_empty):
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert passed
     assert errors == []
 
 
 def test_validate_git_diff_fails_gracefully():
-    """validate_golem_output passes silently if git diff fails."""
+    """validate_ribosome_output passes silently if git diff fails."""
+
     def mock_run_fail(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         result.returncode = 1  # git diff failed
@@ -574,17 +570,17 @@ def test_validate_git_diff_fails_gracefully():
         return result
 
     with patch("subprocess.run", side_effect=mock_run_fail):
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert passed
     assert errors == []
 
 
 def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
-    """validate_golem_output accepts test files flat in assays/."""
+    """validate_ribosome_output accepts test files flat in assays/."""
     flat_file = tmp_path / "germline" / "assays" / "test_flat.py"
     flat_file.parent.mkdir(parents=True, exist_ok=True)
-    flat_file.write_text('def test_bar():\n    assert 1 + 1 == 2\n')
+    flat_file.write_text("def test_bar():\n    assert 1 + 1 == 2\n")
 
     def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
@@ -604,7 +600,7 @@ def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
 
     with patch("subprocess.run", side_effect=mock_run):
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        passed, errors = validate_golem_output()
+        passed, errors = validate_ribosome_output()
 
     assert passed
     assert errors == []
@@ -619,9 +615,9 @@ ROTATE_MAX_BYTES = _mod["ROTATE_MAX_BYTES"]
 
 def test_rotate_logs_renames_large_file(tmp_path):
     """rotate_logs renames file to .1 when it exceeds 5MB."""
-    big_file = tmp_path / "golem-daemon.log"
+    big_file = tmp_path / "ribosome-daemon.log"
     big_file.write_bytes(b"x" * (ROTATE_MAX_BYTES + 1))
-    rotated = tmp_path / "golem-daemon.log.1"
+    rotated = tmp_path / "ribosome-daemon.log.1"
 
     original_log = _mod["LOGFILE"]
     original_jsonl = _mod["JSONLFILE"]
@@ -640,7 +636,7 @@ def test_rotate_logs_renames_large_file(tmp_path):
 
 def test_rotate_logs_skips_small_file(tmp_path):
     """rotate_logs does not rename file when it is under 5MB."""
-    small_file = tmp_path / "golem.jsonl"
+    small_file = tmp_path / "ribosome.jsonl"
     small_file.write_bytes(b"x" * (ROTATE_MAX_BYTES - 1))
 
     original_log = _mod["LOGFILE"]
@@ -654,13 +650,13 @@ def test_rotate_logs_skips_small_file(tmp_path):
         _mod["JSONLFILE"] = original_jsonl
 
     assert small_file.exists()
-    assert not (tmp_path / "golem.jsonl.1").exists()
+    assert not (tmp_path / "ribosome.jsonl.1").exists()
 
 
 def test_rotate_logs_overwrites_old_dot1(tmp_path):
     """rotate_logs overwrites existing .1 file when rotating."""
-    fake_log = tmp_path / "golem-daemon.log"
-    old_dot1 = tmp_path / "golem-daemon.log.1"
+    fake_log = tmp_path / "ribosome-daemon.log"
+    old_dot1 = tmp_path / "ribosome-daemon.log.1"
     old_dot1.write_text("old rotated content\n")
     fake_log.write_bytes(b"x" * (ROTATE_MAX_BYTES + 1))
 
@@ -681,8 +677,8 @@ def test_rotate_logs_overwrites_old_dot1(tmp_path):
 
 def test_rotate_logs_both_oversized(tmp_path):
     """rotate_logs rotates both files when both exceed 5MB."""
-    fake_log = tmp_path / "golem-daemon.log"
-    fake_jsonl = tmp_path / "golem.jsonl"
+    fake_log = tmp_path / "ribosome-daemon.log"
+    fake_jsonl = tmp_path / "ribosome.jsonl"
     fake_log.write_bytes(b"a" * (ROTATE_MAX_BYTES + 100))
     fake_jsonl.write_bytes(b"b" * (ROTATE_MAX_BYTES + 200))
 
@@ -698,13 +694,13 @@ def test_rotate_logs_both_oversized(tmp_path):
 
     assert not fake_log.exists()
     assert not fake_jsonl.exists()
-    assert (tmp_path / "golem-daemon.log.1").stat().st_size == ROTATE_MAX_BYTES + 100
-    assert (tmp_path / "golem.jsonl.1").stat().st_size == ROTATE_MAX_BYTES + 200
+    assert (tmp_path / "ribosome-daemon.log.1").stat().st_size == ROTATE_MAX_BYTES + 100
+    assert (tmp_path / "ribosome.jsonl.1").stat().st_size == ROTATE_MAX_BYTES + 200
 
 
 def test_rotate_logs_exactly_at_threshold_not_rotated(tmp_path):
     """rotate_logs does not rotate files exactly at 5MB (must exceed)."""
-    fake_log = tmp_path / "golem-daemon.log"
+    fake_log = tmp_path / "ribosome-daemon.log"
     fake_log.write_bytes(b"x" * ROTATE_MAX_BYTES)
 
     original_log = _mod["LOGFILE"]
@@ -718,7 +714,7 @@ def test_rotate_logs_exactly_at_threshold_not_rotated(tmp_path):
         _mod["JSONLFILE"] = original_jsonl
 
     assert fake_log.exists()
-    assert not (tmp_path / "golem-daemon.log.1").exists()
+    assert not (tmp_path / "ribosome-daemon.log.1").exists()
 
 
 def test_rotate_logs_no_files(tmp_path):
@@ -749,23 +745,23 @@ def _make_queue_for_clean(tmp_path: Path, content: str) -> Path:
     """Create a queue file for clean tests and return its path."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True, exist_ok=True)
-    queue_path = queue_dir / "golem-queue.md"
+    queue_path = queue_dir / "translation-queue.md"
     queue_path.write_text(content)
     return queue_path
 
 
 _CLEAN_QUEUE = """\
-# Golem Task Queue
+# Ribosome Task Queue
 
 ## Pending
 
-- [ ] `golem --provider infini "task1"`
-- [ ] `golem --provider volcano "task2"`
+- [ ] `ribosome --provider infini "task1"`
+- [ ] `ribosome --provider volcano "task2"`
 
 ## Done
 
-- [x] `golem --provider infini "completed task"`
-- [!] `golem --provider volcano "failed task"`
+- [x] `ribosome --provider infini "completed task"`
+- [!] `ribosome --provider volcano "failed task"`
 """
 
 
@@ -800,10 +796,10 @@ def test_cmd_clean_preserves_headers_and_pending(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     content = queue_path.read_text()
-    assert "# Golem Task Queue" in content
+    assert "# Ribosome Task Queue" in content
     assert "## Pending" in content
-    assert 'golem --provider infini "task1"' in content
-    assert 'golem --provider volcano "task2"' in content
+    assert 'ribosome --provider infini "task1"' in content
+    assert 'ribosome --provider volcano "task2"' in content
 
 
 def test_cmd_clean_no_entries_to_remove(tmp_path, capsys):
@@ -811,7 +807,7 @@ def test_cmd_clean_no_entries_to_remove(tmp_path, capsys):
     all_pending = """\
 ## Pending
 
-- [ ] `golem "only task"`
+- [ ] `ribosome "only task"`
 """
     queue_path = _make_queue_for_clean(tmp_path, all_pending)
     original_queue = _mod["QUEUE_FILE"]
@@ -861,7 +857,7 @@ def test_cmd_clean_empty_queue(tmp_path, capsys):
 
 def test_cmd_clean_all_tasks_removed(tmp_path, capsys):
     """cmd_clean handles file where every task line is [x] or [!]."""
-    all_done = "# Queue\n\n- [x] `golem \"done\"`\n- [!] `golem \"fail\"`\n"
+    all_done = '# Queue\n\n- [x] `ribosome "done"`\n- [!] `ribosome "fail"`\n'
     queue_path = _make_queue_for_clean(tmp_path, all_done)
     original_queue = _mod["QUEUE_FILE"]
     try:
@@ -888,7 +884,7 @@ def _make_queue_dir(tmp_path: Path) -> Path:
     """Create the queue directory structure and return queue file path."""
     queue_dir = tmp_path / "germline" / "loci"
     queue_dir.mkdir(parents=True, exist_ok=True)
-    return queue_dir / "golem-queue.md"
+    return queue_dir / "translation-queue.md"
 
 
 class TestMarkDoneEdgeCases:
@@ -896,7 +892,7 @@ class TestMarkDoneEdgeCases:
 
     def test_mark_done_missing_queue_file(self, tmp_path):
         """mark_done does not crash when queue file is missing."""
-        queue_path = tmp_path / "nonexistent" / "golem-queue.md"
+        queue_path = tmp_path / "nonexistent" / "translation-queue.md"
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -908,7 +904,7 @@ class TestMarkDoneEdgeCases:
     def test_mark_done_negative_line_num(self, tmp_path):
         """mark_done with negative line_num does not corrupt the file."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        queue_path.write_text('- [ ] `ribosome "task1"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -924,12 +920,7 @@ class TestMarkDoneEdgeCases:
     def test_mark_done_stale_line_num_already_done(self, tmp_path):
         """mark_done on a line already marked [x] is a no-op."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text(
-            "- [ ] `golem \"task1\"`\n"
-            "- [x] `golem \"task2\"`\n"
-            "\n"
-            "## Done\n"
-        )
+        queue_path.write_text('- [ ] `ribosome "task1"`\n- [x] `ribosome "task2"`\n\n## Done\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -945,7 +936,7 @@ class TestMarkDoneEdgeCases:
     def test_mark_done_line_beyond_file(self, tmp_path):
         """mark_done with line_num beyond file length is a no-op."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        queue_path.write_text('- [ ] `ribosome "task1"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -960,10 +951,7 @@ class TestMarkDoneEdgeCases:
     def test_mark_done_no_done_section(self, tmp_path):
         """mark_done handles queue with no ## Done section."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text(
-            "- [ ] `golem \"task1\"`\n"
-            "- [ ] `golem \"task2\"`\n"
-        )
+        queue_path.write_text('- [ ] `ribosome "task1"`\n- [ ] `ribosome "task2"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -981,7 +969,7 @@ class TestMarkFailedEdgeCases:
 
     def test_mark_failed_missing_queue_file(self, tmp_path):
         """mark_failed does not crash when queue file is missing."""
-        queue_path = tmp_path / "nonexistent" / "golem-queue.md"
+        queue_path = tmp_path / "nonexistent" / "translation-queue.md"
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -994,7 +982,7 @@ class TestMarkFailedEdgeCases:
     def test_mark_failed_negative_line_num(self, tmp_path):
         """mark_failed with negative line_num does not corrupt the file."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        queue_path.write_text('- [ ] `ribosome "task1"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -1010,10 +998,7 @@ class TestMarkFailedEdgeCases:
     def test_mark_failed_stale_line_already_done(self, tmp_path):
         """mark_failed on a line already marked [x] or [!] is a no-op."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text(
-            "- [ ] `golem \"task1\"`\n"
-            "- [x] `golem \"task2\"`\n"
-        )
+        queue_path.write_text('- [ ] `ribosome "task1"`\n- [x] `ribosome "task2"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -1028,7 +1013,7 @@ class TestMarkFailedEdgeCases:
     def test_mark_failed_exit_code_2_no_retry(self, tmp_path):
         """mark_failed with exit_code=2 (usage error) never retries."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem --provider infini \"task1\"`\n")
+        queue_path.write_text('- [ ] `ribosome --provider infini "task1"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -1044,7 +1029,7 @@ class TestMarkFailedEdgeCases:
     def test_mark_failed_line_beyond_file(self, tmp_path):
         """mark_failed with line_num beyond file length returns safely."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        queue_path.write_text('- [ ] `ribosome "task1"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -1065,15 +1050,15 @@ class TestParseQueueEdgeCases:
         """parse_queue skips lines that don't match the expected pattern."""
         queue_path = _make_queue_dir(tmp_path)
         queue_path.write_text(
-            "# Golem Task Queue\n"
+            "# Ribosome Task Queue\n"
             "\n"
             "garbage line\n"
             "- [ ] not backtick wrapped\n"
-            "- [ ] `golem \"valid task\"`\n"
-            "- [ ] `non-golem-command`\n"
-            "- [x] `golem \"already done\"`\n"
+            '- [ ] `ribosome "valid task"`\n'
+            "- [ ] `non-ribosome-command`\n"
+            '- [x] `ribosome "already done"`\n'
             "some random text with `backticks` but no list marker\n"
-            "- [ ] `golem \"another valid\"`\n"
+            '- [ ] `ribosome "another valid"`\n'
         )
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1082,7 +1067,7 @@ class TestParseQueueEdgeCases:
         finally:
             _mod["QUEUE_FILE"] = original_queue
 
-        # Only valid pending golem commands should be returned
+        # Only valid pending ribosome commands should be returned
         assert len(pending) == 2
         commands = [cmd for _, cmd, _ in pending]
         assert any("valid task" in c for c in commands)
@@ -1104,7 +1089,7 @@ class TestParseQueueEdgeCases:
     def test_parse_queue_unreadable_file(self, tmp_path):
         """parse_queue returns empty when queue file exists but is unreadable."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task\"`\n")
+        queue_path.write_text('- [ ] `ribosome "task"`\n')
         # Remove read permission
         queue_path.chmod(0o000)
         original_queue = _mod["QUEUE_FILE"]
@@ -1121,11 +1106,11 @@ class TestParseQueueEdgeCases:
         """parse_queue returns correct 0-based line numbers for tasks."""
         queue_path = _make_queue_dir(tmp_path)
         queue_path.write_text(
-            "line 0\n"       # 0
-            "line 1\n"       # 1
-            "- [ ] `golem \"first\"`\n"  # 2
-            "line 3\n"       # 3
-            "- [ ] `golem \"second\"`\n" # 4
+            "line 0\n"  # 0
+            "line 1\n"  # 1
+            '- [ ] `ribosome "first"`\n'  # 2
+            "line 3\n"  # 3
+            '- [ ] `ribosome "second"`\n'  # 4
         )
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1165,7 +1150,7 @@ class TestCmdCleanEdgeCases:
 
     def test_cmd_clean_unreadable_file(self, tmp_path, capsys):
         """cmd_clean returns 1 when queue file exists but is unreadable."""
-        queue_path = _make_queue_for_clean(tmp_path, "- [x] `golem \"done\"`\n")
+        queue_path = _make_queue_for_clean(tmp_path, '- [x] `ribosome "done"`\n')
         queue_path.chmod(0o000)
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1196,7 +1181,7 @@ class TestCmdCleanEdgeCases:
 
     def test_cmd_clean_write_protected(self, tmp_path, capsys):
         """cmd_clean returns 1 when queue file is write-protected."""
-        queue_path = _make_queue_for_clean(tmp_path, "- [x] `golem \"done\"`\n")
+        queue_path = _make_queue_for_clean(tmp_path, '- [x] `ribosome "done"`\n')
         # Make directory read-only so write_text fails
         queue_path.chmod(0o444)
         original_queue = _mod["QUEUE_FILE"]
@@ -1214,37 +1199,37 @@ class TestCmdCleanEdgeCases:
         assert rc in (0, 1)
 
 
-# ── _golem_env edge case tests ───────────────────────────────────────────
+# ── _ribosome_env edge case tests ───────────────────────────────────────────
 
 
-_golem_env = _mod["_golem_env"]
+_ribosome_env = _mod["_ribosome_env"]
 
 
-class TestGolemEnvEdgeCases:
-    """Edge cases for _golem_env: unreadable .env.fly, malformed lines."""
+class TestRibosomeEnvEdgeCases:
+    """Edge cases for _ribosome_env: unreadable .env.fly, malformed lines."""
 
-    def test_golem_env_unreadable_env_file(self, tmp_path, monkeypatch):
-        """_golem_env does not crash when .env.fly exists but is unreadable."""
+    def test_ribosome_env_unreadable_env_file(self, tmp_path, monkeypatch):
+        """_ribosome_env does not crash when .env.fly exists but is unreadable."""
         env_file = tmp_path / ".env.fly"
         env_file.write_text("export TEST_KEY=secret123\n")
         env_file.chmod(0o000)
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
         try:
-            env = _golem_env()
+            env = _ribosome_env()
         finally:
             env_file.chmod(0o644)
 
         # Should not contain the key from the unreadable file
         assert env.get("TEST_KEY") is None
 
-    def test_golem_env_missing_env_file(self, tmp_path, monkeypatch):
-        """_golem_env works when .env.fly does not exist."""
+    def test_ribosome_env_missing_env_file(self, tmp_path, monkeypatch):
+        """_ribosome_env works when .env.fly does not exist."""
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        env = _golem_env()
+        env = _ribosome_env()
         assert "PATH" in env
 
-    def test_golem_env_malformed_lines(self, tmp_path, monkeypatch):
-        """_golem_env skips malformed lines in .env.fly."""
+    def test_ribosome_env_malformed_lines(self, tmp_path, monkeypatch):
+        """_ribosome_env skips malformed lines in .env.fly."""
         env_file = tmp_path / ".env.fly"
         env_file.write_text(
             "# comment\n"
@@ -1255,14 +1240,14 @@ class TestGolemEnvEdgeCases:
             "KEY_WITH_SPACES = value with spaces\n"
         )
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        env = _golem_env()
+        env = _ribosome_env()
         assert env.get("VALID_KEY") == "valid_value"
         assert env.get("NO_EXPORT_PREFIX") == "still_works"
 
-    def test_golem_env_path_includes_effectors(self, tmp_path, monkeypatch):
-        """_golem_env PATH includes effectors directory."""
+    def test_ribosome_env_path_includes_effectors(self, tmp_path, monkeypatch):
+        """_ribosome_env PATH includes effectors directory."""
         monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
-        env = _golem_env()
+        env = _ribosome_env()
         assert "effectors" in env["PATH"]
 
 
@@ -1278,7 +1263,7 @@ class TestReadPidEdgeCases:
 
     def test_read_pid_empty_file(self, tmp_path):
         """read_pid returns None for empty PID file."""
-        pid_path = tmp_path / "golem-daemon.pid"
+        pid_path = tmp_path / "ribosome-daemon.pid"
         pid_path.write_text("")
         original_pid = _mod["PIDFILE"]
         try:
@@ -1291,7 +1276,7 @@ class TestReadPidEdgeCases:
 
     def test_read_pid_non_numeric(self, tmp_path):
         """read_pid returns None for PID file with non-numeric content."""
-        pid_path = tmp_path / "golem-daemon.pid"
+        pid_path = tmp_path / "ribosome-daemon.pid"
         pid_path.write_text("not_a_number")
         original_pid = _mod["PIDFILE"]
         try:
@@ -1304,7 +1289,7 @@ class TestReadPidEdgeCases:
 
     def test_read_pid_whitespace_only(self, tmp_path):
         """read_pid returns None for PID file with only whitespace."""
-        pid_path = tmp_path / "golem-daemon.pid"
+        pid_path = tmp_path / "ribosome-daemon.pid"
         pid_path.write_text("   \n\t  \n")
         original_pid = _mod["PIDFILE"]
         try:
@@ -1317,7 +1302,7 @@ class TestReadPidEdgeCases:
 
     def test_read_pid_stale_pidfile(self, tmp_path):
         """read_pid returns None and cleans up for PID of non-existent process."""
-        pid_path = tmp_path / "golem-daemon.pid"
+        pid_path = tmp_path / "ribosome-daemon.pid"
         # PID 999999999 almost certainly doesn't exist
         pid_path.write_text("999999999")
         original_pid = _mod["PIDFILE"]
@@ -1373,7 +1358,7 @@ class TestParseQueueConcurrentModification:
     def test_parse_queue_file_truncated_after_check(self, tmp_path):
         """parse_queue handles file that exists but becomes empty."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text("- [ ] `golem \"task\"`\n")
+        queue_path.write_text('- [ ] `ribosome "task"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -1388,7 +1373,7 @@ class TestParseQueueConcurrentModification:
     def test_parse_queue_very_long_line(self, tmp_path):
         """parse_queue handles extremely long lines without crashing."""
         queue_path = _make_queue_dir(tmp_path)
-        long_cmd = "golem " + "x" * 10000
+        long_cmd = "ribosome " + "x" * 10000
         queue_path.write_text(f"- [ ] `{long_cmd}`\n")
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1404,10 +1389,7 @@ class TestParseQueueConcurrentModification:
     def test_parse_queue_duplicate_tasks(self, tmp_path):
         """parse_queue returns both entries if identical tasks appear."""
         queue_path = _make_queue_dir(tmp_path)
-        queue_path.write_text(
-            "- [ ] `golem \"same task\"`\n"
-            "- [ ] `golem \"same task\"`\n"
-        )
+        queue_path.write_text('- [ ] `ribosome "same task"`\n- [ ] `ribosome "same task"`\n')
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
@@ -1423,15 +1405,15 @@ class TestParseQueueConcurrentModification:
 
 
 _PRIORITY_QUEUE = """\
-# Golem Task Queue
+# Ribosome Task Queue
 
 ## Pending
 
-- [ ] `golem --provider infini --max-turns 50 "normal task 1"`
-- [!!] `golem --provider volcano "urgent task"`
-- [ ] `golem "normal task 2"`
-- [!!] `golem --provider zhipu "another urgent"`
-- [x] `golem "already done"`
+- [ ] `ribosome --provider infini --max-turns 50 "normal task 1"`
+- [!!] `ribosome --provider volcano "urgent task"`
+- [ ] `ribosome "normal task 2"`
+- [!!] `ribosome --provider zhipu "another urgent"`
+- [x] `ribosome "already done"`
 """
 
 
@@ -1488,10 +1470,7 @@ def test_parse_queue_high_priority_line_numbers_preserved(tmp_path):
 def test_parse_queue_only_high_priority(tmp_path):
     """parse_queue handles queue with only [!!] tasks."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text(
-        "- [!!] `golem \"urgent1\"`\n"
-        "- [!!] `golem \"urgent2\"`\n"
-    )
+    queue_path.write_text('- [!!] `ribosome "urgent1"`\n- [!!] `ribosome "urgent2"`\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1508,10 +1487,7 @@ def test_parse_queue_only_high_priority(tmp_path):
 def test_parse_queue_only_normal_priority(tmp_path):
     """parse_queue still works with only [ ] tasks (no regression)."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text(
-        "- [ ] `golem \"task1\"`\n"
-        "- [ ] `golem \"task2\"`\n"
-    )
+    queue_path.write_text('- [ ] `ribosome "task1"`\n- [ ] `ribosome "task2"`\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1526,10 +1502,10 @@ def test_parse_queue_high_priority_preserves_file_order(tmp_path):
     """Multiple [!!] tasks maintain their original file order relative to each other."""
     queue_path = _make_queue_dir(tmp_path)
     queue_path.write_text(
-        "- [!!] `golem \"urgent-A\"`\n"
-        "- [ ] `golem \"normal-B\"`\n"
-        "- [!!] `golem \"urgent-C\"`\n"
-        "- [ ] `golem \"normal-D\"`\n"
+        '- [!!] `ribosome "urgent-A"`\n'
+        '- [ ] `ribosome "normal-B"`\n'
+        '- [!!] `ribosome "urgent-C"`\n'
+        '- [ ] `ribosome "normal-D"`\n'
     )
     original_queue = _mod["QUEUE_FILE"]
     try:
@@ -1552,11 +1528,7 @@ def test_parse_queue_high_priority_preserves_file_order(tmp_path):
 def test_mark_done_high_priority_task(tmp_path):
     """mark_done correctly marks [!!] tasks as [x]."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text(
-        "- [!!] `golem \"urgent task\"`\n"
-        "\n"
-        "## Done\n"
-    )
+    queue_path.write_text('- [!!] `ribosome "urgent task"`\n\n## Done\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1573,7 +1545,7 @@ def test_mark_done_high_priority_task(tmp_path):
 def test_mark_done_high_priority_no_done_section(tmp_path):
     """mark_done handles [!!] task when no ## Done section exists."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text("- [!!] `golem \"urgent\"`\n")
+    queue_path.write_text('- [!!] `ribosome "urgent"`\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1589,7 +1561,7 @@ def test_mark_done_high_priority_no_done_section(tmp_path):
 def test_mark_failed_high_priority_first_failure_retries(tmp_path):
     """mark_failed retries [!!] tasks, keeping [!!] status on first failure."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text("- [!!] `golem --provider infini \"urgent\"`\n")
+    queue_path.write_text('- [!!] `ribosome --provider infini "urgent"`\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1608,7 +1580,7 @@ def test_mark_failed_high_priority_first_failure_retries(tmp_path):
 def test_mark_failed_high_priority_second_failure_marks_failed(tmp_path):
     """mark_failed marks [!!] task as [!] on second failure (already has retry)."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text("- [!!] `golem \"urgent\" (retry)`\n")
+    queue_path.write_text('- [!!] `ribosome "urgent" (retry)`\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1625,7 +1597,7 @@ def test_mark_failed_high_priority_second_failure_marks_failed(tmp_path):
 def test_mark_failed_high_priority_exit_code_2_no_retry(tmp_path):
     """mark_failed with exit_code=2 never retries, even for [!!] tasks."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text("- [!!] `golem \"urgent\"`\n")
+    queue_path.write_text('- [!!] `ribosome "urgent"`\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1642,12 +1614,7 @@ def test_mark_failed_high_priority_exit_code_2_no_retry(tmp_path):
 def test_mark_done_and_mark_failed_mixed_priorities(tmp_path):
     """mark_done and mark_failed work correctly with mixed [!!] and [ ] tasks."""
     queue_path = _make_queue_dir(tmp_path)
-    queue_path.write_text(
-        "- [!!] `golem \"urgent\"`\n"
-        "- [ ] `golem \"normal\"`\n"
-        "\n"
-        "## Done\n"
-    )
+    queue_path.write_text('- [!!] `ribosome "urgent"`\n- [ ] `ribosome "normal"`\n\n## Done\n')
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
@@ -1671,17 +1638,17 @@ def test_mark_done_and_mark_failed_mixed_priorities(tmp_path):
 cmd_retry_all = _mod["cmd_retry_all"]
 
 _RETRY_ALL_QUEUE = """\
-# Golem Task Queue
+# Ribosome Task Queue
 
 ## Pending
 
-- [ ] `golem --provider infini "normal task"`
-- [!] `golem --provider volcano "failed task 1"`
-- [!] `golem --provider zhipu "failed task 2" (retry)`
+- [ ] `ribosome --provider infini "normal task"`
+- [!] `ribosome --provider volcano "failed task 1"`
+- [!] `ribosome --provider zhipu "failed task 2" (retry)`
 
 ## Done
 
-- [x] `golem --provider infini "completed task"`
+- [x] `ribosome --provider infini "completed task"`
 """
 
 
@@ -1718,7 +1685,7 @@ def test_cmd_retry_all_strips_retry_tag(tmp_path):
     content = queue_path.read_text()
     assert "(retry)" not in content
     # The command text should still contain "failed task 2" without (retry)
-    assert 'golem --provider zhipu "failed task 2"' in content
+    assert 'ribosome --provider zhipu "failed task 2"' in content
 
 
 def test_cmd_retry_all_preserves_other_lines(tmp_path):
@@ -1732,11 +1699,11 @@ def test_cmd_retry_all_preserves_other_lines(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     content = queue_path.read_text()
-    assert "# Golem Task Queue" in content
+    assert "# Ribosome Task Queue" in content
     assert "## Pending" in content
     assert "## Done" in content
     assert "- [x]" in content
-    assert 'golem --provider infini "normal task"' in content
+    assert 'ribosome --provider infini "normal task"' in content
 
 
 def test_cmd_retry_all_no_failed_tasks(tmp_path, capsys):
@@ -1744,8 +1711,8 @@ def test_cmd_retry_all_no_failed_tasks(tmp_path, capsys):
     no_failed = """\
 ## Pending
 
-- [ ] `golem "only task"`
-- [x] `golem "done task"`
+- [ ] `ribosome "only task"`
+- [x] `ribosome "done task"`
 """
     queue_path = _make_queue_for_clean(tmp_path, no_failed)
     original_queue = _mod["QUEUE_FILE"]
@@ -1795,7 +1762,7 @@ def test_cmd_retry_all_empty_queue(tmp_path, capsys):
 
 def test_cmd_retry_all_all_tasks_failed(tmp_path, capsys):
     """cmd_retry_all handles queue where every task is [!]."""
-    all_failed = "# Queue\n\n- [!] `golem \"fail1\"`\n- [!] `golem \"fail2\" (retry)`\n"
+    all_failed = '# Queue\n\n- [!] `ribosome "fail1"`\n- [!] `ribosome "fail2" (retry)`\n'
     queue_path = _make_queue_for_clean(tmp_path, all_failed)
     original_queue = _mod["QUEUE_FILE"]
     try:
@@ -1820,7 +1787,7 @@ class TestCmdRetryAllEdgeCases:
 
     def test_cmd_retry_all_unreadable_file(self, tmp_path, capsys):
         """cmd_retry_all returns 1 when queue file exists but is unreadable."""
-        queue_path = _make_queue_for_clean(tmp_path, "- [!] `golem \"fail\"`\n")
+        queue_path = _make_queue_for_clean(tmp_path, '- [!] `ribosome "fail"`\n')
         queue_path.chmod(0o000)
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1851,7 +1818,7 @@ class TestCmdRetryAllEdgeCases:
 
     def test_cmd_retry_all_write_protected(self, tmp_path, capsys):
         """cmd_retry_all returns 1 when queue file is write-protected."""
-        queue_path = _make_queue_for_clean(tmp_path, "- [!] `golem \"fail\"`\n")
+        queue_path = _make_queue_for_clean(tmp_path, '- [!] `ribosome "fail"`\n')
         queue_path.chmod(0o444)
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1886,7 +1853,7 @@ class TestCmdRetryAllEdgeCases:
 
     def test_cmd_retry_all_preserves_inline_result_annotations(self, tmp_path):
         """cmd_retry_all handles [!] lines that have trailing annotations."""
-        annotated = "# Queue\n\n- [!] `golem \"task\"` some error text\n"
+        annotated = '# Queue\n\n- [!] `ribosome "task"` some error text\n'
         queue_path = _make_queue_for_clean(tmp_path, annotated)
         original_queue = _mod["QUEUE_FILE"]
         try:
@@ -1911,7 +1878,7 @@ def _make_jsonl_dir(tmp_path: Path) -> Path:
     """Create the vivesca directory structure for JSONL stats."""
     vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
     vivesca_dir.mkdir(parents=True, exist_ok=True)
-    return vivesca_dir / "golem.jsonl"
+    return vivesca_dir / "ribosome.jsonl"
 
 
 def test_cmd_stats_no_history(tmp_path, capsys):
@@ -1938,20 +1905,55 @@ def test_cmd_stats_with_records(tmp_path, capsys):
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
     # Create sample JSONL with mixed providers, pass/fail, today and older
     records = [
-        {"ts": f"{today} 10:00:00", "task_id": "t-abc123", "provider": "zhipu", "exit": 0, "duration": 120, "cmd": "test"},
-        {"ts": f"{today} 10:05:00", "task_id": "t-def456", "provider": "zhipu", "exit": 0, "duration": 180, "cmd": "test"},
-        {"ts": f"{today} 10:10:00", "task_id": "t-ghi789", "provider": "infini", "exit": 1, "duration": 30, "cmd": "test"},
-        {"ts": "2026-03-31 15:00:00", "task_id": "t-old123", "provider": "volcano", "exit": 0, "duration": 90, "cmd": "test"},
-        {"ts": "2026-03-30 12:00:00", "task_id": "t-old456", "provider": "infini", "exit": 0, "duration": 60, "cmd": "test"},
+        {
+            "ts": f"{today} 10:00:00",
+            "task_id": "t-abc123",
+            "provider": "zhipu",
+            "exit": 0,
+            "duration": 120,
+            "cmd": "test",
+        },
+        {
+            "ts": f"{today} 10:05:00",
+            "task_id": "t-def456",
+            "provider": "zhipu",
+            "exit": 0,
+            "duration": 180,
+            "cmd": "test",
+        },
+        {
+            "ts": f"{today} 10:10:00",
+            "task_id": "t-ghi789",
+            "provider": "infini",
+            "exit": 1,
+            "duration": 30,
+            "cmd": "test",
+        },
+        {
+            "ts": "2026-03-31 15:00:00",
+            "task_id": "t-old123",
+            "provider": "volcano",
+            "exit": 0,
+            "duration": 90,
+            "cmd": "test",
+        },
+        {
+            "ts": "2026-03-30 12:00:00",
+            "task_id": "t-old456",
+            "provider": "infini",
+            "exit": 0,
+            "duration": 60,
+            "cmd": "test",
+        },
     ]
     jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
 
     # Create queue with one permanently failed task
-    queue_path = tmp_path / "golem-queue.md"
+    queue_path = tmp_path / "translation-queue.md"
     queue_path.write_text(
-        "- [ ] `golem --provider zhipu \"pending\"`\n"
-        "- [!] `golem --provider infini \"failed\"`\n"
-        "- [!] `golem --provider zhipu \"another failed\"`\n"
+        '- [ ] `ribosome --provider zhipu "pending"`\n'
+        '- [!] `ribosome --provider infini "failed"`\n'
+        '- [!] `ribosome --provider zhipu "another failed"`\n'
     )
 
     original_jsonl = _mod["JSONLFILE"]
@@ -1996,16 +1998,28 @@ def test_cmd_stats_with_records(tmp_path, capsys):
 
 def test_cmd_stats_with_rotated_file(tmp_path, capsys):
     """cmd_stats reads from both main JSONL and rotated .1 file."""
-    # Create both golem.jsonl and golem.jsonl.1 with records
+    # Create both ribosome.jsonl and ribosome.jsonl.1 with records
     vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
     vivesca_dir.mkdir(parents=True)
-    jsonl_path = vivesca_dir / "golem.jsonl"
-    jsonl1_path = vivesca_dir / "golem.jsonl.1"
+    jsonl_path = vivesca_dir / "ribosome.jsonl"
+    jsonl1_path = vivesca_dir / "ribosome.jsonl.1"
 
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
 
-    record1 = {"ts": f"{today} 09:00:00", "provider": "zhipu", "exit": 0, "duration": 100, "cmd": "test"}
-    record2 = {"ts": f"{today} 09:30:00", "provider": "volcano", "exit": 1, "duration": 50, "cmd": "test"}
+    record1 = {
+        "ts": f"{today} 09:00:00",
+        "provider": "zhipu",
+        "exit": 0,
+        "duration": 100,
+        "cmd": "test",
+    }
+    record2 = {
+        "ts": f"{today} 09:30:00",
+        "provider": "volcano",
+        "exit": 1,
+        "duration": 50,
+        "cmd": "test",
+    }
 
     jsonl_path.write_text(_mod["json"].dumps(record1) + "\n")
     jsonl1_path.write_text(_mod["json"].dumps(record2) + "\n")
@@ -2032,10 +2046,10 @@ def test_cmd_stats_skips_bad_lines(tmp_path, capsys):
     jsonl_path = _make_jsonl_dir(tmp_path)
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
     content = (
-        f'{_mod["json"].dumps({"ts": f"{today} 10:00", "provider": "zhipu", "exit": 0, "duration": 120})}\n'
+        f"{_mod['json'].dumps({'ts': f'{today} 10:00', 'provider': 'zhipu', 'exit': 0, 'duration': 120})}\n"
         "this is not valid json\n"
         "{broken json syntax\n"
-        f'{_mod["json"].dumps({"ts": f"{today} 10:30", "provider": "infini", "exit": 1, "duration": 30})}\n'
+        f"{_mod['json'].dumps({'ts': f'{today} 10:30', 'provider': 'infini', 'exit': 1, 'duration': 30})}\n"
     )
     jsonl_path.write_text(content)
 
@@ -2108,10 +2122,28 @@ def test_export_stats_with_records(tmp_path, capsys):
     jsonl_path = _make_jsonl_dir(tmp_path)
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
     records = [
-        {"ts": f"{today} 10:00:00", "provider": "zhipu", "exit": 0, "duration": 120, "cmd": "test"},
-        {"ts": f"{today} 10:05:00", "provider": "zhipu", "exit": 0, "duration": 180, "cmd": "test"},
+        {
+            "ts": f"{today} 10:00:00",
+            "provider": "zhipu",
+            "exit": 0,
+            "duration": 120,
+            "cmd": "test",
+        },
+        {
+            "ts": f"{today} 10:05:00",
+            "provider": "zhipu",
+            "exit": 0,
+            "duration": 180,
+            "cmd": "test",
+        },
         {"ts": f"{today} 10:10:00", "provider": "infini", "exit": 1, "duration": 5, "cmd": "test"},
-        {"ts": "2026-03-30 12:00:00", "provider": "volcano", "exit": 0, "duration": 90, "cmd": "test"},
+        {
+            "ts": "2026-03-30 12:00:00",
+            "provider": "volcano",
+            "exit": 0,
+            "duration": 90,
+            "cmd": "test",
+        },
     ]
     jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
 
@@ -2160,7 +2192,14 @@ def test_export_stats_output_is_valid_json(tmp_path, capsys):
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
     records = [
         {"ts": f"{today} 10:00:00", "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
-        {"ts": f"{today} 10:05:00", "provider": "zhipu", "exit": 1, "duration": 300, "tail": "some error", "cmd": "test"},
+        {
+            "ts": f"{today} 10:05:00",
+            "provider": "zhipu",
+            "exit": 1,
+            "duration": 300,
+            "tail": "some error",
+            "cmd": "test",
+        },
     ]
     jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
 
@@ -2177,7 +2216,17 @@ def test_export_stats_output_is_valid_json(tmp_path, capsys):
     assert isinstance(data, list)
     assert len(data) == 1  # only zhipu
     entry = data[0]
-    required_keys = {"provider", "total", "passed", "failed", "rate_limited", "real_fail", "capability_pct", "build_count", "maint_count"}
+    required_keys = {
+        "provider",
+        "total",
+        "passed",
+        "failed",
+        "rate_limited",
+        "real_fail",
+        "capability_pct",
+        "build_count",
+        "maint_count",
+    }
     assert set(entry.keys()) == required_keys
 
 
@@ -2185,12 +2234,24 @@ def test_export_stats_reads_rotated_file(tmp_path, capsys):
     """cmd_export_stats reads from both main JSONL and rotated .1 file."""
     vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
     vivesca_dir.mkdir(parents=True)
-    jsonl_path = vivesca_dir / "golem.jsonl"
-    jsonl1_path = vivesca_dir / "golem.jsonl.1"
+    jsonl_path = vivesca_dir / "ribosome.jsonl"
+    jsonl1_path = vivesca_dir / "ribosome.jsonl.1"
 
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
-    record1 = {"ts": f"{today} 09:00:00", "provider": "zhipu", "exit": 0, "duration": 100, "cmd": "test"}
-    record2 = {"ts": f"{today} 09:30:00", "provider": "volcano", "exit": 1, "duration": 50, "cmd": "test"}
+    record1 = {
+        "ts": f"{today} 09:00:00",
+        "provider": "zhipu",
+        "exit": 0,
+        "duration": 100,
+        "cmd": "test",
+    }
+    record2 = {
+        "ts": f"{today} 09:30:00",
+        "provider": "volcano",
+        "exit": 1,
+        "duration": 50,
+        "cmd": "test",
+    }
 
     jsonl_path.write_text(_mod["json"].dumps(record1) + "\n")
     jsonl1_path.write_text(_mod["json"].dumps(record2) + "\n")
@@ -2215,10 +2276,10 @@ def test_export_stats_skips_bad_lines(tmp_path, capsys):
     jsonl_path = _make_jsonl_dir(tmp_path)
     today = _mod["datetime"].now().strftime("%Y-%m-%d")
     content = (
-        f'{_mod["json"].dumps({"ts": f"{today} 10:00", "provider": "zhipu", "exit": 0, "duration": 120})}\n'
+        f"{_mod['json'].dumps({'ts': f'{today} 10:00', 'provider': 'zhipu', 'exit': 0, 'duration': 120})}\n"
         "this is not valid json\n"
         "{broken json syntax\n"
-        f'{_mod["json"].dumps({"ts": f"{today} 10:30", "provider": "infini", "exit": 1, "duration": 30})}\n'
+        f"{_mod['json'].dumps({'ts': f'{today} 10:30', 'provider': 'infini', 'exit': 1, 'duration': 30})}\n"
     )
     jsonl_path.write_text(content)
 
@@ -2244,11 +2305,30 @@ def test_export_stats_capability_pct_calculation(tmp_path, capsys):
     # provider: 10 passed, 2 failed (1 rate-limited, 1 real)
     records = []
     for i in range(10):
-        records.append({"ts": f"{today} 10:{i:02d}", "provider": "testprov", "exit": 0, "duration": 60, "cmd": "test"})
+        records.append(
+            {
+                "ts": f"{today} 10:{i:02d}",
+                "provider": "testprov",
+                "exit": 0,
+                "duration": 60,
+                "cmd": "test",
+            }
+        )
     # rate-limited failure: duration <= 10
-    records.append({"ts": f"{today} 11:00", "provider": "testprov", "exit": 1, "duration": 5, "cmd": "test"})
+    records.append(
+        {"ts": f"{today} 11:00", "provider": "testprov", "exit": 1, "duration": 5, "cmd": "test"}
+    )
     # real failure: duration > 10 with non-rate-limit tail
-    records.append({"ts": f"{today} 11:05", "provider": "testprov", "exit": 1, "duration": 300, "tail": "syntax error in output", "cmd": "test"})
+    records.append(
+        {
+            "ts": f"{today} 11:05",
+            "provider": "testprov",
+            "exit": 1,
+            "duration": 300,
+            "tail": "syntax error in output",
+            "cmd": "test",
+        }
+    )
     jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
 
     original_jsonl = _mod["JSONLFILE"]
@@ -2340,7 +2420,7 @@ class TestFallbackRouting:
         """_resolve_dispatch_command swaps --provider in the command string."""
         cooldowns = {"infini": time.time() + 3600}
         running = {"codex": 0, "gemini": 0, "zhipu": 0}
-        cmd = 'golem --provider infini --max-turns 50 "task"'
+        cmd = 'ribosome --provider infini --max-turns 50 "task"'
         result = _resolve_dispatch_command(cmd, cooldowns, running)
         assert result is not None
         new_cmd, affinity, dispatch = result
@@ -2353,7 +2433,7 @@ class TestFallbackRouting:
         """_resolve_dispatch_command returns original when provider not cooled."""
         cooldowns = {}
         running = {}
-        cmd = 'golem --provider infini --max-turns 50 "task"'
+        cmd = 'ribosome --provider infini --max-turns 50 "task"'
         result = _resolve_dispatch_command(cmd, cooldowns, running)
         assert result is not None
         new_cmd, affinity, dispatch = result
@@ -2395,7 +2475,7 @@ class TestFallbackRouting:
             "zhipu": time.time() + 3600,
         }
         running = {}
-        codex_cap = _mod["PROVIDER_LIMITS"]["codex"]   # 4
+        codex_cap = _mod["PROVIDER_LIMITS"]["codex"]  # 4
         gemini_cap = _mod["PROVIDER_LIMITS"]["gemini"]  # 4
 
         # Dispatch 10 fallback tasks: 4 infini + 3 volcano + 3 zhipu
@@ -2465,6 +2545,7 @@ class TestFallbackRouting:
         """Integration: verify the dispatch sort key puts fallback tasks first
         and fills under-capacity providers before over-capacity ones."""
         import uuid
+
         _dispatch_candidates_fn = _mod["_dispatch_candidates"]
         parse_provider_fn = _mod["parse_provider"]
         get_provider_limit_fn = _mod["get_provider_limit"]
@@ -2475,11 +2556,25 @@ class TestFallbackRouting:
         # Build pending tasks: 2 infini, 2 volcano, 8 zhipu
         pending = []
         for i in range(2):
-            pending.append((i, f'golem --provider infini "infini task {i}"', f"t-{uuid.uuid4().hex[:6]}"))
+            pending.append(
+                (i, f'ribosome --provider infini "infini task {i}"', f"t-{uuid.uuid4().hex[:6]}")
+            )
         for i in range(2):
-            pending.append((10 + i, f'golem --provider volcano "volcano task {i}"', f"t-{uuid.uuid4().hex[:6]}"))
+            pending.append(
+                (
+                    10 + i,
+                    f'ribosome --provider volcano "volcano task {i}"',
+                    f"t-{uuid.uuid4().hex[:6]}",
+                )
+            )
         for i in range(8):
-            pending.append((20 + i, f'golem --provider zhipu "zhipu task {i}"', f"t-{uuid.uuid4().hex[:6]}"))
+            pending.append(
+                (
+                    20 + i,
+                    f'ribosome --provider zhipu "zhipu task {i}"',
+                    f"t-{uuid.uuid4().hex[:6]}",
+                )
+            )
 
         # Define the sort key (mirrors the daemon_loop version)
         def _sort_key(item):
@@ -2645,8 +2740,9 @@ class TestResolveDispatchCommand:
         """Replaces --provider infini with --provider codex."""
         cooldowns = {"infini": time.time() + 600}
         result = _resolve_dispatch_command(
-            'golem --provider infini --max-turns 50 "task"',
-            cooldowns, {},
+            'ribosome --provider infini --max-turns 50 "task"',
+            cooldowns,
+            {},
         )
         assert result is not None
         cmd, affinity, dispatch = result
@@ -2659,8 +2755,9 @@ class TestResolveDispatchCommand:
         """Fallback swap preserves --max-turns and other flags."""
         cooldowns = {"infini": time.time() + 600}
         result = _resolve_dispatch_command(
-            'golem --provider infini --max-turns 50 "task"',
-            cooldowns, {},
+            'ribosome --provider infini --max-turns 50 "task"',
+            cooldowns,
+            {},
         )
         assert result is not None
         cmd, _, _ = result
@@ -2669,22 +2766,24 @@ class TestResolveDispatchCommand:
     def test_no_swap_when_affinity_healthy(self):
         """When affinity provider is not cooled, command is unchanged."""
         result = _resolve_dispatch_command(
-            'golem --provider infini --max-turns 50 "task"',
-            {}, {},
+            'ribosome --provider infini --max-turns 50 "task"',
+            {},
+            {},
         )
         assert result is not None
         cmd, affinity, dispatch = result
         assert affinity == "infini"
         assert dispatch == "infini"
-        assert cmd == 'golem --provider infini --max-turns 50 "task"'
+        assert cmd == 'ribosome --provider infini --max-turns 50 "task"'
 
     def test_returns_none_when_all_exhausted(self):
         """Returns None when no provider is dispatchable."""
         cooldowns = {"infini": time.time() + 600, "codex": time.time() + 600}
         running = {"gemini": 4, "zhipu": 8, "volcano": 16}
         result = _resolve_dispatch_command(
-            'golem --provider infini "task"',
-            cooldowns, running,
+            'ribosome --provider infini "task"',
+            cooldowns,
+            running,
         )
         assert result is None
 
@@ -2699,7 +2798,7 @@ class TestFallbackRoutingProportional:
         dispatches: list[str] = []
 
         # Simulate dispatching 10 infini/volcano tasks alternately
-        for affinity in (["infini", "volcano"] * 5):
+        for affinity in ["infini", "volcano"] * 5:
             picked = _pick_dispatch_provider(affinity, cooldowns, running)
             if picked:
                 dispatches.append(picked)
@@ -2763,8 +2862,15 @@ def _setup_daemon_test(tmp_path, extra_mocks=None):
     saved = {}
 
     # Redirect file paths to tmp
-    for key in ("LOGFILE", "PIDFILE", "JSONLFILE", "RUNNING_FILE",
-                "COOLDOWN_LOG", "CLEAR_COOLDOWN_FILE", "QUEUE_FILE"):
+    for key in (
+        "LOGFILE",
+        "PIDFILE",
+        "JSONLFILE",
+        "RUNNING_FILE",
+        "COOLDOWN_LOG",
+        "CLEAR_COOLDOWN_FILE",
+        "QUEUE_FILE",
+    ):
         saved[key] = _mod[key]
         _mod[key] = tmp_path / key.lower()
 
@@ -2802,10 +2908,13 @@ class TestAlwaysOnIdleSleep:
             sleep_calls.append(seconds)
             _shutdown_event.set()
 
-        saved = _setup_daemon_test(tmp_path, {
-            "_interruptible_sleep": mock_sleep,
-            "parse_queue": lambda: [],
-        })
+        saved = _setup_daemon_test(
+            tmp_path,
+            {
+                "_interruptible_sleep": mock_sleep,
+                "parse_queue": lambda: [],
+            },
+        )
         try:
             daemon_loop()
         finally:
@@ -2826,10 +2935,13 @@ class TestAlwaysOnIdleSleep:
         def no_op_sleep(seconds):
             pass
 
-        saved = _setup_daemon_test(tmp_path, {
-            "_interruptible_sleep": no_op_sleep,
-            "parse_queue": counting_parse_queue,
-        })
+        saved = _setup_daemon_test(
+            tmp_path,
+            {
+                "_interruptible_sleep": no_op_sleep,
+                "parse_queue": counting_parse_queue,
+            },
+        )
         try:
             daemon_loop()
         finally:
@@ -2849,16 +2961,19 @@ class TestAlwaysOnBackoff:
             sleep_calls.append(seconds)
             _shutdown_event.set()
 
-        task = (0, 'golem --provider zhipu "test task"', 't-abc123')
+        task = (0, 'ribosome --provider zhipu "test task"', "t-abc123")
 
-        saved = _setup_daemon_test(tmp_path, {
-            "_interruptible_sleep": mock_sleep,
-            "parse_queue": lambda: [task],
-            "_resolve_dispatch_command": lambda *args: None,
-            "_golem_env": lambda: {},
-            "_ssh_health_check": lambda w: False,
-            "disk_guard": lambda: True,
-        })
+        saved = _setup_daemon_test(
+            tmp_path,
+            {
+                "_interruptible_sleep": mock_sleep,
+                "parse_queue": lambda: [task],
+                "_resolve_dispatch_command": lambda *args: None,
+                "_ribosome_env": lambda: {},
+                "_ssh_health_check": lambda w: False,
+                "disk_guard": lambda: True,
+            },
+        )
         try:
             daemon_loop()
         finally:
@@ -2869,7 +2984,7 @@ class TestAlwaysOnBackoff:
     def test_backoff_repolls_after_wake(self, tmp_path):
         """After waking from backoff sleep, daemon re-reads the queue."""
         parse_count = [0]
-        task = (0, 'golem --provider zhipu "test task"', 't-abc123')
+        task = (0, 'ribosome --provider zhipu "test task"', "t-abc123")
 
         def counting_parse_queue():
             parse_count[0] += 1
@@ -2880,14 +2995,17 @@ class TestAlwaysOnBackoff:
         def no_op_sleep(seconds):
             pass
 
-        saved = _setup_daemon_test(tmp_path, {
-            "_interruptible_sleep": no_op_sleep,
-            "parse_queue": counting_parse_queue,
-            "_resolve_dispatch_command": lambda *args: None,
-            "_golem_env": lambda: {},
-            "_ssh_health_check": lambda w: False,
-            "disk_guard": lambda: True,
-        })
+        saved = _setup_daemon_test(
+            tmp_path,
+            {
+                "_interruptible_sleep": no_op_sleep,
+                "parse_queue": counting_parse_queue,
+                "_resolve_dispatch_command": lambda *args: None,
+                "_ribosome_env": lambda: {},
+                "_ssh_health_check": lambda w: False,
+                "disk_guard": lambda: True,
+            },
+        )
         try:
             daemon_loop()
         finally:
@@ -2928,11 +3046,14 @@ class TestSigtermGracefulShutdown:
         def mock_sleep(seconds):
             _shutdown_event.set()
 
-        saved = _setup_daemon_test(tmp_path, {
-            "_interruptible_sleep": mock_sleep,
-            "parse_queue": lambda: [],
-            "_drain_running": counting_drain,
-        })
+        saved = _setup_daemon_test(
+            tmp_path,
+            {
+                "_interruptible_sleep": mock_sleep,
+                "parse_queue": lambda: [],
+                "_drain_running": counting_drain,
+            },
+        )
         try:
             daemon_loop()
         finally:
@@ -2946,56 +3067,56 @@ class TestSigtermGracefulShutdown:
 
 def test_normalize_prompt_strips_task_id():
     """_normalize_prompt strips [t-xxxxxx] task IDs."""
-    a = _normalize_prompt('golem [t-abc123] --provider zhipu --max-turns 30 "Fix tests"')
-    b = _normalize_prompt('golem [t-def456] --provider zhipu --max-turns 30 "Fix tests"')
+    a = _normalize_prompt('ribosome [t-abc123] --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('ribosome [t-def456] --provider zhipu --max-turns 30 "Fix tests"')
     assert a == b
 
 
 def test_normalize_prompt_strips_provider():
     """_normalize_prompt strips --provider flag so different providers match."""
-    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
-    b = _normalize_prompt('golem --provider infini --max-turns 30 "Fix tests"')
+    a = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('ribosome --provider infini --max-turns 30 "Fix tests"')
     assert a == b
 
 
 def test_normalize_prompt_strips_max_turns():
     """_normalize_prompt strips --max-turns N flag."""
-    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
-    b = _normalize_prompt('golem --provider zhipu --max-turns 50 "Fix tests"')
+    a = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('ribosome --provider zhipu --max-turns 50 "Fix tests"')
     assert a == b
 
 
 def test_normalize_prompt_strips_retry_tag():
     """_normalize_prompt strips trailing (retry) tag."""
-    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests" (retry)')
-    b = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
+    a = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Fix tests" (retry)')
+    b = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Fix tests"')
     assert a == b
 
 
 def test_normalize_prompt_different_prompts_differ():
     """_normalize_prompt produces different keys for different prompts."""
-    a = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
-    b = _normalize_prompt('golem --provider zhipu --max-turns 30 "Build feature X"')
+    a = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Fix tests"')
+    b = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Build feature X"')
     assert a != b
 
 
 def test_get_pending_prompts_reads_queue(tmp_path):
     """_get_pending_prompts returns normalized prompts from pending entries."""
-    qf = tmp_path / "golem-queue.md"
+    qf = tmp_path / "translation-queue.md"
     _mod["QUEUE_FILE"] = qf
     try:
         qf.write_text(
-            '- [ ] `golem [t-aa0001] --provider zhipu --max-turns 30 "Fix tests"`\n'
-            '- [x] `golem [t-aa0002] --provider infini --max-turns 30 "Done task"`\n'
-            '- [!!] `golem [t-aa0003] --provider volcano --max-turns 40 "Build X"`\n'
+            '- [ ] `ribosome [t-aa0001] --provider zhipu --max-turns 30 "Fix tests"`\n'
+            '- [x] `ribosome [t-aa0002] --provider infini --max-turns 30 "Done task"`\n'
+            '- [!!] `ribosome [t-aa0003] --provider volcano --max-turns 40 "Build X"`\n'
         )
         prompts = _get_pending_prompts()
-        norm_fix = _normalize_prompt('golem --provider zhipu --max-turns 30 "Fix tests"')
-        norm_build = _normalize_prompt('golem --provider volcano --max-turns 40 "Build X"')
+        norm_fix = _normalize_prompt('ribosome --provider zhipu --max-turns 30 "Fix tests"')
+        norm_build = _normalize_prompt('ribosome --provider volcano --max-turns 40 "Build X"')
         assert norm_fix in prompts
         assert norm_build in prompts
         # [x] done entry should NOT be included
-        norm_done = _normalize_prompt('golem --provider infini --max-turns 30 "Done task"')
+        norm_done = _normalize_prompt('ribosome --provider infini --max-turns 30 "Done task"')
         assert norm_done not in prompts
     finally:
         _mod["QUEUE_FILE"] = QUEUE_FILE
@@ -3003,20 +3124,22 @@ def test_get_pending_prompts_reads_queue(tmp_path):
 
 def test_enqueue_dedup_rejects_duplicate(tmp_path):
     """Writing the same prompt twice to the queue — second should be rejected."""
-    qf = tmp_path / "golem-queue.md"
+    qf = tmp_path / "translation-queue.md"
     _mod["QUEUE_FILE"] = qf
-    QueueLock = _mod["QueueLock"]
+    _mod["QueueLock"]
     _existing = _mod["_get_pending_prompts"]()
     _normalize = _mod["_normalize_prompt"]
     try:
         # Enqueue first task
-        prompt = 'golem --provider zhipu --max-turns 30 "Fix pyright errors"'
-        line1 = f'- [ ] `{prompt}`'
+        prompt = 'ribosome --provider zhipu --max-turns 30 "Fix pyright errors"'
+        line1 = f"- [ ] `{prompt}`"
         qf.write_text(line1 + "\n")
         _existing.add(_normalize(prompt))
 
         # Attempt to enqueue duplicate
-        prompt2 = 'golem [t-dead01] --provider infini --max-turns 40 "Fix pyright errors" (retry)'
+        prompt2 = (
+            'ribosome [t-dead01] --provider infini --max-turns 40 "Fix pyright errors" (retry)'
+        )
         norm2 = _normalize(prompt2)
         assert norm2 in _existing, "Second prompt should normalize to same key as first"
     finally:
@@ -3038,38 +3161,41 @@ def test_dispatch_dedup_skips_running_duplicate(tmp_path):
 
     task_ran: list[str] = []
 
-    def mock_run_golem(cmd):
+    def mock_run_ribosome(cmd):
         task_ran.append(cmd)
         return (cmd, 0, "ok", 10)
 
     def mock_parse_queue():
         return [
-            (0, 'golem [t-aaa111] --provider zhipu --max-turns 30 "Fix tests"', "t-aaa111"),
-            (1, 'golem [t-bbb222] --provider infini --max-turns 40 "Fix tests"', "t-bbb222"),
+            (0, 'ribosome [t-aaa111] --provider zhipu --max-turns 30 "Fix tests"', "t-aaa111"),
+            (1, 'ribosome [t-bbb222] --provider infini --max-turns 40 "Fix tests"', "t-bbb222"),
         ]
 
     def mock_sleep(s):
         _shutdown_event.set()
 
-    saved = _setup(tmp_path, {
-        "log": mock_log,
-        "parse_queue": mock_parse_queue,
-        "run_golem": mock_run_golem,
-        "_interruptible_sleep": mock_sleep,
-        "_update_running_file": lambda r: None,
-        "_golem_env": lambda: {},
-        "_ssh_health_check": lambda w: True,
-        "startup_pull": lambda: "ok",
-        "rotate_logs": lambda: None,
-        "write_pid": lambda: None,
-        "remove_pid": lambda: None,
-        "disk_guard": lambda *a, **kw: True,
-        "auto_requeue": lambda *a, **kw: 0,
-        "auto_commit": lambda: "nothing",
-        "validate_golem_output": lambda: (True, []),
-        "check_new_test_files_and_run_pytest": lambda: (True, ""),
-        "_provider_preflight": lambda p, e: (True, None),
-    })
+    saved = _setup(
+        tmp_path,
+        {
+            "log": mock_log,
+            "parse_queue": mock_parse_queue,
+            "run_ribosome": mock_run_ribosome,
+            "_interruptible_sleep": mock_sleep,
+            "_update_running_file": lambda r: None,
+            "_ribosome_env": lambda: {},
+            "_ssh_health_check": lambda w: True,
+            "startup_pull": lambda: "ok",
+            "rotate_logs": lambda: None,
+            "write_pid": lambda: None,
+            "remove_pid": lambda: None,
+            "disk_guard": lambda *a, **kw: True,
+            "auto_requeue": lambda *a, **kw: 0,
+            "auto_commit": lambda: "nothing",
+            "validate_ribosome_output": lambda: (True, []),
+            "check_new_test_files_and_run_pytest": lambda: (True, ""),
+            "_provider_preflight": lambda p, e: (True, None),
+        },
+    )
     try:
         daemon_loop()
     finally:
@@ -3163,8 +3289,20 @@ class TestParseResetDate:
 
     def test_various_months(self):
         """parse_reset_date_str handles all month abbreviations."""
-        for month in ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"):
+        for month in (
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ):
             result = parse_reset_date_str(f"try again at {month} 1st, 2030 12:00 PM")
             assert result is not None, f"Failed for month {month}"
 
@@ -3254,11 +3392,13 @@ class TestStatusBillingExhausted:
         future = _time.time() + 5 * 86400  # 5 days from now
         future_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future))
         entries = [
-            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
-             "event": "billing-exhausted",
-             "provider": "codex",
-             "resets_at": future_str,
-             "reason": "billing exhausted"},
+            {
+                "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+                "event": "billing-exhausted",
+                "provider": "codex",
+                "resets_at": future_str,
+                "reason": "billing exhausted",
+            },
         ]
         cooldown_log.write_text(json.dumps(entries) + "\n")
 
@@ -3292,11 +3432,13 @@ class TestStatusBillingExhausted:
         future = _time.time() + 3600  # 1 hour from now
         future_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future))
         entries = [
-            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
-             "event": "burnout",
-             "provider": "infini",
-             "resets_at": future_str,
-             "reason": "rate limited"},
+            {
+                "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+                "event": "burnout",
+                "provider": "infini",
+                "resets_at": future_str,
+                "reason": "rate limited",
+            },
         ]
         cooldown_log.write_text(json.dumps(entries) + "\n")
 
@@ -3332,16 +3474,20 @@ class TestStatusBillingExhausted:
         future_short = _time.time() + 3600
         future_long = _time.time() + 5 * 86400
         entries = [
-            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
-             "event": "burnout",
-             "provider": "infini",
-             "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future_short)),
-             "reason": "rate limited"},
-            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
-             "event": "billing-exhausted",
-             "provider": "codex",
-             "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future_long)),
-             "reason": "billing exhausted"},
+            {
+                "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+                "event": "burnout",
+                "provider": "infini",
+                "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future_short)),
+                "reason": "rate limited",
+            },
+            {
+                "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+                "event": "billing-exhausted",
+                "provider": "codex",
+                "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future_long)),
+                "reason": "billing exhausted",
+            },
         ]
         cooldown_log.write_text(json.dumps(entries) + "\n")
 
@@ -3376,16 +3522,20 @@ class TestStatusBillingExhausted:
         cooldown_log = tmp_path / "cooldowns.json"
         future = _time.time() + 5 * 86400
         entries = [
-            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
-             "event": "billing-exhausted",
-             "provider": "codex",
-             "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future)),
-             "reason": "billing exhausted"},
-            {"ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
-             "event": "resumed",
-             "provider": "codex",
-             "resets_at": None,
-             "reason": "manual clear"},
+            {
+                "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+                "event": "billing-exhausted",
+                "provider": "codex",
+                "resets_at": _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(future)),
+                "reason": "billing exhausted",
+            },
+            {
+                "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+                "event": "resumed",
+                "provider": "codex",
+                "resets_at": None,
+                "reason": "manual clear",
+            },
         ]
         cooldown_log.write_text(json.dumps(entries) + "\n")
 
@@ -3480,7 +3630,9 @@ class TestPickDispatchProviderWithDisabled:
     def test_disabled_provider_skipped_even_without_cooldown(self):
         """Provider in PROVIDER_DISABLED is skipped even if not in cooldown."""
         disabled = {"codex": {"resets_at": time.time() + 86400, "resets_str": "Apr 8"}}
-        result = _pick_dispatch_provider("infini", {"infini": time.time() + 600}, {}, provider_disabled=disabled)
+        result = _pick_dispatch_provider(
+            "infini", {"infini": time.time() + 600}, {}, provider_disabled=disabled
+        )
         # Should skip codex (disabled) and fall through to gemini
         assert result is not None
         assert result != "codex"
@@ -3511,7 +3663,9 @@ class TestPickDispatchProviderWithDisabled:
 
     def test_all_providers_disabled_returns_none(self):
         """When all providers are disabled or in cooldown, returns None."""
-        disabled = {p: {"resets_at": time.time() + 86400, "resets_str": "Apr 8"} for p in PROVIDER_LIMITS}
+        disabled = {
+            p: {"resets_at": time.time() + 86400, "resets_str": "Apr 8"} for p in PROVIDER_LIMITS
+        }
         assert _pick_dispatch_provider("infini", {}, {}, provider_disabled=disabled) is None
 
     def test_disabled_provider_not_probed_for_fallback(self):
@@ -3548,6 +3702,7 @@ class TestDateParsingEdgeCases:
     def test_iso_format_close_future(self):
         """ISO format with date <24h away returns short window."""
         from datetime import datetime, timedelta
+
         soon = (datetime.now() + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
         tail = f"reset at {soon}"
         window = parse_rate_limit_window(tail)
@@ -3561,8 +3716,8 @@ class TestDateParsingEdgeCases:
         assert window == 5 * 60 + 30
         assert window < BILLING_EXHAUSTED_THRESHOLD
 
-    def test_codex_billing_with_nd_suffix(self):
-        """Date with 'nd' suffix (e.g. '2nd') is parsed."""
+    def test_codex_billing_with_and_suffix(self):
+        """Date with 'and' suffix (e.g. '2nd') is parsed."""
         tail = "try again at Apr 2nd, 2030 3:00 PM"
         window = parse_rate_limit_window(tail)
         assert window is not None
@@ -3742,9 +3897,7 @@ class TestDaemonLoopBillingExhaustion:
         """When a billing-exhausted message is detected, PROVIDER_DISABLED is populated."""
         # Simulate the daemon loop's billing-exhaustion handling logic
         tail = "You've hit your usage limit. Please try again at Dec 25th, 2030 4:01 PM"
-        task_id = "t-abc123"
         dispatch_provider = "codex"
-        exit_code = 1
 
         assert is_rate_limited(tail)
         assert is_billing_exhausted(tail)
@@ -3837,6 +3990,7 @@ class TestDaemonLoopBillingExhaustion:
 
 # ── Codex-specific edge case tests ──────────────────────────────────────
 
+
 class TestCodexBillingEdgeCases:
     """Edge-case tests for realistic Codex billing-limit scenarios."""
 
@@ -3849,7 +4003,7 @@ class TestCodexBillingEdgeCases:
 
     def test_codex_billing_with_no_suffix(self):
         """Date without ordinal suffix is also parsed."""
-        # The regex uses (?:st|nd|rd|th)? so the suffix is optional
+        # The regex uses (?:st|and|rd|th)? so the suffix is optional
         tail = "try again at Apr 8, 2030 4:01 PM"
         window = parse_rate_limit_window(tail)
         assert window is not None

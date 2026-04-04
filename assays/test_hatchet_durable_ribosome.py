@@ -1,9 +1,7 @@
-from __future__ import annotations
-
-"""Tests for durable_task conversion of golem-zhipu.
+"""Tests for durable_task conversion of ribosome-zhipu.
 
 Verifies:
-  - golem-zhipu is registered via @hatchet.durable_task (not @hatchet.task)
+  - ribosome-zhipu is registered via @hatchet.durable_task (not @hatchet.task)
   - The function is async and accepts DurableContext
   - save_state() calls are made before and after subprocess
   - save_state wraps aio_wait_for with zero-duration SleepCondition
@@ -11,7 +9,6 @@ Verifies:
     subprocess may be re-invoked (idempotent)
 """
 
-import asyncio
 import inspect
 from datetime import timedelta
 from pathlib import Path
@@ -19,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-golem/worker.py")
+WORKER_PATH = str(Path.home() / "germline/effectors/hatchet-ribosome/worker.py")
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -67,18 +64,18 @@ def _capture_decorator_calls():
 
 
 class TestDurableRegistration:
-    def test_golem_zhipu_uses_durable_task(self):
-        """golem-zhipu is registered via @hatchet.durable_task, not @hatchet.task."""
+    def test_ribosome_zhipu_uses_durable_task(self):
+        """ribosome-zhipu is registered via @hatchet.durable_task, not @hatchet.task."""
         task_calls, durable_calls = _capture_decorator_calls()
-        zhipu_tasks = [c for c in task_calls if c.get("name") == "golem-zhipu"]
-        zhipu_durable = [c for c in durable_calls if c.get("name") == "golem-zhipu"]
-        assert len(zhipu_tasks) == 0, "golem-zhipu should NOT use @hatchet.task"
-        assert len(zhipu_durable) == 1, "golem-zhipu should use @hatchet.durable_task"
+        zhipu_tasks = [c for c in task_calls if c.get("name") == "ribosome-zhipu"]
+        zhipu_durable = [c for c in durable_calls if c.get("name") == "ribosome-zhipu"]
+        assert len(zhipu_tasks) == 0, "ribosome-zhipu should NOT use @hatchet.task"
+        assert len(zhipu_durable) == 1, "ribosome-zhipu should use @hatchet.durable_task"
 
     def test_zhipu_durable_has_same_config(self):
         """durable_task keeps same concurrency, timeout, retries, rate_limits."""
         _, durable_calls = _capture_decorator_calls()
-        zhipu = next(c for c in durable_calls if c["name"] == "golem-zhipu")
+        zhipu = next(c for c in durable_calls if c["name"] == "ribosome-zhipu")
         assert zhipu["execution_timeout"] == "30m"
         assert zhipu["retries"] == 2
         assert zhipu["rate_limits"] is not None
@@ -89,13 +86,13 @@ class TestDurableRegistration:
         """Non-zhipu providers still use @hatchet.task."""
         task_calls, durable_calls = _capture_decorator_calls()
         task_names = {c["name"] for c in task_calls}
-        assert "golem-infini" in task_names
-        assert "golem-volcano" in task_names
-        assert "golem-gemini" in task_names
-        assert "golem-codex" in task_names
+        assert "ribosome-infini" in task_names
+        assert "ribosome-volcano" in task_names
+        assert "ribosome-gemini" in task_names
+        assert "ribosome-codex" in task_names
         # Only zhipu in durable
         durable_names = {c["name"] for c in durable_calls}
-        assert durable_names == {"golem-zhipu"}
+        assert durable_names == {"ribosome-zhipu"}
 
     def test_total_task_count(self):
         """1 durable_task + 6 @hatchet.task = 7 total task registrations."""
@@ -108,15 +105,15 @@ class TestDurableRegistration:
 
 
 class TestDurableFunctionSignature:
-    def test_golem_zhipu_is_async(self):
-        """golem_zhipu is an async function (coroutine function)."""
+    def test_ribosome_zhipu_is_async(self):
+        """ribosome_zhipu is an async function (coroutine function)."""
         ns = _exec_worker(_make_mock_hatchet())
-        assert inspect.iscoroutinefunction(ns["golem_zhipu"])
+        assert inspect.iscoroutinefunction(ns["ribosome_zhipu"])
 
-    def test_golem_zhipu_accepts_two_args(self):
+    def test_ribosome_zhipu_accepts_two_args(self):
         """Function signature is (input, context)."""
         ns = _exec_worker(_make_mock_hatchet())
-        sig = inspect.signature(ns["golem_zhipu"])
+        sig = inspect.signature(ns["ribosome_zhipu"])
         params = list(sig.parameters.keys())
         assert params == ["input", "context"]
 
@@ -158,31 +155,27 @@ def _make_mock_subprocess(returncode=0, stdout="ok", stderr=""):
 class TestCheckpoints:
     @pytest.mark.asyncio
     async def test_pre_exec_checkpoint_called(self):
-        """aio_wait_for('golem-zhipu-pre-exec', ...) is called."""
+        """aio_wait_for('ribosome-zhipu-pre-exec', ...) is called."""
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test job"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test job"}, ctx)
 
-        signal_keys = [
-            call.args[0] for call in ctx.aio_wait_for.call_args_list
-        ]
-        assert "golem-zhipu-pre-exec" in signal_keys
+        signal_keys = [call.args[0] for call in ctx.aio_wait_for.call_args_list]
+        assert "ribosome-zhipu-pre-exec" in signal_keys
 
     @pytest.mark.asyncio
     async def test_post_exec_checkpoint_called(self):
-        """aio_wait_for('golem-zhipu-post-exec', ...) is called."""
+        """aio_wait_for('ribosome-zhipu-post-exec', ...) is called."""
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test job"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test job"}, ctx)
 
-        signal_keys = [
-            call.args[0] for call in ctx.aio_wait_for.call_args_list
-        ]
-        assert "golem-zhipu-post-exec" in signal_keys
+        signal_keys = [call.args[0] for call in ctx.aio_wait_for.call_args_list]
+        assert "ribosome-zhipu-post-exec" in signal_keys
 
     @pytest.mark.asyncio
     async def test_checkpoints_use_zero_duration_sleep(self):
@@ -191,7 +184,7 @@ class TestCheckpoints:
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         for call in ctx.aio_wait_for.call_args_list:
             conditions = call.args[1:]
@@ -222,17 +215,15 @@ class TestCheckpoints:
             return original_run(*a, **kw)
 
         ns["subprocess"].run = tracking_run
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         # Find indices
         pre_idx = next(
-            i for i, (t, *r) in enumerate(call_order)
-            if t == "checkpoint" and r[0] == "golem-zhipu-pre-exec"
+            i
+            for i, (t, *r) in enumerate(call_order)
+            if t == "checkpoint" and r[0] == "ribosome-zhipu-pre-exec"
         )
-        sub_idx = next(
-            i for i, (t, *r) in enumerate(call_order)
-            if t == "subprocess"
-        )
+        sub_idx = next(i for i, (t, *r) in enumerate(call_order) if t == "subprocess")
         assert pre_idx < sub_idx, "pre-exec checkpoint must precede subprocess"
 
     @pytest.mark.asyncio
@@ -257,15 +248,13 @@ class TestCheckpoints:
             return original_run(*a, **kw)
 
         ns["subprocess"].run = tracking_run
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
-        sub_idx = next(
-            i for i, (t, *r) in enumerate(call_order)
-            if t == "subprocess"
-        )
+        sub_idx = next(i for i, (t, *r) in enumerate(call_order) if t == "subprocess")
         post_idx = next(
-            i for i, (t, *r) in enumerate(call_order)
-            if t == "checkpoint" and r[0] == "golem-zhipu-post-exec"
+            i
+            for i, (t, *r) in enumerate(call_order)
+            if t == "checkpoint" and r[0] == "ribosome-zhipu-post-exec"
         )
         assert post_idx > sub_idx, "post-exec checkpoint must follow subprocess"
 
@@ -275,12 +264,10 @@ class TestResume:
     async def test_full_run_returns_expected_result(self):
         """Normal execution returns dict with expected keys."""
         ns = _exec_worker(_make_mock_hatchet())
-        ns["subprocess"] = _make_mock_subprocess(
-            returncode=0, stdout="all good", stderr=""
-        )
+        ns["subprocess"] = _make_mock_subprocess(returncode=0, stdout="all good", stderr="")
         ctx = _make_mock_context()
 
-        result = await ns["golem_zhipu"]({"task": "build tests"}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": "build tests"}, ctx)
 
         assert result["success"] is True
         assert result["exit_code"] == 0
@@ -292,12 +279,10 @@ class TestResume:
     async def test_subprocess_failure_reflected_in_result(self):
         """Subprocess non-zero exit code sets success=False."""
         ns = _exec_worker(_make_mock_hatchet())
-        ns["subprocess"] = _make_mock_subprocess(
-            returncode=1, stdout="", stderr="error msg"
-        )
+        ns["subprocess"] = _make_mock_subprocess(returncode=1, stdout="", stderr="error msg")
         ctx = _make_mock_context()
 
-        result = await ns["golem_zhipu"]({"task": "fail job"}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": "fail job"}, ctx)
 
         assert result["success"] is False
         assert result["exit_code"] == 1
@@ -310,14 +295,14 @@ class TestResume:
         This is the expected Hatchet behaviour: the function is re-invoked from
         the start, but aio_wait_for calls return cached results instantly,
         acting as checkpoints. The subprocess re-runs because it sits between
-        checkpoints (golem tasks are idempotent).
+        checkpoints (ribosome tasks are idempotent).
         """
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess(returncode=0, stdout="ok", stderr="")
         ctx = _make_mock_context()
         ctx.invocation_count = 2  # Simulate replay
 
-        result = await ns["golem_zhipu"]({"task": "replay test"}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": "replay test"}, ctx)
 
         # Both checkpoints still called (returning cached results)
         assert ctx.aio_wait_for.call_count == 2
@@ -332,7 +317,7 @@ class TestResume:
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test", "max_turns": 42}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test", "max_turns": 42}, ctx)
 
         call_args = ns["subprocess"].run.call_args
         cmd = call_args[0][0] if call_args[0] else call_args.kwargs.get("args", [])
@@ -348,7 +333,7 @@ class TestResume:
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         call_args = ns["subprocess"].run.call_args
         cmd = call_args[0][0]
@@ -362,7 +347,7 @@ class TestResume:
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         call_args = ns["subprocess"].run.call_args
         cmd = call_args[0][0]
@@ -378,7 +363,7 @@ class TestResume:
         ctx = _make_mock_context()
 
         long_task = "x" * 300
-        result = await ns["golem_zhipu"]({"task": long_task}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": long_task}, ctx)
 
         assert len(result["task"]) == 200
         assert result["task"] == long_task[:200]
@@ -390,7 +375,7 @@ class TestResume:
         ns["subprocess"] = _make_mock_subprocess(stdout="y" * 5000)
         ctx = _make_mock_context()
 
-        result = await ns["golem_zhipu"]({"task": "test"}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         assert len(result["stdout"]) <= 4000
 
@@ -401,7 +386,7 @@ class TestResume:
         ns["subprocess"] = _make_mock_subprocess(stderr="z" * 3000)
         ctx = _make_mock_context()
 
-        result = await ns["golem_zhipu"]({"task": "test"}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         assert len(result["stderr"]) <= 2000
 
@@ -414,7 +399,7 @@ class TestTwoCheckpointsExactly:
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         assert ctx.aio_wait_for.call_count == 2
 
@@ -425,7 +410,7 @@ class TestTwoCheckpointsExactly:
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
 
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         keys = [call.args[0] for call in ctx.aio_wait_for.call_args_list]
         assert len(set(keys)) == 2, "Both checkpoint keys must be distinct"
@@ -482,7 +467,7 @@ class TestSaveStateHelper:
 class TestSaveStateResume:
     @pytest.mark.asyncio
     async def test_pre_exec_uses_save_state(self):
-        """golem-zhipu pre-exec checkpoint goes through save_state."""
+        """ribosome-zhipu pre-exec checkpoint goes through save_state."""
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
@@ -496,13 +481,13 @@ class TestSaveStateResume:
             return await original_save(context, key)
 
         ns["save_state"] = tracking_save
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
-        assert "golem-zhipu-pre-exec" in save_keys
+        assert "ribosome-zhipu-pre-exec" in save_keys
 
     @pytest.mark.asyncio
     async def test_post_exec_uses_save_state(self):
-        """golem-zhipu post-exec checkpoint goes through save_state."""
+        """ribosome-zhipu post-exec checkpoint goes through save_state."""
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
@@ -515,13 +500,13 @@ class TestSaveStateResume:
             return await original_save(context, key)
 
         ns["save_state"] = tracking_save
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
-        assert "golem-zhipu-post-exec" in save_keys
+        assert "ribosome-zhipu-post-exec" in save_keys
 
     @pytest.mark.asyncio
     async def test_exactly_two_save_state_calls(self):
-        """golem-zhipu calls save_state exactly twice (pre + post)."""
+        """ribosome-zhipu calls save_state exactly twice (pre + post)."""
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess()
         ctx = _make_mock_context()
@@ -534,10 +519,10 @@ class TestSaveStateResume:
             return await original_save(context, key)
 
         ns["save_state"] = tracking_save
-        await ns["golem_zhipu"]({"task": "test"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "test"}, ctx)
 
         assert len(save_keys) == 2
-        assert save_keys == ["golem-zhipu-pre-exec", "golem-zhipu-post-exec"]
+        assert save_keys == ["ribosome-zhipu-pre-exec", "ribosome-zhipu-post-exec"]
 
     @pytest.mark.asyncio
     async def test_resume_replays_save_state_in_order(self):
@@ -545,7 +530,7 @@ class TestSaveStateResume:
 
         Simulates worker restart: invocation_count > 1 means Hatchet is
         replaying. Cached save_state calls return instantly, and the
-        subprocess re-runs between them (golem tasks are idempotent).
+        subprocess re-runs between them (ribosome tasks are idempotent).
         """
         ns = _exec_worker(_make_mock_hatchet())
         ns["subprocess"] = _make_mock_subprocess(returncode=0, stdout="ok")
@@ -561,11 +546,11 @@ class TestSaveStateResume:
 
         ns["save_state"] = tracking_save
 
-        result = await ns["golem_zhipu"]({"task": "replay"}, ctx)
+        result = await ns["ribosome_zhipu"]({"task": "replay"}, ctx)
         assert result["success"] is True
         assert call_log == [
-            ("save_state", "golem-zhipu-pre-exec"),
-            ("save_state", "golem-zhipu-post-exec"),
+            ("save_state", "ribosome-zhipu-pre-exec"),
+            ("save_state", "ribosome-zhipu-post-exec"),
         ]
 
     @pytest.mark.asyncio
@@ -591,11 +576,11 @@ class TestSaveStateResume:
             return original_run(*a, **kw)
 
         ns["subprocess"].run = tracking_run
-        await ns["golem_zhipu"]({"task": "ordered"}, ctx)
+        await ns["ribosome_zhipu"]({"task": "ordered"}, ctx)
 
         # Verify order: pre-save, subprocess, post-save
         assert call_log == [
-            ("save_state", "golem-zhipu-pre-exec"),
+            ("save_state", "ribosome-zhipu-pre-exec"),
             ("subprocess",),
-            ("save_state", "golem-zhipu-post-exec"),
+            ("save_state", "ribosome-zhipu-post-exec"),
         ]

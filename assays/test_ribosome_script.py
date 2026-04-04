@@ -1,10 +1,8 @@
-
-"""Tests for effectors/golem -- headless CC + GLM-5.1 shell script.
+"""Tests for effectors/ribosome -- headless CC + GLM-5.1 shell script.
 
 Tests cover: task ID parsing, flag parsing, provider config, rate-limit
 fail-fast, JSON output, summary subcommand.
 """
-from __future__ import annotations
 
 import json
 import os
@@ -15,22 +13,25 @@ from pathlib import Path
 
 import pytest
 
-GOLEM = Path.home() / "germline" / "effectors" / "golem"
+RIBOSOME = Path.home() / "germline" / "effectors" / "ribosome"
 
 
-def _run_golem(*args, timeout=30):
+def _run_ribosome(*args, timeout=30):
     env = os.environ.copy()
     env["PATH"] = f"{Path.home() / 'germline' / 'effectors'}:{env.get('PATH', '')}"
     env.setdefault("ZHIPU_API_KEY", "test-zhipu-key")
     env.setdefault("VOLCANO_API_KEY", "test-volcano-key")
     env.setdefault("INFINI_API_KEY", "test-infini-key")
     return subprocess.run(
-        [str(GOLEM)] + list(args),
-        capture_output=True, text=True, timeout=timeout, env=env,
+        [str(RIBOSOME), *list(args)],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
     )
 
 
-def _run_golem_shell(cmd, env_extra=None, timeout=30):
+def _run_ribosome_shell(cmd, env_extra=None, timeout=30):
     env = os.environ.copy()
     env["PATH"] = f"{Path.home() / 'germline' / 'effectors'}:{env.get('PATH', '')}"
     env.setdefault("ZHIPU_API_KEY", "test-zhipu-key")
@@ -39,7 +40,12 @@ def _run_golem_shell(cmd, env_extra=None, timeout=30):
     if env_extra:
         env.update(env_extra)
     return subprocess.run(
-        cmd, shell=True, capture_output=True, text=True, timeout=timeout, env=env,
+        cmd,
+        shell=True,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
     )
 
 
@@ -48,14 +54,14 @@ def _run_golem_shell(cmd, env_extra=None, timeout=30):
 
 class TestHelp:
     def test_help_flag(self):
-        r = _run_golem("--help")
+        r = _run_ribosome("--help")
         assert r.returncode == 0
-        assert "golem" in r.stdout.lower()
+        assert "ribosome" in r.stdout.lower()
 
     def test_help_short(self):
-        r = _run_golem("-h")
+        r = _run_ribosome("-h")
         assert r.returncode == 0
-        assert "golem" in r.stdout.lower()
+        assert "ribosome" in r.stdout.lower()
 
 
 # -- Task ID parsing --
@@ -66,23 +72,23 @@ class TestTaskIDParsing:
 
     def test_task_id_with_help(self):
         """Task ID before flags: --help should still be recognized."""
-        r = _run_golem_shell("golem '[t-a4a00f]' --help")
+        r = _run_ribosome_shell("ribosome '[t-a4a00f]' --help")
         assert r.returncode == 0
-        assert "golem" in r.stdout.lower()
+        assert "ribosome" in r.stdout.lower()
 
     def test_task_id_hex_format(self):
         """Valid hex task IDs should be accepted."""
-        r = _run_golem_shell("golem '[t-deadbe]' --help")
+        r = _run_ribosome_shell("ribosome '[t-deadbe]' --help")
         assert r.returncode == 0
 
     def test_task_id_uppercase_hex(self):
         """Uppercase hex in task ID should be accepted."""
-        r = _run_golem_shell("golem '[t-A4A00F]' --help")
+        r = _run_ribosome_shell("ribosome '[t-A4A00F]' --help")
         assert r.returncode == 0
 
     def test_no_task_id(self):
         """Without task ID, flags should parse normally."""
-        r = _run_golem("--help")
+        r = _run_ribosome("--help")
         assert r.returncode == 0
 
 
@@ -92,22 +98,30 @@ class TestTaskIDParsing:
 class TestProviderConfig:
     def test_unknown_provider_exit(self):
         """Unknown provider should cause exit code 1."""
-        r = _run_golem("--provider", "nonexistent", "--max-turns", "3", "test")
+        r = _run_ribosome("--provider", "nonexistent", "--max-turns", "3", "test")
         assert r.returncode == 1
         assert "Unknown provider" in r.stderr
 
     def test_zhipu_provider(self):
         """ZhiPu provider should require ZHIPU_API_KEY."""
-        r = _run_golem(
-            "--provider", "zhipu", "--max-turns", "3", "test",
+        r = _run_ribosome(
+            "--provider",
+            "zhipu",
+            "--max-turns",
+            "3",
+            "test",
             env_extra={"ZHIPU_API_KEY": ""},
         )
         assert r.returncode != 0
 
     def test_volcano_provider(self):
         """Volcano provider should require VOLCANO_API_KEY."""
-        r = _run_golem(
-            "--provider", "volcano", "--max-turns", "3", "test",
+        r = _run_ribosome(
+            "--provider",
+            "volcano",
+            "--max-turns",
+            "3",
+            "test",
             env_extra={"VOLCANO_API_KEY": ""},
         )
         assert r.returncode != 0
@@ -123,7 +137,7 @@ class TestSummary:
             f.write("")
             tmp = f.name
         try:
-            r = _run_golem_shell(f"golem summary --log={tmp}", timeout=10)
+            r = _run_ribosome_shell(f"ribosome summary --log={tmp}", timeout=10)
             assert r.returncode in (0, 1)
         finally:
             os.unlink(tmp)
@@ -131,23 +145,28 @@ class TestSummary:
     def test_summary_json_output(self):
         """Summary --json should produce valid JSON."""
         with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False, mode="w") as f:
-            f.write(json.dumps({
-                "ts": "2026-04-01T00:00:00Z",
-                "provider": "zhipu",
-                "duration": 100,
-                "exit": 0,
-                "turns": 10,
-                "prompt": "test",
-                "tail": "",
-                "files_created": 0,
-                "tests_passed": 0,
-                "tests_failed": 0,
-                "pytest_exit": 0,
-                "task_id": "t-test01",
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "ts": "2026-04-01T00:00:00Z",
+                        "provider": "zhipu",
+                        "duration": 100,
+                        "exit": 0,
+                        "turns": 10,
+                        "prompt": "test",
+                        "tail": "",
+                        "files_created": 0,
+                        "tests_passed": 0,
+                        "tests_failed": 0,
+                        "pytest_exit": 0,
+                        "task_id": "t-test01",
+                    }
+                )
+                + "\n"
+            )
             tmp = f.name
         try:
-            r = _run_golem_shell(f"golem summary --json --log={tmp}", timeout=10)
+            r = _run_ribosome_shell(f"ribosome summary --json --log={tmp}", timeout=10)
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert "zhipu" in data
@@ -160,23 +179,28 @@ class TestSummary:
         """Summary should correctly count pass/fail."""
         with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False, mode="w") as f:
             for exit_code in [0, 0, 1, 1, 1]:
-                f.write(json.dumps({
-                    "ts": "2026-04-01T00:00:00Z",
-                    "provider": "zhipu",
-                    "duration": 100,
-                    "exit": exit_code,
-                    "turns": 10,
-                    "prompt": "test",
-                    "tail": "",
-                    "files_created": 0,
-                    "tests_passed": 0,
-                    "tests_failed": 0,
-                    "pytest_exit": 0,
-                    "task_id": "t-test01",
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "ts": "2026-04-01T00:00:00Z",
+                            "provider": "zhipu",
+                            "duration": 100,
+                            "exit": exit_code,
+                            "turns": 10,
+                            "prompt": "test",
+                            "tail": "",
+                            "files_created": 0,
+                            "tests_passed": 0,
+                            "tests_failed": 0,
+                            "pytest_exit": 0,
+                            "task_id": "t-test01",
+                        }
+                    )
+                    + "\n"
+                )
             tmp = f.name
         try:
-            r = _run_golem_shell(f"golem summary --json --log={tmp}", timeout=10)
+            r = _run_ribosome_shell(f"ribosome summary --json --log={tmp}", timeout=10)
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["zhipu"]["runs"] == 5
@@ -193,7 +217,7 @@ class TestRateLimitFailFast:
     """Test volcano rate-limit handling.
 
     Volcano returns 429 AccountQuotaExceeded with a 5-hour quota window.
-    The golem script should fail fast (under 15s) instead of sleeping 30 min retrying.
+    The ribosome script should fail fast (under 15s) instead of sleeping 30 min retrying.
     """
 
     @pytest.fixture(autouse=True)
@@ -203,16 +227,16 @@ class TestRateLimitFailFast:
 
     def test_volcano_rate_limited_exits_nonzero(self):
         """Rate-limited volcano should exit with non-zero code (not 0)."""
-        r = _run_golem_shell(
-            "golem --provider volcano --max-turns 3 'test'",
+        r = _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         assert r.returncode != 0
 
     def test_volcano_rate_limited_output_has_quota_indicator(self):
         """Rate-limited output should contain AccountQuotaExceeded."""
-        r = _run_golem_shell(
-            "golem --provider volcano --max-turns 3 'test'",
+        r = _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         output = (r.stdout + r.stderr).lower()
@@ -221,8 +245,8 @@ class TestRateLimitFailFast:
     def test_volcano_rate_limited_fails_fast(self):
         """Should fail in under 15 seconds, not sleep 30 minutes."""
         start = time.time()
-        r = _run_golem_shell(
-            "golem --provider volcano --max-turns 3 'test'",
+        _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         elapsed = time.time() - start
@@ -233,7 +257,7 @@ class TestRateLimitFailFast:
 
 
 class TestExit2Regression:
-    """Tests for the bug where golem returned exit=0 when claude never launched.
+    """Tests for the bug where ribosome returned exit=0 when claude never launched.
 
     Root causes identified:
     1. Task ID [t-xxxx] before flags prevented --provider from being parsed
@@ -248,8 +272,8 @@ class TestExit2Regression:
 
     def test_task_id_does_not_break_provider_parsing(self):
         """[t-xxxx] --provider volcano should parse provider=volcano, not default zhipu."""
-        r = _run_golem_shell(
-            "golem '[t-a4a00f]' --provider volcano --max-turns 3 'test'",
+        r = _run_ribosome_shell(
+            "ribosome '[t-a4a00f]' --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         volcano_key = os.environ.get("VOLCANO_API_KEY")
@@ -259,7 +283,7 @@ class TestExit2Regression:
                 assert "volcano" in output.lower()
 
     def test_exit_code_nonzero_when_claude_never_launched(self):
-        """Golem should return non-zero when claude was never invoked.
+        """Ribosome should return non-zero when claude was never invoked.
 
         Previously: exit_code stayed 0 (initialized but never set).
         Now: returns 1 with AccountQuotaExceeded message.
@@ -268,8 +292,8 @@ class TestExit2Regression:
         if not volcano_key:
             pytest.skip("VOLCANO_API_KEY not set")
 
-        r = _run_golem_shell(
-            "golem --provider volcano --max-turns 3 'test'",
+        r = _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         assert r.returncode != 0
@@ -281,8 +305,8 @@ class TestExit2Regression:
             pytest.skip("VOLCANO_API_KEY not set")
 
         start = time.time()
-        r = _run_golem_shell(
-            "golem --provider volcano --max-turns 3 'test'",
+        _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         elapsed = time.time() - start
@@ -310,7 +334,9 @@ class TestSetEExitCodeCapture:
         """OLD pattern `output=$(cmd); exit_code=$?` dies with set -e."""
         r = subprocess.run(
             ["bash", "-euc", 'output=$(echo msg; exit 2); exit_code=$?; echo "ec=$exit_code"'],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         # Script should exit with 2 (never reaches exit_code=$?)
         assert r.returncode == 2
@@ -319,8 +345,14 @@ class TestSetEExitCodeCapture:
     def test_new_pattern_captures_exit_code(self):
         """NEW pattern `output=$(cmd) && ec=0 || ec=$?` captures exit code."""
         r = subprocess.run(
-            ["bash", "-euc", 'output=$(echo msg; exit 2) && ec=0 || ec=$?; echo "ec=$ec out=$output"'],
-            capture_output=True, text=True, timeout=5,
+            [
+                "bash",
+                "-euc",
+                'output=$(echo msg; exit 2) && ec=0 || ec=$?; echo "ec=$ec out=$output"',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         assert r.returncode == 0  # script itself succeeds
         assert "ec=2" in r.stdout
@@ -330,18 +362,25 @@ class TestSetEExitCodeCapture:
         """NEW pattern sets ec=0 when command succeeds."""
         r = subprocess.run(
             ["bash", "-euc", 'output=$(echo ok) && ec=0 || ec=$?; echo "ec=$ec out=$output"'],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         assert r.returncode == 0
         assert "ec=0" in r.stdout
         assert "out=ok" in r.stdout
 
     def test_new_pattern_with_pipefail(self):
-        """NEW pattern works with set -euo pipefail (the golem defaults)."""
+        """NEW pattern works with set -euo pipefail (the ribosome defaults)."""
         r = subprocess.run(
-            ["bash", "-euc",
-             'set -euo pipefail; output=$(echo "error"; exit 1) && ec=0 || ec=$?; echo "ec=$ec"'],
-            capture_output=True, text=True, timeout=5,
+            [
+                "bash",
+                "-euc",
+                'set -euo pipefail; output=$(echo "error"; exit 1) && ec=0 || ec=$?; echo "ec=$ec"',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         assert r.returncode == 0
         assert "ec=1" in r.stdout
@@ -357,8 +396,8 @@ class TestSetEExitCodeCapture:
         if not volcano_key:
             pytest.skip("VOLCANO_API_KEY not set")
 
-        r = _run_golem_shell(
-            "golem --provider volcano --max-turns 3 'test'",
+        r = _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             timeout=30,
         )
         assert r.returncode != 2, (
@@ -366,33 +405,31 @@ class TestSetEExitCodeCapture:
             f"stdout: {r.stdout[:200]} stderr: {r.stderr[:200]}"
         )
 
-    def test_golem_source_uses_new_pattern(self):
-        """Verify the golem script contains the fixed exit-code capture pattern."""
-        source = GOLEM.read_text()
+    def test_ribosome_source_uses_new_pattern(self):
+        """Verify the ribosome script contains the fixed exit-code capture pattern."""
+        source = RIBOSOME.read_text()
         # The fix uses `&& exit_code=0 || exit_code=$?` after command substitution
         # The old pattern was just `exit_code=$?` on the next line
         assert "&& exit_code=0 || exit_code=$?" in source, (
-            "golem script should use `&& exit_code=0 || exit_code=$?` pattern "
+            "ribosome script should use `&& exit_code=0 || exit_code=$?` pattern "
             "to prevent set -e from killing the script on non-zero claude exit"
         )
 
-    def test_golem_source_no_bare_exit_code_capture(self):
+    def test_ribosome_source_no_bare_exit_code_capture(self):
         """Verify the old `exit_code=$?` on a line by itself after `output=$(...)` is gone."""
-        source = GOLEM.read_text()
+        source = RIBOSOME.read_text()
         # Look for the OLD pattern: `)` on one line, then `exit_code=$?` on the next
         # (within the claude/gemini/codex invocation blocks)
         lines = source.splitlines()
         for i, line in enumerate(lines):
             stripped = line.rstrip()
-            if stripped.endswith(")") and "2>&1" in stripped:
-                # Next non-empty line should NOT be just `exit_code=$?`
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    if next_line == "exit_code=$?":
-                        pytest.fail(
-                            f"Line {i + 2}: bare `exit_code=$?` after command substitution "
-                            f"is vulnerable to set -e. Use `&& exit_code=0 || exit_code=$?` instead."
-                        )
+            if stripped.endswith(")") and "2>&1" in stripped and i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if next_line == "exit_code=$?":
+                    pytest.fail(
+                        f"Line {i + 2}: bare `exit_code=$?` after command substitution "
+                        f"is vulnerable to set -e. Use `&& exit_code=0 || exit_code=$?` instead."
+                    )
 
 
 # -- Daemon mark_failed tail parameter --
@@ -409,15 +446,13 @@ class TestDaemonMarkFailedTailFix:
 
     def test_mark_failed_uses_tail_for_empty_check(self):
         """mark_failed should use tail parameter, not result, for empty check."""
-        _mod = _load_golem_daemon()
+        _mod = _load_ribosome_daemon()
         mark_failed_fn = _mod["mark_failed"]
-        is_rate_limited_fn = _mod["is_rate_limited"]
+        _mod["is_rate_limited"]
 
         # Create a temp queue file with a pending task
-        with tempfile.NamedTemporaryFile(
-            suffix=".md", delete=False, mode="w"
-        ) as f:
-            f.write("## Pending\n- [ ] `golem --provider volcano 'test'`\n## Done\n")
+        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w") as f:
+            f.write("## Pending\n- [ ] `ribosome --provider volcano 'test'`\n## Done\n")
             tmp = f.name
 
         _mod["QUEUE_FILE"] = Path(tmp)
@@ -439,13 +474,11 @@ class TestDaemonMarkFailedTailFix:
 
     def test_mark_failed_retries_on_empty_tail(self):
         """mark_failed should retry when tail is empty (silent rate-limit)."""
-        _mod = _load_golem_daemon()
+        _mod = _load_ribosome_daemon()
         mark_failed_fn = _mod["mark_failed"]
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".md", delete=False, mode="w"
-        ) as f:
-            f.write("## Pending\n- [ ] `golem --provider volcano 'test'`\n## Done\n")
+        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w") as f:
+            f.write("## Pending\n- [ ] `ribosome --provider volcano 'test'`\n## Done\n")
             tmp = f.name
 
         _mod["QUEUE_FILE"] = Path(tmp)
@@ -466,13 +499,11 @@ class TestDaemonMarkFailedTailFix:
 
     def test_mark_failed_retries_on_rate_limit_even_with_tail(self):
         """mark_failed should retry when output shows rate-limit, regardless of tail."""
-        _mod = _load_golem_daemon()
+        _mod = _load_ribosome_daemon()
         mark_failed_fn = _mod["mark_failed"]
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".md", delete=False, mode="w"
-        ) as f:
-            f.write("## Pending\n- [ ] `golem --provider volcano 'test'`\n## Done\n")
+        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w") as f:
+            f.write("## Pending\n- [ ] `ribosome --provider volcano 'test'`\n## Done\n")
             tmp = f.name
 
         _mod["QUEUE_FILE"] = Path(tmp)
@@ -492,10 +523,10 @@ class TestDaemonMarkFailedTailFix:
             os.unlink(tmp)
 
 
-def _load_golem_daemon():
-    """Load the golem-daemon module by exec-ing its Python body."""
-    source = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
-    ns: dict = {"__name__": "golem_daemon"}
+def _load_ribosome_daemon():
+    """Load the ribosome-daemon module by exec-ing its Python body."""
+    source = open(str(Path.home() / "germline/effectors/ribosome-daemon")).read()
+    ns: dict = {"__name__": "ribosome_daemon"}
     exec(source, ns)
     return ns
 
@@ -504,7 +535,7 @@ def _load_golem_daemon():
 
 
 class TestJsonOutput:
-    """Tests for the golem --json flag.
+    """Tests for the ribosome --json flag.
 
     The --json flag wraps the raw claude output into a JSON envelope with
     metadata (exit_code, duration, provider, files_created, tests_passed,
@@ -515,39 +546,36 @@ class TestJsonOutput:
 
     def test_json_flag_in_help(self):
         """--json should appear in the usage text."""
-        source = GOLEM.read_text()
+        source = RIBOSOME.read_text()
         assert "--json" in source
 
     def test_json_flag_sets_variable(self):
         """Parsing --json should set JSON_OUTPUT=true in the script."""
-        source = GOLEM.read_text()
+        source = RIBOSOME.read_text()
         assert "--json) JSON_OUTPUT=true" in source
 
     def test_json_takes_precedence_over_quiet(self):
         """JSON_OUTPUT branch is checked before QUIET in the output if/elif."""
-        source = GOLEM.read_text()
+        source = RIBOSOME.read_text()
         # The output section should check JSON_OUTPUT first, then QUIET
         json_pos = source.find("if $JSON_OUTPUT; then")
         quiet_pos = source.find("elif ! $QUIET; then")
-        assert json_pos > 0, "Missing 'if $JSON_OUTPUT; then' in golem source"
-        assert quiet_pos > 0, "Missing 'elif ! $QUIET; then' in golem source"
-        assert json_pos < quiet_pos, (
-            "JSON_OUTPUT check should come before QUIET check"
-        )
+        assert json_pos > 0, "Missing 'if $JSON_OUTPUT; then' in ribosome source"
+        assert quiet_pos > 0, "Missing 'elif ! $QUIET; then' in ribosome source"
+        assert json_pos < quiet_pos, "JSON_OUTPUT check should come before QUIET check"
 
     # -- JSON output structure (unit test of inline python3 formatter) --
 
     def test_json_output_has_required_fields(self):
         """The inline python3 JSON formatter should produce all expected fields."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".txt", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as f:
             f.write("sample output from claude")
             tmp = f.name
         try:
             r = subprocess.run(
                 [
-                    "python3", "-c",
+                    "python3",
+                    "-c",
                     "import json, sys\n"
                     "output_text = open(sys.argv[1]).read()\n"
                     "result = {\n"
@@ -560,9 +588,17 @@ class TestJsonOutput:
                     "    'tests_failed': int(sys.argv[7]),\n"
                     "}\n"
                     "print(json.dumps(result))\n",
-                    tmp, "0", "42", "zhipu", "3", "10", "1",
+                    tmp,
+                    "0",
+                    "42",
+                    "zhipu",
+                    "3",
+                    "10",
+                    "1",
                 ],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             assert r.returncode == 0
             data = json.loads(r.stdout)
@@ -578,15 +614,14 @@ class TestJsonOutput:
 
     def test_json_output_handles_multiline(self):
         """JSON output should correctly escape multiline claude output."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".txt", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as f:
             f.write("line one\nline two\nline three\n")
             tmp = f.name
         try:
             r = subprocess.run(
                 [
-                    "python3", "-c",
+                    "python3",
+                    "-c",
                     "import json, sys\n"
                     "output_text = open(sys.argv[1]).read()\n"
                     "result = {\n"
@@ -599,9 +634,17 @@ class TestJsonOutput:
                     "    'tests_failed': int(sys.argv[7]),\n"
                     "}\n"
                     "print(json.dumps(result))\n",
-                    tmp, "0", "10", "zhipu", "0", "0", "0",
+                    tmp,
+                    "0",
+                    "10",
+                    "zhipu",
+                    "0",
+                    "0",
+                    "0",
                 ],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             assert r.returncode == 0
             data = json.loads(r.stdout)
@@ -613,15 +656,14 @@ class TestJsonOutput:
 
     def test_json_output_handles_special_chars(self):
         """JSON output should correctly escape quotes and backslashes."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".txt", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as f:
             f.write('He said "hello" and left\\done')
             tmp = f.name
         try:
             r = subprocess.run(
                 [
-                    "python3", "-c",
+                    "python3",
+                    "-c",
                     "import json, sys\n"
                     "output_text = open(sys.argv[1]).read()\n"
                     "result = {\n"
@@ -634,9 +676,17 @@ class TestJsonOutput:
                     "    'tests_failed': int(sys.argv[7]),\n"
                     "}\n"
                     "print(json.dumps(result))\n",
-                    tmp, "1", "5", "volcano", "0", "0", "0",
+                    tmp,
+                    "1",
+                    "5",
+                    "volcano",
+                    "0",
+                    "0",
+                    "0",
                 ],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             assert r.returncode == 0
             data = json.loads(r.stdout)
@@ -649,27 +699,30 @@ class TestJsonOutput:
 
     def test_summary_json_with_multiple_providers(self):
         """Summary --json should group results by provider."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".jsonl", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False, mode="w") as f:
             for provider in ["zhipu", "volcano", "zhipu"]:
-                f.write(json.dumps({
-                    "ts": "2026-04-01T00:00:00Z",
-                    "provider": provider,
-                    "duration": 50,
-                    "exit": 0,
-                    "turns": 10,
-                    "prompt": "test",
-                    "tail": "",
-                    "files_created": 0,
-                    "tests_passed": 1,
-                    "tests_failed": 0,
-                    "pytest_exit": 0,
-                    "task_id": "",
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "ts": "2026-04-01T00:00:00Z",
+                            "provider": provider,
+                            "duration": 50,
+                            "exit": 0,
+                            "turns": 10,
+                            "prompt": "test",
+                            "tail": "",
+                            "files_created": 0,
+                            "tests_passed": 1,
+                            "tests_failed": 0,
+                            "pytest_exit": 0,
+                            "task_id": "",
+                        }
+                    )
+                    + "\n"
+                )
             tmp = f.name
         try:
-            r = _run_golem_shell(f"golem summary --json --log={tmp}", timeout=10)
+            r = _run_ribosome_shell(f"ribosome summary --json --log={tmp}", timeout=10)
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["zhipu"]["runs"] == 2
@@ -679,29 +732,30 @@ class TestJsonOutput:
 
     def test_summary_json_with_recent_flag(self):
         """Summary --json --recent N should only count last N entries."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".jsonl", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False, mode="w") as f:
             for i in range(10):
-                f.write(json.dumps({
-                    "ts": "2026-04-01T00:00:00Z",
-                    "provider": "zhipu",
-                    "duration": i * 10,
-                    "exit": 0 if i % 2 == 0 else 1,
-                    "turns": 10,
-                    "prompt": "test",
-                    "tail": "",
-                    "files_created": 0,
-                    "tests_passed": 0,
-                    "tests_failed": 0,
-                    "pytest_exit": 0,
-                    "task_id": "",
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "ts": "2026-04-01T00:00:00Z",
+                            "provider": "zhipu",
+                            "duration": i * 10,
+                            "exit": 0 if i % 2 == 0 else 1,
+                            "turns": 10,
+                            "prompt": "test",
+                            "tail": "",
+                            "files_created": 0,
+                            "tests_passed": 0,
+                            "tests_failed": 0,
+                            "pytest_exit": 0,
+                            "task_id": "",
+                        }
+                    )
+                    + "\n"
+                )
             tmp = f.name
         try:
-            r = _run_golem_shell(
-                f"golem summary --json --recent 3 --log={tmp}", timeout=10
-            )
+            r = _run_ribosome_shell(f"ribosome summary --json --recent 3 --log={tmp}", timeout=10)
             assert r.returncode == 0
             data = json.loads(r.stdout)
             assert data["zhipu"]["runs"] == 3
@@ -732,12 +786,15 @@ class TestJsonOutput:
         return env
 
     def test_integration_json_valid_on_success(self, tmp_path):
-        """Full golem --json run with mock codex should produce valid JSON."""
+        """Full ribosome --json run with mock codex should produce valid JSON."""
         bin_dir = self._make_mock_codex(tmp_path, 'echo "mock output"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         assert r.returncode == 0, f"stderr: {r.stderr[:300]}"
         data = json.loads(r.stdout)
@@ -748,12 +805,22 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "hello from codex"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         data = json.loads(r.stdout)
-        for field in ("output", "exit_code", "duration", "provider",
-                       "files_created", "tests_passed", "tests_failed"):
+        for field in (
+            "output",
+            "exit_code",
+            "duration",
+            "provider",
+            "files_created",
+            "tests_passed",
+            "tests_failed",
+        ):
             assert field in data, f"Missing field: {field}"
 
     def test_integration_json_provider_field(self, tmp_path):
@@ -761,8 +828,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         data = json.loads(r.stdout)
         assert data["provider"] == "codex"
@@ -772,8 +842,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "unique-abc-123"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         data = json.loads(r.stdout)
         assert "unique-abc-123" in data["output"]
@@ -783,8 +856,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         assert r.returncode == 0
         data = json.loads(r.stdout)
@@ -795,8 +871,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "task failed"; exit 1')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         assert r.returncode != 0
         data = json.loads(r.stdout)
@@ -807,8 +886,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         data = json.loads(r.stdout)
         assert data["duration"] >= 0
@@ -819,8 +901,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "--quiet", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "--quiet", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         assert r.returncode == 0
         data = json.loads(r.stdout)
@@ -831,8 +916,11 @@ class TestJsonOutput:
         bin_dir = self._make_mock_codex(tmp_path, 'echo "payload"')
         env = self._env_for_mock(bin_dir)
         r = subprocess.run(
-            [str(GOLEM), "--provider", "codex", "--json", "test task"],
-            capture_output=True, text=True, timeout=30, env=env,
+            [str(RIBOSOME), "--provider", "codex", "--json", "test task"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
         )
         # json.loads parses the entire stdout — any extra raw text would fail
         data = json.loads(r.stdout)

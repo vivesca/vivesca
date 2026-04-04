@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 import io
 import json
 import types
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,18 +9,18 @@ import pytest
 from rich.console import Console
 
 
-def load_golem_dash() -> types.ModuleType:
+def load_ribosome_dash() -> types.ModuleType:
     """Exec the standalone effector into an isolated module object."""
-    module = types.ModuleType("golem_dash_test")
-    module.__file__ = str(Path(__file__).resolve().parents[1] / "effectors" / "golem-dash")
+    module = types.ModuleType("ribosome_dash_test")
+    module.__file__ = str(Path(__file__).resolve().parents[1] / "effectors" / "ribosome-dash")
     source = Path(module.__file__).read_text()
     exec(compile(source, module.__file__, "exec"), module.__dict__)
     return module
 
 
 @pytest.fixture
-def golem_dash() -> types.ModuleType:
-    return load_golem_dash()
+def ribosome_dash() -> types.ModuleType:
+    return load_ribosome_dash()
 
 
 def render_text(renderable) -> str:
@@ -35,22 +33,24 @@ def write_jsonl(path: Path, records: list[dict]) -> None:
     path.write_text("\n".join(json.dumps(record) for record in records) + "\n")
 
 
-def test_parse_ts_strips_fractional_seconds_and_offset(golem_dash: types.ModuleType):
-    parsed = golem_dash.parse_ts("2026-04-02T09:15:27.123456+00:00")
-    assert parsed == datetime(2026, 4, 2, 9, 15, 27, tzinfo=timezone.utc)
+def test_parse_ts_strips_fractional_seconds_and_offset(ribosome_dash: types.ModuleType):
+    parsed = ribosome_dash.parse_ts("2026-04-02T09:15:27.123456+00:00")
+    assert parsed == datetime(2026, 4, 2, 9, 15, 27, tzinfo=UTC)
 
 
-def test_is_rate_limited_detects_pattern_and_fast_empty_failures(golem_dash: types.ModuleType):
-    assert golem_dash.is_rate_limited({"exit": 1, "duration": 30, "tail": "429 Too Many Requests"})
-    assert golem_dash.is_rate_limited({"exit": 1, "duration": 3, "tail": " "})
-    assert not golem_dash.is_rate_limited({"exit": 1, "duration": 90, "tail": "syntax error"})
+def test_is_rate_limited_detects_pattern_and_fast_empty_failures(ribosome_dash: types.ModuleType):
+    assert ribosome_dash.is_rate_limited(
+        {"exit": 1, "duration": 30, "tail": "429 Too Many Requests"}
+    )
+    assert ribosome_dash.is_rate_limited({"exit": 1, "duration": 3, "tail": " "})
+    assert not ribosome_dash.is_rate_limited({"exit": 1, "duration": 90, "tail": "syntax error"})
 
 
 def test_load_jsonl_filters_window_and_skips_bad_lines(
-    golem_dash: types.ModuleType, tmp_path: Path
+    ribosome_dash: types.ModuleType, tmp_path: Path
 ):
-    jsonl_path = tmp_path / "golem.jsonl"
-    now = datetime.now(timezone.utc)
+    jsonl_path = tmp_path / "ribosome.jsonl"
+    now = datetime.now(UTC)
     recent_record = {
         "ts": (now - timedelta(minutes=10)).isoformat(),
         "provider": "infini",
@@ -66,33 +66,33 @@ def test_load_jsonl_filters_window_and_skips_bad_lines(
     jsonl_path.write_text(
         "\n".join([json.dumps(recent_record), "{not json}", json.dumps(old_record)]) + "\n"
     )
-    golem_dash.JSONL_PATH = jsonl_path
+    ribosome_dash.JSONL_PATH = jsonl_path
 
-    records = golem_dash.load_jsonl(window_minutes=60)
+    records = ribosome_dash.load_jsonl(window_minutes=60)
 
     assert records == [recent_record]
 
 
-def test_count_pending_and_completed_from_queue(golem_dash: types.ModuleType, tmp_path: Path):
-    queue_path = tmp_path / "golem-queue.md"
+def test_count_pending_and_completed_from_queue(ribosome_dash: types.ModuleType, tmp_path: Path):
+    queue_path = tmp_path / "translation-queue.md"
     queue_path.write_text(
         "- [ ] first --provider infini\n"
         "- [ ] second\n"
         "- [x] done --provider infini\n"
         "- [ ] third --provider zhipu\n"
     )
-    golem_dash.QUEUE_PATH = queue_path
+    ribosome_dash.QUEUE_PATH = queue_path
 
-    assert dict(golem_dash.count_pending_by_provider()) == {
+    assert dict(ribosome_dash.count_pending_by_provider()) == {
         "infini": 1,
         "unassigned": 1,
         "zhipu": 1,
     }
-    assert golem_dash.count_total_pending() == 3
-    assert golem_dash.count_total_completed() == 1
+    assert ribosome_dash.count_total_pending() == 3
+    assert ribosome_dash.count_total_completed() == 1
 
 
-def test_compute_provider_stats_classifies_outcomes(golem_dash: types.ModuleType):
+def test_compute_provider_stats_classifies_outcomes(ribosome_dash: types.ModuleType):
     window_records = [
         {"provider": "infini", "exit": 0, "duration": 20, "tail": ""},
         {"provider": "infini", "exit": 1, "duration": 2, "tail": "429 Too Many Requests"},
@@ -101,7 +101,7 @@ def test_compute_provider_stats_classifies_outcomes(golem_dash: types.ModuleType
     ]
     running = [{"task_id": "run-1", "provider": "infini"}]
 
-    stats = golem_dash.compute_provider_stats(window_records, running)
+    stats = ribosome_dash.compute_provider_stats(window_records, running)
 
     assert stats["infini"]["active"] == 1
     assert stats["infini"]["completed"] == 1
@@ -111,13 +111,13 @@ def test_compute_provider_stats_classifies_outcomes(golem_dash: types.ModuleType
 
 
 def test_build_json_snapshot_includes_running_progress(
-    golem_dash: types.ModuleType, tmp_path: Path
+    ribosome_dash: types.ModuleType, tmp_path: Path
 ):
-    now = datetime.now(timezone.utc)
-    jsonl_path = tmp_path / "golem.jsonl"
-    queue_path = tmp_path / "golem-queue.md"
-    running_path = tmp_path / "golem-running.json"
-    cooldowns_path = tmp_path / "golem-cooldowns.json"
+    now = datetime.now(UTC)
+    jsonl_path = tmp_path / "ribosome.jsonl"
+    queue_path = tmp_path / "translation-queue.md"
+    running_path = tmp_path / "ribosome-running.json"
+    cooldowns_path = tmp_path / "ribosome-cooldowns.json"
 
     write_jsonl(
         jsonl_path,
@@ -133,16 +133,18 @@ def test_build_json_snapshot_includes_running_progress(
         ],
     )
     queue_path.write_text("- [ ] pending --provider infini\n- [x] finished --provider infini\n")
-    running_path.write_text(json.dumps([{"task_id": "run-1", "provider": "infini", "cmd": '"prompt"'}]))
+    running_path.write_text(
+        json.dumps([{"task_id": "run-1", "provider": "infini", "cmd": '"prompt"'}])
+    )
     cooldowns_path.write_text("[]")
 
-    golem_dash.JSONL_PATH = jsonl_path
-    golem_dash.QUEUE_PATH = queue_path
-    golem_dash.RUNNING_JSON_PATH = running_path
-    golem_dash.COOLDOWNS_PATH = cooldowns_path
-    golem_dash._task_first_seen["run-1"] = golem_dash.time.time() - 60
+    ribosome_dash.JSONL_PATH = jsonl_path
+    ribosome_dash.QUEUE_PATH = queue_path
+    ribosome_dash.RUNNING_JSON_PATH = running_path
+    ribosome_dash.COOLDOWNS_PATH = cooldowns_path
+    ribosome_dash._task_first_seen["run-1"] = ribosome_dash.time.time() - 60
 
-    snapshot = golem_dash.build_json_snapshot(window_minutes=60)
+    snapshot = ribosome_dash.build_json_snapshot(window_minutes=60)
 
     assert snapshot["pending"] == 1
     assert snapshot["completed"] == 1
@@ -152,14 +154,14 @@ def test_build_json_snapshot_includes_running_progress(
     assert snapshot["recent_events"][0]["outcome"] == "success"
 
 
-def test_build_running_tasks_table_renders_health_and_dispatch(golem_dash: types.ModuleType):
-    golem_dash._task_first_seen["run-1"] = golem_dash.time.time() - 260
+def test_build_running_tasks_table_renders_health_and_dispatch(ribosome_dash: types.ModuleType):
+    ribosome_dash._task_first_seen["run-1"] = ribosome_dash.time.time() - 260
     running = [
         {
             "task_id": "run-1",
             "provider": "infini",
             "dispatch_provider": "zhipu",
-            "cmd": 'golem "repair the queue"',
+            "cmd": 'ribosome "repair the queue"',
         }
     ]
     provider_stats = {
@@ -175,7 +177,7 @@ def test_build_running_tasks_table_renders_health_and_dispatch(golem_dash: types
         }
     }
 
-    table = golem_dash.build_running_tasks_table(
+    table = ribosome_dash.build_running_tasks_table(
         running,
         avg_duration_by_provider={"infini": 100.0},
         provider_stats=provider_stats,
@@ -188,12 +190,12 @@ def test_build_running_tasks_table_renders_health_and_dispatch(golem_dash: types
     assert "zhipu" in output
 
 
-def test_build_dashboard_renders_sections(golem_dash: types.ModuleType, tmp_path: Path):
-    now = datetime.now(timezone.utc)
-    jsonl_path = tmp_path / "golem.jsonl"
-    queue_path = tmp_path / "golem-queue.md"
-    running_path = tmp_path / "golem-running.json"
-    cooldowns_path = tmp_path / "golem-cooldowns.json"
+def test_build_dashboard_renders_sections(ribosome_dash: types.ModuleType, tmp_path: Path):
+    now = datetime.now(UTC)
+    jsonl_path = tmp_path / "ribosome.jsonl"
+    queue_path = tmp_path / "translation-queue.md"
+    running_path = tmp_path / "ribosome-running.json"
+    cooldowns_path = tmp_path / "ribosome-cooldowns.json"
 
     write_jsonl(
         jsonl_path,
@@ -221,23 +223,25 @@ def test_build_dashboard_renders_sections(golem_dash: types.ModuleType, tmp_path
         "- [ ] queued2 --provider zhipu\n"
         "- [x] finished --provider infini\n"
     )
-    running_path.write_text(json.dumps([{"task_id": "run-1", "provider": "infini", "cmd": '"prompt"'}]))
+    running_path.write_text(
+        json.dumps([{"task_id": "run-1", "provider": "infini", "cmd": '"prompt"'}])
+    )
     cooldowns_path.write_text(
         json.dumps(
             [{"provider": "zhipu", "expires_at": (now + timedelta(minutes=15)).isoformat()}]
         )
     )
 
-    golem_dash.JSONL_PATH = jsonl_path
-    golem_dash.QUEUE_PATH = queue_path
-    golem_dash.RUNNING_JSON_PATH = running_path
-    golem_dash.COOLDOWNS_PATH = cooldowns_path
-    golem_dash._task_first_seen["run-1"] = golem_dash.time.time() - 30
+    ribosome_dash.JSONL_PATH = jsonl_path
+    ribosome_dash.QUEUE_PATH = queue_path
+    ribosome_dash.RUNNING_JSON_PATH = running_path
+    ribosome_dash.COOLDOWNS_PATH = cooldowns_path
+    ribosome_dash._task_first_seen["run-1"] = ribosome_dash.time.time() - 30
 
-    dashboard = golem_dash.build_dashboard(window_minutes=60)
+    dashboard = ribosome_dash.build_dashboard(window_minutes=60)
     output = render_text(dashboard)
 
-    assert "Golem Task Monitor" in output
+    assert "Ribosome Task Monitor" in output
     assert "Running Tasks" in output
     assert "Drain Timeline" in output
     assert "Recent Events" in output
@@ -247,30 +251,32 @@ def test_build_dashboard_renders_sections(golem_dash: types.ModuleType, tmp_path
 
 
 def test_main_exits_with_error_when_jsonl_missing(
-    golem_dash: types.ModuleType, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ribosome_dash: types.ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ):
-    missing_path = Path("/tmp/does-not-exist-golem-jsonl")
-    golem_dash.JSONL_PATH = missing_path
-    monkeypatch.setattr("sys.argv", ["golem-dash"])
+    missing_path = Path("/tmp/does-not-exist-ribosome-jsonl")
+    ribosome_dash.JSONL_PATH = missing_path
+    monkeypatch.setattr("sys.argv", ["ribosome-dash"])
 
     with pytest.raises(SystemExit) as excinfo:
-        golem_dash.main()
+        ribosome_dash.main()
 
     assert excinfo.value.code == 1
     captured = capsys.readouterr()
     assert "No data file found" in captured.err
-    assert "Start golem-daemon first." in captured.err
+    assert "Start ribosome-daemon first." in captured.err
 
 
 def test_main_once_honors_window_arg_and_prints_dashboard(
-    golem_dash: types.ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ribosome_dash: types.ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    jsonl_path = tmp_path / "golem.jsonl"
+    jsonl_path = tmp_path / "ribosome.jsonl"
     write_jsonl(
         jsonl_path,
-        [{"ts": datetime.now(timezone.utc).isoformat(), "provider": "infini", "exit": 0, "duration": 1}],
+        [{"ts": datetime.now(UTC).isoformat(), "provider": "infini", "exit": 0, "duration": 1}],
     )
-    golem_dash.JSONL_PATH = jsonl_path
+    ribosome_dash.JSONL_PATH = jsonl_path
 
     seen: dict[str, object] = {}
 
@@ -278,11 +284,11 @@ def test_main_once_honors_window_arg_and_prints_dashboard(
         seen["window_minutes"] = window_minutes
         return "panel-sentinel"
 
-    monkeypatch.setattr("sys.argv", ["golem-dash", "--once", "--window", "15"])
-    golem_dash.build_dashboard = fake_build_dashboard
+    monkeypatch.setattr("sys.argv", ["ribosome-dash", "--once", "--window", "15"])
+    ribosome_dash.build_dashboard = fake_build_dashboard
 
     with patch("rich.console.Console.print") as print_mock:
-        golem_dash.main()
+        ribosome_dash.main()
 
     assert seen["window_minutes"] == 15
     print_mock.assert_called_once_with("panel-sentinel")

@@ -1,19 +1,15 @@
-from __future__ import annotations
+"""Tests for ribosome summary subcommand."""
 
-"""Tests for golem summary subcommand."""
 import json
 import os
 import subprocess
-import tempfile
 from pathlib import Path
-
-import pytest
 
 
 def create_test_log(entries: list[dict], tmp_path: Path) -> Path:
     """Create a test JSONL log file with given entries."""
 
-    log_file = tmp_path / "golem.jsonl"
+    log_file = tmp_path / "ribosome.jsonl"
     with open(log_file, "w") as f:
         for entry in entries:
             f.write(json.dumps(entry) + "\n")
@@ -21,37 +17,51 @@ def create_test_log(entries: list[dict], tmp_path: Path) -> Path:
 
 
 def run_summary(log_file: Path, recent: int = 0) -> tuple[str, int]:
-    """Run golem summary with the given log file."""
+    """Run ribosome summary with the given log file."""
     env = os.environ.copy()
-    env["GOLEM_LOG"] = str(log_file)
-    
-    cmd = ["./effectors/golem", "summary"]
+    env["RIBOSOME_LOG"] = str(log_file)
+
+    cmd = ["./effectors/ribosome", "summary"]
     if recent > 0:
         cmd.extend(["--recent", str(recent)])
-    
+
     result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=Path(__file__).parent.parent
+        cmd, capture_output=True, text=True, env=env, cwd=Path(__file__).parent.parent
     )
     return result.stdout, result.returncode
 
 
-class TestGolemSummary:
-    """Test suite for golem summary subcommand."""
+class TestRibosomeSummary:
+    """Test suite for ribosome summary subcommand."""
 
     def test_summary_basic_table_format(self, tmp_path):
         """Test that summary produces a properly formatted table."""
         entries = [
-            {"provider": "zhipu", "duration": 100, "exit": 0, "tests_passed": 5, "tests_failed": 1},
-            {"provider": "zhipu", "duration": 200, "exit": 1, "tests_passed": 3, "tests_failed": 2},
-            {"provider": "volcano", "duration": 150, "exit": 0, "tests_passed": 4, "tests_failed": 0},
+            {
+                "provider": "zhipu",
+                "duration": 100,
+                "exit": 0,
+                "tests_passed": 5,
+                "tests_failed": 1,
+            },
+            {
+                "provider": "zhipu",
+                "duration": 200,
+                "exit": 1,
+                "tests_passed": 3,
+                "tests_failed": 2,
+            },
+            {
+                "provider": "volcano",
+                "duration": 150,
+                "exit": 0,
+                "tests_passed": 4,
+                "tests_failed": 0,
+            },
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         assert "Provider" in stdout
         assert "Runs" in stdout
@@ -76,13 +86,13 @@ class TestGolemSummary:
         assert code == 0
         # zhipu: 4 runs, 2 pass (exit=0), 2 fail (exit!=0)
         lines = stdout.strip().split("\n")
-        zhipu_line = [l for l in lines if "zhipu" in l][0]
+        zhipu_line = next(ln for ln in lines if "zhipu" in ln)
         # Check the line has correct values (accounting for padding)
         # Format: "zhipu        |    4 |    2 |    2 |        100s |             0"
         parts = zhipu_line.split("|")
-        assert parts[1].strip() == "4"   # Runs
-        assert parts[2].strip() == "2"   # Pass
-        assert parts[3].strip() == "2"   # Fail
+        assert parts[1].strip() == "4"  # Runs
+        assert parts[2].strip() == "2"  # Pass
+        assert parts[3].strip() == "2"  # Fail
 
     def test_summary_average_duration(self, tmp_path):
         """Test that average duration is calculated correctly."""
@@ -93,7 +103,7 @@ class TestGolemSummary:
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         # Average duration: (100+200+300)/3 = 200
         assert "200s" in stdout
@@ -101,16 +111,28 @@ class TestGolemSummary:
     def test_summary_tests_created(self, tmp_path):
         """Test that tests_created sums tests_passed + tests_failed."""
         entries = [
-            {"provider": "zhipu", "duration": 100, "exit": 0, "tests_passed": 5, "tests_failed": 2},
-            {"provider": "zhipu", "duration": 100, "exit": 0, "tests_passed": 3, "tests_failed": 1},
+            {
+                "provider": "zhipu",
+                "duration": 100,
+                "exit": 0,
+                "tests_passed": 5,
+                "tests_failed": 2,
+            },
+            {
+                "provider": "zhipu",
+                "duration": 100,
+                "exit": 0,
+                "tests_passed": 3,
+                "tests_failed": 1,
+            },
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         # Total tests created: (5+2) + (3+1) = 11
         lines = stdout.strip().split("\n")
-        zhipu_line = [l for l in lines if "zhipu" in l][0]
+        zhipu_line = next(ln for ln in lines if "zhipu" in ln)
         assert "11" in zhipu_line
 
     def test_summary_recent_flag(self, tmp_path):
@@ -130,23 +152,25 @@ class TestGolemSummary:
         assert "infini" in stdout
         # zhipu should not appear in the filtered results (only last 2 entries)
         lines = stdout.strip().split("\n")
-        zhipu_lines = [l for l in lines if "zhipu" in l]
+        zhipu_lines = [ln for ln in lines if "zhipu" in ln]
         # zhipu should not be present at all when filtered to last 2 entries
-        assert len(zhipu_lines) == 0, f"zhipu should not appear in --recent 2 output: {zhipu_lines}"
+        assert len(zhipu_lines) == 0, (
+            f"zhipu should not appear in --recent 2 output: {zhipu_lines}"
+        )
 
     def test_summary_missing_log_file(self, tmp_path):
         """Test that missing log file returns non-zero exit."""
         missing_log = tmp_path / "nonexistent.jsonl"
-        stdout, code = run_summary(missing_log)
-        
+        _stdout, code = run_summary(missing_log)
+
         assert code != 0
 
     def test_summary_empty_log_file(self, tmp_path):
         """Test that empty log file doesn't crash."""
-        log_file = tmp_path / "golem.jsonl"
+        log_file = tmp_path / "ribosome.jsonl"
         log_file.write_text("")
-        stdout, code = run_summary(log_file)
-        
+        _stdout, code = run_summary(log_file)
+
         assert code == 0
         # Should show headers but no data rows
 
@@ -156,10 +180,10 @@ class TestGolemSummary:
 this is not valid json
 {"provider": "zhipu", "duration": 200, "exit": 1}
 """
-        log_file = tmp_path / "golem.jsonl"
+        log_file = tmp_path / "ribosome.jsonl"
         log_file.write_text(log_content)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         # Should have 2 valid entries counted
         assert "zhipu" in stdout
@@ -173,7 +197,7 @@ this is not valid json
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         assert "zhipu" in stdout
         assert "volcano" in stdout
@@ -193,7 +217,7 @@ this is not valid json
         # Missing duration should be treated as 0
         # Missing exit should be treated as non-zero (fail)
         lines = stdout.strip().split("\n")
-        zhipu_line = [l for l in lines if "zhipu" in l][0]
+        zhipu_line = next(ln for ln in lines if "zhipu" in ln)
         # Check for 2 runs (accounting for padding)
         parts = zhipu_line.split("|")
         assert parts[1].strip() == "2"  # 2 runs
@@ -205,6 +229,6 @@ this is not valid json
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         assert "unknown" in stdout

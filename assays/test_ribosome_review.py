@@ -1,14 +1,14 @@
-from __future__ import annotations
-
 import tempfile
+from datetime import timedelta
 from pathlib import Path, PurePosixPath
 
 import pytest
 
-# Load the effector script
+# Load the effector script — exec injects names (parse_since, etc.) into globals
 TEST_GERMLINE = Path(__file__).parent.parent
-GOLEM_REVIEW = TEST_GERMLINE / "effectors" / "golem-tools"
-exec(open(GOLEM_REVIEW).read(), globals())
+RIBOSOME_REVIEW = TEST_GERMLINE / "effectors" / "ribosome-tools"
+exec(open(RIBOSOME_REVIEW).read(), globals())
+_ = timedelta  # keep import visible to ruff (used by exec'd code)
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
@@ -73,7 +73,7 @@ This is a test consulting document that is designed to have enough words to
 pass all quality checks. We need more than two hundred words, proper headings,
 multiple paragraphs, and structural elements like lists and bold text.
 
-The purpose of this document is to validate that the golem-review effector
+The purpose of this document is to validate that the ribosome-review effector
 correctly identifies well-structured consulting content. It should receive a
 high quality score and an excellent or good verdict when evaluated.
 
@@ -212,11 +212,13 @@ def test_check_consulting_content_multiple_files():
         original_germline = globals()["GERMLINE"]
         try:
             globals()["GERMLINE"] = tmp_path
-            result = check_consulting_content([
-                "loci/copia/a.md",
-                "loci/copia/b.md",
-                "loci/copia/missing.md",
-            ])
+            result = check_consulting_content(
+                [
+                    "loci/copia/a.md",
+                    "loci/copia/b.md",
+                    "loci/copia/missing.md",
+                ]
+            )
             assert len(result) == 3
             assert result[0]["adequate"] is False
             assert result[1]["adequate"] is True
@@ -312,7 +314,7 @@ def test_diagnose_failure():
 def test_count_pending_tasks():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        qfile = tmp_path / "golem-queue.md"
+        qfile = tmp_path / "translation-queue.md"
         original_queue = globals()["QUEUE_FILE"]
         try:
             globals()["QUEUE_FILE"] = qfile
@@ -335,7 +337,7 @@ def test_generate_queue_tasks():
     tasks = generate_queue_tasks(["my-effector"], 3)
     assert len(tasks) == 1
     assert "my_effector" in tasks[0]
-    assert "golem --provider" in tasks[0]
+    assert "ribosome --provider" in tasks[0]
 
     # Empty input
     assert generate_queue_tasks([], 5) == []
@@ -350,7 +352,7 @@ def test_generate_queue_tasks():
 def test_append_tasks_to_queue():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        qfile = tmp_path / "golem-queue.md"
+        qfile = tmp_path / "translation-queue.md"
         original_queue = globals()["QUEUE_FILE"]
         try:
             globals()["QUEUE_FILE"] = qfile
@@ -373,26 +375,38 @@ def test_append_tasks_to_queue():
 
 def test_generate_review():
     activity = {
-        "completed": [(datetime(2026, 4, 1, 12, 0), "golem task A")],
-        "failed": [(datetime(2026, 4, 1, 12, 5), "golem task B", "")],
+        "completed": [(datetime(2026, 4, 1, 12, 0), "ribosome task A")],
+        "failed": [(datetime(2026, 4, 1, 12, 5), "ribosome task B", "")],
         "timeouts": [],
     }
     review = generate_review(
         activity=activity,
         recent_files=["assays/test_foo.py", "loci/copia/doc.md"],
         test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
-        consulting_results=[{
-            "file": "loci/copia/doc.md", "exists": True, "word_count": 300,
-            "adequate": True, "has_headings": True, "has_paragraphs": True,
-            "has_structure_elements": False, "structure_ok": True,
-            "has_introduction": True, "has_conclusion": True,
-            "section_count": 4, "broken_sections": 0, "min_sections_ok": True,
-            "has_proper_heading_hierarchy": True,
-            "avg_paragraph_word_count": 30.0,
-            "has_filler_content": False, "overall_quality_pass": True,
-            "quality_score": 75, "verdict": "good",
-        }],
-        failed_diagnoses=[{"cmd": "golem task B", "diagnosis": "syntax_error"}],
+        consulting_results=[
+            {
+                "file": "loci/copia/doc.md",
+                "exists": True,
+                "word_count": 300,
+                "adequate": True,
+                "has_headings": True,
+                "has_paragraphs": True,
+                "has_structure_elements": False,
+                "structure_ok": True,
+                "has_introduction": True,
+                "has_conclusion": True,
+                "section_count": 4,
+                "broken_sections": 0,
+                "min_sections_ok": True,
+                "has_proper_heading_hierarchy": True,
+                "avg_paragraph_word_count": 30.0,
+                "has_filler_content": False,
+                "overall_quality_pass": True,
+                "quality_score": 75,
+                "verdict": "good",
+            }
+        ],
+        failed_diagnoses=[{"cmd": "ribosome task B", "diagnosis": "syntax_error"}],
         pending_count=10,
         auto_requeue=True,
         queued_count=2,
@@ -412,9 +426,10 @@ def test_generate_review():
 def test_main_help(capsys):
     # Test --help specifically
     import sys
+
     old_argv = sys.argv
     try:
-        sys.argv = ["golem-review", "--help"]
+        sys.argv = ["ribosome-review", "--help"]
         ret = cmd_review()
         captured = capsys.readouterr()
         assert "review" in captured.out
@@ -648,17 +663,29 @@ def test_consulting_new_fields_in_generate_review():
         activity={"completed": [], "failed": [], "timeouts": []},
         recent_files=[],
         test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
-        consulting_results=[{
-            "file": "doc.md", "exists": True, "word_count": 300,
-            "adequate": True, "has_headings": True, "has_paragraphs": True,
-            "has_structure_elements": True, "structure_ok": True,
-            "has_introduction": True, "has_conclusion": True,
-            "section_count": 3, "broken_sections": 0, "min_sections_ok": True,
-            "has_proper_heading_hierarchy": True,
-            "avg_paragraph_word_count": 25.0,
-            "has_filler_content": False, "overall_quality_pass": True,
-            "quality_score": 80, "verdict": "excellent",
-        }],
+        consulting_results=[
+            {
+                "file": "doc.md",
+                "exists": True,
+                "word_count": 300,
+                "adequate": True,
+                "has_headings": True,
+                "has_paragraphs": True,
+                "has_structure_elements": True,
+                "structure_ok": True,
+                "has_introduction": True,
+                "has_conclusion": True,
+                "section_count": 3,
+                "broken_sections": 0,
+                "min_sections_ok": True,
+                "has_proper_heading_hierarchy": True,
+                "avg_paragraph_word_count": 25.0,
+                "has_filler_content": False,
+                "overall_quality_pass": True,
+                "quality_score": 80,
+                "verdict": "excellent",
+            }
+        ],
         failed_diagnoses=[],
         pending_count=5,
         auto_requeue=False,
@@ -675,17 +702,29 @@ def test_consulting_new_fields_in_generate_review_with_issues():
         activity={"completed": [], "failed": [], "timeouts": []},
         recent_files=[],
         test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
-        consulting_results=[{
-            "file": "bad.md", "exists": True, "word_count": 50,
-            "adequate": False, "has_headings": False, "has_paragraphs": False,
-            "has_structure_elements": False, "structure_ok": False,
-            "has_introduction": False, "has_conclusion": False,
-            "section_count": 0, "broken_sections": 0, "min_sections_ok": False,
-            "has_proper_heading_hierarchy": False,
-            "avg_paragraph_word_count": 3.0,
-            "has_filler_content": True, "overall_quality_pass": False,
-            "quality_score": 10, "verdict": "poor",
-        }],
+        consulting_results=[
+            {
+                "file": "bad.md",
+                "exists": True,
+                "word_count": 50,
+                "adequate": False,
+                "has_headings": False,
+                "has_paragraphs": False,
+                "has_structure_elements": False,
+                "structure_ok": False,
+                "has_introduction": False,
+                "has_conclusion": False,
+                "section_count": 0,
+                "broken_sections": 0,
+                "min_sections_ok": False,
+                "has_proper_heading_hierarchy": False,
+                "avg_paragraph_word_count": 3.0,
+                "has_filler_content": True,
+                "overall_quality_pass": False,
+                "quality_score": 10,
+                "verdict": "poor",
+            }
+        ],
         failed_diagnoses=[],
         pending_count=0,
         auto_requeue=False,
@@ -822,9 +861,16 @@ def test_compute_consulting_summary_skips_missing():
 
 def test_consulting_summary_in_review():
     """generate_review includes consulting summary section."""
-    summary = {"total": 5, "passed": 3, "failed": 1, "missing": 1,
-               "avg_word_count": 250.0, "avg_quality_score": 65.0,
-               "pass_rate": 0.75, "verdicts": {"excellent": 1, "good": 2, "poor": 1}}
+    summary = {
+        "total": 5,
+        "passed": 3,
+        "failed": 1,
+        "missing": 1,
+        "avg_word_count": 250.0,
+        "avg_quality_score": 65.0,
+        "pass_rate": 0.75,
+        "verdicts": {"excellent": 1, "good": 2, "poor": 1},
+    }
     review = generate_review(
         activity={"completed": [], "failed": [], "timeouts": []},
         recent_files=[],
@@ -897,4 +943,5 @@ def test_consulting_full_integration():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

@@ -1,52 +1,54 @@
 #!/usr/bin/env python3
-"""Tests for golem-reviewer effector script."""
+"""Tests for ribosome-reviewer effector script."""
+
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
 GERMLINE = Path(__file__).parent.parent
-GOLEM_REVIEWER_PATH = GERMLINE / "effectors" / "golem-tools"
+RIBOSOME_REVIEWER_PATH = GERMLINE / "effectors" / "ribosome-tools"
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
-def test_golem_reviewer_help():
-    """Test that golem-tools reviewer --help outputs help message."""
+def test_ribosome_reviewer_help():
+    """Test that ribosome-tools reviewer --help outputs help message."""
     result = subprocess.run(
-        [sys.executable, str(GOLEM_REVIEWER_PATH), "reviewer", "--help"],
+        [sys.executable, str(RIBOSOME_REVIEWER_PATH), "reviewer", "--help"],
         capture_output=True,
         text=True,
         cwd=str(GERMLINE),
-        timeout=10
+        timeout=10,
     )
     assert result.returncode == 0
     assert "reviewer" in result.stdout.lower() or "once" in result.stdout.lower()
 
 
-def test_golem_reviewer_exists_and_executable():
-    """Test that golem-reviewer file exists and is executable."""
-    assert GOLEM_REVIEWER_PATH.exists(), "golem-reviewer does not exist"
+def test_ribosome_reviewer_exists_and_executable():
+    """Test that ribosome-reviewer file exists and is executable."""
+    assert RIBOSOME_REVIEWER_PATH.exists(), "ribosome-reviewer does not exist"
     # Check shebang is correct
-    first_line = GOLEM_REVIEWER_PATH.read_text().splitlines()[0]
+    first_line = RIBOSOME_REVIEWER_PATH.read_text().splitlines()[0]
     assert first_line == "#!/usr/bin/env python3", "Wrong shebang"
-    stat = GOLEM_REVIEWER_PATH.stat()
+    stat = RIBOSOME_REVIEWER_PATH.stat()
     assert stat.st_mode & 0o111, "File should be executable"
 
 
-def test_golem_reviewer_syntax_valid():
-    """Test that golem-reviewer has valid Python syntax."""
-    content = GOLEM_REVIEWER_PATH.read_text()
+def test_ribosome_reviewer_syntax_valid():
+    """Test that ribosome-reviewer has valid Python syntax."""
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     import ast
+
     tree = ast.parse(content)
     assert tree is not None
     assert len(tree.body) > 0
 
 
-def test_golem_functions_loadable_via_exec():
+def test_ribosome_functions_loadable_via_exec():
     """Test that all function definitions are loadable via exec."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
-    
+
     # Check key functions exist
     assert "log" in ns
     assert "reviewer_run" in ns
@@ -59,7 +61,7 @@ def test_golem_functions_loadable_via_exec():
     assert "write_progress_report" in ns
     assert "review_cycle" in ns
     assert "main" in ns
-    
+
     # Check constants are defined
     assert "GERMLINE" in ns
     assert "QUEUE_FILE" in ns
@@ -70,38 +72,39 @@ def test_golem_functions_loadable_via_exec():
 def test_fix_collection_errors_identifies_hardcoded_paths():
     """Test that fix_collection_errors correctly identifies macOS home paths."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
-    
+
     # Create a test file in assays with hardcoded path
     temp_test_file = GERMLINE / "assays" / "tmp_test_hardcoded.py"
     temp_test_file.write_text(f'test_path = "{MAC_HOME_PREFIX}germline/some/file.py"\n')
-    
+
     try:
         # Mock the run function to return our test file as an error
         def mock_run(cmd, cwd=None):
             if "pytest --co" in cmd:
                 return 0, f"ERROR assays/{temp_test_file.name}"
             return 0, ""
-        
-        ns['reviewer_run'] = mock_run
-        ns['GERMLINE'] = GERMLINE
-        
+
+        ns["reviewer_run"] = mock_run
+        ns["GERMLINE"] = GERMLINE
+
         # Call the function
-        fixed = ns['fix_collection_errors']()
-        
+        fixed = ns["fix_collection_errors"]()
+
         # Should have fixed one error
         assert fixed == 1
-        
+
         # Check the file was modified
         new_content = temp_test_file.read_text()
         assert str(Path.home()) in new_content
         assert f"{Path.home()}//" not in new_content
-        
+
         # Verify AST still valid
         import ast
+
         ast.parse(new_content)
-        
+
     finally:
         if temp_test_file.exists():
             temp_test_file.unlink()
@@ -110,7 +113,8 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
 def test_all_expected_functions_present():
     """Check that all expected top-level functions are present."""
     import ast
-    content = GOLEM_REVIEWER_PATH.read_text()
+
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     tree = ast.parse(content)
 
     function_names = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
@@ -136,57 +140,57 @@ def test_all_expected_functions_present():
 def test_run_function_executes_command():
     """Test that run function executes command and returns result."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
 
-    returncode, output = ns['reviewer_run']("echo 'hello world'")
+    returncode, output = ns["reviewer_run"]("echo 'hello world'")
     assert returncode == 0
     assert output == "hello world"
 
     # Test non-zero exit code
-    returncode, output = ns['reviewer_run']("false")
+    returncode, output = ns["reviewer_run"]("false")
     assert returncode != 0
 
 
 def test_check_daemon_status_parses_output():
     """Test that check_daemon_status correctly parses daemon output."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
 
     # Mock the run function
     def mock_run(cmd):
         return 0, "Daemon running (PID 1234), 5 pending tasks (current 1/5)"
 
-    ns['reviewer_run'] = mock_run
+    ns["reviewer_run"] = mock_run
 
-    result = ns['check_daemon_status']()
-    assert result['running'] is True
-    assert result['pending'] == 5
-    assert "1234" in result['raw']
+    result = ns["check_daemon_status"]()
+    assert result["running"] is True
+    assert result["pending"] == 5
+    assert "1234" in result["raw"]
 
     # Test parsing when no match
     def mock_run_no_match(cmd):
         return 0, "Daemon stopped"
 
-    ns['reviewer_run'] = mock_run_no_match
-    result = ns['check_daemon_status']()
-    assert result['pending'] == 0
+    ns["reviewer_run"] = mock_run_no_match
+    result = ns["check_daemon_status"]()
+    assert result["pending"] == 0
 
 
 def test_check_daemon_failures_finds_failures():
     """Test that check_daemon_failures extracts failure lines."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
 
     # Mock the run function
     def mock_run(cmd):
         return 0, "FAILED: task 1\nFAILED: task 2"
 
-    ns['reviewer_run'] = mock_run
+    ns["reviewer_run"] = mock_run
 
-    failures = ns['check_daemon_failures']()
+    failures = ns["check_daemon_failures"]()
     assert len(failures) == 2
     assert "FAILED: task 1" in failures
 
@@ -194,47 +198,47 @@ def test_check_daemon_failures_finds_failures():
     def mock_run_empty(cmd):
         return 1, ""
 
-    ns['reviewer_run'] = mock_run_empty
-    failures = ns['check_daemon_failures']()
+    ns["reviewer_run"] = mock_run_empty
+    failures = ns["check_daemon_failures"]()
     assert failures == []
 
 
 def test_run_test_snapshot_parses_output():
     """Test that run_test_snapshot parses pytest output."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
 
     # Mock the run function
     def mock_run(cmd):
         return 0, "10 passed, 2 failed, 1 error\n"
 
-    ns['reviewer_run'] = mock_run
+    ns["reviewer_run"] = mock_run
 
-    result = ns['run_test_snapshot']()
-    assert result['passed'] == 10
-    assert result['failed'] == 2
-    assert result['errors'] == 1
+    result = ns["run_test_snapshot"]()
+    assert result["passed"] == 10
+    assert result["failed"] == 2
+    assert result["errors"] == 1
 
     # Test when no numbers found
     def mock_run_no_match(cmd):
         return 0, "no tests ran"
 
-    ns['reviewer_run'] = mock_run_no_match
-    result = ns['run_test_snapshot']()
-    assert result['passed'] == 0
-    assert result['failed'] == 0
+    ns["reviewer_run"] = mock_run_no_match
+    result = ns["run_test_snapshot"]()
+    assert result["passed"] == 0
+    assert result["failed"] == 0
 
 
 def test_write_progress_report_creates_file():
     """Test that write_progress_report creates a report file."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
 
     # Set GERMLINE and reset cycle_number
-    ns['GERMLINE'] = GERMLINE
-    ns['cycle_number'] = 999
+    ns["GERMLINE"] = GERMLINE
+    ns["cycle_number"] = 999
 
     # Call with test data
     status = {"running": True, "pending": 3}
@@ -242,7 +246,7 @@ def test_write_progress_report_creates_file():
     tests = {"passed": 100, "failed": 2, "errors": 1, "raw": ""}
     failures = ["Failure 1", "Failure 2"]
 
-    ns['write_progress_report'](status, output, tests, failures)
+    ns["write_progress_report"](status, output, tests, failures)
 
     # Check file was created
     report_path = GERMLINE / "loci" / "copia" / "reviewer-cycle-999.md"
@@ -250,7 +254,7 @@ def test_write_progress_report_creates_file():
 
     # Verify content
     report_content = report_path.read_text()
-    assert "Golem Reviewer — Cycle 999" in report_content
+    assert "Ribosome Reviewer — Cycle 999" in report_content
     assert "Queue: 3 pending" in report_content
     assert "Passed: 100" in report_content
     assert "Failed: 2" in report_content
@@ -263,14 +267,14 @@ def test_write_progress_report_creates_file():
 def test_log_creates_log_file():
     """Test that log writes to log file."""
     ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
+    content = RIBOSOME_REVIEWER_PATH.read_text()
     exec(content, ns)
 
     # Override REVIEW_LOG to a temp file
-    temp_log = GERMLINE / "tmp_golem_reviewer_test.log"
-    ns['REVIEW_LOG'] = temp_log
+    temp_log = GERMLINE / "tmp_ribosome_reviewer_test.log"
+    ns["REVIEW_LOG"] = temp_log
 
-    ns['log']("test message")
+    ns["log"]("test message")
 
     assert temp_log.exists()
     assert "test message" in temp_log.read_text()
@@ -282,4 +286,5 @@ def test_log_creates_log_file():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

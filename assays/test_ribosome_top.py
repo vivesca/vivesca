@@ -1,26 +1,22 @@
-from __future__ import annotations
-
-"""Tests for effectors/golem-top.
+"""Tests for effectors/ribosome-top.
 
 Effectors are scripts — load via exec, never import.
 """
 
-import sys
 import json
-import subprocess
+import sys as _sys
 import textwrap
+import types
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-EFFECTOR = Path.home() / "germline" / "effectors" / "golem-tools"
+EFFECTOR = Path.home() / "germline" / "effectors" / "ribosome-tools"
 
 # Load the effector into a namespace
-import types, sys as _sys
-_top_mod = types.ModuleType("golem_top")
-_sys.modules["golem_top"] = _top_mod
-NS = {"__name__": "golem_top", "__file__": str(EFFECTOR), "__builtins__": __builtins__}
+
+_top_mod = types.ModuleType("ribosome_top")
+_sys.modules["ribosome_top"] = _top_mod
+NS = {"__name__": "ribosome_top", "__file__": str(EFFECTOR), "__builtins__": __builtins__}
 exec(open(EFFECTOR).read(), NS)
 _top_mod.__dict__.update(NS)
 
@@ -36,6 +32,7 @@ truncate = NS["truncate"]
 
 
 # ── etime_to_seconds ────────────────────────────────────────────
+
 
 class TestEtimeToSeconds:
     def test_mm_ss(self):
@@ -56,6 +53,7 @@ class TestEtimeToSeconds:
 
 # ── format_duration ────────────────────────────────────────────
 
+
 class TestFormatDuration:
     def test_seconds_only(self):
         assert format_duration("00:45") == "45s"
@@ -72,37 +70,38 @@ class TestFormatDuration:
 
 # ── classify_process ──────────────────────────────────────────
 
+
 class TestClassifyProcess:
     def test_shell_wrapper(self):
-        args = '/bin/sh -c golem --provider zhipu --max-turns 30 "Write tests for rheotaxis"'
+        args = '/bin/sh -c ribosome --provider zhipu --max-turns 30 "Write tests for rheotaxis"'
         result = classify_process(args)
         assert result is not None
         assert result["provider"] == "zhipu"
         assert result["max_turns"] == 30
         assert "Write tests for rheotaxis" in result["task"]
-        assert result["kind"] == "golem"
+        assert result["kind"] == "ribosome"
 
     def test_bash_direct(self):
-        args = "bash /home/terry/germline/effectors/golem --provider infini --max-turns 35 Create effectors/skill-search"
+        args = "bash /home/terry/germline/effectors/ribosome --provider infini --max-turns 35 Create effectors/skill-search"
         result = classify_process(args)
         assert result is not None
         assert result["provider"] == "infini"
         assert result["max_turns"] == 35
         assert "Create effectors/skill-search" in result["task"]
 
-    def test_golem_reviewer(self):
-        args = "python3 /home/terry/germline/effectors/golem-reviewer"
+    def test_ribosome_reviewer(self):
+        args = "python3 /home/terry/germline/effectors/ribosome-reviewer"
         result = classify_process(args)
         assert result is not None
         assert result["provider"] == "reviewer"
         assert result["task"] == "reviewer daemon"
 
-    def test_non_golem_process(self):
+    def test_non_ribosome_process(self):
         args = "bash /usr/bin/something-else --foo bar"
         assert classify_process(args) is None
 
     def test_unknown_provider(self):
-        args = "bash /home/terry/germline/effectors/golem --max-turns 10 Do something"
+        args = "bash /home/terry/germline/effectors/ribosome --max-turns 10 Do something"
         result = classify_process(args)
         assert result is not None
         assert result["provider"] == "unknown"
@@ -110,12 +109,13 @@ class TestClassifyProcess:
 
 # ── parse_ps_lines ────────────────────────────────────────────
 
+
 class TestParsePsLines:
     def test_basic_parsing(self):
         raw = textwrap.dedent("""\
             PID     ELAPSED COMMAND
-            369       14:30 /bin/sh -c golem --provider zhipu --max-turns 30 "Write tests"
-            2256    03:38:56 python3 /home/terry/germline/effectors/golem-reviewer
+            369       14:30 /bin/sh -c ribosome --provider zhipu --max-turns 30 "Write tests"
+            2256    03:38:56 python3 /home/terry/germline/effectors/ribosome-reviewer
         """)
         entries = parse_ps_lines(raw)
         assert len(entries) == 2
@@ -124,13 +124,13 @@ class TestParsePsLines:
         assert entries[1]["pid"] == 2256
 
     def test_skips_self(self):
-        raw = "  100 01:00:00 /home/terry/germline/effectors/golem-top --watch\n"
+        raw = "  100 01:00:00 /home/terry/germline/effectors/ribosome-top --watch\n"
         entries = parse_ps_lines(raw)
         assert len(entries) == 0
 
-    def test_keeps_python3_golem_top(self):
-        """python3 invoking golem-top passes parse (executable is python3)."""
-        raw = "  100 01:00:00 python3 /home/terry/germline/effectors/golem-top\n"
+    def test_keeps_python3_ribosome_top(self):
+        """python3 invoking ribosome-top passes parse (executable is python3)."""
+        raw = "  100 01:00:00 python3 /home/terry/germline/effectors/ribosome-top\n"
         entries = parse_ps_lines(raw)
         assert len(entries) == 1
 
@@ -139,22 +139,38 @@ class TestParsePsLines:
         entries = parse_ps_lines(raw)
         assert len(entries) == 0
 
-    def test_keeps_golem_top_in_task_description(self):
-        """A task *about* golem-top should still show up."""
-        raw = '  2308 04:57 /bin/sh -c golem --provider zhipu --max-turns 35 "Create effectors/golem-top as Python"\n'
+    def test_keeps_ribosome_top_in_task_description(self):
+        """A task *about* ribosome-top should still show up."""
+        raw = '  2308 04:57 /bin/sh -c ribosome --provider zhipu --max-turns 35 "Create effectors/ribosome-top as Python"\n'
         entries = parse_ps_lines(raw)
         assert len(entries) == 1
-        assert "golem-top" in entries[0]["args"]
+        assert "ribosome-top" in entries[0]["args"]
 
 
 # ── group_tasks ────────────────────────────────────────────────
 
+
 class TestGroupTasks:
     def test_deduplicates_shell_and_bash(self):
         entries = [
-            {"pid": 369, "etime": "14:30", "args": '/bin/sh -c golem --provider zhipu --max-turns 30 "Write tests for rheotaxis"', "raw_line": ""},
-            {"pid": 370, "etime": "14:30", "args": "bash /home/terry/germline/effectors/golem --provider zhipu --max-turns 30 Write tests for rheotaxis", "raw_line": ""},
-            {"pid": 378, "etime": "14:29", "args": "bash /home/terry/germline/effectors/golem --provider zhipu --max-turns 30 Write tests for rheotaxis", "raw_line": ""},
+            {
+                "pid": 369,
+                "etime": "14:30",
+                "args": '/bin/sh -c ribosome --provider zhipu --max-turns 30 "Write tests for rheotaxis"',
+                "raw_line": "",
+            },
+            {
+                "pid": 370,
+                "etime": "14:30",
+                "args": "bash /home/terry/germline/effectors/ribosome --provider zhipu --max-turns 30 Write tests for rheotaxis",
+                "raw_line": "",
+            },
+            {
+                "pid": 378,
+                "etime": "14:29",
+                "args": "bash /home/terry/germline/effectors/ribosome --provider zhipu --max-turns 30 Write tests for rheotaxis",
+                "raw_line": "",
+            },
         ]
         tasks = group_tasks(entries)
         assert len(tasks) == 1
@@ -165,15 +181,30 @@ class TestGroupTasks:
 
     def test_separates_different_tasks(self):
         entries = [
-            {"pid": 369, "etime": "14:30", "args": "bash /home/terry/germline/effectors/golem --provider zhipu --max-turns 30 Task alpha", "raw_line": ""},
-            {"pid": 418, "etime": "05:27", "args": "bash /home/terry/germline/effectors/golem --provider zhipu --max-turns 35 Task beta", "raw_line": ""},
+            {
+                "pid": 369,
+                "etime": "14:30",
+                "args": "bash /home/terry/germline/effectors/ribosome --provider zhipu --max-turns 30 Task alpha",
+                "raw_line": "",
+            },
+            {
+                "pid": 418,
+                "etime": "05:27",
+                "args": "bash /home/terry/germline/effectors/ribosome --provider zhipu --max-turns 35 Task beta",
+                "raw_line": "",
+            },
         ]
         tasks = group_tasks(entries)
         assert len(tasks) == 2
 
     def test_reviewer_grouped(self):
         entries = [
-            {"pid": 2256, "etime": "03:38:56", "args": "python3 /home/terry/germline/effectors/golem-reviewer", "raw_line": ""},
+            {
+                "pid": 2256,
+                "etime": "03:38:56",
+                "args": "python3 /home/terry/germline/effectors/ribosome-reviewer",
+                "raw_line": "",
+            },
         ]
         tasks = group_tasks(entries)
         assert len(tasks) == 1
@@ -183,16 +214,22 @@ class TestGroupTasks:
 
 # ── render_table ───────────────────────────────────────────────
 
+
 class TestRenderTable:
     def test_empty(self):
-        assert render_table([]) == "No golem processes running."
+        assert render_table([]) == "No ribosome processes running."
 
     def test_header_and_rows(self):
-        tasks = [{
-            "pid": 369, "provider": "zhipu", "duration": "14m30s",
-            "num_procs": 3, "task": "Write tests for rheotaxis-local",
-            "kind": "golem",
-        }]
+        tasks = [
+            {
+                "pid": 369,
+                "provider": "zhipu",
+                "duration": "14m30s",
+                "num_procs": 3,
+                "task": "Write tests for rheotaxis-local",
+                "kind": "ribosome",
+            }
+        ]
         output = render_table(tasks)
         assert "PID" in output
         assert "PROVIDER" in output
@@ -202,8 +239,22 @@ class TestRenderTable:
 
     def test_summary_footer(self):
         tasks = [
-            {"pid": 100, "provider": "zhipu", "duration": "1m00s", "num_procs": 2, "task": "Task A", "kind": "golem"},
-            {"pid": 200, "provider": "infini", "duration": "2m00s", "num_procs": 1, "task": "Task B", "kind": "golem"},
+            {
+                "pid": 100,
+                "provider": "zhipu",
+                "duration": "1m00s",
+                "num_procs": 2,
+                "task": "Task A",
+                "kind": "ribosome",
+            },
+            {
+                "pid": 200,
+                "provider": "infini",
+                "duration": "2m00s",
+                "num_procs": 1,
+                "task": "Task B",
+                "kind": "ribosome",
+            },
         ]
         output = render_table(tasks)
         assert "Total: 2 task(s)" in output
@@ -212,6 +263,7 @@ class TestRenderTable:
 
 
 # ── truncate ──────────────────────────────────────────────────
+
 
 class TestTruncate:
     def test_short_string(self):
@@ -228,13 +280,14 @@ class TestTruncate:
 
 # ── run (integration with mocked ps) ─────────────────────────
 
+
 class TestRun:
     def test_json_output(self):
         fake_ps = textwrap.dedent("""\
             PID     ELAPSED COMMAND
-            369       14:30 /bin/sh -c golem --provider zhipu --max-turns 30 "Write tests for rheotaxis-local"
-            370       14:30 bash /home/terry/germline/effectors/golem --provider zhipu --max-turns 30 Write tests for rheotaxis-local
-            2256    03:38:56 python3 /home/terry/germline/effectors/golem-reviewer
+            369       14:30 /bin/sh -c ribosome --provider zhipu --max-turns 30 "Write tests for rheotaxis-local"
+            370       14:30 bash /home/terry/germline/effectors/ribosome --provider zhipu --max-turns 30 Write tests for rheotaxis-local
+            2256    03:38:56 python3 /home/terry/germline/effectors/ribosome-reviewer
         """)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout=fake_ps)
@@ -248,18 +301,18 @@ class TestRun:
         assert 369 in pids
         assert 2256 in pids
 
-    def test_no_golems_running(self):
+    def test_no_ribosomes_running(self):
         fake_ps = "  PID   ELAPSED COMMAND\n  1000    01:00:00 /usr/bin/sleep 999\n"
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout=fake_ps)
             output = run(json_output=False)
 
-        assert output == "No golem processes running."
+        assert output == "No ribosome processes running."
 
     def test_table_output(self):
         fake_ps = textwrap.dedent("""\
             PID     ELAPSED COMMAND
-            419       05:27 bash /home/terry/germline/effectors/golem --provider infini --max-turns 35 Create effectors/skill-search
+            419       05:27 bash /home/terry/germline/effectors/ribosome --provider infini --max-turns 35 Create effectors/skill-search
         """)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout=fake_ps)

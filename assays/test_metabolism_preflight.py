@@ -1,23 +1,21 @@
-from __future__ import annotations
-
 import os
-import pytest
-from unittest.mock import patch, mock_open, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from metabolon.metabolism.preflight import (
+    PROVIDER_CONFIG,
     CheckResult,
     PreflightResult,
-    check_repo_reachable,
-    check_repo_freshness,
-    check_signal_bus,
     check_api_key,
-    run_preflight,
-    check_golem_binary,
-    check_golem_api_key,
     check_provider_health,
-    check_golem_log_freshness,
-    check_golem_ready,
-    PROVIDER_CONFIG,
+    check_repo_freshness,
+    check_repo_reachable,
+    check_ribosome_api_key,
+    check_ribosome_binary,
+    check_ribosome_log_freshness,
+    check_ribosome_ready,
+    check_signal_bus,
+    run_preflight,
 )
 
 
@@ -230,7 +228,9 @@ def test_run_preflight_default_keys(mock_signal, mock_fresh, mock_reach):
     mock_fresh.return_value = CheckResult(name="test", passed=True, message="ok")
     mock_signal.return_value = CheckResult(name="signal_bus", passed=True, message="ok")
 
-    with patch.dict(os.environ, {"ZHIPU_API_KEY": "fakekey", "ANTHROPIC_API_KEY": "fakelongerkey"}):
+    with patch.dict(
+        os.environ, {"ZHIPU_API_KEY": "fakekey", "ANTHROPIC_API_KEY": "fakelongerkey"}
+    ):
         result = run_preflight()
         assert mock_reach.call_count == 2
         assert mock_fresh.call_count == 2
@@ -239,60 +239,60 @@ def test_run_preflight_default_keys(mock_signal, mock_fresh, mock_reach):
 
 
 @patch("shutil.which")
-def test_check_golem_binary_not_found(mock_which):
-    """Test check_golem_binary when binary not found."""
+def test_check_ribosome_binary_not_found(mock_which):
+    """Test check_ribosome_binary when binary not found."""
     mock_which.return_value = None
     with patch("pathlib.Path.exists", return_value=False):
-        result = check_golem_binary()
+        result = check_ribosome_binary()
         assert not result.passed
         assert result.severity == "critical"
         assert "not found" in result.message
 
 
 @patch("shutil.which")
-def test_check_golem_binary_not_executable(mock_which):
-    """Test check_golem_binary when found but not executable."""
+def test_check_ribosome_binary_not_executable(mock_which):
+    """Test check_ribosome_binary when found but not executable."""
     mock_which.return_value = None
     with patch("pathlib.Path.exists", return_value=True):
         with patch("os.access", return_value=False):
-            result = check_golem_binary()
+            result = check_ribosome_binary()
             assert not result.passed
             assert result.severity == "critical"
             assert "not executable" in result.message
 
 
 @patch("shutil.which")
-def test_check_golem_binary_found_in_default(mock_which):
-    """Test check_golem_binary when found in default location."""
+def test_check_ribosome_binary_found_in_default(mock_which):
+    """Test check_ribosome_binary when found in default location."""
     mock_which.return_value = None
     with patch("pathlib.Path.exists", return_value=True):
         with patch("os.access", return_value=True):
-            result = check_golem_binary()
+            result = check_ribosome_binary()
             assert result.passed
             assert "Found at" in result.message
 
 
 @patch("shutil.which")
-def test_check_golem_binary_found_in_path(mock_which):
-    """Test check_golem_binary when found in PATH."""
-    mock_which.return_value = "/usr/bin/golem"
-    result = check_golem_binary()
+def test_check_ribosome_binary_found_in_path(mock_which):
+    """Test check_ribosome_binary when found in PATH."""
+    mock_which.return_value = "/usr/bin/ribosome"
+    result = check_ribosome_binary()
     assert result.passed
-    assert "Found at /usr/bin/golem" in result.message
+    assert "Found at /usr/bin/ribosome" in result.message
 
 
-def test_check_golem_api_key_unknown_provider():
-    """Test check_golem_api_key with unknown provider."""
-    result = check_golem_api_key("nonexistent")
+def test_check_ribosome_api_key_unknown_provider():
+    """Test check_ribosome_api_key with unknown provider."""
+    result = check_ribosome_api_key("nonexistent")
     assert not result.passed
     assert "Unknown provider" in result.message
 
 
-def test_check_golem_api_key_ok():
-    """Test check_golem_api_key for known provider."""
+def test_check_ribosome_api_key_ok():
+    """Test check_ribosome_api_key for known provider."""
     for provider, config in PROVIDER_CONFIG.items():
         with patch.dict(os.environ, {config["key_var"]: "validapikey123"}):
-            result = check_golem_api_key(provider)
+            result = check_ribosome_api_key(provider)
             assert result.passed
 
 
@@ -342,6 +342,7 @@ def test_check_provider_health_non_200(mock_urlopen):
 def test_check_provider_health_url_error(mock_urlopen):
     """Test check_provider_health with URL error."""
     import urllib.error
+
     mock_urlopen.side_effect = urllib.error.URLError("connection refused")
 
     with patch.dict(os.environ, {"ZHIPU_API_KEY": "validkey123"}):
@@ -351,51 +352,51 @@ def test_check_provider_health_url_error(mock_urlopen):
         assert result.severity == "warning"
 
 
-@patch("metabolon.metabolism.preflight.GOLEM_LOG")
-def test_check_golem_log_freshness_missing(mock_golem_log):
-    """Test check_golem_log_freshness when log doesn't exist."""
-    mock_golem_log.exists.return_value = False
-    result = check_golem_log_freshness()
+@patch("metabolon.metabolism.preflight.RIBOSOME_LOG")
+def test_check_ribosome_log_freshness_missing(mock_ribosome_log):
+    """Test check_ribosome_log_freshness when log doesn't exist."""
+    mock_ribosome_log.exists.return_value = False
+    result = check_ribosome_log_freshness()
     assert not result.passed
     assert result.severity == "info"
-    assert "No golem log found" in result.message
+    assert "No ribosome log found" in result.message
 
 
-@patch("metabolon.metabolism.preflight.GOLEM_LOG")
+@patch("metabolon.metabolism.preflight.RIBOSOME_LOG")
 @patch("time.time")
-def test_check_golem_log_freshness_stale(mock_time, mock_golem_log):
-    """Test check_golem_log_freshness when stale."""
-    mock_golem_log.exists.return_value = True
-    mock_golem_log.stat.return_value = MagicMock(st_mtime=0)
+def test_check_ribosome_log_freshness_stale(mock_time, mock_ribosome_log):
+    """Test check_ribosome_log_freshness when stale."""
+    mock_ribosome_log.exists.return_value = True
+    mock_ribosome_log.stat.return_value = MagicMock(st_mtime=0)
     mock_time.return_value = 3600 * 25  # 25 hours
-    result = check_golem_log_freshness(max_hours=24)
+    result = check_ribosome_log_freshness(max_hours=24)
     assert not result.passed
     assert result.severity == "info"
-    assert "Golem last used 25.0h ago" in result.message
+    assert "Ribosome last used 25.0h ago" in result.message
 
 
-@patch("metabolon.metabolism.preflight.GOLEM_LOG")
+@patch("metabolon.metabolism.preflight.RIBOSOME_LOG")
 @patch("time.time")
-def test_check_golem_log_freshness_ok(mock_time, mock_golem_log):
-    """Test check_golem_log_freshness when fresh."""
-    mock_golem_log.exists.return_value = True
-    mock_golem_log.stat.return_value = MagicMock(st_mtime=3600 * 12)
+def test_check_ribosome_log_freshness_ok(mock_time, mock_ribosome_log):
+    """Test check_ribosome_log_freshness when fresh."""
+    mock_ribosome_log.exists.return_value = True
+    mock_ribosome_log.stat.return_value = MagicMock(st_mtime=3600 * 12)
     mock_time.return_value = 3600 * 20  # 8 hours
-    result = check_golem_log_freshness(max_hours=24)
+    result = check_ribosome_log_freshness(max_hours=24)
     assert result.passed
     assert "Last used 8.0h ago" in result.message
 
 
-def test_check_golem_ready_skip_health():
-    """Test check_golem_ready with health check skipped."""
-    with patch("metabolon.metabolism.preflight.check_golem_binary") as mock_bin:
-        with patch("metabolon.metabolism.preflight.check_golem_api_key") as mock_key:
-            with patch("metabolon.metabolism.preflight.check_golem_log_freshness") as mock_log:
+def test_check_ribosome_ready_skip_health():
+    """Test check_ribosome_ready with health check skipped."""
+    with patch("metabolon.metabolism.preflight.check_ribosome_binary") as mock_bin:
+        with patch("metabolon.metabolism.preflight.check_ribosome_api_key") as mock_key:
+            with patch("metabolon.metabolism.preflight.check_ribosome_log_freshness") as mock_log:
                 mock_bin.return_value = CheckResult(name="bin", passed=True, message="ok")
                 mock_key.return_value = CheckResult(name="key", passed=True, message="ok")
                 mock_log.return_value = CheckResult(name="log", passed=True, message="ok")
 
-                result = check_golem_ready("zhipu", skip_health_check=True)
+                result = check_ribosome_ready("zhipu", skip_health_check=True)
                 assert mock_bin.called
                 assert mock_key.called
                 assert mock_log.called

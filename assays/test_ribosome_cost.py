@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 
-"""Tests for effectors/golem-cost — golem run cost estimator."""
+"""Tests for effectors/ribosome-cost — ribosome run cost estimator."""
 
 import json
 from pathlib import Path
 
-import pytest
-
 
 def _load_mod():
-    """Load golem-cost module via exec."""
-    source = Path(str(Path.home() / "germline/effectors/golem-cost")).read_text()
-    ns: dict = {"__name__": "golem_cost"}
+    """Load ribosome-cost module via exec."""
+    source = Path(str(Path.home() / "germline/effectors/ribosome-cost")).read_text()
+    ns: dict = {"__name__": "ribosome_cost"}
     exec(source, ns)
     return ns
 
@@ -74,12 +71,12 @@ class TestLoadJsonl:
         assert load_jsonl(tmp_path / "nope.jsonl") == []
 
     def test_empty_file(self, tmp_path):
-        p = tmp_path / "golem.jsonl"
+        p = tmp_path / "ribosome.jsonl"
         p.write_text("")
         assert load_jsonl(p) == []
 
     def test_valid_records(self, tmp_path):
-        p = tmp_path / "golem.jsonl"
+        p = tmp_path / "ribosome.jsonl"
         p.write_text(
             '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0,"turns":5}\n'
             '{"ts":"2026-01-02","provider":"volcano","duration":20,"exit":1,"turns":3}\n'
@@ -91,12 +88,12 @@ class TestLoadJsonl:
         assert recs[1]["exit"] == 1
 
     def test_skips_bad_lines(self, tmp_path):
-        p = tmp_path / "golem.jsonl"
+        p = tmp_path / "ribosome.jsonl"
         p.write_text('{"ok":true}\nBADLINE\n{"ok":false}\n')
         assert len(load_jsonl(p)) == 2
 
     def test_skips_blank_lines(self, tmp_path):
-        p = tmp_path / "golem.jsonl"
+        p = tmp_path / "ribosome.jsonl"
         p.write_text('{"a":1}\n\n{"b":2}\n')
         assert len(load_jsonl(p)) == 2
 
@@ -174,8 +171,7 @@ class TestComputeSummary:
         ]
         s = compute_summary(recs)
         expected = sum(
-            r["turns"] * TOKENS_PER_TURN / 1_000_000 * get_cost_per_m("zhipu")
-            for r in recs
+            r["turns"] * TOKENS_PER_TURN / 1_000_000 * get_cost_per_m("zhipu") for r in recs
         )
         assert abs(s["total_cost"] - expected) < 0.001
 
@@ -219,12 +215,14 @@ class TestFmtCost:
 
 class TestPrintReport:
     def test_basic_report(self, capsys):
-        summary = compute_summary([
-            {"provider": "zhipu", "turns": 25, "exit": 0, "duration": 120},
-        ])
+        summary = compute_summary(
+            [
+                {"provider": "zhipu", "turns": 25, "exit": 0, "duration": 120},
+            ]
+        )
         print_report(summary, use_color=False)
         out = capsys.readouterr().out
-        assert "Golem Cost Report" in out
+        assert "Ribosome Cost Report" in out
         assert "zhipu" in out
         assert "100K" in out  # 25 * 4000 = 100000 = 100K
 
@@ -232,7 +230,7 @@ class TestPrintReport:
         summary = compute_summary([])
         print_report(summary, use_color=False)
         out = capsys.readouterr().out
-        assert "Golem Cost Report" in out
+        assert "Ribosome Cost Report" in out
         assert "Runs: 0" in out
 
 
@@ -241,10 +239,17 @@ class TestPrintReport:
 
 class TestPrintByRun:
     def test_with_runs(self, capsys):
-        summary = compute_summary([
-            {"provider": "zhipu", "turns": 10, "exit": 0, "duration": 60,
-             "prompt": "Build a thing"},
-        ])
+        summary = compute_summary(
+            [
+                {
+                    "provider": "zhipu",
+                    "turns": 10,
+                    "exit": 0,
+                    "duration": 60,
+                    "prompt": "Build a thing",
+                },
+            ]
+        )
         print_by_run(summary, use_color=False)
         out = capsys.readouterr().out
         assert "Per-Run Detail" in out
@@ -262,9 +267,11 @@ class TestPrintByRun:
 
 class TestPrintJsonReport:
     def test_json_output(self, capsys):
-        summary = compute_summary([
-            {"provider": "volcano", "turns": 15, "exit": 0, "duration": 90},
-        ])
+        summary = compute_summary(
+            [
+                {"provider": "volcano", "turns": 15, "exit": 0, "duration": 90},
+            ]
+        )
         print_json_report(summary)
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -280,8 +287,8 @@ class TestMain:
     def test_main_default(self, tmp_path, capsys):
         orig = _mod["JSONL_PATH"]
         try:
-            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
-            (tmp_path / "golem.jsonl").write_text(
+            _mod["JSONL_PATH"] = tmp_path / "ribosome.jsonl"
+            (tmp_path / "ribosome.jsonl").write_text(
                 '{"ts":"2026-01-01","provider":"zhipu","turns":10,"exit":0,"duration":60,"prompt":"test"}\n'
             )
             rc = main(["--no-color"])
@@ -289,13 +296,13 @@ class TestMain:
             _mod["JSONL_PATH"] = orig
         assert rc == 0
         out = capsys.readouterr().out
-        assert "Golem Cost Report" in out
+        assert "Ribosome Cost Report" in out
 
     def test_main_json(self, tmp_path, capsys):
         orig = _mod["JSONL_PATH"]
         try:
-            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
-            (tmp_path / "golem.jsonl").write_text(
+            _mod["JSONL_PATH"] = tmp_path / "ribosome.jsonl"
+            (tmp_path / "ribosome.jsonl").write_text(
                 '{"ts":"2026-01-01","provider":"infini","turns":5,"exit":0,"duration":30}\n'
             )
             rc = main(["--json"])
@@ -310,8 +317,8 @@ class TestMain:
     def test_main_by_run(self, tmp_path, capsys):
         orig = _mod["JSONL_PATH"]
         try:
-            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
-            (tmp_path / "golem.jsonl").write_text(
+            _mod["JSONL_PATH"] = tmp_path / "ribosome.jsonl"
+            (tmp_path / "ribosome.jsonl").write_text(
                 '{"provider":"volcano","turns":8,"exit":0,"duration":45,"prompt":"do stuff"}\n'
             )
             rc = main(["--by-run", "--no-color"])
@@ -325,8 +332,8 @@ class TestMain:
     def test_main_empty_jsonl(self, tmp_path, capsys):
         orig = _mod["JSONL_PATH"]
         try:
-            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
-            (tmp_path / "golem.jsonl").write_text("")
+            _mod["JSONL_PATH"] = tmp_path / "ribosome.jsonl"
+            (tmp_path / "ribosome.jsonl").write_text("")
             rc = main(["--no-color"])
         finally:
             _mod["JSONL_PATH"] = orig
@@ -338,11 +345,11 @@ class TestMain:
         rc = main(["--help"])
         assert rc == 0
         out = capsys.readouterr().out
-        assert "golem-cost" in out
+        assert "ribosome-cost" in out
 
     def test_script_exists(self):
-        assert Path(str(Path.home() / "germline/effectors/golem-cost")).exists()
+        assert Path(str(Path.home() / "germline/effectors/ribosome-cost")).exists()
 
     def test_script_executable(self):
-        p = Path(str(Path.home() / "germline/effectors/golem-cost"))
+        p = Path(str(Path.home() / "germline/effectors/ribosome-cost"))
         assert p.stat().st_mode & 0o111

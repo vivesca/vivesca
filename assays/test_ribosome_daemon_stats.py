@@ -1,21 +1,16 @@
-from __future__ import annotations
-
-"""Tests for golem-daemon cmd_stats — pass/fail/retry counts, avg duration by provider."""
+"""Tests for ribosome-daemon cmd_stats — pass/fail/retry counts, avg duration by provider."""
 
 import json
-import textwrap
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 
 def _load_module(tmp_jsonl: Path, tmp_queue: Path) -> dict:
-    """Load golem-daemon with JSONLFILE and QUEUE_FILE overridden."""
-    source = Path(str(Path.home() / "germline/effectors/golem-daemon")).read_text()
-    ns: dict = {"__name__": "golem_daemon"}
+    """Load ribosome-daemon with JSONLFILE and QUEUE_FILE overridden."""
+    source = Path(str(Path.home() / "germline/effectors/ribosome-daemon")).read_text()
+    ns: dict = {"__name__": "ribosome_daemon"}
     exec(source, ns)
     # Patch module-level path constants
     ns["JSONLFILE"] = tmp_jsonl
@@ -36,7 +31,7 @@ def _make_record(
     exit_code: int = 0,
     duration: int = 120,
     ts: str = "2026-04-01 10:00:00",
-    cmd: str = "golem test",
+    cmd: str = "ribosome test",
     tail: str = "",
 ) -> dict:
     return {
@@ -50,7 +45,9 @@ def _make_record(
     }
 
 
-def _run_stats(mod: dict, args: list[str] | None = None, running_file: Path | None = None) -> tuple[str, int]:
+def _run_stats(
+    mod: dict, args: list[str] | None = None, running_file: Path | None = None
+) -> tuple[str, int]:
     """Run cmd_stats with captured stdout. Returns (output, returncode)."""
     if args is None:
         args = ["--all"]
@@ -58,7 +55,11 @@ def _run_stats(mod: dict, args: list[str] | None = None, running_file: Path | No
     # Override RUNNING_FILE and PIDFILE to avoid reading real system state
     orig_running = mod["RUNNING_FILE"]
     orig_pid = mod["PIDFILE"]
-    mod["RUNNING_FILE"] = running_file if running_file is not None else mod["Path"]("/tmp/nonexistent_running_stats.json")
+    mod["RUNNING_FILE"] = (
+        running_file
+        if running_file is not None
+        else mod["Path"]("/tmp/nonexistent_running_stats.json")
+    )
     mod["PIDFILE"] = mod["Path"]("/tmp/nonexistent_stats.pid")
     try:
         with patch("sys.stdout", buf):
@@ -74,13 +75,13 @@ def _run_stats(mod: dict, args: list[str] | None = None, running_file: Path | No
 
 class TestNoHistory:
     def test_no_jsonl_file(self, tmp_path: Path):
-        mod = _load_module(tmp_path / "golem.jsonl", tmp_path / "queue.md")
+        mod = _load_module(tmp_path / "ribosome.jsonl", tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
         assert "No task history found" in out
 
     def test_empty_jsonl_file(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         jsonl.write_text("")
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -93,7 +94,7 @@ class TestNoHistory:
 
 class TestOverallCounts:
     def test_all_passed(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(exit_code=0), _make_record(exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -101,7 +102,7 @@ class TestOverallCounts:
         assert "Total tasks: 2 (passed: 2, failed: 0)" in out
 
     def test_all_failed(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(exit_code=1), _make_record(exit_code=2)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -109,12 +110,15 @@ class TestOverallCounts:
         assert "Total tasks: 2 (passed: 0, failed: 2)" in out
 
     def test_mixed(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            _make_record(exit_code=0),
-            _make_record(exit_code=1),
-            _make_record(exit_code=0),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(exit_code=0),
+                _make_record(exit_code=1),
+                _make_record(exit_code=0),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
@@ -126,27 +130,27 @@ class TestOverallCounts:
 
 class TestPermanentlyFailed:
     def test_retries_from_queue(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record(exit_code=1)])
-        queue.write_text("- [!] `golem test`\n## Done\n")
+        queue.write_text("- [!] `ribosome test`\n## Done\n")
         mod = _load_module(jsonl, queue)
         out, rc = _run_stats(mod)
         assert rc == 0
         assert "Permanently failed (retries exhausted): 1" in out
 
     def test_no_permanently_failed(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
-        queue.write_text("- [ ] `golem test`\n## Done\n")
+        queue.write_text("- [ ] `ribosome test`\n## Done\n")
         mod = _load_module(jsonl, queue)
         out, rc = _run_stats(mod)
         assert rc == 0
         assert "Permanently failed (retries exhausted): 0" in out
 
     def test_no_queue_file(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "nonexistent_queue.md")
         out, rc = _run_stats(mod)
@@ -154,10 +158,10 @@ class TestPermanentlyFailed:
         assert "Permanently failed (retries exhausted): 0" in out
 
     def test_multiple_permanently_failed(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record(exit_code=1)])
-        queue.write_text("- [!] `golem a`\n- [!] `golem b`\n- [!] `golem c`\n## Done\n")
+        queue.write_text("- [!] `ribosome a`\n- [!] `ribosome b`\n- [!] `ribosome c`\n## Done\n")
         mod = _load_module(jsonl, queue)
         out, rc = _run_stats(mod)
         assert rc == 0
@@ -169,20 +173,23 @@ class TestPermanentlyFailed:
 
 class TestTodayFilter:
     def test_today_tasks(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         today_str = datetime.now().strftime("%Y-%m-%d")
-        _write_jsonl(jsonl, [
-            _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
-            _make_record(exit_code=1, ts=f"{today_str} 10:00:00"),
-            _make_record(exit_code=0, ts="2026-03-31 10:00:00"),
-        ])
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
+                _make_record(exit_code=1, ts=f"{today_str} 10:00:00"),
+                _make_record(exit_code=0, ts="2026-03-31 10:00:00"),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
         assert f"Tasks today ({today_str}): 2 (passed: 1, failed: 1)" in out
 
     def test_no_today_tasks(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(ts="2025-12-25 10:00:00")])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -197,11 +204,14 @@ class TestTodayFilter:
 
 class TestProviderStats:
     def test_single_provider_avg_duration(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            _make_record(provider="zhipu", duration=60, exit_code=0),
-            _make_record(provider="zhipu", duration=120, exit_code=1),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(provider="zhipu", duration=60, exit_code=0),
+                _make_record(provider="zhipu", duration=120, exit_code=1),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
@@ -213,12 +223,15 @@ class TestProviderStats:
         assert "1m30s" in out
 
     def test_multiple_providers(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            _make_record(provider="zhipu", duration=60, exit_code=0),
-            _make_record(provider="infini", duration=300, exit_code=0),
-            _make_record(provider="volcano", duration=30, exit_code=1),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(provider="zhipu", duration=60, exit_code=0),
+                _make_record(provider="infini", duration=300, exit_code=0),
+                _make_record(provider="volcano", duration=30, exit_code=1),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
@@ -229,7 +242,7 @@ class TestProviderStats:
         assert "5m00s" in out
 
     def test_zero_duration(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(provider="codex", duration=0, exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -237,16 +250,25 @@ class TestProviderStats:
         assert "0m00s" in out
 
     def test_provider_sorted_alphabetically(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            _make_record(provider="volcano", duration=60, exit_code=0),
-            _make_record(provider="codex", duration=60, exit_code=0),
-            _make_record(provider="gemini", duration=60, exit_code=0),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(provider="volcano", duration=60, exit_code=0),
+                _make_record(provider="codex", duration=60, exit_code=0),
+                _make_record(provider="gemini", duration=60, exit_code=0),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
-        lines = [l for l in out.splitlines() if l.strip().startswith("codex") or l.strip().startswith("gemini") or l.strip().startswith("volcano")]
+        lines = [
+            l
+            for l in out.splitlines()
+            if l.strip().startswith("codex")
+            or l.strip().startswith("gemini")
+            or l.strip().startswith("volcano")
+        ]
         providers = [l.split()[0] for l in lines]
         assert providers == sorted(providers)
 
@@ -256,8 +278,8 @@ class TestProviderStats:
 
 class TestRotatedJsonl:
     def test_reads_rotated_file(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
-        rotated = tmp_path / "golem.jsonl.1"
+        jsonl = tmp_path / "ribosome.jsonl"
+        rotated = tmp_path / "ribosome.jsonl.1"
         _write_jsonl(rotated, [_make_record(exit_code=0, provider="zhipu")])
         _write_jsonl(jsonl, [_make_record(exit_code=1, provider="infini")])
         mod = _load_module(jsonl, tmp_path / "queue.md")
@@ -268,8 +290,8 @@ class TestRotatedJsonl:
         assert "infini" in out
 
     def test_only_rotated_file(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
-        rotated = tmp_path / "golem.jsonl.1"
+        jsonl = tmp_path / "ribosome.jsonl"
+        rotated = tmp_path / "ribosome.jsonl.1"
         _write_jsonl(rotated, [_make_record(exit_code=0)])
         # jsonl itself does not exist
         mod = _load_module(jsonl, tmp_path / "queue.md")
@@ -283,7 +305,7 @@ class TestRotatedJsonl:
 
 class TestMalformedLines:
     def test_skips_bad_json(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
         with open(jsonl, "a") as f:
             f.write("not json at all\n")
@@ -295,7 +317,7 @@ class TestMalformedLines:
         assert "Total tasks: 2 (passed: 1, failed: 1)" in out
 
     def test_empty_lines_skipped(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         with open(jsonl, "a") as f:
             f.write("\n\n")
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
@@ -310,14 +332,14 @@ class TestMalformedLines:
 
 class TestReturnCode:
     def test_returns_zero_with_data(self, tmp_path: Path):
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record()])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         _, rc = _run_stats(mod)
         assert rc == 0
 
     def test_returns_zero_no_data(self, tmp_path: Path):
-        mod = _load_module(tmp_path / "golem.jsonl", tmp_path / "queue.md")
+        mod = _load_module(tmp_path / "ribosome.jsonl", tmp_path / "queue.md")
         _, rc = _run_stats(mod)
         assert rc == 0
 
@@ -328,7 +350,7 @@ class TestReturnCode:
 class TestMissingFields:
     def test_missing_provider_defaults_unknown(self, tmp_path: Path):
         """Records without 'provider' key appear under 'unknown'."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         rec = _make_record()
         del rec["provider"]
         _write_jsonl(jsonl, [rec])
@@ -339,7 +361,7 @@ class TestMissingFields:
 
     def test_missing_duration_defaults_zero(self, tmp_path: Path):
         """Records without 'duration' key default to 0."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         rec = _make_record()
         del rec["duration"]
         _write_jsonl(jsonl, [rec])
@@ -350,7 +372,7 @@ class TestMissingFields:
 
     def test_missing_exit_defaults_failed(self, tmp_path: Path):
         """Records without 'exit' key count as failed."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         rec = _make_record()
         del rec["exit"]
         _write_jsonl(jsonl, [rec])
@@ -361,7 +383,7 @@ class TestMissingFields:
 
     def test_missing_ts_excluded_from_today(self, tmp_path: Path):
         """Records without 'ts' key are excluded from today count but included in total."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         rec = _make_record(exit_code=0)
         del rec["ts"]
         _write_jsonl(jsonl, [rec])
@@ -378,7 +400,7 @@ class TestMissingFields:
 class TestDurationFormatting:
     def test_hour_plus_duration(self, tmp_path: Path):
         """Duration over 60 minutes shows correct minutes."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(provider="zhipu", duration=3900, exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -388,7 +410,7 @@ class TestDurationFormatting:
 
     def test_exact_minute_duration(self, tmp_path: Path):
         """Duration that is exactly N minutes shows no extra seconds."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(provider="codex", duration=180, exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -397,7 +419,7 @@ class TestDurationFormatting:
 
     def test_single_second_duration(self, tmp_path: Path):
         """Duration of 1 second shows 0m01s."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(provider="gemini", duration=1, exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -411,10 +433,10 @@ class TestDurationFormatting:
 class TestPermanentlyFailedEdgeCases:
     def test_high_priority_not_counted_as_failed(self, tmp_path: Path):
         """[!!] tasks in queue are not counted as permanently failed."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
-        queue.write_text("- [!!] `golem \"urgent pending\"\n## Done\n")
+        queue.write_text('- [!!] `ribosome "urgent pending"\n## Done\n')
         mod = _load_module(jsonl, queue)
         out, rc = _run_stats(mod)
         assert rc == 0
@@ -422,13 +444,13 @@ class TestPermanentlyFailedEdgeCases:
 
     def test_mixed_failed_and_pending_in_queue(self, tmp_path: Path):
         """Only [!] lines count as permanently failed, not [ ] or [x]."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
         queue.write_text(
-            "- [!] `golem \"perma fail\"`\n"
-            "- [ ] `golem \"still pending\"`\n"
-            "- [x] `golem \"done\"`\n"
+            '- [!] `ribosome "perma fail"`\n'
+            '- [ ] `ribosome "still pending"`\n'
+            '- [x] `ribosome "done"`\n'
             "## Done\n"
         )
         mod = _load_module(jsonl, queue)
@@ -438,10 +460,10 @@ class TestPermanentlyFailedEdgeCases:
 
     def test_unreadable_queue_counts_zero(self, tmp_path: Path):
         """Unreadable queue file results in 0 permanently failed."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
-        queue.write_text("- [!] `golem \"failed\"`\n")
+        queue.write_text('- [!] `ribosome "failed"`\n')
         queue.chmod(0o000)
         mod = _load_module(jsonl, queue)
         try:
@@ -458,7 +480,7 @@ class TestPermanentlyFailedEdgeCases:
 class TestUnreadableJsonl:
     def test_unreadable_jsonl_file(self, tmp_path: Path):
         """cmd_stats handles unreadable JSONL file gracefully."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         jsonl.write_text(json.dumps(_make_record()) + "\n")
         jsonl.chmod(0o000)
         mod = _load_module(jsonl, tmp_path / "queue.md")
@@ -471,8 +493,8 @@ class TestUnreadableJsonl:
 
     def test_unreadable_rotated_jsonl(self, tmp_path: Path):
         """cmd_stats handles unreadable rotated JSONL file."""
-        jsonl = tmp_path / "golem.jsonl"
-        rotated = tmp_path / "golem.jsonl.1"
+        jsonl = tmp_path / "ribosome.jsonl"
+        rotated = tmp_path / "ribosome.jsonl.1"
         rotated.write_text(json.dumps(_make_record()) + "\n")
         rotated.chmod(0o000)
         mod = _load_module(jsonl, tmp_path / "queue.md")
@@ -490,20 +512,20 @@ class TestUnreadableJsonl:
 class TestMainDispatch:
     def test_stats_command_dispatches(self, tmp_path: Path):
         """main() with 'stats' arg calls cmd_stats."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(exit_code=0)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         buf = StringIO()
-        with patch("sys.argv", ["golem-daemon", "stats", "--all"]), patch("sys.stdout", buf):
+        with patch("sys.argv", ["ribosome-daemon", "stats", "--all"]), patch("sys.stdout", buf):
             rc = mod["main"]()
         assert rc == 0
         assert "Total tasks: 1" in buf.getvalue()
 
     def test_unknown_command(self, tmp_path: Path):
         """main() with unknown command returns 1."""
-        mod = _load_module(tmp_path / "golem.jsonl", tmp_path / "queue.md")
+        mod = _load_module(tmp_path / "ribosome.jsonl", tmp_path / "queue.md")
         buf = StringIO()
-        with patch("sys.argv", ["golem-daemon", "bogus"]), patch("sys.stdout", buf):
+        with patch("sys.argv", ["ribosome-daemon", "bogus"]), patch("sys.stdout", buf):
             rc = mod["main"]()
         assert rc == 1
         assert "Unknown command: bogus" in buf.getvalue()
@@ -515,7 +537,7 @@ class TestMainDispatch:
 class TestSingleRecord:
     def test_single_pass(self, tmp_path: Path):
         """Single passing record shows correct stats."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(provider="infini", exit_code=0, duration=90)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -526,7 +548,7 @@ class TestSingleRecord:
 
     def test_single_fail(self, tmp_path: Path):
         """Single failing record shows correct stats."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record(provider="volcano", exit_code=1, duration=30)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -542,7 +564,7 @@ class TestSingleRecord:
 class TestOutputFormat:
     def test_output_has_header_sections(self, tmp_path: Path):
         """Output contains expected section headers."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record()])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -554,15 +576,22 @@ class TestOutputFormat:
 
     def test_by_provider_aligned_columns(self, tmp_path: Path):
         """Provider lines have consistent column alignment."""
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            _make_record(provider="codex", duration=60, exit_code=0),
-            _make_record(provider="verylongname", duration=120, exit_code=0),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(provider="codex", duration=60, exit_code=0),
+                _make_record(provider="verylongname", duration=120, exit_code=0),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
         assert rc == 0
-        lines = [l for l in out.splitlines() if l.strip().startswith("codex") or l.strip().startswith("verylongname")]
+        lines = [
+            l
+            for l in out.splitlines()
+            if l.strip().startswith("codex") or l.strip().startswith("verylongname")
+        ]
         assert len(lines) == 2
         # Both lines should contain "tasks", "passed", "failed", "avg"
         for line in lines:
@@ -572,6 +601,7 @@ class TestOutputFormat:
             assert "real-fail" in line
             assert "avg" in line
 
+
 # ── time-window filtering ──────────────────────────────────
 
 
@@ -580,9 +610,11 @@ class TestTimeWindowFiltering:
 
     def test_default_filters_old_records(self, tmp_path: Path):
         """Default (no flags) filters to last 8h — old records excluded."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         # Record from 10h ago should be excluded
-        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=10)).strftime("%Y-%m-%d %H:%M:%S")
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=10)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         _write_jsonl(jsonl, [_make_record(exit_code=0, ts=old_ts)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=[])
@@ -591,8 +623,10 @@ class TestTimeWindowFiltering:
 
     def test_default_includes_recent_records(self, tmp_path: Path):
         """Default (no flags) includes records from within 8h."""
-        jsonl = tmp_path / "golem.jsonl"
-        recent_ts = (datetime.now() - __import__("datetime").timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        jsonl = tmp_path / "ribosome.jsonl"
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(hours=1)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         _write_jsonl(jsonl, [_make_record(exit_code=0, ts=recent_ts)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=[])
@@ -601,13 +635,20 @@ class TestTimeWindowFiltering:
 
     def test_since_2h_flag(self, tmp_path: Path):
         """--since=2h excludes records older than 2 hours."""
-        jsonl = tmp_path / "golem.jsonl"
-        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
-        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-        _write_jsonl(jsonl, [
-            _make_record(exit_code=0, ts=old_ts),
-            _make_record(exit_code=1, ts=recent_ts),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=3)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=30)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(exit_code=0, ts=old_ts),
+                _make_record(exit_code=1, ts=recent_ts),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=["--since=2h"])
         assert rc == 0
@@ -615,13 +656,20 @@ class TestTimeWindowFiltering:
 
     def test_since_30m_flag(self, tmp_path: Path):
         """--since=30m filters to last 30 minutes."""
-        jsonl = tmp_path / "golem.jsonl"
-        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
-        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
-        _write_jsonl(jsonl, [
-            _make_record(exit_code=0, ts=old_ts),
-            _make_record(exit_code=0, ts=recent_ts),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=1)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=5)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(exit_code=0, ts=old_ts),
+                _make_record(exit_code=0, ts=recent_ts),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=["--since=30m"])
         assert rc == 0
@@ -629,13 +677,18 @@ class TestTimeWindowFiltering:
 
     def test_today_flag(self, tmp_path: Path):
         """--today only includes records from today."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         today_str = datetime.now().strftime("%Y-%m-%d")
-        yesterday = (datetime.now() - __import__("datetime").timedelta(days=1)).strftime("%Y-%m-%d")
-        _write_jsonl(jsonl, [
-            _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
-            _make_record(exit_code=1, ts=f"{yesterday} 15:00:00"),
-        ])
+        yesterday = (datetime.now() - __import__("datetime").timedelta(days=1)).strftime(
+            "%Y-%m-%d"
+        )
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
+                _make_record(exit_code=1, ts=f"{yesterday} 15:00:00"),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=["--today"])
         assert rc == 0
@@ -643,11 +696,14 @@ class TestTimeWindowFiltering:
 
     def test_all_flag_shows_everything(self, tmp_path: Path):
         """--all shows all records regardless of age."""
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            _make_record(exit_code=0, ts="2020-01-01 00:00:00"),
-            _make_record(exit_code=1, ts="2020-06-15 12:00:00"),
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                _make_record(exit_code=0, ts="2020-01-01 00:00:00"),
+                _make_record(exit_code=1, ts="2020-06-15 12:00:00"),
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=["--all"])
         assert rc == 0
@@ -655,8 +711,10 @@ class TestTimeWindowFiltering:
 
     def test_iso_timestamp_parsed(self, tmp_path: Path):
         """ISO format '2026-04-02T04:29:07Z' is parsed correctly for filtering."""
-        jsonl = tmp_path / "golem.jsonl"
-        recent_iso = (datetime.now() - __import__("datetime").timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        jsonl = tmp_path / "ribosome.jsonl"
+        recent_iso = (datetime.now() - __import__("datetime").timedelta(minutes=5)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         _write_jsonl(jsonl, [_make_record(exit_code=0, ts=recent_iso)])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, args=[])
@@ -672,7 +730,7 @@ class TestDaemonStatusHeader:
 
     def test_header_shows_stopped(self, tmp_path: Path):
         """Header shows 'stopped' when pidfile missing."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record()])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -681,10 +739,12 @@ class TestDaemonStatusHeader:
 
     def test_header_shows_pending_count(self, tmp_path: Path):
         """Header shows correct pending count from queue."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record()])
-        queue.write_text("- [ ] `golem \"task1\"`\n- [!!] `golem \"task2\"`\n- [x] `golem \"done\"`\n")
+        queue.write_text(
+            '- [ ] `ribosome "task1"`\n- [!!] `ribosome "task2"`\n- [x] `ribosome "done"`\n'
+        )
         mod = _load_module(jsonl, queue)
         out, rc = _run_stats(mod)
         assert rc == 0
@@ -692,7 +752,7 @@ class TestDaemonStatusHeader:
 
     def test_header_shows_zero_running_when_no_file(self, tmp_path: Path):
         """Header shows 0 running when RUNNING_FILE doesn't exist."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record()])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -708,7 +768,7 @@ class TestCurrentlyRunningSection:
 
     def test_no_running_section_when_empty(self, tmp_path: Path):
         """No 'Currently running' section when RUNNING_FILE is empty."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record()])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -717,12 +777,21 @@ class TestCurrentlyRunningSection:
 
     def test_running_section_shows_tasks(self, tmp_path: Path):
         """Currently running section lists task IDs and elapsed time."""
-        jsonl = tmp_path / "golem.jsonl"
-        running_file = tmp_path / "golem-running.json"
+        jsonl = tmp_path / "ribosome.jsonl"
+        running_file = tmp_path / "ribosome-running.json"
         _write_jsonl(jsonl, [_make_record()])
-        running_file.write_text(json.dumps([
-            {"task_id": "t-abc123", "provider": "zhipu", "cmd": "golem test", "started_at": 1000.0},
-        ]))
+        running_file.write_text(
+            json.dumps(
+                [
+                    {
+                        "task_id": "t-abc123",
+                        "provider": "zhipu",
+                        "cmd": "ribosome test",
+                        "started_at": 1000.0,
+                    },
+                ]
+            )
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, running_file=running_file)
         assert rc == 0
@@ -733,12 +802,16 @@ class TestCurrentlyRunningSection:
 
     def test_running_section_without_started_at(self, tmp_path: Path):
         """Running task without started_at shows no elapsed time."""
-        jsonl = tmp_path / "golem.jsonl"
-        running_file = tmp_path / "golem-running.json"
+        jsonl = tmp_path / "ribosome.jsonl"
+        running_file = tmp_path / "ribosome-running.json"
         _write_jsonl(jsonl, [_make_record()])
-        running_file.write_text(json.dumps([
-            {"task_id": "t-noeta", "provider": "codex", "cmd": "golem test"},
-        ]))
+        running_file.write_text(
+            json.dumps(
+                [
+                    {"task_id": "t-noeta", "provider": "codex", "cmd": "ribosome test"},
+                ]
+            )
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod, running_file=running_file)
         assert rc == 0
@@ -754,7 +827,7 @@ class TestPermanentlyFailedListing:
 
     def test_no_listing_when_empty(self, tmp_path: Path):
         """No perma-failed ID listing when queue has no [!] entries."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         _write_jsonl(jsonl, [_make_record()])
         mod = _load_module(jsonl, tmp_path / "queue.md")
         out, rc = _run_stats(mod)
@@ -765,12 +838,11 @@ class TestPermanentlyFailedListing:
 
     def test_listing_shows_task_ids(self, tmp_path: Path):
         """Perma-failed listing shows task IDs from queue [!] lines."""
-        jsonl = tmp_path / "golem.jsonl"
+        jsonl = tmp_path / "ribosome.jsonl"
         queue = tmp_path / "queue.md"
         _write_jsonl(jsonl, [_make_record()])
         queue.write_text(
-            '- [!] `golem [t-abc123] "failed1"`\n'
-            '- [!] `golem [t-def456] "failed2"`\n'
+            '- [!] `ribosome [t-abc123] "failed1"`\n- [!] `ribosome [t-def456] "failed2"`\n'
         )
         mod = _load_module(jsonl, queue)
         out, rc = _run_stats(mod)
@@ -788,13 +860,20 @@ class TestExportStatsTimeFiltering:
 
     def test_export_since_filters_records(self, tmp_path: Path, capsys):
         """cmd_export_stats --since=1h filters old records."""
-        jsonl = tmp_path / "golem.jsonl"
-        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
-        _write_jsonl(jsonl, [
-            {"ts": recent_ts, "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
-            {"ts": old_ts, "provider": "infini", "exit": 0, "duration": 30, "cmd": "test"},
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        recent_ts = (datetime.now() - __import__("datetime").timedelta(minutes=30)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        old_ts = (datetime.now() - __import__("datetime").timedelta(hours=3)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        _write_jsonl(
+            jsonl,
+            [
+                {"ts": recent_ts, "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
+                {"ts": old_ts, "provider": "infini", "exit": 0, "duration": 30, "cmd": "test"},
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         orig_jsonl = mod["JSONLFILE"]
         try:
@@ -810,10 +889,19 @@ class TestExportStatsTimeFiltering:
 
     def test_export_all_shows_everything(self, tmp_path: Path, capsys):
         """cmd_export_stats --all includes all records."""
-        jsonl = tmp_path / "golem.jsonl"
-        _write_jsonl(jsonl, [
-            {"ts": "2020-01-01 00:00:00", "provider": "zhipu", "exit": 0, "duration": 60, "cmd": "test"},
-        ])
+        jsonl = tmp_path / "ribosome.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {
+                    "ts": "2020-01-01 00:00:00",
+                    "provider": "zhipu",
+                    "exit": 0,
+                    "duration": 60,
+                    "cmd": "test",
+                },
+            ],
+        )
         mod = _load_module(jsonl, tmp_path / "queue.md")
         orig_jsonl = mod["JSONLFILE"]
         try:

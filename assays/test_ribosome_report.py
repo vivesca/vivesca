@@ -1,19 +1,17 @@
-from __future__ import annotations
-
-"""Tests for golem-report — analytics report from golem task logs."""
+"""Tests for ribosome-report — analytics report from ribosome task logs."""
 
 import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
+def _load_ribosome_report():
+    """Load the ribosome-tools module by exec-ing its Python body."""
+    import sys as _sys
+    import types
 
-def _load_golem_report():
-    """Load the golem-tools module by exec-ing its Python body."""
-    import types, sys as _sys
-    source = open(str(Path.home() / "germline/effectors/golem-tools")).read()
-    mod_name = "golem_report"
+    source = open(str(Path.home() / "germline/effectors/ribosome-tools")).read()
+    mod_name = "ribosome_report"
     _mod = types.ModuleType(mod_name)
     _sys.modules[mod_name] = _mod
     ns: dict = {"__name__": mod_name, "__builtins__": __builtins__}
@@ -22,7 +20,7 @@ def _load_golem_report():
     return ns
 
 
-_mod = _load_golem_report()
+_mod = _load_ribosome_report()
 parse_timestamp = _mod["parse_timestamp"]
 extract_task_id = _mod["extract_task_id"]
 get_task_id = _mod["get_task_id"]
@@ -61,7 +59,7 @@ def test_parse_timestamp_microseconds():
 
 
 def test_parse_timestamp_invalid_returns_none():
-    """Returns None for unparseable strings."""
+    """Returns None for unparsable strings."""
     assert parse_timestamp("not-a-date") is None
     assert parse_timestamp("") is None
 
@@ -174,7 +172,7 @@ def test_load_jsonl_file_not_found(tmp_path):
 
 def test_load_jsonl_parses_records(tmp_path):
     """Parses valid JSONL records."""
-    jf = tmp_path / "golem.jsonl"
+    jf = tmp_path / "ribosome.jsonl"
     records = [
         {"ts": "2026-04-01T10:00:00Z", "provider": "volcano", "exit": 0, "duration": 120},
         {"ts": "2026-04-01T11:00:00Z", "provider": "infini", "exit": 1, "duration": 30},
@@ -192,7 +190,7 @@ def test_load_jsonl_parses_records(tmp_path):
 
 def test_load_jsonl_date_filter(tmp_path):
     """Filters records by date string."""
-    jf = tmp_path / "golem.jsonl"
+    jf = tmp_path / "ribosome.jsonl"
     records = [
         {"ts": "2026-04-01T10:00:00Z", "provider": "a"},
         {"ts": "2026-04-02T10:00:00Z", "provider": "b"},
@@ -209,7 +207,7 @@ def test_load_jsonl_date_filter(tmp_path):
 
 def test_load_jsonl_skips_bad_json(tmp_path):
     """Skips lines that are not valid JSON."""
-    jf = tmp_path / "golem.jsonl"
+    jf = tmp_path / "ribosome.jsonl"
     jf.write_text('{"ts":"2026-04-01T10:00:00Z","provider":"ok"}\nBADLINE\n')
     _mod["JSONL_FILE"] = jf
     try:
@@ -221,7 +219,7 @@ def test_load_jsonl_skips_bad_json(tmp_path):
 
 def test_load_jsonl_no_filter(tmp_path):
     """Returns all records when no date filter is given."""
-    jf = tmp_path / "golem.jsonl"
+    jf = tmp_path / "ribosome.jsonl"
     records = [
         {"ts": "2026-03-30T10:00:00Z", "provider": "a"},
         {"ts": "2026-04-01T10:00:00Z", "provider": "b"},
@@ -241,7 +239,7 @@ def test_load_jsonl_no_filter(tmp_path):
 def test_generate_report_empty():
     """Generates report with no-data message for empty records."""
     report = generate_report([], "2026-04-01")
-    assert "# Golem Report — 2026-04-01" in report
+    assert "# Ribosome Report — 2026-04-01" in report
     assert "No tasks recorded" in report
 
 
@@ -286,9 +284,27 @@ def test_generate_report_top3_longest():
 def test_generate_report_top3_retried():
     """Lists top 3 most-retried tasks by task_id."""
     records = [
-        {"exit": 0, "duration": 10, "provider": "p", "prompt": "[t-aaa] do thing", "task_id": "t-aaa"},
-        {"exit": 1, "duration": 10, "provider": "p", "prompt": "[t-aaa] do thing", "task_id": "t-aaa"},
-        {"exit": 0, "duration": 10, "provider": "p", "prompt": "[t-bbb] other", "task_id": "t-bbb"},
+        {
+            "exit": 0,
+            "duration": 10,
+            "provider": "p",
+            "prompt": "[t-aaa] do thing",
+            "task_id": "t-aaa",
+        },
+        {
+            "exit": 1,
+            "duration": 10,
+            "provider": "p",
+            "prompt": "[t-aaa] do thing",
+            "task_id": "t-aaa",
+        },
+        {
+            "exit": 0,
+            "duration": 10,
+            "provider": "p",
+            "prompt": "[t-bbb] other",
+            "task_id": "t-bbb",
+        },
     ]
     report = generate_report(records, "2026-04-01")
     assert "## Top 3 Most-Retried Tasks" in report
@@ -320,7 +336,7 @@ def test_generate_report_rate_limits():
 
 def test_parse_args_default():
     """Default args: no date, no json flag."""
-    with patch("sys.argv", ["golem-report"]):
+    with patch("sys.argv", ["ribosome-report"]):
         args = parse_args()
     assert args.date is None
     assert args.json is False
@@ -328,13 +344,13 @@ def test_parse_args_default():
 
 def test_parse_args_with_date():
     """Accepts --date flag."""
-    with patch("sys.argv", ["golem-report", "--date", "2026-04-01"]):
+    with patch("sys.argv", ["ribosome-report", "--date", "2026-04-01"]):
         args = parse_args()
     assert args.date == "2026-04-01"
 
 
 def test_parse_args_json_flag():
     """Accepts --json flag."""
-    with patch("sys.argv", ["golem-report", "--json"]):
+    with patch("sys.argv", ["ribosome-report", "--json"]):
         args = parse_args()
     assert args.json is True

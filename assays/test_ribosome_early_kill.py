@@ -1,12 +1,12 @@
-"""Tests for golem-daemon early-kill on rate-limit detection.
+"""Tests for ribosome-daemon early-kill on rate-limit detection.
 
-Spec: When a golem subprocess outputs a rate-limit pattern within its first
+Spec: When a ribosome subprocess outputs a rate-limit pattern within its first
 60 seconds, the daemon should kill the subprocess immediately instead of
 waiting for the full 30-minute timeout. This saves slots and triggers
 provider cooldown faster.
 
 Implementation requirement:
-- run_golem() must use subprocess.Popen instead of subprocess.run
+- run_ribosome() must use subprocess.Popen instead of subprocess.run
 - Poll stdout/stderr periodically (every 2s) during the first 60s
 - If RATE_LIMIT_PATTERNS matches accumulated output, send SIGTERM to
   the process group, wait 5s, then SIGKILL if still alive
@@ -16,54 +16,50 @@ Implementation requirement:
 - Must not affect tasks that don't hit rate limits
 """
 
-from __future__ import annotations
-
-import os
 import time
 from pathlib import Path
-from unittest.mock import patch
 
 
-def _load_golem_daemon():
-    """Load the golem-daemon module by exec-ing its Python body."""
-    source = open(str(Path.home() / "germline/effectors/golem-daemon")).read()
-    ns: dict = {"__name__": "golem_daemon"}
+def _load_ribosome_daemon():
+    """Load the ribosome-daemon module by exec-ing its Python body."""
+    source = open(str(Path.home() / "germline/effectors/ribosome-daemon")).read()
+    ns: dict = {"__name__": "ribosome_daemon"}
     exec(source, ns)
     return ns
 
 
-_mod = _load_golem_daemon()
-_orig_run_golem = _mod["run_golem"]
+_mod = _load_ribosome_daemon()
+_orig_run_ribosome = _mod["run_ribosome"]
 _orig_extract = _mod["_extract_task_id"]
 _orig_log = _mod["log"]
 
 
 def _run(cmd: str, task_id: str = "t-test00") -> tuple[str, int, str, int]:
-    """Run a command through run_golem with test patches."""
+    """Run a command through run_ribosome with test patches."""
     # Patch _extract_task_id and log inside the module namespace
     old_extract = _mod["_extract_task_id"]
     old_log = _mod["log"]
     _mod["_extract_task_id"] = lambda c: task_id
     _mod["log"] = lambda *a, **kw: None
     try:
-        return _mod["run_golem"](cmd)
+        return _mod["run_ribosome"](cmd)
     finally:
         _mod["_extract_task_id"] = old_extract
         _mod["log"] = old_log
 
 
 class TestEarlyKillRateLimit:
-    """run_golem must kill subprocesses that emit rate-limit patterns early."""
+    """run_ribosome must kill subprocesses that emit rate-limit patterns early."""
 
     def test_rate_limit_killed_within_10s(self):
         """A process that prints a 429 error should be killed quickly, not after 30min."""
         cmd = (
-            "python3 -c \""
+            'python3 -c "'
             "import time, sys; "
             "time.sleep(1); "
             "print('Error: 429 Too Many Requests - rate limit exceeded'); "
             "sys.stdout.flush(); "
-            "time.sleep(3600)\""
+            'time.sleep(3600)"'
         )
 
         start = time.time()
@@ -79,11 +75,11 @@ class TestEarlyKillRateLimit:
     def test_rate_limit_pattern_AccountQuotaExceeded(self):
         """AccountQuotaExceeded pattern should also trigger early kill."""
         cmd = (
-            "python3 -c \""
+            'python3 -c "'
             "import time, sys; "
             "print('AccountQuotaExceeded: please retry later'); "
             "sys.stdout.flush(); "
-            "time.sleep(3600)\""
+            'time.sleep(3600)"'
         )
 
         start = time.time()
@@ -97,11 +93,11 @@ class TestEarlyKillRateLimit:
     def test_normal_task_not_killed(self):
         """A task that produces normal output should NOT be killed early."""
         cmd = (
-            "python3 -c \""
+            'python3 -c "'
             "import sys; "
             "print('Working on pyright fixes...'); "
             "print('Fixed 3 type errors'); "
-            "sys.exit(0)\""
+            'sys.exit(0)"'
         )
 
         _, exit_code, tail, _ = _run(cmd, "t-test03")
@@ -113,12 +109,12 @@ class TestEarlyKillRateLimit:
         """Empty stdout + fast exit (existing pattern) still works."""
         cmd = 'python3 -c "import sys; sys.exit(1)"'
 
-        _, exit_code, tail, _ = _run(cmd, "t-test04")
+        _, exit_code, _tail, _ = _run(cmd, "t-test04")
 
         assert exit_code == 1
 
     def test_return_type_unchanged(self):
-        """run_golem must still return (cmd, exit_code, tail, duration) tuple."""
+        """run_ribosome must still return (cmd, exit_code, tail, duration) tuple."""
         cmd = 'echo "done"'
 
         result = _run(cmd, "t-test05")
@@ -134,15 +130,15 @@ class TestEarlyKillRateLimit:
     def test_too_many_requests_pattern(self):
         """'too many requests' (case-insensitive) triggers early kill."""
         cmd = (
-            "python3 -c \""
+            'python3 -c "'
             "import time, sys; "
             "print('Too Many Requests for model'); "
             "sys.stdout.flush(); "
-            "time.sleep(3600)\""
+            'time.sleep(3600)"'
         )
 
         start = time.time()
-        _, exit_code, tail, _ = _run(cmd, "t-test06")
+        _, exit_code, _tail, _ = _run(cmd, "t-test06")
         elapsed = time.time() - start
 
         assert elapsed < 15

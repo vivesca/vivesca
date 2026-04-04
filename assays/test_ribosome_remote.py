@@ -1,21 +1,17 @@
-"""Tests for remote overflow execution in golem-daemon."""
-from __future__ import annotations
+"""Tests for remote overflow execution in ribosome-daemon."""
 
 import json
-import os
 import subprocess
 import textwrap
-import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
-# Load golem-daemon as a namespace (it's an executable script, not a module)
+# Load ribosome-daemon as a namespace (it's an executable script, not a module)
 # ---------------------------------------------------------------------------
-_DAEMON_PATH = Path(__file__).resolve().parent.parent / "effectors" / "golem-daemon"
+_DAEMON_PATH = Path(__file__).resolve().parent.parent / "effectors" / "ribosome-daemon"
 _ns: dict = {}
 exec(open(_DAEMON_PATH).read(), _ns)
 # Force home to /home/terry for consistent test paths
@@ -61,7 +57,7 @@ class TestRemoteExec:
     def test_success(self):
         """Remote exec returns (cmd, exit_code, tail, duration) on success."""
         worker = {"host": "ganglion", "user": "ubuntu", "max_concurrent": 2}
-        cmd = "golem [t-abc123] --provider zhipu 'do stuff'"
+        cmd = "ribosome [t-abc123] --provider zhipu 'do stuff'"
 
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -69,7 +65,7 @@ class TestRemoteExec:
         mock_result.stderr = ""
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
-            result_cmd, exit_code, tail, duration = remote_exec(cmd, worker)
+            result_cmd, exit_code, _tail, duration = remote_exec(cmd, worker)
 
         assert result_cmd == cmd
         assert exit_code == 0
@@ -78,13 +74,13 @@ class TestRemoteExec:
         call_args = mock_run.call_args
         ssh_cmd = call_args[0][0]
         assert ssh_cmd[0] == "ssh"
-        assert f"ubuntu@ganglion" == ssh_cmd[-2]
+        assert ssh_cmd[-2] == "ubuntu@ganglion"
         assert "docker run --rm gemmule:latest bash -c" in ssh_cmd[-1]
 
     def test_ssh_failure_returns_125(self):
         """SSH connection failure returns SSH_REMOTE_EXIT_CONNECT_FAIL."""
         worker = {"host": "ganglion", "user": "ubuntu", "max_concurrent": 2}
-        cmd = "golem [t-def456] --provider zhipu 'test'"
+        cmd = "ribosome [t-def456] --provider zhipu 'test'"
 
         mock_result = MagicMock()
         mock_result.returncode = 255  # SSH error exit code
@@ -92,7 +88,7 @@ class TestRemoteExec:
         mock_result.stderr = "Connection refused"
 
         with patch("subprocess.run", return_value=mock_result):
-            result_cmd, exit_code, tail, duration = remote_exec(cmd, worker)
+            result_cmd, exit_code, _tail, _duration = remote_exec(cmd, worker)
 
         assert exit_code == SSH_REMOTE_EXIT_CONNECT_FAIL
         assert result_cmd == cmd
@@ -100,7 +96,7 @@ class TestRemoteExec:
     def test_task_failure_normal_exit_code(self):
         """Task failure (non-zero exit, not SSH) returns the real exit code."""
         worker = {"host": "ganglion", "user": "ubuntu", "max_concurrent": 2}
-        cmd = "golem [t-ghi789] --provider zhipu 'test'"
+        cmd = "ribosome [t-ghi789] --provider zhipu 'test'"
 
         mock_result = MagicMock()
         mock_result.returncode = 1
@@ -116,7 +112,7 @@ class TestRemoteExec:
     def test_timeout(self):
         """Timeout returns exit code 124."""
         worker = {"host": "ganglion", "user": "ubuntu", "max_concurrent": 2}
-        cmd = "golem [t-timeout] --provider zhipu 'slow'"
+        cmd = "ribosome [t-timeout] --provider zhipu 'slow'"
 
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("ssh", 1860)):
             _, exit_code, tail, _ = remote_exec(cmd, worker)
@@ -127,7 +123,7 @@ class TestRemoteExec:
     def test_exception_returns_125(self):
         """Unexpected exception returns SSH_REMOTE_EXIT_CONNECT_FAIL."""
         worker = {"host": "ganglion", "user": "ubuntu", "max_concurrent": 2}
-        cmd = "golem [t-exc] --provider zhipu 'test'"
+        cmd = "ribosome [t-exc] --provider zhipu 'test'"
 
         with patch("subprocess.run", side_effect=OSError("broken")):
             _, exit_code, _, _ = remote_exec(cmd, worker)
@@ -174,12 +170,14 @@ class TestSSHHealthCheck:
 class TestMarkDoneNode:
     def test_soma_tag_appended(self, tmp_path):
         """mark_done with node='soma' appends [soma] to result line."""
-        qf = tmp_path / "golem-queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf = tmp_path / "translation-queue.md"
+        qf.write_text(
+            textwrap.dedent("""\
             ## Queue
-            - [ ] `golem [t-abc123] --provider zhipu 'test'`
+            - [ ] `ribosome [t-abc123] --provider zhipu 'test'`
             ## Done
-        """))
+        """)
+        )
         _ns["QUEUE_FILE"] = qf
 
         mark_done(1, "exit=0", task_id="t-abc123", node="soma")
@@ -190,12 +188,14 @@ class TestMarkDoneNode:
 
     def test_ganglion_tag_appended(self, tmp_path):
         """mark_done with node='ganglion' appends [ganglion] to result line."""
-        qf = tmp_path / "golem-queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf = tmp_path / "translation-queue.md"
+        qf.write_text(
+            textwrap.dedent("""\
             ## Queue
-            - [ ] `golem [t-def456] --provider zhipu 'test'`
+            - [ ] `ribosome [t-def456] --provider zhipu 'test'`
             ## Done
-        """))
+        """)
+        )
         _ns["QUEUE_FILE"] = qf
 
         mark_done(1, "exit=0", task_id="t-def456", node="ganglion")
@@ -206,12 +206,14 @@ class TestMarkDoneNode:
 
     def test_default_node_is_soma(self, tmp_path):
         """mark_done without node parameter defaults to 'soma'."""
-        qf = tmp_path / "golem-queue.md"
-        qf.write_text(textwrap.dedent("""\
+        qf = tmp_path / "translation-queue.md"
+        qf.write_text(
+            textwrap.dedent("""\
             ## Queue
-            - [ ] `golem [t-ghi789] --provider zhipu 'test'`
+            - [ ] `ribosome [t-ghi789] --provider zhipu 'test'`
             ## Done
-        """))
+        """)
+        )
         _ns["QUEUE_FILE"] = qf
 
         mark_done(1, "exit=0", task_id="t-ghi789")
@@ -246,7 +248,7 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 class TestUpdateRunningFileWithNode:
     def test_includes_node_field(self, tmp_path):
-        rf = tmp_path / "golem-running.json"
+        rf = tmp_path / "ribosome-running.json"
         _ns["RUNNING_FILE"] = rf
 
         running = {
@@ -263,7 +265,7 @@ class TestUpdateRunningFileWithNode:
         assert "ganglion" in nodes
 
     def test_old_format_defaults_soma(self, tmp_path):
-        rf = tmp_path / "golem-running.json"
+        rf = tmp_path / "ribosome-running.json"
         _ns["RUNNING_FILE"] = rf
 
         running = {

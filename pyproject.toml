@@ -93,6 +93,11 @@ lint.ignore = [
   "SIM115",
   "SIM117",
 ] # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles; SIM117: multi-with is valid Python 3.14
+lint.per-file-ignores."assays/test_ribosome_daemon_stats.py" = [ "E741", "F821" ]
+lint.per-file-ignores."assays/test_ribosome_dash.py" = [ "E741", "F821" ]
+# Tests that exec() effector scripts — injected names invisible to static analysis
+lint.per-file-ignores."assays/test_ribosome_review.py" = [ "E741", "F821" ]
+lint.per-file-ignores."assays/test_ribosome_top.py" = [ "E741", "F821" ]
 lint.per-file-ignores."src/metabolon/enzymes/integrin.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/enzymes/interoception.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/enzymes/secretory.py" = [ "E402" ]

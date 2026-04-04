@@ -1,8 +1,5 @@
-"""Tests for metabolon/enzymes/golem_queue.py — MCP tool for golem queue management."""
+"""Tests for metabolon/enzymes/ribosome_queue.py — MCP tool for ribosome queue management."""
 
-from __future__ import annotations
-
-import os
 import textwrap
 from pathlib import Path
 from unittest.mock import patch
@@ -11,35 +8,35 @@ import pytest
 
 from metabolon.morphology.base import EffectorResult
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 QUEUE_STUB = textwrap.dedent("""\
     ### Pending
 
-    - [ ] `golem [t-aaaa01] --provider zhipu --max-turns 10 "First pending task"`
-    - [!] `golem [t-bbbb02] --provider zhipu --max-turns 15 "A failed task (retry)"`
-    - [ ] `golem [t-cccc03] [t-tag1] [t-tag2] --provider zhipu --max-turns 5 "Tagged task"`
+    - [ ] `ribosome [t-aaaa01] --provider zhipu --max-turns 10 "First pending task"`
+    - [!] `ribosome [t-bbbb02] --provider zhipu --max-turns 15 "A failed task (retry)"`
+    - [ ] `ribosome [t-cccc03] [t-tag1] [t-tag2] --provider zhipu --max-turns 5 "Tagged task"`
 
     ### Completed
 
-    - [x] `golem [t-done01] --provider zhipu --max-turns 10 "Already done"`
+    - [x] `ribosome [t-done01] --provider zhipu --max-turns 10 "Already done"`
 """)
 
 
 @pytest.fixture
 def tmp_queue(tmp_path: Path):
     """Create a temporary queue file and patch QUEUE_PATH."""
-    qfile = tmp_path / "golem-queue.md"
+    qfile = tmp_path / "translation-queue.md"
     qfile.write_text(QUEUE_STUB, encoding="utf-8")
-    with patch("metabolon.enzymes.golem_queue.QUEUE_PATH", qfile):
+    with patch("metabolon.enzymes.ribosome_queue.QUEUE_PATH", qfile):
         yield qfile
 
 
 @pytest.fixture
 def enzyme():
-    """Import and return the golem_queue tool function."""
-    from metabolon.enzymes.golem_queue import golem_queue as fn
+    """Import and return the ribosome_queue tool function."""
+    from metabolon.enzymes.ribosome_queue import ribosome_queue as fn
+
     return fn
 
 
@@ -58,7 +55,7 @@ def test_list_returns_all_tasks(enzyme, tmp_queue):
 def test_list_empty_queue(enzyme, tmp_path):
     qfile = tmp_path / "empty-queue.md"
     qfile.write_text("### Pending\n\n### Completed\n\n", encoding="utf-8")
-    with patch("metabolon.enzymes.golem_queue.QUEUE_PATH", qfile):
+    with patch("metabolon.enzymes.ribosome_queue.QUEUE_PATH", qfile):
         result = enzyme(action="list")
     assert "empty" in result.output.lower()
 
@@ -102,7 +99,7 @@ def test_add_requires_task_id_and_prompt(enzyme, tmp_queue):
 
 def test_add_creates_file_if_missing(enzyme, tmp_path):
     qfile = tmp_path / "nonexistent.md"
-    with patch("metabolon.enzymes.golem_queue.QUEUE_PATH", qfile):
+    with patch("metabolon.enzymes.ribosome_queue.QUEUE_PATH", qfile):
         result = enzyme(
             action="add",
             task_id="t-fresh",
