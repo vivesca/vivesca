@@ -265,6 +265,32 @@ web_sources:
     rss: https://bankregblog.substack.com/feed
     url: https://bankregblog.substack.com/
 
+  - name: Regulation Tomorrow
+    tier: 2
+    cadence: weekly
+    tags: [banking, regulation]
+    # Norton Rose Fulbright — global FS regulation, covers AI regulation specifically
+    rss: https://www.regulationtomorrow.com/feed/
+    url: https://www.regulationtomorrow.com/
+
+  - name: What The FinTech
+    tier: 2
+    cadence: weekly
+    tags: [banking, fintech]
+    # Medhy Souidi — individual voice weekly fintech roundup
+    rss: https://whatthefintech.substack.com/feed
+    url: https://whatthefintech.substack.com/
+
+  - name: RiskInfo.ai
+    tier: 2
+    cadence: monthly
+    tags: [banking, regulation, ai]
+    # AI governance + risk newsletters, monthly regulatory roundup
+    rss: https://www.riskinfo.ai/feed.xml
+    url: https://www.riskinfo.ai/
+
+  # BIS already in bank tech blogs section above
+
   # --- Research / academic: biweekly metabolism ---
   # Low publication frequency, dense substrate. Biweekly polling keeps the
   # receptor sensitive without saturating the log with empty results.
