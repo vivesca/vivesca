@@ -25,10 +25,27 @@ HOME = Path.home()
 GERMLINE = HOME / "germline"
 LOG = HOME / "tmp" / "soma-watchdog.log"
 
-# Observability: intraday in tmp, daily summaries in git
-JSONL_PATH = HOME / "tmp" / "soma-resources.jsonl"
+# Observability: intraday writes stay in place, daily rotation moves raw files to git
 DAILY_DIR = HOME / "epigenome" / "chromatin" / "telemetry" / "daily"
 ALERT_STAMP = HOME / "tmp" / "soma-alert-last.txt"
+
+# JSONL files to rotate daily (raw copy, then truncate)
+JSONL_SOURCES = [
+    HOME / "tmp" / "soma-resources.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "golem.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "infections.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "requests.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "signal-history.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "signals.jsonl",
+    HOME / ".local" / "share" / "vivesca" / "usage-history.jsonl",
+    HOME / ".local" / "share" / "rheotaxis" / "runs.jsonl",
+    HOME / ".local" / "share" / "sortase" / "log.jsonl",
+    HOME / ".local" / "share" / "translocon" / "log.jsonl",
+    HOME / ".local" / "share" / "translocon" / "metrics.jsonl",
+    HOME / ".local" / "share" / "noesis" / "log.jsonl",
+    HOME / ".local" / "share" / "elencho" / "runs.jsonl",
+    HOME / ".local" / "share" / "respirometry" / "history.jsonl",
+]
 
 # Thresholds
 DISK_WARN_GB = 2.0
@@ -136,10 +153,13 @@ def kill_runaway_golems():
     return killed
 
 
+METRICS_PATH = HOME / "tmp" / "soma-resources.jsonl"
+
+
 def log_resources():
-    """Append one JSON line per tick to JSONL_PATH with system metrics."""
+    """Append one JSON line per tick to metrics file."""
     try:
-        JSONL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().isoformat()
 
         # cpu_1m from /proc/loadavg field 1
@@ -189,7 +209,7 @@ def log_resources():
             "disk_free_gb": round(disk_free_gb, 2),
             "golem_count": golem_count,
         }
-        with open(JSONL_PATH, "a") as f:
+        with open(METRICS_PATH, "a") as f:
             f.write(json.dumps(record) + "\n")
     except Exception as e:
         log(f"log_resources error: {e}")
@@ -270,75 +290,45 @@ def check_tailscale() -> dict:
 
 
 def daily_rotate():
-    """Summarize intraday JSONL into a daily JSON, commit to epigenome, truncate."""
+    """Rotate all tracked JSONL files into dated daily directory, commit to epigenome."""
     try:
-        if not JSONL_PATH.exists() or JSONL_PATH.stat().st_size == 0:
-            return
-
-        records = []
-        for line in JSONL_PATH.read_text().splitlines():
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-
-        if not records:
-            return
-
         yesterday = (datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d")
+        day_dir = DAILY_DIR / yesterday
+        day_dir.mkdir(parents=True, exist_ok=True)
 
-        summary = {
-            "date": yesterday,
-            "samples": len(records),
-            "cpu_1m": {
-                "min": min(r["cpu_1m"] for r in records),
-                "max": max(r["cpu_1m"] for r in records),
-                "avg": round(sum(r["cpu_1m"] for r in records) / len(records), 2),
-            },
-            "mem_pct_avail": {
-                "min": round(min(r["mem_pct"] for r in records), 1),
-                "max": round(max(r["mem_pct"] for r in records), 1),
-            },
-            "disk_free_gb": {
-                "min": round(min(r["disk_free_gb"] for r in records), 2),
-                "max": round(max(r["disk_free_gb"] for r in records), 2),
-            },
-            "golem_max": max(r.get("golem_count", 0) for r in records),
-        }
+        rotated = 0
+        for src in JSONL_SOURCES:
+            if not src.exists() or src.stat().st_size == 0:
+                continue
+            dest = day_dir / f"{src.stem}.jsonl"
+            shutil.copy2(src, dest)
+            src.write_text("")
+            rotated += 1
 
-        # Read watchdog log for alerts
-        alerts = []
-        if LOG.exists():
-            for line in LOG.read_text().splitlines():
-                if any(k in line for k in ("CRIT", "WARN", "KILLED", "Tailscale")):
-                    alerts.append(line)
-        if alerts:
-            summary["alerts"] = alerts
+        # Also rotate watchdog log
+        if LOG.exists() and LOG.stat().st_size > 0:
+            shutil.copy2(LOG, day_dir / "watchdog.log")
+            LOG.write_text("")
 
-        DAILY_DIR.mkdir(parents=True, exist_ok=True)
-        daily_file = DAILY_DIR / f"{yesterday}.json"
-        daily_file.write_text(json.dumps(summary, indent=2) + "\n")
+        if rotated == 0:
+            return
 
         # Commit to epigenome
         epigenome = HOME / "epigenome"
+        rel_dir = day_dir.relative_to(epigenome)
         subprocess.run(
-            ["git", "add", str(daily_file.relative_to(epigenome))],
-            cwd=str(epigenome), timeout=10,
+            ["git", "add", str(rel_dir)],
+            cwd=str(epigenome), capture_output=True, timeout=10,
         )
         subprocess.run(
-            ["git", "commit", "-m", f"telemetry: soma daily {yesterday}"],
+            ["git", "commit", "-m", f"telemetry: soma {yesterday} ({rotated} logs)"],
             cwd=str(epigenome), capture_output=True, timeout=30,
         )
         subprocess.run(
             ["git", "push"],
             cwd=str(epigenome), capture_output=True, timeout=30,
         )
-
-        # Truncate intraday files
-        JSONL_PATH.write_text("")
-        if LOG.exists():
-            LOG.write_text("")
-        log(f"Daily rotate: {yesterday}, {len(records)} samples")
+        log(f"Daily rotate: {yesterday}, {rotated} files")
     except Exception as e:
         log(f"daily_rotate error: {e}")
 
