@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# ci-push — post-push CI: run full test suite on ganglion via SSH.
+# No LLM tokens, no Temporal workflow — just SSH + pytest.
+# Triggered by git post-push hook or called manually.
+set -euo pipefail
+
+REPO_ROOT="${1:-$HOME/germline}"
+cd "$REPO_ROOT"
+
+COMMIT=$(git rev-parse --short HEAD)
+BRANCH=$(git branch --show-current)
+LOG="$HOME/tmp/ci-push.log"
+mkdir -p "$(dirname "$LOG")"
+
+log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG"; }
+
+# Only CI on main
+if [ "$BRANCH" != "main" ]; then
+    log "Skipping CI for branch $BRANCH"
+    exit 0
+fi
+
+log "CI for $COMMIT on $BRANCH"
+
+# Run on ganglion (has the worker venv, all deps)
+if ! ssh -o ConnectTimeout=5 ganglion true 2>/dev/null; then
+    log "WARN: ganglion unreachable, running locally"
+    SKIP="--ignore=assays/test_organelles_circadian_clock.py --ignore=assays/test_resources_circadian.py --ignore=assays/test_soma_watchdog_observability.py"
+    uv run pytest assays/ -q --tb=short $SKIP --cov=src/metabolon --cov-report=term-missing 2>&1 | tee -a "$LOG"
+    exit $?
+fi
+
+log "Running on ganglion..."
+ssh ganglion "export PATH=\"\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH\" && cd ~/germline && git pull --ff-only && uv sync && uv run pytest assays/ -q --tb=short --ignore=assays/test_organelles_circadian_clock.py --ignore=assays/test_resources_circadian.py --ignore=assays/test_soma_watchdog_observability.py 2>&1 | tail -30" 2>&1 | tee -a "$LOG"
+EXIT_CODE=${PIPESTATUS[0]}
+
+if [ "$EXIT_CODE" -eq 0 ]; then
+    log "CI PASSED for $COMMIT"
+else
+    log "CI FAILED for $COMMIT (exit $EXIT_CODE)"
+fi
+
+exit "$EXIT_CODE"

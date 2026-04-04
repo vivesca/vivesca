@@ -55,3 +55,11 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+
+      - id: ci-full-suite
+        name: CI (full test suite on ganglion, async)
+        entry: bash -c 'nohup ci-push > /dev/null 2>&1 &'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

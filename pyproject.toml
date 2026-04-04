@@ -180,12 +180,13 @@ addopts = "-m 'not slow'"
 markers = [ "slow: boots full MCP server (skip with default opts)" ]
 
 [tool.coverage.run]
-source = [ "metabolon" ]
-omit = [ "cytoplasm/metabolon/dispatch.py" ]
+source = [ "src/metabolon" ]
+omit = [ "src/metabolon/sortase/*", "src/metabolon/templates/*" ]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 0
+skip_covered = true
+fail_under = 30
 
 [tool.pyright]
 pythonVersion = "3.14"
