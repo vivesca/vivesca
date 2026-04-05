@@ -386,24 +386,28 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Operon Heartbeat
 
-**5** healthy, **9** stale (of 14 expressed)
+**2** healthy, **12** stale (of 14 expressed)
 
 - prepare: never fired (cadence: 14d)
 - ribosome: never fired (cadence: 35d)
 - vesicle: never fired (cadence: 14d)
 - evaluate: never fired (cadence: 14d)
+- network: never fired (cadence: 14d)
 - homeostasis: never fired (cadence: 35d)
 - triage: never fired (cadence: 2d)
-- monitor: 8d ago (cadence: 2d)
+- monitor: never fired (cadence: 2d)
 - move: never fired (cadence: 14d)
+- log: never fired (cadence: 14d)
+- exocytosis: never fired (cadence: 14d)
 - reflect: never fired (cadence: 35d)
 
 ## Metabolism State
 
-- Variant store: **24** tool(s), **28** total variant(s)
-- Signals (last 7 days): **414**
-- Most active: `rheotaxis_search` (54), `chemotaxis` (47), `lysin` (30), `ecphory` (28), `transposase` (27)
+- Variant store: **0** tool(s), **0** total variant(s)
+- Signals (last 7 days): **580**
+- Most active: `rheotaxis` (163), `server` (146), `fetch` (108), `golem_dispatch` (33), `navigator` (23)
 
 ## Known Lesions
 
 _(no plans directory)_
+- Tests: healthy (57 passed, 0 failed, 0 errors)
