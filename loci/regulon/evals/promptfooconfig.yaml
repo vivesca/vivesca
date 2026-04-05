@@ -1,0 +1,45 @@
+# Skeleton promptfoo config for regulon rule evaluation.
+# Tests whether the coaching-prepended ZhiPu/GLM backend follows the rules.
+#
+# Run: promptfoo eval
+# Docs: https://promptfoo.dev/docs/configuration/guide
+
+description: "Regulon rule compliance — does the coaching actually work?"
+
+providers:
+  # Cheap provider with coaching prepended
+  - id: zhipu-glm-5.1
+    config:
+      apiBaseUrl: https://open.bigmodel.cn/api/coding/paas/v4
+      apiKeyEnvar: ZHIPU_API_KEY
+      temperature: 0.2
+
+prompts:
+  - |
+    {{coaching}}
+
+    ---
+
+    Here is some code. Identify any issues and provide a corrected version.
+
+    ```python
+    {{code}}
+    ```
+
+tests:
+  # Populate from polymerase --test-cases once rules have Incorrect/Correct blocks.
+  # Example structure:
+  #
+  # - description: "Python 3 except syntax"
+  #   vars:
+  #     coaching: "{{file:../../epigenome/marks/feedback_ribosome_coaching.md}}"
+  #     code: |
+  #       try:
+  #           do_thing()
+  #       except A, B:
+  #           handle()
+  #   assert:
+  #     - type: contains
+  #       value: "except (A, B):"
+  #     - type: llm-rubric
+  #       value: "Output corrects the Python 2 comma-form except syntax"

@@ -240,6 +240,7 @@ NPM_PACKAGES=(
   agnix
   ccusage
   pnpm
+  promptfoo
 )
 for package_name in "${NPM_PACKAGES[@]}"; do
   if npm list -g --depth=0 "$package_name" >/dev/null 2>&1; then
