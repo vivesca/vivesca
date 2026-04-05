@@ -25,7 +25,7 @@ fi
 # ---------------------------------------------------------------------------
 USER_NAME="vivesca"
 USER_HOME="/home/${USER_NAME}"
-GITHUB_REPO="https://github.com/terryli-vt/vivesca.git"
+GITHUB_REPO="https://github.com/vivesca/vivesca.git"
 GO_VERSION="1.24.1"
 NODE_MAJOR=22
 BUN_VERSION="latest"
@@ -144,7 +144,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Tools installed as terry
+# 5. Tools installed as vivesca
 # ---------------------------------------------------------------------------
 log "User-space tools (as ${USER_NAME})"
 
