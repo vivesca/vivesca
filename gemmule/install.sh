@@ -237,6 +237,7 @@ NPM_PACKAGES=(
   @google/gemini-cli
   @openai/codex
   agent-browser
+  agnix
   ccusage
   pnpm
 )
