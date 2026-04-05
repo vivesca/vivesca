@@ -34,8 +34,11 @@ def mock_context() -> MagicMock:
     async def mock_add_init_script(*args, **kwargs):
         pass
 
+    async def mock_set_extra_http_headers(*args, **kwargs):
+        pass
+
     ctx.add_init_script = MagicMock(side_effect=mock_add_init_script)
-    ctx.set_extra_http_headers = MagicMock()
+    ctx.set_extra_http_headers = MagicMock(side_effect=mock_set_extra_http_headers)
     return ctx
 
 
@@ -79,29 +82,49 @@ class TestPatchNavigator:
 
 
 class TestSetRealisticHeaders:
-    def test_returns_ua_from_pool(self, mock_context: MagicMock) -> None:
-        ua = set_realistic_headers(mock_context)
+    @pytest.fixture
+    def async_mock_context(self) -> MagicMock:
+        """MagicMock with set_extra_http_headers as an async method."""
+        ctx = MagicMock()
+
+        async def _aset(*args, **kwargs):
+            return None
+
+        ctx.set_extra_http_headers = MagicMock(side_effect=_aset)
+        return ctx
+
+    @pytest.mark.asyncio
+    async def test_returns_ua_from_pool(self, async_mock_context: MagicMock) -> None:
+        ua = await set_realistic_headers(async_mock_context)
         assert ua in CHROME_USER_AGENTS
 
-    def test_calls_set_extra_http_headers(self, mock_context: MagicMock) -> None:
-        set_realistic_headers(mock_context)
-        mock_context.set_extra_http_headers.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_calls_set_extra_http_headers(self, async_mock_context: MagicMock) -> None:
+        await set_realistic_headers(async_mock_context)
+        async_mock_context.set_extra_http_headers.assert_called_once()
 
-    def test_headers_include_user_agent(self, mock_context: MagicMock) -> None:
-        set_realistic_headers(mock_context)
-        call_args = mock_context.set_extra_http_headers.call_args[0][0]
+    @pytest.mark.asyncio
+    async def test_headers_include_user_agent(self, async_mock_context: MagicMock) -> None:
+        await set_realistic_headers(async_mock_context)
+        call_args = async_mock_context.set_extra_http_headers.call_args[0][0]
         assert "User-Agent" in call_args
 
-    def test_randomness_across_calls(self, mock_context: MagicMock) -> None:
+    @pytest.mark.asyncio
+    async def test_randomness_across_calls(self, async_mock_context: MagicMock) -> None:
         """With 20 UAs, 50 calls should produce > 1 unique UA."""
-        uas = {set_realistic_headers(mock_context) for _ in range(50)}
+        uas = set()
+        for _ in range(50):
+            uas.add(await set_realistic_headers(async_mock_context))
         assert len(uas) > 1
 
+    @pytest.mark.asyncio
     @patch("metabolon.organelles.browser_stealth.random.choice")
-    def test_calls_random_choice(self, mock_choice: MagicMock, mock_context: MagicMock) -> None:
+    async def test_calls_random_choice(
+        self, mock_choice: MagicMock, async_mock_context: MagicMock
+    ) -> None:
         """set_realistic_headers should call random.choice with UA pool."""
         mock_choice.return_value = CHROME_USER_AGENTS[0]
-        set_realistic_headers(mock_context)
+        await set_realistic_headers(async_mock_context)
         mock_choice.assert_called_once_with(CHROME_USER_AGENTS)
 
 

@@ -88,13 +88,19 @@ async def patch_navigator(page: Page) -> None:
     await page.add_init_script(_PERMISSIONS_PATCH_JS)
 
 
-def set_realistic_headers(context: BrowserContext) -> str:
+async def set_realistic_headers(context: BrowserContext) -> str:
     """Set a randomly chosen Chrome User-Agent on *context*.
 
     Returns the selected UA string so callers can log or verify it.
+
+    Note: This is async because `BrowserContext.set_extra_http_headers`
+    is a coroutine in the async Playwright API (and `stealth_context`
+    expects an async context). Calling the sync version raised a silent
+    RuntimeWarning ("coroutine was never awaited") and the UA was never
+    applied — defeating one of the four stealth patches.
     """
     ua = random.choice(CHROME_USER_AGENTS)
-    context.set_extra_http_headers({"User-Agent": ua})  # type: ignore
+    await context.set_extra_http_headers({"User-Agent": ua})
     return ua
 
 
@@ -123,7 +129,7 @@ async def stealth_context(context: BrowserContext) -> BrowserContext:
     Returns the same context for chaining.
     """
     # Rotate User-Agent.
-    set_realistic_headers(context)
+    await set_realistic_headers(context)
 
     # Apply init scripts so every new page in the context gets patched.
     await context.add_init_script(_WEBDRIVER_PATCH_JS)

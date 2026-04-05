@@ -118,7 +118,7 @@ class TestStealthContextIntegration:
             pass
 
         ctx.add_init_script = MagicMock(side_effect=noop)
-        ctx.set_extra_http_headers = MagicMock()
+        ctx.set_extra_http_headers = MagicMock(side_effect=noop)
 
         result = await stealth_context(ctx)
         # add_init_script called exactly 4 times (4 patch scripts)
@@ -135,7 +135,7 @@ class TestStealthContextIntegration:
             pass
 
         ctx.add_init_script = MagicMock(side_effect=noop)
-        ctx.set_extra_http_headers = MagicMock()
+        ctx.set_extra_http_headers = MagicMock(side_effect=noop)
 
         await stealth_context(ctx)
         header_arg = ctx.set_extra_http_headers.call_args[0][0]
