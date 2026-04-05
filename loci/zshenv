@@ -11,6 +11,11 @@ export PATH="$FLYCTL_INSTALL/bin:$PATH"
 # Inline `op read` calls here previously added ~4.5s to every zsh invocation.
 if [ -f "$HOME/.cache/env-secrets.sh" ]; then
   . "$HOME/.cache/env-secrets.sh"
+  # Self-healing: refresh in background if the cache is older than a day
+  # (Twitter cookies rotate). Detached subshell so startup stays fast.
+  if [ -n "$(find "$HOME/.cache/env-secrets.sh" -mtime +1 2>/dev/null)" ]; then
+    ( refresh-env-secrets >/dev/null 2>&1 & ) 2>/dev/null
+  fi
 elif command -v refresh-env-secrets >/dev/null 2>&1; then
   refresh-env-secrets >/dev/null 2>&1 && . "$HOME/.cache/env-secrets.sh"
 fi
