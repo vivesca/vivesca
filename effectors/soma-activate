@@ -188,7 +188,7 @@ log "Tailscale"
 if command -v tailscale &>/dev/null && tailscale status &>/dev/null 2>&1; then
   skip "tailscale connected ($(tailscale ip -4 2>/dev/null))"
 else
-  echo "    Run: sudo tailscale up --ssh --hostname $(hostname)"
+  echo "    Run: sudo tailscale up --hostname $(hostname)  # no --ssh: Tailscale SSH causes periodic browser re-auth; use plain sshd + keys"
 fi
 
 # ---------------------------------------------------------------------------
@@ -225,7 +225,7 @@ echo "  hooks:     ~/.claude/hooks"
 echo "  skills:    ~/.claude/skills"
 echo ""
 echo "  Remaining manual steps:"
-echo "    - tailscale up --ssh --hostname soma  (if not connected)"
+echo "    - tailscale up --hostname soma  (if not connected; no --ssh)"
 echo "    - claude  (if not authenticated)"
 echo "    - Clone additional repos to ~/code/ as needed"
 echo ""

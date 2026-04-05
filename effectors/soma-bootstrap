@@ -108,7 +108,7 @@ if command_exists tailscale; then
 else
   curl -fsSL https://tailscale.com/install.sh | sh
   ok "tailscale installed"
-  echo ">>> Run 'sudo tailscale up --ssh' after bootstrap to authenticate"
+  echo ">>> Run 'sudo tailscale up' after bootstrap to authenticate (no --ssh: Tailscale SSH causes periodic browser re-auth; use plain sshd + keys)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -429,7 +429,7 @@ log "Bootstrap complete"
 
 echo ""
 echo "  Next steps:"
-echo "  1. Authenticate Tailscale:  sudo tailscale up --ssh"
+echo "  1. Authenticate Tailscale:  sudo tailscale up  # no --ssh: causes periodic browser re-auth"
 echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to ~/.env.fly (if not done)"
 echo "  3. Authenticate Claude Code: claude"
 echo "  4. Clone additional repos (epigenome, notes, code/*)"
