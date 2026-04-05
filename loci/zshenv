@@ -1,0 +1,16 @@
+export PATH=/home/vivesca/germline/effectors:/home/vivesca/germline/.venv/bin:/home/vivesca/.local/bin:/home/vivesca/.cargo/bin:/home/vivesca/.bun/bin:$PATH
+export FLYCTL_INSTALL="/home/vivesca/.fly"
+export PATH="$FLYCTL_INSTALL/bin:$PATH"
+
+# Raw credentials live in ~/.zshenv.secrets (untracked, mode 600).
+# Source it first so OP_SERVICE_ACCOUNT_TOKEN, Gmail OAuth, etc. are
+# available for refresh-env-secrets and any other caller below.
+[ -f "$HOME/.zshenv.secrets" ] && . "$HOME/.zshenv.secrets"
+
+# Cached 1Password secrets — regenerate with `refresh-env-secrets` after rotation.
+# Inline `op read` calls here previously added ~4.5s to every zsh invocation.
+if [ -f "$HOME/.cache/env-secrets.sh" ]; then
+  . "$HOME/.cache/env-secrets.sh"
+elif command -v refresh-env-secrets >/dev/null 2>&1; then
+  refresh-env-secrets >/dev/null 2>&1 && . "$HOME/.cache/env-secrets.sh"
+fi
