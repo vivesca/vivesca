@@ -1,8 +1,8 @@
-# Receptome -- 2026-04-05 13:57
+# Receptome -- 2026-04-05 14:00
 
-Total: **187** skills (144 invocable, 43 reference)
+Total: **188** skills (144 invocable, 44 reference)
 With REFERENCE.md: 3 | With scripts/: 0
-Trigger phrases indexed: 245
+Trigger phrases indexed: 246
 
 ## By Category
 
@@ -12,7 +12,7 @@ Trigger phrases indexed: 245
 | research | 31 | anam, auceps, cardo, comes, diagnosis, elencho, evolvo, exauro +23 more |
 | maintenance | 30 | adytum, amicus, assay, auscultation, circadian, cron, cytometry, debridement +22 more |
 | meta | 22 | bouleusis, censor, derepression, fasti, gist, grapho, kritike, limen +14 more |
-| dispatch | 15 | agent-cli, centrosome, heuretes, involution, kindle, legatus, mitogen, opifex +7 more |
+| dispatch | 16 | agent-cli, centrosome, heuretes, involution, kindle, legatus, mitogen, motifs +8 more |
 | content | 11 | adhesion, agoras, analyze, evaluate-job, exocytosis, message, python, rust +3 more |
 | comms | 9 | cursus, deltos, endosomal, epistula, graphis, horizo, imessage, keryx +1 more |
 | workflow | 7 | auspex, dialexis, digest, expression, infradian, melete, weekly |
@@ -24,7 +24,7 @@ Trigger phrases indexed: 245
 ## Size Distribution
 
 - Stubs (<20 lines): 3
-- Small (20-99): 107
+- Small (20-99): 108
 - Medium (100-299): 74
 - Large (300-799): 3
 - Bloated (800+): 0
@@ -99,6 +99,7 @@ Trigger phrases indexed: 245
 - **kindle**: Extract Kindle books to markdown via screenshots + Gemini vision. "kindle extract", "extract book", "kindle queue
 - **legatus**: Session-independent AI agent dispatcher — list, dispatch, cancel, view results. Use when running background AI jobs deta
 - **mitogen**: Dispatch ribosome for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", 
+- **motifs** [ref]: Shared skill patterns — conserved mechanisms reused across many skills. Consult when building or reviewing skills. "shar
 - **opifex** [ref]: AI agent orchestrator — delegates coding tasks to free tools (Gemini/Codex/OpenCode) with auto-routing, fallback chains,
 - **overnight**: Check async queue results and manage tasks. \"overnight\", \"overnight results\", \"queue status\", \"what ran\
 - **polarization**: Agent teams or single-task async dispatch. "overnight", "run tonight
