@@ -116,10 +116,6 @@ lysin — fetch real biology for a term before naming.
 lysozyme — Firecrawl URL scraper, fallback for bot-protected pages.
 - `lysozyme(action, url, query)` -- Scrape or search via Firecrawl.
 
-### mitosis
-mitosis — DR sync tools for soma hot standby.
-- `mitosis(action, targets)` -- Git sync and DR status for soma hot standby.
-
 ### necropsy
 necropsy — dead session forensics for Claude Code JSONL files.
 - `necropsy(action, session_id)` -- Post-mortem analysis of terminated Claude Code sessions.
@@ -152,10 +148,6 @@ pseudopod — browser cookie bridge + translocon dispatch for LLM tasks.
 ### rheotaxis
 rheotaxis — web search. Default: all cheap backends + synthesis. Named modes for expensive ones.
 - `rheotaxis(query, mode)` -- Web search.
-
-### ribosome_dispatch
-ribosome_dispatch — MCP tool for direct Temporal workflow dispatch.
-- `ribosome_dispatch(action, prompt, provider, max_turns, workflow_id, specs, limit, status_filter)` -- Direct Temporal dispatch for ribosome tasks.
 
 ### ribosome_queue
 ribosome_queue — MCP tool for managing the ribosome task queue.
@@ -307,7 +299,6 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **kinesin.py**: `translocation`
 - **lysin.py**: `lysin`
 - **lysozyme.py**: `lysozyme`
-- **mitosis.py**: `mitosis`
 - **necropsy.py**: `necropsy`
 - **noesis.py**: `noesis`
 - **pinocytosis.py**: `pinocytosis`
@@ -316,7 +307,6 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **proteasome.py**: `proteasome`
 - **pseudopod.py**: `porta_inject`, `translocon_dispatch`
 - **rheotaxis.py**: `rheotaxis`
-- **ribosome_dispatch.py**: `ribosome_dispatch`
 - **ribosome_queue.py**: `ribosome_queue`
 - **sortase.py**: `sortase`
 - **sporulation.py**: `sporulation`
@@ -404,8 +394,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **646**
-- Most active: `rheotaxis` (171), `server` (146), `fetch` (111), `ribosome_dispatch` (57), `golem_dispatch` (33)
+- Signals (last 7 days): **653**
+- Most active: `rheotaxis` (171), `server` (146), `fetch` (111), `ribosome_dispatch` (64), `golem_dispatch` (33)
 
 ## Known Lesions
 
