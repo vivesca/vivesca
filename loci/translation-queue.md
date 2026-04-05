@@ -12,23 +12,31 @@
 - Add description/location support to circadian_clock.schedule_event
 - Retire fasti Rust binary (circadian MCP replaces it)
 
-### [POST-CAPCO] MCP → CLI migration campaign
+### vivesca MCP surface slim-in-place (evidence-based)
 
-Driver: refined genome rule "don't auto-wrap every CLI in MCP — that's theater". Willison (Oct/Nov 2025) + Cloudflare Code Mode (Feb 2026) confirm direction. Target: shrink vivesca MCP surface from ~75 tools to ~15-20, reduce session cold-start + fragility blast radius, improve cross-client portability (Codex/Gemini/Goose).
+**Measured 2026-04-05** (see `finding_vivesca_mcp_context_cost.md`): vivesca's actual 46-tool surface is ~2,500 tokens / ~1.25% of context, NOT the "tens of thousands" cited in published benchmarks. The original 55-tool migration scope was based on theoretical arguments that don't describe this system. Rescoped to the actual hotspots.
 
-- **Phase 1 — AUDIT** (CC writes, not ribosome): enumerate all vivesca MCP tools; for each, classify as KEEP (persistent state, complex typed schema, or cross-client distribution) or MIGRATE (stateless single-verb / single-param lookup / status read). Output: `~/germline/loci/plans/mcp-to-cli-migration.md` with per-tool verdict + rationale. Target KEEP list: chemotaxis, porta_inject, ribosome_dispatch, ribosome_queue, cytokinesis, transposase, translocation, translocon_dispatch, censor_evaluate, endosomal, endocytosis, ingestion, assay (plus ~3-5 edge cases).
-- **Phase 2 — SKILL AUDIT** (CC): for each MIGRATE tool, verify a skill exists that covers its when/how/why. Write missing skills first. Without the skill layer, removing the MCP tool breaks discovery.
-- **Phase 3 — RIBOSOME BATCH** (per-domain sub-batches, 3-5 tools each): for each MIGRATE tool: (a) confirm underlying CLI/effector exists and has `--help` + `--json`; build or improve if not; (b) remove MCP registration from vivesca server; (c) update or create the skill to reference the CLI; (d) run assay to confirm nothing calls the removed MCP name. Atomic commit per tool. Tests gate each.
-- **Phase 4 — VERIFY**: integrin scan + session test with Codex and Gemini CLIs to confirm CLI + skill path works across harnesses.
+**Scope: 9 heavy tools (schema ≥ 300 chars) contribute 51% of the surface.** Target them specifically. Leave the 31 tiny tools (< 150 chars) alone — migrating them saves ~893 tokens at the cost of 31 ribosome tasks = theater.
 
-Suggested domain batches for Phase 3:
-  1. Read-only lookups: lysin, fetch, noesis, rheotaxis, pinocytosis, lysozyme, exauro
-  2. Status reads: tonus, proprioception, interoception, auscultation, integrin, ergometer
-  3. Single-verb actions: emit, efferens, mitosis, sporulation, thrombin, necropsy, demethylase
-  4. Domain workflows (review carefully — some may need KEEP): histone, circadian, differentiation, proteasome, expression, exocytosis
-  5. Communication: gap_junction, telegram_receptor, electroreception_read
+**Approach: slim-in-place, not migrate.** The heavy tools (emit, demethylase, chemotaxis, endosomal, gap_junction, telegram_receptor, ecphory, endocytosis, exocytosis) are heavy because their MCP `description` field contains full action manuals (every sub-verb + required/optional params enumerated inline). The fix: move the action-manual content into the corresponding SKILL.md, leave a terse `action1|action2|action3 — purpose` in the MCP description. Same functionality, ~50% surface reduction, no actual migration.
 
-Do NOT touch: ribosome_dispatch, ribosome_queue, transposase, chemotaxis, porta_inject, cytokinesis, translocation, translocon_dispatch, censor_evaluate. These pass all three criteria.
+- **Task 1 — Slim the 9 heavy descriptions** (per-tool atomic edits, CC judgment work not ribosome): for each of `{emit, demethylase, chemotaxis, endosomal, gap_junction, telegram_receptor, ecphory, endocytosis, exocytosis}`:
+  - Read the current MCP tool registration and its corresponding skill
+  - Identify action-manual content in the description field (anything enumerating sub-verbs + their param requirements)
+  - Move that content to the SKILL.md under an "## Actions" or similar section
+  - Replace the MCP description with a terse single-line `action1|action2|... — what the tool does overall (≤120 chars per regulon rule)`
+  - Verify with unit test that the tool still routes correctly
+  - Atomic commit per tool
+- **Task 2 — Measure after** — rerun the enumeration script, confirm the total surface dropped from ~2500 to ~1700-1800 tokens. Save updated number to the finding mark.
+- **Task 3 — Migrate only if (a-d) all fail.** Any tool whose slimmed description is still >300 chars AND doesn't pass any of the 4 genome criteria (state / complex schema / no-shell harness / needs agent LLM) becomes a migration candidate. Expected scope: 0-4 tools. Most heavy tools will pass criterion (a) state or (d) agent-LLM judgment and stay as MCP.
+
+**Do NOT touch:** ribosome_dispatch (state), ribosome_queue (state), transposase (multi-verb schema), chemotaxis (persistent browser session — SLIM description but KEEP MCP), porta_inject (state), cytokinesis (multi-verb schema), translocation (state), translocon_dispatch (multi-verb schema), censor_evaluate (complex rubric schema).
+
+**Do NOT migrate the 31 tiny tools** (< 150 chars each): lysin, fetch, noesis, rheotaxis, pinocytosis, lysozyme, exauro, tonus, proprioception, interoception, auscultation, integrin, ergometer, mitosis, sporulation, thrombin, necropsy, histone, circadian, differentiation, proteasome, expression, assay, efferens, polarization, ingestion, electroreception_read, exocytosis_push, sortase, and ~2-3 others. Combined schema cost ~900 tokens; migrating them saves nothing meaningful.
+
+**Dispatch path:** Task 1 is judgment work (read, classify, rewrite descriptions, atomic commits) — CC can do it directly in a 60-90 min focused session, or write a per-tool spec and hand to ribosome. Ribosome can do the mechanical parts (description rewrite, commit) but the content decision (what stays inline vs moves to skill) is judgment. Hybrid approach: CC drafts the first 1-2 slim passes as templates, then dispatches the remaining 7 to ribosome with the template as a pattern. Quota permitting (ZhiPu drained 2026-04-05 PM, resets ~midnight HKT).
+
+**Expected outcome:** vivesca MCP surface drops from ~2,500 to ~1,700 tokens (~1% of context from ~1.25%). Useful but marginal gain. The bigger win is the DISCIPLINE: every future tool passes the 4-criterion test, and the top-heavy descriptions stop accumulating action manuals in the schema field.
 
 ### Pending
 
