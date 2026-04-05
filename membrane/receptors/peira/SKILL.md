@@ -158,3 +158,6 @@ When budget is exhausted:
 Adapted from Karpathy's [autoresearch](https://github.com/karpathy/autoresearch) (Mar 2026).
 Key ideas taken: fixed budget as hard gate, single locked metric, brief.md as human-editable research context, append-only experiment log.
 Generalized from GPU/ML training to any measurable target.
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)

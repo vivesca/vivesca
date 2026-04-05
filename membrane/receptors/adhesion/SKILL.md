@@ -162,3 +162,7 @@ For multiple jobs, run this skill sequentially on each URL. Start with quick dup
 
 - `browser-automation` — agent-browser best practices (persistent profile, headed mode for captchas)
 - `/phagocytosis` — Routes LinkedIn job URLs to this skill automatically
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)
+- [check-before-build](../motifs/check-before-build.md)

@@ -287,6 +287,10 @@ This skill replaces `/evaluate-article`. Use `/analyze` for all content — URLs
 - Do NOT invent tags or taxonomy terms when vault ontology lookup fails.
 - Stop after note creation/logging; recommendations are optional and should stay brief.
 
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)
+- [state-branch](../motifs/state-branch.md)
+
 ## Example
 
 > Type detected: `repo` (high confidence).  

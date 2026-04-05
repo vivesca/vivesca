@@ -259,3 +259,6 @@ Bump version in `pyproject.toml` before publishing. `uv` doesn't have a `cargo-r
 - **Rust:** CLI tools others install, performance-critical, single binary distribution, crates.io
 - **Python:** Prototyping, AI/ML (PyTorch/numpy), glue code, LaunchAgents, anything uv-heavy
 - **Key insight:** "Python is faster to write" is irrelevant when Claude writes it. Optimise for the end product.
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)

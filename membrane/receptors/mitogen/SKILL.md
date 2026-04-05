@@ -179,3 +179,8 @@ Three timeout layers (must be nested correctly):
 - **Never write non-trivial code in-session** without proposing delegation first.
 - **One task per delegation.** 3 tasks = 3 dispatches.
 - **Write tests** for any non-trivial fix or feature.
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)
+- [verify-gate](../motifs/verify-gate.md)
+- [state-branch](../motifs/state-branch.md)

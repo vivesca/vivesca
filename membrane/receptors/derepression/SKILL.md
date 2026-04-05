@@ -231,3 +231,7 @@ Mined skills are only valuable if they get consulted. Track in `memory/decay-tra
 - **quorum** — the engine for Tier 2 refinement. derepression tells you *when and how* to use it for knowledge extraction.
 - **[[knowledge-routing]]** — routes knowledge to the right layer. derepression always produces reference skills, not MEMORY.md or docs.
 - **[[mental-models]]** — mental models catalog. Mined skills often feed new entries into [[mental-models]].
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)
+- [verify-gate](../motifs/verify-gate.md)

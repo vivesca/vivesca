@@ -128,3 +128,6 @@ summary: "Direction is solid, but one high-weight gap blocks pass."
 - High-weight failures are blockers; low-weight are suggestions
 - Don't over-iterate — diminishing returns after 2 passes
 - Trust the criteria files; don't invent new checks on the fly
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)

@@ -100,3 +100,7 @@ Once the organelle is stable: remove all direct invocations of the original exte
 - **Symbiosis without absorption:** wrapping but keeping direct calls elsewhere. Partial endosymbiosis is unstable.
 - **Absorbing junk DNA:** not every external tool deserves organelle status. If it's called once, use endocytosis.
 - **Over-abstracting the membrane:** the wrapper should be thin. A fat adapter is a parasite, not an organelle.
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)
+- [check-before-build](../motifs/check-before-build.md)

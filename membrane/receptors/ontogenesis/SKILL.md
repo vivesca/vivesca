@@ -83,3 +83,7 @@ The non-obvious decisions happen between stages:
 - **Gastrulation → Imprinting:** If the prototype is pure Python with no judgment, go to Determination instead. Not everything needs a skill.
 - **Imprinting → Determination:** Ask "does an LLM need to be in the loop?" If the skill is just a query recipe, it should be a CLI.
 - **Determination → Innervation:** The skill that wraps a CLI should be thinner than the skill it replaced. If it's not, you kept too much. **Pruning** applies here.
+
+## Motifs
+- [check-before-build](../motifs/check-before-build.md)
+- [state-branch](../motifs/state-branch.md)

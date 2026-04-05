@@ -179,3 +179,6 @@ Lighter version for weekly reset:
 
 - `organogenesis` — How skills should be structured
 - `vault-search` — Finding content skills reference
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)

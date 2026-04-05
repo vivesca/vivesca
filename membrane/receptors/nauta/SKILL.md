@@ -617,3 +617,7 @@ agent-browser screenshot         # capture
 agent-browser tab list           # list tabs
 agent-browser upload "sel" "/path"  # file upload
 ```
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)
+- [state-branch](../motifs/state-branch.md)

@@ -57,3 +57,6 @@ This prevents prompt injection from web content leaking into downstream skill be
 - `endocytosis_check_auth` — auth state detection
 
 These stay as MCP tools for agents that need them directly.
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)

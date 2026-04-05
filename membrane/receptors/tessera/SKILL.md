@@ -97,3 +97,6 @@ If a site only supports Google SSO (e.g. Vercel, Google-gated dashboards), the h
 - User must have visual access to the Mac (Jump Desktop, VNC, or physical screen)
 - `AGENT_BROWSER_PROFILE` env var points to `~/.agent-browser-profile/` — set in `~/.zshenv`
 - Profile backup: `~/officina/browser-profile/`
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)

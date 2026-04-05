@@ -108,3 +108,7 @@ If the winner is clear:
 ## Output
 
 The recommendation plus a decision: "Use [tool] for [domain]. Added to DOMAIN_HINTS."
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)
+- [escalation-chain](../motifs/escalation-chain.md)

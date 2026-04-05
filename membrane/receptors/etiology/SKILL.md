@@ -129,3 +129,7 @@ The deepest link in the chain is where the fix belongs.
 
 - 95% of "no root cause" is incomplete investigation
 - Systematic is faster than thrashing — always
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)
+- [escalation-chain](../motifs/escalation-chain.md)

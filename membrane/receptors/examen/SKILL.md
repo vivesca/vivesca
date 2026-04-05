@@ -76,3 +76,6 @@ One unverified premise is a risk. Two is a pattern. Three is a plan built on air
 - **examen** runs *before* judex or consilium — checks the premises that those skills would reason from
 - **trutina** is for when you have conflicting evidence about a premise — examen surfaces the question, trutina resolves it
 - **judex** is for when the outcome is measurable — but judex still assumes its own premises (e.g., "my verification criterion is correct")
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)

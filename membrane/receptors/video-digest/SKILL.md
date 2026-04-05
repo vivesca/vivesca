@@ -288,3 +288,7 @@ If subtitles were found in Step 1a, summarize them directly in-context (no API c
 - Audio: native multimodal input, no separate transcription step
 - File API: files persist 48 hours, resumable upload protocol
 - Free tier: 1500 requests/day
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)
+- [verify-gate](../motifs/verify-gate.md)

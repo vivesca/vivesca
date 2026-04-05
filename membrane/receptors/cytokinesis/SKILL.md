@@ -204,3 +204,7 @@ Note: gather may take 10+ seconds. If Bash backgrounds it, read the output file 
 - No deep audits or research — consolidation, not workstream.
 - Full mode: stop after writes.
 - Checkpoint mode: continue after output.
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)
+- [verify-gate](../motifs/verify-gate.md)

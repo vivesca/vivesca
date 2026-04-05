@@ -129,3 +129,6 @@ If the CLI is needed (e.g., WeChat), use `--model openrouter/...` to avoid the G
 - For huge transcripts, return a tight summary first, then ask which section to expand
 - When saving to vault, include: source URL, date, type, tags, relevance notes
 - Quotable lines are valuable — pull 2-3 standout quotes
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)

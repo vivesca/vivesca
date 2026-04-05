@@ -256,3 +256,6 @@ These are complementary, not interchangeable:
 ## WeChat Articles (mp.weixin.qq.com)
 
 See the dedicated `wechat-article` skill.
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)

@@ -83,3 +83,6 @@ If in doubt: skill holds the rule, docs holds the *why*. Non-exclusive.
 - **One-off corrections stay in the daily note.** Don't inflate MEMORY.md with single incidents.
 - **MEMORY.md ≠ notebook.** Reference data (passwords, specs, account numbers) → vault.
 - **Blink Shell config questions → search online first.** Its shell is non-standard; aliases don't work. Full setup: `~/docs/solutions/blink-shell-setup.md`.
+
+## Motifs
+- [check-before-build](../motifs/check-before-build.md)

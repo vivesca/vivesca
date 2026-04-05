@@ -79,3 +79,6 @@ Outstanding items: [anything flagged but not fixed]
 - **Organism-native language in export:** biology names, internal shorthand, and tool references that mean nothing to the client. Always translate.
 - **No quality gate:** shipping immediately after synthesis. Every deliverable needs at least one structural read by a fresh perspective.
 - **Not logging the release:** if you can't answer "what did we send and when," you can't manage revisions.
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)

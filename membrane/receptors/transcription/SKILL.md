@@ -151,3 +151,8 @@ When the design is approved:
 - **State your view.** This is a thinking partner, not an interviewer. Recommend, challenge, push back.
 - **Each answer reshapes the next question.** Pre-planned question lists miss the point. React to what you learn.
 - **Scale ceremony to scope.** Light work gets light process. Deep work gets deep process. Never the reverse.
+
+## Motifs
+- [state-branch](../motifs/state-branch.md)
+- [check-before-build](../motifs/check-before-build.md)
+- [verify-gate](../motifs/verify-gate.md)

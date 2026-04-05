@@ -73,3 +73,7 @@ Launch one OpenCode per fix in parallel. Keep prompts to "read this range, chang
 ## Calls
 - `mitogen` — for dispatching parallel fixes
 - `consilium` — for red team reviews
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)
+- [escalation-chain](../motifs/escalation-chain.md)

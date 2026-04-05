@@ -41,3 +41,6 @@ model: sonnet
 | Fix detachments without checking focal adhesions | Focal adhesions first (shared risk) |
 | Retire bent receptors immediately | Retire only anoikis candidates (bent + all detached) |
 | Run full probe for a single binary check | Use shutil.which() inline for one-off checks |
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)

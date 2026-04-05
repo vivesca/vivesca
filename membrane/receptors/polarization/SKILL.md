@@ -225,3 +225,7 @@ Verdict: PASS → proceed. PARTIAL → proceed, flag for Terry. FAIL → quarant
 - **Sending messages:** Draft-only. Never send WhatsApp, email, or LinkedIn
 - **Pushing to shared repos:** Personal repos fine. Shared = ask first
 - **Skipping archive (overnight):** Every completed task must be archived
+
+## Motifs
+- [state-branch](../motifs/state-branch.md)
+- [verify-gate](../motifs/verify-gate.md)

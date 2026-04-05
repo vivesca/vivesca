@@ -279,3 +279,6 @@ After delegation: `cargo clippy` — delegates often port Python regexes with lo
 - **str slicing + CJK/emoji** → panics at non-char-boundary; use `.chars().take(n)` or `.is_char_boundary(idx)`
 
 Full reference: `~/docs/solutions/rust-toolchain-setup.md`
+
+## Motifs
+- [verify-gate](../motifs/verify-gate.md)

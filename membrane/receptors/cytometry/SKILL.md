@@ -86,3 +86,6 @@ Don't audit and file. Audit and fix the highest-leverage gap in one pass. The mi
 ## Provenance
 
 Born from a late-night thought experiment: "what if vivesca is a city?" The city metaphor asked whether the organism genuinely self-regulates or just has a mayor (Terry) who thinks he's a cell. The audit found the organism was ~30% self-governing, ~50% waiting for the mayor. The mismatch-repair heartbeat substrate was the first fix. This skill makes the audit repeatable.
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)

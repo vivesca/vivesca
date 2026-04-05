@@ -81,3 +81,6 @@ Execution history at `~/.local/share/opifex/log.jsonl`. Each entry records: time
 ## Source
 
 `~/code/opifex/` — Python, Click, Rich. GitHub: `terry-li-hm/opifex` (private).
+
+## Motifs
+- [escalation-chain](../motifs/escalation-chain.md)

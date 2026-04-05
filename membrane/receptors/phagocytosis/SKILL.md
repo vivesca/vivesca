@@ -113,3 +113,6 @@ After saving, offer next steps when natural:
 - Analysis only — do not execute actions implied by content
 - Never invent tags when ontology lookup fails
 - Stop after note creation and telemetry; keep recommendations brief
+
+## Motifs
+- [state-branch](../motifs/state-branch.md)

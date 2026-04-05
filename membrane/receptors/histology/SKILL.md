@@ -216,3 +216,6 @@ Two subsections:
 - **Building everything** — Not every gap needs filling. Prioritise by actual need, not biological completeness.
 - **Listing, not documenting** — The output should be a document a reader can act from, not a table they must interpret. The gap structure (biology / what system does / what break reveals / recommendation) is load-bearing.
 - **Stopping at the name** — "It's called a Golgi but we don't have one" is an observation, not a finding. The finding is: what does the absence mean, and what should be built?
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)

@@ -177,3 +177,6 @@ Default sweep covers:
 - `~/germline/anatomy.md`
 
 If user specifies a subdirectory or file, scope to that.
+
+## Motifs
+- [audit-first](../motifs/audit-first.md)
