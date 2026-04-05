@@ -1206,6 +1206,47 @@ def mod_recipe_sync(data):
         )
 
 
+def mod_receptome_sync(data):
+    """Recompile ~/germline/receptome.md when a receptor SKILL.md is written or a Bash rm/rmdir targets a receptor dir.
+
+    Deterministic, cheap (<1s). Debounced via a mtime marker so rapid burst edits coalesce."""
+    tool = data.get("tool_name", data.get("tool", ""))
+
+    # Edit/Write on a receptor SKILL.md
+    fired = False
+    if tool in ("Edit", "Write", "MultiEdit"):
+        fp = data.get("tool_input", {}).get("file_path", "")
+        if "/membrane/receptors/" in fp and fp.endswith("/SKILL.md"):
+            fired = True
+
+    # Bash rm/rmdir targeting a receptor dir (skill deletion)
+    if not fired and tool == "Bash":
+        cmd = data.get("tool_input", {}).get("command", "")
+        if re.search(r"\b(rm|rmdir)\b[^|;&]*membrane/receptors/", cmd):
+            fired = True
+
+    if not fired:
+        return
+
+    # Debounce: skip if receptome ran in the last 2 seconds
+    marker = Path("/tmp/receptome-last-run")
+    now = time.time()
+    if marker.exists():
+        try:
+            last = float(marker.read_text().strip())
+            if now - last < 2.0:
+                return
+        except ValueError, OSError:
+            pass
+
+    try:
+        subprocess.run(["receptome"], check=False, timeout=10, capture_output=True)
+        marker.write_text(str(now))
+        print("[receptome-sync] recompiled", file=sys.stderr)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        print(f"[receptome-sync] skipped: {exc}", file=sys.stderr)
+
+
 # ── antisera: progressive discovery of known gotcha/fix pairs ──────────
 #
 # Two triggers (both deterministic, no LLM):
@@ -1497,6 +1538,14 @@ def main():
     # Recipe sync (Write/Edit on receptor SKILL.md)
     if tool in ("Edit", "Write") and "/receptors/" in fp and fp.endswith("/SKILL.md"):
         modules.append(mod_recipe_sync)
+
+    # Receptome recompile (Edit/Write on receptor SKILL.md or Bash rm/rmdir of receptor)
+    if (
+        tool in ("Edit", "Write", "MultiEdit")
+        and "/membrane/receptors/" in fp
+        and fp.endswith("/SKILL.md")
+    ) or tool == "Bash":
+        modules.append(mod_receptome_sync)
 
     # Ideal? nudge (Edit/Write on germline code, non-skill — skills handled by ligation)
     if (

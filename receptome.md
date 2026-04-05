@@ -1,32 +1,32 @@
-# Receptome -- 2026-04-05 14:11
+# Receptome -- 2026-04-05 19:08
 
-Total: **188** skills (144 invocable, 44 reference)
+Total: **183** skills (140 invocable, 43 reference)
 With REFERENCE.md: 3 | With scripts/: 0
-Trigger phrases indexed: 246
+Trigger phrases indexed: 244
 
 ## By Category
 
 | Category | Count | Skills |
 |----------|-------|--------|
-| other | 39 | askesis, assay-source, autophagy, autopoiesis, certus, conjugation, consilium, contract +31 more |
+| other | 38 | askesis, assay-source, autophagy, autopoiesis, certus, conjugation, consilium, contract +30 more |
 | research | 31 | anam, auceps, cardo, comes, diagnosis, elencho, evolvo, exauro +23 more |
 | maintenance | 30 | adytum, amicus, assay, auscultation, circadian, cron, cytometry, debridement +22 more |
 | meta | 22 | bouleusis, censor, derepression, fasti, gist, grapho, kritike, limen +14 more |
 | dispatch | 16 | agent-cli, centrosome, heuretes, involution, kindle, legatus, mitogen, motifs +8 more |
-| content | 11 | adhesion, agoras, analyze, evaluate-job, exocytosis, message, python, rust +3 more |
-| comms | 9 | cursus, deltos, endosomal, epistula, graphis, horizo, imessage, keryx +1 more |
+| content | 11 | adhesion, agoras, analyze, epistula, evaluate-job, exocytosis, message, python +3 more |
 | workflow | 7 | auspex, dialexis, digest, expression, infradian, melete, weekly |
-| consulting | 7 | capco-prep, chemoreception, meeting-prep, metabolize, mora, opsonization, secretion |
 | dev | 7 | etiology, fingo, friction, hypha, lucus, mandatum, remote-llm |
 | health | 6 | biomorphe, daily, differentiation, mappa, salus, sopor |
+| consulting | 6 | chemoreception, meeting-prep, metabolize, mora, opsonization, secretion |
+| comms | 6 | cursus, deltos, graphis, horizo, imessage, keryx |
 | finance | 3 | fiscus, praeco, stips |
 
 ## Size Distribution
 
 - Stubs (<20 lines): 3
-- Small (20-99): 108
-- Medium (100-299): 74
-- Large (300-799): 3
+- Small (20-99): 106
+- Medium (100-299): 70
+- Large (300-799): 4
 - Bloated (800+): 0
 
 ## Most Referenced Skills
@@ -38,9 +38,9 @@ Trigger phrases indexed: 246
 - **exauro** (1): elencho
 - **noesis** (1): elencho
 - **stips** (1): elencho
-- **nuntius** (1): epistula
 - **qmd** (1): gnome
 - **judex** (1): gnome
+- **sporulation** (1): involution
 
 ## Full Catalog
 
@@ -48,17 +48,13 @@ Trigger phrases indexed: 246
 
 - **cursus** [ref]: Career communication principles — reference skill consulted by message, meeting-prep, capco-prep. Not user-invocable.
 - **deltos**: Send text/code snippets or image files to Telegram for mobile copy-paste. Use when relaying content to phone. "send to t
-- **endosomal**: Triage email — classify, archive noise, extract action items. "email", "inbox
-- **epistula**: Guided inbox triage — review Gmail with Terry, prioritise action items, archive noise. \"email triage\", \"review inbox\ (calls: nuntius)
 - **graphis** [ref]: Manage Telegram bots — create, delete, list, start-bot via BotFather. Use when creating a new bot, retiring an old one, 
 - **horizo**: Appointment scheduling workflow — coordinate time via WhatsApp (keryx) then book to Google Calendar (gog). Use when sche
 - **imessage**: Send iMessages via CLI. Use when user wants to text wife or send an iMessage to someone.
 - **keryx**: WhatsApp CLI wrapper — contact name resolution, conversation merging, daemon-aware send. Use when sending or reading Wha
-- **nuntius**: Cora CLI — AI email assistant. Reading briefs, managing email todos, chatting with Cora. \"cora\", \"email brief\", \"em
 
 ### Consulting
 
-- **capco-prep**: Capco onboarding readiness — drill, brief, or event-specific prep. \"capco prep\", \"capco drill\", \"capco brief\
 - **chemoreception**: AI briefing on demand — refresh stale context before a meeting or decision. "what's happening in AI", "AI briefing", "AI
 - **meeting-prep**: Drill for upcoming meetings with scenario-based questions. "meeting prep", "prep for meeting", "prep for coffee
 - **metabolize**: Process articles through Capco consulting lens — extract, write insight cards. "metabolize", "process articles", "what c
@@ -71,13 +67,13 @@ Trigger phrases indexed: 246
 - **adhesion**: Evaluate LinkedIn job postings for fit — job URL or "evaluate this role".
 - **agoras**: Draft LinkedIn comments and posts. Use when user shares a LinkedIn URL to comment on, says "linkedin comment", "linkedin
 - **analyze**: Classify content, extract insights, and save a structured vault note. Use when user shares content (article, job posting
+- **epistula**: Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triag
 - **evaluate-job**: Evaluate LinkedIn job postings for fit. Triggers on job URLs or "evaluate this role".
 - **exocytosis**: Publish to terryli.hm garden. Secretome -> Astro -> deploy. "garden post", "new post", "publish post", "blog post"
 - **message**: Draft responses to recruiter and networking messages (LinkedIn DMs, WhatsApp intros, cold outreach). "reply to recruiter
 - **python**: Python development — new script/package scaffold, uv workflow, PyPI publish checklist. Use when starting or publishing P
 - **rust**: Rust CLI development — new project scaffold, daily dev workflow, pre-publish checklist. Use when starting or publishing 
 - **speculor**: Daily LinkedIn job alert collector and AI triage tool. Use when checking job alerts, running triage, or troubleshooting 
-- **stilus**: Gmail operations via gog CLI — inbox triage, send/reply, archive, batch modify, drafts. "send email", "check inbox", "re
 - **theoros**: LinkedIn daily feed digest. Run manually or check today's digest. Use when asking about recent LinkedIn activity, job le
 
 ### Dev
@@ -221,7 +217,6 @@ Trigger phrases indexed: 246
 - **topica** [ref]: Mental models catalog — situational thinking lenses for decisions, evaluation, systems, and people. Consult from consili
 - **transcription-factor**: Log structured decisions with bouncer pattern — surfaces past similar ones. "I need to decide", "log decision", "gnome (calls: consilium)
 - **vectura**: Import Apple Passwords CSV exports into 1Password via the op CLI. Use when migrating passwords or catching new items sav
-- **verify** [ref]: Hard gate: run verification before claiming completion. Evidence before assertions. Applied automatically — not user-inv
 - **video-digest** [ref]: Video/podcast URL to full transcript + structured digest. Bilibili, YouTube, Xiaoyuzhou, Apple Podcasts, X, direct audio
 
 ### Research

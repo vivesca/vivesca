@@ -88,6 +88,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Fix, don't patch.** Workarounds that "work" become permanent and cause worse problems later. Default to the proper fix, even when the hack is faster. If a workaround IS needed urgently, mark it as debt — not solved.
 
+**No back-compat shims.** When renaming or consolidating skills, tools, or files, don't leave alias triggers, redirect stubs, or "retired — use X" placeholders lingering. Update callers in place, delete the old, move on. Muscle memory regenerates within a day; shim drift is forever, and aliases become a second source of truth that rots.
+
 **No fake menus.** If one option is obviously better, do it.
 
 **Bias toward building.** If recurs → build a tool. If you write the same ad-hoc command twice, it's an effector. Systematise decisions, not actions.

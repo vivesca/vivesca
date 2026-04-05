@@ -1,42 +1,98 @@
 ---
 name: epistula
-description: "Guided inbox triage — review Gmail with Terry, prioritise action items, archive noise. \"email triage\", \"review inbox\", \"epistula\""
+description: "Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triage\", \"send email\", \"reply\", \"draft\", \"cora\", \"brief\", \"email todos\", \"epistula\""
 user_invocable: true
+triggers:
+  - epistula
+  - email
+  - inbox
+  - email triage
+  - review inbox
+  - send email
+  - reply to email
+  - draft email
+  - compose email
+  - cora
+  - email brief
+  - email todos
 ---
 
-# Epistula — Email Review Session
+# Epistula — Email (one skill, three modes)
 
-A collaborative inbox triage. Claude pulls the inbox and all unread briefs, reads everything, and works through items with Terry one by one.
+All email operations live here: triage, compose, Cora assistant. Internal routing by intent.
+
+## Mode routing
+
+| Intent | Mode | Trigger phrases |
+|---|---|---|
+| Read / clear inbox | **Triage** | "triage", "review inbox", "check email", "clear inbox" |
+| Write outbound | **Compose** | "send", "reply", "draft", "compose" |
+| Cora AI assistant | **Cora** | "cora", "brief", "cora todos" |
+
+If intent is ambiguous ("email" alone with no verb), ask once: triage or compose?
+
+## Tool discipline (all modes)
+
+**All Gmail ops default to the `endosomal` MCP tool.** Typed inputs, structured outputs, enforceable contracts. Actions: `search`, `thread`, `categorize`, `archive`, `mark_read`, `label`, `filter`, `send`.
+
+**Fall back to `gog gmail` CLI only for endosomal gaps** (see `finding_endosomal_mcp_gaps.md`):
+- Reply with `--quote` (auto blockquote of original)
+- Drafts CRUD (`drafts create`, `drafts list`, `drafts delete`)
+- Priority-inbox filters with `--never-spam --important`
+
+All other paths go through endosomal MCP. Never shell out to `gog gmail` for anything endosomal covers.
+
+---
+
+# Triage mode
+
+A collaborative inbox review. Pull inbox + unread briefs, read everything, work through items with Terry.
+
+**Rule: classify first, act in batches — never archive without categorizing.**
+
+## Triage discipline
+
+1. **Search before browsing** — `endosomal action=search query="..."`; negation clauses (`-in:inbox`) go inside one query string, not as separate tokens.
+2. **Fetch full threads, not snippets** — `endosomal action=thread thread_id=<id>`; snippets miss context that changes the category.
+3. **Categorize before archiving** — `endosomal action=categorize email_text="..."` on ambiguous emails; deterministic pass handles most, LLM only fires on genuine ambiguity.
+4. **Batch archive** — collect all archive IDs, then one `endosomal action=archive message_ids=[...]` call. Never archive one at a time.
+5. **Filter last** — only propose `endosomal action=filter` (`dry_run=true` first) after you've seen the pattern recur in 3+ messages. Confirm before flipping `dry_run=false`.
+
+| Don't | Do |
+|-------|-----|
+| Archive without classifying | Categorize, then batch archive |
+| Assume newsletter = archive | Check for action signals in body |
+| Create filters for one-off senders | Wait for 3+ recurrences |
+| Mark read without archiving action items | Surface action_required before touching read state |
+| Pass negation as separate args | Pass as one quoted query string |
 
 ## Step 0 — Load context
 
 Run in parallel:
-1. Read `[[Email Threads Tracker]]` (`~/epigenome/chromatin/Email Threads Tracker.md`) — status on ongoing threads so you don't re-read full histories or re-ask resolved questions.
+1. Read `[[Email Threads Tracker]]` (`~/epigenome/chromatin/Email Threads Tracker.md`) — status on ongoing threads so you don't re-read histories or re-ask resolved questions.
 2. Read `memory/priming.md` — check for any `WHEN: email triage` entries. Surface matched reminders before presenting the inbox. Delete entries after actioning.
-3. If any action-required email involves a person Terry has history with, run `amicus lookup <name>` to surface last contact date and context. Don't do this for every email — only for replies/meetings where relationship context would help Terry decide.
+3. If any action-required email involves someone Terry has history with, run `amicus lookup <name>` to surface last contact date and context. Only for replies/meetings where relationship context would help — not every email.
 
 ## Step 1 — Load the inbox and briefs
 
 Run in parallel:
-```bash
-cora brief                                                                         # list all briefs — check for unread ones
-gog gmail search "in:inbox" --limit 30                                             # full inbox list
-gog gmail search "label:Cora/Action" --limit 20                                    # Cora-flagged actions outside inbox
-gog gmail search "NOT in:inbox newer_than:7d" --limit 50  # silent miss sweep — all non-inbox emails
-```
+- `cora brief` — list all briefs, check for unread ones
+- `endosomal action=search query="in:inbox"` — full inbox list
+- `endosomal action=search query="label:Cora/Action"` — Cora-flagged actions outside inbox
+- `endosomal action=search query="-in:inbox newer_than:7d"` — silent miss sweep, all non-inbox emails
 
-**`Cora/Action` emails must be triaged** even though they're not in inbox — Cora explicitly flagged them as requiring action but strips the INBOX label. Treat them identically to inbox items.
+**`Cora/Action` emails must be triaged** even though they're not in inbox — Cora flagged them as requiring action but stripped INBOX. Treat them identically to inbox items.
 
-**Silent miss sweep** catches anything not in inbox — interview emails, ATS notifications, banking alerts, anything Cora moved to brief-only or Gmail miscategorised. Expect noise (newsletters, Vercel alerts, OTPs) — scan quickly for anything actionable and restore INBOX: `gog gmail thread modify <id> --add INBOX`.
+**Silent miss sweep** catches anything not in inbox — interview emails, ATS notifications, banking alerts, anything Cora moved to brief-only or Gmail miscategorised. Expect noise — scan for anything actionable and restore INBOX via `endosomal action=label name=INBOX message_ids=[<id>]`.
 
 Then read **all unread briefs** before triaging:
 ```bash
 cora brief show <id>    # for each unread brief
 ```
 
-If `cora brief show` errors, note it but continue with the inbox. If multiple unread briefs, read newest first — older ones may be superseded.
+If `cora brief show` errors, note it but continue with the inbox. Multiple unread briefs → read newest first, older may be superseded.
 
-Extract any action items from briefs and include them in the Step 2 triage alongside inbox emails.
+Extract any action items from briefs and include them in Step 2 alongside inbox emails.
 
 ## Step 2 — Triage and present
 
@@ -49,11 +105,17 @@ Categorise every email into one of four buckets:
 | **Monitor / waiting** | Ball is in someone else's court | Note and archive if clean |
 | **Archive now** | Transactional, automated, or already handled | Archive without presenting |
 
-**Borderline bucket** exists because email delegation is a single point of failure. When in doubt, surface it in one line rather than silently archiving. Examples: financial emails from unfamiliar senders, anything mentioning deadlines, emails from domains that have previously contained action items. Present borderline items as a compact list after action-required items — Terry can scan in 10 seconds and say "all fine" or flag one.
+**Borderline bucket** exists because email delegation is a single point of failure. When in doubt, surface it in one line rather than silently archiving. Examples: financial emails from unfamiliar senders, anything mentioning deadlines, emails from domains that previously contained action items. Present borderline items as a compact list after action-required items — Terry can scan in 10 seconds and say "all fine" or flag one.
 
 **Archive now without asking:** OTPs, login notifications, password resets, automated "pending request" emails that have been superseded, booking confirmations already actioned.
 
-**Cora Briefs emails — read before archiving.** Each brief email in the inbox represents unread digest content. Read the brief via `cora brief show <id>` first, extract any action items, then archive the email. Never batch-archive briefs without reading them.
+**Always-surface heuristics.** Some email types warrant attention regardless of apparent actionability:
+- **GitHub PR comments on your own PRs** (from `notifications@github.com`) — surface even positive feedback ("LGTM", "that is cool!"). It signals merge momentum. Do not deprioritise as "no action required".
+- **Health/appointment emails** (clinics, labs, hospitals) — confirmations, reminders, results. Never archive silently.
+- **SmarTone bill** — extract QR payment link: `endosomal action=thread thread_id=<id>` and grep body for `href="https://myaccount.smartone.com/QRBill[^"]*"`. Surface as clickable link with amount + due date.
+- **LinkedIn job alerts** (`jobalerts-noreply@linkedin.com`) — if a Cora brief mentions them, scan role titles Manager+ only. Speculor handles bulk job triage separately.
+
+**Cora Briefs emails — read before archiving.** Each brief email in inbox represents unread digest content. Read via `cora brief show <id>` first, extract action items, then archive the email. Never batch-archive briefs without reading them.
 
 **Batch processing over one-by-one.** Don't work through items sequentially waiting for approval on each. Instead:
 1. Present all action-required items with recommendations
@@ -70,71 +132,289 @@ Present the action-required list first. For each item, include:
 ## Step 3 — Execute decisions
 
 After Terry gives calls on the batch:
-1. `cora email show <id>` or `gog gmail thread show <id>` for threads that need drafting
-2. Execute: draft reply / archive / update vault / update calendar as agreed
+1. `cora email show <id>` or `endosomal action=thread thread_id=<id>` for threads that need drafting
+2. Execute: draft reply (see **Compose mode** below) / archive / update vault / update calendar
 3. Archive each email once resolved unless Terry says keep it
 
-**Prefer Gmail filters over unsubscribing.** When a sender is consistently noise, create a filter (`gog gmail filters create --from "<sender>" --archive`) rather than unsubscribing. Filters are reversible, don't require waiting for unsub propagation, and emails remain in archive for Cora briefs.
+**Prefer Gmail filters over unsubscribing.** When a sender is consistently noise, create a filter via `endosomal action=filter from_sender="<sender>" archive=true dry_run=true` (flip `dry_run=false` to apply). Filters are reversible, don't require waiting for unsub propagation, and emails remain in archive for Cora briefs.
 
 ## Step 4 — Archive the noise
 
-After working through all action items, batch-archive using the right tool per email source:
+After working through all action items, batch-archive using the right tool per source:
 
-- **Inbox emails** → `cora email archive <id>` first; if it still shows in inbox after, fall back to `gog gmail thread modify <id> --remove INBOX`
-- **Silent miss sweep / Cora/Action emails** → `gog gmail thread modify <id> --remove INBOX` (`cora email archive` fails — Cora never indexed these)
-- **Always verify** with `gog gmail search "in:inbox"` after archiving — `cora email archive` doesn't always remove INBOX cleanly
+- **Inbox emails** → `cora email archive <id>` first; if it still shows in inbox after, fall back to `endosomal action=archive message_ids=[<id>,...]`
+- **Silent miss sweep / Cora/Action emails** → `endosomal action=archive message_ids=[...]` (`cora email archive` fails — Cora never indexed these)
+- **Always verify** with `endosomal action=search query="in:inbox"` after archiving — `cora email archive` doesn't always remove INBOX cleanly
 
-```bash
-cora email archive <id1>   # inbox emails
-gog gmail thread modify <id2> --remove INBOX  # silent miss sweep emails
-```
-
-Verify with `gog gmail search "in:inbox" --limit 20` at the end.
+Batch, one call per source. Verify with `endosomal action=search query="in:inbox"` at the end.
 
 Then mark all processed briefs as read and archive their notification emails:
 ```bash
 cora brief read <brief_id>                          # mark brief as read
-cora email archive <brief_notification_email_id>    # archive the "Morning Brief | ..." email from inbox
+cora email archive <brief_notification_email_id>    # archive the "Morning Brief | ..." email
 ```
 
 Confirm count: "Archived X emails. Inbox zero."
 
-**Note:** Gmail's unread badge in "All Mail" will still show a count — Cora intentionally never marks emails as read (the brief is the reading interface, not Gmail). Inbox zero is the goal; All Mail unread count is expected noise.
+**Note:** Gmail's "All Mail" unread badge will still show a count — Cora intentionally never marks emails as read (the brief is the reading interface). Inbox zero is the goal; All Mail unread count is expected noise.
 
 ## Step 5 — Sync NOW.md
 
 After the session:
-- Update any `[open]` items in NOW.md that were resolved
-- Add any new open items that surfaced
-- Note any emails still pending a reply (waiting on others)
-- **Update `[[Email Threads Tracker]]`** — add new active threads, update status on existing ones, move resolved threads to Resolved section
+- Update `[open]` items in NOW.md that were resolved
+- Add new open items that surfaced
+- Note emails still pending a reply (waiting on others)
+- **Update `[[Email Threads Tracker]]`** — add new active threads, update status, move resolved to Resolved section
 
-## Workflow conventions
+## Triage workflow conventions
 
 - **Inbox = action queue.** Archive = done. Don't leave resolved emails in inbox.
-- **Thread view first.** Before actioning, always check if there are newer messages in the thread (`gog gmail thread show`).
-- **Silent miss check.** For any expected email that isn't in the inbox: `gog gmail search "from:<domain>"` — catches emails Cora missed entirely.
-- **Domain filters.** If a critical domain keeps missing the inbox, add a filter: `gog gmail filters create --from "<domain>" --never-spam --important`. Currently set: `aia.com`, `mtr.com.hk`, `capco.com`, `myworkday.com`, `greenhouse.io`, `lever.co`, `smartrecruiters.com`, `taleo.net`, `icims.com`.
+- **Thread view first.** Before actioning, check for newer messages in the thread (`endosomal action=thread thread_id=<id>`).
+- **Silent miss check.** For any expected email not in the inbox: `endosomal action=search query="from:<domain>"`.
+- **Domain filters (priority inbox).** If a critical domain keeps missing the inbox, set a `--never-spam --important` filter. Endosomal's `filter` action lacks those flags, so use `gog gmail filters create --from "<domain>" --never-spam --important`. Currently set: `aia.com`, `mtr.com.hk`, `capco.com`, `myworkday.com`, `greenhouse.io`, `lever.co`, `smartrecruiters.com`, `taleo.net`, `icims.com`.
 
-## Fail states
+## Triage fail states
 
-- `cora brief show` errors → try `porta run` as fallback (see below), then continue with gog inbox
-- Email not in inbox but expected → search gog directly before concluding missing
-- Can't draft reply in session → add to NOW.md as `[open]` and archive the email
+- `cora brief show` errors → try `porta run` fallback (below), continue with endosomal inbox search
+- Email not in inbox but expected → `endosomal action=search query="from:<domain>"` before concluding missing
+- Can't draft reply in session → add to NOW.md as `[open]` and archive
 
 ### `cora brief show` crash fallback
 
 When `cora brief show <id>` crashes mid-render (known issue: PPS payment items), read the brief via browser:
 
 ```bash
-# Get the brief URL from the brief email in inbox
 cora email show <brief_email_id>   # find the "Read full brief" link
-
-# Then fetch via porta run (login to cora.computer in Chrome first)
-porta run --domain cora.computer --selector body "https://cora.computer/<id>/briefs?date=<YYYY-MM-DD>&time=morning"
+porta run --domain cora.computer --selector body "https://cora.computer/14910/briefs?date=<YYYY-MM-DD>&time=morning"
 ```
 
-URL pattern: `https://cora.computer/14910/briefs?date=YYYY-MM-DD&time=morning` (account ID 14910).
+URL pattern: `https://cora.computer/14910/briefs?date=YYYY-MM-DD&time=morning` (account ID 14910). Login to cora.computer in Chrome first.
 
-## Calls
-- `nuntius` — Cora CLI reference
+---
+
+# Compose mode
+
+Writing emails: send, reply with quote, drafts with attachments.
+
+## Send (plain)
+
+Default path is `endosomal` MCP. Covers `to`, `cc`, `subject`, `body`, `reply_to_message_id`, `attach`.
+
+```
+endosomal action=send
+  to="recipient@example.com"
+  subject="<subject>"
+  body="<body>"
+  cc="<optional cc>"
+  attach=["/path/to/file.pdf", ...]
+```
+
+Always confirm with user before executing send. If send fails, report "Send failed" and keep the body for retry; do not silently retry.
+
+## Reply with quote (DEFAULT for replies)
+
+**Always use `--reply-to-message-id` + `--quote` when replying.** Never omit `--quote` unless explicitly asked. Until endosomal supports a quote flag, use gog:
+
+```bash
+gog gmail send \
+  --reply-to-message-id "<message_id>" \
+  --quote \
+  --to "<recipient_email>" \
+  --subject "Re: <original_subject>" \
+  --body "<reply_body>"
+```
+
+- `--quote` fetches the original and includes it as blockquote (HTML blue border + plain `>` prefix)
+- Preserves original formatting (links, bold, images)
+- Adds "On <date>, <sender> wrote:" attribution
+- Requires `--reply-to-message-id`, not just `--thread-id`
+
+## Create draft (with attachments / threading)
+
+```bash
+gog gmail drafts create \
+  --to "recipient@example.com" \
+  --cc "cc@example.com" \
+  --subject "Re: Thread Subject" \
+  --reply-to-message-id "<message_id>" \
+  --body "Message body" \
+  --attach /path/to/file1.pdf \
+  --attach /path/to/file2.pdf
+```
+
+- `--reply-to-message-id` threads the draft correctly (sets In-Reply-To/References headers)
+- `--attach` is repeatable
+- The `send` command has no `--draft` flag — use `drafts create`
+- Missing attachment path → stop, report, don't silently skip
+- Draft creation fails → report, do not attempt send
+
+## List / delete drafts
+
+```bash
+gog gmail drafts list --plain
+gog gmail drafts delete <draft_id> --force
+```
+
+If delete fails, report "Draft delete failed" and keep the draft ID in output.
+
+## Verify sent status
+
+"Did this email go out?"
+
+```bash
+gog gmail get <message_id> --plain | grep "label_ids"
+```
+
+- `label_ids` contains `SENT` → actually sent
+- `label_ids` contains `DRAFT` → NOT sent, still a draft
+
+A message in a thread view may be a DRAFT, not sent — always verify labels before claiming a message was sent.
+
+When reporting status:
+- SENT — confirmed sent (has SENT label)
+- DRAFT — not sent yet (has DRAFT label)
+
+## Compose gotcha: `gog gmail thread show` truncates body
+
+`gog gmail thread show <id>` truncates the email body at ~1000 chars. For full content — headers (e.g. `List-Unsubscribe`) and base64 body parts — use `endosomal action=thread thread_id=<id>` (which does not truncate), or as a fallback:
+
+```bash
+gog gmail thread get <id> --json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+def walk(obj):
+    if isinstance(obj, dict):
+        if obj.get('name','').lower() == 'list-unsubscribe': print(obj.get('value',''))
+        for v in obj.values(): walk(v)
+    elif isinstance(obj, list): [walk(i) for i in obj]
+walk(data)
+"
+```
+
+## gog auth gotcha
+
+`gog` requires `GOG_KEYRING_PASSWORD` in env. If not set (e.g. in Claude Code Bash calls):
+
+```bash
+GOG_KEYRING_PASSWORD=<password> gog gmail send ...
+```
+
+Password: 1Password item `sge746vsbefyi6pojwwodzu3o4`, field `gog_keyring_password`.
+
+## Compose boundaries
+
+- Never send emails without explicit user confirmation.
+- Don't manage non-Gmail channels (WhatsApp, iMessage, Telegram) here.
+- No trash/delete command in gog — user deletes manually in Gmail.
+
+---
+
+# Cora mode
+
+Cora (cora.computer) is an AI email assistant that processes Gmail, generates daily briefs, manages todos, and drafts replies. Interact via the `cora` CLI.
+
+## Cora auth
+
+```bash
+cora whoami     # verify authenticated
+cora status     # account status, brief settings, usage
+```
+
+If not authenticated: `cora login --token=<TOKEN_FROM_1PASSWORD>`. Token lives in 1Password (do NOT hardcode in files).
+
+## Cora briefs
+
+```bash
+cora brief              # list recent briefs
+cora brief show         # show latest brief details
+cora brief show <id>    # show specific brief
+cora brief show --open  # show and open in browser
+cora brief --json       # JSON output (briefs use --json, not --format json)
+cora brief read <id>    # mark brief as read
+```
+
+**Crash fallback** — see "Triage fail states > `cora brief show` crash fallback" above.
+
+## Cora todos
+
+Cora maintains its own action queue independent of Gmail labels:
+
+```bash
+cora todo list                                           # pending todos
+cora todo list --all                                     # include completed
+cora todo show <id>                                      # details
+cora todo create "Title"                                 # new todo
+cora todo create "Title" --priority high --due tomorrow  # with options
+cora todo edit <id> --title "New" --priority low         # update
+cora todo complete <id>                                  # mark done
+cora todo delete <id> --force                            # delete
+cora todo list --format json                             # JSON output
+```
+
+## Cora email commands
+
+```bash
+cora email glimpse          # fast cached inbox view
+cora email search "query"   # search with Gmail query syntax
+cora email show <id>        # full email details
+cora email archive <id>     # archive
+cora email draft <id>       # queue reply draft (async, returns immediately)
+```
+
+## Cora chat (slow — use only when no instant command fits)
+
+```bash
+cora chat send "message"              # new conversation (10-60s)
+cora chat send "message" --chat <id>  # continue conversation
+```
+
+Prefer instant commands. Chat is for open-ended requests that don't map to a CLI verb.
+
+## Cora best practices
+
+- **Prefer instant commands** over `cora chat send` — chat is 10-60s
+- **briefs use `--json`**, not `--format json` (unlike other commands)
+- **Don't use `cora flow`** — requires interactive stdin, will hang
+- **Don't retry failures** more than once — ask user for guidance
+
+## Cora gotchas (hard-won)
+
+### `Cora/Action` label: invisible workflow (confirmed Mar 2026)
+Emails labelled `Cora/Action` by Cora are excluded from both the inbox (INBOX stripped) AND the daily brief. The label exists but leads nowhere — no workflow surfaces it automatically.
+
+**Mitigation:** Triage mode Step 1 explicitly pulls `label:Cora/Action` as a parallel search. Always triage these alongside the inbox.
+
+### Interview/recruiter emails silently missing from inbox
+Confirmed cases: MTR interview Mar 4 2026 (`important_draft` category), AIA/Cherry Ma Mar 6 2026 (`CATEGORY_PERSONAL`, no INBOX, no Cora label), AIA Workday Mar 9 2026 (from `aia@myworkday.com`, no Cora label). Root cause unclear — may be Gmail miscategorisation or Cora stripping INBOX during processing.
+
+**Permanent mitigation:** Gmail filters force `--important` and `--never-spam` for active job domains. See Triage workflow conventions > Domain filters. Add new company domains when applying; ATS platforms are covered globally.
+
+**When expecting a reply, also proactively search:**
+```bash
+endosomal action=search query="from:<domain>"
+```
+
+**If email is missing INBOX label, restore it:**
+```bash
+endosomal action=label name=INBOX message_ids=[<id>]
+```
+
+### "All Mail" unread count is expected noise
+Cora intentionally never marks emails as read. Model: the daily brief is the reading interface, not Gmail. Cora labels emails (`Cora/Newsletter`, `Cora/Payments`, etc.) but leaves read/unread state alone. The `Next Brief` label tracks "briefed yet", not Gmail's unread flag.
+
+**Don't try to zero the All Mail unread count** — it accumulates again. Set Gmail's unread badge to inbox-only (Settings → General → Inbox count). Inbox zero is the goal; All Mail unread is noise.
+
+## Cora error codes
+
+- `0` — Success
+- `1` — General error
+- `2` — Authentication required (`cora login`)
+- `3` — Resource not found
+- `4` — Validation error
+
+---
+
+## Known gaps
+
+- **endosomal MCP** missing `--quote` reply and drafts CRUD — tracked in `finding_endosomal_mcp_gaps.md`. Compose mode falls back to `gog gmail` for these two cases.
+- **Cora `brief show` crash on PPS items** — use `porta run` browser fallback.
