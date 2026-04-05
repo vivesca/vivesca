@@ -2036,116 +2036,49 @@ def auscultate():
 
 
 # ---------------------------------------------------------------------------
-# mitosis — DR sync to soma hot standby
+# mitosis — DR sync to soma hot standby (delegates to mitosis-sync effector)
 # ---------------------------------------------------------------------------
 
 
 @cli.group()
 def mitosis():
-    """DR sync to soma hot standby."""
+    """DR sync to soma hot standby (delegates to mitosis-sync effector)."""
 
 
 @mitosis.command("sync")
 @click.argument("targets", nargs=-1)
 @click.option("--quiet", "-q", is_flag=True, help="Suppress per-target output.")
 def mitosis_sync(targets: tuple[str, ...], quiet: bool):
-    """Push current state to soma. Optionally specify target names."""
-    from metabolon.organelles.mitosis import sync
+    """Push current state to soma via mitosis-sync effector."""
+    import shutil
+    import subprocess as _sp
 
-    target_list = list(targets) if targets else None
-    report = sync(target_list)
-
-    if not quiet:
-        for r in report.results:
-            symbol = click.style("OK", fg="green") if r.success else click.style("FAIL", fg="red")
-            line = f"  {symbol}  {r.target} ({r.elapsed_s:.1f}s)"
-            if r.message:
-                line += f"  {r.message}"
-            click.echo(line)
-        click.echo("")
-
-    click.echo(report.summary)
-    raise SystemExit(0 if report.ok else 1)
+    binary = shutil.which("mitosis-sync") or str(
+        Path.home() / "germline" / "effectors" / "mitosis-sync"
+    )
+    host = targets[0] if targets else "ganglion"
+    result = _sp.run([binary, host], capture_output=not quiet, text=True)
+    if not quiet and result.stdout:
+        click.echo(result.stdout, nl=False)
+    if result.stderr:
+        click.echo(result.stderr, nl=False, err=True)
+    raise SystemExit(result.returncode)
 
 
 @mitosis.command("status")
 def mitosis_status():
-    """Check soma health and sync freshness."""
-    from metabolon.organelles.mitosis import status
+    """Check soma sync status via mitosis-sync effector."""
+    import shutil
+    import subprocess as _sp
 
-    info = status()
-    if not info["reachable"]:
-        click.echo(click.style("soma: UNREACHABLE", fg="red"))
-        raise SystemExit(1)
-
-    click.echo(
-        f"soma: {click.style('REACHABLE', fg='green')}  machine={info.get('machine_state', '?')}"
+    binary = shutil.which("mitosis-sync") or str(
+        Path.home() / "germline" / "effectors" / "mitosis-sync"
     )
-
-    for name, t in info.get("targets", {}).items():
-        state = t.get("state", "unknown")
-        if state == "ok":
-            symbol = click.style("OK", fg="green")
-            detail = f"{t.get('age_minutes', '?')}m ago"
-        elif state == "stale":
-            symbol = click.style("STALE", fg="yellow")
-            detail = f"{t.get('age_minutes', '?')}m ago"
-        elif state == "missing":
-            symbol = click.style("MISSING", fg="red")
-            detail = ""
-        else:
-            symbol = click.style("?", fg="yellow")
-            detail = ""
-        click.echo(f"  {symbol}  {name}  {detail}")
-
-    raise SystemExit(0)
-
-
-@mitosis.command("test")
-def mitosis_test():
-    """End-to-end DR smoke test: write passcode, sync, read back from soma."""
-    from metabolon.organelles.mitosis import smoketest
-
-    click.echo("Running DR smoke test...")
-    result = smoketest()
-
-    if result["success"]:
-        auth = (
-            click.style("OK", fg="green")
-            if result.get("claude_auth")
-            else click.style("EXPIRED", fg="yellow")
-        )
-        click.echo(click.style(f"\nPASS — soma read back: {result['passcode']}", fg="green"))
-        click.echo(f"  claude auth: {auth}")
-    else:
-        click.echo(click.style(f"\nFAIL — {result.get('error', 'unknown')}", fg="red"))
-        if "expected" in result:
-            click.echo(f"  expected: {result['expected']}")
-            click.echo(f"  got:      {result['got']}")
-        raise SystemExit(1)
-
-
-@mitosis.command("setup")
-def mitosis_setup():
-    """Bootstrap soma with dirs, germline clone, and metabolon install."""
-    from metabolon.organelles.mitosis import setup
-
-    click.echo("Bootstrapping soma...")
-    result = setup()
-
-    for step in result.get("steps", []):
-        symbol = (
-            click.style("OK", fg="green") if step["success"] else click.style("FAIL", fg="red")
-        )
-        click.echo(f"  {symbol}  {step['name']}  {step.get('message', '')}")
-
-    if result["success"]:
-        click.echo(
-            click.style("\nGemmule ready. Run `vivesca mitosis sync` to push state.", fg="green")
-        )
-    else:
-        click.echo(click.style("\nSetup incomplete — check failures above.", fg="red"))
-        raise SystemExit(1)
+    result = _sp.run([binary, "--status", "ganglion"], capture_output=True, text=True)
+    click.echo(result.stdout, nl=False)
+    if result.stderr:
+        click.echo(result.stderr, nl=False, err=True)
+    raise SystemExit(result.returncode)
 
 
 # ── conjugation ──────────────────────────────────────────────────────────────

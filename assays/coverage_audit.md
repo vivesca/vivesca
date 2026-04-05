@@ -67,7 +67,6 @@
 | metabolon/enzymes/expression.py | test_expression_actions.py | 3 | 166 |
 | metabolon/enzymes/ingestion.py | test_ingestion_actions.py | 3 | 107 |
 | metabolon/enzymes/lysozyme.py | test_lysozyme_actions.py | 3 | 35 |
-| metabolon/enzymes/mitosis.py | test_mitosis_actions.py | 3 | 80 |
 | metabolon/enzymes/noesis.py | test_noesis_actions.py | 4 | 69 |
 | metabolon/enzymes/polarization.py | test_polarization_actions.py | 3 | 160 |
 | metabolon/enzymes/sporulation.py | test_sporulation_actions.py | 4 | 276 |
