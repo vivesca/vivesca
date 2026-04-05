@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""vivesca-preflight — smoke test vivesca before trusting the server.
+
+Catches:
+- Syntax errors in any metabolon .py file
+- Import failures (missing deps, broken imports)
+- Tool registration failures
+- Mounted package import errors (trogocytosis etc)
+
+Exit code 0 = healthy. Non-zero = broken, fix before running vivesca.
+"""
+
+from __future__ import annotations
+
+import ast
+import importlib
+import sys
+from pathlib import Path
+
+GERMLINE = Path.home() / "germline" / "src" / "metabolon"
+
+
+def check_syntax() -> list[tuple[Path, str]]:
+    """Parse every .py file. Return (path, error) for syntax failures."""
+    failures = []
+    for py in GERMLINE.rglob("*.py"):
+        if "__pycache__" in py.parts or ".venv" in py.parts:
+            continue
+        try:
+            ast.parse(py.read_text())
+        except SyntaxError as exc:
+            failures.append((py, f"line {exc.lineno}: {exc.msg}"))
+        except Exception as exc:  # noqa: BLE001
+            failures.append((py, str(exc)))
+    return failures
+
+
+def check_imports() -> list[tuple[str, str]]:
+    """Try importing every enzyme and codon module."""
+    failures = []
+    for kind in ["enzymes", "codons"]:
+        for py in (GERMLINE / kind).glob("*.py"):
+            if py.name.startswith("_"):
+                continue
+            module_name = f"metabolon.{kind}.{py.stem}"
+            try:
+                importlib.import_module(module_name)
+            except Exception as exc:  # noqa: BLE001
+                failures.append((module_name, f"{type(exc).__name__}: {exc}"))
+    return failures
+
+
+def check_membrane_assembly() -> str | None:
+    """Try to assemble the organism. Return error message if it fails."""
+    try:
+        from metabolon.membrane import assemble_organism
+
+        assemble_organism()
+    except Exception as exc:  # noqa: BLE001
+        return f"{type(exc).__name__}: {exc}"
+    return None
+
+
+def check_mounted_packages() -> list[tuple[str, str]]:
+    """Check that mounted sub-servers are importable."""
+    mounted = ["trogocytosis"]  # Extend as more are mounted
+    failures = []
+    for pkg in mounted:
+        try:
+            importlib.import_module(f"{pkg}.server")
+        except Exception as exc:  # noqa: BLE001
+            failures.append((pkg, f"{type(exc).__name__}: {exc}"))
+    return failures
+
+
+def main() -> int:
+    print("vivesca preflight check")
+    print("=" * 60)
+
+    print("\n[1/4] Syntax check across metabolon/")
+    syntax_errors = check_syntax()
+    if syntax_errors:
+        print(f"  FAIL: {len(syntax_errors)} files with syntax errors")
+        for path, err in syntax_errors[:5]:
+            rel = path.relative_to(GERMLINE)
+            print(f"    {rel}: {err}")
+        if len(syntax_errors) > 5:
+            print(f"    ... and {len(syntax_errors) - 5} more")
+    else:
+        print("  PASS")
+
+    print("\n[2/4] Import check for enzymes and codons")
+    import_errors = check_imports()
+    if import_errors:
+        print(f"  FAIL: {len(import_errors)} modules failed to import")
+        for mod, err in import_errors[:5]:
+            print(f"    {mod}: {err}")
+        if len(import_errors) > 5:
+            print(f"    ... and {len(import_errors) - 5} more")
+    else:
+        print("  PASS")
+
+    print("\n[3/4] Mounted package check")
+    mount_errors = check_mounted_packages()
+    if mount_errors:
+        print(f"  FAIL: {len(mount_errors)} mounted packages broken")
+        for pkg, err in mount_errors:
+            print(f"    {pkg}: {err}")
+    else:
+        print("  PASS")
+
+    print("\n[4/4] Membrane assembly check")
+    assembly_error = check_membrane_assembly()
+    if assembly_error:
+        print(f"  FAIL: {assembly_error}")
+    else:
+        print("  PASS")
+
+    print()
+    total_failures = (
+        len(syntax_errors) + len(import_errors) + len(mount_errors) + (1 if assembly_error else 0)
+    )
+    if total_failures:
+        print(f"{total_failures} issues found. Fix before running vivesca.")
+        return 1
+    print("All checks passed. vivesca is healthy.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
