@@ -124,7 +124,7 @@ def parse_rate_limit_window(text: str) -> int | None:
             delta = (reset_time - datetime.now()).total_seconds()
             if delta > 0:
                 return int(delta)
-        except ValueError, OverflowError:
+        except (ValueError, OverflowError):
             pass
 
     # 2. "try again at H:MM PM"
@@ -144,7 +144,7 @@ def parse_rate_limit_window(text: str) -> int | None:
             delta = (reset_time - now).total_seconds()
             if 0 < delta < 86400:
                 return int(delta)
-        except ValueError, OverflowError:
+        except (ValueError, OverflowError):
             pass
 
     # 3. "quota will reset after NmNs"
@@ -204,7 +204,7 @@ def _log_cooldown(
     }
     try:
         entries = json.loads(COOLDOWN_LOG.read_text()) if COOLDOWN_LOG.exists() else []
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         entries = []
     if entries:
         last_for_provider = [
@@ -375,7 +375,7 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
         try:
             with QueueLock():
                 QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except PermissionError, OSError:
+        except (PermissionError, OSError):
             pass
 
     # Sort: high priority (0) first, then normal (1); stable sort preserves file order
@@ -423,7 +423,7 @@ def mark_done(line_num: int, task_id: str = "") -> None:
             return
         try:
             lines = QUEUE_FILE.read_text().splitlines()
-        except PermissionError, OSError, UnicodeDecodeError:
+        except (PermissionError, OSError, UnicodeDecodeError):
             return
         actual_line = _find_task_line(lines, line_num, task_id)
         if actual_line < 0:
@@ -438,7 +438,7 @@ def mark_done(line_num: int, task_id: str = "") -> None:
             return
         try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except PermissionError, OSError:
+        except (PermissionError, OSError):
             return
 
 
@@ -456,7 +456,7 @@ def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
             return {"retried": False, "rate_limited": rate_limited}
         try:
             lines = QUEUE_FILE.read_text().splitlines()
-        except PermissionError, OSError, UnicodeDecodeError:
+        except (PermissionError, OSError, UnicodeDecodeError):
             return {"retried": False, "rate_limited": rate_limited}
         actual_line = _find_task_line(lines, line_num, task_id)
         if actual_line < 0:
@@ -490,7 +490,7 @@ def mark_failed(line_num: int, task_id: str = "", reason: str = "") -> dict:
 
         try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        except PermissionError, OSError:
+        except (PermissionError, OSError):
             return {"retried": False, "rate_limited": rate_limited}
 
         return {"retried": retried, "rate_limited": rate_limited}

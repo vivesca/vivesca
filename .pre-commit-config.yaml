@@ -41,6 +41,14 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      - id: anatomy-refresh
+        name: anatomy.md auto-refresh
+        entry: bash -c 'python3 -c "from metabolon.resources.anatomy import express_anatomy; open(\"anatomy.md\",\"w\").write(express_anatomy())" && git add anatomy.md'
+        language: system
+        pass_filenames: false
+        files: ^src/
+        stages: [pre-commit]
+
   # ── pre-push (full checks) ─────────────────────────────────────────────
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0

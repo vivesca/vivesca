@@ -138,7 +138,7 @@ def docs():
             )
 
         console.print(table)
-    except typer.Exit, KeyboardInterrupt:
+    except (typer.Exit, KeyboardInterrupt):
         raise
     except Exception as e:
         handle_request_error(e)
@@ -259,7 +259,7 @@ def gap(
             if draft:
                 console.print(f"  [bold cyan]Draft amendment:[/bold cyan] [cyan]{s(draft)}[/cyan]")
 
-    except typer.Exit, KeyboardInterrupt:
+    except (typer.Exit, KeyboardInterrupt):
         raise
     except Exception as e:
         handle_request_error(e)
@@ -303,7 +303,7 @@ def query(
                 trunc = (doc_text[:117] + "...") if len(doc_text) > 120 else doc_text
                 console.print(f"• [cyan]{filename}[/cyan]: {trunc}")
 
-    except typer.Exit, KeyboardInterrupt:
+    except (typer.Exit, KeyboardInterrupt):
         raise
     except Exception as e:
         handle_request_error(e)
@@ -339,7 +339,7 @@ def chat(
     while True:
         try:
             question = console.input("\n[bold cyan]You ›[/bold cyan] ").strip()
-        except KeyboardInterrupt, EOFError:
+        except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]Bye.[/dim]")
             break
 
@@ -372,7 +372,7 @@ def chat(
                         sources.append(fname)
                 console.print(f"[dim]  Sources: {' · '.join(sources)}[/dim]")
 
-        except KeyboardInterrupt, EOFError:
+        except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]Bye.[/dim]")
             break
         except Exception as e:
@@ -416,7 +416,7 @@ def warmup():
         )
         console.print("Cache is hot. Demo ready.")
 
-    except typer.Exit, KeyboardInterrupt:
+    except (typer.Exit, KeyboardInterrupt):
         raise
     except Exception as e:
         handle_request_error(e)
@@ -466,7 +466,7 @@ def upload(
             f"[green]✓[/green] Uploaded  doc_id=[bold]{doc_id}[/bold]  requirements={req_count}"
         )
         console.print(f"  Use with: [dim]lacuna gap --circular hkma-cp --baseline {doc_id}[/dim]")
-    except typer.Exit, KeyboardInterrupt:
+    except (typer.Exit, KeyboardInterrupt):
         raise
     except Exception as e:
         handle_request_error(e)
@@ -756,7 +756,7 @@ def export(
         else:
             console.print(report)
 
-    except typer.Exit, KeyboardInterrupt:
+    except (typer.Exit, KeyboardInterrupt):
         raise
     except Exception as e:
         handle_request_error(e)
