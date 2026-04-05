@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Capture iPhone screen via Mac's iPhone Mirroring + screencapture
+# Runs screencapture through Terminal.app (has Screen Recording permission)
+# Usage: iphone-look [output_path]
+set -euo pipefail
+
+OUT="${1:-/tmp/iphone_screen.png}"
+MAC="mac"
+
+# Activate iPhone Mirroring
+ssh "$MAC" "osascript -e 'tell application \"iPhone Mirroring\" to activate'" 2>/dev/null
+sleep 2
+
+# Find the on-screen iPhone Mirroring window ID
+WIN_ID=$(ssh "$MAC" "python3 -c \"
+import Quartz
+windows = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
+for w in windows:
+    if w.get('kCGWindowOwnerName','') == 'iPhone Mirroring' and w.get('kCGWindowIsOnscreen', False):
+        print(w.get('kCGWindowNumber'))
+        break
+\"" 2>/dev/null)
+
+if [ -z "$WIN_ID" ]; then
+    echo "ERROR: iPhone Mirroring window not found" >&2
+    exit 1
+fi
+
+# Capture via Terminal.app (has Screen Recording permission)
+ssh "$MAC" "rm -f /tmp/iphone_look_cap.png"
+ssh "$MAC" "osascript -e 'tell application \"Terminal\" to do script \"screencapture -l${WIN_ID} /tmp/iphone_look_cap.png\"'" 2>/dev/null
+sleep 3
+
+# Copy to local
+scp "$MAC":/tmp/iphone_look_cap.png "$OUT" 2>/dev/null
+echo "$OUT"
