@@ -1,74 +1,74 @@
 import base64
 from datetime import datetime
 
-from metabolon.organelles import moneo
+from metabolon.organelles import pacemaker
 
 
 def test_parse_due_time_only() -> None:
-    at, date = moneo.parse_due_string("16:15")
+    at, date = pacemaker.parse_due_string("16:15")
     assert at == "16:15"
     assert date is None
 
 
 def test_parse_due_date_only() -> None:
-    at, date = moneo.parse_due_string("2026-03-16")
+    at, date = pacemaker.parse_due_string("2026-03-16")
     assert at is None
     assert date == "2026-03-16"
 
 
 def test_parse_due_today_with_time() -> None:
-    at, date = moneo.parse_due_string("today 10:00")
+    at, date = pacemaker.parse_due_string("today 10:00")
     assert at == "10:00"
-    assert date == moneo.resolve_date_keyword("today")
+    assert date == pacemaker.resolve_date_keyword("today")
 
 
 def test_parse_due_tomorrow_with_time() -> None:
-    at, date = moneo.parse_due_string("tomorrow 09:00")
+    at, date = pacemaker.parse_due_string("tomorrow 09:00")
     assert at == "09:00"
-    assert date == moneo.resolve_date_keyword("tomorrow")
+    assert date == pacemaker.resolve_date_keyword("tomorrow")
 
 
 def test_parse_due_iso_date_with_time() -> None:
-    at, date = moneo.parse_due_string("2026-12-25 14:30")
+    at, date = pacemaker.parse_due_string("2026-12-25 14:30")
     assert at == "14:30"
     assert date == "2026-12-25"
 
 
 def test_parse_due_today_keyword_alone() -> None:
-    at, date = moneo.parse_due_string("today")
+    at, date = pacemaker.parse_due_string("today")
     assert at is None
-    assert date == moneo.resolve_date_keyword("today")
+    assert date == pacemaker.resolve_date_keyword("today")
 
 
 def test_parse_due_tomorrow_keyword_alone() -> None:
-    at, date = moneo.parse_due_string("tomorrow")
+    at, date = pacemaker.parse_due_string("tomorrow")
     assert at is None
-    assert date == moneo.resolve_date_keyword("tomorrow")
+    assert date == pacemaker.resolve_date_keyword("tomorrow")
 
 
 def test_resolve_date_keyword_today_case_insensitive() -> None:
-    now = datetime(2026, 3, 16, 9, 0, tzinfo=moneo.HKT)
+    now = datetime(2026, 3, 16, 9, 0, tzinfo=pacemaker.HKT)
     today = "2026-03-16"
-    assert moneo.resolve_date_keyword("today", now=now) == today
-    assert moneo.resolve_date_keyword("Today", now=now) == today
-    assert moneo.resolve_date_keyword("TODAY", now=now) == today
+    assert pacemaker.resolve_date_keyword("today", now=now) == today
+    assert pacemaker.resolve_date_keyword("Today", now=now) == today
+    assert pacemaker.resolve_date_keyword("TODAY", now=now) == today
 
 
 def test_resolve_date_keyword_passthrough() -> None:
-    assert moneo.resolve_date_keyword("2026-03-16") == "2026-03-16"
+    assert pacemaker.resolve_date_keyword("2026-03-16") == "2026-03-16"
 
 
 def test_parse_time_with_date_defaults_to_0900() -> None:
-    now = datetime(2026, 3, 16, 8, 0, tzinfo=moneo.HKT)
-    ts = moneo.parse_time(None, None, "2026-03-20", now=now)
+    now = datetime(2026, 3, 16, 8, 0, tzinfo=pacemaker.HKT)
+    ts = pacemaker.parse_time(None, None, "2026-03-20", now=now)
     assert ts is not None
-    assert moneo.hkt_from_ts(ts) == datetime(2026, 3, 20, 9, 0, tzinfo=moneo.HKT)
+    assert pacemaker.hkt_from_ts(ts) == datetime(2026, 3, 20, 9, 0, tzinfo=pacemaker.HKT)
 
 
 def test_expand_schedule_skips_night_by_default() -> None:
-    base = int(datetime(2026, 3, 16, 9, 0, tzinfo=moneo.HKT).timestamp())
-    expanded = moneo.expand_schedule(base, moneo.parse_interval("6h"), "2026-03-17")
-    formatted = [moneo.hkt_from_ts(ts).strftime("%Y-%m-%d %H:%M") for ts in expanded]
+    base = int(datetime(2026, 3, 16, 9, 0, tzinfo=pacemaker.HKT).timestamp())
+    expanded = pacemaker.expand_schedule(base, pacemaker.parse_interval("6h"), "2026-03-17")
+    formatted = [pacemaker.hkt_from_ts(ts).strftime("%Y-%m-%d %H:%M") for ts in expanded]
     assert formatted == [
         "2026-03-16 09:00",
         "2026-03-16 15:00",
@@ -80,14 +80,14 @@ def test_expand_schedule_skips_night_by_default() -> None:
 
 
 def test_expand_schedule_can_include_night() -> None:
-    base = int(datetime(2026, 3, 16, 9, 0, tzinfo=moneo.HKT).timestamp())
-    expanded = moneo.expand_schedule(
+    base = int(datetime(2026, 3, 16, 9, 0, tzinfo=pacemaker.HKT).timestamp())
+    expanded = pacemaker.expand_schedule(
         base,
-        moneo.parse_interval("6h"),
+        pacemaker.parse_interval("6h"),
         "2026-03-17",
         skip_night=False,
     )
-    formatted = [moneo.hkt_from_ts(ts).strftime("%Y-%m-%d %H:%M") for ts in expanded]
+    formatted = [pacemaker.hkt_from_ts(ts).strftime("%Y-%m-%d %H:%M") for ts in expanded]
     assert formatted == [
         "2026-03-16 09:00",
         "2026-03-16 15:00",
@@ -103,23 +103,23 @@ def test_expand_schedule_can_include_night() -> None:
 
 
 def test_recur_code_all_frequencies() -> None:
-    assert moneo.recur_code("daily") == "d"
-    assert moneo.recur_code("weekly") == "w"
-    assert moneo.recur_code("monthly") == "m"
-    assert moneo.recur_code("quarterly") == "q"
-    assert moneo.recur_code("yearly") == "y"
+    assert pacemaker.recur_code("daily") == "d"
+    assert pacemaker.recur_code("weekly") == "w"
+    assert pacemaker.recur_code("monthly") == "m"
+    assert pacemaker.recur_code("quarterly") == "q"
+    assert pacemaker.recur_code("yearly") == "y"
 
 
 def test_recur_code_unknown_returns_none() -> None:
-    assert moneo.recur_code("hourly") is None
-    assert moneo.recur_code("") is None
+    assert pacemaker.recur_code("hourly") is None
+    assert pacemaker.recur_code("") is None
 
 
 # --- generate_uuid ---
 
 
 def test_generate_uuid_format() -> None:
-    uid = moneo.generate_uuid()
+    uid = pacemaker.generate_uuid()
     assert isinstance(uid, str)
     assert len(uid) == 22  # base64url of 16 bytes, no padding
     assert "=" not in uid
@@ -129,7 +129,7 @@ def test_generate_uuid_format() -> None:
 
 
 def test_generate_uuid_uniqueness() -> None:
-    uuids = {moneo.generate_uuid() for _ in range(100)}
+    uuids = {pacemaker.generate_uuid() for _ in range(100)}
     assert len(uuids) == 100
 
 
@@ -137,8 +137,8 @@ def test_generate_uuid_uniqueness() -> None:
 
 
 def test_make_reminder_basic() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
-    reminder = moneo.make_reminder("Test reminder", ts, None, None)
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
+    reminder = pacemaker.make_reminder("Test reminder", ts, None, None)
     assert reminder["n"] == "Test reminder"
     assert reminder["d"] == ts
     assert reminder["si"] == 300  # default 5 min autosnooze
@@ -150,22 +150,22 @@ def test_make_reminder_basic() -> None:
 
 
 def test_make_reminder_with_autosnooze() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
-    reminder = moneo.make_reminder("Test", ts, None, 15)
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
+    reminder = pacemaker.make_reminder("Test", ts, None, 15)
     assert reminder["si"] == 900  # 15 * 60
 
 
 def test_make_reminder_daily_recurrence() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
-    reminder = moneo.make_reminder("Daily", ts, "daily", None)
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
+    reminder = pacemaker.make_reminder("Daily", ts, "daily", None)
     assert reminder["rf"] == "d"
     assert reminder["rd"] == ts
     assert reminder["rn"] == 16  # daily unit
 
 
 def test_make_reminder_weekly_recurrence() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
-    reminder = moneo.make_reminder("Weekly", ts, "weekly", None)
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
+    reminder = pacemaker.make_reminder("Weekly", ts, "weekly", None)
     assert reminder["rf"] == "w"
     assert reminder["rd"] == ts
     assert reminder["rn"] == 256  # weekly unit
@@ -173,8 +173,8 @@ def test_make_reminder_weekly_recurrence() -> None:
 
 
 def test_make_reminder_quarterly_recurrence() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
-    reminder = moneo.make_reminder("Quarterly", ts, "quarterly", None)
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
+    reminder = pacemaker.make_reminder("Quarterly", ts, "quarterly", None)
     assert reminder["rf"] == "q"
     assert reminder["ru"] == {"i": 3}  # interval 3 months
 
@@ -188,7 +188,7 @@ def _empty_db() -> dict:
 
 def test_add_direct_appends_to_data() -> None:
     data = _empty_db()
-    uid = moneo.add_direct("Test", 1000000, None, None, data)
+    uid = pacemaker.add_direct("Test", 1000000, None, None, data)
     assert len(data["re"]) == 1
     assert data["re"][0]["u"] == uid
     assert data["re"][0]["n"] == "Test"
@@ -196,8 +196,8 @@ def test_add_direct_appends_to_data() -> None:
 
 def test_add_direct_multiple() -> None:
     data = _empty_db()
-    moneo.add_direct("First", 1000000, None, None, data)
-    moneo.add_direct("Second", 2000000, None, None, data)
+    pacemaker.add_direct("First", 1000000, None, None, data)
+    pacemaker.add_direct("Second", 2000000, None, None, data)
     assert len(data["re"]) == 2
     titles = {r["n"] for r in data["re"]}
     assert titles == {"First", "Second"}
@@ -206,7 +206,7 @@ def test_add_direct_multiple() -> None:
 def test_add_direct_preserves_existing() -> None:
     data = _empty_db()
     data["re"].append({"u": "existing123456789012", "n": "Existing", "d": 500000})
-    moneo.add_direct("New", 1000000, None, None, data)
+    pacemaker.add_direct("New", 1000000, None, None, data)
     assert len(data["re"]) == 2
     assert data["re"][0]["n"] == "Existing"
     assert data["re"][1]["n"] == "New"
@@ -216,35 +216,35 @@ def test_add_direct_preserves_existing() -> None:
 
 
 def test_find_duplicate_detects_same_title_and_time() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
     data = _empty_db()
     data["re"].append({"u": "abc", "n": "Med reminder", "d": ts})
-    result = moneo.find_duplicate("Med reminder", ts, data)
+    result = pacemaker.find_duplicate("Med reminder", ts, data)
     assert result is not None
 
 
 def test_find_duplicate_case_insensitive() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
     data = _empty_db()
     data["re"].append({"u": "abc", "n": "Med Reminder", "d": ts})
-    result = moneo.find_duplicate("med reminder", ts, data)
+    result = pacemaker.find_duplicate("med reminder", ts, data)
     assert result is not None
 
 
 def test_find_duplicate_different_time_no_match() -> None:
-    ts1 = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
-    ts2 = int(datetime(2026, 3, 20, 14, 0, tzinfo=moneo.HKT).timestamp())
+    ts1 = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
+    ts2 = int(datetime(2026, 3, 20, 14, 0, tzinfo=pacemaker.HKT).timestamp())
     data = _empty_db()
     data["re"].append({"u": "abc", "n": "Med reminder", "d": ts1})
-    result = moneo.find_duplicate("Med reminder", ts2, data)
+    result = pacemaker.find_duplicate("Med reminder", ts2, data)
     assert result is None
 
 
 def test_find_duplicate_different_title_no_match() -> None:
-    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=moneo.HKT).timestamp())
+    ts = int(datetime(2026, 3, 20, 10, 0, tzinfo=pacemaker.HKT).timestamp())
     data = _empty_db()
     data["re"].append({"u": "abc", "n": "Med reminder", "d": ts})
-    result = moneo.find_duplicate("Different", ts, data)
+    result = pacemaker.find_duplicate("Different", ts, data)
     assert result is None
 
 
@@ -252,70 +252,70 @@ def test_find_duplicate_different_title_no_match() -> None:
 
 
 def test_short_uuid_returns_first_8_chars() -> None:
-    assert moneo.short_uuid("abcdefghij1234567890XY") == "abcdefgh"
+    assert pacemaker.short_uuid("abcdefghij1234567890XY") == "abcdefgh"
 
 
 def test_short_uuid_none_returns_dashes() -> None:
-    assert moneo.short_uuid(None) == "--------"
+    assert pacemaker.short_uuid(None) == "--------"
 
 
 def test_short_uuid_short_input() -> None:
-    assert moneo.short_uuid("abc") == "abc"
+    assert pacemaker.short_uuid("abc") == "abc"
 
 
 # --- is_uuid_prefix ---
 
 
 def test_is_uuid_prefix_valid_8_chars() -> None:
-    uid = moneo.generate_uuid()
-    assert moneo.is_uuid_prefix(uid[:8])
+    uid = pacemaker.generate_uuid()
+    assert pacemaker.is_uuid_prefix(uid[:8])
 
 
 def test_is_uuid_prefix_valid_full_uuid() -> None:
-    uid = moneo.generate_uuid()
-    assert moneo.is_uuid_prefix(uid)
+    uid = pacemaker.generate_uuid()
+    assert pacemaker.is_uuid_prefix(uid)
 
 
 def test_is_uuid_prefix_too_short() -> None:
-    assert not moneo.is_uuid_prefix("abcde")  # 5 chars
+    assert not pacemaker.is_uuid_prefix("abcde")  # 5 chars
 
 
 def test_is_uuid_prefix_too_long() -> None:
-    assert not moneo.is_uuid_prefix("a" * 23)
+    assert not pacemaker.is_uuid_prefix("a" * 23)
 
 
 def test_is_uuid_prefix_with_spaces() -> None:
-    assert not moneo.is_uuid_prefix("abc def gh")
+    assert not pacemaker.is_uuid_prefix("abc def gh")
 
 
 def test_is_uuid_prefix_with_special_chars() -> None:
-    assert not moneo.is_uuid_prefix("abc!@#gh")
+    assert not pacemaker.is_uuid_prefix("abc!@#gh")
 
 
 def test_is_uuid_prefix_base64url_chars() -> None:
     # base64url includes A-Z, a-z, 0-9, -, _
-    assert moneo.is_uuid_prefix("Ab0-_X")
+    assert pacemaker.is_uuid_prefix("Ab0-_X")
 
 
 # --- is_numeric ---
 
 
 def test_is_numeric_positive_int() -> None:
-    assert moneo.is_numeric("1")
-    assert moneo.is_numeric("42")
+    assert pacemaker.is_numeric("1")
+    assert pacemaker.is_numeric("42")
 
 
 def test_is_numeric_zero_is_false() -> None:
-    assert not moneo.is_numeric("0")
+    assert not pacemaker.is_numeric("0")
 
 
 def test_is_numeric_negative_is_false() -> None:
-    assert not moneo.is_numeric("-1")
+    assert not pacemaker.is_numeric("-1")
 
 
 def test_is_numeric_non_number() -> None:
-    assert not moneo.is_numeric("abc")
-    assert not moneo.is_numeric("1a")
+    assert not pacemaker.is_numeric("abc")
+    assert not pacemaker.is_numeric("1a")
 
 
 # --- find_by_uuid_prefix ---
@@ -324,7 +324,7 @@ def test_is_numeric_non_number() -> None:
 def test_find_by_uuid_prefix_exact_match() -> None:
     data = _empty_db()
     data["re"].append({"u": "ABCDEF12345678901234", "n": "Test", "d": 1000})
-    matches = moneo.find_by_uuid_prefix(data, "ABCDEF")
+    matches = pacemaker.find_by_uuid_prefix(data, "ABCDEF")
     assert len(matches) == 1
     assert matches[0]["n"] == "Test"
 
@@ -332,7 +332,7 @@ def test_find_by_uuid_prefix_exact_match() -> None:
 def test_find_by_uuid_prefix_no_match() -> None:
     data = _empty_db()
     data["re"].append({"u": "ABCDEF12345678901234", "n": "Test", "d": 1000})
-    matches = moneo.find_by_uuid_prefix(data, "ZZZZZ1")
+    matches = pacemaker.find_by_uuid_prefix(data, "ZZZZZ1")
     assert len(matches) == 0
 
 
@@ -341,7 +341,7 @@ def test_find_by_uuid_prefix_multiple_matches() -> None:
     data["re"].append({"u": "ABCDEF1234_first____", "n": "First", "d": 1000})
     data["re"].append({"u": "ABCDEF5678_second___", "n": "Second", "d": 2000})
     data["re"].append({"u": "XYZ12345678_third___", "n": "Third", "d": 3000})
-    matches = moneo.find_by_uuid_prefix(data, "ABCDEF")
+    matches = pacemaker.find_by_uuid_prefix(data, "ABCDEF")
     assert len(matches) == 2
     titles = {m["n"] for m in matches}
     assert titles == {"First", "Second"}
@@ -363,7 +363,7 @@ def _db_with_reminders() -> dict:
 
 def test_resolve_target_by_numeric_index() -> None:
     data = _db_with_reminders()
-    matches, needs_confirm = moneo.resolve_target(data, "1")
+    matches, needs_confirm = pacemaker.resolve_target(data, "1")
     assert needs_confirm is True
     assert len(matches) == 1
     assert matches[0][1]["n"] == "Buy milk"
@@ -371,7 +371,7 @@ def test_resolve_target_by_numeric_index() -> None:
 
 def test_resolve_target_by_uuid_prefix() -> None:
     data = _db_with_reminders()
-    matches, needs_confirm = moneo.resolve_target(data, "BBBBBBcc")
+    matches, needs_confirm = pacemaker.resolve_target(data, "BBBBBBcc")
     assert needs_confirm is False
     assert len(matches) == 1
     assert matches[0][1]["n"] == "Call dentist"
@@ -379,7 +379,7 @@ def test_resolve_target_by_uuid_prefix() -> None:
 
 def test_resolve_target_by_pattern() -> None:
     data = _db_with_reminders()
-    matches, needs_confirm = moneo.resolve_target(data, "milk", allow_pattern=True)
+    matches, needs_confirm = pacemaker.resolve_target(data, "milk", allow_pattern=True)
     assert needs_confirm is False
     assert len(matches) == 1
     assert matches[0][1]["n"] == "Buy milk"
@@ -387,7 +387,7 @@ def test_resolve_target_by_pattern() -> None:
 
 def test_resolve_target_pattern_case_insensitive() -> None:
     data = _db_with_reminders()
-    matches, needs_confirm = moneo.resolve_target(data, "MILK", allow_pattern=True)
+    matches, needs_confirm = pacemaker.resolve_target(data, "MILK", allow_pattern=True)
     assert needs_confirm is False
     assert len(matches) == 1
     assert matches[0][1]["n"] == "Buy milk"
@@ -396,27 +396,27 @@ def test_resolve_target_pattern_case_insensitive() -> None:
 def test_resolve_target_pattern_not_found() -> None:
     data = _db_with_reminders()
     try:
-        moneo.resolve_target(data, "nonexistent", allow_pattern=True)
+        pacemaker.resolve_target(data, "nonexistent", allow_pattern=True)
         raise AssertionError("Should have raised")
-    except moneo.MoneoError as exc:
+    except pacemaker.MoneoError as exc:
         assert "No reminders matching" in str(exc)
 
 
 def test_resolve_target_uuid_prefix_not_found() -> None:
     data = _db_with_reminders()
     try:
-        moneo.resolve_target(data, "ZZZZZZ")
+        pacemaker.resolve_target(data, "ZZZZZZ")
         raise AssertionError("Should have raised")
-    except moneo.MoneoError as exc:
+    except pacemaker.MoneoError as exc:
         assert "No reminders" in str(exc)
 
 
 def test_resolve_target_numeric_out_of_range() -> None:
     data = _db_with_reminders()
     try:
-        moneo.resolve_target(data, "99")
+        pacemaker.resolve_target(data, "99")
         raise AssertionError("Should have raised")
-    except moneo.MoneoError as exc:
+    except pacemaker.MoneoError as exc:
         assert "no reminder at index" in str(exc)
 
 
@@ -427,9 +427,9 @@ def test_resolve_target_prefers_numeric_over_uuid() -> None:
     data["re"].append({"u": "123456abcdef012345", "n": "Test", "d": 1000})
     # Numeric should be tried first and fail with out-of-range
     try:
-        moneo.resolve_target(data, "123456")
+        pacemaker.resolve_target(data, "123456")
         raise AssertionError("Should have raised")
-    except moneo.MoneoError as exc:
+    except pacemaker.MoneoError as exc:
         assert "no reminder at index" in str(exc)
 
 
@@ -446,7 +446,7 @@ def test_confirm_action_eof_returns_false() -> None:
     old_stdin = sys.stdin
     sys.stdin = io.StringIO("")  # empty = EOF on first read
     try:
-        result = moneo.confirm_action(reminder, "Delete")
+        result = pacemaker.confirm_action(reminder, "Delete")
         assert result is False
     finally:
         sys.stdin = old_stdin
@@ -461,7 +461,7 @@ def test_confirm_action_yes() -> None:
     old_stdin = sys.stdin
     sys.stdin = io.StringIO("y\n")
     try:
-        result = moneo.confirm_action(reminder, "Delete")
+        result = pacemaker.confirm_action(reminder, "Delete")
         assert result is True
     finally:
         sys.stdin = old_stdin
@@ -476,7 +476,7 @@ def test_confirm_action_no() -> None:
     old_stdin = sys.stdin
     sys.stdin = io.StringIO("n\n")
     try:
-        result = moneo.confirm_action(reminder, "Delete")
+        result = pacemaker.confirm_action(reminder, "Delete")
         assert result is False
     finally:
         sys.stdin = old_stdin
@@ -491,7 +491,7 @@ def test_confirm_action_empty_is_no() -> None:
     old_stdin = sys.stdin
     sys.stdin = io.StringIO("\n")
     try:
-        result = moneo.confirm_action(reminder, "Delete")
+        result = pacemaker.confirm_action(reminder, "Delete")
         assert result is False
     finally:
         sys.stdin = old_stdin

@@ -767,7 +767,7 @@ def mod_entrainment(data):
 
     # Weather (one-liner)
     with contextlib.suppress(Exception):
-        wx = subprocess.run(["caelum"], capture_output=True, text=True, timeout=5)
+        wx = subprocess.run(["hygroreception"], capture_output=True, text=True, timeout=5)
         if wx.returncode == 0 and wx.stdout.strip():
             parts.append(wx.stdout.strip().splitlines()[0])
 

@@ -59,7 +59,7 @@ repos:
 
       - id: anatomy-refresh
         name: anatomy.md auto-refresh
-        entry: bash -c 'python3 -c "from metabolon.resources.anatomy import express_anatomy; open(\"anatomy.md\",\"w\").write(express_anatomy())" && git add anatomy.md'
+        entry: bash -c 'uv run --no-sync python3 -c "from metabolon.resources.anatomy import express_anatomy; open(\"anatomy.md\",\"w\").write(express_anatomy())" && git add anatomy.md'
         language: system
         pass_filenames: false
         files: ^src/

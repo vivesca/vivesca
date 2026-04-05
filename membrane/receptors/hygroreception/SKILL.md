@@ -1,10 +1,10 @@
 ---
-name: caelum
+name: hygroreception
 description: HK Observatory one-line weather CLI. Use when user asks about weather, temperature, typhoon, or rain in HK. "weather", "hko", "天氣". NOT for weather in other cities.
 user_invocable: true
 ---
 
-# caelum
+# hygroreception
 
 HK Observatory weather — fetches live data and prints a one-line summary.
 
@@ -17,7 +17,7 @@ Use when:
 ## Workflow
 
 ```bash
-caelum
+hygroreception
 # ⛈️ 16–23°C, cloudy with occasional showers. A few thunderstorms later, muggy
 ```
 
@@ -53,9 +53,9 @@ Muggy: humidity ≥ 90%. UV suffix: only if index ≥ 6.
 
 ## Gotchas
 
-- Old `weather.py` used `/tmp/hko_*.json` pre-cached files — stale data caused wrong temps. `caelum` always fetches fresh.
+- Old `weather.py` used `/tmp/hko_*.json` pre-cached files — stale data caused wrong temps. `hygroreception` always fetches fresh.
 - `forecastDate` is an integer in the JSON (e.g., `20260303`) — matched as string.
 
 ## Repo
 
-`~/code/caelum/` · crates.io: `caelum`
+`~/code/hygroreception/` · crates.io: `hygroreception`

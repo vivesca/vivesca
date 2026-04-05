@@ -398,7 +398,7 @@ fi
 log "Custom Rust tools"
 
 # These are published crates — install from crates.io
-CUSTOM_CRATES=(noesis pondus consilium fasti keryx moneo sarcio grapho caelum stips anam auceps)
+CUSTOM_CRATES=(noesis pondus consilium fasti keryx pacemaker sarcio grapho hygroreception stips anam auceps)
 for crate in "${CUSTOM_CRATES[@]}"; do
   if as_vivesca "source ~/.cargo/env 2>/dev/null && command -v ${crate} &>/dev/null"; then
     skip "$crate"

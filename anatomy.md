@@ -19,10 +19,6 @@ assay — life experiment tracker (N=1 self-experiments with Oura Ring).
 auscultation — deterministic log reading for system diagnostics.
 - `auscultation(action, filter_pattern, tail_lines, log_name, severity, top_n, normalize_numbers)` -- Read recent log lines from ~/Library/Logs/vivesca/*.log.
 
-### catabolism
-spending -- catabolic metabolism of credit card statements.
-- `catabolism(action, days, bank)` -- Financial tracking — spending summaries and payment confirmation.
-
 ### censor
 censor — LLM quality gate against named rubrics.
 - `censor_evaluate(rubric, content, context, model)` -- Evaluate content against a named rubric.
@@ -92,10 +88,6 @@ fetch — URL content extraction via pinocytosis effector.
 gap_junction — WhatsApp messaging via wacli.
 - `gap_junction(action, name, message, query, limit)` -- Unified WhatsApp tool.
 
-### hemostasis
-hemostasis — Emergency stabilization: stop the bleeding.
-- `hemostasis(action, pattern, signal, plist_path, launchagent_action, what_stopped, known_gaps, next_steps)` -- Emergency process stabilization.
-
 ### histone
 histone — memory database (FTS5 + vector embeddings).
 - `histone(action, query, content, category, source, limit, mode, chromatin, confidence)`
@@ -106,6 +98,7 @@ ingestion — meal planning. Actions: read_plan|log_meal
 
 ### integrin
 integrin
+- `integrin(action, colonies_dir, buds_dir, skills_dir, tools_dir)` -- Attachment integrity probe. Dispatch by action.
 
 ### interoception
 interoception - sensing internal state.
@@ -119,9 +112,9 @@ kinesin — session-independent agent dispatcher.
 lysin — fetch real biology for a term before naming.
 - `lysin(term)` -- Look up real cell biology for a term. Use before naming any component to verify the analogy is grounded.
 
-### lysis
-lysis — Firecrawl URL scraper, fallback for bot-protected pages.
-- `lysis(action, url, query)` -- Scrape or search via Firecrawl.
+### lysozyme
+lysozyme — Firecrawl URL scraper, fallback for bot-protected pages.
+- `lysozyme(action, url, query)` -- Scrape or search via Firecrawl.
 
 ### mitosis
 mitosis — DR sync tools for soma hot standby.
@@ -140,10 +133,16 @@ pinocytosis — deterministic context gathering and overnight summaries.
 - `pinocytosis(action, json_output, send_weather, task)`
 
 ### polarization
-polarization
+polarization — North star agent dispatch pre-flight and guard control.
+- `polarization(action, guard_action)` -- Polarization pre-flight checks and guard control.
 
 ### proprioception
-proprioception
+Proprioception — sensing the organism's structural state and gradients.
+- `proprioception(target, goal, category, score, drill_type, material, notes)` -- Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators, sense, drill, gradient, skills, timing.
+
+### proteasome
+spending -- catabolic metabolism of credit card statements.
+- `proteasome(action, days, bank)` -- Financial tracking — spending summaries and payment confirmation.
 
 ### pseudopod
 pseudopod — browser cookie bridge + translocon dispatch for LLM tasks.
@@ -177,6 +176,10 @@ synthase — spawn headless CC with full organism access.
 ### telegram_receptor
 telegram_receptor — Read Telegram messages via user client API.
 - `telegram_receptor(action, chat, query, limit)` -- Unified Telegram reading tool.
+
+### thrombin
+thrombin — Emergency stabilization: stop the bleeding.
+- `thrombin(action, pattern, signal, plist_path, launchagent_action, what_stopped, known_gaps, next_steps)` -- Emergency process stabilization.
 
 ### transposase
 transposase — MCP tool for systematic codebase renames.
@@ -237,6 +240,13 @@ PhenotypeSubstrate — metabolism of MCP tool descriptions (phenotype).
 - **act**: Propose a mutation action for a candidate tool.
 - **report**: Format a phenotype metabolism report.
 
+### VasomotorSubstrate (unspecified)
+VasomotorSubstrate — metabolism of autonomous pacing/budgeting.
+- **sense**: Read vivesca-events.jsonl for the last N days, summarise daily pacing.
+- **candidates**: Identify pacing issues from sensed daily summaries.
+- **act**: Apply autonomic tuning for a pacing issue.
+- **report**: Format a human-readable pacing report.
+
 ## Metabolism Modules
 
 Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
@@ -273,7 +283,6 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **_parallel_search.py**: _(no @tool found)_
 - **assay.py**: `assay`
 - **auscultation.py**: `auscultation`
-- **catabolism.py**: `catabolism`
 - **censor.py**: `censor_evaluate`
 - **chemotaxis.py**: `chemotaxis`
 - **circadian.py**: `circadian`
@@ -291,20 +300,20 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **expression.py**: `expression`
 - **fetch.py**: `fetch`
 - **gap_junction.py**: `gap_junction`
-- **hemostasis.py**: `hemostasis`
 - **histone.py**: `histone`
 - **ingestion.py**: `ingestion`
-- **integrin.py**: _(no @tool found)_
+- **integrin.py**: `integrin`
 - **interoception.py**: `interoception`
 - **kinesin.py**: `translocation`
 - **lysin.py**: `lysin`
-- **lysis.py**: `lysis`
+- **lysozyme.py**: `lysozyme`
 - **mitosis.py**: `mitosis`
 - **necropsy.py**: `necropsy`
 - **noesis.py**: `noesis`
 - **pinocytosis.py**: `pinocytosis`
-- **polarization.py**: _(no @tool found)_
-- **proprioception.py**: _(no @tool found)_
+- **polarization.py**: `polarization`
+- **proprioception.py**: `proprioception`
+- **proteasome.py**: `proteasome`
 - **pseudopod.py**: `porta_inject`, `translocon_dispatch`
 - **rheotaxis.py**: `rheotaxis`
 - **ribosome_dispatch.py**: `ribosome_dispatch`
@@ -313,6 +322,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **sporulation.py**: `sporulation`
 - **synthase.py**: `synthase`
 - **telegram_receptor.py**: `telegram_receptor`
+- **thrombin.py**: `thrombin`
 - **transposase.py**: `transposase`
 - **turgor.py**: `tonus`
 
@@ -376,24 +386,24 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Operon Heartbeat
 
-**4** healthy, **10** stale (of 14 expressed)
+**5** healthy, **9** stale (of 14 expressed)
 
 - prepare: never fired (cadence: 14d)
 - ribosome: never fired (cadence: 35d)
 - vesicle: never fired (cadence: 14d)
-- scan: never fired (cadence: 35d)
 - evaluate: never fired (cadence: 14d)
 - homeostasis: never fired (cadence: 35d)
 - triage: never fired (cadence: 2d)
-- monitor: 7d ago (cadence: 2d)
+- monitor: 8d ago (cadence: 2d)
 - move: never fired (cadence: 14d)
 - reflect: never fired (cadence: 35d)
 
 ## Metabolism State
 
-- _(metabolism data unavailable)_
+- Variant store: **24** tool(s), **28** total variant(s)
+- Signals (last 7 days): **414**
+- Most active: `rheotaxis_search` (54), `chemotaxis` (47), `lysin` (30), `ecphory` (28), `transposase` (27)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: healthy (57 passed, 0 failed, 0 errors)

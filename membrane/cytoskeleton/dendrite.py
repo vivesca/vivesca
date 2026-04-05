@@ -513,7 +513,7 @@ def mod_bash_post(data):
     # CLI friction log
     if isinstance(result, str) and ("Exit code" in result or "error:" in result):
         personal = re.search(
-            rf"~/bin/|{HOME_BIN_PATTERN}|\.cargo/bin/|pacemaker|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
+            rf"~/bin/|{HOME_BIN_PATTERN}|\.cargo/bin/|pacemaker|fasti|poros|keryx|deltos|hygroreception|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
             cmd,
         )
         if personal:
