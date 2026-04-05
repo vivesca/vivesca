@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Warn if MEMORY.md exceeds line budget.
+MEMORY="$HOME/.claude/projects/-Users-terry/memory/MEMORY.md"
+if [ ! -f "$MEMORY" ]; then exit 0; fi
+lines=$(wc -l < "$MEMORY")
+if [ "$lines" -gt 145 ]; then
+    echo "WARNING: MEMORY.md is $lines lines (budget: 145). Downregulate low-signal entries."
+    exit 1
+fi

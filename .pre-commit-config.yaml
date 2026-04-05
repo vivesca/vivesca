@@ -41,6 +41,22 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      - id: no-lint-suppression
+        name: ban noqa / type-ignore
+        entry: hooks/no-lint-suppression
+        language: script
+        types: [python]
+        exclude: ^assays/
+        stages: [pre-commit]
+
+      - id: memory-budget
+        name: MEMORY.md line budget
+        entry: hooks/memory-budget
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       - id: anatomy-refresh
         name: anatomy.md auto-refresh
         entry: bash -c 'python3 -c "from metabolon.resources.anatomy import express_anatomy; open(\"anatomy.md\",\"w\").write(express_anatomy())" && git add anatomy.md'

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Ban noqa, type: ignore, pragma: no cover — fix the code instead.
+if grep -rnE '# (noqa|type: *ignore|pragma: *no cover)' "$@" 2>/dev/null; then
+    echo "ERROR: fix the code, do not suppress lints"
+    exit 1
+fi
