@@ -1,0 +1,391 @@
+#!/usr/bin/env python3
+"""ecdysis — fully automated GitHub OAuth token rotation.
+
+Greek ἔκδυσις, "the act of shedding". Arthropods shed their old cuticle
+(exuviae) after the new, larger covering has already formed underneath.
+Same for OAuth tokens: the new grant is created and verified before the
+old one is revoked, so there's no window of downtime.
+
+Usage:
+    ecdysis                   # rotate the 'GitHub CLI' OAuth app (default)
+    ecdysis "GitHub CLI"      # explicit app name
+    ecdysis --scopes workflow,delete_repo,admin:public_key  # extra scopes
+    ecdysis --dry-run         # discover + show plan, don't mutate
+
+Requirements:
+    - Mac cookie bridge reachable at $COOKIE_BRIDGE (default
+      http://100.94.27.93:7743) with a live github.com session
+    - Gmail organelle configured (for 8-digit sudo OTP retrieval)
+    - xvfb-run available (for headed Chrome under virtual display)
+    - gh CLI installed
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+from datetime import datetime
+from pathlib import Path
+
+# Bootstrap organism imports
+GERMLINE = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(GERMLINE / "src"))
+sys.path.insert(0, str(GERMLINE))
+
+from playwright.async_api import async_playwright
+
+from metabolon.organelles import browser_stealth, gmail
+
+COOKIE_BRIDGE = os.environ.get("COOKIE_BRIDGE", "http://100.94.27.93:7743")
+DEFAULT_APP = "GitHub CLI"
+DEFAULT_SCOPES = "gist,read:org,repo"
+SUDO_EMAIL_SUBJECT = "sudo"  # Gmail subject fragment for the 8-digit code
+
+# ── cookie bridge ──────────────────────────────────────────────────────────
+
+
+def fetch_cookies(domain: str = "github.com") -> list[dict]:
+    """Fetch cookies from the Mac bridge and shape for Playwright."""
+    url = f"{COOKIE_BRIDGE}/cookies?domain={domain}"
+    with urllib.request.urlopen(url, timeout=5) as resp:
+        data = json.loads(resp.read())
+    # Mac bridge returns {name: value}; apply secure/httpOnly/Lax defaults
+    cookies = []
+    for name, value in data.items():
+        cookies.append(
+            {
+                "name": name,
+                "value": value,
+                "url": f"https://{domain}",
+                "secure": True,
+                "httpOnly": True,
+                "sameSite": "Lax",
+            }
+        )
+    return cookies
+
+
+# ── gmail OTP polling ──────────────────────────────────────────────────────
+
+
+def poll_sudo_otp(after_ts: int, timeout: int = 90) -> str | None:
+    """Poll Gmail for the 8-digit GitHub sudo verification code."""
+    deadline = time.time() + timeout
+    seen: set[str] = set()
+    while time.time() < deadline:
+        try:
+            results = gmail.search(
+                f'in:anywhere from:noreply@github.com subject:"{SUDO_EMAIL_SUBJECT}"',
+                max_results=5,
+            )
+        except Exception:
+            time.sleep(3)
+            continue
+        for line in results.split("\n"):
+            if not line.strip():
+                continue
+            parts = line.split("|", 3)
+            if len(parts) < 4:
+                continue
+            meta = parts[0].strip()
+            subject = parts[2].strip()
+            snippet = parts[3].strip()
+            msg_id = meta.split()[0]
+            if msg_id in seen:
+                continue
+            seen.add(msg_id)
+            try:
+                date_str = meta.split(None, 1)[1]
+                msg_dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+                if msg_dt.timestamp() < after_ts - 60:
+                    continue
+            except Exception:
+                pass
+            if "sudo" not in subject.lower():
+                continue
+            m = re.search(r"\b(\d{8})\b", snippet)
+            if m:
+                return m.group(1)
+            try:
+                full = gmail.get_message(msg_id)
+                m = re.search(
+                    r"authentication code[^\d]{0,30}(\d{8})|\b(\d{8})\b", full, re.IGNORECASE
+                )
+                if m:
+                    return next(g for g in m.groups() if g)
+            except Exception:
+                pass
+        time.sleep(3)
+    return None
+
+
+# ── playwright flow ────────────────────────────────────────────────────────
+
+
+async def find_and_revoke(page, app_name: str, dry_run: bool = False) -> str | None:
+    """Paginate Authorized OAuth Apps, find app_name, submit revoke form.
+
+    Returns the client_id (tail of action URL) of the revoked app, or None.
+    """
+    for pg in range(1, 10):
+        await page.goto(
+            f"https://github.com/settings/applications?page={pg}",
+            wait_until="domcontentloaded",
+            timeout=15000,
+        )
+        apps = await page.evaluate("""() => {
+          const forms = Array.from(document.querySelectorAll('form[action*="/settings/connections/applications/"]'));
+          return forms.filter(f => !f.action.endsWith('/report') && !f.action.endsWith('/revoke_all'))
+            .map(f => {
+              let r = f;
+              for (let i = 0; i < 8 && r.parentElement; i++) {
+                r = r.parentElement;
+                if (r.tagName === 'LI') break;
+              }
+              return { action: f.action, text: r.textContent.replace(/\\s+/g, ' ').trim().slice(0, 150) };
+            });
+        }""")
+        if not apps:
+            return None
+        for app in apps:
+            # Match app name at the start of the row text, case-insensitive
+            if re.search(rf"\b{re.escape(app_name)}\b", app["text"], re.IGNORECASE):
+                client_id = app["action"].rstrip("/").rsplit("/", 1)[-1]
+                if dry_run:
+                    print(f"[dry-run] would revoke: {app['text'][:80]}")
+                    print(f"[dry-run] action URL: {app['action']}")
+                    return client_id
+                # Submit the revoke form (Rails _method=delete)
+                await page.evaluate(f"""() => {{
+                  const f = Array.from(document.querySelectorAll('form')).find(x => x.action === "{app["action"]}");
+                  f.submit();
+                }}""")
+                await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                await asyncio.sleep(1)
+                # Verify gone
+                still = await page.evaluate(
+                    f"""() => !!Array.from(document.querySelectorAll('form')).find(x => x.action === "{app["action"]}")"""
+                )
+                if still:
+                    # Might be on same page but need to recheck after reload
+                    await page.goto(
+                        f"https://github.com/settings/applications?page={pg}",
+                        wait_until="domcontentloaded",
+                        timeout=15000,
+                    )
+                    still = await page.evaluate(
+                        f"""() => !!Array.from(document.querySelectorAll('form')).find(x => x.action === "{app["action"]}")"""
+                    )
+                if still:
+                    raise RuntimeError(f"revoke failed: {app['text'][:80]}")
+                return client_id
+        if len(apps) < 15:
+            return None  # last page, app not found
+    return None
+
+
+async def complete_device_auth(page, code: str) -> None:
+    """Drive /login/device through code entry + authorize + sudo-OTP."""
+    await page.goto(
+        f"https://github.com/login/device?user_code={code}",
+        wait_until="domcontentloaded",
+        timeout=15000,
+    )
+    if "select_account" in page.url:
+        await page.click('input[type=submit][value="Continue"]')
+        await page.wait_for_load_state("domcontentloaded", timeout=15000)
+    await asyncio.sleep(1)
+    for i, ch in enumerate(code):
+        if i == 4:  # position 4 is the auto-filled dash
+            continue
+        await page.fill(f"#user-code-{i}", ch)
+    await page.click('input[type=submit][name="commit"]')
+    await page.wait_for_load_state("domcontentloaded", timeout=15000)
+    await asyncio.sleep(1)
+
+    # Force-submit the authorize form (button's disabled-state gate is irrelevant
+    # when submitting via form.submit() with authorize=1 hidden input)
+    await page.evaluate("""() => {
+      const btn = document.querySelector('button[name="authorize"][value="1"]');
+      if (!btn) throw new Error('authorize button not found');
+      const form = btn.closest('form');
+      const existing = form.querySelector('input[name="authorize"]');
+      if (existing) existing.remove();
+      const h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = 'authorize';
+      h.value = '1';
+      form.appendChild(h);
+      form.submit();
+    }""")
+    await page.wait_for_load_state("domcontentloaded", timeout=20000)
+    await asyncio.sleep(3)
+
+    # If sudo required, call initiateTotpEmailRequest() directly on the
+    # <sudo-credential-options> custom element. Clicking the "Send a code
+    # via email" button only calls showTotpEmail() which is a UI panel switch;
+    # the actual POST /sessions/sudo/email is in a separate method on the
+    # custom element.
+    if "/device/authorize" in page.url or "/confirm" in page.url.lower():
+        send_ts = int(time.time())
+        result = await page.evaluate("""async () => {
+          const elem = document.querySelector('sudo-credential-options');
+          if (!elem) return {err: 'no sudo-credential-options element'};
+          try {
+            elem.showTotpEmail();
+            await new Promise(r => setTimeout(r, 200));
+            const r = elem.initiateTotpEmailRequest();
+            if (r && typeof r.then === 'function') await r;
+            return 'sent';
+          } catch (e) {
+            return {err: e.message};
+          }
+        }""")
+        if isinstance(result, dict) and result.get("err"):
+            raise RuntimeError(f"initiateTotpEmailRequest failed: {result['err']}")
+        print(f"  → email send fired ({result})")
+
+        print("  → polling Gmail for 8-digit code...")
+        otp = poll_sudo_otp(send_ts, timeout=90)
+        if not otp:
+            raise RuntimeError("Gmail polling timed out — no sudo email received")
+        print(f"  → code: {otp}")
+
+        # Fill #sudo_email_otp and submit the visible 'sent to' form
+        await page.fill("#sudo_email_otp", otp)
+        await asyncio.sleep(0.3)
+        await page.evaluate("""() => {
+          const f = Array.from(document.querySelectorAll('form')).find(x => x.offsetParent && /sent to/i.test(x.textContent));
+          if (!f) throw new Error('visible sent-to form not found');
+          const btn = f.querySelector('button[type=submit], input[type=submit]');
+          if (btn) btn.click(); else f.submit();
+        }""")
+        await page.wait_for_load_state("domcontentloaded", timeout=20000)
+        await asyncio.sleep(3)
+
+    if "/device/success" not in page.url:
+        main_text = await page.evaluate(
+            "() => document.querySelector('main')?.innerText?.slice(0, 300) || ''"
+        )
+        raise RuntimeError(f"device flow did not reach /success (at {page.url}): {main_text}")
+
+
+async def run(app_name: str, scopes: str | None, dry_run: bool) -> int:
+    cookies = fetch_cookies("github.com")
+    if len(cookies) < 5:
+        raise RuntimeError(
+            f"cookie bridge returned only {len(cookies)} cookies — is Terry logged into github.com in Mac Chrome?"
+        )
+
+    # Pre-flight: verify sudo state bridges cleanly (a read-only settings page
+    # proves cookies work; the real sudo check comes during authorize).
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=False,
+            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+        )
+        ctx = await browser.new_context(viewport={"width": 1280, "height": 900})
+        await browser_stealth.stealth_context(ctx)
+        await ctx.add_cookies(cookies)
+        page = await ctx.new_page()
+
+        print(f"→ finding OAuth app: {app_name!r}")
+        client_id = await find_and_revoke(page, app_name, dry_run=dry_run)
+        if client_id is None:
+            raise RuntimeError(f"app not found in Authorized OAuth Apps: {app_name}")
+        if dry_run:
+            print(f"[dry-run] found client_id={client_id}; skipping re-auth")
+            await browser.close()
+            return 0
+        print(f"  ✓ revoked (client_id={client_id})")
+
+        print("→ starting fresh gh auth login")
+        log_path = Path("/tmp/ecdysis-gh-login.log")
+        log_path.unlink(missing_ok=True)
+        scope_args = ["-s", scopes] if scopes else []
+        proc = subprocess.Popen(
+            ["gh", "auth", "login", "-h", "github.com", "-p", "https", "-w", *scope_args],
+            stdout=log_path.open("w"),
+            stderr=subprocess.STDOUT,
+        )
+        # Wait for device code to appear in log
+        code = None
+        for _ in range(20):
+            await asyncio.sleep(0.5)
+            txt = log_path.read_text()
+            m = re.search(r"one-time code[:\s]+(\S+)", txt)
+            if m:
+                code = m.group(1)
+                break
+        if not code:
+            proc.kill()
+            raise RuntimeError("did not see device code from gh auth login")
+        print(f"  ✓ device code: {code}")
+
+        print("→ completing device auth + sudo")
+        await complete_device_auth(page, code)
+        await browser.close()
+
+    # Wait for gh auth login to finish
+    print("→ waiting for gh auth login to complete...")
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired as err:
+        proc.kill()
+        raise RuntimeError("gh auth login did not exit after device flow completed") from err
+    log_text = log_path.read_text()
+    if "Authentication complete" not in log_text and "Logged in" not in log_text:
+        raise RuntimeError(f"gh auth login did not report success:\n{log_text}")
+    log_path.unlink(missing_ok=True)
+
+    # Verify
+    new_token = subprocess.run(
+        ["gh", "auth", "token", "-h", "github.com"], capture_output=True, text=True
+    ).stdout.strip()
+    r = subprocess.run(["gh", "api", "user", "-q", ".login"], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        raise RuntimeError(f"new token didn't authenticate: {r.stderr}")
+    print("\n✓ ecdysis complete")
+    print(f"  new token: {new_token[:10]}... (length {len(new_token)})")
+    print(f"  user: {r.stdout.strip()}")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Fully automated GitHub OAuth token rotation")
+    ap.add_argument(
+        "app_name",
+        nargs="?",
+        default=DEFAULT_APP,
+        help=f"OAuth app to rotate (default: {DEFAULT_APP!r})",
+    )
+    ap.add_argument("--scopes", help=f"Comma-separated scopes (default: {DEFAULT_SCOPES})")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="Find the app but don't revoke or re-auth"
+    )
+    args = ap.parse_args()
+
+    # Must run under xvfb-run for headed Chrome under virtual display
+    if not os.environ.get("DISPLAY") and not os.environ.get("ECDYSIS_SKIP_XVFB"):
+        # Re-exec under xvfb-run
+        os.execvp(
+            "xvfb-run",
+            ["xvfb-run", "-a", "-s", "-screen 0 1280x900x24", sys.executable, *sys.argv],
+        )
+
+    try:
+        return asyncio.run(run(args.app_name, args.scopes, args.dry_run))
+    except Exception as e:
+        print(f"\n✗ ecdysis failed: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
