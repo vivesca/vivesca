@@ -328,3 +328,78 @@ Add to skills that are commonly called by other skills. Not needed for pure user
 - User says "keep going" on a batch — the pattern is proven at scale
 
 This principle applies to ontogenesis, cytokinesis, and artifex — all three should fire proactively, not wait for `/crystallize`.
+
+### 20. Knowledge-Base Skills
+
+When a skill contains many rules or heuristics (>10), **treat them as source code, not prose:**
+
+1. **Individual rule files** with frontmatter (`title`, `impact`, `tags`) in a `rules/` subdirectory
+2. **Taxonomy file** (`_sections.md`) defines categories, ordering, and impact levels
+3. **Template file** (`_template.md`) scaffolds new rules with Incorrect/Correct examples
+4. **Compiler script** reads rules, validates structure, compiles into the skill document
+5. **Dual output** -- lean index for smart agents (progressive disclosure), flat compiled doc for dumb backends
+
+This enables: selective inclusion by impact level, structural validation, eval test case extraction from Incorrect/Correct pairs, A/B testing individual rules, and git-diffable atomic changes.
+
+**Rule file format:**
+```yaml
+---
+title: Rule name
+impact: CRITICAL|HIGH|MEDIUM|LOW
+impactDescription: quantified metric (e.g., "2-10x improvement")
+tags: category, topic
+---
+```
+
+Followed by explanation, then `**Incorrect:**` and `**Correct:**` code blocks. The Incorrect/Correct pairs serve three purposes: specification (clearer than prose), eval generation (extract as test cases), and coaching (show the failure mode, not just the fix).
+
+Reference implementation: `compile-coaching` effector + `~/germline/loci/coaching/rules/`. Pattern source: vercel-labs/agent-skills.
+
+### 21. Trigger-Phrase Descriptions
+
+Descriptions should enumerate **exact phrases users say**, not just abstract conditions:
+
+```yaml
+# BAD: Abstract — agent must infer whether user intent matches
+description: Deploy applications to hosting platforms
+
+# GOOD: Trigger phrases — agent pattern-matches directly
+description: Deploy to Vercel. Use when "deploy my app", "push this live", "deploy and give me the link", "create a preview deployment".
+```
+
+For reference skills, enumerate the decision points where the skill should be consulted, not the topics it covers.
+
+### 22. State-Gather-Then-Branch
+
+For skills with multiple execution paths, **gather state first, then branch on the combination:**
+
+```markdown
+## Step 1: Gather State
+Run all checks before deciding:
+1. Check for X
+2. Check for Y
+3. Check for Z
+
+## Step 2: Choose Path
+- X + Y → Method A
+- X + not Y → Method B
+- not X → Method C
+```
+
+Each method is a self-contained section with exact commands. This is exhaustive — no ambiguity about which path to take. The deploy-to-vercel skill is the gold standard: 4 parallel state checks, then a decision matrix mapping combinations to deploy methods.
+
+### 23. Priority Tables with Perception Column
+
+For skills where the user must choose between patterns, add a "what it communicates" column:
+
+```markdown
+| Priority | Pattern | What it communicates |
+|----------|---------|---------------------|
+| 1 | Shared element | "Same thing — going deeper" |
+| 2 | Suspense reveal | "Data loaded" |
+| 3 | State change | "Something appeared/disappeared" |
+```
+
+The third column forces a design decision: if you can't articulate what the choice communicates to the user, you're picking arbitrarily. This applies to any skill with a "which approach?" decision point.
+
+(Extended reference for principles 20-23: [REFERENCE.md](./REFERENCE.md))
