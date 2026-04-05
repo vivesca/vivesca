@@ -4,8 +4,7 @@ from __future__ import annotations
 
 
 import json
-from pathlib import Path
-from typing import get_type_hints
+from typing import TYPE_CHECKING, ClassVar, get_type_hints
 
 import pytest
 
@@ -27,13 +26,16 @@ from metabolon.organelles.circulation import (
     should_continue,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 # ── 1. CirculationState TypedDict keys ──────────────────────
 
 
 class TestCirculationStateKeys:
     """Verify the state TypedDict has all required keys."""
 
-    EXPECTED_KEYS = {
+    EXPECTED_KEYS: ClassVar[set] = {
         "north_stars",
         "praxis_items",
         "budget_status",

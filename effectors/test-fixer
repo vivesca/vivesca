@@ -138,7 +138,7 @@ def format_json(groups: dict[str, list[dict]], total_failed: int) -> str:
         {
             "total_failed": total_failed,
             "files_affected": len(groups),
-            "failures": {fp: entries for fp, entries in sorted(groups.items())},
+            "failures": dict(sorted(groups.items())),
         },
         indent=2,
     )

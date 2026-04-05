@@ -3,8 +3,10 @@
 import math
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from metabolon.metabolism.signals import Stimulus
+if TYPE_CHECKING:
+    from metabolon.metabolism.signals import Stimulus
 
 
 @dataclass

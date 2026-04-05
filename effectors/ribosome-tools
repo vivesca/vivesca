@@ -1424,7 +1424,7 @@ def _check_filler_content(text: str) -> bool:
         return False
     # Check for repeated sentences (>3 identical)
     counts = Counter(s.lower() for s in sentences)
-    for _sentence, cnt in counts.items():
+    for cnt in counts.values():
         if cnt > 3:
             return True
     # Check if >50% of unique sentences are very short (<5 words)

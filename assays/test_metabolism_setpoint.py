@@ -3,12 +3,15 @@ from __future__ import annotations
 """Tests for metabolon.metabolism.setpoint — autonomic thresholds with calibration."""
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from metabolon.metabolism.setpoint import SetpointStatus, Threshold
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── helpers ──────────────────────────────────────────────────────────
 

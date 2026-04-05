@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for metabolon/gastrulation/check.py."""
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.gastrulation.check import (
     _check_prompt_file,
@@ -14,6 +14,9 @@ from metabolon.gastrulation.check import (
     _is_decorator,
     probe_gastrulation,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestDetectModule:

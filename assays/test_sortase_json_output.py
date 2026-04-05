@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,6 +12,9 @@ from click.testing import CliRunner
 
 from metabolon.sortase.executor import ExecutionAttempt, TaskExecutionResult
 from metabolon.sortase.validator import ValidationIssue
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _extract_json(output: str) -> dict:

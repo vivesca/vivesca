@@ -873,7 +873,7 @@ def _collect_words_from_transcripts(
 
     # OpenCode transcripts
     if not tool_filter or tool_filter.lower() == "opencode":
-        for _sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
+        for _sess_id, msg, _ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
             role_str = msg.get("role") or ""
             if role_str not in ("user", "assistant"):
                 continue

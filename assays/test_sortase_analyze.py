@@ -3,13 +3,16 @@ from __future__ import annotations
 """Tests for sortase analyze command — log analysis subcommand."""
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from click.testing import CliRunner
 
 from metabolon.sortase.cli import main
 from metabolon.sortase.logger import analyze_logs
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _make_entry(

@@ -20,9 +20,8 @@ Usage:
 
 import operator
 import time
-from typing import Annotated, TypedDict
+from typing import TYPE_CHECKING, Annotated, TypedDict
 
-from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
@@ -32,6 +31,9 @@ from metabolon.metabolism.infection import chronic_infections, infection_summary
 from metabolon.metabolism.repair import ImmuneRequest, ImmuneResult, immune_response
 from metabolon.metabolism.sweep import select
 from metabolon.symbiont import transduce_safe
+
+if TYPE_CHECKING:
+    from langchain_core.runnables.config import RunnableConfig
 
 # ── constants ────────────────────────────────────────────────
 

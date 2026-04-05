@@ -2,34 +2,49 @@ from __future__ import annotations
 
 """Tests for pinocytosis/photoreception — morning brief context gather."""
 
-import pytest
+import json
 
 from metabolon.pinocytosis.photoreception import intake, main
 
 # ── intake tests ───────────────────────────────────────────────────────
 
 
-def test_pinocytosis_photoreception_intake_raises_not_implemented():
-    """intake() raises NotImplementedError."""
-    with pytest.raises(NotImplementedError) as exc_info:
-        intake()
-    assert "photoreception gather not yet implemented" in str(exc_info.value)
+def _stub_context(monkeypatch):
+    """Patch all external dependencies so intake() runs in isolation."""
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_context",
+        lambda **kw: {
+            "date": {"iso": "2026-04-05", "datetime": "2026-04-05 08:00 HKT"},
+            "todo": {"available": True, "items": []},
+            "now": {"available": True, "raw": "facts"},
+            "calendar": {"available": True, "raw": "10:00 Standup"},
+            "budget": {"available": True, "raw": "ok"},
+        },
+    )
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_sleep",
+        lambda: {"label": "Sleep", "ok": True, "content": "Sleep: 80"},
+    )
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_weather",
+        lambda: {"label": "Weather", "ok": True, "content": "28C"},
+    )
 
 
-def test_pinocytosis_photoreception_intake_as_json_parameter():
-    """intake() accepts as_json parameter (even though it raises)."""
-    with pytest.raises(NotImplementedError):
-        intake(as_json=True)
-    with pytest.raises(NotImplementedError):
-        intake(as_json=False)
+def test_pinocytosis_photoreception_intake_returns_json(monkeypatch):
+    """intake(as_json=True) returns valid JSON with expected keys."""
+    _stub_context(monkeypatch)
+    result = intake(as_json=True)
+    parsed = json.loads(result)
+    assert "datetime" in parsed
+    assert "sleep" in parsed
 
 
-def test_intake_send_weather_parameter():
-    """intake() accepts send_weather parameter (even though it raises)."""
-    with pytest.raises(NotImplementedError):
-        intake(as_json=True, send_weather=True)
-    with pytest.raises(NotImplementedError):
-        intake(as_json=False, send_weather=False)
+def test_pinocytosis_photoreception_intake_text_mode(monkeypatch):
+    """intake(as_json=False) returns a readable text brief."""
+    _stub_context(monkeypatch)
+    result = intake(as_json=False)
+    assert "PHOTORECEPTION MORNING BRIEF" in result
 
 
 # ── main CLI tests ─────────────────────────────────────────────────────

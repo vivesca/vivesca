@@ -11,12 +11,13 @@ Machine must be stopped briefly during snapshot creation.
 
 Requires FLY_API_TOKEN in environment.
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
-from datetime import datetime
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -45,10 +46,8 @@ def _api(method: str, path: str, body: dict | None = None) -> dict | list:
             return json.loads(raw) if raw else {}
     except HTTPError as e:
         body = ""
-        try:
+        with contextlib.suppress(Exception):
             body = e.read().decode()[:500]
-        except Exception:
-            pass
         print(f"error: Fly API {e.code} {e.reason}: {body}", file=sys.stderr)
         sys.exit(1)
     except URLError as e:
@@ -114,6 +113,7 @@ def cmd_snapshot() -> None:
         _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/stop")
         # Wait for stop
         import time
+
         for _ in range(30):
             time.sleep(2)
             m = _get_machine()

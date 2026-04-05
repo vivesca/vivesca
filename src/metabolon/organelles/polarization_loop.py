@@ -22,14 +22,16 @@ import sqlite3
 import subprocess
 import time
 from pathlib import Path
-from typing import Annotated, TypedDict, cast
+from typing import TYPE_CHECKING, Annotated, TypedDict, cast
 
-from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from metabolon.locus import chromatin, praxis
+
+if TYPE_CHECKING:
+    from langchain_core.runnables.config import RunnableConfig
 
 # ── paths ────────────────────────────────────────────────────
 
@@ -547,7 +549,7 @@ def polarize(
     interrupt = ["dispatch"] if interactive else None
     app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
-    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
+    config = cast("RunnableConfig", {"configurable": {"thread_id": thread_id}})
 
     # Check for existing checkpoint to resume
     if persistent:
@@ -592,7 +594,7 @@ def review_and_continue(
     graph = build_graph()
     app = graph.compile(checkpointer=checkpointer, interrupt_before=["dispatch"])
 
-    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
+    config = cast("RunnableConfig", {"configurable": {"thread_id": thread_id}})
 
     if not approve:
         app.update_state(

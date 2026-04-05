@@ -7,8 +7,10 @@ report covering success rates, backend distribution, and failure reasons.
 import json
 from collections import Counter
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def load_overnight_entries(log_path: Path, since_hours: int = 8) -> list[dict[str, Any]]:

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
 from metabolon.sortase.cli import main
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _make_plan(directory: Path, name: str, content: str = "# Plan\nDo the thing.") -> Path:

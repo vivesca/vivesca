@@ -13,12 +13,11 @@ Daily notes, Oura/sopor, Job alerts, and Garden posts.
 import argparse
 import concurrent.futures
 import json
-import os
 import re
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Lazy import for gather library — keeps --help working even when
@@ -146,31 +145,33 @@ def gather_todo():
                         is_due_this_week = True
                     elif d < today:
                         overdue += 1
-                except:
+                except Exception:
                     pass
-                    
+
             if not is_due_this_week and when_str:
                 try:
                     w = datetime.strptime(when_str, "%Y-%m-%d").date()
                     if next_mon <= w <= next_sun:
                         due_this_week += 1
-                except:
+                except Exception:
                     pass
-                    
+
             # Stale
             if when_str:
                 try:
                     w = datetime.strptime(when_str, "%Y-%m-%d").date()
                     if w <= two_weeks_ago:
                         stale += 1
-                except:
+                except Exception:
                     pass
-                    
+
     summary = f"{due_this_week} due this week, {overdue} overdue, {stale} stale (2+ weeks)"
     if completed > 0 or someday > 0:
         extras = []
-        if completed > 0: extras.append(f"{completed} completed")
-        if someday > 0: extras.append(f"{someday} someday")
+        if completed > 0:
+            extras.append(f"{completed} completed")
+        if someday > 0:
+            extras.append(f"{someday} someday")
         summary += f", {', '.join(extras)}"
         
     return {
@@ -246,9 +247,9 @@ def gather_daily():
                 if cc_lines:
                     cc_section = "\n".join(cc_lines)
                     commute_closes += 1
-            except:
+            except Exception:
                 pass
-                
+
         daily_data.append({
             "date": d_str,
             "commute_close": cc_section,
@@ -265,29 +266,33 @@ def gather_daily():
 
 def gather_oura():
     # Attempt sopor trend --days 7 first, fallback to sopor week
-    code, out, err = run_cmd(["sopor", "trend", "--days", "7"])
+    code, out, _err = run_cmd(["sopor", "trend", "--days", "7"])
     if code != 0:
-        code, out, err = run_cmd(["sopor", "week"])
-        
+        code, out, _err = run_cmd(["sopor", "week"])
+
     sleep_avg = "N/A"
     hrv_avg = "N/A"
     readiness_avg = "N/A"
-    
+
     if out:
         # Try to parse `sopor week` format
         m_readiness = re.search(r"Readiness\s*│\s*(\d+)", out)
-        if m_readiness: readiness_avg = m_readiness.group(1)
-        
+        if m_readiness:
+            readiness_avg = m_readiness.group(1)
+
         m_sleep = re.search(r"Sleep Duration\s*│\s*([\d\.]+[hm])", out)
-        if m_sleep: sleep_avg = m_sleep.group(1)
-        
+        if m_sleep:
+            sleep_avg = m_sleep.group(1)
+
         m_hrv = re.search(r"Avg HRV\s*│\s*([\d\.]+ms)", out)
-        if m_hrv: hrv_avg = m_hrv.group(1)
+        if m_hrv:
+            hrv_avg = m_hrv.group(1)
 
         # Also fallback for generic `sopor trend` output if it matched differently
         if sleep_avg == "N/A":
             m2_sleep = re.search(r"(?i)sleep[^0-9]*([\d\.]+[hm])", out)
-            if m2_sleep: sleep_avg = m2_sleep.group(1)
+            if m2_sleep:
+                sleep_avg = m2_sleep.group(1)
 
     summary = f"Sleep avg {sleep_avg}, HRV avg {hrv_avg}, Readiness avg {readiness_avg}"
     return {
@@ -313,9 +318,9 @@ def gather_job_alerts():
                 for line in content.splitlines():
                     if line.strip().startswith("- [ ]"):
                         unchecked += 1
-            except:
+            except Exception:
                 pass
-                
+
     return {
         "unchecked": unchecked,
         "summary": f"{unchecked} unchecked this week"
@@ -324,7 +329,7 @@ def gather_job_alerts():
 def gather_garden():
     garden_dir = NOTES / "Writing" / "Blog" / "Published"
     seven_days_ago = time.time() - 7 * 86400
-    
+
     posts = []
     if garden_dir.exists():
         try:
@@ -333,7 +338,7 @@ def gather_garden():
                     mtime = f.stat().st_mtime
                     if mtime >= seven_days_ago:
                         posts.append(f.stem)
-        except:
+        except Exception:
             pass
             
     summary = f"{len(posts)} posts published this week"

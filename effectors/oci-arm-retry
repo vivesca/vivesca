@@ -13,17 +13,18 @@ Usage:
     oci-arm-retry --max-attempts 100 # limit retries
     oci-arm-retry --region ap-osaka-1 --ad GrDg:AP-OSAKA-1-AD-1  # specific region
 """
+
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-
-import os
 
 LOG_FILE = Path.home() / "logs" / "oci-arm-retry.log"
 
@@ -56,9 +57,16 @@ REGION_CONFIGS = {
 def get_subscribed_regions() -> list[str]:
     """Get list of subscribed region names from OCI CLI."""
     r = subprocess.run(
-        ["oci", "iam", "region-subscription", "list",
-         "--tenancy-id", DEFAULT_CONFIG["compartment_id"]],
-        capture_output=True, text=True,
+        [
+            "oci",
+            "iam",
+            "region-subscription",
+            "list",
+            "--tenancy-id",
+            DEFAULT_CONFIG["compartment_id"],
+        ],
+        capture_output=True,
+        text=True,
         env={**os.environ, "SUPPRESS_LABEL_WARNING": "True"},
         timeout=300,
     )
@@ -81,26 +89,37 @@ def log(msg: str) -> None:
 
 def notify(msg: str) -> None:
     """Send success notification via deltos."""
-    try:
+    with contextlib.suppress(Exception):
         subprocess.run(["deltos", msg], capture_output=True, timeout=10)
-    except Exception:
-        pass
 
 
 def try_launch(config: dict) -> dict | None:
     """Attempt to launch an A1 instance. Returns instance data on success, None on failure."""
     cmd = [
-        "oci", "compute", "instance", "launch",
-        "--compartment-id", config["compartment_id"],
-        "--availability-domain", config["ad"],
-        "--shape", config["shape"],
-        "--shape-config", json.dumps({"ocpus": config["ocpus"], "memoryInGBs": config["memory_gb"]}),
-        "--image-id", config["image_id"],
-        "--subnet-id", config["subnet_id"],
-        "--assign-public-ip", "true",
-        "--display-name", config["display_name"],
-        "--ssh-authorized-keys-file", config["ssh_key_file"],
-        "--region", config["region"],
+        "oci",
+        "compute",
+        "instance",
+        "launch",
+        "--compartment-id",
+        config["compartment_id"],
+        "--availability-domain",
+        config["ad"],
+        "--shape",
+        config["shape"],
+        "--shape-config",
+        json.dumps({"ocpus": config["ocpus"], "memoryInGBs": config["memory_gb"]}),
+        "--image-id",
+        config["image_id"],
+        "--subnet-id",
+        config["subnet_id"],
+        "--assign-public-ip",
+        "true",
+        "--display-name",
+        config["display_name"],
+        "--ssh-authorized-keys-file",
+        config["ssh_key_file"],
+        "--region",
+        config["region"],
     ]
 
     env = {"SUPPRESS_LABEL_WARNING": "True"}
@@ -112,7 +131,7 @@ def try_launch(config: dict) -> dict | None:
         try:
             data = json.loads(result.stdout)["data"]
             return data
-        except (json.JSONDecodeError, KeyError):
+        except json.JSONDecodeError, KeyError:
             log(f"SUCCESS but couldn't parse output: {result.stdout[:200]}")
             return {"raw": result.stdout[:500]}
 
@@ -123,7 +142,7 @@ def try_launch(config: dict) -> dict | None:
         code = err.get("code", "unknown")
         msg = err.get("message", "unknown")[:200]
         log(f"FAIL [{code}]: {msg}")
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         log(f"FAIL: {raw[:200]}")
 
     return None
@@ -132,8 +151,12 @@ def try_launch(config: dict) -> dict | None:
 def main():
     parser = argparse.ArgumentParser(description="Retry OCI ARM A1 instance launch")
     parser.add_argument("--loop", action="store_true", help="Retry in a loop")
-    parser.add_argument("--multi", action="store_true", help="Rotate through all subscribed regions with configs")
-    parser.add_argument("--interval", type=int, default=300, help="Seconds between retries (default: 300)")
+    parser.add_argument(
+        "--multi", action="store_true", help="Rotate through all subscribed regions with configs"
+    )
+    parser.add_argument(
+        "--interval", type=int, default=300, help="Seconds between retries (default: 300)"
+    )
     parser.add_argument("--max-attempts", type=int, default=0, help="Max attempts (0 = unlimited)")
     parser.add_argument("--region", default=DEFAULT_CONFIG["region"])
     parser.add_argument("--ad", default=DEFAULT_CONFIG["ad"])

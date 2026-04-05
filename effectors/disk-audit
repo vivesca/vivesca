@@ -7,6 +7,7 @@ Reports:
   - Largest directories under ~/epigenome (if exists)
   - tmp cleanup candidates (old/large files in /tmp)
 """
+
 from __future__ import annotations
 
 import os
@@ -29,6 +30,7 @@ TOP_N_DIRS = 10  # Number of largest dirs to show
 @dataclass
 class DiskUsage:
     """Disk usage for a filesystem."""
+
     total: int
     used: int
     free: int
@@ -41,16 +43,18 @@ class DiskUsage:
 @dataclass
 class DirInfo:
     """Info about a directory's size."""
+
     path: Path
     size: int
 
-    def __lt__(self, other: "DirInfo") -> bool:
+    def __lt__(self, other: DirInfo) -> bool:
         return self.size < other.size
 
 
 @dataclass
 class TmpCandidate:
     """A tmp cleanup candidate."""
+
     path: Path
     size: int
     mtime: float
@@ -80,6 +84,7 @@ def _fmt_age(mtime: float, now: float) -> str:
 def get_root_usage() -> DiskUsage:
     """Get disk usage for root filesystem."""
     import shutil
+
     total, used, free = shutil.disk_usage("/")
     return DiskUsage(total=total, used=used, free=free)
 
@@ -95,9 +100,9 @@ def _dir_size(path: Path) -> int:
                         total += _dir_size(Path(entry.path))
                     elif entry.is_file(follow_symlinks=False):
                         total += entry.stat(follow_symlinks=False).st_size
-                except (PermissionError, FileNotFoundError, OSError):
+                except PermissionError, FileNotFoundError, OSError:
                     pass
-    except (PermissionError, FileNotFoundError, OSError):
+    except PermissionError, FileNotFoundError, OSError:
         pass
     return total
 
@@ -117,9 +122,9 @@ def get_largest_dirs(root: Path, top_n: int = TOP_N_DIRS) -> list[DirInfo]:
                         continue
                     size = _dir_size(Path(entry.path))
                     dirs.append(DirInfo(path=Path(entry.path), size=size))
-                except (PermissionError, FileNotFoundError, OSError):
+                except PermissionError, FileNotFoundError, OSError:
                     pass
-    except (PermissionError, FileNotFoundError, OSError):
+    except PermissionError, FileNotFoundError, OSError:
         pass
 
     dirs.sort(reverse=True)
@@ -142,7 +147,11 @@ def get_tmp_candidates(
             try:
                 stat = entry.stat(follow_symlinks=False)
                 mtime = stat.st_mtime
-                size = stat.st_size if entry.is_file(follow_symlinks=False) else _dir_size(Path(entry.path))
+                size = (
+                    stat.st_size
+                    if entry.is_file(follow_symlinks=False)
+                    else _dir_size(Path(entry.path))
+                )
 
                 is_old = mtime < old_cutoff
                 is_large = size >= large_bytes
@@ -155,15 +164,17 @@ def get_tmp_candidates(
                     else:
                         reason = "large"
 
-                    candidates.append(TmpCandidate(
-                        path=Path(entry.path),
-                        size=size,
-                        mtime=mtime,
-                        reason=reason,
-                    ))
-            except (PermissionError, FileNotFoundError, OSError):
+                    candidates.append(
+                        TmpCandidate(
+                            path=Path(entry.path),
+                            size=size,
+                            mtime=mtime,
+                            reason=reason,
+                        )
+                    )
+            except PermissionError, FileNotFoundError, OSError:
                 pass
-    except (PermissionError, FileNotFoundError, OSError):
+    except PermissionError, FileNotFoundError, OSError:
         pass
 
     candidates.sort(key=lambda c: c.size, reverse=True)

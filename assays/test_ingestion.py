@@ -3,8 +3,11 @@ from __future__ import annotations
 """Tests for metabolon/enzymes/ingestion.py — meal planning."""
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -9,6 +9,7 @@ from typing import Any
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from metabolon.locus import endocytosis_affinity
 from metabolon.morphology import EffectorResult, Secretion
@@ -22,8 +23,8 @@ class EndocytosisResult(Secretion):
     signal_ratio: float = 0.0
     avg_engaged_score: float = 0.0
     false_positives_count: int = 0
-    false_negatives: list[str] = []
-    items: list[dict[str, Any]] = []
+    false_negatives: list[str] = Field(default_factory=list)
+    items: list[dict[str, Any]] = Field(default_factory=list)
     count: int = 0
     days_window: int = 0
 

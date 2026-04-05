@@ -8,13 +8,17 @@ import os
 import sys
 from pathlib import Path
 
-CARDS_DIR = Path(os.environ.get("CARDS_DIR", str(Path.home() / "epigenome/chromatin/euchromatin/consulting/cards")))
+CARDS_DIR = Path(
+    os.environ.get(
+        "CARDS_DIR", str(Path.home() / "epigenome/chromatin/euchromatin/consulting/cards")
+    )
+)
 
 
 def get_card_title(card_path: Path) -> str:
     """Extract title from first # heading in card."""
     try:
-        with open(card_path, "r") as f:
+        with open(card_path) as f:
             for line in f:
                 if line.startswith("# "):
                     return line[2:].strip()
@@ -55,7 +59,7 @@ def search_cards(keyword: str, full: bool = False) -> int:
 
     for card_path in matching_files:
         title = get_card_title(card_path)
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"File: {card_path.stem}")
         print(f"Title: {title}")
         print("=" * 60)
@@ -95,9 +99,7 @@ def main() -> None:
   card-search --list           List all cards with titles""",
     )
     parser.add_argument("keyword", nargs="?", help="Search keyword")
-    parser.add_argument(
-        "--full", "-f", action="store_true", help="Show full card content"
-    )
+    parser.add_argument("--full", "-f", action="store_true", help="Show full card content")
     parser.add_argument("--list", "-l", action="store_true", help="List all cards")
 
     args = parser.parse_args()

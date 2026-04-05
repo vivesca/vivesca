@@ -17,7 +17,6 @@ import argparse
 import logging
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 REMOTE_HOST = "terry@100.94.27.93"
@@ -57,14 +56,21 @@ def rsync_dir(
     dst_path.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        "rsync", "-az", "--delete",
+        "rsync",
+        "-az",
+        "--delete",
     ]
     if dry_run:
         cmd.append("--dry-run")
     cmd.append(f"{remote_host}:{src}")
     cmd.append(str(dst_path) + "/")
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, )
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
     output = (result.stdout + result.stderr).strip()
     return result.returncode, output
 

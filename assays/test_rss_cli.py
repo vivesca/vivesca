@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.metadata
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from metabolon.organelles.endocytosis_rss.cli import (
@@ -14,6 +14,9 @@ from metabolon.organelles.endocytosis_rss.cli import (
     _parse_aware,
     _source_since_date,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # _get_version

@@ -4,13 +4,16 @@ from __future__ import annotations
 
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.resources.operons import express_operon_map
 from metabolon.resources.proteome import express_effector_index
 from metabolon.resources.receptome import express_operon_index
 from metabolon.resources.reflexes import express_reflex_inventory
 from metabolon.resources.vitals import express_vitals
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _write_skill(skills_dir: Path, name: str, frontmatter: str) -> None:

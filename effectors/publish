@@ -156,19 +156,19 @@ def cmd_revise(args):
         return 1
     lines = content.splitlines()
     now = now_iso()
-    pub_idx = next((i for i, l in enumerate(lines) if l.startswith("publishDate:")), 0)
-    mod_idx = next((i for i, l in enumerate(lines) if l.startswith("modDatetime:")), None)
-    note_idx = next((i for i, l in enumerate(lines) if l.startswith("revisionNote:")), None)
+    pub_idx = next((i for i, ln in enumerate(lines) if ln.startswith("publishDate:")), 0)
+    next((i for i, ln in enumerate(lines) if ln.startswith("modDatetime:")), None)
+    note_idx = next((i for i, ln in enumerate(lines) if ln.startswith("revisionNote:")), None)
     if note_idx is not None:
         lines[note_idx] = f'revisionNote: "{args.note}"'
     else:
         lines.insert(pub_idx + 1, f'revisionNote: "{args.note}"')
     # Recalculate after possible insert
-    mod_idx_new = next((i for i, l in enumerate(lines) if l.startswith("modDatetime:")), None)
+    mod_idx_new = next((i for i, ln in enumerate(lines) if ln.startswith("modDatetime:")), None)
     if mod_idx_new is not None:
         lines[mod_idx_new] = f"modDatetime: {now}"
     else:
-        pub_idx_new = next((i for i, l in enumerate(lines) if l.startswith("publishDate:")), 0)
+        pub_idx_new = next((i for i, ln in enumerate(lines) if ln.startswith("publishDate:")), 0)
         lines.insert(pub_idx_new + 1, f"modDatetime: {now}")
     path.write_text("\n".join(lines) + "\n")
     print(f"Revised: {fm.get('title', args.slug)} — {args.note}")
@@ -298,7 +298,7 @@ def cmd_push(_args):
         print(f"git push failed: {result.stderr}", file=sys.stderr)
         return 1
 
-    print(f"Live at https://terryli.hm")
+    print("Live at https://terryli.hm")
     return 0
 
 

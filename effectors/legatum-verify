@@ -29,6 +29,8 @@ def _find_session_dirs() -> list[Path]:
         if d.is_dir() and "-" in d.name and any(d.glob("*.jsonl")):
             dirs.append(d)
     return dirs
+
+
 _ARSENAL = Path.home() / "notes" / "Consulting" / "Copia Arsenal Index - 2026-03.md"
 _TODO = Path.home() / "notes" / "Praxis.md"
 _EFFERENS_DIR = Path.home() / "notes" / "efferens"
@@ -50,7 +52,6 @@ def extract_session_summary(path: Path) -> dict:
     user_messages = []
     assistant_messages = []
     tools_used = set()
-    files_modified = set()
 
     for line in path.open():
         try:

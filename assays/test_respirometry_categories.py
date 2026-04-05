@@ -2,11 +2,15 @@ from __future__ import annotations
 
 """Tests for metabolon.respirometry.categories."""
 
-from pathlib import Path
+
+from typing import TYPE_CHECKING, ClassVar
 
 import yaml
 
 from metabolon.respirometry.categories import categorise, restore_categories
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── restore_categories ────────────────────────────────────────────────
 
@@ -48,7 +52,7 @@ class TestRestoreCategories:
 class TestCategorise:
     """Tests for categorise()."""
 
-    CATEGORIES = {
+    CATEGORIES: ClassVar[dict] = {
         "AMAZON": "Shopping",
         "TESCO": "Groceries",
         "UBER": "Transport",

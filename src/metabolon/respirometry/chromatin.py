@@ -4,9 +4,12 @@ import hashlib
 import re
 import shutil
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 def serialize_markdown(meta: RespirogramMeta, transactions: list[ConsumptionEvent]) -> str:

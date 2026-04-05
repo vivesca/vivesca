@@ -5,6 +5,7 @@ from __future__ import annotations
 
 
 import argparse
+import contextlib
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -203,10 +204,8 @@ def test_kill_daemons_handles_errors():
         # The function uses capture_output=True, so it won't raise
         # But if it does raise (e.g., from side_effect), it will propagate
         with patch("time.sleep"):
-            try:
+            with contextlib.suppress(Exception):
                 diapedesis._kill_daemons()
-            except Exception:
-                pass  # Acceptable - function may not handle all exceptions
 
 
 # ---------------------------------------------------------------------------

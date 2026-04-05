@@ -3,10 +3,12 @@ import json
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.symbiont import transduce
+
+if TYPE_CHECKING:
+    from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 
 # ---------------------------------------------------------------------------
 # Signal transduction: load thresholds from conf, fall back to hardcoded defaults.

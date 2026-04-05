@@ -628,7 +628,7 @@ def main_impl(args: argparse.Namespace) -> int:
                     rc = subprocess.run(cmd, env=benv, timeout=300).returncode
             finally:
                 ticker.stop()
-                print("", file=sys.stderr)  # newline after progress dots
+                print(file=sys.stderr)  # newline after progress dots
         finally:
             os.chdir(prev)
         if rc == 0:

@@ -345,7 +345,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
 
     # Write JSONL canonical cargo store
     flat_cargo = []
-    for source_name, source_articles in sorted_results.items():
+    for source_articles in sorted_results.values():
         for article in source_articles:
             article["fate"] = "transcytose" if int(article.get("score", 0)) >= 7 else "store"
             flat_cargo.append(article)

@@ -26,7 +26,6 @@ from pathlib import Path
 
 import yaml
 
-
 # --- Paths ---
 CONFIG_PATH = Path.home() / "epigenome/phenotype/linkedin-monitor.yaml"
 OUTPUT_DIR = Path.home() / "epigenome/chromatin/Consulting"
@@ -256,7 +255,7 @@ def format_digest(profile: dict, posts: list[dict], new_count: int) -> str:
         f"**New posts:** {new_count} of {len(posts)} seen",
         "",
     ]
-    lines = [l for l in lines if l != ""]  # remove empty optional lines
+    lines = [ln for ln in lines if ln != ""]  # remove empty optional lines
     lines.append("")
 
     for i, post in enumerate(posts, 1):

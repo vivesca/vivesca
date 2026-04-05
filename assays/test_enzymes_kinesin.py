@@ -6,6 +6,7 @@ sequential dispatch, and boundary conditions."""
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from metabolon.enzymes.kinesin import TranslocationResult, translocation
 from metabolon.morphology import EffectorResult, Secretion
@@ -59,7 +60,7 @@ def test_translocation_result_extra_fields_allowed():
 
 def test_translocation_result_output_required():
     """TranslocationResult requires the output field."""
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         TranslocationResult()  # type: ignore[call-arg]
 
 

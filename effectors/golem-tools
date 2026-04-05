@@ -3,10 +3,12 @@
 
 Subcommands: dash, health, report, review, reviewer, top, validate.
 """
+
 from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import json
 import os
 import re
@@ -15,9 +17,8 @@ import sys
 import time
 from collections import Counter, OrderedDict, defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
-from typing import Optional
 
 # ── Shared constants (used by multiple subcommands) ────────────────────
 
@@ -27,9 +28,9 @@ QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
 VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 RATE_LIMIT_PATTERNS = re.compile(
-    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit|quota will reset|try again at',
+    r"429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|"
+    r"request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|"
+    r"usage.?limit|hit your.*limit|quota will reset|try again at",
     re.IGNORECASE,
 )
 
@@ -39,9 +40,8 @@ RATE_LIMIT_PATTERNS = re.compile(
 # ══════════════════════════════════════════════════════════════════════
 
 
-
 BAD_PATH_RE = re.compile(re.escape(MAC_HOME_PREFIX))
-TODO_RE = re.compile(r'\b(?:TODO|FIXME)\b|\bstub', re.IGNORECASE)
+TODO_RE = re.compile(r"\b(?:TODO|FIXME)\b|\bstub", re.IGNORECASE)
 
 
 def validate_file(path: Path) -> tuple[str, list[str]]:
@@ -116,11 +116,9 @@ def cmd_validate(argv: list[str] | None = None) -> int:
     return 0 if all_pass else 1
 
 
-
 # ══════════════════════════════════════════════════════════════════════
 # ══ HEALTH subcommand
 # ══════════════════════════════════════════════════════════════════════
-
 
 
 ENV_FILE = Path.home() / ".env.fly"
@@ -149,7 +147,7 @@ class HealthResult:
     model: str
     exit_code: int
     has_output: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def source_env_file(env_file: Path) -> dict[str, str]:
@@ -293,9 +291,7 @@ def print_json(results: list[HealthResult]) -> None:
 
 
 def cmd_health(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Health check for golem providers."
-    )
+    parser = argparse.ArgumentParser(description="Health check for golem providers.")
     parser.add_argument(
         "--provider",
         choices=list(PROVIDERS.keys()),
@@ -321,9 +317,7 @@ def cmd_health(argv: list[str] | None = None) -> int:
         env.update(sourced)
 
     # Determine providers to check
-    providers_to_check = (
-        [args.provider] if args.provider else list(PROVIDERS.keys())
-    )
+    providers_to_check = [args.provider] if args.provider else list(PROVIDERS.keys())
 
     # Run health checks
     results: list[HealthResult] = []
@@ -344,11 +338,9 @@ def cmd_health(argv: list[str] | None = None) -> int:
     return 0
 
 
-
 # ══════════════════════════════════════════════════════════════════════
 # ══ REPORT subcommand
 # ══════════════════════════════════════════════════════════════════════
-
 
 
 # Paths
@@ -358,9 +350,7 @@ JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate analytics report from golem task logs"
-    )
+    parser = argparse.ArgumentParser(description="Generate analytics report from golem task logs")
     parser.add_argument(
         "--date",
         type=str,
@@ -379,7 +369,7 @@ def parse_timestamp(ts_str: str) -> datetime | None:
     """Parse ISO timestamp string to datetime."""
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%fZ"):
         try:
-            return datetime.strptime(ts_str, fmt).replace(tzinfo=timezone.utc)
+            return datetime.strptime(ts_str, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
@@ -416,7 +406,7 @@ def report_load_jsonl(date_filter: str | None) -> list[dict]:
 
 def extract_task_id(prompt: str) -> str:
     """Extract task ID from prompt if present."""
-    m = re.search(r'\[t-[a-f0-9]+\]', prompt)
+    m = re.search(r"\[t-[a-f0-9]+\]", prompt)
     if m:
         return m.group(0)
     return ""
@@ -436,10 +426,10 @@ def truncate_prompt(prompt: str, max_len: int = 60) -> str:
     """Truncate prompt for display."""
     # Remove coaching notes if present
     if "<coaching-notes>" in prompt:
-        prompt = re.sub(r'<coaching-notes>.*?---\s*', '', prompt, flags=re.DOTALL)
+        prompt = re.sub(r"<coaching-notes>.*?---\s*", "", prompt, flags=re.DOTALL)
     prompt = prompt.strip()
     if len(prompt) > max_len:
-        return prompt[:max_len-3] + "..."
+        return prompt[: max_len - 3] + "..."
     return prompt
 
 
@@ -448,11 +438,11 @@ def generate_report(records: list[dict], date_str: str) -> str:
     lines = []
     lines.append(f"# Golem Report — {date_str}")
     lines.append("")
-    
+
     if not records:
         lines.append("*No tasks recorded for this date.*")
         return "\n".join(lines)
-    
+
     # Overall stats
     total = len(records)
     succeeded = sum(1 for r in records if r.get("exit") == 0)
@@ -461,21 +451,23 @@ def generate_report(records: list[dict], date_str: str) -> str:
     durations = [r.get("duration", 0) for r in records if r.get("duration", 0) > 0]
     avg_duration = sum(durations) / len(durations) if durations else 0
     rate_limits = sum(1 for r in records if is_rate_limited(r))
-    
+
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Total tasks | {total} |")
     lines.append(f"| Succeeded | {succeeded} |")
     lines.append(f"| Failed | {failed} |")
     lines.append(f"| Success rate | {success_rate:.1f}% |")
-    lines.append(f"| Avg duration | {avg_duration:.0f}s ({avg_duration/60:.1f}m) |")
+    lines.append(f"| Avg duration | {avg_duration:.0f}s ({avg_duration / 60:.1f}m) |")
     lines.append(f"| Rate-limit events | {rate_limits} |")
     lines.append("")
-    
+
     # By provider breakdown
-    provider_stats = defaultdict(lambda: {"total": 0, "success": 0, "duration": 0, "rate_limits": 0})
+    provider_stats = defaultdict(
+        lambda: {"total": 0, "success": 0, "duration": 0, "rate_limits": 0}
+    )
     for r in records:
         p = r.get("provider", "unknown")
         provider_stats[p]["total"] += 1
@@ -484,7 +476,7 @@ def generate_report(records: list[dict], date_str: str) -> str:
         provider_stats[p]["duration"] += r.get("duration", 0)
         if is_rate_limited(r):
             provider_stats[p]["rate_limits"] += 1
-    
+
     lines.append("## By Provider")
     lines.append("")
     lines.append("| Provider | Tasks | Success | Rate | Avg Duration | Rate Limits |")
@@ -493,9 +485,11 @@ def generate_report(records: list[dict], date_str: str) -> str:
         s = provider_stats[p]
         rate = (s["success"] / s["total"] * 100) if s["total"] > 0 else 0
         avg_dur = s["duration"] / s["total"] if s["total"] > 0 else 0
-        lines.append(f"| {p} | {s['total']} | {s['success']} | {rate:.0f}% | {avg_dur:.0f}s | {s['rate_limits']} |")
+        lines.append(
+            f"| {p} | {s['total']} | {s['success']} | {rate:.0f}% | {avg_dur:.0f}s | {s['rate_limits']} |"
+        )
     lines.append("")
-    
+
     # Top 3 longest tasks
     sorted_by_duration = sorted(records, key=lambda r: r.get("duration", 0), reverse=True)
     lines.append("## Top 3 Longest Tasks")
@@ -505,16 +499,16 @@ def generate_report(records: list[dict], date_str: str) -> str:
         prov = r.get("provider", "?")
         prompt = truncate_prompt(r.get("prompt", ""))
         status = "✓" if r.get("exit") == 0 else "✗"
-        lines.append(f"{i}. [{status}] **{prov}** — {dur}s ({dur/60:.1f}m): {prompt}")
+        lines.append(f"{i}. [{status}] **{prov}** — {dur}s ({dur / 60:.1f}m): {prompt}")
     lines.append("")
-    
+
     # Top 3 most-retried tasks (by task_id occurrence)
     task_id_counts = defaultdict(list)
     for r in records:
         tid = get_task_id(r)
         if tid:
             task_id_counts[tid].append(r)
-    
+
     sorted_by_retries = sorted(task_id_counts.items(), key=lambda x: len(x[1]), reverse=True)
     lines.append("## Top 3 Most-Retried Tasks")
     lines.append("")
@@ -527,21 +521,18 @@ def generate_report(records: list[dict], date_str: str) -> str:
             prompt = truncate_prompt(recs[0].get("prompt", ""))
             lines.append(f"{i}. **{tid}** — {count} attempts, {successes} success: {prompt}")
     lines.append("")
-    
+
     return "\n".join(lines)
 
 
 def cmd_report() -> None:
     args = parse_args()
-    
+
     # Determine date filter
-    if args.date:
-        date_str = args.date
-    else:
-        date_str = datetime.now().strftime("%Y-%m-%d")
-    
+    date_str = args.date or datetime.now().strftime("%Y-%m-%d")
+
     records = report_load_jsonl(date_str)
-    
+
     if args.json:
         # Output as JSON
         output = {
@@ -555,23 +546,24 @@ def cmd_report() -> None:
         print(report)
 
 
-
 # ══════════════════════════════════════════════════════════════════════
 # ══ TOP subcommand
 # ══════════════════════════════════════════════════════════════════════
 
 
-
 # ── parsing helpers ──────────────────────────────────────────────
+
 
 def get_ps_output() -> str:
     """Run ps and return raw output (pid, etime, args)."""
     result = subprocess.run(
         ["ps", "-eo", "pid,etime,args"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         timeout=300,
     )
     return result.stdout
+
 
 def parse_ps_lines(raw: str) -> list[dict]:
     """Parse ps -eo pid,etime,args into structured dicts.
@@ -617,9 +609,11 @@ def parse_ps_lines(raw: str) -> list[dict]:
         entries.append({"pid": pid, "etime": etime, "args": args, "raw_line": line})
     return entries
 
+
 PROVIDER_RE = re.compile(r"--provider\s+(\S+)")
 MAX_TURNS_RE = re.compile(r"--max-turns\s+(\d+)")
 GOLEM_REVIEWER_RE = re.compile(r"python3\s+\S+/golem-reviewer")
+
 
 def classify_process(args: str) -> dict | None:
     """Classify a ps args line into a golem task or None.
@@ -630,9 +624,8 @@ def classify_process(args: str) -> dict | None:
     # Match golem-runner tasks: either "effectors/golem --provider" or
     # "/bin/sh -c golem --provider"
     is_golem_task = (
-        ("effectors/golem" in args or "/bin/sh -c golem " in args)
-        and "--provider" in args
-    )
+        "effectors/golem" in args or "/bin/sh -c golem " in args
+    ) and "--provider" in args
     if is_golem_task:
         m_prov = PROVIDER_RE.search(args)
         m_turns = MAX_TURNS_RE.search(args)
@@ -647,12 +640,12 @@ def classify_process(args: str) -> dict | None:
         rest = args
         # Strip the shell prefix
         if rest.startswith("/bin/sh -c golem "):
-            rest = rest[len("/bin/sh -c golem "):]
+            rest = rest[len("/bin/sh -c golem ") :]
         elif rest.startswith("bash "):
             # Remove "bash /path/to/golem "
             m_path = re.match(r"bash\s+\S+\s+", rest)
             if m_path:
-                rest = rest[m_path.end():]
+                rest = rest[m_path.end() :]
 
         # Strip --provider X --max-turns N
         rest = PROVIDER_RE.sub("", rest)
@@ -707,11 +700,11 @@ def format_duration(etime: str) -> str:
         return f"{secs // 60}m{secs % 60:02d}s"
     elif secs < 86400:
         h, rem = divmod(secs, 3600)
-        m, s = divmod(rem, 60)
+        m, _s = divmod(rem, 60)
         return f"{h}h{m:02d}m"
     else:
         d, rem = divmod(secs, 86400)
-        h, rem2 = divmod(rem, 3600)
+        h, _rem2 = divmod(rem, 3600)
         return f"{d}d{h}h"
 
 
@@ -737,16 +730,18 @@ def group_tasks(entries: list[dict]) -> list[dict]:
         parent = min(procs, key=lambda p: p["pid"])
         # Duration = longest etime (parent started first)
         longest = max(procs, key=lambda p: etime_to_seconds(p["etime"]))
-        results.append({
-            "pid": parent["pid"],
-            "provider": parent["provider"],
-            "max_turns": parent["max_turns"],
-            "kind": parent["kind"],
-            "etime": longest["etime"],
-            "duration": format_duration(longest["etime"]),
-            "task": task,
-            "num_procs": len(procs),
-        })
+        results.append(
+            {
+                "pid": parent["pid"],
+                "provider": parent["provider"],
+                "max_turns": parent["max_turns"],
+                "kind": parent["kind"],
+                "etime": longest["etime"],
+                "duration": format_duration(longest["etime"]),
+                "task": task,
+                "num_procs": len(procs),
+            }
+        )
     return results
 
 
@@ -779,11 +774,7 @@ def render_table(tasks: list[dict]) -> str:
 
     lines = []
     header = (
-        f"{'PID':>{pid_w}}  "
-        f"{'PROVIDER':<{prov_w}}  "
-        f"{'DUR':>{dur_w}}  "
-        f"{'PROCS':>{proc_w}}  "
-        f"TASK"
+        f"{'PID':>{pid_w}}  {'PROVIDER':<{prov_w}}  {'DUR':>{dur_w}}  {'PROCS':>{proc_w}}  TASK"
     )
     lines.append(header)
     lines.append("-" * len(header))
@@ -805,7 +796,9 @@ def render_table(tasks: list[dict]) -> str:
         providers[t["provider"]] = providers.get(t["provider"], 0) + 1
     prov_summary = "  ".join(f"{k}:{v}" for k, v in sorted(providers.items()))
     lines.append("")
-    lines.append(f"Total: {len(tasks)} task(s), {sum(t['num_procs'] for t in tasks)} process(es)  [{prov_summary}]")
+    lines.append(
+        f"Total: {len(tasks)} task(s), {sum(t['num_procs'] for t in tasks)} process(es)  [{prov_summary}]"
+    )
 
     return "\n".join(lines)
 
@@ -848,11 +841,9 @@ def cmd_top():
         print(top_run(json_output=args.json))
 
 
-
 # ══════════════════════════════════════════════════════════════════════
 # ══ REVIEWER subcommand
 # ══════════════════════════════════════════════════════════════════════
-
 
 
 DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
@@ -877,8 +868,7 @@ def log(msg: str):
 def reviewer_run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
     try:
         r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-            timeout=120, cwd=cwd or str(GERMLINE)
+            cmd, shell=True, capture_output=True, text=True, timeout=120, cwd=cwd or str(GERMLINE)
         )
         return r.returncode, (r.stdout + r.stderr).strip()
     except subprocess.TimeoutExpired:
@@ -889,7 +879,7 @@ def reviewer_run(cmd: str, cwd: str | None = None) -> tuple[int, str]:
 
 def check_daemon_status() -> dict:
     """Check golem-daemon health."""
-    code, out = reviewer_run("python3 effectors/golem-daemon status")
+    _code, out = reviewer_run("python3 effectors/golem-daemon status")
     # Parse: "Daemon running (PID X), N pending tasks (...)"
     m = re.search(r"(\d+) pending", out)
     pending = int(m.group(1)) if m else 0
@@ -901,11 +891,11 @@ def check_daemon_status() -> dict:
 def check_new_output() -> dict:
     """Check what was produced since last review."""
     since = "30 minutes ago" if last_review_time else "2 hours ago"
-    code, commits = reviewer_run(f"git log --oneline --since='{since}' 2>/dev/null")
+    _code, commits = reviewer_run(f"git log --oneline --since='{since}' 2>/dev/null")
     commit_count = len(commits.strip().splitlines()) if commits.strip() else 0
 
     # Count new files
-    code, new_files = reviewer_run("git diff --name-only HEAD~10 2>/dev/null")
+    _code, new_files = reviewer_run("git diff --name-only HEAD~10 2>/dev/null")
     new_tests = [f for f in new_files.splitlines() if f.startswith("assays/test_")]
     new_effectors = [f for f in new_files.splitlines() if f.startswith("effectors/")]
     new_consulting = []
@@ -970,7 +960,9 @@ def fix_collection_errors():
 
 def run_test_snapshot() -> dict:
     """Quick pytest snapshot."""
-    code, out = reviewer_run("uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -3")
+    _code, out = reviewer_run(
+        "uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -3"
+    )
     # Parse: "X passed, Y failed, Z skipped..."
     m = re.search(r"(\d+) passed", out)
     passed = int(m.group(1)) if m else 0
@@ -983,7 +975,7 @@ def run_test_snapshot() -> dict:
 
 def check_daemon_failures() -> list[str]:
     """Check recent daemon failures."""
-    code, out = reviewer_run(f"tail -100 {DAEMON_LOG} 2>/dev/null | grep FAILED")
+    _code, out = reviewer_run(f"tail -100 {DAEMON_LOG} 2>/dev/null | grep FAILED")
     return out.strip().splitlines() if out.strip() else []
 
 
@@ -992,7 +984,7 @@ def auto_commit():
     global commit_counter
     # Stage known output directories
     reviewer_run("git add assays/ effectors/ metabolon/ 2>/dev/null")
-    code, status = reviewer_run("git diff --cached --quiet 2>/dev/null")
+    code, _status = reviewer_run("git diff --cached --quiet 2>/dev/null")
     if code != 0:  # There are staged changes
         reviewer_run('git commit -m "golem-reviewer: auto-commit cycle output"')
         commit_counter += 1
@@ -1000,8 +992,10 @@ def auto_commit():
         reviewer_run("git push 2>/dev/null")
 
     # Also commit epigenome content
-    code, _ = reviewer_run("git add -A && git diff --cached --quiet || git commit -m 'golem-reviewer: consulting content' && git push",
-                   cwd=str(EPIGENOME))
+    code, _ = reviewer_run(
+        "git add -A && git diff --cached --quiet || git commit -m 'golem-reviewer: consulting content' && git push",
+        cwd=str(EPIGENOME),
+    )
 
 
 def write_progress_report(status: dict, output: dict, tests: dict, failures: list):
@@ -1013,18 +1007,18 @@ def write_progress_report(status: dict, output: dict, tests: dict, failures: lis
     report = f"""# Golem Reviewer — Cycle {cycle_number} ({ts})
 
 ## Daemon Status
-- Queue: {status['pending']} pending
-- Running: {'yes' if status['running'] else 'NO — INVESTIGATE'}
+- Queue: {status["pending"]} pending
+- Running: {"yes" if status["running"] else "NO — INVESTIGATE"}
 
 ## Output Since Last Review
-- New test files: {output['new_tests']}
-- New effectors: {output['new_effectors']}
-- Consulting pieces: {output['consulting_pieces']}
+- New test files: {output["new_tests"]}
+- New effectors: {output["new_effectors"]}
+- Consulting pieces: {output["consulting_pieces"]}
 
 ## Test Health
-- Passed: {tests['passed']}
-- Failed: {tests['failed']}
-- Collection errors: {tests['errors']}
+- Passed: {tests["passed"]}
+- Failed: {tests["failed"]}
+- Collection errors: {tests["errors"]}
 
 ## Recent Failures
 {len(failures)} failures in last 100 log lines.
@@ -1056,7 +1050,9 @@ def review_cycle():
 
     # 2. Check output
     output = check_new_output()
-    log(f"  Output: {output['new_tests']} tests, {output['new_effectors']} effectors, {output['consulting_pieces']} consulting")
+    log(
+        f"  Output: {output['new_tests']} tests, {output['new_effectors']} effectors, {output['consulting_pieces']} consulting"
+    )
 
     # 3. Fix collection errors
     fixed = fix_collection_errors()
@@ -1068,7 +1064,9 @@ def review_cycle():
     if cycle_number % 3 == 1:
         log("  Running pytest snapshot...")
         tests = run_test_snapshot()
-        log(f"  Tests: {tests['passed']} passed, {tests['failed']} failed, {tests['errors']} errors")
+        log(
+            f"  Tests: {tests['passed']} passed, {tests['failed']} failed, {tests['errors']} errors"
+        )
 
     # 5. Check failures
     failures = check_daemon_failures()
@@ -1115,11 +1113,9 @@ def cmd_reviewer():
     return 0
 
 
-
 # ══════════════════════════════════════════════════════════════════════
 # ══ REVIEW subcommand
 # ══════════════════════════════════════════════════════════════════════
-
 
 
 # Paths
@@ -1145,7 +1141,7 @@ def parse_since(arg: str) -> timedelta:
     if not arg or not isinstance(arg, str):
         return timedelta(minutes=30)
     arg = arg.strip()
-    m = re.match(r'^(\d+)([smhd])$', arg)
+    m = re.match(r"^(\d+)([smhd])$", arg)
     if m:
         val, unit = int(m.group(1)), m.group(2)
         return {
@@ -1168,7 +1164,7 @@ def parse_log_timestamp(ts_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(ts_str.strip(), "%Y-%m-%d %H:%M:%S")
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return None
 
 
@@ -1188,13 +1184,13 @@ def scan_log(since: timedelta) -> dict:
 
     try:
         content = LOGFILE.read_text()
-    except (PermissionError, OSError, UnicodeDecodeError):
+    except PermissionError, OSError, UnicodeDecodeError:
         return result
 
     cutoff = datetime.now(UTC).replace(tzinfo=None) - since
 
     for line in content.splitlines():
-        m = re.match(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$', line)
+        m = re.match(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$", line)
         if not m:
             continue
         ts_str, msg = m.group(1), m.group(2)
@@ -1205,20 +1201,20 @@ def scan_log(since: timedelta) -> dict:
         if result["start_time"] is None or ts < result["start_time"]:
             result["start_time"] = ts
 
-        if re.match(r'Finished \(\d+s, exit=0\)', msg):
-            cmd_m = re.match(r'Finished \(\d+s, exit=\d+\): (.+)', msg)
+        if re.match(r"Finished \(\d+s, exit=0\)", msg):
+            cmd_m = re.match(r"Finished \(\d+s, exit=\d+\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["completed"].append((ts, cmd))
-        elif re.match(r'Finished \(\d+s, exit=[^0]\)', msg):
-            cmd_m = re.match(r'Finished \(\d+s, exit=\d+\): (.+)', msg)
+        elif re.match(r"Finished \(\d+s, exit=[^0]\)", msg):
+            cmd_m = re.match(r"Finished \(\d+s, exit=\d+\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["failed"].append((ts, cmd, ""))
         elif msg.startswith("FAILED"):
-            cmd_m = re.match(r'FAILED \(exit=\d+\): (.+)', msg)
+            cmd_m = re.match(r"FAILED \(exit=\d+\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["failed"].append((ts, cmd, ""))
         elif msg.startswith("TIMEOUT"):
-            cmd_m = re.match(r'TIMEOUT \(\d+s\): (.+)', msg)
+            cmd_m = re.match(r"TIMEOUT \(\d+s\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["timeouts"].append((ts, cmd))
 
@@ -1233,7 +1229,10 @@ def get_recent_files(head_range: int = 5) -> list[str]:
     try:
         r = subprocess.run(
             f"git -C {GERMLINE} diff --name-only HEAD~{head_range} 2>/dev/null",
-            shell=True, capture_output=True, text=True, timeout=30,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode != 0 or not r.stdout.strip():
             return []
@@ -1258,18 +1257,20 @@ def run_pytest_on_files(files: list[str]) -> dict:
         try:
             r = subprocess.run(
                 ["uv", "run", "pytest", f, "-q", "--tb=line", "--no-header"],
-                capture_output=True, text=True,
-                timeout=120, cwd=str(GERMLINE),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=str(GERMLINE),
             )
             output = r.stdout + r.stderr
             passed = failed = errors = 0
-            m = re.search(r'(\d+) passed', output)
+            m = re.search(r"(\d+) passed", output)
             if m:
                 passed = int(m.group(1))
-            m = re.search(r'(\d+) failed', output)
+            m = re.search(r"(\d+) failed", output)
             if m:
                 failed = int(m.group(1))
-            m = re.search(r'(\d+) error', output)
+            m = re.search(r"(\d+) error", output)
             if m:
                 errors = int(m.group(1))
             result["files"].append((f, passed, failed, errors))
@@ -1411,22 +1412,19 @@ def _check_filler_content(text: str) -> bool:
     Checks for: same sentence repeated >3 times, or >50% of unique
     sentences are very short (<5 words).
     """
-    sentences = re.split(r'[.!?]+', text)
+    sentences = re.split(r"[.!?]+", text)
     sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 2]
     if len(sentences) < 4:
         return False
     # Check for repeated sentences (>3 identical)
-    from collections import Counter
     counts = Counter(s.lower() for s in sentences)
-    for sentence, cnt in counts.items():
+    for cnt in counts.values():
         if cnt > 3:
             return True
     # Check if >50% of unique sentences are very short (<5 words)
     short_count = sum(1 for s in set(sentences) if len(s.split()) < 5)
     unique_count = len(set(sentences))
-    if unique_count > 0 and short_count / unique_count > 0.5:
-        return True
-    return False
+    return bool(unique_count > 0 and short_count / unique_count > 0.5)
 
 
 def _compute_paragraph_stats(lines: list[str]) -> float:
@@ -1467,18 +1465,25 @@ def check_consulting_content(files: list[str]) -> list[dict]:
     for rel_path in files:
         full_path = GERMLINE / rel_path
         entry: dict = {
-            "file": rel_path, "exists": False, "word_count": 0,
+            "file": rel_path,
+            "exists": False,
+            "word_count": 0,
             "adequate": False,
-            "has_headings": False, "has_paragraphs": False,
-            "has_structure_elements": False, "structure_ok": False,
-            "has_introduction": False, "has_conclusion": False,
-            "section_count": 0, "broken_sections": 0,
+            "has_headings": False,
+            "has_paragraphs": False,
+            "has_structure_elements": False,
+            "structure_ok": False,
+            "has_introduction": False,
+            "has_conclusion": False,
+            "section_count": 0,
+            "broken_sections": 0,
             "min_sections_ok": False,
             "has_proper_heading_hierarchy": True,
             "avg_paragraph_word_count": 0.0,
             "has_filler_content": False,
             "overall_quality_pass": False,
-            "quality_score": 0, "verdict": "poor",
+            "quality_score": 0,
+            "verdict": "poor",
         }
 
         if not full_path.exists():
@@ -1488,7 +1493,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         entry["exists"] = True
         try:
             text = full_path.read_text()
-        except (PermissionError, OSError, UnicodeDecodeError):
+        except PermissionError, OSError, UnicodeDecodeError:
             results.append(entry)
             continue
 
@@ -1499,7 +1504,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         # Structure checks
         lines = text.splitlines()
         entry["has_headings"] = any(
-            stripped.startswith("#") for stripped in (l.strip() for l in lines) if stripped
+            stripped.startswith("#") for stripped in (ln.strip() for ln in lines) if stripped
         )
 
         # Paragraphs: count non-blank blocks (excluding heading-only blocks)
@@ -1508,7 +1513,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         for line in lines:
             if line.strip() == "":
                 if block_lines:
-                    non_heading = [l for l in block_lines if not l.strip().startswith("#")]
+                    non_heading = [ln for ln in block_lines if not ln.strip().startswith("#")]
                     if non_heading:
                         paragraph_count += 1
                     block_lines = []
@@ -1516,18 +1521,16 @@ def check_consulting_content(files: list[str]) -> list[dict]:
                 block_lines.append(line)
         # Handle last block
         if block_lines:
-            non_heading = [l for l in block_lines if not l.strip().startswith("#")]
+            non_heading = [ln for ln in block_lines if not ln.strip().startswith("#")]
             if non_heading:
                 paragraph_count += 1
         entry["has_paragraphs"] = paragraph_count >= 2
 
         # Structure elements: lists, code blocks, bold text, tables
-        has_list = any(
-            l.strip().startswith(("- ", "* ", "1. ", "2. ")) for l in lines
-        )
+        has_list = any(ln.strip().startswith(("- ", "* ", "1. ", "2. ")) for ln in lines)
         has_code = "```" in text
         has_bold = "**" in text
-        has_table = any("|" in l and "---" in l for l in lines)
+        has_table = any("|" in ln and "---" in ln for ln in lines)
         entry["has_structure_elements"] = has_list or has_code or has_bold or has_table
 
         # Section analysis
@@ -1537,17 +1540,18 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         entry["min_sections_ok"] = section_count >= 2 and broken_sections == 0
 
         # Overall structure: needs headings + at least one of paragraphs/structure elements
-        entry["structure_ok"] = (
-            entry["has_headings"]
-            and (entry["has_paragraphs"] or entry["has_structure_elements"])
+        entry["structure_ok"] = entry["has_headings"] and (
+            entry["has_paragraphs"] or entry["has_structure_elements"]
         )
 
         # Introduction / conclusion detection via heading keywords
         entry["has_introduction"] = _detect_section_keyword(
-            lines, ("introduction", "intro", "overview", "background", "context"),
+            lines,
+            ("introduction", "intro", "overview", "background", "context"),
         )
         entry["has_conclusion"] = _detect_section_keyword(
-            lines, ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
+            lines,
+            ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
         )
 
         # Heading hierarchy
@@ -1625,9 +1629,14 @@ def compute_consulting_summary(results: list[dict]) -> dict:
     total = len(results)
     if total == 0:
         return {
-            "total": 0, "passed": 0, "failed": 0, "missing": 0,
-            "avg_word_count": 0.0, "avg_quality_score": 0.0,
-            "pass_rate": 0.0, "verdicts": {},
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "missing": 0,
+            "avg_word_count": 0.0,
+            "avg_quality_score": 0.0,
+            "pass_rate": 0.0,
+            "verdicts": {},
         }
 
     existing = [r for r in results if r.get("exists")]
@@ -1636,7 +1645,9 @@ def compute_consulting_summary(results: list[dict]) -> dict:
     failed = [r for r in existing if not r.get("overall_quality_pass")]
 
     avg_wc = sum(r.get("word_count", 0) for r in existing) / len(existing) if existing else 0.0
-    avg_score = sum(r.get("quality_score", 0) for r in existing) / len(existing) if existing else 0.0
+    avg_score = (
+        sum(r.get("quality_score", 0) for r in existing) / len(existing) if existing else 0.0
+    )
     pass_rate = len(passed) / len(existing) if existing else 0.0
 
     verdicts: dict[str, int] = {}
@@ -1680,7 +1691,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
         return "permission_error"
     if "exit=2" in combined or "exit_code=2" in combined:
         return "command_error"
-    if re.search(r'\bassert\b', text):
+    if re.search(r"\bassert\b", text):
         return "assertion_error"
     return "unknown"
 
@@ -1695,7 +1706,7 @@ def read_log_tail(n: int = 50) -> str:
     try:
         lines = LOGFILE.read_text().splitlines()
         return "\n".join(lines[-n:]) if n > 0 else ""
-    except (PermissionError, OSError, UnicodeDecodeError):
+    except PermissionError, OSError, UnicodeDecodeError:
         return ""
 
 
@@ -1708,7 +1719,7 @@ def count_pending_tasks() -> int:
         return 0
     try:
         content = QUEUE_FILE.read_text()
-    except (PermissionError, OSError, UnicodeDecodeError):
+    except PermissionError, OSError, UnicodeDecodeError:
         return 0
     count = 0
     for line in content.splitlines():
@@ -1766,7 +1777,7 @@ def generate_queue_tasks(modules: list[str], count: int) -> list[str]:
         provider = _PROVIDERS[i % len(_PROVIDERS)]
         test_name = f"test_{mod.replace('-', '_')}"
         tasks.append(
-            f'- [ ] `golem --provider {provider} --max-turns 50 '
+            f"- [ ] `golem --provider {provider} --max-turns 50 "
             f'"Write assays/{test_name}.py for effectors/{mod}. '
             f'Run uv run pytest assays/{test_name}.py -v --tb=short."`'
         )
@@ -1787,7 +1798,7 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
     if QUEUE_FILE.exists():
         try:
             content = QUEUE_FILE.read_text()
-        except (PermissionError, OSError, UnicodeDecodeError):
+        except PermissionError, OSError, UnicodeDecodeError:
             content = "## Pending\n\n## Done\n"
     else:
         content = "## Pending\n\n## Done\n"
@@ -1800,7 +1811,7 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
 
     try:
         QUEUE_FILE.write_text(content)
-    except (PermissionError, OSError):
+    except PermissionError, OSError:
         return 0
 
     return len(task_lines)
@@ -1819,37 +1830,37 @@ def write_fixed_tasks(failed_tasks: list[dict]) -> int:
 
     lines = []
     for t in failed_tasks:
-        cmd = t.get("cmd", "")
+        t.get("cmd", "")
         diag = t.get("diagnosis", "unknown")
 
         if "path_issue" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 50 '
+                "- [ ] `golem --provider infini --max-turns 50 "
                 '"Fix path_issue: replace hardcoded home paths with Path.home(). '
                 'Run tests after."`'
             )
         elif "import_error" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 50 '
+                "- [ ] `golem --provider infini --max-turns 50 "
                 '"Fix import_error: use exec(open(path).read(), ns) pattern '
-                'instead of import. '
+                "instead of import. "
                 'Check module exists or needs install. Run tests."`'
             )
         elif "syntax_error" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 50 '
+                "- [ ] `golem --provider infini --max-turns 50 "
                 '"Fix syntax_error: run ast.parse() on changed .py files. '
                 'Run tests after."`'
             )
         elif "timeout" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 30 '
+                "- [ ] `golem --provider infini --max-turns 30 "
                 '"Retry with lower turns. Break into smaller tasks. '
                 'Run tests."`'
             )
         else:
             lines.append(
-                f'- [ ] `golem --provider infini --max-turns 50 '
+                f"- [ ] `golem --provider infini --max-turns 50 "
                 f'"Retry task (diagnosis: {diag}). Run tests."`'
             )
 
@@ -1961,10 +1972,12 @@ def generate_review(
     # Consulting quality summary
     if consulting_summary:
         lines.append("## Consulting Quality Summary")
-        lines.append(f"- {consulting_summary['total']} files checked: "
-                     f"{consulting_summary['passed']} passed, "
-                     f"{consulting_summary['failed']} failed, "
-                     f"{consulting_summary['missing']} missing")
+        lines.append(
+            f"- {consulting_summary['total']} files checked: "
+            f"{consulting_summary['passed']} passed, "
+            f"{consulting_summary['failed']} failed, "
+            f"{consulting_summary['missing']} missing"
+        )
         lines.append(f"- Average word count: {consulting_summary['avg_word_count']:.0f}")
         lines.append(f"- Average quality score: {consulting_summary['avg_quality_score']:.0f}/100")
         lines.append(f"- Pass rate: {consulting_summary['pass_rate']:.0%}")
@@ -2009,8 +2022,10 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
 
     # 4. Check consulting content
     content_files = [
-        f for f in recent_files
-        if f.startswith("loci/copia/") and f.endswith(".md")
+        f
+        for f in recent_files
+        if f.startswith("loci/copia/")
+        and f.endswith(".md")
         and not Path(f).name.startswith("reviewer-cycle-")
     ]
     consulting_results = check_consulting_content(content_files)
@@ -2058,10 +2073,8 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
     )
 
     REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
-    try:
+    with contextlib.suppress(PermissionError, OSError):
         REVIEW_FILE.write_text(review)
-    except (PermissionError, OSError):
-        pass
 
     return 0
 
@@ -2088,10 +2101,12 @@ def cmd_review():
         results = check_consulting_content(files)
         summary = compute_consulting_summary(results)
         print(f"Consulting content under {base}:")
-        print(f"  {summary['total']} files: "
-              f"{summary['passed']} passed, "
-              f"{summary['failed']} failed, "
-              f"{summary['missing']} missing")
+        print(
+            f"  {summary['total']} files: "
+            f"{summary['passed']} passed, "
+            f"{summary['failed']} failed, "
+            f"{summary['missing']} missing"
+        )
         print(f"  Avg word count: {summary['avg_word_count']:.0f}")
         print(f"  Avg quality score: {summary['avg_quality_score']:.0f}/100")
         print(f"  Pass rate: {summary['pass_rate']:.0%}")
@@ -2115,20 +2130,15 @@ def cmd_review():
     return run_review(auto_requeue=auto_requeue, since=since)
 
 
-
 # ══════════════════════════════════════════════════════════════════════
 # ══ DASH subcommand
 # ══════════════════════════════════════════════════════════════════════
 
-from rich.bar import Bar
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-
-
-
 
 # Paths
 JSONL_PATH = VIVESCA_DIR / "golem.jsonl"
@@ -2148,19 +2158,19 @@ _task_first_seen: dict[str, float] = {}
 def parse_ts(ts_str: str) -> datetime:
     """Parse a timestamp string (flexible formats)."""
     # Strip trailing timezone offset like +00:00 so strptime can handle it
-    ts_str = re.sub(r'[+-]\d{2}:\d{2}$', '', ts_str)
+    ts_str = re.sub(r"[+-]\d{2}:\d{2}$", "", ts_str)
     # Strip fractional seconds like .123456
-    ts_str = re.sub(r'\.\d+', '', ts_str)
+    ts_str = re.sub(r"\.\d+", "", ts_str)
     for fmt in (
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%d %H:%M:%S",
     ):
         try:
-            return datetime.strptime(ts_str, fmt).replace(tzinfo=timezone.utc)
+            return datetime.strptime(ts_str, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
-    return datetime.min.replace(tzinfo=timezone.utc)
+    return datetime.min.replace(tzinfo=UTC)
 
 
 def is_rate_limited(record: dict) -> bool:
@@ -2173,16 +2183,14 @@ def is_rate_limited(record: dict) -> bool:
     if RATE_LIMIT_PATTERNS.search(tail):
         return True
     # Fast exit with no output is a rate-limit signal
-    if exit_code == 1 and duration <= SHORT_DURATION_LIMIT and tail.strip() in ("", " "):
-        return True
-    return False
+    return bool(exit_code == 1 and duration <= SHORT_DURATION_LIMIT and tail.strip() in ("", " "))
 
 
 def dash_dash_load_jsonl(window_minutes: int = 60) -> list[dict]:
     """Load golem.jsonl records within the rolling window."""
     if not JSONL_PATH.exists():
         return []
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+    cutoff = datetime.now(UTC) - timedelta(minutes=window_minutes)
     records = []
     try:
         with open(JSONL_PATH, errors="replace") as f:
@@ -2195,7 +2203,7 @@ def dash_dash_load_jsonl(window_minutes: int = 60) -> list[dict]:
                     ts = parse_ts(rec.get("ts", ""))
                     if ts >= cutoff:
                         records.append(rec)
-                except (json.JSONDecodeError, ValueError):
+                except json.JSONDecodeError, ValueError:
                     continue
     except OSError:
         pass
@@ -2215,7 +2223,7 @@ def load_all_jsonl() -> list[dict]:
                     continue
                 try:
                     records.append(json.loads(line))
-                except (json.JSONDecodeError, ValueError):
+                except json.JSONDecodeError, ValueError:
                     continue
     except OSError:
         pass
@@ -2228,7 +2236,7 @@ def load_running() -> list[dict]:
         return []
     try:
         return json.loads(RUNNING_JSON_PATH.read_text())
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return []
 
 
@@ -2239,9 +2247,13 @@ def load_cooldowns() -> dict[str, str]:
     try:
         entries = json.loads(COOLDOWNS_PATH.read_text())
         if isinstance(entries, list):
-            return {e.get("provider", ""): e.get("expires_at", "") for e in entries if isinstance(e, dict)}
+            return {
+                e.get("provider", ""): e.get("expires_at", "")
+                for e in entries
+                if isinstance(e, dict)
+            }
         return {}
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return {}
 
 
@@ -2333,10 +2345,9 @@ def compute_ema_duration(records: list[dict], provider: str, alpha: float = 0.3)
     Returns 0.0 if no successful completions found.
     """
     successful = [
-        rec for rec in records
-        if rec.get("exit") == 0
-        and rec.get("duration", 0) > 0
-        and rec.get("provider") == provider
+        rec
+        for rec in records
+        if rec.get("exit") == 0 and rec.get("duration", 0) > 0 and rec.get("provider") == provider
     ]
     if not successful:
         return 0.0
@@ -2382,7 +2393,7 @@ def compute_completions_per_minute(records: list[dict], window_minutes: int = 30
     """Compute completions per minute over the given window."""
     if not records:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     count = 0
     for rec in records:
@@ -2393,12 +2404,14 @@ def compute_completions_per_minute(records: list[dict], window_minutes: int = 30
 
 
 def compute_throughput_per_hour(
-    records: list[dict], provider: str | None = None, window_minutes: int = 60,
+    records: list[dict],
+    provider: str | None = None,
+    window_minutes: int = 60,
 ) -> float:
     """Compute completions per hour, optionally filtered by provider."""
     if not records:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     count = 0
     for rec in records:
@@ -2413,9 +2426,10 @@ def compute_throughput_per_hour(
 
 
 def detect_stale_tasks(
-    running: list[dict], avg_duration_by_provider: dict[str, float],
+    running: list[dict],
+    avg_duration_by_provider: dict[str, float],
 ) -> list[dict]:
-    """Return list of stale running tasks (elapsed > 2× avg duration)."""
+    """Return list of stale running tasks (elapsed > 2x avg duration)."""
     stale = []
     for task in running:
         tid = task.get("task_id", "")
@@ -2459,7 +2473,7 @@ def compute_eta_confidence(records: list[dict], window_minutes: int = 60) -> str
     medium: >=2 completions.
     low: <2 completions or >50% rate-limited.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     success = 0
     rl = 0
@@ -2494,7 +2508,8 @@ DEFAULT_PROVIDER_LIMIT = 4
 
 
 def compute_drain_velocity(
-    all_records: list[dict], pending_by_provider: dict[str, int],
+    all_records: list[dict],
+    pending_by_provider: dict[str, int],
     window_minutes: int = 60,
 ) -> str:
     """Assess whether queue is growing, draining, stable, or done.
@@ -2510,11 +2525,10 @@ def compute_drain_velocity(
         return "↑ ? pending"
 
     # Count completions in window
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     completions = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
     )
     completion_rate = completions / window_minutes  # per minute
 
@@ -2547,7 +2561,7 @@ def compute_throughput_acceleration(
     """
     if not all_records:
         return "—" if window_minutes is not None else 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # When window_minutes is given, use it as baseline; scale recent proportionally
     effective_recent = recent_minutes
@@ -2560,11 +2574,11 @@ def compute_throughput_acceleration(
     baseline_cutoff = now - timedelta(minutes=effective_baseline)
 
     recent_count = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
     )
     baseline_count = sum(
-        1 for r in all_records
+        1
+        for r in all_records
         if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
     )
 
@@ -2588,21 +2602,21 @@ def compute_throughput_acceleration(
 
 
 def compute_time_since_last_event(
-    all_records: list[dict], exit_code: int = 0,
+    all_records: list[dict],
+    exit_code: int = 0,
 ) -> float:
     """Seconds since the most recent record with the given exit code.
 
     Returns -1.0 if no matching record found.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     latest_ts = None
     for rec in all_records:
         if rec.get("exit") != exit_code:
             continue
         ts = parse_ts(rec.get("ts", ""))
-        if ts != datetime.min.replace(tzinfo=timezone.utc):
-            if latest_ts is None or ts > latest_ts:
-                latest_ts = ts
+        if ts != datetime.min.replace(tzinfo=UTC) and (latest_ts is None or ts > latest_ts):
+            latest_ts = ts
     if latest_ts is None:
         return -1.0
     delta = (now - latest_ts).total_seconds()
@@ -2617,9 +2631,9 @@ def compute_task_health(
     """Categorize running task health.
 
     Returns one of: "on-track", "slow", "stalled".
-    - on-track: elapsed < 1.5× avg duration and provider success rate >= 50%
-    - slow: elapsed >= 1.5× avg but < 2.5× avg
-    - stalled: elapsed >= 2.5× avg, or provider success rate < 50% and elapsed > avg
+    - on-track: elapsed < 1.5x avg duration and provider success rate >= 50%
+    - slow: elapsed >= 1.5x avg but < 2.5x avg
+    - stalled: elapsed >= 2.5x avg, or provider success rate < 50% and elapsed > avg
     """
     if avg_duration <= 0:
         return "on-track"  # no data to judge against
@@ -2634,16 +2648,16 @@ def compute_task_health(
 
 
 def compute_drain_rate(
-    all_records: list[dict], window_minutes: int = 10,
+    all_records: list[dict],
+    window_minutes: int = 10,
 ) -> float:
     """Compute current drain rate in tasks/min over the given window."""
     if not all_records:
         return 0.0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     count = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
     )
     return count / window_minutes if window_minutes > 0 else 0.0
 
@@ -2664,19 +2678,19 @@ def compute_drain_eta_bounds(
     if total_pending == 0:
         return (0.0, 0.0, 0.0)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Recent (10min) throughput for optimistic
     recent_cutoff = now - timedelta(minutes=10)
     recent_count = sum(
-        1 for r in all_records
-        if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
+        1 for r in all_records if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
     )
 
     # Baseline (60min) throughput for median
     baseline_cutoff = now - timedelta(hours=1)
     baseline_count = sum(
-        1 for r in all_records
+        1
+        for r in all_records
         if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
     )
 
@@ -2693,7 +2707,8 @@ def compute_drain_eta_bounds(
     else:
         # Fallback to avg duration
         durations = [
-            r.get("duration", 0) for r in all_records
+            r.get("duration", 0)
+            for r in all_records
             if r.get("exit") == 0 and r.get("duration", 0) > 0
         ]
         if durations:
@@ -2707,16 +2722,14 @@ def compute_drain_eta_bounds(
             median = float("inf")
 
     # Pessimistic: half the baseline rate
-    if baseline_count > 0:
-        pessimistic = median * 2.0
-    else:
-        pessimistic = float("inf")
+    pessimistic = median * 2.0 if baseline_count > 0 else float("inf")
 
     return (optimistic, median, pessimistic)
 
 
 def compute_provider_utilization(
-    stats: dict[str, dict], limits: dict[str, int],
+    stats: dict[str, dict],
+    limits: dict[str, int],
 ) -> dict[str, float]:
     """Compute active/limit ratio per provider."""
     result: dict[str, float] = {}
@@ -2771,9 +2784,14 @@ def compute_provider_stats(
         prov = task.get("provider", "unknown")
         if prov not in stats:
             stats[prov] = {
-                "active": 0, "completed": 0, "failed": 0,
-                "rate_limited": 0, "killed": 0,
-                "total_duration": 0.0, "success_count": 0, "total_count": 0,
+                "active": 0,
+                "completed": 0,
+                "failed": 0,
+                "rate_limited": 0,
+                "killed": 0,
+                "total_duration": 0.0,
+                "success_count": 0,
+                "total_count": 0,
             }
         stats[prov]["active"] += 1
 
@@ -2782,9 +2800,14 @@ def compute_provider_stats(
         prov = rec.get("provider", "unknown")
         if prov not in stats:
             stats[prov] = {
-                "active": 0, "completed": 0, "failed": 0,
-                "rate_limited": 0, "killed": 0,
-                "total_duration": 0.0, "success_count": 0, "total_count": 0,
+                "active": 0,
+                "completed": 0,
+                "failed": 0,
+                "rate_limited": 0,
+                "killed": 0,
+                "total_duration": 0.0,
+                "success_count": 0,
+                "total_count": 0,
             }
         exit_code = rec.get("exit", -1)
         duration = rec.get("duration", 0)
@@ -2810,7 +2833,7 @@ def compute_per_provider_eta(
     all_records: list[dict],
 ) -> dict[str, float]:
     """Estimate time to drain per-provider queue."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     one_hour_ago = now - timedelta(hours=1)
     result: dict[str, float] = {}
 
@@ -2822,7 +2845,8 @@ def compute_per_provider_eta(
 
         # Count completions for this provider in last hour
         recent = sum(
-            1 for r in all_records
+            1
+            for r in all_records
             if parse_ts(r.get("ts", "")) >= one_hour_ago
             and r.get("exit") == 0
             and r.get("provider") == prov
@@ -2856,7 +2880,7 @@ def compute_eta(
         return 0.0
 
     # Count completions in the last hour across all providers
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     one_hour_ago = now - timedelta(hours=1)
     recent_completed = 0
     for rec in all_records:
@@ -2866,7 +2890,11 @@ def compute_eta(
 
     if recent_completed == 0:
         # No completions in the last hour; use avg duration from all records
-        durations = [r.get("duration", 0) for r in all_records if r.get("exit") == 0 and r.get("duration", 0) > 0]
+        durations = [
+            r.get("duration", 0)
+            for r in all_records
+            if r.get("exit") == 0 and r.get("duration", 0) > 0
+        ]
         if durations:
             avg_duration = sum(durations) / len(durations)
             total_active = sum(s["active"] for s in stats.values())
@@ -2880,15 +2908,15 @@ def compute_eta(
 
 def compute_throughput_trend(all_records: list[dict], bucket_minutes: int = 10) -> list[int]:
     """Compute completions per time bucket for sparkline."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     buckets: list[int] = []
     for i in range(6):
         bucket_end = now - timedelta(minutes=bucket_minutes * i)
         bucket_start = bucket_end - timedelta(minutes=bucket_minutes)
         count = sum(
-            1 for r in all_records
-            if bucket_start <= parse_ts(r.get("ts", "")) < bucket_end
-            and r.get("exit") == 0
+            1
+            for r in all_records
+            if bucket_start <= parse_ts(r.get("ts", "")) < bucket_end and r.get("exit") == 0
         )
         buckets.append(count)
     buckets.reverse()
@@ -2922,11 +2950,11 @@ def compute_recent_events(records: list[dict], n: int = 5) -> list[dict]:
     """
     if not records:
         return []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     events: list[dict] = []
     for rec in records:
         ts = parse_ts(rec.get("ts", ""))
-        if ts == datetime.min.replace(tzinfo=timezone.utc):
+        if ts == datetime.min.replace(tzinfo=UTC):
             age = 0.0
         else:
             age = max(0.0, (now - ts).total_seconds())
@@ -2951,7 +2979,8 @@ def compute_recent_events(records: list[dict], n: int = 5) -> list[dict]:
 
 
 def sort_running_by_completion(
-    running: list[dict], avg_durs: dict[str, float],
+    running: list[dict],
+    avg_durs: dict[str, float],
 ) -> list[dict]:
     """Sort running tasks by estimated remaining time (soonest first).
 
@@ -2959,6 +2988,7 @@ def sort_running_by_completion(
     """
     if not running:
         return []
+
     def _remaining(task: dict) -> float:
         tid = task.get("task_id", "")
         prov = task.get("provider", "")
@@ -2967,6 +2997,7 @@ def sort_running_by_completion(
             return float("inf")
         elapsed = compute_elapsed(tid)
         return max(0.0, avg - elapsed)
+
     return sorted(running, key=_remaining)
 
 
@@ -3061,13 +3092,15 @@ def build_json_snapshot(window_minutes: int = 60) -> dict:
         elapsed = compute_elapsed(tid)
         avg = avg_durs.get(prov, 0)
         remaining = estimate_task_completion(elapsed, avg)
-        running_tasks.append({
-            "task_id": tid,
-            "provider": prov,
-            "elapsed": elapsed,
-            "progress": estimate_task_progress(elapsed, avg),
-            "eta_remaining": remaining,
-        })
+        running_tasks.append(
+            {
+                "task_id": tid,
+                "provider": prov,
+                "elapsed": elapsed,
+                "progress": estimate_task_progress(elapsed, avg),
+                "eta_remaining": remaining,
+            }
+        )
 
     return {
         "pending": total_pending,
@@ -3164,7 +3197,17 @@ def build_running_tasks_table(
         }
         health_str = health_styles.get(health, health)
 
-        table.add_row(tid, prov, health_str, progress_str, eta_str, finishes_str, elapsed_str, through_str, prompt)
+        table.add_row(
+            tid,
+            prov,
+            health_str,
+            progress_str,
+            eta_str,
+            finishes_str,
+            elapsed_str,
+            through_str,
+            prompt,
+        )
 
     return table
 
@@ -3188,7 +3231,7 @@ def build_drain_progress(
     bar_str = "█" * filled + "░" * (bar_width - filled)
 
     line = Text()
-    line.append(f"  Drain: ", style="bold")
+    line.append("  Drain: ", style="bold")
     line.append(f"[{bar_str}] ", style="cyan")
     line.append(f"{pct:.0%} ", style="bold cyan")
     line.append(f"({total_completed}/{total}) ", style="dim")
@@ -3257,7 +3300,7 @@ def build_dashboard(
     drain_velocity = compute_drain_velocity(all_records, pending_by_provider)
     utilization = compute_provider_utilization(stats, PROVIDER_LIMITS)
     drain_rate = compute_drain_rate(all_records, window_minutes=10)
-    acceleration_raw = compute_throughput_acceleration(all_records)
+    compute_throughput_acceleration(all_records)
     acceleration = compute_throughput_acceleration(all_records, window_minutes=60)
     time_since_last = compute_time_since_last_event(all_records, exit_code=0)
     eta_bounds = compute_drain_eta_bounds(stats, pending_by_provider, all_records)
@@ -3268,7 +3311,9 @@ def build_dashboard(
     header.append("⬡ Golem Dashboard", style="bold cyan")
     header.append(f"  {now_str}", style="dim")
     header.append(f"  window={window_minutes}m", style="dim")
-    header.append(f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow")
+    header.append(
+        f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow"
+    )
     header.append(f"  drain: {drain_rate:.1f}/min", style="green" if drain_rate > 0 else "dim")
     if time_since_last >= 0:
         header.append(f"  last✓: {fmt_duration(time_since_last)}", style="dim")
@@ -3298,13 +3343,12 @@ def build_dashboard(
     table.add_column("Status", min_width=10)
 
     provider_order = ["zhipu", "infini", "volcano", "codex", "gemini"]
-    for prov in sorted(stats.keys(), key=lambda p: provider_order.index(p) if p in provider_order else 99):
+    for prov in sorted(
+        stats.keys(), key=lambda p: provider_order.index(p) if p in provider_order else 99
+    ):
         s = stats[prov]
         total = s["completed"] + s["failed"] + s["rate_limited"] + s["killed"]
-        if total > 0:
-            rate = s["success_count"] / total * 100
-        else:
-            rate = 0.0
+        rate = s["success_count"] / total * 100 if total > 0 else 0.0
 
         avg_dur = s["total_duration"] / s["total_count"] if s["total_count"] > 0 else 0
         queue = pending_by_provider.get(prov, 0)
@@ -3367,7 +3411,10 @@ def build_dashboard(
     summary.append(f"Done(window): {total_completed_window}  ", style="green")
     summary.append(f"Failed: {total_failed_window}  ", style="red")
     summary.append(f"RateLimited: {total_rl_window}  ", style="yellow")
-    summary.append(f"Success: {window_rate:.0f}%  ", style="bold green" if window_rate >= 80 else "bold yellow")
+    summary.append(
+        f"Success: {window_rate:.0f}%  ",
+        style="bold green" if window_rate >= 80 else "bold yellow",
+    )
 
     # ETA with wall-clock time and confidence
     confidence = compute_eta_confidence(all_records)
@@ -3379,7 +3426,9 @@ def build_dashboard(
 
     # === Drain progress ===
     drain_progress = build_drain_progress(
-        total_pending, total_completed_queue, eta_seconds,
+        total_pending,
+        total_completed_queue,
+        eta_seconds,
         drain_rate=drain_rate,
         eta_bounds=eta_bounds,
         acceleration=acceleration,
@@ -3418,7 +3467,7 @@ def build_dashboard(
 
     # === Cooldown info ===
     cooldown_lines = []
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     for prov, expires_str in cooldowns.items():
         if expires_str:
             exp = parse_ts(expires_str)
@@ -3452,7 +3501,7 @@ def tail_jsonl(file_path: Path, from_byte: int = 0):
                     yield line.strip()
                 else:
                     time.sleep(0.5)
-    except (OSError, KeyboardInterrupt):
+    except OSError, KeyboardInterrupt:
         return
 
 
@@ -3461,7 +3510,9 @@ def cmd_dash():
 
     parser = argparse.ArgumentParser(description="Golem task queue dashboard")
     parser.add_argument("--once", action="store_true", help="Single snapshot, no live refresh")
-    parser.add_argument("--window", type=int, default=60, help="Rolling window in minutes (default: 60)")
+    parser.add_argument(
+        "--window", type=int, default=60, help="Rolling window in minutes (default: 60)"
+    )
     args = parser.parse_args()
 
     if not JSONL_PATH.exists():
@@ -3472,6 +3523,7 @@ def cmd_dash():
     if args.once:
         panel = build_dashboard(window_minutes=args.window)
         from rich.console import Console
+
         Console().print(panel)
         return
 
@@ -3503,23 +3555,22 @@ def cmd_dash():
                         for line in new_lines:
                             line = line.strip()
                             if line:
-                                try:
+                                with contextlib.suppress(json.JSONDecodeError, ValueError):
                                     all_records_cache.append(json.loads(line))
-                                except (json.JSONDecodeError, ValueError):
-                                    pass
                         current_byte = new_size
                         # Periodically trim cache to prevent unbounded growth (keep last 10k)
                         if len(all_records_cache) > 10000:
                             all_records_cache = all_records_cache[-5000:]
 
-                live.update(build_dashboard(
-                    window_minutes=args.window,
-                    all_records_cache=all_records_cache,
-                ))
+                live.update(
+                    build_dashboard(
+                        window_minutes=args.window,
+                        all_records_cache=all_records_cache,
+                    )
+                )
                 time.sleep(2)
             except KeyboardInterrupt:
                 break
-
 
 
 # ══════════════════════════════════════════════════════════════════════

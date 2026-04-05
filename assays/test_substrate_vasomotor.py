@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 import os
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.metabolism.substrates.vasomotor import (
     VasomotorSubstrate,
     _parse_ts,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestParseTs:

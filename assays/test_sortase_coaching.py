@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 import unittest.mock
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +14,9 @@ from metabolon.sortase.coaching import (
     load_coaching_notes,
     search_coaching,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture()

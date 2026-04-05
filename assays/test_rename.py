@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.organelles.rename — scanning and dry-run logic."""
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.organelles.rename import (
     ScanResult,
@@ -14,6 +14,9 @@ from metabolon.organelles.rename import (
     scan,
     update_contents,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Helpers

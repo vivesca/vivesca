@@ -62,8 +62,7 @@ def format_callout(qmd_output: str, note_path: Path) -> str:
         if stripped.startswith("qmd://"):
             # qmd://notes/path/to/note.md:line #hash
             path_part = stripped.replace("qmd://notes/", "").split(":")[0]
-            if path_part.endswith(".md"):
-                path_part = path_part[:-3]
+            path_part = path_part.removesuffix(".md")
             current_title = path_part.split("/")[-1]
         elif stripped.startswith("Title:"):
             current_title = stripped.replace("Title:", "").strip()

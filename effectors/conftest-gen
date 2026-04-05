@@ -19,6 +19,7 @@ from typing import NamedTuple
 
 class Finding(NamedTuple):
     """A hardcoded path finding."""
+
     file: Path
     line: int
     col: int
@@ -60,14 +61,14 @@ def scan_file(filepath: Path) -> list[Finding]:
     for line_no, line in enumerate(lines, start=1):
         # Skip comment lines (but not inline comments)
         stripped = line.lstrip()
-        if stripped.startswith('#'):
+        if stripped.startswith("#"):
             continue
 
         for pattern, replacement in HOME_PATTERNS:
             for match in pattern.finditer(line):
                 original = match.group(0)
                 # Skip if this is inside a Path.home() already
-                if 'Path.home()' in line and 'Path.home()' in original:
+                if "Path.home()" in line and "Path.home()" in original:
                     continue
                 # Compute replacement
                 try:
@@ -77,13 +78,15 @@ def scan_file(filepath: Path) -> list[Finding]:
                 # Skip if replacement would be same or invalid
                 if replaced == original:
                     continue
-                findings.append(Finding(
-                    file=filepath,
-                    line=line_no,
-                    col=match.start() + 1,
-                    original=original,
-                    replacement=replaced,
-                ))
+                findings.append(
+                    Finding(
+                        file=filepath,
+                        line=line_no,
+                        col=match.start() + 1,
+                        original=original,
+                        replacement=replaced,
+                    )
+                )
     return findings
 
 
@@ -113,15 +116,13 @@ def apply_fix(filepath: Path, findings: list[Finding]) -> int:
             changes += 1
 
     if changes > 0:
-        filepath.write_text(''.join(lines))
+        filepath.write_text("".join(lines))
 
     return changes
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Scan and fix hardcoded home paths in test files"
-    )
+    parser = argparse.ArgumentParser(description="Scan and fix hardcoded home paths in test files")
     parser.add_argument(
         "--fix",
         action="store_true",
@@ -168,7 +169,7 @@ def main():
                 print(f"{rel_path}:{f.line}:{f.col}:")
                 print(f"  - {f.original}")
                 print(f"  + {f.replacement}")
-        print(f"\nRun with --fix to apply changes.")
+        print("\nRun with --fix to apply changes.")
         sys.exit(0)
 
     # Apply fixes

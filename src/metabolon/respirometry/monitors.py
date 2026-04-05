@@ -1,8 +1,10 @@
 """Deterministic spending monitors -- fraud, budget, subscriptions."""
 
 from collections import Counter
+from typing import TYPE_CHECKING
 
-from metabolon.respirometry.schema import ConsumptionEvent
+if TYPE_CHECKING:
+    from metabolon.respirometry.schema import ConsumptionEvent
 
 
 def flag_anomalies(transactions: list[ConsumptionEvent], threshold: float = 500.0) -> list[str]:

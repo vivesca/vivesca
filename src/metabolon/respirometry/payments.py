@@ -3,9 +3,12 @@
 import shutil
 import subprocess
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 HKT = timezone(timedelta(hours=8))
 FASTI_BINARY = shutil.which("fasti") or "fasti"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
@@ -16,6 +16,9 @@ from metabolon.organelles.endocytosis_rss.discover import (
     has_affinity,
     scout_sources,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _make_cfg(tmp_path: Path, **overrides) -> EndocytosisConfig:

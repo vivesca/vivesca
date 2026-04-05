@@ -9,12 +9,11 @@ Fallback chain:
 3. If still empty: print NEEDS_BROWSER
 """
 
-import sys
 import subprocess
-from typing import Optional
+import sys
 
 
-def run_command(cmd: list[str]) -> Optional[str]:
+def run_command(cmd: list[str]) -> str | None:
     """Run a command and return its stdout, stripped.
 
     Returns None if command fails or output is empty.
@@ -29,7 +28,7 @@ def run_command(cmd: list[str]) -> Optional[str]:
         )
         output = result.stdout.strip()
         return output if output else None
-    except (subprocess.CalledProcessError, Exception):
+    except subprocess.CalledProcessError, Exception:
         return None
 
 
@@ -44,13 +43,13 @@ def main() -> None:
         sys.exit(0)
 
     url = sys.argv[1]
-    
+
     # Step 1: Try defuddle
     output = run_command(["defuddle", "parse", url, "--md"])
     if output:
         print(output)
         sys.exit(0)
-    
+
     # Step 2: Try curl + html2text
     html = run_command(["curl", "-sL", url])
     if html:
@@ -67,9 +66,9 @@ def main() -> None:
             if output:
                 print(output)
                 sys.exit(0)
-        except (subprocess.CalledProcessError, Exception):
+        except subprocess.CalledProcessError, Exception:
             pass
-    
+
     # Step 3: Still empty, needs browser
     print("NEEDS_BROWSER")
     sys.exit(1)

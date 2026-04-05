@@ -8,6 +8,7 @@ Removes:
 
 Reports total bytes freed. Never touches germline source or epigenome.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,7 +22,7 @@ GERMLINE = HOME / "germline"
 EPIGENOME = HOME / "epigenome"
 
 # Age thresholds in seconds
-TMP_CUTOFF = 24 * 60 * 60        # 24 hours
+TMP_CUTOFF = 24 * 60 * 60  # 24 hours
 UV_CACHE_CUTOFF = 7 * 24 * 60 * 60  # 7 days
 
 
@@ -34,7 +35,7 @@ def _dir_size(path: Path) -> int:
                 total += _dir_size(Path(entry.path))
             elif entry.is_file(follow_symlinks=False):
                 total += entry.stat(follow_symlinks=False).st_size
-    except (PermissionError, FileNotFoundError, OSError):
+    except PermissionError, FileNotFoundError, OSError:
         pass
     return total
 
@@ -43,12 +44,11 @@ def _safe_path(path: Path, germline: Path = GERMLINE, epigenome: Path = EPIGENOM
     """Return False if path is inside germline source or epigenome."""
     try:
         resolved = path.resolve()
-        if resolved.is_relative_to(germline):
-            if resolved.name != "__pycache__":
-                return False
+        if resolved.is_relative_to(germline) and resolved.name != "__pycache__":
+            return False
         if resolved.is_relative_to(epigenome):
             return False
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return False
     return True
 
@@ -59,7 +59,7 @@ def clean_tmp_claude(now: float, dry_run: bool = False, tmp_root: Path = Path("/
     for entry in tmp_root.glob("claude-*"):
         try:
             mtime = entry.stat(follow_symlinks=False).st_mtime
-        except (FileNotFoundError, PermissionError, OSError):
+        except FileNotFoundError, PermissionError, OSError:
             continue
         if now - mtime < TMP_CUTOFF:
             continue
@@ -90,7 +90,7 @@ def clean_uv_archive(now: float, dry_run: bool = False, home: Path = HOME) -> in
     for entry in uv_dir.iterdir():
         try:
             mtime = entry.stat(follow_symlinks=False).st_mtime
-        except (FileNotFoundError, PermissionError, OSError):
+        except FileNotFoundError, PermissionError, OSError:
             continue
         if now - mtime < UV_CACHE_CUTOFF:
             continue
@@ -112,7 +112,9 @@ def clean_uv_archive(now: float, dry_run: bool = False, home: Path = HOME) -> in
     return freed
 
 
-def clean_pycache(dry_run: bool = False, germline: Path = GERMLINE, epigenome: Path = EPIGENOME) -> int:
+def clean_pycache(
+    dry_run: bool = False, germline: Path = GERMLINE, epigenome: Path = EPIGENOME
+) -> int:
     """Remove __pycache__ dirs inside germline/. Return bytes freed."""
     freed = 0
     if not germline.is_dir():
@@ -123,7 +125,7 @@ def clean_pycache(dry_run: bool = False, germline: Path = GERMLINE, epigenome: P
         try:
             if pycache.resolve().is_relative_to(epigenome.resolve()):
                 continue
-        except (OSError, ValueError):
+        except OSError, ValueError:
             continue
         size = _dir_size(pycache)
         if dry_run:

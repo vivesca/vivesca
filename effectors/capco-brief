@@ -75,7 +75,7 @@ _NEVER_NAME_WORDS = frozenset({
     "excessive", "agent", "agentic", "supply", "unexpected",
     "cascading", "rogue", "bounded", "control", "minimum",
     "due", "dynamic", "connect", "connectivity", "workflow",
-    "performance", "consulting", "talent", "context", "information",
+    "performance", "talent", "context", "information",
     "numbers", "jurisdiction", "matrix", "maturity", "operating",
     "capability", "transfer", "senior", "consultants", "approver",
     "assistant", "rugby", "captain", "rapport", "opportunities",
@@ -88,9 +88,9 @@ _NEVER_NAME_WORDS = frozenset({
     "kong", "scaled", "fixed", "managed", "common", "principle",
     "four", "low", "medium", "high", "big", "inference", "decision",
     "baringa", "neurons", "alan", "turing", "hawaiian", "morgan",
-    "stanley", "delta", "managed", "one", "up", "not",
+    "stanley", "delta", "one", "up", "not",
     "wells", "fargo", "manager", "hiring", "draft", "pre",
-    "agentic", "tiering", "afternoon", "background",
+    "tiering", "afternoon", "background",
     "divergences", "documents", "requirements", "principles",
     "design",
     # additional false positives from tables
@@ -114,9 +114,8 @@ def _is_person_name(s: str) -> bool:
         # strip trailing punctuation from table extraction artifacts
         w_clean = w.rstrip(":.,;")
         # each word must be purely alphabetic, title-cased, ≥2 chars
-        if len(w_clean) < 2 or not w_clean.isalpha():
-            if w_clean.lower() not in ("dr", "mr", "mrs", "ms"):
-                return False
+        if (len(w_clean) < 2 or not w_clean.isalpha()) and w_clean.lower() not in ("dr", "mr", "mrs", "ms"):
+            return False
         if not w_clean[0].isupper():
             return False
         if w_clean.lower() in _NEVER_NAME_WORDS:
@@ -133,7 +132,7 @@ def cmd_stakeholders(_args: argparse.Namespace) -> None:
         stem = fpath.stem
 
         # Pattern 1: "### Firstname Lastname — Role" (Key People.md)
-        for m in re.finditer(r"^###\s+(.+?)\s*[—–-]\s*(.+)$", text, re.M):
+        for m in re.finditer(r"^###\s+(.+?)\s*[—–-]\s*(.+)$", text, re.MULTILINE):
             name = m.group(1).strip()
             role = m.group(2).split("\n")[0].strip()
             if _is_person_name(name) and role:
@@ -271,7 +270,7 @@ def cmd_checklist(_args: argparse.Namespace) -> None:
     for fpath in files:
         text = _read(fpath)
         stem = fpath.stem
-        for m in re.finditer(r"^- \[ \] (.+)$", text, re.M):
+        for m in re.finditer(r"^- \[ \] (.+)$", text, re.MULTILINE):
             item = m.group(1).strip()
             if item:
                 items.append((stem, item))

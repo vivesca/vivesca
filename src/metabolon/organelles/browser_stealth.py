@@ -9,8 +9,10 @@ Provides four public functions:
 
 import asyncio
 import random
+from typing import TYPE_CHECKING
 
-from playwright.async_api import BrowserContext, Page
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext, Page
 
 # 20 real Chrome User-Agent strings (Chrome 120-131 across Win/Mac/Linux).
 CHROME_USER_AGENTS: list[str] = [

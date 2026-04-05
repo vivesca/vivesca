@@ -23,7 +23,6 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 ENV_FILE = Path.home() / ".env.fly"
 
@@ -51,7 +50,7 @@ class HealthResult:
     model: str
     exit_code: int
     has_output: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def source_env_file(env_file: Path) -> dict[str, str]:
@@ -195,9 +194,7 @@ def print_json(results: list[HealthResult]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Health check for golem providers."
-    )
+    parser = argparse.ArgumentParser(description="Health check for golem providers.")
     parser.add_argument(
         "--provider",
         choices=list(PROVIDERS.keys()),
@@ -223,9 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         env.update(sourced)
 
     # Determine providers to check
-    providers_to_check = (
-        [args.provider] if args.provider else list(PROVIDERS.keys())
-    )
+    providers_to_check = [args.provider] if args.provider else list(PROVIDERS.keys())
 
     # Run health checks
     results: list[HealthResult] = []

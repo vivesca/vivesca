@@ -7,12 +7,15 @@ coverage. All tests mock async_playwright so no real browser is launched.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from metabolon.organelles.browser import fetch
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _mock_pw_stack(

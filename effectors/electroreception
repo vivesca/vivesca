@@ -96,7 +96,7 @@ def main():
 
     results = []
     for row in cur.fetchall():
-        rowid, dt, sender, text, body, from_me = row
+        _rowid, dt, sender, text, body, from_me = row
         content = text or extract_text(body)
         if not content:
             continue

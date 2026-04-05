@@ -10,13 +10,16 @@ These tools give the skill grounded facts before dispatch.
 """
 
 import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.locus import chromatin, endocytosis_cargo
 from metabolon.morphology import Secretion
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _SPARKS = chromatin / "Consulting" / "_sparks.md"
 _THALAMUS = chromatin / "Thalamus.md"

@@ -80,14 +80,14 @@ def get_metabolon_modules() -> set[str]:
 
     # Root-level modules
     for f in metabolon_dir.glob("*.py"):
-        if f.name not in ("__init__.py",):
+        if f.name != "__init__.py":
             modules.add(f.stem)
 
     # Subdirectory modules
     for subdir in metabolon_dir.iterdir():
         if subdir.is_dir() and not subdir.name.startswith("__"):
             for f in subdir.glob("*.py"):
-                if f.name not in ("__init__.py",):
+                if f.name != "__init__.py":
                     # Store as subdir/module format
                     modules.add(f"{subdir.name}/{f.stem}")
 

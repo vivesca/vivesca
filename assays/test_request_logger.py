@@ -3,11 +3,14 @@ from __future__ import annotations
 """Tests for metabolon.server.RequestLogger — JSONL request log persistence."""
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from metabolon.server import DEFAULT_REQUEST_LOG, RequestLogger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── helpers ───────────────────────────────────────────────────────────
 

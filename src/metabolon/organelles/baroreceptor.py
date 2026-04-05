@@ -56,13 +56,15 @@ def _format_rain(mm: float) -> str:
 def build_weather_line(now: dict, find: dict, warn: dict) -> str:
     # humidity — first entry
     humidity = None
-    hum_data = now.get("humidity", {}).get("data", [])
+    hum_raw = now.get("humidity", {})
+    hum_data = hum_raw.get("data", []) if isinstance(hum_raw, dict) else []
     if hum_data:
         humidity = _to_int(hum_data[0].get("value"))
 
     # UV — first entry
     uv_val = 0
-    uv_data = now.get("uvindex", {}).get("data", [])
+    uv_raw = now.get("uvindex", {})
+    uv_data = uv_raw.get("data", []) if isinstance(uv_raw, dict) else []
     if uv_data:
         uv_val = _to_int(uv_data[0].get("value")) or 0
 
@@ -85,7 +87,8 @@ def build_weather_line(now: dict, find: dict, warn: dict) -> str:
 
     # rainfall — Eastern District with Chai Wan fallback
     rain_mm = 0.0
-    rain_data = now.get("rainfall", {}).get("data", [])
+    rain_raw = now.get("rainfall", {})
+    rain_data = rain_raw.get("data", []) if isinstance(rain_raw, dict) else []
     if rain_data:
         val = _get_place_value(rain_data, "Eastern District", "max", cast=float)
         if val is None:

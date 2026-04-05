@@ -2,11 +2,14 @@
 
 import re
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pypdf import PdfReader
 
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Transaction line: DD-MON DD-MON description  location  HKG  amount [CR]
 _TXN_PAT = re.compile(

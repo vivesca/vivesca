@@ -4,9 +4,12 @@ import json
 import os
 import sys
 import tempfile
-from collections.abc import Generator, Mapping
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping
+    from pathlib import Path
 
 
 @contextlib.contextmanager

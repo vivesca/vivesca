@@ -15,8 +15,12 @@ Usage:
   oci-region-subscribe              # one-shot check
   oci-region-subscribe --loop       # poll every 5 min until success
 """
+import contextlib
+import json
 import os
-import subprocess, sys, time, json
+import subprocess
+import sys
+import time
 
 TENANCY = "ocid1.tenancy.oc1..aaaaaaaapkyvu7vwtpn5x7fgvcoy45wo6m457s4c6frhcwqivfzig5mizgya"
 REGIONS = ["KIX", "SYD", "ICN"]  # Osaka, Sydney, Seoul
@@ -25,7 +29,7 @@ ENV = {"SUPPRESS_LABEL_WARNING": "True"}
 def oci(*args):
     try:
         r = subprocess.run(
-            ["oci"] + list(args),
+            ["oci", *list(args)],
             capture_output=True, text=True,
             env={**os.environ, **ENV},
             timeout=300,
@@ -45,7 +49,7 @@ def get_subscribed_regions():
         return []
 
 def subscribe_region(key):
-    rc, out, err = oci("iam", "region-subscription", "create",
+    rc, _out, err = oci("iam", "region-subscription", "create",
                        "--tenancy-id", TENANCY, "--region-key", key)
     if rc == 0:
         return True, "OK"
@@ -54,10 +58,8 @@ def subscribe_region(key):
     return False, err.strip()[:100]
 
 def notify(msg):
-    try:
+    with contextlib.suppress(Exception):
         subprocess.run(["deltos", msg], capture_output=True, timeout=10)
-    except Exception:
-        pass
 
 def main():
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -87,7 +89,7 @@ def main():
             if not loop:
                 print("  PAYG not active. Run with --loop to poll.")
                 sys.exit(1)
-            print(f"  Sleeping 5 min...")
+            print("  Sleeping 5 min...")
             time.sleep(300)
             continue
 

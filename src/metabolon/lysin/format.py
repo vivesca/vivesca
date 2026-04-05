@@ -1,7 +1,9 @@
 import json
 import textwrap
+from typing import TYPE_CHECKING
 
-from metabolon.lysin.fetch import BioArticle
+if TYPE_CHECKING:
+    from metabolon.lysin.fetch import BioArticle
 
 
 def format_text(article: BioArticle, full: bool = False) -> str:

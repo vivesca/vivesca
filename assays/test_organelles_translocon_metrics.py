@@ -6,7 +6,7 @@ stats_by_backend, and format_report with emphasis on edge cases."""
 
 import json
 from datetime import timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,6 +17,9 @@ from metabolon.organelles.translocon_metrics import (
     record,
     stats_by_backend,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures

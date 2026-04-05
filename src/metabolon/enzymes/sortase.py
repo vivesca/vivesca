@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from metabolon.morphology import Secretion
 
@@ -17,9 +18,9 @@ from metabolon.morphology import Secretion
 class SortaseResult(Secretion):
     success: bool = True
     message: str = ""
-    tasks: list[dict] = []
-    files_changed: list[str] = []
-    validation_issues: list[dict] = []
+    tasks: list[dict] = Field(default_factory=list)
+    files_changed: list[str] = Field(default_factory=list)
+    validation_issues: list[dict] = Field(default_factory=list)
     duration_s: float = 0.0
 
 
@@ -29,8 +30,8 @@ class RouteResult(Secretion):
 
 
 class StatsResult(Secretion):
-    entries: list[dict] = []
-    per_tool: dict = {}
+    entries: list[dict] = Field(default_factory=list)
+    per_tool: dict = Field(default_factory=dict)
     total_runs: int = 0
 
 

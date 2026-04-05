@@ -7,7 +7,10 @@ Uses AST analysis to check:
 """
 
 import ast
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def probe_gastrulation(project_dir: Path) -> list[str]:

@@ -9,27 +9,31 @@ Usage:
     golem-top --watch   # refresh every 5 seconds
     golem-top --json    # machine-readable output
 """
+
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
-import re
 from collections import OrderedDict
 from datetime import datetime
 
 # ── parsing helpers ──────────────────────────────────────────────
 
+
 def get_ps_output() -> str:
     """Run ps and return raw output (pid, etime, args)."""
     result = subprocess.run(
         ["ps", "-eo", "pid,etime,args"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         timeout=300,
     )
     return result.stdout
+
 
 def parse_ps_lines(raw: str) -> list[dict]:
     """Parse ps -eo pid,etime,args into structured dicts.
@@ -75,9 +79,11 @@ def parse_ps_lines(raw: str) -> list[dict]:
         entries.append({"pid": pid, "etime": etime, "args": args, "raw_line": line})
     return entries
 
+
 PROVIDER_RE = re.compile(r"--provider\s+(\S+)")
 MAX_TURNS_RE = re.compile(r"--max-turns\s+(\d+)")
 GOLEM_REVIEWER_RE = re.compile(r"python3\s+\S+/golem-reviewer")
+
 
 def classify_process(args: str) -> dict | None:
     """Classify a ps args line into a golem task or None.
@@ -88,9 +94,8 @@ def classify_process(args: str) -> dict | None:
     # Match golem-runner tasks: either "effectors/golem --provider" or
     # "/bin/sh -c golem --provider"
     is_golem_task = (
-        ("effectors/golem" in args or "/bin/sh -c golem " in args)
-        and "--provider" in args
-    )
+        "effectors/golem" in args or "/bin/sh -c golem " in args
+    ) and "--provider" in args
     if is_golem_task:
         m_prov = PROVIDER_RE.search(args)
         m_turns = MAX_TURNS_RE.search(args)
@@ -105,12 +110,12 @@ def classify_process(args: str) -> dict | None:
         rest = args
         # Strip the shell prefix
         if rest.startswith("/bin/sh -c golem "):
-            rest = rest[len("/bin/sh -c golem "):]
+            rest = rest[len("/bin/sh -c golem ") :]
         elif rest.startswith("bash "):
             # Remove "bash /path/to/golem "
             m_path = re.match(r"bash\s+\S+\s+", rest)
             if m_path:
-                rest = rest[m_path.end():]
+                rest = rest[m_path.end() :]
 
         # Strip --provider X --max-turns N
         rest = PROVIDER_RE.sub("", rest)
@@ -165,11 +170,11 @@ def format_duration(etime: str) -> str:
         return f"{secs // 60}m{secs % 60:02d}s"
     elif secs < 86400:
         h, rem = divmod(secs, 3600)
-        m, s = divmod(rem, 60)
+        m, _s = divmod(rem, 60)
         return f"{h}h{m:02d}m"
     else:
         d, rem = divmod(secs, 86400)
-        h, rem2 = divmod(rem, 3600)
+        h, _rem2 = divmod(rem, 3600)
         return f"{d}d{h}h"
 
 
@@ -195,16 +200,18 @@ def group_tasks(entries: list[dict]) -> list[dict]:
         parent = min(procs, key=lambda p: p["pid"])
         # Duration = longest etime (parent started first)
         longest = max(procs, key=lambda p: etime_to_seconds(p["etime"]))
-        results.append({
-            "pid": parent["pid"],
-            "provider": parent["provider"],
-            "max_turns": parent["max_turns"],
-            "kind": parent["kind"],
-            "etime": longest["etime"],
-            "duration": format_duration(longest["etime"]),
-            "task": task,
-            "num_procs": len(procs),
-        })
+        results.append(
+            {
+                "pid": parent["pid"],
+                "provider": parent["provider"],
+                "max_turns": parent["max_turns"],
+                "kind": parent["kind"],
+                "etime": longest["etime"],
+                "duration": format_duration(longest["etime"]),
+                "task": task,
+                "num_procs": len(procs),
+            }
+        )
     return results
 
 
@@ -237,11 +244,7 @@ def render_table(tasks: list[dict]) -> str:
 
     lines = []
     header = (
-        f"{'PID':>{pid_w}}  "
-        f"{'PROVIDER':<{prov_w}}  "
-        f"{'DUR':>{dur_w}}  "
-        f"{'PROCS':>{proc_w}}  "
-        f"TASK"
+        f"{'PID':>{pid_w}}  {'PROVIDER':<{prov_w}}  {'DUR':>{dur_w}}  {'PROCS':>{proc_w}}  TASK"
     )
     lines.append(header)
     lines.append("-" * len(header))
@@ -263,7 +266,9 @@ def render_table(tasks: list[dict]) -> str:
         providers[t["provider"]] = providers.get(t["provider"], 0) + 1
     prov_summary = "  ".join(f"{k}:{v}" for k, v in sorted(providers.items()))
     lines.append("")
-    lines.append(f"Total: {len(tasks)} task(s), {sum(t['num_procs'] for t in tasks)} process(es)  [{prov_summary}]")
+    lines.append(
+        f"Total: {len(tasks)} task(s), {sum(t['num_procs'] for t in tasks)} process(es)  [{prov_summary}]"
+    )
 
     return "\n".join(lines)
 

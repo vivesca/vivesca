@@ -10,12 +10,15 @@ The fetch/status tools are CLI-delegating and tested via integration only.
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from metabolon.organelles.endocytosis_rss.relevance import _read_jsonl
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Fixtures

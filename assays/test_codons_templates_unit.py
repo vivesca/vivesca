@@ -3,6 +3,8 @@
 Tests focus on return value structure, edge cases, and parameter handling.
 """
 
+from typing import ClassVar
+
 import pytest
 
 from metabolon.codons.templates import compose_signal, morning_brief, research
@@ -203,16 +205,16 @@ class TestNoStaleReferences:
     """Guard tests: ensure no stale/renamed tool or resource names appear."""
 
     # Tools that were renamed — old names must not appear in any template output
-    STALE_TOOL_NAMES = ["histone_search"]
+    STALE_TOOL_NAMES: ClassVar[list] = ["histone_search"]
     # Resource URIs that were renamed — old URIs must not appear
-    STALE_RESOURCE_URIS = ["vivesca://calendar/today"]
+    STALE_RESOURCE_URIS: ClassVar[list] = ["vivesca://calendar/today"]
     # Current valid tool names that SHOULD appear where referenced
-    VALID_TOOLS = {
+    VALID_TOOLS: ClassVar[dict] = {
         "rheotaxis": lambda: research(topic="x"),
         "histone": lambda: morning_brief(),
     }
     # Current valid resource URIs that SHOULD appear where referenced
-    VALID_RESOURCE_URIS = {
+    VALID_RESOURCE_URIS: ClassVar[dict] = {
         "vivesca://circadian": lambda: morning_brief(),
         "vivesca://budget": lambda: morning_brief(include_budget=True),
     }

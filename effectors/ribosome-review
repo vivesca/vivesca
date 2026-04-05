@@ -325,7 +325,7 @@ def _check_filler_content(text: str) -> bool:
     from collections import Counter
 
     counts = Counter(s.lower() for s in sentences)
-    for _sentence, cnt in counts.items():
+    for cnt in counts.values():
         if cnt > 3:
             return True
     # Check if >50% of unique sentences are very short (<5 words)

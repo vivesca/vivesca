@@ -26,6 +26,7 @@ ba = "ba"
 BA = "BA"
 typ = "typ"
 mis = "mis"
+ist = "ist"
 
 [files]
 extend-exclude = [

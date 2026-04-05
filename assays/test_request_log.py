@@ -191,7 +191,7 @@ async def test_middleware_writes_jsonl_on_failure(tmp_path: Path):
     ctx = _make_context("failing_tool")
     call_next = AsyncMock(side_effect=ValueError("boom"))
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         await middleware.on_call_tool(ctx, call_next)
 
     lines = log_path.read_text().strip().splitlines()

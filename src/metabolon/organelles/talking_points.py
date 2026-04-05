@@ -117,9 +117,10 @@ def _score_relevance(asset: dict, client: str, context: str) -> float:
 
     # Banking/AI bonus for FS clients
     fs_signals = {"bank", "hsbc", "insurance", "wealth", "capital", "payment"}
-    if any(s in client_lower for s in fs_signals):
-        if any(w in text for w in ["banking", "financial", "regulatory", "hkma", "compliance"]):
-            score += 0.1
+    if any(s in client_lower for s in fs_signals) and any(
+        w in text for w in ["banking", "financial", "regulatory", "hkma", "compliance"]
+    ):
+        score += 0.1
 
     return min(1.0, score)
 

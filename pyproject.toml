@@ -87,18 +87,56 @@ dev = [
 target-version = "py314"
 line-length = 99
 src = [ "src" ]
+extend-include = [ "effectors/*" ]
 extend-exclude = [
   ".pyright*",
   ".tmp",
+  "effectors/*.conf",
+  "effectors/*.plist",
+  # Non-Python extensionless scripts + data files in effectors/
+  "effectors/*.sh",
+  "effectors/*.shortcut",
+  "effectors/*.yaml",
+  "effectors/__pycache__",
+  "effectors/cg",
+  "effectors/ci-push",
+  "effectors/ck",
+  "effectors/cleanup-stuck",
+  "effectors/compound-engineering-status",
+  "effectors/compound-engineering-test",
+  "effectors/evergreen",
+  "effectors/gap_junction_sync",
+  "effectors/gemmation-env",
+  "effectors/golem",
+  "effectors/golem-daemon",
+  "effectors/golem-dash",
+  "effectors/hatchet-golem",
+  "effectors/plan-exec",
+  "effectors/polysome/docker-compose.yml",
+  "effectors/polysome/uv.lock",
+  "effectors/pre-commit-germline",
+  "effectors/ribosome",
+  "effectors/ribosome-daemon",
+  "effectors/soma",
+  "effectors/soma-activate",
+  "effectors/soma-bootstrap",
+  "effectors/speculor",
+  "effectors/start-vivesca",
+  "effectors/supervisor-env",
+  "effectors/temporal-golem",
+  "effectors/tm",
+  "effectors/transduction-daily-run",
+  "effectors/update-compound-engineering",
+  "effectors/vivesca-restart",
+  "effectors/wacli-ro",
   "loci/copia",
   "membrane/cytoskeleton/.archived-pre-consolidation",
   "membrane/receptors/.archive",
   "membrane/receptors/.system",
 ]
 
-lint.select = [ "B", "C4", "E", "F", "FURB", "I", "LOG", "PERF", "PT", "RUF", "SIM", "UP" ]
+lint.select = [ "B", "C4", "E", "F", "FURB", "I", "LOG", "PERF", "PT", "RUF", "SIM", "TC", "UP" ]
 lint.ignore = [
-  "B007",
   "C408",
   "E501",
   "FURB110",
@@ -113,66 +151,35 @@ lint.ignore = [
   "PT018",
   "PT019",
   "PT027",
-  "RUF001",
-  "RUF002",
-  "RUF003",
-  "RUF012",
   "SIM115",
   "SIM117",
 ]
-# E402: from __future__ import annotations pushes imports below module docstring in test files;
-# effectors use sys.path.insert before later imports
-# Tests use E402 (sys.path manipulation), E741/F821 (exec'd effector names)
-# Tests: E402 (sys.path), E741/F821 (exec'd names), B007 (loop vars),
-# B017/B018 (assert patterns), B904 (raise-from), SIM105 (suppress)
-lint.per-file-ignores."assays/*" = [
-  "B007",
-  "B017",
-  "B018",
-  "B904",
-  "E402",
-  "E741",
-  "F821",
-  "RUF043",
-  "SIM102",
-  "SIM105",
-]
-lint.per-file-ignores."effectors/*" = [ "E402" ]
-lint.per-file-ignores."effectors/hatchet-golem/*" = [ "E402" ]
-lint.per-file-ignores."effectors/lacuna.py" = [ "B904", "SIM102" ]
-# Old temporal-golem (pre-polysome, kept for reference)
-lint.per-file-ignores."effectors/temporal-golem/*" = [ "E402", "RUF012" ]
-lint.per-file-ignores."effectors/temporal-golem/worker.py" = [ "E741", "RUF043" ]
-# Cytoskeleton hooks use sys.path, exec patterns
-lint.per-file-ignores."membrane/cytoskeleton/*" = [ "E402", "RUF001", "RUF012" ]
-lint.per-file-ignores."src/metabolon/enzymes/_parallel_search.py" = [ "B904", "SIM105" ]
-# CJK in search/content organelles
+# E402: sys.path manipulation before imports (tests, effectors, hooks)
+lint.per-file-ignores."assays/*" = [ "E402", "E741", "F821", "RUF001", "RUF002", "RUF003" ]
+lint.per-file-ignores."effectors/*" = [ "E402", "F821", "RUF001" ]
+lint.per-file-ignores."membrane/cytoskeleton/*" = [ "E402" ]
+# RUF001/2/3: CJK characters in content-processing code
 lint.per-file-ignores."src/metabolon/enzymes/endocytosis.py" = [ "RUF001" ]
+# E402: conditional/lazy imports in organelles
 lint.per-file-ignores."src/metabolon/enzymes/integrin.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/enzymes/interoception.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/enzymes/secretory.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/metabolism/*" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/organelles/baroreceptor.py" = [ "E402", "RUF001" ]
-lint.per-file-ignores."src/metabolon/organelles/circadian_clock.py" = [ "RUF001" ]
+lint.per-file-ignores."src/metabolon/organelles/circadian_clock.py" = [ "RUF001", "RUF002" ]
 lint.per-file-ignores."src/metabolon/organelles/demethylase.py" = [ "RUF001" ]
-lint.per-file-ignores."src/metabolon/organelles/effector.py" = [ "B904" ]
-# CJK content in endocytosis pipeline
 lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/*" = [ "RUF001" ]
-lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/cli.py" = [
-  "B008",
-] # typer.Option() in signatures is idiomatic
+lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/cli.py" = [ "B008" ]
 lint.per-file-ignores."src/metabolon/organelles/endocytosis_rss/relevance.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/organelles/engram.py" = [ "RUF001", "RUF002", "RUF003" ]
-# E402: lazy/conditional imports — intentional for optional deps or sys.path manipulation
 lint.per-file-ignores."src/metabolon/organelles/pacemaker.py" = [ "E402" ]
 lint.per-file-ignores."src/metabolon/organelles/potentiation.py" = [ "E402", "RUF001" ]
-lint.per-file-ignores."src/metabolon/organelles/quorum.py" = [ "RUF001" ]
+lint.per-file-ignores."src/metabolon/organelles/quorum.py" = [ "RUF001", "RUF002" ]
 lint.per-file-ignores."src/metabolon/organelles/statolith.py" = [ "E402", "RUF001" ]
-lint.per-file-ignores."src/metabolon/organelles/talking_points.py" = [ "SIM102", "SIM105" ]
 lint.per-file-ignores."src/metabolon/pinocytosis/__init__.py" = [ "E402" ]
+# F401: re-export in __init__
 lint.per-file-ignores."src/metabolon/respirometry/parsers/__init__.py" = [ "F401" ]
 lint.per-file-ignores."src/metabolon/sortase/graph.py" = [ "E402" ]
-lint.per-file-ignores."src/metabolon/sortase/validator.py" = [ "B904", "RUF034" ]
 lint.isort.known-first-party = [ "metabolon" ]
 
 [tool.codespell]
@@ -226,7 +233,7 @@ skip = [
 #   wit         — "dry wit" in openclaw persona docs
 #   thats       — intentional informal-speech literals in synapse.py ("thats all", "thats it")
 #   stilus      — Latin stylus (original meaning preserved)
-ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin,opps,allo,ans,afile,crasher,te,graphis,pilon,unknow,grammers,coo,jus,trama,fpr,pre-emptive"
+ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin,opps,allo,ans,afile,crasher,te,graphis,pilon,unknow,grammers,coo,jus,trama,fpr,pre-emptive,ist"
 
 [tool.deptry]
 # cryptography: used by telethon/playwright at runtime, not imported directly

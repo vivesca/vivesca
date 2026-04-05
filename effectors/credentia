@@ -11,12 +11,12 @@ Usage:
     tessera-google --project consilium-489403 --scope gmail.modify --name "Gmail Vivesca"
     tessera-google --project consilium-489403 --scope gmail.modify --name "Gmail Vivesca" --store
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -30,7 +30,9 @@ MAC_HOST = "mac"
 def ssh(cmd: str, timeout: int = 30) -> str:
     result = subprocess.run(
         ["ssh", MAC_HOST, cmd],
-        capture_output=True, text=True, timeout=timeout,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     if result.returncode != 0 and result.stderr:
         print(f"  ssh stderr: {result.stderr[:200]}", file=sys.stderr)
@@ -40,8 +42,8 @@ def ssh(cmd: str, timeout: int = 30) -> str:
 def step1_enable_api(project: str, scope: str) -> None:
     api_name = f"{scope.split('.')[0]}.googleapis.com"
     print(f"[1/4] Enabling {api_name} on {project}...")
-    ssh(f'gcloud services enable {api_name} --project={project}', timeout=60)
-    print(f"  Done.")
+    ssh(f"gcloud services enable {api_name} --project={project}", timeout=60)
+    print("  Done.")
 
 
 def step2_create_client(project: str, name: str) -> tuple[str, str]:
@@ -137,11 +139,12 @@ with sync_playwright() as p:
         tmp.write(script)
         tmp_path = tmp.name
 
-    subprocess.run(["scp", tmp_path, f"{MAC_HOST}:/tmp/_tessera_create.py"],
-                   capture_output=True, timeout=10)
+    subprocess.run(
+        ["scp", tmp_path, f"{MAC_HOST}:/tmp/_tessera_create.py"], capture_output=True, timeout=10
+    )
     os.unlink(tmp_path)
 
-    output = ssh('uv run --with playwright python3 /tmp/_tessera_create.py', timeout=120)
+    output = ssh("uv run --with playwright python3 /tmp/_tessera_create.py", timeout=120)
 
     client_id = ""
     client_secret = ""
@@ -164,22 +167,24 @@ def step3_oauth_flow(client_id: str, client_secret: str, scope: str) -> str:
     """Run OAuth consent flow on Mac, return refresh token."""
     print(f"[3/4] Running OAuth consent flow (scope: {scope})...")
 
-    creds_json = json.dumps({
-        "installed": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": ["http://localhost"],
+    creds_json = json.dumps(
+        {
+            "installed": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": ["http://localhost"],
+            }
         }
-    })
+    )
 
-    script = f'''
+    script = f"""
 import json
 from google_auth_oauthlib.flow import InstalledAppFlow
 import tempfile, os
 
-creds_data = {repr(creds_json)}
+creds_data = {creds_json!r}
 with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
     f.write(creds_data)
     creds_path = f.name
@@ -188,19 +193,22 @@ flow = InstalledAppFlow.from_client_secrets_file(creds_path, ["https://www.googl
 creds = flow.run_local_server(port={OAUTH_LOCAL_PORT}, open_browser=True, timeout_seconds=180)
 os.unlink(creds_path)
 print(f"REFRESH_TOKEN={{creds.refresh_token}}")
-'''
+"""
 
     # Start flow in background on Mac
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
         tmp.write(script)
         tmp_path = tmp.name
 
-    subprocess.run(["scp", tmp_path, f"{MAC_HOST}:/tmp/_tessera_oauth.py"],
-                   capture_output=True, timeout=10)
+    subprocess.run(
+        ["scp", tmp_path, f"{MAC_HOST}:/tmp/_tessera_oauth.py"], capture_output=True, timeout=10
+    )
     os.unlink(tmp_path)
 
-    ssh(f'nohup uv run --with google-auth-oauthlib --with google-api-python-client '
-        f'python3 /tmp/_tessera_oauth.py > /tmp/_tessera_oauth.log 2>&1 &')
+    ssh(
+        "nohup uv run --with google-auth-oauthlib --with google-api-python-client "
+        "python3 /tmp/_tessera_oauth.py > /tmp/_tessera_oauth.log 2>&1 &"
+    )
 
     # Wait for browser to open, then automate consent
     time.sleep(10)
@@ -208,7 +216,7 @@ print(f"REFRESH_TOKEN={{creds.refresh_token}}")
 
     # Wait for flow to complete
     time.sleep(10)
-    log = ssh('cat /tmp/_tessera_oauth.log')
+    log = ssh("cat /tmp/_tessera_oauth.log")
 
     refresh_token = ""
     for line in log.splitlines():
@@ -225,8 +233,9 @@ print(f"REFRESH_TOKEN={{creds.refresh_token}}")
 
 def _automate_consent() -> None:
     """Click through Google consent screens via AppleScript."""
+
     def chrome_js(js_code: str) -> str:
-        escaped = js_code.replace('\\', '\\\\').replace('"', '\\"')
+        escaped = js_code.replace("\\", "\\\\").replace('"', '\\"')
         return ssh(
             f'osascript -e \'tell application "Google Chrome" to execute '
             f'active tab of first window javascript "{escaped}"\'',
@@ -238,38 +247,56 @@ def _automate_consent() -> None:
     time.sleep(5)
 
     # Unverified app warning
-    chrome_js('var e=document.querySelectorAll("a,button");for(var i=0;i<e.length;i++)if(e[i].innerText.indexOf("Advanced")!==-1){e[i].click();break;}"ok"')
+    chrome_js(
+        'var e=document.querySelectorAll("a,button");for(var i=0;i<e.length;i++)if(e[i].innerText.indexOf("Advanced")!==-1){e[i].click();break;}"ok"'
+    )
     time.sleep(2)
-    chrome_js('var e=document.querySelectorAll("a,button");for(var i=0;i<e.length;i++)if(e[i].innerText.indexOf("Go to")!==-1&&e[i].innerText.indexOf("unsafe")!==-1){e[i].click();break;}"ok"')
+    chrome_js(
+        'var e=document.querySelectorAll("a,button");for(var i=0;i<e.length;i++)if(e[i].innerText.indexOf("Go to")!==-1&&e[i].innerText.indexOf("unsafe")!==-1){e[i].click();break;}"ok"'
+    )
     time.sleep(5)
 
     # Grant consent
-    chrome_js('var b=document.querySelectorAll("button");for(var i=0;i<b.length;i++)if(b[i].innerText.trim()==="Continue"){b[i].click();break;}"ok"')
+    chrome_js(
+        'var b=document.querySelectorAll("button");for(var i=0;i<b.length;i++)if(b[i].innerText.trim()==="Continue"){b[i].click();break;}"ok"'
+    )
 
 
-def step4_store(client_id: str, client_secret: str, refresh_token: str,
-                scope: str, project: str, name: str) -> None:
+def step4_store(
+    client_id: str, client_secret: str, refresh_token: str, scope: str, project: str, name: str
+) -> None:
     """Store credentials in 1Password and print env vars."""
-    print(f"[4/4] Storing credentials...")
+    print("[4/4] Storing credentials...")
 
-    subprocess.run([
-        "op", "item", "create", "--vault", "Agents",
-        "--category", "API Credential",
-        "--title", f"{name} OAuth",
-        "--tags", f"oauth,{scope.split('.')[0]},vivesca",
-        f"client_id={client_id}",
-        f"client_secret={client_secret}",
-        f"refresh_token={refresh_token}",
-        f"project={project}",
-        f"scope={scope}",
-    ], capture_output=True, timeout=15)
+    subprocess.run(
+        [
+            "op",
+            "item",
+            "create",
+            "--vault",
+            "Agents",
+            "--category",
+            "API Credential",
+            "--title",
+            f"{name} OAuth",
+            "--tags",
+            f"oauth,{scope.split('.')[0]},vivesca",
+            f"client_id={client_id}",
+            f"client_secret={client_secret}",
+            f"refresh_token={refresh_token}",
+            f"project={project}",
+            f"scope={scope}",
+        ],
+        capture_output=True,
+        timeout=15,
+    )
 
     prefix = scope.split(".")[0].upper()
-    print(f"\n  Add to ~/.zshenv:")
+    print("\n  Add to ~/.zshenv:")
     print(f'  export {prefix}_CLIENT_ID="{client_id}"')
     print(f'  export {prefix}_CLIENT_SECRET="{client_secret}"')
     print(f'  export {prefix}_REFRESH_TOKEN="{refresh_token}"')
-    print(f"\n  Stored in 1Password vault Agents.")
+    print("\n  Stored in 1Password vault Agents.")
 
 
 def main() -> None:
@@ -288,13 +315,12 @@ def main() -> None:
     refresh_token = step3_oauth_flow(client_id, client_secret, args.scope)
 
     if args.store:
-        step4_store(client_id, client_secret, refresh_token,
-                    args.scope, args.project, args.name)
+        step4_store(client_id, client_secret, refresh_token, args.scope, args.project, args.name)
     else:
         print(f"\nClient ID: {client_id}")
         print(f"Client Secret: {client_secret}")
         print(f"Refresh Token: {refresh_token}")
-        print(f"\nRun with --store to save to 1Password.")
+        print("\nRun with --store to save to 1Password.")
 
 
 if __name__ == "__main__":

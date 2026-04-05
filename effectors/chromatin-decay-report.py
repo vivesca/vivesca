@@ -120,13 +120,13 @@ def main():
 
     print(f"\n🔗 ORPHANS (no incoming links): {len(orphans)}")
     print("   These notes aren't linked from anywhere else.")
-    for name, path in sorted(orphans)[:20]:
+    for _name, path in sorted(orphans)[:20]:
         print(f"   - {path}")
     if len(orphans) > 20:
         print(f"   ... and {len(orphans) - 20} more")
 
     print(f"\n❄️  COLD NOTES (last accessed > 30 days): {len(cold)}")
-    for name, days, path in sorted(cold, key=lambda x: -x[1]):
+    for _name, days, path in sorted(cold, key=lambda x: -x[1]):
         print(f"   - {path} ({days} days ago)")
 
     # Find notes with access tracking

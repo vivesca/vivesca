@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.sortase.diff_viewer module."""
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 from metabolon.sortase.diff_viewer import (
@@ -11,6 +11,9 @@ from metabolon.sortase.diff_viewer import (
     format_diff_summary,
     get_task_diff,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestFindTaskCommit:

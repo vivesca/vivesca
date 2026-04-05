@@ -18,8 +18,9 @@ Usage:
 
 import subprocess
 import sys
-import yaml
 from pathlib import Path
+
+import yaml
 
 # Claude Code memory dir: path-encodes the project root
 _CLAUDE_PROJ_DIR = Path.home() / ".claude" / "projects"
@@ -283,9 +284,7 @@ def main() -> None:
                 print(f"  {BOLD}{CYAN}{t['axis']}{RESET}")
                 verdict = reconcile_tension(t, memories)
                 # Colour by verdict type
-                if verdict.startswith("FALSE POSITIVE"):
-                    print(f"  {GREEN}{verdict}{RESET}\n")
-                elif verdict.startswith("ALREADY RESOLVED"):
+                if verdict.startswith("FALSE POSITIVE") or verdict.startswith("ALREADY RESOLVED"):
                     print(f"  {GREEN}{verdict}{RESET}\n")
                 elif verdict.startswith("REAL TENSION"):
                     print(f"  {RED}{verdict}{RESET}\n")

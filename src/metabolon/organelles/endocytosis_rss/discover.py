@@ -4,10 +4,12 @@ import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.organelles.endocytosis_rss.log import record_cargo
+
+if TYPE_CHECKING:
+    from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 
 
 def _compile_keywords(patterns: list[str]) -> list[re.Pattern[str]]:

@@ -221,9 +221,7 @@ def print_json_report(summary: dict) -> None:
         "total_runs": summary["total_runs"],
         "total_tokens": summary["total_tokens"],
         "total_cost": summary["total_cost"],
-        "by_provider": {
-            p: {k: v for k, v in bp.items()} for p, bp in summary["by_provider"].items()
-        },
+        "by_provider": {p: dict(bp.items()) for p, bp in summary["by_provider"].items()},
     }
     print(json.dumps(output, indent=2))
 

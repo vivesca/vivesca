@@ -54,15 +54,15 @@ def _is_running(label: str) -> bool:
         try:
             r = subprocess.run(
                 ["systemctl", "--user", "is-active", label],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return r.stdout.strip() == "active"
         except Exception:
             return False
     try:
-        r = subprocess.run(
-            ["launchctl", "list"], capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
         return label in r.stdout
     except Exception:
         return False
@@ -96,16 +96,24 @@ def check_health() -> list[tuple[str, str, str]]:
 
     # MCP server
     mcp_running = _is_running("com.vivesca.mcp")
-    rows.append(("MCP server", "running" if mcp_running else "DOWN", "ok" if mcp_running else "red"))
+    rows.append(
+        ("MCP server", "running" if mcp_running else "DOWN", "ok" if mcp_running else "red")
+    )
 
     # LaunchAgent / systemd count
     if IS_MACOS:
         la_dir = HOME / "Library" / "LaunchAgents"
         if la_dir.exists():
-            total = len(list(la_dir.glob("com.vivesca.*.plist"))) + len(list(la_dir.glob("com.terry.*.plist")))
+            total = len(list(la_dir.glob("com.vivesca.*.plist"))) + len(
+                list(la_dir.glob("com.terry.*.plist"))
+            )
             try:
-                r = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
-                loaded = sum(1 for line in r.stdout.splitlines() if "vivesca" in line or "com.terry" in line)
+                r = subprocess.run(
+                    ["launchctl", "list"], capture_output=True, text=True, timeout=5
+                )
+                loaded = sum(
+                    1 for line in r.stdout.splitlines() if "vivesca" in line or "com.terry" in line
+                )
             except Exception:
                 loaded = 0
             status = "ok" if loaded >= total - 2 else "warn"
@@ -117,8 +125,17 @@ def check_health() -> list[tuple[str, str, str]]:
             total = len(list(systemd_dir.glob("*.service")))
             try:
                 r = subprocess.run(
-                    ["systemctl", "--user", "list-units", "--type=service", "--state=active", "--no-legend"],
-                    capture_output=True, text=True, timeout=5,
+                    [
+                        "systemctl",
+                        "--user",
+                        "list-units",
+                        "--type=service",
+                        "--state=active",
+                        "--no-legend",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 loaded = len(r.stdout.splitlines())
             except Exception:
@@ -129,10 +146,17 @@ def check_health() -> list[tuple[str, str, str]]:
 
     # Agent-browser profile
     abp = HOME / ".agent-browser-profile"
-    rows.append(("Agent-browser profile", "present" if abp.exists() else "missing", "ok" if abp.exists() else "warn"))
+    rows.append(
+        (
+            "Agent-browser profile",
+            "present" if abp.exists() else "missing",
+            "ok" if abp.exists() else "warn",
+        )
+    )
 
     # Op-env-cache
     import tempfile
+
     cache = Path(tempfile.gettempdir()) / "op-env-cache.sh"
     if cache.exists():
         size = cache.stat().st_size
@@ -150,6 +174,7 @@ def check_health() -> list[tuple[str, str, str]]:
             for line in hook_log.open():
                 try:
                     import json
+
                     entry = json.loads(line)
                     if entry.get("ts", 0) > cutoff:
                         count += 1
@@ -175,7 +200,6 @@ def check_health() -> list[tuple[str, str, str]]:
 
 
 def write_health(rows: list[tuple[str, str, str]]) -> None:
-    status_map = {"ok": "green", "warn": "warning", "red": "red"}
     icon_map = {"ok": "\u2705", "warn": "\u26a0\ufe0f", "red": "\u274c"}
 
     lines = [f"# Nightly Health \u2014 {TODAY}", ""]
@@ -186,11 +210,17 @@ def write_health(rows: list[tuple[str, str, str]]) -> None:
 
     # Auto-fixes
     fixes: list[str] = []
-    for metric, value, status in rows:
+    for metric, _value, status in rows:
         if metric == "op-env-cache" and status == "red":
             r = subprocess.run(
-                ["bash", "-c", 'op inject -i ~/.zshenv.tpl > "${TMPDIR}op-env-cache.sh" 2>/dev/null && chmod 600 "${TMPDIR}op-env-cache.sh"'],
-                capture_output=True, text=True, timeout=30,
+                [
+                    "bash",
+                    "-c",
+                    'op inject -i ~/.zshenv.tpl > "${TMPDIR}op-env-cache.sh" 2>/dev/null && chmod 600 "${TMPDIR}op-env-cache.sh"',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if r.returncode == 0:
                 fixes.append("Regenerated op-env-cache")
@@ -224,15 +254,16 @@ def write_flywheel() -> None:
 def health_to_json(rows: list[tuple[str, str, str]]) -> str:
     """Convert health check rows to a JSON array of objects."""
     import json
+
     entries = [
-        {"component": metric, "status": status, "details": value}
-        for metric, value, status in rows
+        {"component": metric, "status": status, "details": value} for metric, value, status in rows
     ]
     return json.dumps(entries, indent=2)
 
 
 def main() -> None:
     import sys
+
     if "--help" in sys.argv or "-h" in sys.argv:
         print("nightly — system health dashboard + flywheel report.\n")
         print("Usage: nightly [--help] [--json]")

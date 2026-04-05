@@ -14,10 +14,10 @@ Usage:
     burn          Toggle (on/off)
 """
 
-import subprocess
 import json
+import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 FLAG = Path.home() / ".claude" / "burn-mode"
@@ -26,16 +26,14 @@ FLAG = Path.home() / ".claude" / "burn-mode"
 def _reset_info():
     """Get weekly reset info from respirometry. Returns (resets_at_iso, hours_left, util)."""
     try:
-        r = subprocess.run(
-            ["respirometry", "--json"], capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(["respirometry", "--json"], capture_output=True, text=True, timeout=5)
         d = json.loads(r.stdout)
         w = d.get("seven_day", {})
         util = w.get("utilization", 0)
         resets_at = w.get("resets_at", "")
         if resets_at:
             reset_time = datetime.fromisoformat(resets_at)
-            hours_left = (reset_time - datetime.now(timezone.utc)).total_seconds() / 3600
+            hours_left = (reset_time - datetime.now(UTC)).total_seconds() / 3600
             return resets_at, max(0, hours_left), util
     except Exception:
         pass
@@ -50,17 +48,17 @@ def _manual_active():
         content = FLAG.read_text().strip()
         if content:
             expires = datetime.fromisoformat(content)
-            if datetime.now(timezone.utc) > expires:
+            if datetime.now(UTC) > expires:
                 FLAG.unlink(missing_ok=True)
                 return False
-    except (ValueError, OSError):
+    except ValueError, OSError:
         pass
     return True
 
 
 def status():
     manual = _manual_active()
-    resets_at, hours_left, util = _reset_info()
+    _resets_at, hours_left, util = _reset_info()
     auto = hours_left is not None and util is not None and util >= 70 and 0 < hours_left < 6
 
     if manual:

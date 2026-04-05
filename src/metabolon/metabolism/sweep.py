@@ -8,8 +8,10 @@ import configparser
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from metabolon.metabolism.fitness import Emotion
+if TYPE_CHECKING:
+    from metabolon.metabolism.fitness import Emotion
 
 _CONF_PATH = Path(__file__).with_suffix(".conf")
 _DEFAULTS = {

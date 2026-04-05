@@ -34,9 +34,16 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 from metabolon.locus import (
-    chromatin, praxis, praxis_archive, daily, tonus,
-    receptors, claude_skills, memory_index,
-    germline, epigenome, home,
+    claude_skills,
+    daily,
+    epigenome,
+    germline,
+    home,
+    memory_index,
+    praxis,
+    praxis_archive,
+    receptors,
+    tonus,
 )
 
 DAILY_DIR = daily
@@ -152,7 +159,7 @@ def rfts_verify() -> list[dict]:
     stale = []
 
     for f in sorted(memory_dir.iterdir()):
-        if f.name == "MEMORY.md" or not f.suffix == ".md":
+        if f.name == "MEMORY.md" or f.suffix != ".md":
             continue
         try:
             content = f.read_text(encoding="utf-8")
@@ -171,10 +178,7 @@ def rfts_verify() -> list[dict]:
         _home_re = "|".join(re.escape(p) for p in _home_prefixes)
         for m in re.finditer(rf"[`~]((?:/[\w.-]+){{2,}})|({_home_re}(?:/[\w.-]+){{2,}})", content):
             ref_path = m.group(1) or m.group(2)
-            if ref_path.startswith("/"):
-                full = Path(ref_path)
-            else:
-                full = home / ref_path.lstrip("/")
+            full = Path(ref_path) if ref_path.startswith("/") else home / ref_path.lstrip("/")
             # Skip glob patterns, templates, and generic examples
             if "*" in str(full) or "YYYY" in str(full) or "<" in str(full):
                 continue
@@ -193,11 +197,10 @@ def rfts_verify() -> list[dict]:
                        "brainstorm", "delegate", "unstuck", "protected"):
                 continue
             # Only flag if it looks like it was a CLI tool (in a command context)
-            if "search" in content[max(0,m.start()-20):m.start()] or \
+            if ("search" in content[max(0,m.start()-20):m.start()] or \
                "run" in content[max(0,m.start()-20):m.start()] or \
-               cmd.endswith("-scan") or cmd.endswith("-check"):
-                if not shutil.which(cmd):
-                    issues.append(f"cli missing: {cmd}")
+               cmd.endswith("-scan") or cmd.endswith("-check")) and not shutil.which(cmd):
+                issues.append(f"cli missing: {cmd}")
 
         if issues:
             stale.append({"file": f.name, "issues": issues[:3]})  # cap per file
@@ -382,7 +385,7 @@ def cmd_gather(args):
         ]
         if methyl_fut:
             _futures.append(("methylation", methyl_fut, "methylation", {}))
-        for name, fut, key, default in _futures:
+        for _name, fut, key, default in _futures:
             try:
                 results[key] = fut.result(timeout=10)
             except (concurrent.futures.TimeoutError, Exception):
@@ -765,7 +768,7 @@ def cmd_daily(args):
     """
     today = datetime.now().strftime("%Y-%m-%d")
     weekday = datetime.now().strftime("%A")
-    now_time = datetime.now().strftime("%H:%M")
+    datetime.now().strftime("%H:%M")
     daily_path = DAILY_DIR / f"{today}.md"
 
     title = args.title if args.title else "Session"
@@ -816,7 +819,7 @@ filed={residual_n}, skipped=?
     daily_path.write_text(content, encoding="utf-8")
     print(f"  {OK}  Daily note: {daily_path}")
     print(f"       Pre-filled: Filed={len(filed)}, Mechanised={len(mechanised)}, Published={len(published)}")
-    print(f"       LLM fills: Outcomes, Parked, Arc")
+    print("       LLM fills: Outcomes, Parked, Arc")
 
 
 # ── Methylation: genome audit ────────────────────────────────────────────────
@@ -984,7 +987,7 @@ TRANSCRIPT:
 def cmd_reflect(args):
     """Scan session transcript for reflection candidates."""
     session_id = args.session
-    findings, usage = run_reflect(session_id)
+    findings, _usage = run_reflect(session_id)
 
     if not findings:
         print(f"  {OK}  No messages found for session {session_id}")
@@ -1037,10 +1040,7 @@ CANDIDATES:
 def cmd_extract(args):
     """Review reflection candidates and produce filing recommendations."""
     # Read gather output from stdin or file
-    if args.input:
-        data = Path(args.input).read_text()
-    else:
-        data = sys.stdin.read()
+    data = Path(args.input).read_text() if args.input else sys.stdin.read()
 
     try:
         gather = json.loads(data)

@@ -511,7 +511,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     log(f"Found {len(pending)} pending tasks")
 
     if dry_run:
-        for line_num, prompt, provider, task_id, max_turns in pending:
+        for _line_num, prompt, provider, task_id, _max_turns in pending:
             log(f"[DRY] [{task_id}] {provider}: {prompt[:60]}...")
         return len(pending)
 

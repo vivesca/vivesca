@@ -12,6 +12,7 @@ Layers:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -79,8 +80,7 @@ def _is_novel_failure(probe_name: str) -> bool:
         events = recall_infections()
         tool_key = f"self_test_failure:{probe_name}"
         unhealed_count = sum(
-            1 for e in events
-            if e.get("tool") == tool_key and not e.get("healed")
+            1 for e in events if e.get("tool") == tool_key and not e.get("healed")
         )
         return unhealed_count < _NOVEL_CYCLE_LOOKBACK
     except Exception:
@@ -92,8 +92,10 @@ def _record_mitophagy(model: str, task_type: str, success: bool, duration_ms: in
     try:
         import sys as _sys
         from pathlib import Path as _Path
+
         _sys.path.insert(0, str(_Path.home() / "germline"))
         from metabolon.organelles.mitophagy import record_outcome
+
         record_outcome(model=model, task_type=task_type, success=success, duration_ms=duration_ms)
     except Exception:
         pass
@@ -106,10 +108,12 @@ def _repair_model() -> str:
     """
     try:
         import sys as _sys
+
         _germline = str(Path.home() / "germline")
         if _germline not in _sys.path:
             _sys.path.insert(0, _germline)
         from metabolon.organelles.tissue_routing import route
+
         model = route("repair_novel")
         print(f"[inflammasome-probe] tissue routing: repair_novel -> {model}", flush=True)
         return model
@@ -158,7 +162,9 @@ def _dispatch_diagnosis(probe_name: str, message: str) -> str:
         return f"UNFIXED: dispatch error: {exc}"
 
 
-def _log_methylation_candidate(probe_name: str, failure_message: str, fix_description: str) -> None:
+def _log_methylation_candidate(
+    probe_name: str, failure_message: str, fix_description: str
+) -> None:
     """Append a successful repair to the methylation candidates log."""
     try:
         _METHYLATION_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -196,14 +202,12 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
 
     def _log_infection(probe_name: str, error: str, healed: bool = False) -> None:
         if record_infection is not None:
-            try:
+            with contextlib.suppress(Exception):
                 record_infection(
                     tool=f"self_test_failure:{probe_name}",
                     error=error,
                     healed=healed,
                 )
-            except Exception:
-                pass
 
     cooldown = _load_cooldown()
     repairs_dispatched = 0
@@ -246,10 +250,12 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
         # CRISPR scan — check if this failure pattern was seen before.
         try:
             import sys as _sys
+
             _germline = str(Path.home() / "germline")
             if _germline not in _sys.path:
                 _sys.path.insert(0, _germline)
             from metabolon.organelles.crispr import scan as crispr_scan
+
             prior = crispr_scan(message, probe_name)
         except Exception:
             prior = None
@@ -273,7 +279,7 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
 
         upper = output.upper()
         if upper.startswith("FIXED:"):
-            fix_description = output[len("FIXED:"):].strip()
+            fix_description = output[len("FIXED:") :].strip()
             _log_infection(probe_name, f"agent repair ok: {fix_description}", healed=True)
             _log_methylation_candidate(probe_name, message, fix_description)
             result["repair_attempted"] = "agent:fixed"
@@ -281,13 +287,16 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
             # CRISPR acquisition — store this failure pattern so next encounter skips LLM
             try:
                 from metabolon.organelles.crispr import acquire_spacer
+
                 acquire_spacer(message, probe_name)
                 print(f"[{ts}] [CRISPR] spacer acquired for {probe_name}")
             except Exception as _crispr_exc:
                 print(f"[{ts}] [CRISPR] acquisition failed (non-fatal): {_crispr_exc}")
         else:
             # UNFIXED: or anything else
-            fix_description = output[len("UNFIXED:"):].strip() if upper.startswith("UNFIXED:") else output
+            fix_description = (
+                output[len("UNFIXED:") :].strip() if upper.startswith("UNFIXED:") else output
+            )
             _log_infection(probe_name, f"agent diagnosis: {fix_description}")
             result["repair_attempted"] = "agent:unfixed"
             print(f"[{ts}] [DIAGNOSIS] UNFIXED {probe_name}: {fix_description[:120]}")
@@ -304,6 +313,7 @@ def main() -> None:
     # Load API keys from Keychain (same as MCP server startup)
     try:
         from metabolon.membrane import _absorb_cofactors
+
         _absorb_cofactors()
     except Exception:
         pass  # best-effort — probes will report missing keys as failures
@@ -315,7 +325,7 @@ def main() -> None:
         sys.exit(0)
 
     try:
-        from metabolon.metabolism.infection import record_infection
+        pass
     except Exception as exc:
         print(f"[{ts}] FATAL: could not import infection module: {exc}")
         sys.exit(0)
@@ -325,6 +335,7 @@ def main() -> None:
     # Adaptive layer: attempt repairs for known failure patterns
     try:
         from metabolon.organelles.inflammasome import adaptive_response
+
         adaptive_response(results)
     except Exception as exc:
         print(f"[{ts}] WARN: adaptive_response failed: {exc}")

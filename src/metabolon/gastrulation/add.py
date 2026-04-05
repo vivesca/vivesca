@@ -1,9 +1,12 @@
 """vivesca add — add components to an existing project."""
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 from jinja2 import Environment, PackageLoader
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _env = Environment(
     loader=PackageLoader("metabolon", "templates"),

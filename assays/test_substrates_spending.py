@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.metabolism.substrates.spending import SpendingSubstrate
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _write_statement(

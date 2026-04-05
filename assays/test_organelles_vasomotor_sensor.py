@@ -250,7 +250,7 @@ class TestSenseUsage:
                 with patch.object(
                     vasomotor_sensor, "get_oauth_token", side_effect=RuntimeError("no token")
                 ):
-                    with pytest.raises(RuntimeError, match="Live API failed.*no cached data"):
+                    with pytest.raises(RuntimeError, match=r"Live API failed.*no cached data"):
                         vasomotor_sensor.sense_usage()
 
     def test_normalizes_legacy_cache_format(self, tmp_path):

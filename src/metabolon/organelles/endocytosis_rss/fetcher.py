@@ -11,16 +11,18 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
 import feedparser
 import requests
 import trafilatura
 from bs4 import BeautifulSoup
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # ---------------------------------------------------------------------------
 # Browser process leak guard

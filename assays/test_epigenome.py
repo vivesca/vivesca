@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import click
@@ -15,6 +15,9 @@ from metabolon.gastrulation.epigenome import (
     _transcribe_templates,
     scaffold_epigenome,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestScaffoldEpigenome:

@@ -77,12 +77,13 @@ def generate_spec(module_path: str, wave: int | None = None) -> Path:
     # to avoid exceeding goose's prompt limit (~8K tokens effective)
     MAX_EMBED_LINES = 200
     if lines <= MAX_EMBED_LINES:
-        source_block = f"## Source code (DO NOT MODIFY — read-only reference)\n\n```python\n{source}\n```"
+        source_block = (
+            f"## Source code (DO NOT MODIFY — read-only reference)\n\n```python\n{source}\n```"
+        )
     else:
         # Extract signatures and docstrings only
         sig_lines = []
         in_docstring = False
-        docstring_delim = 0
         for line in source.splitlines():
             stripped = line.strip()
             # Keep imports, class/def lines, and docstrings
@@ -114,7 +115,7 @@ Write `assays/{test_file}` that tests the module above.
 
 ### What to test
 
-Public API: {', '.join(public_api) or '(read source above)'}
+Public API: {", ".join(public_api) or "(read source above)"}
 
 For each public function/class:
 - Test with valid input → expected output
@@ -124,7 +125,7 @@ For each public function/class:
 ### Dependencies to mock
 
 These imports appear in the source:
-{chr(10).join(f'- `{imp}`' for imp in imports) or '- (no metabolon imports)'}
+{chr(10).join(f"- `{imp}`" for imp in imports) or "- (no metabolon imports)"}
 
 Mock any external calls (subprocess, file I/O, LLM calls). Use `tmp_path` for file-based tests. Use `unittest.mock.patch` for subprocess/external deps.
 
@@ -150,7 +151,9 @@ Fix any failures before finishing.
 """
 
     plan_path.write_text(spec)
-    print(f"Generated: {plan_path.name} ({lines} source lines, {len(public_api)} public functions)")
+    print(
+        f"Generated: {plan_path.name} ({lines} source lines, {len(public_api)} public functions)"
+    )
     return plan_path
 
 
@@ -158,7 +161,9 @@ def main():
     parser = argparse.ArgumentParser(description="Generate test specs with embedded source")
     parser.add_argument("modules", nargs="+", help="Module paths relative to germline/")
     parser.add_argument("--wave", type=int, help="Wave number for plan naming")
-    parser.add_argument("--dispatch", action="store_true", help="Auto-dispatch via sortase after generating")
+    parser.add_argument(
+        "--dispatch", action="store_true", help="Auto-dispatch via sortase after generating"
+    )
     args = parser.parse_args()
 
     plans = []
@@ -167,10 +172,21 @@ def main():
 
     if args.dispatch:
         import subprocess
+
         for plan in plans:
             print(f"\nDispatching: {plan.name}")
             subprocess.run(
-                ["sortase", "exec", str(plan), "-p", str(GERMLINE), "-b", "goose", "--timeout", "180"],
+                [
+                    "sortase",
+                    "exec",
+                    str(plan),
+                    "-p",
+                    str(GERMLINE),
+                    "-b",
+                    "goose",
+                    "--timeout",
+                    "180",
+                ],
                 cwd=str(GERMLINE),
                 timeout=300,
             )

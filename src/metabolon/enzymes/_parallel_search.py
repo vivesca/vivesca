@@ -8,6 +8,7 @@ Tools:
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import shutil
@@ -86,10 +87,8 @@ async def _run_tool(
             latency_s=latency,
         )
     except TimeoutError:
-        try:
+        with contextlib.suppress(Exception):
             proc.kill()  # type: ignore[possibly-unbound]
-        except Exception:
-            pass
         return ToolResult(
             tool=name,
             query="",

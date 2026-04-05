@@ -7,11 +7,14 @@ and monitors biological naming precision across the codebase.
 
 import re
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.locus import genome_md
 from metabolon.metabolism.mismatch_repair import scan as precision_scan
 from metabolon.metabolism.signals import SensorySystem
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ExecutiveSubstrate:

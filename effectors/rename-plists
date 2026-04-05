@@ -27,7 +27,9 @@ def deep_replace(obj: object) -> object:
     if isinstance(obj, list):
         return [deep_replace(item) for item in obj]
     if isinstance(obj, dict):
-        return {deep_replace(k) if isinstance(k, str) else k: deep_replace(v) for k, v in obj.items()}
+        return {
+            deep_replace(k) if isinstance(k, str) else k: deep_replace(v) for k, v in obj.items()
+        }
     return obj
 
 
@@ -74,7 +76,7 @@ def rename_one(old_plist: Path, dry_run: bool) -> list[str]:
         with open(old_plist, "rb") as f:
             data = plistlib.load(f)
 
-    original_label = data.get("Label", "")
+    data.get("Label", "")
     data["Label"] = new_label
     data = deep_replace(data)
 
@@ -152,7 +154,7 @@ def main() -> None:
         if errors:
             all_errors.append((plist_path.name, errors))
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     if all_errors:
         print("Errors encountered:")
         for name, errs in all_errors:

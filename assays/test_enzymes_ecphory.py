@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for metabolon/enzymes/ecphory.py"""
 
 
+import re
 from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
@@ -251,7 +252,7 @@ class TestLogs:
         """Invalid regex should raise, not crash with unhandled exception."""
         meal = tmp_path / "meal_plan.md"
         meal.write_text("some text\n", encoding="utf-8")
-        with pytest.raises(Exception):
+        with pytest.raises(re.error):
             fn(action="logs", query="[invalid")
 
     def test_multiple_matches(self, fn, _patch_locus, tmp_path):

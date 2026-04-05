@@ -2,11 +2,14 @@
 
 import re
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pypdf import PdfReader
 
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Transaction line: description HKD amount [CR] Mon DD,YYYY Mon DD,YYYY
 # Dates are adjacent to the amount/CR flag with no separating whitespace in

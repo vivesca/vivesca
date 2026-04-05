@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """regulatory-scan — Scan regulatory documents for staleness and check for updates via rheotaxis.
 
 Scans ~/epigenome/chromatin/euchromatin/regulatory/ for documents older than 90 days.
@@ -33,25 +34,25 @@ def is_stale(file_path: Path, stale_cutoff: datetime) -> bool:
 def generate_query_from_filename(filename: str) -> str:
     """Generate a search query from a filename."""
     # Remove extension and replace hyphens with spaces
-    base = filename.rsplit('.', 1)[0].replace('-', ' ')
-    
+    base = filename.rsplit(".", 1)[0].replace("-", " ")
+
     # If it has a date at the end (like hkma 2026 03 ...), query for updates
     words = base.split()
-    
+
     # Common publishers in regulatory dir
-    if any(word.lower() in ['hkma', 'hkma-', 'banking', 'monetary'] for word in words):
+    if any(word.lower() in ["hkma", "hkma-", "banking", "monetary"] for word in words):
         publisher = "HKMA"
-    elif any(word.lower() in ['sfc', 'securities'] for word in words):
+    elif any(word.lower() in ["sfc", "securities"] for word in words):
         publisher = "SFC"
     else:
         publisher = ""
-    
+
     # Build query
     if publisher:
         query = f"{publisher} latest update on {' '.join(words)} regulatory update 2026"
     else:
         query = f"latest update {' '.join(words)} regulatory document 2026"
-    
+
     return query.strip()
 
 
@@ -64,56 +65,60 @@ def scan_regulatory_documents(
 ) -> dict:
     """Scan for stale regulatory documents and check for updates."""
     stale_cutoff = datetime.now() - timedelta(days=stale_days)
-    
+
     # Find all markdown documents
     stale_docs = []
-    all_files = list(regulatory_path.glob('*.md')) + list(regulatory_path.glob('*.pdf'))
-    
+    all_files = list(regulatory_path.glob("*.md")) + list(regulatory_path.glob("*.pdf"))
+
     print(f"Scanning {len(all_files)} documents in {regulatory_path}...")
     print(f"Cutoff for stale documents: {stale_cutoff.strftime('%Y-%m-%d')}\n")
-    
+
     for file in sorted(all_files):
         mtime = datetime.fromtimestamp(file.stat().st_mtime)
         if is_stale(file, stale_cutoff):
-            stale_docs.append({
-                "path": file,
-                "name": file.name,
-                "mtime": mtime,
-                "days_old": (datetime.now() - mtime).days,
-            })
-    
+            stale_docs.append(
+                {
+                    "path": file,
+                    "name": file.name,
+                    "mtime": mtime,
+                    "days_old": (datetime.now() - mtime).days,
+                }
+            )
+
     if not stale_docs:
         print("✅ No stale documents found. All documents are fresh.")
         return {}
-    
+
     print(f"Found {len(stale_docs)} stale document(s):\n")
     for doc in stale_docs:
-        print(f"  • {doc['name']} — {doc['days_old']} days old (last modified: {doc['mtime'].strftime('%Y-%m-%d')})")
+        print(
+            f"  • {doc['name']} — {doc['days_old']} days old (last modified: {doc['mtime'].strftime('%Y-%m-%d')})"
+        )
     print()
-    
+
     if dry_run:
         print("🌤 Dry run complete — skipped rheotaxis checks.")
         return {}
-    
+
     # Check for updates with rheotaxis
     results = {}
     for idx, doc in enumerate(stale_docs, 1):
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"[{idx}/{len(stale_docs)}] Checking updates for: {doc['name']}")
-        print(f"{'='*70}\n")
-        
-        query = generate_query_from_filename(doc['name'])
+        print(f"{'=' * 70}\n")
+
+        query = generate_query_from_filename(doc["name"])
         print(f"🔍 Search query: {query}\n")
-        
+
         search_results = rheotaxis_engine.parallel_search(
             query, backends=backends.split(",") if backends else None, timeout=timeout
         )
-        results[doc['name']] = {
+        results[doc["name"]] = {
             "doc_info": doc,
             "query": query,
             "results": search_results,
         }
-        
+
         # Print summary
         has_updates = any(not r.error and r.answer for r in search_results)
         if has_updates:
@@ -124,11 +129,11 @@ def scan_regulatory_documents(
                     print(rheotaxis_engine.format_results([r]))
         else:
             print("\n✖️ No updates found from any backend.")
-        
+
         # Rate limiting pause
         if idx < len(stale_docs):
             time.sleep(2)
-    
+
     return results
 
 
@@ -136,28 +141,29 @@ def generate_freshness_report(results: dict) -> None:
     """Generate the final freshness report."""
     if not results:
         return
-    
+
     print("\n")
-    print("="*70)
+    print("=" * 70)
     print("📊 FRESHNESS REPORT")
-    print("="*70)
-    
+    print("=" * 70)
+
     total_stale = len(results)
     docs_with_updates = sum(
-        1 for doc_result in results.values()
-        if any(not r.error and r.answer for r in doc_result['results'])
+        1
+        for doc_result in results.values()
+        if any(not r.error and r.answer for r in doc_result["results"])
     )
-    
+
     print(f"\nTotal stale documents scanned: {total_stale}")
     print(f"Documents with potential updates: {docs_with_updates}\n")
-    
+
     for filename, data in results.items():
-        doc = data['doc_info']
-        has_updates = any(not r.error and r.answer for r in data['results'])
+        doc = data["doc_info"]
+        has_updates = any(not r.error and r.answer for r in data["results"])
         status = "🔄 UPDATE AVAILABLE" if has_updates else "✅ NO UPDATES FOUND"
         print(f"  • {filename} ({doc['days_old']} days): {status}")
-    
-    print("\n" + "="*70)
+
+    print("\n" + "=" * 70)
 
 
 def main():
@@ -165,31 +171,40 @@ def main():
         description="Scan for stale regulatory documents and check for updates"
     )
     parser.add_argument(
-        "--days", type=int, default=DEFAULT_STALE_DAYS,
+        "--days",
+        type=int,
+        default=DEFAULT_STALE_DAYS,
         help=f"Days threshold for staleness (default: {DEFAULT_STALE_DAYS})",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Only scan, don't check for updates via rheotaxis",
     )
     parser.add_argument(
-        "--backend", "--backends", default=None,
+        "--backend",
+        "--backends",
+        default=None,
         help="Comma-separated rheotaxis backends to use",
     )
     parser.add_argument(
-        "--timeout", type=int, default=15,
+        "--timeout",
+        type=int,
+        default=15,
         help="Timeout per search in seconds (default: 15)",
     )
     parser.add_argument(
-        "--path", type=Path, default=DEFAULT_REGULATORY_PATH,
+        "--path",
+        type=Path,
+        default=DEFAULT_REGULATORY_PATH,
         help=f"Override default path (default: {DEFAULT_REGULATORY_PATH})",
     )
     args = parser.parse_args()
-    
+
     if not args.path.exists():
         print(f"Error: Path {args.path} does not exist", file=sys.stderr)
         sys.exit(1)
-    
+
     results = scan_regulatory_documents(
         args.path, args.days, args.dry_run, args.backend, args.timeout
     )

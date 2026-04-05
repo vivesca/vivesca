@@ -6,6 +6,7 @@
 # ]
 # ///
 from __future__ import annotations
+
 """
 porta — web auth gateway for headless automation.
 
@@ -24,7 +25,6 @@ Sessions stored at ~/.config/porta/sessions/<service>.json
 """
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -32,7 +32,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -246,7 +246,7 @@ def save_session(
         "service": service,
         "domain": domain,
         "cookies": cookies,
-        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "captured_at": datetime.now(UTC).isoformat(),
         "cookie_count": len(cookies),
         "source": source,
     }
@@ -444,7 +444,7 @@ def cmd_inject(args: argparse.Namespace) -> int:
 
     # Use domain as service name (cleaned)
     service = domain.lstrip(".").split(".")[0]
-    path = save_session(service, domain, cookies, source=source)
+    save_session(service, domain, cookies, source=source)
     print(json.dumps(cookies, indent=2, ensure_ascii=False))
     return 0
 
@@ -462,7 +462,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     if match is None:
         # Try extracting fresh from browser
-        for browser_fn, source in [(read_chrome_cookies, "chrome"), (read_firefox_cookies, "firefox")]:
+        for browser_fn, _source in [(read_chrome_cookies, "chrome"), (read_firefox_cookies, "firefox")]:
             cookies = browser_fn(domain_filter=domain)
             if cookies:
                 print(json.dumps(cookies, indent=2, ensure_ascii=False))

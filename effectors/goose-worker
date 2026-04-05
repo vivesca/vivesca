@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path.home() / "germline"))
@@ -27,7 +27,7 @@ TIMEOUT = 900  # 15 minutes
 
 
 def log(msg: str) -> None:
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     print(f"[{ts}] {msg}")
 
 
@@ -45,13 +45,14 @@ def emit_signal(name: str, content: str) -> None:
     """Fire a demethylase signal for inter-agent notification."""
     try:
         from metabolon.organelles.demethylase import emit_signal as _emit
+
         _emit(name, content, source="goose-worker")
     except Exception as exc:
         log(f"WARN: signal emit failed: {exc}")
 
 
 def append_result(task_path: Path, *, exit_code: int, stdout: str, stderr: str) -> None:
-    completed = datetime.now(timezone.utc).isoformat()
+    completed = datetime.now(UTC).isoformat()
     original = task_path.read_text(encoding="utf-8")
     section = (
         "\n\n## Result\n\n"
@@ -110,12 +111,16 @@ def main() -> int:
         return 1
 
     cmd = [
-        sortase_bin, "exec",
+        sortase_bin,
+        "exec",
         str(running_path),
-        "-p", str(germline),
-        "-b", "opencode",
+        "-p",
+        str(germline),
+        "-b",
+        "opencode",
         "--serial",
-        "--timeout", str(TIMEOUT),
+        "--timeout",
+        str(TIMEOUT),
     ]
 
     log(f"Running: {' '.join(cmd)}")

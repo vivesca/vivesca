@@ -10,17 +10,19 @@ import time
 import traceback
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers import FileSystemProvider
-from fastmcp.tools.tool import ToolResult
 
 from metabolon.metabolism.infection import record_infection
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 from metabolon.server import RequestLogger
+
+if TYPE_CHECKING:
+    from fastmcp.tools.tool import ToolResult
 
 logger = logging.getLogger(__name__)
 

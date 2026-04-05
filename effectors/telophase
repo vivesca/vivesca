@@ -476,7 +476,7 @@ def cmd_daily(args):
         print(json.dumps({"path": str(daily_path), "title": title, "created": created}))
     else:
         print(f"  {OK}  Daily note: {daily_path}")
-        print(f"       Template appended — fill in outcomes")
+        print("       Template appended — fill in outcomes")
 
 
 # ── Reflect ─────────────────────────────────────────────────────────────────
@@ -535,7 +535,7 @@ TRANSCRIPT:
 def cmd_reflect(args):
     """Scan session transcript for reflection candidates."""
     session_id = args.session
-    findings, usage = run_reflect(session_id)
+    findings, _usage = run_reflect(session_id)
 
     if not findings:
         if args.json or getattr(args, "format", None) == "json":
@@ -593,10 +593,7 @@ def cmd_extract(args):
     json_mode = getattr(args, "format", None) == "json"
 
     # Read gather output from stdin or file
-    if args.input:
-        data = Path(args.input).read_text()
-    else:
-        data = sys.stdin.read()
+    data = Path(args.input).read_text() if args.input else sys.stdin.read()
 
     try:
         gather = json.loads(data)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
+import json
 
 from metabolon.pinocytosis.photoreception import intake, main
 
@@ -41,23 +41,54 @@ def test_intake_default_values():
 # ── intake behaviour ─────────────────────────────────────────────────
 
 
-def test_intake_raises_not_implemented():
-    """intake() raises NotImplementedError until implemented."""
-    with pytest.raises(NotImplementedError, match="photoreception gather"):
-        intake()
+def test_intake_returns_json_by_default(monkeypatch):
+    """intake(as_json=True) returns valid JSON with expected section keys."""
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_context",
+        lambda **kw: {
+            "date": {"iso": "2026-04-05", "datetime": "2026-04-05 08:00 HKT"},
+            "todo": {"available": True, "items": []},
+            "now": {"available": True, "raw": "facts here"},
+            "calendar": {"available": True, "raw": "10:00 Standup"},
+            "budget": {"available": True, "raw": "ok"},
+        },
+    )
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_sleep",
+        lambda: {"label": "Sleep", "ok": True, "content": "Sleep: 80"},
+    )
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_weather",
+        lambda: {"label": "Weather", "ok": True, "content": "28C sunny"},
+    )
+    result = intake(as_json=True)
+    parsed = json.loads(result)
+    assert "datetime" in parsed
+    assert "sleep" in parsed
 
 
-def test_intake_error_with_all_param_combinations():
-    """intake raises NotImplementedError regardless of parameter values."""
-    combos = [
-        dict(as_json=True, send_weather=False),
-        dict(as_json=False, send_weather=True),
-        dict(as_json=True, send_weather=True),
-        dict(as_json=False, send_weather=False),
-    ]
-    for kwargs in combos:
-        with pytest.raises(NotImplementedError):
-            intake(**kwargs)
+def test_intake_text_mode(monkeypatch):
+    """intake(as_json=False) returns a text brief."""
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_context",
+        lambda **kw: {
+            "date": {"iso": "2026-04-05", "datetime": "2026-04-05 08:00 HKT"},
+            "todo": {"available": False, "error": "skipped"},
+            "now": {"available": False, "error": "skipped"},
+            "calendar": {"available": False},
+            "budget": {"available": False, "error": "skipped"},
+        },
+    )
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_sleep",
+        lambda: {"label": "Sleep", "ok": False, "content": "unavailable"},
+    )
+    monkeypatch.setattr(
+        "metabolon.pinocytosis.photoreception.intake_weather",
+        lambda: {"label": "Weather", "ok": False, "content": "unavailable"},
+    )
+    result = intake(as_json=False)
+    assert "PHOTORECEPTION MORNING BRIEF" in result
 
 
 # ── main CLI ─────────────────────────────────────────────────────────

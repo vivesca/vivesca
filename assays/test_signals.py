@@ -30,7 +30,7 @@ def test_signal_outcome_validation():
     with pytest.raises(ValueError):
         Stimulus(
             tool="x",
-            outcome=cast(Any, "invalid"),
+            outcome=cast("Any", "invalid"),
             substrate_consumed=0,
             product_released=0,
             response_latency=0,

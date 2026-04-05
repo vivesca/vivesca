@@ -1,12 +1,15 @@
 """Tests for metabolon/enzymes/ribosome_queue.py — MCP tool for ribosome queue management."""
 
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from metabolon.morphology.base import EffectorResult
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

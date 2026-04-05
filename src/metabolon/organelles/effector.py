@@ -23,10 +23,10 @@ def run_cli(
             input=stdin_text,
         )
         return result.stdout.strip() or "Done."
-    except FileNotFoundError:
-        raise ValueError(f"Binary not found: {path}")
-    except subprocess.TimeoutExpired:
-        raise ValueError(f"{os.path.basename(path)} timed out ({timeout}s)")
+    except FileNotFoundError as exc:
+        raise ValueError(f"Binary not found: {path}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"{os.path.basename(path)} timed out ({timeout}s)") from exc
     except subprocess.CalledProcessError as e:
         error_msg = (e.stderr or "").strip() or str(e)
-        raise ValueError(f"{os.path.basename(path)} error: {error_msg}")
+        raise ValueError(f"{os.path.basename(path)} error: {error_msg}") from e

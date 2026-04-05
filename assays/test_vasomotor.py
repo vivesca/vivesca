@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Tests for vasomotor — autonomic pacing and budget regulation."""
 
+import contextlib
 import datetime
 import json
 from pathlib import Path
@@ -885,10 +886,8 @@ class TestEmitDistressSignal:
         with patch("metabolon.vasomotor.log"):
             with patch.dict("sys.modules", {}):
                 # Import will fail, should log
-                try:
-                    vm.emit_distress_signal("Test alert")
-                except Exception:
-                    pass  # May raise due to import
+                with contextlib.suppress(Exception):
+                    vm.emit_distress_signal("Test alert")  # May raise due to import
 
 
 class TestAssessPacing:

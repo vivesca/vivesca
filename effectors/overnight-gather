@@ -22,7 +22,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 # ── Paths ────────────────────────────────────────────────────────────────────
 HOME = Path.home()
 RUNS_DIR = HOME / ".cache" / "legatus-runs"

@@ -217,7 +217,7 @@ def main() -> int:
     print(f"{'Provider':<10} {'Pending':>8} {'Done':>8} {'Failed':>8} {'Total':>8}")
     print("-" * 46)
     all_providers = sorted(
-        set(t["provider"] for t in tasks),
+        {t["provider"] for t in tasks},
         key=lambda p: sum(1 for t in tasks if t["provider"] == p),
         reverse=True,
     )

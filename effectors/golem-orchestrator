@@ -13,6 +13,7 @@ Backends:
     hatchet   — Hatchet orchestrator (Docker + worker)
     temporal  — Temporal orchestrator (Docker + worker)
 """
+
 from __future__ import annotations
 
 import json
@@ -67,7 +68,7 @@ def _find_worker_pid(backend: str) -> int | None:
             pid = int(pf.read_text().strip())
             os.kill(pid, 0)
             return pid
-        except (ProcessLookupError, ValueError):
+        except ProcessLookupError, ValueError:
             pf.unlink(missing_ok=True)
     return None
 
@@ -81,12 +82,13 @@ def _is_running(backend: str) -> dict | None:
                 pid = int(pidfile.read_text().strip())
                 os.kill(pid, 0)  # check alive
                 return {"pid": pid, "backend": "daemon"}
-            except (ProcessLookupError, ValueError):
+            except ProcessLookupError, ValueError:
                 pass
         # Also check by process name
         r = subprocess.run(
             ["pgrep", "-f", "golem-daemon start"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             timeout=300,
         )
         if r.returncode == 0:
@@ -161,7 +163,7 @@ def cmd_stop(backend: str | None = None) -> None:
                     time.sleep(1)
                 except ProcessLookupError:
                     pass
-            print(f"  daemon stopped")
+            print("  daemon stopped")
 
         elif b == "hatchet":
             # Kill worker first
@@ -174,7 +176,7 @@ def cmd_stop(backend: str | None = None) -> None:
                     pass
             # Stop Docker stack
             _docker("compose", "stop", cwd=HATCHET_DIR)
-            print(f"  hatchet stopped")
+            print("  hatchet stopped")
 
         elif b == "temporal":
             wp = info.get("worker_pid")
@@ -185,7 +187,7 @@ def cmd_stop(backend: str | None = None) -> None:
                 except ProcessLookupError:
                     pass
             _docker("compose", "stop", cwd=TEMPORAL_DIR)
-            print(f"  temporal stopped")
+            print("  temporal stopped")
 
 
 def cmd_start(backend: str) -> None:
@@ -226,10 +228,17 @@ def cmd_start(backend: str) -> None:
         _docker("compose", "up", "-d", cwd=TEMPORAL_DIR)
         # Wait for server health
         print("Waiting for Temporal server...")
-        for i in range(20):
+        for _i in range(20):
             r = _docker(
-                "compose", "exec", "-T", "temporal-server",
-                "tctl", "--address", "localhost:7233", "cluster", "health",
+                "compose",
+                "exec",
+                "-T",
+                "temporal-server",
+                "tctl",
+                "--address",
+                "localhost:7233",
+                "cluster",
+                "health",
                 cwd=TEMPORAL_DIR,
             )
             if r.returncode == 0:

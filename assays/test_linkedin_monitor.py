@@ -16,6 +16,7 @@ This test suite covers:
 """
 
 
+import contextlib
 import hashlib
 import json
 import os
@@ -1227,11 +1228,8 @@ def test_format_digest_profile_missing_name():
     profile = {"url": "https://linkedin.com/in/test"}
     posts = [{"text": "Post content that is long enough here", "timestamp": "", "url": ""}]
     # Should raise KeyError or handle gracefully
-    try:
+    with contextlib.suppress(KeyError):
         linkedin.format_digest(profile, posts, 1)
-        # If it doesn't raise, check what happens
-    except KeyError:
-        pass  # Expected behavior
 
 
 def test_format_digest_url_with_tracking():
@@ -1660,10 +1658,8 @@ profiles:
                     with patch("time.sleep"):
                         with patch.object(Path, "write_text"):
                             with patch.object(Path, "mkdir"):
-                                try:
-                                    namespace["main"]()
-                                except SystemExit, AttributeError, TypeError:
-                                    pass  # May exit or error on mocked paths
+                                with contextlib.suppress(SystemExit, AttributeError, TypeError):
+                                    namespace["main"]()  # May exit or error on mocked paths
 
 
 def test_main_inter_profile_delay():
@@ -1911,26 +1907,20 @@ def test_format_digest_output_is_string():
 def test_is_auth_gated_with_none():
     """Test is_auth_gated handles None input gracefully."""
     # This tests edge case behavior
-    try:
-        linkedin.is_auth_gated([], None)
-    except TypeError, AttributeError:
-        pass  # Expected if implementation doesn't handle None
+    with contextlib.suppress(TypeError, AttributeError):
+        linkedin.is_auth_gated([], None)  # Expected if implementation doesn't handle None
 
 
 def test_load_seen_with_none_slug():
     """Test load_seen handles None slug."""
-    try:
-        linkedin.load_seen(None)
-    except TypeError, AttributeError:
-        pass  # Expected
+    with contextlib.suppress(TypeError, AttributeError):
+        linkedin.load_seen(None)  # Expected
 
 
 def test_save_seen_with_none_slug():
     """Test save_seen handles None slug."""
-    try:
-        linkedin.save_seen(None, {"hash"})
-    except TypeError, AttributeError:
-        pass  # Expected
+    with contextlib.suppress(TypeError, AttributeError):
+        linkedin.save_seen(None, {"hash"})  # Expected
 
 
 # ---------------------------------------------------------------------------

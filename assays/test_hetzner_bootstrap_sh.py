@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -239,7 +240,7 @@ class TestPackageInstallation:
 
 
 class TestTmuxConfig:
-    _TMUX_LINES = [
+    _TMUX_LINES: ClassVar[list] = [
         "set -g prefix C-a",
         "unbind C-b",
         "set -g mouse on",
@@ -500,11 +501,10 @@ class TestEdgeCases:
         # Check every sudo -u terry bash -c block has non-empty body
         lines = src.splitlines()
         for i, line in enumerate(lines):
-            if "sudo -u terry bash -c" in line and "<<" not in line:
+            if "sudo -u terry bash -c" in line and "<<" not in line and i + 1 < len(lines):
                 # Next line should not be just a closing quote
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    assert next_line != "'", f"Line {i + 2}: empty sudo -u terry block"
+                next_line = lines[i + 1].strip()
+                assert next_line != "'", f"Line {i + 2}: empty sudo -u terry block"
 
     def test_all_urls_use_https(self):
         """All download URLs use HTTPS, not HTTP."""
@@ -569,7 +569,7 @@ class TestEdgeCases:
 class TestTmuxExtended:
     """Test tmux config lines not in the parametrized TestTmuxConfig."""
 
-    _EXTRA_LINES = [
+    _EXTRA_LINES: ClassVar[list] = [
         "bind C-a send-prefix",
         'set -g default-terminal "screen-256color"',
         ",xterm-256color:Tc",

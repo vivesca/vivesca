@@ -20,7 +20,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -188,8 +188,7 @@ def attempt_fix(conflicts: dict) -> tuple[bool, str]:
     if not conflicts:
         return False, "no conflicts detected"
     ok, out = run(
-        [_uv(), "pip", "install", "--upgrade", "--python", _mise_python()]
-        + list(conflicts.keys()),
+        [_uv(), "pip", "install", "--upgrade", "--python", _mise_python(), *list(conflicts.keys())],
         timeout=120,
     )
     if not ok:
@@ -257,7 +256,7 @@ def _uv_snapshot() -> dict[str, str]:
 
 
 def _uv_install(*args, timeout=60) -> tuple[bool, str]:
-    return run([_uv(), "pip", "install", "--python", _mise_python()] + list(args), timeout=timeout)
+    return run([_uv(), "pip", "install", "--python", _mise_python(), *list(args)], timeout=timeout)
 
 
 def _bisect_upgrades(upgraded, blocked, alerts):

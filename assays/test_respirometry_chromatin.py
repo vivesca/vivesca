@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.respirometry.chromatin."""
 
 import hashlib
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,6 +18,9 @@ from metabolon.respirometry.chromatin import (
     stamp_processed,
 )
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Fixtures

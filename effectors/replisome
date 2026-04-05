@@ -12,19 +12,19 @@ Usage:
 """
 
 import argparse
+import contextlib
 import os
 import pty
 import re
 import select
 import subprocess
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, TypedDict
 
-from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, StateGraph
 
 HOME = Path.home()
 DEFAULT_MODEL = "glm"
@@ -34,28 +34,39 @@ DEFAULT_MODEL = "glm"
 DIRECT_MODELS = {
     "gemini": ["gemini", "-p"],
     "opencode": ["opencode", "--prompt"],
-    "codex": ["codex", "--dangerously-bypass-approvals-and-sandbox", "-q", "--skip-git-repo-check"],
+    "codex": [
+        "codex",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "-q",
+        "--skip-git-repo-check",
+    ],
 }
 PTY_MODELS = {"opencode", "codex"}
 MODEL_TIMEOUT_FLOOR = {"gemini": 120, "opencode": 120, "codex": 120}
 
-_ANSI_RE = re.compile(r'\x1b\[[^a-zA-Z]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][^a-zA-Z]*[a-zA-Z]?')
-_CTRL_RE = re.compile(r'[\x00-\x09\x0b-\x1f\x7f]')
-_TUI_CHROME_RE = re.compile(r'[█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝]+')
+_ANSI_RE = re.compile(r"\x1b\[[^a-zA-Z]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][^a-zA-Z]*[a-zA-Z]?")
+_CTRL_RE = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
+_TUI_CHROME_RE = re.compile(r"[█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝]+")
 
 
 # ── PTY wrapper for TUI models ────────────────────────────────────────
+
 
 def _pty_query(cmd: list[str], timeout: int) -> str:
     """Run a TUI command with a pseudo-TTY and extract clean text."""
     master, slave = pty.openpty()
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     proc = subprocess.Popen(
-        cmd, stdin=slave, stdout=slave, stderr=slave,
-        close_fds=True, env=env, cwd=str(HOME / "germline"),
+        cmd,
+        stdin=slave,
+        stdout=slave,
+        stderr=slave,
+        close_fds=True,
+        env=env,
+        cwd=str(HOME / "germline"),
     )
     os.close(slave)
-    output = b''
+    output = b""
     deadline = time.time() + timeout
     while time.time() < deadline:
         r, _, _ = select.select([master], [], [], 1)
@@ -80,31 +91,29 @@ def _pty_query(cmd: list[str], timeout: int) -> str:
                 except OSError:
                     break
             break
-    try:
+    with contextlib.suppress(OSError):
         os.close(master)
-    except OSError:
-        pass
     if proc.poll() is None:
         proc.kill()
 
-    clean = _ANSI_RE.sub('', output.decode('utf-8', errors='replace'))
-    clean = _CTRL_RE.sub('', clean)
-    clean = _TUI_CHROME_RE.sub(' ', clean)
+    clean = _ANSI_RE.sub("", output.decode("utf-8", errors="replace"))
+    clean = _CTRL_RE.sub("", clean)
+    clean = _TUI_CHROME_RE.sub(" ", clean)
 
     # Extract from streaming "Thinking:" blocks
-    thinking_parts = clean.split('Thinking:')
+    thinking_parts = clean.split("Thinking:")
     if len(thinking_parts) > 1:
         last = thinking_parts[-1]
-        last = re.sub(r'\d+,\d+\s+\d+%\s+\(\$[\d.]+\)', '', last)
-        last = re.sub(r'·\s*[\d.]+s', '', last)
-        last = re.sub(r'Build\s+·\s+\S+', '', last)
-        last = re.sub(r'~\s*(Reading file|Finding files)\.\.\.', '', last)
-        last = re.sub(r'[→✱]\s*\w+\s+"[^"]*"[^)]*\)', '', last)
-        last = re.sub(r'[→✱]\s*\w+\s+\S+', '', last)
-        last = re.sub(r'\s+', ' ', last).strip()
-        sentences = [s.strip() for s in last.split('.') if len(s.strip()) > 15]
+        last = re.sub(r"\d+,\d+\s+\d+%\s+\(\$[\d.]+\)", "", last)
+        last = re.sub(r"·\s*[\d.]+s", "", last)
+        last = re.sub(r"Build\s+·\s+\S+", "", last)
+        last = re.sub(r"~\s*(Reading file|Finding files)\.\.\.", "", last)
+        last = re.sub(r'[→✱]\s*\w+\s+"[^"]*"[^)]*\)', "", last)
+        last = re.sub(r"[→✱]\s*\w+\s+\S+", "", last)
+        last = re.sub(r"\s+", " ", last).strip()
+        sentences = [s.strip() for s in last.split(".") if len(s.strip()) > 15]
         if sentences:
-            return '. '.join(sentences[-3:]).strip()
+            return ". ".join(sentences[-3:]).strip()
         return last[:500] if last else ""
 
     lines = [s.strip() for s in clean.splitlines() if s.strip() and len(s.strip()) > 3]
@@ -127,8 +136,11 @@ def query_model(model: str, prompt: str, timeout: int = 120) -> str:
     cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
     try:
         r = subprocess.run(
-            [*cmd, prompt], capture_output=True, text=True,
-            timeout=effective_timeout, env=env,
+            [*cmd, prompt],
+            capture_output=True,
+            text=True,
+            timeout=effective_timeout,
+            env=env,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
@@ -140,6 +152,7 @@ def query_model(model: str, prompt: str, timeout: int = 120) -> str:
 
 
 # ── Scratchpad ─────────────────────────────────────────────────────────
+
 
 def scratchpad_text(turns: list[dict]) -> str:
     """Render turns as markdown."""
@@ -168,6 +181,7 @@ Your turn. Read the code first, then contribute."""
 
 # ── LangGraph state ───────────────────────────────────────────────────
 
+
 def _append(a: list, b: list) -> list:
     return a + b
 
@@ -189,6 +203,7 @@ class ReplisomeState(TypedDict):
 
 # ── Graph nodes ───────────────────────────────────────────────────────
 
+
 def node_model_turn(state: ReplisomeState) -> dict:
     """One model speaks — after reading the code."""
     idx = state["current_model_idx"]
@@ -206,7 +221,7 @@ def node_model_turn(state: ReplisomeState) -> dict:
         f.write(f"\n### {model}\n\n{response}\n")
 
     # Check for human interrupt
-    first_line = response.strip().split('\n')[0] if response.strip() else ""
+    first_line = response.strip().split("\n")[0] if response.strip() else ""
     wants_human = first_line.startswith("QUESTION:") or first_line.startswith("**QUESTION:**")
 
     return {
@@ -223,7 +238,7 @@ def node_human(state: ReplisomeState) -> dict:
     print(f"\n  ? {question}")
     try:
         answer = input("  > ").strip()
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         answer = "[skipped]"
     if not answer:
         answer = "[skipped]"
@@ -253,7 +268,7 @@ If not, sharpen the disagreement so the next round is productive.
 
 Your turn as Claude."""
 
-    print(f"  CC (sonnet)...", end=" ", flush=True)
+    print("  CC (sonnet)...", end=" ", flush=True)
     response = query_model("sonnet", prompt, timeout=state["timeout"])
     print("done")
 
@@ -271,6 +286,7 @@ Your turn as Claude."""
 
 
 # ── Routing ───────────────────────────────────────────────────────────
+
 
 def route_after_model(state: ReplisomeState) -> str:
     if state.get("needs_human"):
@@ -294,6 +310,7 @@ def route_after_synth(state: ReplisomeState) -> str:
 
 # ── Build graph ───────────────────────────────────────────────────────
 
+
 def build_graph():
     g = StateGraph(ReplisomeState)
 
@@ -303,19 +320,31 @@ def build_graph():
 
     g.set_entry_point("model_turn")
 
-    g.add_conditional_edges("model_turn", route_after_model, {
-        "human": "human",
-        "model_turn": "model_turn",
-        "synthesise": "synthesise",
-    })
-    g.add_conditional_edges("human", route_after_human, {
-        "model_turn": "model_turn",
-        "synthesise": "synthesise",
-    })
-    g.add_conditional_edges("synthesise", route_after_synth, {
-        "model_turn": "model_turn",
-        END: END,
-    })
+    g.add_conditional_edges(
+        "model_turn",
+        route_after_model,
+        {
+            "human": "human",
+            "model_turn": "model_turn",
+            "synthesise": "synthesise",
+        },
+    )
+    g.add_conditional_edges(
+        "human",
+        route_after_human,
+        {
+            "model_turn": "model_turn",
+            "synthesise": "synthesise",
+        },
+    )
+    g.add_conditional_edges(
+        "synthesise",
+        route_after_synth,
+        {
+            "model_turn": "model_turn",
+            END: END,
+        },
+    )
 
     checkpointer = InMemorySaver()
     return g.compile(checkpointer=checkpointer)
@@ -323,19 +352,30 @@ def build_graph():
 
 # ── Main ──────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
         prog="replisome",
         description="Multi-model council with human-in-the-loop (LangGraph)",
     )
     parser.add_argument("task", help="Task description")
-    parser.add_argument("--model", default=[DEFAULT_MODEL], nargs="+",
-                        help=f"Model(s) to collaborate (default: {DEFAULT_MODEL})")
+    parser.add_argument(
+        "--model",
+        default=[DEFAULT_MODEL],
+        nargs="+",
+        help=f"Model(s) to collaborate (default: {DEFAULT_MODEL})",
+    )
     parser.add_argument("--rounds", type=int, default=2, help="Rounds (default: 2)")
     parser.add_argument("--scratchpad", type=str, help="Scratchpad path (resume)")
-    parser.add_argument("--timeout", type=int, default=120, help="Per-query timeout (default: 120s)")
-    parser.add_argument("--repo", type=str, default=str(HOME / "germline"),
-                        help="Repo models should read (default: ~/germline)")
+    parser.add_argument(
+        "--timeout", type=int, default=120, help="Per-query timeout (default: 120s)"
+    )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default=str(HOME / "germline"),
+        help="Repo models should read (default: ~/germline)",
+    )
 
     args = parser.parse_args()
     models = args.model
@@ -343,10 +383,14 @@ def main():
     repo = args.repo
     model_label = " + ".join(models)
 
-    scratchpad = Path(args.scratchpad) if args.scratchpad else HOME / "tmp" / f"replisome-{datetime.now().strftime('%H%M%S')}.md"
+    scratchpad = (
+        Path(args.scratchpad)
+        if args.scratchpad
+        else HOME / "tmp" / f"replisome-{datetime.now().strftime('%H%M%S')}.md"
+    )
     scratchpad.parent.mkdir(parents=True, exist_ok=True)
 
-    header = f"""# Replisome Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
+    header = f"""# Replisome Session — {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 **Task:** {task}
 **Models:** CC ↔ {model_label}
@@ -385,7 +429,7 @@ def main():
 
     config = {"configurable": {"thread_id": scratchpad.stem}}
 
-    for event in graph.stream(initial_state, config=config):
+    for _event in graph.stream(initial_state, config=config):
         pass
 
     print(f"\nScratchpad: {scratchpad}")

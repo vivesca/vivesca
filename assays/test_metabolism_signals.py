@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from metabolon.metabolism.signals import (
     DEFAULT_LOG,
@@ -81,7 +82,7 @@ class TestStimulus:
         assert s2.ts == s.ts
 
     def test_invalid_outcome_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Stimulus(tool="x", outcome="not_a_value")
 
 

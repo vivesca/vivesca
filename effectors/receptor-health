@@ -35,9 +35,11 @@ ALLOWED_DIRS = {"scripts", "references", "agents"}
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 class Violation:
     """Single check failure."""
-    __slots__ = ("receptor", "check", "detail")
+
+    __slots__ = ("check", "detail", "receptor")
 
     def __init__(self, receptor: str, check: str, detail: str) -> None:
         self.receptor = receptor
@@ -55,6 +57,7 @@ class Violation:
 # SKILL.md checks
 # ---------------------------------------------------------------------------
 
+
 def parse_frontmatter(text: str) -> tuple[dict | None, str, list[str]]:
     """Return (frontmatter_dict, body_text, errors)."""
     errors: list[str] = []
@@ -67,7 +70,7 @@ def parse_frontmatter(text: str) -> tuple[dict | None, str, list[str]]:
         return None, text, ["no closing --- frontmatter delimiter"]
 
     fm_raw = text[3:close]
-    body = text[close + 4:]
+    body = text[close + 4 :]
 
     try:
         fm = yaml.safe_load(fm_raw)
@@ -102,14 +105,16 @@ def check_skill_md(skill_path: Path, receptor: str) -> list[Violation]:
 
         desc = fm.get("description", "")
         if isinstance(desc, str) and len(desc) > MAX_DESC_LEN:
-            v.append(Violation(receptor, "description-length",
-                               f"{len(desc)} chars (max {MAX_DESC_LEN})"))
+            v.append(
+                Violation(
+                    receptor, "description-length", f"{len(desc)} chars (max {MAX_DESC_LEN})"
+                )
+            )
 
     # Body line count (lines after frontmatter)
     body_lines = body.count("\n") + 1 if body else 0
     if body_lines > MAX_BODY_LINES:
-        v.append(Violation(receptor, "body-size",
-                           f"{body_lines} lines (max {MAX_BODY_LINES})"))
+        v.append(Violation(receptor, "body-size", f"{body_lines} lines (max {MAX_BODY_LINES})"))
 
     return v
 
@@ -117,6 +122,7 @@ def check_skill_md(skill_path: Path, receptor: str) -> list[Violation]:
 # ---------------------------------------------------------------------------
 # recipe.yaml checks
 # ---------------------------------------------------------------------------
+
 
 def check_recipe_yaml(recipe_path: Path, receptor: str) -> list[Violation]:
     """Validate recipe.yaml. Returns list of violations."""
@@ -134,15 +140,19 @@ def check_recipe_yaml(recipe_path: Path, receptor: str) -> list[Violation]:
         return v
 
     if not isinstance(data, dict):
-        v.append(Violation(receptor, "recipe-yaml",
-                           f"root is {type(data).__name__}, expected mapping"))
+        v.append(
+            Violation(receptor, "recipe-yaml", f"root is {type(data).__name__}, expected mapping")
+        )
         return v
 
     for field in ("name", "description"):
         val = data.get(field)
         if not val or (isinstance(val, str) and not val.strip()):
-            v.append(Violation(receptor, "recipe-missing-field",
-                               f"{field} is empty or absent in recipe.yaml"))
+            v.append(
+                Violation(
+                    receptor, "recipe-missing-field", f"{field} is empty or absent in recipe.yaml"
+                )
+            )
 
     # Check referenced extensions URIs — local file paths only
     extensions = data.get("extensions", [])
@@ -154,8 +164,13 @@ def check_recipe_yaml(recipe_path: Path, receptor: str) -> list[Violation]:
             if uri and not uri.startswith(("http://", "https://", "ws://", "wss://")):
                 ref = (recipe_path.parent / uri).resolve()
                 if not ref.exists():
-                    v.append(Violation(receptor, "reference-broken",
-                                       f"extension uri references missing: {uri}"))
+                    v.append(
+                        Violation(
+                            receptor,
+                            "reference-broken",
+                            f"extension uri references missing: {uri}",
+                        )
+                    )
 
     # Check prompt field references to local paths
     prompt = data.get("prompt", "")
@@ -171,8 +186,11 @@ def check_recipe_yaml(recipe_path: Path, receptor: str) -> list[Violation]:
                 continue
             # Only flag if it looks like a deliberate file reference
             if ref_str.endswith((".py", ".sh", ".md", ".yaml", ".json")):
-                v.append(Violation(receptor, "reference-broken",
-                                   f"prompt references missing: {ref_str}"))
+                v.append(
+                    Violation(
+                        receptor, "reference-broken", f"prompt references missing: {ref_str}"
+                    )
+                )
 
     return v
 
@@ -180,6 +198,7 @@ def check_recipe_yaml(recipe_path: Path, receptor: str) -> list[Violation]:
 # ---------------------------------------------------------------------------
 # Directory structure checks
 # ---------------------------------------------------------------------------
+
 
 def check_directory(receptor_dir: Path, receptor: str) -> list[Violation]:
     """Check for disallowed auxiliary files in receptor directory."""
@@ -189,11 +208,9 @@ def check_directory(receptor_dir: Path, receptor: str) -> list[Violation]:
         if child.name.startswith("."):
             continue
         if child.is_file() and child.name not in ALLOWED_FILES:
-            v.append(Violation(receptor, "auxiliary-file",
-                               f"unexpected file: {child.name}"))
+            v.append(Violation(receptor, "auxiliary-file", f"unexpected file: {child.name}"))
         elif child.is_dir() and child.name not in ALLOWED_DIRS:
-            v.append(Violation(receptor, "auxiliary-dir",
-                               f"unexpected directory: {child.name}"))
+            v.append(Violation(receptor, "auxiliary-dir", f"unexpected directory: {child.name}"))
 
     return v
 
@@ -201,6 +218,7 @@ def check_directory(receptor_dir: Path, receptor: str) -> list[Violation]:
 # ---------------------------------------------------------------------------
 # Main scan
 # ---------------------------------------------------------------------------
+
 
 def scan_receptors(names: list[str] | None = None) -> list[Violation]:
     """Scan all (or named) receptors. Returns all violations."""

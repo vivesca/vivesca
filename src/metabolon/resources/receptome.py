@@ -5,11 +5,14 @@ Resources:
 """
 
 from datetime import UTC, datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from metabolon.locus import claude_skills
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _SKILLS_ROOT = claude_skills
 

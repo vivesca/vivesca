@@ -178,7 +178,7 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     # Strip markdown fencing if present (model sometimes adds it despite instructions)
     if text.startswith("```"):
         lines = text.splitlines()
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         text = "\n".join(lines)
 
     try:

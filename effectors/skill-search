@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 from pathlib import Path
 
 # Default search root: membrane/receptors/ under the germline
@@ -191,7 +190,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Output results as JSON",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Show triggers in output",
     )

@@ -3,9 +3,13 @@ from __future__ import annotations
 """Tests for metabolon.sortase.graph module."""
 
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from metabolon.sortase.executor import TaskExecutionResult
+
+if TYPE_CHECKING:
+    from metabolon.sortase.graph import SortaseState
 
 
 class TestSortaseState:
@@ -13,7 +17,6 @@ class TestSortaseState:
 
     def test_state_structure(self):
         """State has expected keys."""
-        from metabolon.sortase.graph import SortaseState
 
         state: SortaseState = {
             "plan_file": "/path/to/plan.md",
@@ -44,7 +47,7 @@ class TestDecomposeNode:
 
     def test_decompose_success(self, tmp_path):
         """Successful decomposition returns tasks."""
-        from metabolon.sortase.graph import SortaseState, decompose
+        from metabolon.sortase.graph import decompose
 
         # Create a plan file
         plan_file = tmp_path / "plan.yaml"
@@ -83,7 +86,7 @@ class TestDecomposeNode:
 
     def test_decompose_error(self, tmp_path):
         """Decompose error is captured."""
-        from metabolon.sortase.graph import SortaseState, decompose
+        from metabolon.sortase.graph import decompose
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "nonexistent.yaml"),
@@ -117,7 +120,7 @@ class TestRouteNode:
 
     def test_route_with_forced_backend(self, tmp_path):
         """Route with forced backend uses that backend."""
-        from metabolon.sortase.graph import SortaseState, route
+        from metabolon.sortase.graph import route
         from metabolon.sortase.router import RouteDecision
 
         state: SortaseState = {
@@ -151,7 +154,7 @@ class TestRouteNode:
 
     def test_route_auto_detect(self, tmp_path):
         """Route auto-detects backend based on description."""
-        from metabolon.sortase.graph import SortaseState, route
+        from metabolon.sortase.graph import route
         from metabolon.sortase.router import RouteDecision
 
         state: SortaseState = {
@@ -188,7 +191,7 @@ class TestExecuteNode:
 
     def test_execute_no_tasks(self, tmp_path):
         """Execute with no tasks returns early."""
-        from metabolon.sortase.graph import SortaseState, execute
+        from metabolon.sortase.graph import execute
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "plan.md"),
@@ -217,7 +220,7 @@ class TestExecuteNode:
 
     def test_execute_with_tasks(self, tmp_path):
         """Execute with tasks returns results."""
-        from metabolon.sortase.graph import SortaseState, execute
+        from metabolon.sortase.graph import execute
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "plan.md"),
@@ -275,7 +278,7 @@ class TestValidateNode:
 
     def test_validate_no_issues(self, tmp_path):
         """Validate with no issues."""
-        from metabolon.sortase.graph import SortaseState, validate
+        from metabolon.sortase.graph import validate
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "plan.md"),
@@ -307,7 +310,7 @@ class TestValidateNode:
 
     def test_validate_with_changed_files(self, tmp_path):
         """Validate captures changed files."""
-        from metabolon.sortase.graph import SortaseState, validate
+        from metabolon.sortase.graph import validate
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "plan.md"),
@@ -345,7 +348,7 @@ class TestLogResultsNode:
 
     def test_log_results_success(self, tmp_path):
         """Log results on success."""
-        from metabolon.sortase.graph import SortaseState, log_results
+        from metabolon.sortase.graph import log_results
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "plan.md"),
@@ -385,7 +388,7 @@ class TestLogResultsNode:
 
     def test_log_results_with_validation_error(self, tmp_path):
         """Log results captures validation errors."""
-        from metabolon.sortase.graph import SortaseState, log_results
+        from metabolon.sortase.graph import log_results
 
         state: SortaseState = {
             "plan_file": str(tmp_path / "plan.md"),

@@ -268,7 +268,7 @@ def check_tailscale() -> dict:
         # Check key expiry
         expiry_str = self_node.get("KeyExpiry", "")
         if expiry_str:
-            expiry = datetime.fromisoformat(expiry_str.replace("Z", "+00:00"))
+            expiry = datetime.fromisoformat(expiry_str)
             now = datetime.now(expiry.tzinfo)
             days_left = (expiry - now).days
             if days_left < TS_KEY_WARN_DAYS:

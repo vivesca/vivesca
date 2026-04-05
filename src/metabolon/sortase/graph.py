@@ -22,11 +22,10 @@ import subprocess
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, TypedDict
+from typing import TYPE_CHECKING, Annotated, TypedDict
 
 logger = logging.getLogger(__name__)
 
-from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
@@ -35,6 +34,9 @@ from metabolon.sortase.executor import execute_tasks, summarize_cost_estimates
 from metabolon.sortase.logger import append_log
 from metabolon.sortase.router import route_description
 from metabolon.sortase.validator import validate_execution
+
+if TYPE_CHECKING:
+    from langchain_core.runnables.config import RunnableConfig
 
 # ── constants ────────────────────────────────────────────────
 

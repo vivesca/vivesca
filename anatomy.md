@@ -106,7 +106,6 @@ ingestion — meal planning. Actions: read_plan|log_meal
 
 ### integrin
 integrin
-- `integrin(action, colonies_dir, buds_dir, skills_dir, tools_dir)` -- Attachment integrity probe. Dispatch by action.
 
 ### interoception
 interoception - sensing internal state.
@@ -141,12 +140,10 @@ pinocytosis — deterministic context gathering and overnight summaries.
 - `pinocytosis(action, json_output, send_weather, task)`
 
 ### polarization
-polarization — North star agent dispatch pre-flight and guard control.
-- `polarization(action, guard_action)` -- Polarization pre-flight checks and guard control.
+polarization
 
 ### proprioception
-Proprioception — sensing the organism's structural state and gradients.
-- `proprioception(target, goal, category, score, drill_type, material, notes)` -- Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators, sense, drill, gradient, skills, timing.
+proprioception
 
 ### pseudopod
 pseudopod — browser cookie bridge + translocon dispatch for LLM tasks.
@@ -240,13 +237,6 @@ PhenotypeSubstrate — metabolism of MCP tool descriptions (phenotype).
 - **act**: Propose a mutation action for a candidate tool.
 - **report**: Format a phenotype metabolism report.
 
-### VasomotorSubstrate (unspecified)
-VasomotorSubstrate — metabolism of autonomous pacing/budgeting.
-- **sense**: Read vivesca-events.jsonl for the last N days, summarise daily pacing.
-- **candidates**: Identify pacing issues from sensed daily summaries.
-- **act**: Apply autonomic tuning for a pacing issue.
-- **report**: Format a human-readable pacing report.
-
 ## Metabolism Modules
 
 Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
@@ -304,7 +294,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **hemostasis.py**: `hemostasis`
 - **histone.py**: `histone`
 - **ingestion.py**: `ingestion`
-- **integrin.py**: `integrin`
+- **integrin.py**: _(no @tool found)_
 - **interoception.py**: `interoception`
 - **kinesin.py**: `translocation`
 - **lysin.py**: `lysin`
@@ -313,8 +303,8 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **necropsy.py**: `necropsy`
 - **noesis.py**: `noesis`
 - **pinocytosis.py**: `pinocytosis`
-- **polarization.py**: `polarization`
-- **proprioception.py**: `proprioception`
+- **polarization.py**: _(no @tool found)_
+- **proprioception.py**: _(no @tool found)_
 - **pseudopod.py**: `porta_inject`, `translocon_dispatch`
 - **rheotaxis.py**: `rheotaxis`
 - **ribosome_dispatch.py**: `ribosome_dispatch`
@@ -401,9 +391,7 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Metabolism State
 
-- Variant store: **24** tool(s), **28** total variant(s)
-- Signals (last 7 days): **290**
-- Most active: `rheotaxis_search` (62), `ecphory` (28), `cytokinesis_gather` (23), `endosomal` (20), `proprioception` (19)
+- _(metabolism data unavailable)_
 
 ## Known Lesions
 

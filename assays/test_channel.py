@@ -5,6 +5,7 @@ from __future__ import annotations
 
 
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,7 +19,9 @@ exec(channel_code, _channel_dict)
 
 # Make attributes accessible via dot notation
 class ChannelModule:
-    _original_keys = set(_channel_dict.keys())  # Track what was originally in the module
+    _original_keys: ClassVar[set] = set(
+        _channel_dict.keys()
+    )  # Track what was originally in the module
 
     def __getattr__(self, name):
         return _channel_dict[name]

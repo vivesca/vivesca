@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for metabolon/gastrulation/init.py."""
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,6 +12,9 @@ from metabolon.gastrulation.init import (
     _to_module,
     scaffold_project,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestToModule:

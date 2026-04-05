@@ -3,10 +3,13 @@ from __future__ import annotations
 """Tests for metabolism.precision — gap detection."""
 
 
-from pathlib import Path
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 from metabolon.metabolism.mismatch_repair import _detect_orphan_gaps
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_orphan_gap_detected(tmp_path: Path) -> None:

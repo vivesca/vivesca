@@ -15,7 +15,6 @@ Gathers:
 import argparse
 import json
 import subprocess
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -84,7 +83,7 @@ def gather_jsonl_observations(days: int = 7) -> str:
                 ts_str = ev.get("ts", "")
                 # Handle ISO format with or without 'Z'
                 if ts_str.endswith("Z"):
-                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    ts = datetime.fromisoformat(ts_str)
                 else:
                     ts = datetime.fromisoformat(ts_str)
 

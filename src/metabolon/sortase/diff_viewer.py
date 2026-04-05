@@ -2,7 +2,10 @@
 
 import re
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def find_task_commit(task_name: str, project_dir: Path) -> str | None:

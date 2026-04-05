@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 import os
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -245,7 +246,7 @@ class TestExecutionAttempt:
             duration_s=1.5,
             output="success",
         )
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             attempt.exit_code = 1
 
 

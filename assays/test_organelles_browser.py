@@ -6,12 +6,15 @@ Every test mocks async_playwright so no browser is launched.
 """
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from metabolon.organelles.browser import fetch
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Helpers to build a mock Playwright stack

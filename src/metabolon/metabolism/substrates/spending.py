@@ -5,9 +5,12 @@ spending trends, category drift, and subscription cost creep.
 """
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.locus import spending
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SPENDING_DIR = spending
 

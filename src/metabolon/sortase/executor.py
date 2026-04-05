@@ -7,14 +7,16 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from metabolon.sortase.decompose import TaskSpec
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from metabolon.sortase.decompose import TaskSpec
 
 DEFAULT_TIMEOUT_SEC = 600
 

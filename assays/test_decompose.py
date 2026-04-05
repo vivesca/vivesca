@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for metabolon.sortase.decompose module."""
 
 
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest.mock import patch
 
@@ -32,7 +33,7 @@ class TestComplexityScore:
             verification_commands=0,
             estimated_lines=10,
         )
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             score.level = "complex"
 
     def test_all_fields_present(self):
@@ -74,7 +75,7 @@ class TestTaskSpec:
             spec="Do something",
             files=[],
         )
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             spec.name = "other"
 
 

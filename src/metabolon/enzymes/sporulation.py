@@ -8,12 +8,15 @@ checkpoint, germinate in a fresh session.
 import contextlib
 import random
 from datetime import UTC, datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion, resolve_memory_dir
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _CHECKPOINT_DIR = resolve_memory_dir()
 

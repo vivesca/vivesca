@@ -8,6 +8,7 @@ Usage:
 
 Outputs clean text to stdout.  Use --json for structured output.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path.home() / "germline"))
 
-import metabolon.organelles.browser as _browser_mod  # noqa: E402
+import metabolon.organelles.browser as _browser_mod
+
 _async_fetch = _browser_mod.fetch
 
 
@@ -37,8 +39,9 @@ def build_parser() -> argparse.ArgumentParser:
     fp.add_argument("--screenshot", default=None, help="Save PNG screenshot to path")
     fp.add_argument("--pdf", default=None, help="Save PDF to path")
     fp.add_argument("--wait", type=int, default=0, help="Wait N ms after load")
-    fp.add_argument("--json", action="store_true", dest="json_output",
-                     help="Output structured JSON")
+    fp.add_argument(
+        "--json", action="store_true", dest="json_output", help="Output structured JSON"
+    )
 
     return parser
 

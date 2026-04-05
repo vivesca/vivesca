@@ -82,7 +82,7 @@ def score_output(text: str) -> dict:
     word_count = len(words)
     # Count sentences via terminal punctuation
     sentences = len(re.findall(r"[.!?。!?]", text))
-    unique_words = len(set(w.lower() for w in re.findall(r"[a-zA-Z]+", text)))
+    unique_words = len({w.lower() for w in re.findall(r"[a-zA-Z]+", text)})
     total_words_alpha = len(re.findall(r"[a-zA-Z]+", text))
     unique_ratio = unique_words / total_words_alpha if total_words_alpha > 0 else 0.0
 

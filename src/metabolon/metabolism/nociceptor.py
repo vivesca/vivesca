@@ -15,10 +15,12 @@ import json
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from metabolon.locus import infections_log, logs_dir, signals_log
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 HKT = timezone(timedelta(hours=8))
 

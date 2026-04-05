@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,6 +13,9 @@ from metabolon.organelles.translocon_metrics import (
     record,
     stats_by_backend,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)

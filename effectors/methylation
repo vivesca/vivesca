@@ -48,6 +48,7 @@ WINDOW_DAYS = 7
 # Logging
 # ---------------------------------------------------------------------------
 
+
 def log(msg: str) -> None:
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     line = f"[{ts}] {msg}"
@@ -59,9 +60,11 @@ def log(msg: str) -> None:
     except Exception:
         pass
 
+
 # ---------------------------------------------------------------------------
 # Signal reading
 # ---------------------------------------------------------------------------
+
 
 def _cutoff() -> datetime:
     return datetime.now(UTC) - timedelta(days=WINDOW_DAYS)
@@ -174,6 +177,7 @@ def read_inflammasome_log() -> list[dict]:
 # Pattern extraction
 # ---------------------------------------------------------------------------
 
+
 def extract_probe_names() -> list[str]:
     """Extract _PROBES names from inflammasome.py without importing."""
     try:
@@ -184,7 +188,7 @@ def extract_probe_names() -> list[str]:
             if "_PROBES" in line and "list[" in line:
                 in_probes = True
             if in_probes:
-                if line.strip().startswith('("') or line.strip().startswith("(\""):
+                if line.strip().startswith('("') or line.strip().startswith('("'):
                     # Line like:    ("chromatin", probe_chromatin),
                     parts = line.strip().strip("(").strip(")").split(",")
                     if parts:
@@ -269,6 +273,7 @@ def summarize_infections(events: list[dict], failures: list[dict]) -> str:
 # Pattern qualification — only crystallize patterns seen >= MIN_PATTERN_COUNT
 # ---------------------------------------------------------------------------
 
+
 def find_crystallizable_patterns(
     candidates: list[dict],
     infections: list[dict],
@@ -334,10 +339,12 @@ def _tissue_route(task_type: str, fallback: str = "glm") -> str:
     """Return tissue-routed model for task_type; falls back to fallback on any error."""
     try:
         import sys as _sys
+
         _germline = str(Path.home() / "germline")
         if _germline not in _sys.path:
             _sys.path.insert(0, _germline)
         from metabolon.organelles.tissue_routing import route
+
         model = route(task_type)
         if model != fallback:
             log(f"tissue routing: {task_type} -> {model} (overrides {fallback})")
@@ -351,8 +358,10 @@ def _record_mitophagy(model: str, task_type: str, success: bool, duration_ms: in
     try:
         import sys as _sys
         from pathlib import Path as _Path
+
         _sys.path.insert(0, str(_Path.home() / "germline"))
         from metabolon.organelles.mitophagy import record_outcome
+
         record_outcome(model=model, task_type=task_type, success=success, duration_ms=duration_ms)
     except Exception:
         pass
@@ -395,6 +404,7 @@ def dispatch_sonnet(prompt: str, task_type: str = "methylation") -> str | None:
 # ---------------------------------------------------------------------------
 # Proposal writing
 # ---------------------------------------------------------------------------
+
 
 def write_proposal(response: str, patterns: dict, date_str: str) -> Path:
     """Write methylation proposal to chromatin/immunity/methylation/."""
@@ -460,8 +470,13 @@ PROPOSAL: <module name, function, purpose>
 """
 
 KNOWN_SUBSYSTEMS = {
-    "inflammasome", "angiogenesis", "entrainment", "poiesis",
-    "endocytosis", "rheotaxis", "perfusion",
+    "inflammasome",
+    "angiogenesis",
+    "entrainment",
+    "poiesis",
+    "endocytosis",
+    "rheotaxis",
+    "perfusion",
 }
 
 
@@ -481,7 +496,9 @@ def hybridization_pass(
     Returns a gap description string, or None if no gap qualifies.
     """
     # Collect all tools/probes that appear in failures
-    failing_tools = set(patterns["probe_failures"].keys()) | set(patterns["infection_tools"].keys())
+    failing_tools = set(patterns["probe_failures"].keys()) | set(
+        patterns["infection_tools"].keys()
+    )
 
     # Find unhealed infections — these were not fixed by repair patterns
     unhealed: list[dict] = [ev for ev in infections if not ev.get("healed")]
@@ -560,6 +577,7 @@ def write_hybridization_proposal(response: str, gap_description: str, date_str: 
 # Auto-apply gate — only probe functions that are pure path/import checks
 # ---------------------------------------------------------------------------
 
+
 def is_safe_to_autoapply(response: str) -> bool:
     """Return True only if the proposal is a probe that checks a path or import.
 
@@ -571,9 +589,21 @@ def is_safe_to_autoapply(response: str) -> bool:
     if "TYPE: probe" not in response:
         return False
     unsafe_patterns = [
-        "subprocess", "open(", "write(", ".unlink", ".rmdir", "os.remove",
-        "shutil.copy", "shutil.move", "Popen", "check_call", "check_output",
-        "run(", ".mkdir(", "chmod", "symlink",
+        "subprocess",
+        "open(",
+        "write(",
+        ".unlink",
+        ".rmdir",
+        "os.remove",
+        "shutil.copy",
+        "shutil.move",
+        "Popen",
+        "check_call",
+        "check_output",
+        "run(",
+        ".mkdir(",
+        "chmod",
+        "symlink",
     ]
     code_section = ""
     in_code = False
@@ -599,20 +629,26 @@ def is_safe_to_autoapply(response: str) -> bool:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     import sys
+
     if "--help" in sys.argv or "-h" in sys.argv:
         print(__doc__)
         return
     date_str = datetime.now(UTC).strftime("%Y-%m-%d")
-    log(f"methylation starting — date={date_str}, window={WINDOW_DAYS}d, threshold={MIN_PATTERN_COUNT}")
+    log(
+        f"methylation starting — date={date_str}, window={WINDOW_DAYS}d, threshold={MIN_PATTERN_COUNT}"
+    )
 
     # Read signals
     candidates = read_methylation_candidates()
     infections = read_infections()
     log_failures = read_inflammasome_log()
 
-    log(f"signals read — candidates={len(candidates)}, infections={len(infections)}, log_failures={len(log_failures)}")
+    log(
+        f"signals read — candidates={len(candidates)}, infections={len(infections)}, log_failures={len(log_failures)}"
+    )
 
     # Find patterns worth crystallizing
     patterns = find_crystallizable_patterns(candidates, infections, log_failures)
@@ -630,8 +666,14 @@ def main() -> None:
     probe_names = extract_probe_names()
     repair_labels = extract_repair_pattern_labels()
 
-    probe_names_str = "\n".join(f"  - {n}" for n in probe_names) if probe_names else "  (could not extract)"
-    repair_labels_str = "\n".join(f"  - {l}" for l in repair_labels) if repair_labels else "  (could not extract)"
+    probe_names_str = (
+        "\n".join(f"  - {n}" for n in probe_names) if probe_names else "  (could not extract)"
+    )
+    repair_labels_str = (
+        "\n".join(f"  - {label}" for label in repair_labels)
+        if repair_labels
+        else "  (could not extract)"
+    )
 
     prompt = PROMPT_TEMPLATE.format(
         repairs_summary=repairs_summary,
@@ -667,17 +709,25 @@ def main() -> None:
     gap_description = hybridization_pass(patterns, candidates, infections, log_failures)
 
     if gap_description is None:
-        log("hybridization pass: no gaps found — all failures map to known subsystems or below threshold")
+        log(
+            "hybridization pass: no gaps found — all failures map to known subsystems or below threshold"
+        )
     else:
-        log(f"hybridization pass: gap identified ({len(gap_description)} chars) — dispatching sonnet")
-        hybridization_prompt = HYBRIDIZATION_PROMPT_TEMPLATE.format(gap_description=gap_description)
+        log(
+            f"hybridization pass: gap identified ({len(gap_description)} chars) — dispatching sonnet"
+        )
+        hybridization_prompt = HYBRIDIZATION_PROMPT_TEMPLATE.format(
+            gap_description=gap_description
+        )
         hybridization_response = dispatch_sonnet(hybridization_prompt, task_type="hybridization")
 
         if not hybridization_response:
             log("ERROR: no response from sonnet for hybridization — skipping proposal")
         else:
             log(f"hybridization response received ({len(hybridization_response)} chars)")
-            hybridization_path = write_hybridization_proposal(hybridization_response, gap_description, date_str)
+            hybridization_path = write_hybridization_proposal(
+                hybridization_response, gap_description, date_str
+            )
             log(f"hybridization proposal written: {hybridization_path}")
             log("hybridization complete — review proposal before implementing any new subsystem")
 

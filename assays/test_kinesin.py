@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from metabolon.enzymes.kinesin import EffectorResult, TranslocationResult, translocation
 from metabolon.morphology import Secretion
@@ -368,13 +369,13 @@ def test_translocation_result_accepts_extra_fields():
 
 def test_translocation_result_output_required():
     """TranslocationResult requires 'output' field."""
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         TranslocationResult()  # type: ignore[call-arg]
 
 
 def test_translocation_result_rejects_wrong_type():
     """TranslocationResult.output must be a string."""
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         TranslocationResult(output=123)  # type: ignore[arg-type]
 
 

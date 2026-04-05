@@ -3,11 +3,13 @@
 import json
 import subprocess
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from metabolon.locus import endocytosis_affinity, endocytosis_recycling
 from metabolon.symbiont import transduce as _symbiont_transduce
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 AFFINITY_LOG = endocytosis_affinity
 RECYCLING_LOG = endocytosis_recycling

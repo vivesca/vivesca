@@ -176,7 +176,7 @@ def suggest_rebalance(provider_counts: Counter[str], unassigned: int) -> list[st
         best_spare = -1
         for p, info in throughput.items():
             conc = info["concurrency"]
-            spare = conc - (info["tasks"] % conc if info["tasks"] % conc > 0 else 0)
+            spare = conc - (max(0, info["tasks"] % conc))
             if conc > info["tasks"]:
                 spare = conc - info["tasks"]
             if spare > best_spare:
@@ -273,7 +273,7 @@ def main() -> None:
         print(__doc__)
         sys.exit(0)
 
-    args = [a for a in sys.argv[1:] if a not in ("--json",)]
+    args = [a for a in sys.argv[1:] if a != "--json"]
     if not args:
         print("Usage: queue-balance <path-to-translation-queue.md> [--json]", file=sys.stderr)
         sys.exit(1)

@@ -1,8 +1,11 @@
 """Merchant categorisation via YAML prefix map."""
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def restore_categories(path: Path) -> dict[str, str]:

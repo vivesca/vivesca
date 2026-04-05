@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 _HELP = """Bypass Tailscale exit node for Chinese AI API traffic.
 
 Resolves provider hostnames and adds host routes via the LAN gateway,
@@ -28,19 +29,20 @@ def _sudo_wrap() -> list[str]:
 def _add_host_route(ip: str, gateway: str) -> subprocess.CompletedProcess:
     """Add a host route. Cross-platform."""
     if IS_LINUX:
-        cmd = _sudo_wrap() + ["ip", "route", "add", f"{ip}/32", "via", gateway]
+        cmd = [*_sudo_wrap(), "ip", "route", "add", f"{ip}/32", "via", gateway]
     else:
-        cmd = _sudo_wrap() + ["/sbin/route", "-n", "add", f"{ip}/32", gateway]
+        cmd = [*_sudo_wrap(), "/sbin/route", "-n", "add", f"{ip}/32", gateway]
     return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
 
 def _del_host_route(ip: str) -> subprocess.CompletedProcess:
     """Delete a host route. Cross-platform."""
     if IS_LINUX:
-        cmd = _sudo_wrap() + ["ip", "route", "del", f"{ip}/32"]
+        cmd = [*_sudo_wrap(), "ip", "route", "del", f"{ip}/32"]
     else:
-        cmd = _sudo_wrap() + ["/sbin/route", "-n", "delete", f"{ip}/32"]
+        cmd = [*_sudo_wrap(), "/sbin/route", "-n", "delete", f"{ip}/32"]
     return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
 
 CN_API_HOSTS = [
     # ZhiPu
@@ -78,7 +80,9 @@ def _lan_gateway() -> str | None:
     if IS_LINUX:
         result = subprocess.run(
             ["ip", "route", "show", "default"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         for line in result.stdout.splitlines():
             parts = line.split()
@@ -86,9 +90,7 @@ def _lan_gateway() -> str | None:
             if len(parts) >= 5 and parts[0] == "default" and not parts[4].startswith("tailscale"):
                 return parts[2]
         return None
-    result = subprocess.run(
-        ["netstat", "-rn"], capture_output=True, text=True, timeout=5
-    )
+    result = subprocess.run(["netstat", "-rn"], capture_output=True, text=True, timeout=5)
     for line in result.stdout.splitlines():
         parts = line.split()
         if len(parts) >= 4 and parts[0] == "default" and parts[3].startswith("en"):
@@ -104,7 +106,10 @@ def _current_cn_routes() -> dict[str, str]:
 
     if IS_LINUX:
         result = subprocess.run(
-            ["ip", "route", "show"], capture_output=True, text=True, timeout=5,
+            ["ip", "route", "show"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         routes = {}
         for line in result.stdout.splitlines():
@@ -113,9 +118,7 @@ def _current_cn_routes() -> dict[str, str]:
             if len(parts) >= 5 and parts[0].split("/")[0] in all_ips:
                 routes[parts[0].split("/")[0]] = parts[4]
         return routes
-    result = subprocess.run(
-        ["netstat", "-rn"], capture_output=True, text=True, timeout=5
-    )
+    result = subprocess.run(["netstat", "-rn"], capture_output=True, text=True, timeout=5)
     routes = {}
     for line in result.stdout.splitlines():
         parts = line.split()
@@ -131,7 +134,9 @@ def _tailscale_exit_active() -> bool:
     try:
         result = subprocess.run(
             ["tailscale", "status", "--json"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         status = json.loads(result.stdout)
         for peer in status.get("Peer", {}).values():

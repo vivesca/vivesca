@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from metabolon.metabolism.gates import GateResult
 from metabolon.metabolism.repair import (
@@ -65,7 +66,7 @@ class TestImmuneRequest:
         assert req.context == "Returned too many results"
 
     def test_requires_all_fields(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ImmuneRequest()  # type: ignore[call-arg]
 
 

@@ -7,10 +7,13 @@ filesystem paths (HEALTH_DIR) are mocked so tests are hermetic.
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from metabolon.enzymes.differentiation import differentiation
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # latest_log

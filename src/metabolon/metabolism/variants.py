@@ -1,9 +1,12 @@
 """Genome variant storage — tool descriptions as versioned markdown files."""
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.locus import variants_root
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DEFAULT_ROOT = variants_root
 

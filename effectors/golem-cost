@@ -13,6 +13,7 @@ Usage:
     golem-cost --json       # Output as JSON
     golem-cost --by-run     # Show per-run detail
 """
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,9 @@ TOKENS_PER_TURN = 4000
 
 # Cost per 1M tokens (estimated, varies by provider/model)
 COST_PER_M_TOKENS = {
-    "zhipu": 0.50,       # GLM-5.1 — approximate
-    "infini": 0.30,      # glm-5 — approximate
-    "volcano": 0.20,     # ark-code-latest — approximate
+    "zhipu": 0.50,  # GLM-5.1 — approximate
+    "infini": 0.30,  # glm-5 — approximate
+    "volcano": 0.20,  # ark-code-latest — approximate
     "default": 0.40,
 }
 
@@ -102,10 +103,16 @@ def compute_summary(records: list[dict]) -> dict:
     total_tokens = sum(r["tokens_est"] for r in runs)
     total_cost = sum(r["cost_usd"] for r in runs)
 
-    by_provider: dict[str, dict] = defaultdict(lambda: {
-        "runs": 0, "tokens": 0, "cost": 0.0,
-        "pass": 0, "fail": 0, "total_turns": 0,
-    })
+    by_provider: dict[str, dict] = defaultdict(
+        lambda: {
+            "runs": 0,
+            "tokens": 0,
+            "cost": 0.0,
+            "pass": 0,
+            "fail": 0,
+            "total_turns": 0,
+        }
+    )
     for run in runs:
         p = run["provider"]
         bp = by_provider[p]
@@ -147,16 +154,16 @@ def print_report(summary: dict, use_color: bool = True) -> None:
     """Print human-readable cost report."""
     b = BOLD if use_color else ""
     c = CYAN if use_color else ""
-    g = GREEN if use_color else ""
     y = YELLOW if use_color else ""
-    dim = DIM if use_color else ""
     rst = RESET if use_color else ""
 
     # Header
     print(f"\n{b}Golem Cost Report{rst}")
-    print(f"  Runs: {c}{summary['total_runs']}{rst}  "
-          f"Tokens (est): {c}{fmt_tokens(summary['total_tokens'])}{rst}  "
-          f"Cost (est): {y}{fmt_cost(summary['total_cost'])}{rst}")
+    print(
+        f"  Runs: {c}{summary['total_runs']}{rst}  "
+        f"Tokens (est): {c}{fmt_tokens(summary['total_tokens'])}{rst}  "
+        f"Cost (est): {y}{fmt_cost(summary['total_cost'])}{rst}"
+    )
 
     # Per-provider table
     by_provider = summary["by_provider"]
@@ -170,8 +177,10 @@ def print_report(summary: dict, use_color: bool = True) -> None:
         for provider in sorted(by_provider):
             bp = by_provider[provider]
             avg_turns = bp["total_turns"] / bp["runs"] if bp["runs"] else 0
-            print(f"  {provider:<10} {bp['runs']:>6} {bp['pass']:>5} {bp['fail']:>5} "
-                  f"{fmt_tokens(bp['tokens']):>9} {fmt_cost(bp['cost']):>9} {avg_turns:>9.1f}t")
+            print(
+                f"  {provider:<10} {bp['runs']:>6} {bp['pass']:>5} {bp['fail']:>5} "
+                f"{fmt_tokens(bp['tokens']):>9} {fmt_cost(bp['cost']):>9} {avg_turns:>9.1f}t"
+            )
 
     print()
 
@@ -196,9 +205,11 @@ def print_by_run(summary: dict, use_color: bool = True) -> None:
     for i, run in enumerate(runs, 1):
         prompt = run["prompt"][:40]
         dur_str = f"{run['duration']}s"
-        print(f"  {i:>4} {run['provider']:<10} {run['turns']:>6} "
-              f"{fmt_tokens(run['tokens_est']):>9} {fmt_cost(run['cost_usd']):>9} "
-              f"{dur_str:>6} {dim}{prompt}{rst}")
+        print(
+            f"  {i:>4} {run['provider']:<10} {run['turns']:>6} "
+            f"{fmt_tokens(run['tokens_est']):>9} {fmt_cost(run['cost_usd']):>9} "
+            f"{dur_str:>6} {dim}{prompt}{rst}"
+        )
 
     print()
 
@@ -210,10 +221,7 @@ def print_json_report(summary: dict) -> None:
         "total_runs": summary["total_runs"],
         "total_tokens": summary["total_tokens"],
         "total_cost": summary["total_cost"],
-        "by_provider": {
-            p: {k: v for k, v in bp.items()}
-            for p, bp in summary["by_provider"].items()
-        },
+        "by_provider": {p: dict(bp.items()) for p, bp in summary["by_provider"].items()},
     }
     print(json.dumps(output, indent=2))
 

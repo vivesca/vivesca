@@ -25,16 +25,16 @@ import subprocess
 import sys
 import urllib.request
 from collections import Counter
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any
 
 HISTORY = Path.home() / ".local/share/respirometry/history.jsonl"
 USAGE_HISTORY = Path.home() / ".local/share/vivesca/usage-history.jsonl"
 # Also check respirometry-watch log (different format, written by LaunchAgent)
 WATCH_LOG = Path.home() / "docs/respirometry-log.jsonl"
 SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
-UTC = timezone.utc
+UTC = UTC
 FLAT_RATE_TOOLS = {"goose", "droid", "cc-glm"}
 COST_WINDOW_DAYS = 7
 METERED_COST_PATTERN = re.compile(r"^\$(\d+(?:\.\d+)?)$")
@@ -126,7 +126,7 @@ def _write_history(usage: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _read_last_line(path: Path) -> Optional[dict[str, Any]]:
+def _read_last_line(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     lines = path.read_text().strip().splitlines()
@@ -135,7 +135,7 @@ def _read_last_line(path: Path) -> Optional[dict[str, Any]]:
     return json.loads(lines[-1])
 
 
-def _read_cache() -> Tuple[Optional[dict[str, Any]], Optional[int]]:
+def _read_cache() -> tuple[dict[str, Any] | None, int | None]:
     """Read most recent cached entry. Returns (entry, age_seconds) or (None, None)."""
     for path in [HISTORY, WATCH_LOG]:
         entry = _read_last_line(path)
@@ -167,7 +167,7 @@ def _normalise_cached(entry: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_metered_cost(cost_estimate: str) -> Optional[float]:
+def _parse_metered_cost(cost_estimate: str) -> float | None:
     matched_cost = METERED_COST_PATTERN.match(cost_estimate.strip())
     if matched_cost is None:
         return None
@@ -269,7 +269,7 @@ def _summarize_cost_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def get_cost_tracking(now: Optional[datetime] = None) -> dict[str, Any]:
+def get_cost_tracking(now: datetime | None = None) -> dict[str, Any]:
     rows = _read_cost_rows(SORTASE_LOG)
     if not rows:
         return {"available": False, "source": "sortase", "lookback_days": COST_WINDOW_DAYS}
@@ -401,14 +401,14 @@ def get_budget(mode: str = "interactive") -> str:
 # ---------------------------------------------------------------------------
 
 
-def _snapshot_window(reference_time: Optional[datetime] = None) -> tuple[date, date]:
+def _snapshot_window(reference_time: datetime | None = None) -> tuple[date, date]:
     snapshot_time = reference_time or datetime.now()
     window_end = snapshot_time.date()
     window_start = window_end - timedelta(days=7)
     return window_start, window_end
 
 
-def _coerce_row_timestamp(row: dict[str, Any]) -> Optional[datetime]:
+def _coerce_row_timestamp(row: dict[str, Any]) -> datetime | None:
     parsed_timestamp = row.get("_parsed_timestamp")
     if isinstance(parsed_timestamp, datetime):
         return parsed_timestamp
@@ -422,7 +422,7 @@ def _coerce_row_timestamp(row: dict[str, Any]) -> Optional[datetime]:
         return None
 
 
-def _derive_session_stats(reference_time: Optional[datetime] = None) -> tuple[int, int]:
+def _derive_session_stats(reference_time: datetime | None = None) -> tuple[int, int]:
     """Derive session_count and goose_dispatches from sortase log for the snapshot window."""
     rows = _read_cost_rows(SORTASE_LOG)
     if not rows:
@@ -446,7 +446,7 @@ def _derive_session_stats(reference_time: Optional[datetime] = None) -> tuple[in
     return len(session_dates), goose_dispatches
 
 
-def record_snapshot(usage: Optional[dict[str, Any]] = None, reference_time: Optional[datetime] = None) -> None:
+def record_snapshot(usage: dict[str, Any] | None = None, reference_time: datetime | None = None) -> None:
     """Append current week's usage stats to USAGE_HISTORY JSONL."""
     usage = usage or get_usage()
     if "error" in usage:

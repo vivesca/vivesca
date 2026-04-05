@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from datetime import date, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,6 +22,9 @@ from metabolon.respirometry.payments import (
     restore_payments,
     schedule_payment_reminder,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── fixtures ─────────────────────────────────────────────────────────
 

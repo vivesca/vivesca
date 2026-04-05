@@ -11,9 +11,12 @@ import sys
 import time
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta, timezone
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.locus import chromatin as _chromatin
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Constants

@@ -51,8 +51,8 @@ class ns_proxy:
     def __getattr__(self, name):
         try:
             return self._d[name]
-        except KeyError:
-            raise AttributeError(f"namespace has no {name!r}")
+        except KeyError as exc:
+            raise AttributeError(f"namespace has no {name!r}") from exc
 
     def __setattr__(self, name, value):
         self._d[name] = value

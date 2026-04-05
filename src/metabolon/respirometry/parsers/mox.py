@@ -2,11 +2,14 @@
 
 import re
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pypdf import PdfReader
 
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def extract_mox(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:

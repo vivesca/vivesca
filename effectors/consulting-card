@@ -203,7 +203,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 def _get_card_title(card_path: Path) -> str:
     """Extract title from first # heading in card."""
     try:
-        with open(card_path, "r") as f:
+        with open(card_path) as f:
             for line in f:
                 if line.startswith("# "):
                     return line[2:].strip()

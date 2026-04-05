@@ -302,7 +302,7 @@ def _detect_prior_commits(
             timeout=10,
             cwd=repo_root,
         )
-        lines = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
+        lines = [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
         return lines
     except Exception:
         return []

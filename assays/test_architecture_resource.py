@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for the vivesca://anatomy resource."""
 
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.resources.anatomy import (
     _extract_decorated_names,
@@ -16,6 +16,9 @@ from metabolon.resources.anatomy import (
     _substrate_map,
     express_anatomy,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _write_tool_module(directory: Path, filename: str, content: str) -> Path:

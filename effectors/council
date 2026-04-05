@@ -17,14 +17,13 @@ import sys
 import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class Critique:
     model: str
     response: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def run_codex(prompt: str, timeout: int = 120) -> Critique:
@@ -37,7 +36,11 @@ def run_codex(prompt: str, timeout: int = 120) -> Critique:
             timeout=timeout,
         )
         if result.returncode != 0:
-            return Critique(model="codex", response="", error=result.stderr.strip() or f"exit code {result.returncode}")
+            return Critique(
+                model="codex",
+                response="",
+                error=result.stderr.strip() or f"exit code {result.returncode}",
+            )
         return Critique(model="codex", response=result.stdout.strip())
     except subprocess.TimeoutExpired:
         return Critique(model="codex", response="", error="timeout")
@@ -55,7 +58,11 @@ def run_gemini(prompt: str, timeout: int = 120) -> Critique:
             timeout=timeout,
         )
         if result.returncode != 0:
-            return Critique(model="gemini", response="", error=result.stderr.strip() or f"exit code {result.returncode}")
+            return Critique(
+                model="gemini",
+                response="",
+                error=result.stderr.strip() or f"exit code {result.returncode}",
+            )
         return Critique(model="gemini", response=result.stdout.strip())
     except subprocess.TimeoutExpired:
         return Critique(model="gemini", response="", error="timeout")
@@ -75,10 +82,10 @@ def build_challenge_prompt(position: str) -> str:
 def synthesize(codex: Critique, gemini: Critique, position: str) -> str:
     """Synthesize critiques into a structured report."""
     lines = [
-        f"# Council Report",
-        f"",
+        "# Council Report",
+        "",
         f"**Position**: {position}",
-        f"",
+        "",
     ]
 
     # Raw critiques
@@ -205,19 +212,28 @@ def extract_risks(codex_text: str, gemini_text: str) -> list[str]:
     combined = codex_text + "\n" + gemini_text
 
     # Look for sentences containing risk-related terms
-    risk_keywords = ["risk", "danger", "fail", "break", "downside", "problem", "issue", "concern", "warning", "caution"]
+    risk_keywords = [
+        "risk",
+        "danger",
+        "fail",
+        "break",
+        "downside",
+        "problem",
+        "issue",
+        "concern",
+        "warning",
+        "caution",
+    ]
 
     sentences = combined.replace("\n", " ").split(". ")
     for sentence in sentences:
         sentence = sentence.strip()
         if not sentence:
             continue
-        if any(kw in sentence.lower() for kw in risk_keywords):
-            # Clean up and add
-            if len(sentence) > 20 and len(sentence) < 200:
-                if not sentence.endswith("."):
-                    sentence += "."
-                risks.append(sentence)
+        if any(kw in sentence.lower() for kw in risk_keywords) and 20 < len(sentence) < 200:
+            if not sentence.endswith("."):
+                sentence += "."
+            risks.append(sentence)
 
     return risks[:5]  # Limit to top 5
 
@@ -229,7 +245,9 @@ def main():
         description="Challenge a position with parallel devil's advocates (Codex + Gemini)"
     )
     parser.add_argument("position", help="The position/decision to challenge")
-    parser.add_argument("--timeout", "-t", type=int, default=120, help="Per-model timeout in seconds")
+    parser.add_argument(
+        "--timeout", "-t", type=int, default=120, help="Per-model timeout in seconds"
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
     parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
     args = parser.parse_args()
@@ -261,6 +279,7 @@ def main():
     # Output
     if args.json:
         import json
+
         output = {
             "position": args.position,
             "critiques": {

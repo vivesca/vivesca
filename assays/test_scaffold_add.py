@@ -2,9 +2,13 @@ from __future__ import annotations
 
 """Tests for vivesca add commands."""
 
-from pathlib import Path
+
+from typing import TYPE_CHECKING
 
 from metabolon.gastrulation.init import scaffold_project
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _make_project(tmp_path: Path) -> Path:

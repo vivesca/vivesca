@@ -15,8 +15,10 @@ import os
 import re
 import tempfile
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def append_cargo(cargo_path: Path, articles: list[dict[str, Any]]) -> None:

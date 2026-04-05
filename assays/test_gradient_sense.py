@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from metabolon.organelles.gradient_sense import (
@@ -17,6 +17,9 @@ from metabolon.organelles.gradient_sense import (
     sense_signals,
     topology_weight,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # TestTopologyWeight

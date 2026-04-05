@@ -20,10 +20,10 @@ Usage:
 """
 
 import argparse
+import contextlib
 import glob
 import json
 import os
-import signal
 import subprocess
 import sys
 import time
@@ -37,6 +37,7 @@ SOCKET_DIR = Path.home() / ".agent-browser"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(args: list[str], timeout: int = 15) -> tuple[bool, str, str]:
     """Run command, return (ok, stdout, stderr)."""
@@ -59,21 +60,21 @@ def _cleanup_sockets():
     """Remove stale socket and pid files."""
     for pattern in ["*.sock", "*.pid"]:
         for f in glob.glob(str(SOCKET_DIR / pattern)):
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(f)
-            except OSError:
-                pass
 
 
 def _kill_daemons():
     """Kill any running agent-browser daemon and Chrome for Testing."""
     subprocess.run(
         ["pkill", "-f", "agent-browser"],
-        capture_output=True, timeout=5,
+        capture_output=True,
+        timeout=5,
     )
     subprocess.run(
         ["pkill", "-f", "Chrome for Testing"],
-        capture_output=True, timeout=5,
+        capture_output=True,
+        timeout=5,
     )
     time.sleep(1)
 
@@ -94,6 +95,7 @@ def _ensure_session(headed: bool = False):
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
+
 
 def cmd_reset(_args):
     """Kill daemons, clean sockets, fresh state."""
@@ -258,6 +260,7 @@ def cmd_title(_args):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(

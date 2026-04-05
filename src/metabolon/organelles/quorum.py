@@ -19,10 +19,13 @@ import json
 import textwrap
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from metabolon.locus import chromatin
 from metabolon.symbiont import parallel_transduce, parallel_transduce_multi, transduce
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── panel configuration ──────────────────────────────────────
 

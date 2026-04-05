@@ -14,14 +14,14 @@ Usage:
     golem-report --date 2026-04-01   # Report for specific date
     golem-report --help
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import re
-import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Paths
@@ -30,17 +30,15 @@ QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
 
 # Rate-limit detection patterns
 RATE_LIMIT_PATTERNS = re.compile(
-    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit|quota will reset|try again at',
+    r"429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|"
+    r"request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|"
+    r"usage.?limit|hit your.*limit|quota will reset|try again at",
     re.IGNORECASE,
 )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate analytics report from golem task logs"
-    )
+    parser = argparse.ArgumentParser(description="Generate analytics report from golem task logs")
     parser.add_argument(
         "--date",
         type=str,
@@ -59,7 +57,7 @@ def parse_timestamp(ts_str: str) -> datetime | None:
     """Parse ISO timestamp string to datetime."""
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%fZ"):
         try:
-            return datetime.strptime(ts_str, fmt).replace(tzinfo=timezone.utc)
+            return datetime.strptime(ts_str, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
@@ -96,7 +94,7 @@ def load_jsonl(date_filter: str | None) -> list[dict]:
 
 def extract_task_id(prompt: str) -> str:
     """Extract task ID from prompt if present."""
-    m = re.search(r'\[t-[a-f0-9]+\]', prompt)
+    m = re.search(r"\[t-[a-f0-9]+\]", prompt)
     if m:
         return m.group(0)
     return ""
@@ -118,19 +116,17 @@ def is_rate_limited(rec: dict) -> bool:
     if RATE_LIMIT_PATTERNS.search(tail):
         return True
     # Also check for exit=1 with empty tail (often rate limit)
-    if rec.get("exit") == 1 and not tail.strip() and rec.get("duration", 0) < 10:
-        return True
-    return False
+    return bool(rec.get("exit") == 1 and not tail.strip() and rec.get("duration", 0) < 10)
 
 
 def truncate_prompt(prompt: str, max_len: int = 60) -> str:
     """Truncate prompt for display."""
     # Remove coaching notes if present
     if "<coaching-notes>" in prompt:
-        prompt = re.sub(r'<coaching-notes>.*?---\s*', '', prompt, flags=re.DOTALL)
+        prompt = re.sub(r"<coaching-notes>.*?---\s*", "", prompt, flags=re.DOTALL)
     prompt = prompt.strip()
     if len(prompt) > max_len:
-        return prompt[:max_len-3] + "..."
+        return prompt[: max_len - 3] + "..."
     return prompt
 
 
@@ -139,11 +135,11 @@ def generate_report(records: list[dict], date_str: str) -> str:
     lines = []
     lines.append(f"# Golem Report — {date_str}")
     lines.append("")
-    
+
     if not records:
         lines.append("*No tasks recorded for this date.*")
         return "\n".join(lines)
-    
+
     # Overall stats
     total = len(records)
     succeeded = sum(1 for r in records if r.get("exit") == 0)
@@ -152,21 +148,23 @@ def generate_report(records: list[dict], date_str: str) -> str:
     durations = [r.get("duration", 0) for r in records if r.get("duration", 0) > 0]
     avg_duration = sum(durations) / len(durations) if durations else 0
     rate_limits = sum(1 for r in records if is_rate_limited(r))
-    
+
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Total tasks | {total} |")
     lines.append(f"| Succeeded | {succeeded} |")
     lines.append(f"| Failed | {failed} |")
     lines.append(f"| Success rate | {success_rate:.1f}% |")
-    lines.append(f"| Avg duration | {avg_duration:.0f}s ({avg_duration/60:.1f}m) |")
+    lines.append(f"| Avg duration | {avg_duration:.0f}s ({avg_duration / 60:.1f}m) |")
     lines.append(f"| Rate-limit events | {rate_limits} |")
     lines.append("")
-    
+
     # By provider breakdown
-    provider_stats = defaultdict(lambda: {"total": 0, "success": 0, "duration": 0, "rate_limits": 0})
+    provider_stats = defaultdict(
+        lambda: {"total": 0, "success": 0, "duration": 0, "rate_limits": 0}
+    )
     for r in records:
         p = r.get("provider", "unknown")
         provider_stats[p]["total"] += 1
@@ -175,7 +173,7 @@ def generate_report(records: list[dict], date_str: str) -> str:
         provider_stats[p]["duration"] += r.get("duration", 0)
         if is_rate_limited(r):
             provider_stats[p]["rate_limits"] += 1
-    
+
     lines.append("## By Provider")
     lines.append("")
     lines.append("| Provider | Tasks | Success | Rate | Avg Duration | Rate Limits |")
@@ -184,9 +182,11 @@ def generate_report(records: list[dict], date_str: str) -> str:
         s = provider_stats[p]
         rate = (s["success"] / s["total"] * 100) if s["total"] > 0 else 0
         avg_dur = s["duration"] / s["total"] if s["total"] > 0 else 0
-        lines.append(f"| {p} | {s['total']} | {s['success']} | {rate:.0f}% | {avg_dur:.0f}s | {s['rate_limits']} |")
+        lines.append(
+            f"| {p} | {s['total']} | {s['success']} | {rate:.0f}% | {avg_dur:.0f}s | {s['rate_limits']} |"
+        )
     lines.append("")
-    
+
     # Top 3 longest tasks
     sorted_by_duration = sorted(records, key=lambda r: r.get("duration", 0), reverse=True)
     lines.append("## Top 3 Longest Tasks")
@@ -196,16 +196,16 @@ def generate_report(records: list[dict], date_str: str) -> str:
         prov = r.get("provider", "?")
         prompt = truncate_prompt(r.get("prompt", ""))
         status = "✓" if r.get("exit") == 0 else "✗"
-        lines.append(f"{i}. [{status}] **{prov}** — {dur}s ({dur/60:.1f}m): {prompt}")
+        lines.append(f"{i}. [{status}] **{prov}** — {dur}s ({dur / 60:.1f}m): {prompt}")
     lines.append("")
-    
+
     # Top 3 most-retried tasks (by task_id occurrence)
     task_id_counts = defaultdict(list)
     for r in records:
         tid = get_task_id(r)
         if tid:
             task_id_counts[tid].append(r)
-    
+
     sorted_by_retries = sorted(task_id_counts.items(), key=lambda x: len(x[1]), reverse=True)
     lines.append("## Top 3 Most-Retried Tasks")
     lines.append("")
@@ -218,21 +218,18 @@ def generate_report(records: list[dict], date_str: str) -> str:
             prompt = truncate_prompt(recs[0].get("prompt", ""))
             lines.append(f"{i}. **{tid}** — {count} attempts, {successes} success: {prompt}")
     lines.append("")
-    
+
     return "\n".join(lines)
 
 
 def main() -> None:
     args = parse_args()
-    
+
     # Determine date filter
-    if args.date:
-        date_str = args.date
-    else:
-        date_str = datetime.now().strftime("%Y-%m-%d")
-    
+    date_str = args.date or datetime.now().strftime("%Y-%m-%d")
+
     records = load_jsonl(date_str)
-    
+
     if args.json:
         # Output as JSON
         output = {

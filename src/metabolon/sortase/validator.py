@@ -71,11 +71,7 @@ def check_scope(
             )
         )
 
-    top_dirs = {
-        Path(f).parts[0] if Path(f).is_absolute() else Path(f).parts[0]
-        for f in changed_files
-        if Path(f).parts
-    }
+    top_dirs = {Path(f).parts[0] for f in changed_files if Path(f).parts}
     if len(top_dirs) > max_dirs:
         sorted_dirs = sorted(top_dirs)
         issues.append(

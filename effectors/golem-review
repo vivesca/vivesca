@@ -9,9 +9,10 @@ Usage:
     golem-review [--auto-requeue] [--since 30m] [--once]
     golem-review --help
 """
+
 from __future__ import annotations
 
-import os
+import contextlib
 import re
 import subprocess
 import sys
@@ -45,7 +46,7 @@ def parse_since(arg: str) -> timedelta:
     if not arg or not isinstance(arg, str):
         return timedelta(minutes=30)
     arg = arg.strip()
-    m = re.match(r'^(\d+)([smhd])$', arg)
+    m = re.match(r"^(\d+)([smhd])$", arg)
     if m:
         val, unit = int(m.group(1)), m.group(2)
         return {
@@ -68,7 +69,7 @@ def parse_log_timestamp(ts_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(ts_str.strip(), "%Y-%m-%d %H:%M:%S")
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return None
 
 
@@ -88,13 +89,13 @@ def scan_log(since: timedelta) -> dict:
 
     try:
         content = LOGFILE.read_text()
-    except (PermissionError, OSError, UnicodeDecodeError):
+    except PermissionError, OSError, UnicodeDecodeError:
         return result
 
     cutoff = datetime.now(UTC).replace(tzinfo=None) - since
 
     for line in content.splitlines():
-        m = re.match(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$', line)
+        m = re.match(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$", line)
         if not m:
             continue
         ts_str, msg = m.group(1), m.group(2)
@@ -105,20 +106,20 @@ def scan_log(since: timedelta) -> dict:
         if result["start_time"] is None or ts < result["start_time"]:
             result["start_time"] = ts
 
-        if re.match(r'Finished \(\d+s, exit=0\)', msg):
-            cmd_m = re.match(r'Finished \(\d+s, exit=\d+\): (.+)', msg)
+        if re.match(r"Finished \(\d+s, exit=0\)", msg):
+            cmd_m = re.match(r"Finished \(\d+s, exit=\d+\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["completed"].append((ts, cmd))
-        elif re.match(r'Finished \(\d+s, exit=[^0]\)', msg):
-            cmd_m = re.match(r'Finished \(\d+s, exit=\d+\): (.+)', msg)
+        elif re.match(r"Finished \(\d+s, exit=[^0]\)", msg):
+            cmd_m = re.match(r"Finished \(\d+s, exit=\d+\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["failed"].append((ts, cmd, ""))
         elif msg.startswith("FAILED"):
-            cmd_m = re.match(r'FAILED \(exit=\d+\): (.+)', msg)
+            cmd_m = re.match(r"FAILED \(exit=\d+\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["failed"].append((ts, cmd, ""))
         elif msg.startswith("TIMEOUT"):
-            cmd_m = re.match(r'TIMEOUT \(\d+s\): (.+)', msg)
+            cmd_m = re.match(r"TIMEOUT \(\d+s\): (.+)", msg)
             cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
             result["timeouts"].append((ts, cmd))
 
@@ -133,7 +134,10 @@ def get_recent_files(head_range: int = 5) -> list[str]:
     try:
         r = subprocess.run(
             f"git -C {GERMLINE} diff --name-only HEAD~{head_range} 2>/dev/null",
-            shell=True, capture_output=True, text=True, timeout=30,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode != 0 or not r.stdout.strip():
             return []
@@ -158,18 +162,20 @@ def run_pytest_on_files(files: list[str]) -> dict:
         try:
             r = subprocess.run(
                 ["uv", "run", "pytest", f, "-q", "--tb=line", "--no-header"],
-                capture_output=True, text=True,
-                timeout=120, cwd=str(GERMLINE),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=str(GERMLINE),
             )
             output = r.stdout + r.stderr
             passed = failed = errors = 0
-            m = re.search(r'(\d+) passed', output)
+            m = re.search(r"(\d+) passed", output)
             if m:
                 passed = int(m.group(1))
-            m = re.search(r'(\d+) failed', output)
+            m = re.search(r"(\d+) failed", output)
             if m:
                 failed = int(m.group(1))
-            m = re.search(r'(\d+) error', output)
+            m = re.search(r"(\d+) error", output)
             if m:
                 errors = int(m.group(1))
             result["files"].append((f, passed, failed, errors))
@@ -311,22 +317,21 @@ def _check_filler_content(text: str) -> bool:
     Checks for: same sentence repeated >3 times, or >50% of unique
     sentences are very short (<5 words).
     """
-    sentences = re.split(r'[.!?]+', text)
+    sentences = re.split(r"[.!?]+", text)
     sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 2]
     if len(sentences) < 4:
         return False
     # Check for repeated sentences (>3 identical)
     from collections import Counter
+
     counts = Counter(s.lower() for s in sentences)
-    for sentence, cnt in counts.items():
+    for cnt in counts.values():
         if cnt > 3:
             return True
     # Check if >50% of unique sentences are very short (<5 words)
     short_count = sum(1 for s in set(sentences) if len(s.split()) < 5)
     unique_count = len(set(sentences))
-    if unique_count > 0 and short_count / unique_count > 0.5:
-        return True
-    return False
+    return bool(unique_count > 0 and short_count / unique_count > 0.5)
 
 
 def _compute_paragraph_stats(lines: list[str]) -> float:
@@ -367,18 +372,25 @@ def check_consulting_content(files: list[str]) -> list[dict]:
     for rel_path in files:
         full_path = GERMLINE / rel_path
         entry: dict = {
-            "file": rel_path, "exists": False, "word_count": 0,
+            "file": rel_path,
+            "exists": False,
+            "word_count": 0,
             "adequate": False,
-            "has_headings": False, "has_paragraphs": False,
-            "has_structure_elements": False, "structure_ok": False,
-            "has_introduction": False, "has_conclusion": False,
-            "section_count": 0, "broken_sections": 0,
+            "has_headings": False,
+            "has_paragraphs": False,
+            "has_structure_elements": False,
+            "structure_ok": False,
+            "has_introduction": False,
+            "has_conclusion": False,
+            "section_count": 0,
+            "broken_sections": 0,
             "min_sections_ok": False,
             "has_proper_heading_hierarchy": True,
             "avg_paragraph_word_count": 0.0,
             "has_filler_content": False,
             "overall_quality_pass": False,
-            "quality_score": 0, "verdict": "poor",
+            "quality_score": 0,
+            "verdict": "poor",
         }
 
         if not full_path.exists():
@@ -388,7 +400,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         entry["exists"] = True
         try:
             text = full_path.read_text()
-        except (PermissionError, OSError, UnicodeDecodeError):
+        except PermissionError, OSError, UnicodeDecodeError:
             results.append(entry)
             continue
 
@@ -399,7 +411,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         # Structure checks
         lines = text.splitlines()
         entry["has_headings"] = any(
-            stripped.startswith("#") for stripped in (l.strip() for l in lines) if stripped
+            stripped.startswith("#") for stripped in (ln.strip() for ln in lines) if stripped
         )
 
         # Paragraphs: count non-blank blocks (excluding heading-only blocks)
@@ -408,7 +420,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         for line in lines:
             if line.strip() == "":
                 if block_lines:
-                    non_heading = [l for l in block_lines if not l.strip().startswith("#")]
+                    non_heading = [ln for ln in block_lines if not ln.strip().startswith("#")]
                     if non_heading:
                         paragraph_count += 1
                     block_lines = []
@@ -416,18 +428,16 @@ def check_consulting_content(files: list[str]) -> list[dict]:
                 block_lines.append(line)
         # Handle last block
         if block_lines:
-            non_heading = [l for l in block_lines if not l.strip().startswith("#")]
+            non_heading = [ln for ln in block_lines if not ln.strip().startswith("#")]
             if non_heading:
                 paragraph_count += 1
         entry["has_paragraphs"] = paragraph_count >= 2
 
         # Structure elements: lists, code blocks, bold text, tables
-        has_list = any(
-            l.strip().startswith(("- ", "* ", "1. ", "2. ")) for l in lines
-        )
+        has_list = any(ln.strip().startswith(("- ", "* ", "1. ", "2. ")) for ln in lines)
         has_code = "```" in text
         has_bold = "**" in text
-        has_table = any("|" in l and "---" in l for l in lines)
+        has_table = any("|" in ln and "---" in ln for ln in lines)
         entry["has_structure_elements"] = has_list or has_code or has_bold or has_table
 
         # Section analysis
@@ -437,17 +447,18 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         entry["min_sections_ok"] = section_count >= 2 and broken_sections == 0
 
         # Overall structure: needs headings + at least one of paragraphs/structure elements
-        entry["structure_ok"] = (
-            entry["has_headings"]
-            and (entry["has_paragraphs"] or entry["has_structure_elements"])
+        entry["structure_ok"] = entry["has_headings"] and (
+            entry["has_paragraphs"] or entry["has_structure_elements"]
         )
 
         # Introduction / conclusion detection via heading keywords
         entry["has_introduction"] = _detect_section_keyword(
-            lines, ("introduction", "intro", "overview", "background", "context"),
+            lines,
+            ("introduction", "intro", "overview", "background", "context"),
         )
         entry["has_conclusion"] = _detect_section_keyword(
-            lines, ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
+            lines,
+            ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
         )
 
         # Heading hierarchy
@@ -525,9 +536,14 @@ def compute_consulting_summary(results: list[dict]) -> dict:
     total = len(results)
     if total == 0:
         return {
-            "total": 0, "passed": 0, "failed": 0, "missing": 0,
-            "avg_word_count": 0.0, "avg_quality_score": 0.0,
-            "pass_rate": 0.0, "verdicts": {},
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "missing": 0,
+            "avg_word_count": 0.0,
+            "avg_quality_score": 0.0,
+            "pass_rate": 0.0,
+            "verdicts": {},
         }
 
     existing = [r for r in results if r.get("exists")]
@@ -536,7 +552,9 @@ def compute_consulting_summary(results: list[dict]) -> dict:
     failed = [r for r in existing if not r.get("overall_quality_pass")]
 
     avg_wc = sum(r.get("word_count", 0) for r in existing) / len(existing) if existing else 0.0
-    avg_score = sum(r.get("quality_score", 0) for r in existing) / len(existing) if existing else 0.0
+    avg_score = (
+        sum(r.get("quality_score", 0) for r in existing) / len(existing) if existing else 0.0
+    )
     pass_rate = len(passed) / len(existing) if existing else 0.0
 
     verdicts: dict[str, int] = {}
@@ -580,7 +598,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
         return "permission_error"
     if "exit=2" in combined or "exit_code=2" in combined:
         return "command_error"
-    if re.search(r'\bassert\b', text):
+    if re.search(r"\bassert\b", text):
         return "assertion_error"
     return "unknown"
 
@@ -595,7 +613,7 @@ def read_log_tail(n: int = 50) -> str:
     try:
         lines = LOGFILE.read_text().splitlines()
         return "\n".join(lines[-n:]) if n > 0 else ""
-    except (PermissionError, OSError, UnicodeDecodeError):
+    except PermissionError, OSError, UnicodeDecodeError:
         return ""
 
 
@@ -608,7 +626,7 @@ def count_pending_tasks() -> int:
         return 0
     try:
         content = QUEUE_FILE.read_text()
-    except (PermissionError, OSError, UnicodeDecodeError):
+    except PermissionError, OSError, UnicodeDecodeError:
         return 0
     count = 0
     for line in content.splitlines():
@@ -666,7 +684,7 @@ def generate_queue_tasks(modules: list[str], count: int) -> list[str]:
         provider = _PROVIDERS[i % len(_PROVIDERS)]
         test_name = f"test_{mod.replace('-', '_')}"
         tasks.append(
-            f'- [ ] `golem --provider {provider} --max-turns 50 '
+            f"- [ ] `golem --provider {provider} --max-turns 50 "
             f'"Write assays/{test_name}.py for effectors/{mod}. '
             f'Run uv run pytest assays/{test_name}.py -v --tb=short."`'
         )
@@ -687,7 +705,7 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
     if QUEUE_FILE.exists():
         try:
             content = QUEUE_FILE.read_text()
-        except (PermissionError, OSError, UnicodeDecodeError):
+        except PermissionError, OSError, UnicodeDecodeError:
             content = "## Pending\n\n## Done\n"
     else:
         content = "## Pending\n\n## Done\n"
@@ -700,7 +718,7 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
 
     try:
         QUEUE_FILE.write_text(content)
-    except (PermissionError, OSError):
+    except PermissionError, OSError:
         return 0
 
     return len(task_lines)
@@ -719,37 +737,37 @@ def write_fixed_tasks(failed_tasks: list[dict]) -> int:
 
     lines = []
     for t in failed_tasks:
-        cmd = t.get("cmd", "")
+        t.get("cmd", "")
         diag = t.get("diagnosis", "unknown")
 
         if "path_issue" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 50 '
+                "- [ ] `golem --provider infini --max-turns 50 "
                 '"Fix path_issue: replace hardcoded home paths with Path.home(). '
                 'Run tests after."`'
             )
         elif "import_error" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 50 '
+                "- [ ] `golem --provider infini --max-turns 50 "
                 '"Fix import_error: use exec(open(path).read(), ns) pattern '
-                'instead of import. '
+                "instead of import. "
                 'Check module exists or needs install. Run tests."`'
             )
         elif "syntax_error" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 50 '
+                "- [ ] `golem --provider infini --max-turns 50 "
                 '"Fix syntax_error: run ast.parse() on changed .py files. '
                 'Run tests after."`'
             )
         elif "timeout" in diag:
             lines.append(
-                '- [ ] `golem --provider infini --max-turns 30 '
+                "- [ ] `golem --provider infini --max-turns 30 "
                 '"Retry with lower turns. Break into smaller tasks. '
                 'Run tests."`'
             )
         else:
             lines.append(
-                f'- [ ] `golem --provider infini --max-turns 50 '
+                f"- [ ] `golem --provider infini --max-turns 50 "
                 f'"Retry task (diagnosis: {diag}). Run tests."`'
             )
 
@@ -861,10 +879,12 @@ def generate_review(
     # Consulting quality summary
     if consulting_summary:
         lines.append("## Consulting Quality Summary")
-        lines.append(f"- {consulting_summary['total']} files checked: "
-                     f"{consulting_summary['passed']} passed, "
-                     f"{consulting_summary['failed']} failed, "
-                     f"{consulting_summary['missing']} missing")
+        lines.append(
+            f"- {consulting_summary['total']} files checked: "
+            f"{consulting_summary['passed']} passed, "
+            f"{consulting_summary['failed']} failed, "
+            f"{consulting_summary['missing']} missing"
+        )
         lines.append(f"- Average word count: {consulting_summary['avg_word_count']:.0f}")
         lines.append(f"- Average quality score: {consulting_summary['avg_quality_score']:.0f}/100")
         lines.append(f"- Pass rate: {consulting_summary['pass_rate']:.0%}")
@@ -909,8 +929,10 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
 
     # 4. Check consulting content
     content_files = [
-        f for f in recent_files
-        if f.startswith("loci/copia/") and f.endswith(".md")
+        f
+        for f in recent_files
+        if f.startswith("loci/copia/")
+        and f.endswith(".md")
         and not Path(f).name.startswith("reviewer-cycle-")
     ]
     consulting_results = check_consulting_content(content_files)
@@ -964,10 +986,8 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
     )
 
     REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
-    try:
+    with contextlib.suppress(PermissionError, OSError):
         REVIEW_FILE.write_text(review)
-    except (PermissionError, OSError):
-        pass
 
     return 0
 
@@ -994,10 +1014,12 @@ def main():
         results = check_consulting_content(files)
         summary = compute_consulting_summary(results)
         print(f"Consulting content under {base}:")
-        print(f"  {summary['total']} files: "
-              f"{summary['passed']} passed, "
-              f"{summary['failed']} failed, "
-              f"{summary['missing']} missing")
+        print(
+            f"  {summary['total']} files: "
+            f"{summary['passed']} passed, "
+            f"{summary['failed']} failed, "
+            f"{summary['missing']} missing"
+        )
         print(f"  Avg word count: {summary['avg_word_count']:.0f}")
         print(f"  Avg quality score: {summary['avg_quality_score']:.0f}/100")
         print(f"  Pass rate: {summary['pass_rate']:.0%}")

@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from metabolon.sortase.executor import _status_path, register_running, unregister_running
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)

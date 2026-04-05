@@ -12,13 +12,15 @@ import filecmp
 import json
 import os
 import re
-from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import yaml
 from fastmcp.tools.function_tool import tool
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 HKT = timezone(timedelta(hours=8))
 _GRADIENT_LOG = str(Path.home() / "logs" / "proprioception.jsonl")

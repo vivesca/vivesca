@@ -1,10 +1,12 @@
 """One-time migration: markdown news log -> JSONL cargo store."""
 
 import re
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from metabolon.organelles.endocytosis_rss.cargo import append_cargo
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def migrate_markdown_to_jsonl(md_path: Path, cargo_path: Path) -> int:
