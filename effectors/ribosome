@@ -301,8 +301,14 @@ _run_ribosome() {
   # Max wall-clock time for claude: max_turns * 60s + 120s buffer
   local _claude_timeout=$(( MAX_TURNS * 60 + 120 ))
 
-  # Wall-clock limit to avoid Temporal SIGTERM (default 28 min)
-  local _wall_limit="${RIBOSOME_WALL_LIMIT:-1680}"
+  # Auto-scale wall limit to always accommodate at least one full attempt.
+  # Honor explicit RIBOSOME_WALL_LIMIT if user set it; otherwise default to
+  # max(1680, _claude_timeout + 180) so the first attempt always fits.
+  local _wall_limit_default=$(( _claude_timeout + 180 ))
+  if [[ $_wall_limit_default -lt 1680 ]]; then
+    _wall_limit_default=1680
+  fi
+  local _wall_limit="${RIBOSOME_WALL_LIMIT:-$_wall_limit_default}"
   local _wall_start=$(date +%s)
 
   # Retry loop with exponential backoff for rate limits (429)
@@ -478,7 +484,14 @@ _run_ribosome() {
   # If all retries exhausted and claude was never launched, report as rate-limit failure
   if ! $_claude_ran && [[ $exit_code -eq 0 ]]; then
     exit_code=1
-    output="AccountQuotaExceeded: $PROVIDER rate-limit retries exhausted, claude was never launched"
+    # Distinguish wall-limit self-kill from real rate-limit exhaustion.
+    # _attempt == 0 means we never even ran a preflight — almost always the wall-limit math,
+    # not an actual provider rate limit.
+    if [[ $_attempt -eq 0 ]]; then
+      output="WallLimitSelfKill: $PROVIDER dispatch aborted before first attempt (wall=${_wall_limit}s, per-attempt=${_claude_timeout}s). Raise RIBOSOME_WALL_LIMIT or lower --max-turns."
+    else
+      output="AccountQuotaExceeded: $PROVIDER rate-limit retries exhausted after $_attempt attempts, claude was never launched"
+    fi
   fi
 
   local duration=$(( $(date +%s) - start_ts ))

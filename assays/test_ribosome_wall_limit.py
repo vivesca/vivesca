@@ -63,7 +63,7 @@ class TestWallLimitAllowsFirstAttempt:
         assert result.returncode != 0
         # Should NOT contain wall-limit message (limit wasn't hit)
         stderr_lower = result.stderr.lower()
-        assert "wall-limit" not in stderr_lower or "wall_limit" not in stderr_lower
+        assert "wall-limit" not in stderr_lower and "wall_limit" not in stderr_lower
 
 
 class TestWallLimitDefault:
@@ -76,3 +76,23 @@ class TestWallLimitDefault:
         # RIBOSOME_WALL_LIMIT="${RIBOSOME_WALL_LIMIT:-1680}"
         # or similar defaulting pattern
         assert "1680" in source, "Expected default wall-limit of 1680 (28min) in ribosome script"
+
+
+class TestWallLimitAutoScales:
+    """Wall limit default must accommodate the per-attempt budget."""
+
+    def test_auto_scale_logic_present(self):
+        source = Path(RIBOSOME_SCRIPT).read_text()
+        assert "_wall_limit_default" in source, (
+            "Expected auto-scaled wall-limit default that fits _claude_timeout"
+        )
+        assert "_claude_timeout + 180" in source, (
+            "Expected wall-limit default = _claude_timeout + 180s buffer"
+        )
+
+    def test_self_kill_message_is_distinct(self):
+        """Wall-limit self-kill must not be labelled AccountQuotaExceeded."""
+        source = Path(RIBOSOME_SCRIPT).read_text()
+        assert "WallLimitSelfKill" in source, (
+            "Expected honest self-kill message distinct from rate-limit path"
+        )
