@@ -272,10 +272,21 @@ def _execute(
     total_replacements = 0
     errors: list[str] = []
 
-    # Phase 1: File renames (git mv) — always substring (filenames are intentional)
+    # Phase 1: File renames (git mv)
+    # When word_boundary is active, only rename files where old_name appears
+    # as a discrete component (separated by [-_./] or at start/end), not as a
+    # substring of another word (e.g. "analysis" should not match "lysis").
     scan = _scan(old_name, scope, word_boundary=False)
     for filepath in scan.data.get("file_renames", []):
         old_path = Path(filepath)
+        # For word-boundary mode: check each path component for substring safety
+        if word_boundary:
+            fname = old_path.name
+            # Only rename if old_name appears as a whole word or hyphen/underscore component
+            import re as _re
+
+            if not _re.search(r"(?<![a-zA-Z])" + _re.escape(old_name) + r"(?![a-zA-Z])", fname):
+                continue
         new_path = Path(filepath.replace(old_name, new_name))
         if old_path.exists() and old_path != new_path:
             new_path.parent.mkdir(parents=True, exist_ok=True)
