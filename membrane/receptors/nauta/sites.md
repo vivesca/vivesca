@@ -85,7 +85,9 @@ Escalation: `peruro` (Firecrawl proxies) → kleis + stealth Playwright → nodr
 
 ## Google OAuth
 
-Google blocks Playwright login (popup-based, not redirect). Escalation:
+Google blocks Playwright login (popup-based, not redirect). **`window.open` intercept does NOT work** — Google Identity Services (GIS) SDK doesn't use `window.open`, `fetch`, or XHR for the OAuth flow. It uses an internal iframe/redirect mechanism that can't be intercepted from page JS. Don't waste time on JS-level popup capture.
+
+Escalation:
 1. `porta_inject domain=accounts.google.com` — works for redirect-based OAuth, fails for popup-based (GIS SDK)
 2. **Email OTP fallback** — if the site offers email login, use email OTP + Gmail API instead (fully headless)
 3. Headed mode — `AGENT_BROWSER_HEADED=1` for user to click Google login manually
