@@ -1,7 +1,7 @@
 ---
 name: specification
 description: "RETIRED — use /centrosome. Write specs, dispatch, review."
-user_invocable: true
+user_invocable: false
 context: fork
 ---
 

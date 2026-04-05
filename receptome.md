@@ -1,6 +1,6 @@
-# Receptome -- 2026-04-05 13:43
+# Receptome -- 2026-04-05 13:57
 
-Total: **187** skills (146 invocable, 41 reference)
+Total: **187** skills (144 invocable, 43 reference)
 With REFERENCE.md: 3 | With scripts/: 0
 Trigger phrases indexed: 245
 
@@ -93,7 +93,7 @@ Trigger phrases indexed: 245
 ### Dispatch
 
 - **agent-cli** [ref]: Design patterns for CLIs intended to be used by AI agents rather than humans. Consult when building a new CLI that Claud
-- **centrosome**: RETIRED — merged into /mitogen. Use /mitogen for all dispatch.
+- **centrosome** [ref]: RETIRED — merged into /mitogen. Use /mitogen for all dispatch.
 - **heuretes**: Agent research org — run a hierarchical team of AI agents on open-ended research or exploration tasks. Chief orchestrato
 - **involution**: Evening wind-down — brain dump, queue overnight tasks, gate screens-off. "wind down", "bedtime", "brain dump", "shutdown (calls: sporulation, sopor)
 - **kindle**: Extract Kindle books to markdown via screenshots + Gemini vision. "kindle extract", "extract book", "kindle queue
@@ -105,7 +105,7 @@ Trigger phrases indexed: 245
 - **quies**: Evening wind-down ritual — brain dump, overnight queue, screens-off gate. "quies", "wind down", "bedtime", "screens off" (calls: sched, sopor)
 - **rector** [ref]: RETIRED -- merged into /mitogen. Use /mitogen for all dispatch.
 - **solutions** [ref]: Search docs/solutions/ for past learnings before starting work. Use proactively before implementing fixes, filling forms
-- **specification**: RETIRED — use /centrosome. Write specs, dispatch, review.
+- **specification** [ref]: RETIRED — use /centrosome. Write specs, dispatch, review.
 - **transcription**: Collaborative design before building — one question at a time. "let's build", "I want to add", "design first
 
 ### Finance
@@ -266,9 +266,4 @@ Trigger phrases indexed: 245
 - **infradian**: Weekend review + plan — reflect on the week, plan the next. "weekly", "weekly review
 - **melete**: Daily consulting readiness drill — scenarios, reading prompts, observation logging. "consulting prep", "prep drill", "co
 - **weekly**: Weekly synthesis and review. Use when user says "weekly", "weekly review", "week in review", or on Fridays.
-
-## Issues (2)
-
-- centrosome: invocable but no trigger phrases or 'Use when' in description
-- specification: invocable but no trigger phrases or 'Use when' in description
 
