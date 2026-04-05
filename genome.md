@@ -60,6 +60,10 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **MCP over CLI for CC.** If CC calls a CLI via Bash, that CLI should be an MCP tool. CLIs are for humans; MCP tools give typed inputs, structured outputs, and enforceable contracts. CC cannot misparse, ignore, or fake MCP tool responses. Each Bash CLI call by CC is a signal to convert. Migrate incrementally — don't batch.
 
+**Atomic MCP packages.** Every MCP package ships server + tool logic + tests + deps as ONE installable unit. Grouped by shared state, not by shared topic. Trogocytosis (9 browser tools, shared persistent session) = one package. Lysin (1 lookup tool) = one package. Each package is independently `uvx`-able, version-pinned, and testable in isolation. Composition happens via `mcp.mount()` in downstream servers like vivesca.
+
+**Skill layer split.** Generalized usage guidance (auth patterns, retry logic, when to use each tool) ships WITH the MCP package in a `skills/` directory plus an `install-skills` command. Skills are now cross-platform (Claude Code, Gemini CLI, Copilot CLI, Codex all support SKILL.md format). Personal workflow guidance (your infra, preferences, specific integrations) stays in germline skills. Test: if a stranger installing the package benefits from it, ship it as a package skill. If it assumes your setup, keep it local. MCP prompts can supplement but don't replace skills — skills auto-trigger on description match, prompts must be explicitly requested.
+
 **Assays ship with code.** New organelles and tools ship with a corresponding `assays/test_*.py`. No test = not done.
 
 **Insulate knowledge domains.** Directory structure = CTCF boundaries. Operations on one domain must not spread into adjacent domains. The boundary IS the protection.
