@@ -50,14 +50,19 @@ BEFORE investigating:
 
 BEFORE attempting ANY fix:
 
-0. **Gather context cheaply** — for unfamiliar components, use droid explore before burning CC tokens:
+0. **Grep memory for prior diagnosis FIRST** — before reading code, inspecting bytes, or burning tokens on investigation, grep `~/epigenome/marks/` and `~/epigenome/chromatin/immunity/` for the error phrase, the tool name, and any file paths in the error. Parallel sessions may have already diagnosed it TODAY (cross-session state changes are invisible from in-session memory). Budget: 1 tool call.
+   ```bash
+   grep -rIl "<distinctive error phrase>" ~/epigenome/marks/ ~/epigenome/chromatin/immunity/ 2>/dev/null
+   ```
+   If hit → read the matching file, reconcile, don't re-diagnose. The 2026-04-05 `op CLI byte 848` incident burned ~15 tool calls because the parallel session had already filed `finding_typos_hook_rewrites_secrets.md` an hour earlier.
+1. **Gather context cheaply** — for unfamiliar components, use droid explore before burning CC tokens:
    ```bash
    ribosome -m "custom:glm-4.7" --cwd <project> "Read <files> and summarize: what it does, recent changes, dependencies, error handling patterns"
    ```
-1. **Read error messages** — stack traces completely, line numbers, error codes
-2. **Check recent changes** — git diff, new deps, config, environment
-3. **Gather evidence at boundaries** — in multi-component systems, log what enters/exits each component. Run once. The failing boundary IS the root cause location
-4. **Trace data flow** — where does the bad value originate? Keep tracing up until you find the source. Fix at source, not symptom
+2. **Read error messages** — stack traces completely, line numbers, error codes
+3. **Check recent changes** — git diff, new deps, config, environment. Include concurrent changes from parallel sessions — `git log --since="2 hours ago"` and `ls -la` on the suspect files.
+4. **Gather evidence at boundaries** — in multi-component systems, log what enters/exits each component. Run once. The failing boundary IS the root cause location
+5. **Trace data flow** — where does the bad value originate? Keep tracing up until you find the source. Fix at source, not symptom
 
 ### Phase 3: Pattern Analysis
 
