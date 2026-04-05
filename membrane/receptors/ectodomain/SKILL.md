@@ -22,23 +22,31 @@ Run the four-step decision tree from `genome.md`:
 
 Tiebreaker: CLI wraps into MCP cheaply (`subprocess.run` behind `@mcp.tool`). MCP does not unwrap into CLI. When unsure, pick the reversible direction — CLI.
 
-## Step 2 — Identify the audience mix
+## Step 2 — Identify the audience mix and pick an output default
 
-Every vivesca CLI has two callers: Terry (human, on Blink over SSH) and agents (CC, Codex, ribosome, sortase, gemini-cli). Neither is optional. Design for both:
+Every vivesca CLI has two callers: Terry (human, on Blink over SSH) and agents (CC, Codex, ribosome, sortase, gemini-cli). Neither is optional. Two viable designs — pick one deliberately, don't split the difference:
 
-- Default output is human-pretty (tables, colour when stdout is a TTY).
-- `--json` flag emits machine-parseable output. Stable schema, never reorder keys.
+| Design | When to use | Reference |
+|--------|-------------|-----------|
+| **Human-pretty default, `--json` opt-in** | Terry is the primary caller; agents tolerate the extra flag. Fit: `hygroreception`, `fasti`, `sopor`, `usage`, most status-read CLIs. | clig.dev / Heroku convention |
+| **JSON-default, humans pipe through `jq`** | Agents are the primary caller; Terry reads via `jq` on Blink. Fit: organism infrastructure CLIs (`ribosome`, `sortase`, `transposase`, `endosomal`, `polymerase`). | joelclaw.com/cli-design-for-ai-agents |
+
+Other rules apply to both:
 - No interactive prompts without a non-interactive override (`--yes`, `--force`, env var).
 - Respect `NO_COLOR`. Detect non-TTY stdout and drop colour automatically.
 - Typo-tolerance: Terry types on Blink with high error rate — suggest nearest subcommand on unknown input.
+- If JSON-default: the envelope should follow the joelclaw HATEOAS pattern (`ok`, `command`, `result`/`error`, `fix`, `next_actions` with typed `params`). See `~/epigenome/chromatin/euchromatin/epistemics/cli-design.md` for the full schema.
 
 ## Step 3 — Structure
 
-- **Noun-verb subcommands.** `tool resource action`. Max three levels of nesting.
+- **Subcommand pattern — pick one separator and stick with it.** Two valid conventions:
+  - **Spaces (git/kubectl/docker style):** `tool resource action` — `git remote add`, `kubectl pod logs`. Clean, reads as noun-verb. Default choice for new organism CLIs.
+  - **Colons (Heroku/oclif style):** `tool topic:action` — `heroku apps:create`, `heroku config:set`. Preferable when topic-level commands must also accept arguments (space-separated would cause parser ambiguity per Dickey factor 11).
+- Max three levels of nesting. Deeper nesting = split into separate tools.
 - **Flat argv.** Nested input = file path or stdin, never JSON on argv. If the natural shape is nested argv, you wanted MCP — go back to step 1.
 - **Stable exit codes with documented taxonomy.** `0` ok, `1` generic error, `2` usage error, plus domain-specific codes. Document them in `--help` or a `doctor` subcommand.
-- **stdout = data, stderr = logs/errors.** Exit code carries success/failure. This discipline is what makes pipes work.
-- **Config precedence.** Flags > env vars > config file > defaults. Document the order.
+- **stdout = data, stderr = logs/errors/progress.** Exit code carries success/failure. Even non-error messages (progress bars, spinners, `cli.action()` output) go to stderr so stdout stays clean for piping. This discipline is what makes pipes work.
+- **Config precedence.** Flags > env vars > XDG config file > defaults. Document the order. XDG-spec: `$XDG_CONFIG_HOME`/`~/.config/<tool>`, `$XDG_DATA_HOME`/`~/.local/share/<tool>`, `~/.cache/<tool>` (Linux) / `~/Library/Caches/<tool>` (macOS).
 
 ## Step 4 — Eliminate human-in-the-loop before designing around it
 
