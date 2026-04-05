@@ -111,9 +111,9 @@ python3 -c "
 import sqlite3, os
 conn = sqlite3.connect(os.path.expanduser('~/.oghma/oghma.db'))
 c = conn.cursor()
-c.execute(\"\"\"SELECT source_tool, COUNT(*) as cnt FROM memories
+c.execute(/"/"/"SELECT source_tool, COUNT(*) as cnt FROM memories
     WHERE status='active' GROUP BY source_tool HAVING cnt > 100
-    ORDER BY cnt DESC\"\"\")
+    ORDER BY cnt DESC/"/"/")
 legit = {'claude_code', 'claude-code', 'opencode', 'codex'}
 for tool, cnt in c.fetchall():
     flag = '' if tool in legit else ' ⚠️  REVIEW'
@@ -124,7 +124,7 @@ conn.close()
 
 If flagged sources exist, archive them:
 ```python
-# python3 -c "import sqlite3, os; conn = sqlite3.connect(os.path.expanduser('~/.oghma/oghma.db')); conn.execute(\"UPDATE memories SET status='archived' WHERE source_tool='SOURCE_NAME' AND status='active'\"); conn.commit(); print('Done')"
+# python3 -c "import sqlite3, os; conn = sqlite3.connect(os.path.expanduser('~/.oghma/oghma.db')); conn.execute(/"UPDATE memories SET status='archived' WHERE source_tool='SOURCE_NAME' AND status='active'/"); conn.commit(); print('Done')"
 ```
 If `oghma`/SQLite commands fail, skip archival and report "Oghma hygiene unavailable".
 

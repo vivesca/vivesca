@@ -141,7 +141,7 @@ After each systole, two phases:
 
 **Default: self-sufficient (~75%).** Study materials, research answers, meeting prep — archive to `~/epigenome/chromatin/Praxis Archive.md`, no TODO item.
 
-**Needs review (~25%):** Only when: Terry's voice (content to publish), Terry's memory (facts only he knows), or Terry's hands (physical action). → Add to Praxis.md: `- [ ] **Review: [title].** [path]. [what to check]. \`agent:terry\``
+**Needs review (~25%):** Only when: Terry's voice (content to publish), Terry's memory (facts only he knows), or Terry's hands (physical action). → Add to Praxis.md: `- [ ] **Review: [title].** [path]. [what to check]. /`agent:terry/``
 
 **`agent:terry` is expensive.** Before tagging, ask: could another agent verify this? Is this really review, or studying/doing? Agents never block on Terry's review — the flywheel keeps spinning.
 
@@ -149,7 +149,7 @@ After each systole, two phases:
 
 ### Step 8: Session Report
 
-Write `~/epigenome/chromatin/Poiesis Reports/YYYY-MM-DD.md` with frontmatter (systoles, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
+Write `~/epigenome/chromatin/Poiesis Reports/YYYY-MM-DD.md` with frontmatter (systoles, items/_produced, items/_for/_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
 
 **No separate notification.** Praxis.md is the one inbox.
 

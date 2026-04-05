@@ -54,11 +54,11 @@ On skip: `**Skip** — [reason] / Domain: [source]`
 
 **Articles:** Standard (most) — frontmatter + Key Ideas (3-5 bullets) + My Take (2-4 sentences). Deep (long-form, technical, or explicit request) — add Core Arguments, Tools & Methods, Risks & Warnings, Mental Model Shifts, Action Items. Scan all deep dimensions; only write those with actual content.
 
-**Repos:** frontmatter (language, stars, last\_commit, license) + Overview (1-2 sentences) + Signals (activity/quality/relevance).
+**Repos:** frontmatter (language, stars, last/_commit, license) + Overview (1-2 sentences) + Signals (activity/quality/relevance).
 
 **Company pages:** frontmatter (industry, size, stage) + Overview + Signals (tech stack, culture, red flags).
 
-**Profiles:** frontmatter (name, role, company, connection\_context) + Background + Notes (why saving).
+**Profiles:** frontmatter (name, role, company, connection/_context) + Background + Notes (why saving).
 
 **Videos/podcasts:** route to `video-digest` CLI. Apply deep analysis after transcript if user requests analysis.
 
@@ -68,7 +68,7 @@ On skip: `**Skip** — [reason] / Domain: [source]`
 
 Before generating any note:
 
-1. Grep `~/epigenome/chromatin/` for `^tags:` (glob `*.md`, head\_limit 20) — build existing tag set
+1. Grep `~/epigenome/chromatin/` for `^tags:` (glob `*.md`, head/_limit 20) — build existing tag set
 2. Glob `~/epigenome/chromatin/*MOC*.md` and `~/epigenome/chromatin/Maps/*.md` — find relevant MOCs
 
 **Rule:** Only use tags that already exist in chromatin. Never invent tags. If nothing fits, leave tags empty.

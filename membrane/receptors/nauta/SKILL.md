@@ -159,7 +159,7 @@ No VNC on soma — can't view the display remotely.
 
 - **`fill <selector> <text>`** — clears + sets value. Triggers React/Vue reactivity. **Use for most inputs.**
 - **`type <selector> <text>`** — appends char-by-char. Use for autocomplete.
-- **`keyboard type <text>`** — types without selector. Use for LinkedIn messages (avoids `!` → `\!` escaping).
+- **`keyboard type <text>`** — types without selector. Use for LinkedIn messages (avoids `!` → `/!` escaping).
 - **`eval "input.value = 'x'"`** — **NEVER for SPA forms.** Bypasses framework state.
 
 ### Multi-Tab Flows
@@ -488,14 +488,14 @@ ssh mac "agent-browser click @eXX && sleep 3 && agent-browser get text body"
 
 ```bash
 # Navigate
-ssh mac 'osascript -e "tell application \"Google Chrome\" to set URL of active tab of first window to \"https://www.linkedin.com/messaging/\""'
+ssh mac 'osascript -e "tell application \"Google Chrome/" to set URL of active tab of first window to /"https://www.linkedin.com/messaging//""'
 sleep 5
 
 # Read page content
-ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"document.body.innerText\""'
+ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript /"document.body.innerText/""'
 
 # Execute JS (click, extract, etc.)
-ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"document.querySelector('"'"'.some-class'"'"').click()\""'
+ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript /"document.querySelector('"'"'.some-class'"'"').click()/""'
 ```
 
 ### Click Elements by Content
@@ -516,7 +516,7 @@ ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab 
 
 AppleScript + SSH + JS = quoting hell. Rules:
 - Outer: single quotes for SSH
-- osascript: escaped double quotes `\"`
+- osascript: escaped double quotes `/"`
 - JS strings inside: `'"'"'` for single quotes (break out of single quote, add escaped single, resume)
 
 ### LinkedIn Messaging (confirmed Apr 2026)
@@ -530,11 +530,11 @@ sleep 5
 ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"document.body.innerText\""' | head -40
 
 # Click into a conversation
-ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"var items = document.querySelectorAll('"'"'.msg-conversation-listitem__link'"'"'); for (var i = 0; i < items.length; i++) { if (items[i].innerText.indexOf('"'"'Contact Name'"'"') !== -1) { items[i].click(); break; } } '"'"'clicked'"'"';\""'
+ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"var items = document.querySelectorAll('"'"'.msg-conversation-listitem__link'"'"'); for (var i = 0; i < items.length; i++) { if (items[i].innerText.indexOf('"'"'Contact Name'"'"') !== -1) { items[i].click(); break; } } '"'"'clicked'"'"';/""'
 sleep 3
 
 # Read conversation
-ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"document.querySelector('"'"'.msg-s-message-list-content'"'"') ? document.querySelector('"'"'.msg-s-message-list-content'"'"').innerText : '"'"'no list'"'"';\""'
+ssh mac 'osascript -e "tell application \"Google Chrome\" to execute active tab of first window javascript \"document.querySelector('"'"'.msg-s-message-list-content'"'"') ? document.querySelector('"'"'.msg-s-message-list-content'"'"').innerText : '"'"'no list'"'"';/""'
 ```
 
 ### LinkedIn Message Sending

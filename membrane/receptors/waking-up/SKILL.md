@@ -136,7 +136,7 @@ Full progress: `~/epigenome/chromatin/Waking Up Transcription Progress.md`
 | Practice | `wu practice` | `Practice Guide.md` | 1 (from 637 sources) |
 
 - Layers 2-4 read digests (Layer 1 output), not raw transcripts
-- LLM JSON parsing: always strip trailing commas before `json.loads()` — `re.sub(r",\s*([}\]])", r"\1", text)`
+- LLM JSON parsing: always strip trailing commas before `json.loads()` — `re.sub(r",\s*([}\]])", r"/1", text)`
 - Large teachers (>50 digests): two-pass chunking (summarize chunks, then synthesize)
 - Tradition dedup: 67 raw labels → 12 canonical groups via hardcoded `TRADITION_GROUPS` dict
 - Full pattern: `~/docs/solutions/cascading-llm-summarization.md`

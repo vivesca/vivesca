@@ -99,7 +99,7 @@ Show deferred tasks.
 Show all unchecked items regardless of date tags. This is the old default behaviour.
 
 ```bash
-grep -n "^\- \[ \]" ~/epigenome/TODO.md
+grep -n "^/- \[ \]" ~/epigenome/TODO.md
 ```
 If no lines are returned, report "No open tasks."
 
@@ -114,8 +114,8 @@ If append fails, report "Failed to add task" and do not claim success.
 
 Examples:
 - `/todo add Review PR #123`
-- `/todo add Review PR #123 \`due:2026-02-14\``
-- `/todo add Explore new framework \`someday\``
+- `/todo add Review PR #123 /`due:2026-02-14/``
+- `/todo add Explore new framework /`someday/``
 
 ### `/todo done <partial match>`
 

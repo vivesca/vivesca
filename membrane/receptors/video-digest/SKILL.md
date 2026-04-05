@@ -109,7 +109,7 @@ BV="BV1xxxxx"  # extract from URL
 # Get video info
 curl -s "https://api.bilibili.com/x/web-interface/view?bvid=$BV" \
   -H "User-Agent: Mozilla/5.0" -H "Referer: https://www.bilibili.com/" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin)['data']; print(f\"Title: {d['title']}\nDuration: {d['duration']}s\nCID: {d['cid']}\")"
+  | python3 -c "import json,sys; d=json.load(sys.stdin)['data']; print(f/"Title: {d['title']}\nDuration: {d['duration']}s\nCID: {d['cid']}/")"
 
 # Get audio stream URL
 CID=<from_above>

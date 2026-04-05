@@ -1,0 +1,60 @@
+severity = "Warning"
+exclude = [
+    "node_modules/**",
+    ".git/**",
+    "target/**",
+    "**/.archive/**",
+    "**/.system/**",
+]
+target = "Generic"
+tools = []
+max_files_to_validate = 10000
+
+[rules]
+skills = true
+hooks = true
+agents = true
+memory = true
+plugins = true
+xml = true
+mcp = true
+imports = true
+cross_platform = true
+agents_md = true
+copilot = true
+cursor = true
+cline = true
+opencode = true
+gemini_md = true
+codex = true
+roo_code = true
+windsurf = true
+kiro_steering = true
+kiro_agents = true
+amp_checks = true
+prompt_engineering = true
+generic_instructions = true
+frontmatter_validation = true
+xml_balance = true
+import_references = true
+disabled_rules = [
+    "AS-010",    # Destructive autofix that prepends "Use when user wants to" mechanically
+    "XP-SK-001", # "Client-specific field" — vivesca uses custom frontmatter (user_invocable, triggers, etc.)
+    "CC-SK-017", # "Unknown frontmatter field" — same noise, different severity
+    "XP-003",    # "Hard-coded ~/.codex/ path" — legitimate, terry has ~/.codex/ installed
+    "CC-SK-003", # "Context fork requires agent field" — vivesca convention omits agent (CC auto-selects)
+    "AS-016",    # "allowed-tools must be string" — vivesca uses YAML list format (more idiomatic)
+    "XML-001",   # Placeholder syntax like <event> in docs flagged as unclosed XML
+    "AS-009",    # Same issue — placeholder syntax in descriptions
+    "AS-014",    # Windows path detector false-positives on shell-escaped backslashes
+]
+disabled_validators = []
+
+[tool_versions]
+
+[spec_revisions]
+
+[files]
+include_as_memory = []
+include_as_generic = []
+exclude = []

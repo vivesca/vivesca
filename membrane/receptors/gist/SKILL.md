@@ -25,7 +25,7 @@ All gists MUST be secret (`--public=false`). Never create public gists.
 gh gist create --public=false -f <filename> <filepath> -d "<description>"
 ```
 
-**Always write content to `/tmp/<filename>` first, then create from that path.** Never pipe content via `<<<`, `printf`, or `echo` — zsh escapes `!` and other metacharacters even in single quotes, resulting in `boss\!` instead of `boss!` in the gist.
+**Always write content to `/tmp/<filename>` first, then create from that path.** Never pipe content via `<<<`, `printf`, or `echo` — zsh escapes `!` and other metacharacters even in single quotes, resulting in `boss/!` instead of `boss!` in the gist.
 
 ### Update
 

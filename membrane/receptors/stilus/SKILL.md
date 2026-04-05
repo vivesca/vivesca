@@ -59,7 +59,7 @@ gog gmail send \
 ```
 - `--quote` fetches the original message and includes it as a proper blockquote (HTML with blue left border + plain text with `>` prefix)
 - Preserves original formatting (links, bold, images) in the quote
-- Adds "On \<date\>, \<sender\> wrote:" attribution line
+- Adds "On /<date/>, /<sender/> wrote:" attribution line
 - Requires `--reply-to-message-id` (not just `--thread-id`)
 
 Always confirm with user before executing send.

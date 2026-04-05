@@ -131,7 +131,7 @@ TaskCreate: Research track A — [brief summary]
 Or via tmux panes for visibility (Karpathy style):
 ```bash
 # New pane per agent — you can watch and intervene
-tmux split-window -h "env CLAUDECODE= claude --dangerously-skip-permissions -p \"$(cat /tmp/research-a/brief.md)\""
+tmux split-window -h "env CLAUDECODE= claude --dangerously-skip-permissions -p \"$(cat /tmp/research-a/brief.md)/""
 ```
 
 ### 5. Monitor and synthesise

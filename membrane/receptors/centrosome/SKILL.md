@@ -3,7 +3,6 @@ name: centrosome
 description: RETIRED — merged into /mitogen. Use /mitogen for all dispatch.
 model: opus
 user_invocable: false
-context: inline
 triggers:
   - centrosome
 ---
