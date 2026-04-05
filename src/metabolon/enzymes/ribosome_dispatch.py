@@ -153,6 +153,7 @@ def ribosome_dispatch(
     max_turns: int = 15,
     workflow_id: str = "",
     specs: str = "",
+    stages: str = "",
     limit: int = 10,
     status_filter: str = "",
 ) -> QueueResult | EffectorResult:
@@ -163,7 +164,7 @@ def ribosome_dispatch(
     action : str
         One of: dispatch, batch, status, list, running, failed, cancel.
     prompt : str
-        Task prompt (dispatch only).
+        Task prompt (dispatch only).  Mutually exclusive with ``stages``.
     provider : str
         Provider name (default zhipu; also filters list/running/failed).
     max_turns : int
@@ -172,6 +173,10 @@ def ribosome_dispatch(
         Workflow identifier (status / cancel).
     specs : str
         JSON array of task specs (batch).
+    stages : str
+        JSON array of arrays of task specs (batch, staged execution).
+        Each inner array is a stage; stages run sequentially.
+        Mutually exclusive with ``prompt``.
     limit : int
         Max workflows to return (list, default 10).
     status_filter : str
@@ -181,6 +186,11 @@ def ribosome_dispatch(
 
     # ── dispatch ───────────────────────────────────────────────────────────
     if action == "dispatch":
+        if prompt and stages:
+            return EffectorResult(
+                success=False,
+                message="prompt and stages are mutually exclusive",
+            )
         if not prompt:
             return EffectorResult(
                 success=False,
@@ -195,6 +205,29 @@ def ribosome_dispatch(
 
     # ── batch ──────────────────────────────────────────────────────────────
     if action == "batch":
+        if stages:
+            if prompt:
+                return EffectorResult(
+                    success=False,
+                    message="prompt and stages are mutually exclusive",
+                )
+            try:
+                parsed: list = json.loads(stages)
+            except json.JSONDecodeError:
+                return EffectorResult(
+                    success=False,
+                    message="stages must be valid JSON",
+                )
+            if not parsed:
+                return EffectorResult(
+                    success=False,
+                    message="batch requires non-empty stages",
+                )
+            result = asyncio.run(_start_workflow(parsed))
+            return QueueResult(
+                output=f"Dispatched staged batch workflow {result['workflow_id']}",
+                data=result,
+            )
         try:
             parsed: list[dict] = json.loads(specs) if specs else []
         except json.JSONDecodeError:

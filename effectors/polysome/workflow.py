@@ -176,19 +176,63 @@ class TranslationWorkflow:
         }
 
     @workflow.run
-    async def run(self, specs: list[dict]) -> dict:
-        """Execute all task specs concurrently, review each, return aggregate."""
-        results = await asyncio.gather(*[self._execute_one(s) for s in specs])
+    async def run(self, stages: list[list[dict]] | list[dict]) -> dict:
+        """Execute staged task specs.
 
-        succeeded = sum(1 for r in results if r.get("success"))
-        approved = sum(1 for r in results if r.get("review", {}).get("approved"))
+        Input shape:
+          - list[list[dict]]: each inner list is a stage; specs in a stage run
+            in parallel via asyncio.gather; stages run sequentially.  If any
+            spec in a stage is rejected by the reviewer, downstream stages
+            are skipped (verdict=predecessor_failed).
+          - list[dict]: legacy flat input, auto-wrapped as a single stage.
+        """
+        # Backwards-compat shim
+        if stages and isinstance(stages[0], dict):
+            staged: list[list[dict]] = [stages]
+        else:
+            staged = stages
+
+        all_results: list[dict] = []
+        stage_count = len(staged)
+        for stage_idx, stage_specs in enumerate(staged):
+            stage_results = await asyncio.gather(
+                *[self._execute_one(s) for s in stage_specs]
+            )
+            all_results.extend(stage_results)
+
+            stage_failed = any(
+                not r.get("review", {}).get("approved") for r in stage_results
+            )
+            if stage_failed and stage_idx < stage_count - 1:
+                for skipped_stage in staged[stage_idx + 1 :]:
+                    for spec in skipped_stage:
+                        all_results.append(
+                            {
+                                "task": spec.get("task", "")[:200],
+                                "provider": spec.get("provider", "zhipu"),
+                                "success": False,
+                                "exit_code": -1,
+                                "mode": "skipped",
+                                "review": {
+                                    "approved": False,
+                                    "verdict": "predecessor_failed",
+                                    "flags": [f"skipped_stage_{stage_idx + 1}"],
+                                },
+                            }
+                        )
+                break
+
+        succeeded = sum(1 for r in all_results if r.get("success"))
+        approved = sum(1 for r in all_results if r.get("review", {}).get("approved"))
         flagged = sum(
-            1 for r in results if r.get("review", {}).get("verdict") == "approved_with_flags"
+            1
+            for r in all_results
+            if r.get("review", {}).get("verdict") == "approved_with_flags"
         )
-        rejected = sum(1 for r in results if not r.get("review", {}).get("approved"))
+        rejected = sum(1 for r in all_results if not r.get("review", {}).get("approved"))
 
         return {
-            "total": len(results),
+            "total": len(all_results),
             "succeeded": succeeded,
             "approved": approved,
             "flagged": flagged,
@@ -202,6 +246,6 @@ class TranslationWorkflow:
                     "mode": r.get("mode", "raw"),
                     "review": r.get("review", {}),
                 }
-                for r in results
+                for r in all_results
             ],
         }
