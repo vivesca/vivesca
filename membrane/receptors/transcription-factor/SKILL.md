@@ -140,6 +140,4 @@ Surface decisions with a review date that has passed.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.
 
 ## Calls
-- `Grep` tool (scoped to `~/epigenome/chromatin/decisions/`) — bouncer search and decision lookup
-- `[[evaluation-theory]]` — when outcome is measurable
-- `quorum` — when trade-offs need deliberation
+- `consilium` — when trade-offs need deliberation

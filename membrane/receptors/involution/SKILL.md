@@ -114,7 +114,7 @@ Offer to check tomorrow morning. Don't run now — data isn't in yet.
 - Stop after Step 6 (or 7 if relevant). Do not loop back.
 
 ## Calls
-- `checkpoint` — if adding a reminder during the ritual
-- `oura` / `sopor` — tomorrow morning follow-up only
+- `sporulation` — if adding a reminder during the ritual
+- `sopor` — tomorrow morning follow-up only
 - `kinesin run <name>` — dispatch pre-configured overnight task (Step 5)
 - `~/epigenome/chromatin/agent-queue.yaml` — fallback queue for ad-hoc tasks (Step 5)

@@ -71,5 +71,5 @@ uv tool run consilium "$PROMPT" --redteam --output ~/epigenome/chromatin/Council
 Launch one OpenCode per fix in parallel. Keep prompts to "read this range, change X to Y, run tests". OpenCode handles simple substitutions; complex structural transforms silently stall — do those directly.
 
 ## Calls
-- `delegate` — for dispatching parallel fixes
+- `mitogen` — for dispatching parallel fixes
 - `consilium` — for red team reviews

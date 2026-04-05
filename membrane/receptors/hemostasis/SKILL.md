@@ -1,5 +1,5 @@
 ---
-name: thrombin
+name: hemostasis
 description: Emergency stop — halt bleeding, don't fix root cause. "stop the bleeding"
 user_invocable: true
 model: sonnet

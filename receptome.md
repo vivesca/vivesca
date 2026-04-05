@@ -1,24 +1,24 @@
-# Receptome -- 2026-04-05 12:55
+# Receptome -- 2026-04-05 13:02
 
 Total: **187** skills (146 invocable, 41 reference)
 With REFERENCE.md: 3 | With scripts/: 0
-Trigger phrases indexed: 85
+Trigger phrases indexed: 102
 
 ## By Category
 
 | Category | Count | Skills |
 |----------|-------|--------|
-| other | 42 | askesis, assay-source, auscultation, autophagy, autopoiesis, certus, conjugation, contract +34 more |
-| research | 32 | anam, auceps, cardo, comes, consilium, diagnosis, ecphory, elencho +24 more |
+| other | 36 | askesis, assay-source, auscultation, autophagy, autopoiesis, certus, conjugation, contract +28 more |
+| research | 33 | anam, auceps, cardo, comes, consilium, diagnosis, ecphory, elencho +25 more |
 | maintenance | 27 | adytum, amicus, assay, circadian, cron, cytometry, docima, eow +19 more |
-| meta | 24 | bouleusis, censor, debridement, derepression, epistula, fasti, gist, grapho +16 more |
-| dispatch | 13 | agent-cli, centrosome, involution, kindle, legatus, mitogen, overnight, polarization +5 more |
-| content | 12 | adhesion, agoras, analyze, evaluate-job, message, presentation, python, redarguo +4 more |
+| meta | 25 | bouleusis, censor, debridement, derepression, epistula, fasti, gist, grapho +17 more |
+| dispatch | 15 | agent-cli, centrosome, heuretes, involution, kindle, legatus, mitogen, opifex +7 more |
+| content | 13 | adhesion, agoras, analyze, evaluate-job, exocytosis, message, presentation, python +5 more |
 | consulting | 8 | capco-prep, chemoreception, meeting-prep, metabolize, mora, opsonization, secretion, statio |
 | comms | 7 | cursus, deltos, endosomal, graphics, horizo, imessage, keryx |
 | dev | 7 | etiology, fingo, friction, hypha, lucus, remote-llm, taxis |
+| health | 6 | biomorphe, daily, differentiation, mappa, salus, sopor |
 | workflow | 6 | dialexis, digest, expression, infradian, melete, weekly |
-| health | 5 | biomorphe, daily, differentiation, mappa, salus |
 | finance | 3 | fiscus, praeco, stips |
 | calendar | 1 | auspex |
 
@@ -32,9 +32,8 @@ Trigger phrases indexed: 85
 
 ## Most Referenced Skills
 
-- **consilium** (2): gnome, scrutor
-- **oura** (2): involution, quies
-- **delegate** (2): organogenesis, scrutor
+- **consilium** (3): gnome, scrutor, transcription-factor
+- **sopor** (2): involution, quies
 - **kairos** (1): cardo
 - **grok** (1): elencho
 - **exauro** (1): elencho
@@ -42,6 +41,7 @@ Trigger phrases indexed: 85
 - **stips** (1): elencho
 - **nuntius** (1): epistula
 - **qmd** (1): gnome
+- **judex** (1): gnome
 
 ## Full Catalog
 
@@ -76,6 +76,7 @@ Trigger phrases indexed: 85
 - **agoras**: Draft LinkedIn comments and posts. Use when user shares a LinkedIn URL to comment on, says "linkedin comment", "linkedin
 - **analyze**: Classify content, extract insights, and save a structured vault note. Use when user shares content (article, job posting
 - **evaluate-job**: Evaluate LinkedIn job postings for fit. Triggers on job URLs or "evaluate this role".
+- **exocytosis**: Publish to terryli.hm garden. Secretome (chromatin) -> Astro -> deploy. CLI: ~/germline/effectors/publish. Posts: ~/epig
 - **message**: Draft responses to recruiter and networking messages (LinkedIn DMs, WhatsApp intros, cold outreach). NOT for email (use 
 - **presentation**: Reference for visual communication patterns in presentations and data storytelling. Consult when creating slides, Linked
 - **python**: Python development — new script/package scaffold, uv workflow, PyPI publish checklist. Use when starting or publishing P
@@ -99,13 +100,15 @@ Trigger phrases indexed: 85
 
 - **agent-cli** [ref]: Design patterns for CLIs intended to be used by AI agents rather than humans. Consult when building a new CLI that Claud
 - **centrosome**: RETIRED — merged into /mitogen. Use /mitogen for all dispatch.
-- **involution**: Evening wind-down — brain dump, queue overnight tasks, gate screens-off. (calls: checkpoint, oura)
+- **heuretes**: Agent research org — run a hierarchical team of AI agents on open-ended research or exploration tasks. Chief orchestrato
+- **involution**: Evening wind-down — brain dump, queue overnight tasks, gate screens-off. (calls: sporulation, sopor)
 - **kindle**: Extract Kindle books to markdown via screenshots + Gemini vision. Single book or queue mode.
 - **legatus**: Session-independent AI agent dispatcher — list tasks, dispatch immediately, cancel, view results. Use for any background
 - **mitogen**: Dispatch ribosome for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", 
+- **opifex** [ref]: AI agent orchestrator — delegates coding tasks to free tools (Gemini/Codex/OpenCode) with auto-routing, fallback chains,
 - **overnight**: Check async queue results and manage tasks. 'overnight', 'overnight results', 'queue status', 'what ran
 - **polarization**: Agent teams or single-task async dispatch. "overnight", "run tonight
-- **quies**: Evening wind-down ritual — brain dump, overnight queue, screens-off gate. NOT for work closure (use eow) or daily reflec (calls: due, oura)
+- **quies**: Evening wind-down ritual — brain dump, overnight queue, screens-off gate. NOT for work closure (use eow) or daily reflec (calls: sched, sopor)
 - **rector** [ref]: RETIRED -- merged into /mitogen. Use /mitogen for all dispatch.
 - **solutions** [ref]: Search docs/solutions/ for past learnings before starting work. Use proactively before implementing fixes, filling forms
 - **specification**: RETIRED — use /centrosome. Write specs, dispatch, review.
@@ -124,6 +127,7 @@ Trigger phrases indexed: 85
 - **differentiation**: Coach a live gym session — prescribe sets, track reps, log workout. "gym
 - **mappa** [ref]: Life areas diagnostic — maps Terry's key domains, healthy indicators, and neglect signals. Consulted by kairos, daily, e
 - **salus**: Manulife health insurance claims checker CLI. Use when checking claim status, reimbursement amounts, or claim history. C
+- **sopor** [ref]: Unified sleep health CLI — Oura Ring + EightSleep data in one DuckDB. Use when checking sleep data, running sync, asking
 
 ### Maintenance
 
@@ -144,9 +148,9 @@ Trigger phrases indexed: 85
 - **monthly**: Monthly maintenance — content digests, skill review, AI deep review, vault hygiene. Run on first Friday or anytime in th
 - **pondus**: AI model benchmark aggregator CLI. Use when comparing models, checking benchmark scores, or looking up leaderboard ranki
 - **priming** [ref]: Context-triggered reminders — check at session start and when entering matching context. Internal agent procedure, not u
-- **priming** [ref]: Context-triggered reminders — check at session start and when entering matching context. Internal agent procedure, not u
+- **prospective** [ref]: Context-triggered reminders — check at session start and when entering matching context. Internal agent procedure, not u
 - **receptor**: Check goal readiness — find weakest categories, run drills. "drill", "readiness
-- **scrutor**: Code audit using Codex, OpenCode, or consilium. Use when reviewing code for bugs, security issues, or logic errors. (calls: delegate, consilium)
+- **scrutor**: Code audit using Codex, OpenCode, or consilium. Use when reviewing code for bugs, security issues, or logic errors. (calls: mitogen, consilium)
 - **skill-review**: Monthly review of skills for staleness, drift, and gaps. Use on first Friday of month or when skills feel out of sync.
 - **splicing**: Trim always-loaded context files for signal dilution. "genome trim", "coaching trim", "context audit
 - **sporulation**: Save session checkpoint with codename for instant resume later. "checkpoint
@@ -173,11 +177,12 @@ Trigger phrases indexed: 85
 - **morphogenesis**: Generate images via Gemini models. "generate image", "draw", "create image
 - **obsidian-markdown**: Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, and other Obsidian-specific syn
 - **ontogenesis** [ref]: Design a new reusable skill from an ad-hoc solution. "create a skill
-- **organogenesis**: Guide for designing skills (functional organs). Use when noticing a recurring pattern, wondering if something deserves a (calls: delegate, cerno; has REFERENCE.md)
+- **organogenesis**: Guide for designing skills (functional organs). Use when noticing a recurring pattern, wondering if something deserves a (has REFERENCE.md)
 - **parsimonia**: Essential vs accidental complexity, premature abstraction, when removal is safe. Reference skill for code review, refact
 - **peirasmos** [ref]: Theory of experimentation for AI/LLM engineering — question design, confound detection, dual-purpose runs, evaluation. R
 - **photos**: Access iCloud Photos from Claude Code sessions. Reference skill — not user-invocable.
 - **proliferation**: Overproduce skill variants for a domain; let selection pick. "proliferate
+- **sched**: Schedule events and manage Due reminders via pacemaker CLI. Use for ANY Due or calendar operation: "schedule", "remind m
 - **scrinium** [ref]: Route captured knowledge to the right storage layer — MEMORY.md, CLAUDE.md, docs/solutions/, vault, or skill. Consult be
 - **synaxis**: Sync AI tool config across Claude Code, OpenCode, Codex, and Gemini CLI — skills, MCP, CE, from ~/officina/ as source of
 - **tecton** [ref]: Reference for vault note structure — atomicity, interlinking, hub vs. detail, when to split, where notes live. Not user-
@@ -197,9 +202,8 @@ Trigger phrases indexed: 85
 - **deleo**: Safe deletion CLI — validates paths and performs deletion with confirmation. Replaces safe_rm.py.
 - **endosymbiosis**: Integrate an external tool as a first-class organelle. "absorb
 - **evaluate-ai-repo**: Evaluate AI tooling repos (configs, MCP servers, agent frameworks) for adoption into existing setup.
-- **exocytosis**: >
 - **gnome**: Capture structured decisions with past-decision surfacing (bouncer pattern). Use when user says "gnome", "/gnome", "I ne (calls: qmd, judex, consilium)
-- **heuretes**: >
+- **hemostasis**: Emergency stop — halt bleeding, don't fix root cause. "stop the bleeding
 - **hkicpa**: Reference for HKICPA portal access and CPD compliance. Use when working with CPD submissions or HKICPA portal tasks.
 - **hygroreception**: HK Observatory one-line weather CLI. Use when user asks about weather, temperature, typhoon, or rain in HK. "weather", "
 - **iter**: HK bus stop navigator — tracks stops on unfamiliar routes with alerts. Also does Google Maps transit directions. NOT for
@@ -210,19 +214,14 @@ Trigger phrases indexed: 85
 - **manus**: Reference for macOS UI automation via Peekaboo CLI. Not user-invocable — consult when automating app interactions, click
 - **methylation**: Crystallize repair lessons into permanent probes and patterns. "crystallize
 - **modification**: Refine artifact — multi-model or solo cooling. "refine", "polish", "anneal
-- **opifex** [ref]: >
-- **peira**: >-
 - **phagocytosis**: Classify content, extract insights, save as chromatin note. URL or pasted text.
 - **poros** [ref]: Query MTR (Hong Kong subway) point-to-point journey times. Use when asked how long the MTR takes between any two station
 - **praecepta** [ref]: Heuristic library — simple action rules replacing per-case reasoning. Consult when deciding, advising, or a known patter
 - **quorum**: Multi-model deliberation for judgment calls. "council", "ask llms (has REFERENCE.md)
-- **sched**: >-
-- **sopor** [ref]: >
 - **taobao** [ref]: Reference for accessing Taobao/Tmall product pages and analysing products. Consult when user shares Taobao links.
 - **tessera**: Authenticate a website for headless agent access — routes to headed login, porta (cookie bridge), or nodriver (stealth C
-- **thrombin**: Emergency stop — halt bleeding, don't fix root cause. "stop the bleeding
 - **topica** [ref]: Mental models catalog — situational thinking lenses for decisions, evaluation, systems, and people. Consult from consili
-- **transcription-factor**: Log structured decisions with bouncer pattern — surfaces past similar ones. (calls: Grep, quorum)
+- **transcription-factor**: Log structured decisions with bouncer pattern — surfaces past similar ones. (calls: consilium)
 - **vectura**: Import Apple Passwords CSV exports into 1Password via the op CLI. Use when migrating passwords or catching new items save
 - **verify** [ref]: Hard gate: run verification before claiming completion. Evidence before assertions. Applied automatically — not user-inv
 - **video-digest** [ref]: Video/podcast URL to full transcript + structured digest. Bilibili, YouTube, Xiaoyuzhou, Apple Podcasts, X, direct audio
@@ -243,7 +242,7 @@ Trigger phrases indexed: 85
 - **integrin**: Scan CLI binaries and skills for breakage or dormancy. "health check
 - **iris**: Email verification link relay — polls Gmail for verification emails, extracts the link, opens it in an agent-browser tab
 - **linkedin-profile**: Manage Terry's LinkedIn profile — Featured links, About section, headline, announcements, job updates. NOT for researchi
-- **linkedin-research** [ref]: >
+- **linkedin-research** [ref]: Research OTHER people on LinkedIn — profile lookup, team mapping, org research. NOT for managing your own profile (use l
 - **nauta** [ref]: Web browser automation — 3-tier escalation from headless to AppleScript. Covers agent-browser, cookie bridge, LinkedIn, 
 - **nexis**: Obsidian vault link health — scan, triage broken links, surface orphans. Use when running nexis CLI or triaging vault li
 - **nexum**: LinkedIn org research CLI — search people, extract profiles, traverse network graph. Use when researching org structures
@@ -251,6 +250,7 @@ Trigger phrases indexed: 85
 - **obsidian-cli**: Interact with Obsidian vaults using the Obsidian CLI to read, create, search, and manage notes, tasks, properties, and m
 - **oghma**: oghma memory tool — search memories, check status, manage daemon. Use when user mentions oghma, memory search, or session
 - **palpation**: Deep-probe a single component by hand — deeper than integrin scan. "deep probe
+- **peira**: Autonomous experiment-optimize loop for any measurable target. Use when prompt engineering, habit tuning, performance be
 - **pinocytosis** [ref]: Fetch web content with smart routing and fallback chain. "browse", "fetch URL
 - **porta**: Bridge browser cookies (Chrome, Firefox, Arc) into agent-browser profile (solves Google OAuth block)
 - **qianli**: Search Chinese content platforms (WeChat, 36kr, Zhihu, XHS) from the terminal. Use when searching for Chinese-language c
@@ -271,7 +271,7 @@ Trigger phrases indexed: 85
 - **melete**: Daily consulting readiness drill — scenarios, reading prompts, observation logging. "consulting prep", "prep drill", "co
 - **weekly**: Weekly synthesis and review. Use when user says "weekly", "weekly review", "week in review", or on Fridays.
 
-## Issues (100)
+## Issues (77)
 
 - auscultation: invocable but no trigger phrases or 'Use when' in description
 - auspex: invocable but no trigger phrases or 'Use when' in description
@@ -292,27 +292,19 @@ Trigger phrases indexed: 85
 - diagnosis: invocable but no trigger phrases or 'Use when' in description
 - differentiation: invocable but no trigger phrases or 'Use when' in description
 - ecphory: invocable but no trigger phrases or 'Use when' in description
-- elencho: cross-ref to 'grok' but no such skill exists
-- elencho: cross-ref to 'noesis' but no such skill exists
 - endosymbiosis: invocable but no trigger phrases or 'Use when' in description
 - eow: invocable but no trigger phrases or 'Use when' in description
 - epistula: invocable but no trigger phrases or 'Use when' in description
 - evaluate-ai-repo: invocable but no trigger phrases or 'Use when' in description
 - evolvo: invocable but no trigger phrases or 'Use when' in description
-- exocytosis: description too short (1 chars)
 - exocytosis: invocable but no trigger phrases or 'Use when' in description
 - expression: invocable but no trigger phrases or 'Use when' in description
 - fasti: invocable but no trigger phrases or 'Use when' in description
 - fiscus: invocable but no trigger phrases or 'Use when' in description
-- graphis/: name field 'graphics' does not match directory
-- hemostasis/: name field 'thrombin' does not match directory
-- heuretes: description too short (1 chars)
-- heuretes: invocable but no trigger phrases or 'Use when' in description
+- hemostasis: invocable but no trigger phrases or 'Use when' in description
 - hybridization: invocable but no trigger phrases or 'Use when' in description
 - hypha: invocable but no trigger phrases or 'Use when' in description
 - integrin: invocable but no trigger phrases or 'Use when' in description
-- involution: cross-ref to 'checkpoint' but no such skill exists
-- involution: cross-ref to 'oura' but no such skill exists
 - involution: invocable but no trigger phrases or 'Use when' in description
 - iris: invocable but no trigger phrases or 'Use when' in description
 - iter: invocable but no trigger phrases or 'Use when' in description
@@ -321,7 +313,6 @@ Trigger phrases indexed: 85
 - kritike: invocable but no trigger phrases or 'Use when' in description
 - legatus: invocable but no trigger phrases or 'Use when' in description
 - linkedin-profile: invocable but no trigger phrases or 'Use when' in description
-- linkedin-research: description too short (1 chars)
 - mandatum: invocable but no trigger phrases or 'Use when' in description
 - manus: invocable but no trigger phrases or 'Use when' in description
 - meiosis: invocable but no trigger phrases or 'Use when' in description
@@ -331,33 +322,21 @@ Trigger phrases indexed: 85
 - mitosis: invocable but no trigger phrases or 'Use when' in description
 - monthly: invocable but no trigger phrases or 'Use when' in description
 - nuntius: invocable but no trigger phrases or 'Use when' in description
-- opifex: description too short (1 chars)
 - opsonization: invocable but no trigger phrases or 'Use when' in description
-- organogenesis: cross-ref to 'cerno' but no such skill exists
-- organogenesis: cross-ref to 'delegate' but no such skill exists
 - overnight: invocable but no trigger phrases or 'Use when' in description
 - palpation: invocable but no trigger phrases or 'Use when' in description
 - parsimonia: invocable but no trigger phrases or 'Use when' in description
-- peira: description too short (2 chars)
-- peira: invocable but no trigger phrases or 'Use when' in description
 - phagocytosis: invocable but no trigger phrases or 'Use when' in description
 - photos: invocable but no trigger phrases or 'Use when' in description
 - porta: invocable but no trigger phrases or 'Use when' in description
 - presentation: invocable but no trigger phrases or 'Use when' in description
 - proliferation: invocable but no trigger phrases or 'Use when' in description
-- prospective/: name field 'priming' does not match directory
-- quies: cross-ref to 'due' but no such skill exists
-- quies: cross-ref to 'oura' but no such skill exists
 - quies: invocable but no trigger phrases or 'Use when' in description
 - rector: only 7 lines (stub?)
 - redarguo: invocable but no trigger phrases or 'Use when' in description
 - remote-llm: invocable but no trigger phrases or 'Use when' in description
-- sched: description too short (2 chars)
-- sched: invocable but no trigger phrases or 'Use when' in description
-- scrutor: cross-ref to 'delegate' but no such skill exists
 - secretion: invocable but no trigger phrases or 'Use when' in description
 - skill-review: invocable but no trigger phrases or 'Use when' in description
-- sopor: description too short (1 chars)
 - specification: invocable but no trigger phrases or 'Use when' in description
 - specification: only 7 lines (stub?)
 - specula: invocable but no trigger phrases or 'Use when' in description
@@ -368,8 +347,6 @@ Trigger phrases indexed: 85
 - synaxis: invocable but no trigger phrases or 'Use when' in description
 - taxis: invocable but no trigger phrases or 'Use when' in description
 - tessera: invocable but no trigger phrases or 'Use when' in description
-- thrombin: invocable but no trigger phrases or 'Use when' in description
-- transcription-factor: cross-ref to 'Grep' but no such skill exists
 - transcription-factor: invocable but no trigger phrases or 'Use when' in description
 - transcription: invocable but no trigger phrases or 'Use when' in description
 - usage: invocable but no trigger phrases or 'Use when' in description

@@ -95,5 +95,5 @@ Offer to check tomorrow morning. Don't run now — data isn't in yet.
 - Stop after Step 5 (or 6 if relevant). Do not loop back.
 
 ## Calls
-- `due` — if adding a reminder during the ritual
-- `oura` / `nyx` — tomorrow morning follow-up only
+- `sched` — if adding a reminder during the ritual
+- `sopor` — tomorrow morning follow-up only

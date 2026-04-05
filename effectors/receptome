@@ -21,7 +21,7 @@ OUTPUT_FILE = Path.home() / "germline/receptome.md"
 
 
 def parse_frontmatter(path: Path) -> dict:
-    """Extract YAML frontmatter from a SKILL.md file."""
+    """Extract YAML frontmatter from a SKILL.md file, including multiline strings."""
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---"):
         return {}
@@ -29,20 +29,50 @@ def parse_frontmatter(path: Path) -> dict:
     if len(parts) < 3:
         return {}
     fm = {}
+    current_key = None
+    current_val_lines: list[str] = []
+    is_multiline = False
+
     for line in parts[1].strip().splitlines():
-        key, _, val = line.partition(":")
-        if val:
-            fm[key.strip()] = val.strip().strip("'\"")
+        # New key-value pair
+        if not line.startswith(" ") and not line.startswith("\t") and ":" in line:
+            # Save previous multiline value
+            if current_key and is_multiline:
+                fm[current_key] = " ".join(current_val_lines).strip()
+            key, _, val = line.partition(":")
+            current_key = key.strip()
+            val = val.strip().strip("'\"")
+            if val in (">", ">-", "|", "|-"):
+                is_multiline = True
+                current_val_lines = []
+            elif val:
+                fm[current_key] = val
+                is_multiline = False
+            else:
+                is_multiline = False
+        elif is_multiline and current_key:
+            current_val_lines.append(line.strip())
+
+    # Save last multiline value
+    if current_key and is_multiline:
+        fm[current_key] = " ".join(current_val_lines).strip()
+
     fm["_body"] = parts[2]
     fm["_lines"] = len(parts[2].splitlines())
     return fm
 
 
 def extract_calls(body: str) -> list[str]:
-    """Extract skill cross-references from ## Calls section or inline refs."""
+    """Extract skill cross-references from ## Calls section (outside code blocks)."""
     calls = []
     in_calls = False
+    in_code_block = False
     for line in body.splitlines():
+        if line.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
         if re.match(r"^##\s+Calls", line):
             in_calls = True
             continue
@@ -136,8 +166,10 @@ def validate(skills: list[dict]) -> list[str]:
             issues.append(f"{name}: {s['lines']} lines without REFERENCE.md (>800 = bloated)")
         if s["lines"] < 10:
             issues.append(f"{name}: only {s['lines']} lines (stub?)")
+        # Known external tools that aren't skills
+        external_tools = {"grok", "noesis", "exauro", "stips", "Grep"}
         for call in s["calls"]:
-            if call not in all_names:
+            if call not in all_names and call not in external_tools:
                 issues.append(f"{name}: cross-ref to '{call}' but no such skill exists")
         # Check name matches directory
         if s["name"] != s["dir"]:
