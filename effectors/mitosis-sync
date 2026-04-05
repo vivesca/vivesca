@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""mitosis-sync — ssh-based worker git sync.
+
+Sync a remote host's ~/germline to match origin/main, or report sync status.
+Uses ssh aliases directly (e.g. ganglion, mac).
+
+Usage:
+  mitosis-sync <host>              # make <host> match origin/main
+  mitosis-sync <host> --from-host  # reverse: pull <host>'s state to local soma
+  mitosis-sync --status <host>     # report ahead/behind vs origin/main
+  mitosis-sync --help              # this message
+
+Example hosts: ganglion, mac
+"""
+
+import argparse
+import subprocess
+import sys
+
+
+def _ssh(host: str, cmd: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["ssh", host, cmd],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def _get_sha(host: str, ref: str = "HEAD") -> str | None:
+    r = _ssh(host, f"cd ~/germline && git rev-parse {ref}")
+    if r.returncode != 0:
+        return None
+    return r.stdout.strip()[:7]
+
+
+def _check_dirty(host: str) -> bool:
+    r = _ssh(host, "cd ~/germline && git status --porcelain")
+    if r.returncode != 0:
+        return False
+    return bool(r.stdout.strip())
+
+
+def _check_divergence(host: str) -> int:
+    """Return count of commits on remote HEAD not in origin/main, or -1 on error."""
+    r = _ssh(host, "cd ~/germline && git fetch origin && git rev-list origin/main..HEAD")
+    if r.returncode != 0:
+        return -1
+    lines = [l for l in r.stdout.strip().splitlines() if l]
+    return len(lines)
+
+
+def cmd_status(host: str) -> int:
+    old = _get_sha(host, "HEAD")
+    origin = _get_sha(host, "origin/main")
+    if old is None or origin is None:
+        print(f"{host}: unreachable", file=sys.stderr)
+        return 1
+    if old == origin:
+        print(f"{host}: up-to-date ({old})")
+    else:
+        r = _ssh(host, "cd ~/germline && git rev-list --count HEAD..origin/main")
+        ahead = r.stdout.strip() if r.returncode == 0 else "?"
+        r2 = _ssh(host, "cd ~/germline && git rev-list --count origin/main..HEAD")
+        behind = r2.stdout.strip() if r2.returncode == 0 else "?"
+        print(f"{host}: {old} (behind origin/main {origin} by {ahead}, ahead by {behind})")
+    return 0
+
+
+def cmd_sync(host: str, from_host: bool = False) -> int:
+    if from_host:
+        return _sync_from_host(host)
+    return _sync_to_host(host)
+
+
+def _sync_to_host(host: str) -> int:
+    old_sha = _get_sha(host, "HEAD")
+    if old_sha is None:
+        print(f"{host}: unreachable", file=sys.stderr)
+        return 1
+
+    if _check_dirty(host):
+        print(f"{host}: dirty worktree — commit or stash before syncing", file=sys.stderr)
+        return 3
+
+    divergent = _check_divergence(host)
+    if divergent < 0:
+        print(f"{host}: unreachable", file=sys.stderr)
+        return 1
+    if divergent > 0:
+        print(
+            f"{host}: divergence — {divergent} commit(s) not in origin/main, fast-forward not possible",
+            file=sys.stderr,
+        )
+        return 2
+
+    r = _ssh(host, "cd ~/germline && git fetch origin && git reset --hard origin/main")
+    if r.returncode != 0:
+        print(f"{host}: sync failed — {r.stderr.strip()}", file=sys.stderr)
+        return 1
+
+    new_sha = _get_sha(host, "HEAD")
+    if old_sha == new_sha:
+        print(f"{host}: already at {old_sha}")
+    else:
+        r_count = _ssh(host, f"cd ~/germline && git rev-list --count {old_sha}..{new_sha}")
+        count = int(r_count.stdout.strip()) if r_count.returncode == 0 else 0
+        print(f"{host}: synced to {new_sha} (was {old_sha}, +{count} commits)")
+    return 0
+
+
+def _sync_from_host(host: str) -> int:
+    old_sha_r = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    old_sha = old_sha_r.stdout.strip() if old_sha_r.returncode == 0 else "unknown"
+
+    r = _ssh(host, "cd ~/germline && git rev-parse HEAD")
+    if r.returncode != 0:
+        print(f"{host}: unreachable", file=sys.stderr)
+        return 1
+    remote_sha = r.stdout.strip()
+
+    pull_r = subprocess.run(
+        ["git", "fetch", f"{host}:~/germline", f"+{remote_sha}:refs/remotes/{host}/main"],
+        capture_output=True,
+        text=True,
+    )
+    if pull_r.returncode != 0:
+        print(f"{host}: fetch from host failed — {pull_r.stderr.strip()}", file=sys.stderr)
+        return 1
+
+    reset_r = subprocess.run(
+        ["git", "reset", "--hard", remote_sha],
+        capture_output=True,
+        text=True,
+    )
+    if reset_r.returncode != 0:
+        print(f"{host}: local reset failed — {reset_r.stderr.strip()}", file=sys.stderr)
+        return 1
+
+    new_sha_r = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    new_sha = new_sha_r.stdout.strip() if new_sha_r.returncode == 0 else "unknown"
+    print(f"{host}: pulled to {new_sha} (was {old_sha})")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="mitosis-sync",
+        description="ssh-based worker git sync",
+    )
+    parser.add_argument("host", nargs="?", help="ssh host alias (e.g. ganglion, mac)")
+    parser.add_argument("--from-host", action="store_true", help="pull host state to local soma")
+    parser.add_argument("--status", action="store_true", help="report sync status vs origin/main")
+    args = parser.parse_args()
+
+    if not args.host:
+        parser.print_help(sys.stderr)
+        return 1
+
+    if args.status:
+        return cmd_status(args.host)
+    return cmd_sync(args.host, from_host=args.from_host)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
