@@ -91,10 +91,10 @@ repos:
 
       - id: temporal-tests
         name: temporal tests
-        entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_ribosome_dispatch_enzyme.py assays/test_polysome.py -x -q -p no:cacheprovider -p no:hypothesis'
+        entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_polysome.py -x -q -p no:cacheprovider -p no:hypothesis'
         language: system
         pass_filenames: false
-        files: (polysome/|ribosome_dispatch|temporal)
+        files: (polysome/|temporal)
         stages: [pre-push]
 
       - id: ci-full-suite

@@ -30,17 +30,18 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 
 ## Architecture
 
-**Temporal on ganglion is the sole dispatch path.** CC dispatches directly via `ribosome_dispatch` MCP tool — no markdown queue, no poller.
+**Temporal on ganglion is the sole dispatch path.** CC dispatches via the `ribosome` CLI — no MCP, no markdown queue, no poller.
 
 ```
-CC (soma) --ribosome_dispatch MCP--> Temporal server (ganglion:7233) --> translocase.py (ganglion) --> ribosome script --> zhipu/GLM-5.1
+CC (soma) --ribosome CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome script --> zhipu/GLM-5.1
 ```
 
-- **MCP tool:** `ribosome_dispatch` — dispatch, batch, status, list, cancel actions
+- **CLI:** `ribosome` — dispatch, list, status, logs, cancel, doctor, schema (agent-first JSON envelope)
 - **Translocase:** `polysome/translocase.py` on ganglion (eEF2 — drives the translation cycle)
 - **Workflow:** `polysome/workflow.py`, retry policy (2 attempts), review activity
 - **Review:** auto-rejects no_commit_on_success, target_file_missing, destruction patterns
 - **Logs:** `~/germline/loci/ribosome-outputs/` on ganglion, `~/germline/loci/ribosome-reviews.jsonl`
+- **COMPLETED status is unreliable** — verify against reviews.jsonl (`finding_temporal_completed_is_a_lie.md`)
 
 **Provider reality (2026-04):**
 - **zhipu (GLM-5.1):** Only working provider on ganglion. ~44% rate-limited on heavy days. 90% capability when not rate-limited.
@@ -53,13 +54,13 @@ CC (soma) --ribosome_dispatch MCP--> Temporal server (ganglion:7233) --> translo
 
 Check dispatch health:
 ```bash
-# MCP tool — list recent workflows
-ribosome_dispatch action=list limit=5
+# CLI — list recent workflows
+ribosome list --count 5
 
-# Or via SSH
-ssh ganglion 'export PATH="$HOME/.local/bin:$PATH" && cd ~/germline/effectors/polysome && uv run python cli.py list -n 5'
+# Health check (Temporal reachable, worker alive)
+ribosome doctor
 
-# Worker status
+# Worker status (fallback if CLI not yet installed)
 ssh ganglion "sudo systemctl status temporal-worker --no-pager"
 ```
 
@@ -116,21 +117,22 @@ Then prioritize:
 3. Ribosome implements until tests pass
 4. Post-gate (ast + test suite + scope check + no_commit check) auto-approves or rejects
 
-### Phase 3: Dispatch via MCP
+### Phase 3: Dispatch via CLI
 
 **Single task:**
-```
-ribosome_dispatch action=dispatch prompt="<prompt>" provider=zhipu max_turns=25
-```
-
-**Batch (multiple tasks):**
-```
-ribosome_dispatch action=batch specs='[{"task": "...", "provider": "zhipu", "max_turns": 25}, ...]'
-```
-
-**Direct execution (debugging/urgent, bypasses Temporal):**
 ```bash
-ribosome --provider zhipu --max-turns 15 "prompt"
+ribosome "prompt"
+```
+
+**Check status:**
+```bash
+ribosome list --count 10
+ribosome status <workflow_id>
+```
+
+**Cancel a stuck workflow:**
+```bash
+ribosome cancel <workflow_id>
 ```
 
 ### Phase 4: Verify
@@ -143,12 +145,7 @@ ribosome --provider zhipu --max-turns 15 "prompt"
 - target_file_missing: flags if named target file isn't in the diff
 
 If all pass -> auto-approved. If any fail -> rejected.
-
-**Check status:**
-```
-ribosome_dispatch action=status workflow_id=<id>
-ribosome_dispatch action=list limit=10
-```
+**IMPORTANT:** Temporal COMPLETED status does not mean the task succeeded — always check reviews.jsonl verdict (`finding_temporal_completed_is_a_lie.md`).
 
 ### Phase 5: Report
 

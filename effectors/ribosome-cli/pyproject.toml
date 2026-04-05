@@ -1,0 +1,33 @@
+[build-system]
+build-backend = "hatchling.build"
+
+requires = [ "hatchling" ]
+
+[project]
+name = "ribosome-cli"
+version = "0.1.0"
+description = "Agent-first Temporal dispatch CLI for ribosome workflows"
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "click>=8.1",
+  "temporalio>=1.7",
+]
+
+scripts.ribosome = "ribosome_cli.cli:cli"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "ribosome_cli" ]
+
+[tool.pytest.ini_options]
+testpaths = [ "assays" ]
