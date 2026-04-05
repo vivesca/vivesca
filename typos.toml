@@ -6,6 +6,7 @@ resolvin = "resolvin"
 selectin = "selectin"
 importin = "importin"
 stilus = "stilus"
+graphis = "graphis"
 trama = "trama"
 sive = "sive"
 
@@ -30,6 +31,7 @@ ist = "ist"
 
 [files]
 extend-exclude = [
+    "receptome.md",
     "membrane/receptors/.system/",
     "uv.lock",
     "*.pyc",

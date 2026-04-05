@@ -1,4 +1,4 @@
-# Receptome -- 2026-04-05 13:02
+# Receptome -- 2026-04-05 13:05
 
 Total: **187** skills (146 invocable, 41 reference)
 With REFERENCE.md: 3 | With scripts/: 0
@@ -15,7 +15,7 @@ Trigger phrases indexed: 102
 | dispatch | 15 | agent-cli, centrosome, heuretes, involution, kindle, legatus, mitogen, opifex +7 more |
 | content | 13 | adhesion, agoras, analyze, evaluate-job, exocytosis, message, presentation, python +5 more |
 | consulting | 8 | capco-prep, chemoreception, meeting-prep, metabolize, mora, opsonization, secretion, statio |
-| comms | 7 | cursus, deltos, endosomal, graphics, horizo, imessage, keryx |
+| comms | 7 | cursus, deltos, endosomal, graphis, horizo, imessage, keryx |
 | dev | 7 | etiology, fingo, friction, hypha, lucus, remote-llm, taxis |
 | health | 6 | biomorphe, daily, differentiation, mappa, salus, sopor |
 | workflow | 6 | dialexis, digest, expression, infradian, melete, weekly |
@@ -54,7 +54,7 @@ Trigger phrases indexed: 102
 - **cursus** [ref]: Career communication principles — reference skill consulted by message, meeting-prep, capco-prep. Not user-invocable.
 - **deltos**: Send text/code snippets or image files to Telegram. Text → HTML code blocks for mobile copy-paste. Images → sendPhoto wi
 - **endosomal**: Triage email — classify, archive noise, extract action items. "email", "inbox
-- **graphics** [ref]: Manage Telegram bots — create, delete, list, start-bot via BotFather. Use when creating a new bot, retiring an old one, 
+- **graphis** [ref]: Manage Telegram bots — create, delete, list, start-bot via BotFather. Use when creating a new bot, retiring an old one, 
 - **horizo**: Appointment scheduling workflow — coordinate time via WhatsApp (keryx) then book to Google Calendar (gog). Use when sche
 - **imessage**: Send iMessages via CLI. Use when user wants to text wife or send an iMessage to someone.
 - **keryx**: WhatsApp CLI wrapper — contact name resolution, dual-JID conversation merging, daemon-aware send block, sync daemon mana
@@ -271,7 +271,7 @@ Trigger phrases indexed: 102
 - **melete**: Daily consulting readiness drill — scenarios, reading prompts, observation logging. "consulting prep", "prep drill", "co
 - **weekly**: Weekly synthesis and review. Use when user says "weekly", "weekly review", "week in review", or on Fridays.
 
-## Issues (77)
+## Issues (74)
 
 - auscultation: invocable but no trigger phrases or 'Use when' in description
 - auspex: invocable but no trigger phrases or 'Use when' in description
@@ -279,7 +279,6 @@ Trigger phrases indexed: 102
 - bouleusis: invocable but no trigger phrases or 'Use when' in description
 - capco-prep: invocable but no trigger phrases or 'Use when' in description
 - centrosome: invocable but no trigger phrases or 'Use when' in description
-- centrosome: only 9 lines (stub?)
 - chemoreception: invocable but no trigger phrases or 'Use when' in description
 - circadian: invocable but no trigger phrases or 'Use when' in description
 - consilium: invocable but no trigger phrases or 'Use when' in description
@@ -332,13 +331,11 @@ Trigger phrases indexed: 102
 - presentation: invocable but no trigger phrases or 'Use when' in description
 - proliferation: invocable but no trigger phrases or 'Use when' in description
 - quies: invocable but no trigger phrases or 'Use when' in description
-- rector: only 7 lines (stub?)
 - redarguo: invocable but no trigger phrases or 'Use when' in description
 - remote-llm: invocable but no trigger phrases or 'Use when' in description
 - secretion: invocable but no trigger phrases or 'Use when' in description
 - skill-review: invocable but no trigger phrases or 'Use when' in description
 - specification: invocable but no trigger phrases or 'Use when' in description
-- specification: only 7 lines (stub?)
 - specula: invocable but no trigger phrases or 'Use when' in description
 - sporulation: invocable but no trigger phrases or 'Use when' in description
 - statio: invocable but no trigger phrases or 'Use when' in description

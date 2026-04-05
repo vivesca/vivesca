@@ -144,6 +144,7 @@ def load_all_skills() -> list[dict]:
                 "category": category,
                 "has_reference": (d / "REFERENCE.md").exists(),
                 "has_scripts": (d / "scripts").exists(),
+                "retired": "retired" in body.lower()[:200],
             }
         )
     return skills
@@ -164,7 +165,7 @@ def validate(skills: list[dict]) -> list[str]:
             issues.append(f"{name}: invocable but no trigger phrases or 'Use when' in description")
         if s["lines"] > 800 and not s["has_reference"]:
             issues.append(f"{name}: {s['lines']} lines without REFERENCE.md (>800 = bloated)")
-        if s["lines"] < 10:
+        if s["lines"] < 10 and not s.get("retired"):
             issues.append(f"{name}: only {s['lines']} lines (stub?)")
         # Known external tools that aren't skills
         external_tools = {"grok", "noesis", "exauro", "stips", "Grep"}

@@ -1,5 +1,5 @@
 ---
-name: graphics
+name: graphis
 description: Manage Telegram bots — create, delete, list, start-bot via BotFather. Use when creating a new bot, retiring an old one, or rotating a token. Companion to deltos (sends snippets).
 user_invocable: false
 ---
