@@ -35,7 +35,7 @@ Bedtime close → daily note. The final checkpoint of the day.
    - Use the daily note, NOW.md, and TODO scan as context to ask good follow-up questions — don't dump them as a report.
    - Things worth probing naturally if Terry doesn't mention them:
      - Whether the day moved the actual needle (check against NOW.md / imminent TODOs)
-     - Theo time (if not mentioned)
+     - Theo time (if not mentioned) — **never infer "no Theo today" from absence in session logs.** Father-days produce work-only log text because the work threads are what get logged; Theo is the substrate. Ask, don't read.
      - Best moment (not most productive — best)
    - **If eow was run:** Work themes are already captured. Focus the conversation on the evening and the full-day arc.
    - **If no eow:** Cover the full day.
