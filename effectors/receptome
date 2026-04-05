@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""receptome -- compile the complete skill catalog from SKILL.md frontmatter.
+
+Like a cell's receptome (the complete set of surface receptors),
+this catalogs all skills with their triggers, cross-references, and health.
+
+Usage:
+    receptome                # Compile catalog to receptome.md
+    receptome --check        # Validate all skills, report issues
+    receptome --stats        # Print summary stats
+    receptome --dry-run      # Print to stdout
+"""
+
+import re
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+RECEPTORS_DIR = Path.home() / "germline/membrane/receptors"
+OUTPUT_FILE = Path.home() / "germline/receptome.md"
+
+
+def parse_frontmatter(path: Path) -> dict:
+    """Extract YAML frontmatter from a SKILL.md file."""
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return {}
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}
+    fm = {}
+    for line in parts[1].strip().splitlines():
+        key, _, val = line.partition(":")
+        if val:
+            fm[key.strip()] = val.strip().strip("'\"")
+    fm["_body"] = parts[2]
+    fm["_lines"] = len(parts[2].splitlines())
+    return fm
+
+
+def extract_calls(body: str) -> list[str]:
+    """Extract skill cross-references from ## Calls section or inline refs."""
+    calls = []
+    in_calls = False
+    for line in body.splitlines():
+        if re.match(r"^##\s+Calls", line):
+            in_calls = True
+            continue
+        if in_calls and line.startswith("##"):
+            break
+        if in_calls and line.startswith("- "):
+            m = re.match(r"- `(\w[\w-]*)`", line)
+            if m:
+                calls.append(m.group(1))
+    return calls
+
+
+def extract_triggers(description: str) -> list[str]:
+    """Extract quoted trigger phrases from description."""
+    return re.findall(r'"([^"]+)"', description)
+
+
+def categorize(name: str, description: str) -> str:
+    """Heuristic category from name/description."""
+    desc_lower = (description or "").lower()
+    categories = {
+        "dispatch": ["dispatch", "build", "implement", "queue", "ribosome"],
+        "research": ["research", "search", "scan", "fetch", "browse"],
+        "content": ["draft", "publish", "post", "garden", "linkedin", "comment"],
+        "health": ["sleep", "gym", "exercise", "oura", "health"],
+        "finance": ["financial", "credit", "bank", "insurance", "salary"],
+        "comms": ["email", "whatsapp", "telegram", "message", "imessage"],
+        "maintenance": ["audit", "scan", "check", "hygiene", "drift", "patrol"],
+        "workflow": ["daily", "weekly", "monthly", "morning", "evening", "noon"],
+        "meta": ["skill", "design", "review", "create", "refactor"],
+        "consulting": ["capco", "client", "consulting", "interview", "meeting"],
+        "dev": ["python", "rust", "debug", "test", "code", "git"],
+        "calendar": ["calendar", "schedule", "remind", "event", "appointment"],
+    }
+    for cat, keywords in categories.items():
+        if any(kw in desc_lower or kw in name for kw in keywords):
+            return cat
+    return "other"
+
+
+def load_all_skills() -> list[dict]:
+    """Load all skills from the receptors directory."""
+    skills = []
+    for d in sorted(RECEPTORS_DIR.iterdir()):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        skill_file = d / "SKILL.md"
+        if not skill_file.exists():
+            continue
+        fm = parse_frontmatter(skill_file)
+        name = fm.get("name", d.name)
+        description = fm.get("description", "")
+        invocable = fm.get("user_invocable", "true").lower() != "false"
+        body = fm.get("_body", "")
+        lines = fm.get("_lines", 0)
+        calls = extract_calls(body)
+        triggers = extract_triggers(description)
+        category = categorize(name, description)
+
+        skills.append(
+            {
+                "name": name,
+                "dir": d.name,
+                "description": description,
+                "invocable": invocable,
+                "lines": lines,
+                "calls": calls,
+                "triggers": triggers,
+                "category": category,
+                "has_reference": (d / "REFERENCE.md").exists(),
+                "has_scripts": (d / "scripts").exists(),
+            }
+        )
+    return skills
+
+
+def validate(skills: list[dict]) -> list[str]:
+    """Check all skills for structural issues."""
+    issues = []
+    all_names = {s["name"] for s in skills}
+
+    for s in skills:
+        name = s["name"]
+        if not s["description"]:
+            issues.append(f"{name}: missing description")
+        elif len(s["description"]) < 20:
+            issues.append(f"{name}: description too short ({len(s['description'])} chars)")
+        if s["invocable"] and not s["triggers"] and "use when" not in s["description"].lower():
+            issues.append(f"{name}: invocable but no trigger phrases or 'Use when' in description")
+        if s["lines"] > 800 and not s["has_reference"]:
+            issues.append(f"{name}: {s['lines']} lines without REFERENCE.md (>800 = bloated)")
+        if s["lines"] < 10:
+            issues.append(f"{name}: only {s['lines']} lines (stub?)")
+        for call in s["calls"]:
+            if call not in all_names:
+                issues.append(f"{name}: cross-ref to '{call}' but no such skill exists")
+        # Check name matches directory
+        if s["name"] != s["dir"]:
+            issues.append(f"{s['dir']}/: name field '{s['name']}' does not match directory")
+
+    return issues
+
+
+def compile_catalog(skills: list[dict]) -> str:
+    """Compile the full receptome document."""
+    from datetime import datetime
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Stats
+    total = len(skills)
+    invocable = sum(1 for s in skills if s["invocable"])
+    reference = total - invocable
+    with_refs = sum(1 for s in skills if s["has_reference"])
+    with_scripts = sum(1 for s in skills if s["has_scripts"])
+    total_triggers = sum(len(s["triggers"]) for s in skills)
+
+    # Categories
+    by_cat = defaultdict(list)
+    for s in skills:
+        by_cat[s["category"]].append(s)
+
+    # Cross-reference graph
+    callers = defaultdict(list)
+    for s in skills:
+        for call in s["calls"]:
+            callers[call].append(s["name"])
+
+    # Build document
+    lines = [
+        f"# Receptome -- {now}",
+        "",
+        f"Total: **{total}** skills ({invocable} invocable, {reference} reference)",
+        f"With REFERENCE.md: {with_refs} | With scripts/: {with_scripts}",
+        f"Trigger phrases indexed: {total_triggers}",
+        "",
+    ]
+
+    # Category summary table
+    lines.append("## By Category")
+    lines.append("")
+    lines.append("| Category | Count | Skills |")
+    lines.append("|----------|-------|--------|")
+    for cat in sorted(by_cat.keys(), key=lambda c: -len(by_cat[c])):
+        names = ", ".join(s["name"] for s in by_cat[cat][:8])
+        if len(by_cat[cat]) > 8:
+            names += f" +{len(by_cat[cat]) - 8} more"
+        lines.append(f"| {cat} | {len(by_cat[cat])} | {names} |")
+    lines.append("")
+
+    # Size distribution
+    lines.append("## Size Distribution")
+    lines.append("")
+    stubs = [s for s in skills if s["lines"] < 20]
+    small = [s for s in skills if 20 <= s["lines"] < 100]
+    medium = [s for s in skills if 100 <= s["lines"] < 300]
+    large = [s for s in skills if 300 <= s["lines"] < 800]
+    bloated = [s for s in skills if s["lines"] >= 800]
+    lines.append(f"- Stubs (<20 lines): {len(stubs)}")
+    lines.append(f"- Small (20-99): {len(small)}")
+    lines.append(f"- Medium (100-299): {len(medium)}")
+    lines.append(f"- Large (300-799): {len(large)}")
+    lines.append(f"- Bloated (800+): {len(bloated)}")
+    if bloated:
+        for s in bloated:
+            ref = " (has REFERENCE.md)" if s["has_reference"] else " **needs split**"
+            lines.append(f"  - {s['name']}: {s['lines']} lines{ref}")
+    lines.append("")
+
+    # Cross-references
+    most_called = sorted(callers.items(), key=lambda x: -len(x[1]))[:10]
+    if most_called:
+        lines.append("## Most Referenced Skills")
+        lines.append("")
+        for name, caller_list in most_called:
+            lines.append(f"- **{name}** ({len(caller_list)}): {', '.join(caller_list)}")
+        lines.append("")
+
+    # Full catalog
+    lines.append("## Full Catalog")
+    lines.append("")
+    for cat in sorted(by_cat.keys()):
+        lines.append(f"### {cat.title()}")
+        lines.append("")
+        for s in sorted(by_cat[cat], key=lambda x: x["name"]):
+            inv = "" if s["invocable"] else " [ref]"
+            desc = s["description"][:120] if s["description"] else "_(no description)_"
+            extras = []
+            if s["calls"]:
+                extras.append(f"calls: {', '.join(s['calls'])}")
+            if s["has_reference"]:
+                extras.append("has REFERENCE.md")
+            suffix = f" ({'; '.join(extras)})" if extras else ""
+            lines.append(f"- **{s['name']}**{inv}: {desc}{suffix}")
+        lines.append("")
+
+    # Issues
+    issues = validate(skills)
+    if issues:
+        lines.append(f"## Issues ({len(issues)})")
+        lines.append("")
+        for issue in sorted(issues):
+            lines.append(f"- {issue}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def print_stats(skills: list[dict]):
+    """Print summary stats."""
+    total = len(skills)
+    invocable = sum(1 for s in skills if s["invocable"])
+    print(f"Total skills: {total} ({invocable} invocable, {total - invocable} reference)")
+
+    by_cat = defaultdict(int)
+    for s in skills:
+        by_cat[s["category"]] += 1
+    print("\nBy category:")
+    for cat in sorted(by_cat.keys(), key=lambda c: -by_cat[c]):
+        print(f"  {cat}: {by_cat[cat]}")
+
+    issues = validate(skills)
+    print(f"\nIssues: {len(issues)}")
+    for i in issues[:10]:
+        print(f"  {i}")
+    if len(issues) > 10:
+        print(f"  ... and {len(issues) - 10} more")
+
+
+def main():
+    args = set(sys.argv[1:])
+    skills = load_all_skills()
+
+    if "--check" in args:
+        issues = validate(skills)
+        if issues:
+            print(f"{len(issues)} issues found:", file=sys.stderr)
+            for i in issues:
+                print(f"  {i}", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"All {len(skills)} skills valid.", file=sys.stderr)
+        return
+
+    if "--stats" in args:
+        print_stats(skills)
+        return
+
+    catalog = compile_catalog(skills)
+
+    if "--dry-run" in args:
+        print(catalog)
+    else:
+        OUTPUT_FILE.write_text(catalog + "\n", encoding="utf-8")
+        print(f"Compiled {len(skills)} skills to {OUTPUT_FILE}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
