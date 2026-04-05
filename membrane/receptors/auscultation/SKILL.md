@@ -1,6 +1,6 @@
 ---
 name: auscultation
-description: Passive log listening — spot error patterns and timing anomalies.
+description: Passive log listening — spot error patterns and timing anomalies. Use when something feels off but no single error is visible. "check logs", "listen to logs"
 user_invocable: true
 model: sonnet
 context: fork

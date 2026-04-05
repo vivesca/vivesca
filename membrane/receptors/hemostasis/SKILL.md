@@ -1,6 +1,6 @@
 ---
 name: hemostasis
-description: Emergency stop — halt bleeding, don't fix root cause. "stop the bleeding"
+description: Emergency stop — halt bleeding, don't fix root cause. Use when a process is cascading failures or burning resources. "stop the bleeding", "emergency stop"
 user_invocable: true
 model: sonnet
 context: fork

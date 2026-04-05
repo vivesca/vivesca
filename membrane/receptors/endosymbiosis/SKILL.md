@@ -1,6 +1,6 @@
 ---
 name: endosymbiosis
-description: Integrate an external tool as a first-class organelle. "absorb"
+description: Integrate an external tool as a first-class organelle. Use when absorbing a new CLI or service into the organism. "absorb", "integrate tool", "wrap tool"
 triggers:
   - absorb
   - endosymbiosis

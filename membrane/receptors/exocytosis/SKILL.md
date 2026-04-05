@@ -1,8 +1,8 @@
 ---
 name: exocytosis
 description: >
-  Publish to terryli.hm garden. Secretome (chromatin) -> Astro -> deploy.
-  CLI: ~/germline/effectors/publish. Posts: ~/epigenome/chromatin/secretome/.
+  Publish to terryli.hm garden. Secretome -> Astro -> deploy.
+  "garden post", "new post", "publish post", "blog post"
 triggers:
   - "garden post"
   - "new post"

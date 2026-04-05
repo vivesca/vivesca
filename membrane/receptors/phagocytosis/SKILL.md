@@ -1,6 +1,6 @@
 ---
 name: phagocytosis
-description: Classify content, extract insights, save as chromatin note. URL or pasted text.
+description: Classify content, extract insights, save as chromatin note. Use when user shares a URL or text to catalog. "analyze this", "save this article", "classify"
 triggers:
   - phagocytosis
   - analyze

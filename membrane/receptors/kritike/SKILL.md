@@ -1,6 +1,6 @@
 ---
 name: kritike
-description: Key considerations when evaluating — metric selection, Goodhart traps, vanity vs diagnostic, LLM eval patterns. Reference skill consulted by evals-skills, judex, peira, and when designing measurement systems. Not user-invocable.
+description: Evaluation theory — metric selection, Goodhart traps, vanity vs diagnostic. Use when designing metrics or reviewing eval pipelines. "evaluation theory", "metric design"
 version: 1
 tags: [reference, evaluation, metrics, cognition]
 disable-model-invocation: true

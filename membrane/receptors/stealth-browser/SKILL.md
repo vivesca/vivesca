@@ -1,6 +1,6 @@
 ---
 name: stealth-browser
-description: Last-resort Cloudflare bypass via Chrome cookies + playwright-extra stealth. Invoke after peruro fails or when authenticated browser session needed. See indago for tool selection.
+description: Last-resort Cloudflare bypass via Chrome cookies + playwright-extra stealth. Use when peruro fails or authenticated browser session needed. "stealth browser", "cloudflare bypass"
 ---
 
 # Stealth Browser

@@ -1,6 +1,6 @@
 ---
 name: fiscus
-description: Monthly credit card and bank statement review. Parses PDF statements, checks recurring charges against baseline, flags anomalies, sends Telegram digest via deltos.
+description: Monthly credit card and bank statement review. Use when processing statements or checking recurring charges. "check statements", "financial review", "process statement"
 triggers:
   - fiscus
   - statement

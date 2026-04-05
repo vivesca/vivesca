@@ -1,6 +1,6 @@
 ---
 name: sporulation
-description: Save session checkpoint with codename for instant resume later. "checkpoint"
+description: Save session checkpoint with codename for instant resume later. "checkpoint", "save session", "sporulate"
 user_invocable: true
 context: inline
 triggers:

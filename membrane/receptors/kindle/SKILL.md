@@ -1,6 +1,6 @@
 ---
 name: kindle
-description: Extract Kindle books to markdown via screenshots + Gemini vision. Single book or queue mode.
+description: Extract Kindle books to markdown via screenshots + Gemini vision. "kindle extract", "extract book", "kindle queue"
 user_invocable: true
 ---
 

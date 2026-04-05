@@ -1,6 +1,6 @@
 ---
 name: secretion
-description: Package and release a consulting deliverable — quality-gate, format, ship.
+description: Package and release a consulting deliverable — quality-gate, format, ship. Use when a report, deck, or memo is ready for client delivery. "ship deliverable", "release report", "package for client"
 user_invocable: true
 model: sonnet
 context: fork

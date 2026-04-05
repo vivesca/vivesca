@@ -1,6 +1,6 @@
 ---
 name: porta
-description: Bridge browser cookies (Chrome, Firefox, Arc) into agent-browser profile (solves Google OAuth block)
+description: Bridge browser cookies into agent-browser profile (solves Google OAuth block). Use when agent-browser needs authenticated session. "porta inject", "chrome cookies", "browser login"
 triggers:
   - porta inject
   - porta watch

@@ -1,6 +1,6 @@
 ---
 name: tessera
-description: Authenticate a website for headless agent access — routes to headed login, porta (cookie bridge), or nodriver (stealth Chrome) as appropriate.
+description: Authenticate a website for headless agent access — routes to headed login, porta, or stealth Chrome. "browser login", "save login", "authenticate site"
 user_invocable: true
 platform: claude-code
 trigger_phrases: ["browser login", "save login", "browser-login"]

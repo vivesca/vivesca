@@ -1,6 +1,6 @@
 ---
 name: fasti
-description: Google Calendar CLI wrapper — list, move, create, delete events via fasti instead of raw gog commands
+description: Google Calendar CLI wrapper — list, move, create, delete events. Use when managing calendar events. "calendar list", "create event", "reschedule event"
 triggers: ["fasti", "calendar list", "reschedule event", "move calendar event", "delete calendar event", "create calendar event", "schedule"]
 ---
 # fasti — Google Calendar CLI

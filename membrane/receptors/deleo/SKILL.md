@@ -1,6 +1,6 @@
 ---
 name: deleo
-description: Safe deletion CLI — validates paths and performs deletion with confirmation. Replaces safe_rm.py.
+description: Safe deletion CLI — validates paths and performs deletion with confirmation. Use when deleting files or directories safely. "delete", "remove", "safe delete"
 ---
 
 # deleo

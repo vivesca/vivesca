@@ -1,6 +1,6 @@
 ---
 name: bouleusis
-description: Planning theory reference — goal clarity, simulation depth, failure modes, when to stop. Consulted by planning workflows and agent design.
+description: Planning theory reference — goal clarity, simulation depth, failure modes. Use when designing planning workflows or debugging why a plan failed. "planning theory", "plan failure"
 version: 1
 tags: [reference, planning, cognition, agents]
 triggers:

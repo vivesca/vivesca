@@ -1,6 +1,6 @@
 ---
 name: biomorphe
-description: Cell biology as agent design manual — 20 heuristics mined from immune, endocrine, metabolic, and ecosystem specimens. Consult when designing agent architecture or evaluating system health.
+description: Cell biology as agent design manual — 20 heuristics. Use when designing agent architecture or evaluating system health. "bio heuristics", "agent design patterns"
 version: 1
 tags: [reference, agents, architecture, biology]
 triggers:

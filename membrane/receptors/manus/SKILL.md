@@ -1,6 +1,6 @@
 ---
 name: manus
-description: Reference for macOS UI automation via Peekaboo CLI. Not user-invocable — consult when automating app interactions, clicking UI elements, or taking screenshots programmatically.
+description: Reference for macOS UI automation via Peekaboo CLI. Use when automating app interactions, clicking UI elements, or taking screenshots. "click button", "screenshot app", "UI automation"
 user_invocable: true
 disable-model-invocation: true
 ---

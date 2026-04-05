@@ -1,6 +1,6 @@
 ---
 name: redarguo
-description: "One-line adversarial challenge via a different LLM. Use PROACTIVELY before committing to decisions, sending client deliverables, publishing LinkedIn posts, or locking strategies. NOT for garden posts or reversible actions. Invoke when stakes are high and agreement feels too easy."
+description: "One-line adversarial challenge via a different LLM. Use when stakes are high and agreement feels too easy. \"challenge this\", \"devil's advocate\", \"redarguo\""
 user_invocable: true
 ---
 

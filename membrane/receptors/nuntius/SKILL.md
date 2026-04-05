@@ -1,6 +1,6 @@
 ---
 name: nuntius
-description: "Cora CLI — AI email assistant. Reading briefs, managing email todos, chatting with Cora, or searching email via the Cora interface. NOT for direct Gmail ops — use stilus."
+description: "Cora CLI — AI email assistant. Reading briefs, managing email todos, chatting with Cora. \"cora\", \"email brief\", \"email todos\". NOT for direct Gmail ops — use stilus."
 triggers:
   - nuntius
   - cora

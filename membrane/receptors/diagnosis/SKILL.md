@@ -1,6 +1,6 @@
 ---
 name: diagnosis
-description: Debugging as hypothesis-driven search — observation hierarchy, hypothesis discipline, when to abandon a theory. Reference skill. Not user-invocable.
+description: Debugging as hypothesis-driven search — observation hierarchy, hypothesis discipline. Use when debugging gets stuck or reviewing why a debug session failed. "debug theory", "stuck debugging"
 version: 1
 tags: [reference, debugging, cognition]
 triggers:

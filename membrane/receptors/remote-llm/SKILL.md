@@ -1,6 +1,6 @@
 ---
 name: remote-llm
-description: Craft prompts for local/work LLMs when code can't be shared directly (e.g. proprietary code).
+description: Craft prompts for local/work LLMs when code can't be shared directly. Use when helping with proprietary code via a relay workflow. "work code", "local LLM", "can't share code"
 user_invocable: true
 ---
 

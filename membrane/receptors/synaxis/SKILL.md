@@ -1,6 +1,6 @@
 ---
 name: synaxis
-description: "Sync AI tool config across Claude Code, OpenCode, Codex, and Gemini CLI — skills, MCP, CE, from ~/officina/ as source of truth. Run after any config change."
+description: "Sync AI tool config across Claude Code, OpenCode, Codex, and Gemini CLI. Use when config has changed and needs propagation. \"sync config\", \"synaxis\", \"skill-sync\""
 user_invocable: true
 triggers: [sync, synaxis, skill-sync, mcp-sync, config-sync]
 ---

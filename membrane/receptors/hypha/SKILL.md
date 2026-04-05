@@ -1,6 +1,6 @@
 ---
 name: hypha
-description: "Obsidian vault link graph traversal — navigate outgoing/incoming links from a note, explore to depth N, find shortest path between notes."
+description: "Obsidian vault link graph traversal — navigate links from a note, explore to depth N, find shortest path. \"trace links\", \"link graph\", \"path between notes\""
 user_invocable: true
 disable-model-invocation: true
 cli: hypha

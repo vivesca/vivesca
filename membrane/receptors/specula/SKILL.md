@@ -1,6 +1,6 @@
 ---
 name: specula
-description: Extract transferable patterns from competitors and peers. "peer scan"
+description: Extract transferable patterns from competitors and peers. Use when entering a new domain or checking what peers are doing. "peer scan", "competitor scan", "pattern mining"
 user_invocable: true
 triggers:
   - specula

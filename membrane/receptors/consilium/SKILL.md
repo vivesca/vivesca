@@ -1,6 +1,6 @@
 ---
 name: consilium
-description: Multi-model deliberation for judgment calls — auto-routes by difficulty. Use for decisions, trade-offs, naming, strategy. NOT for factual research.
+description: Multi-model deliberation for judgment calls — auto-routes by difficulty. Use when deciding trade-offs, naming, or strategy. "council", "ask llms", "deliberate"
 aliases: [ask-llms, council, ask llms]
 triggers:
   - consilium

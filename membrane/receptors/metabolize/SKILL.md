@@ -1,6 +1,6 @@
 ---
 name: metabolize
-description: Process articles through Capco consulting lens — extract, write insight cards.
+description: Process articles through Capco consulting lens — extract, write insight cards. "metabolize", "process articles", "what came in today"
 model: opus
 triggers:
   - metabolize

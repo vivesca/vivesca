@@ -1,6 +1,6 @@
 ---
 name: chemoreception
-description: AI briefing on demand — refresh stale context before a meeting or decision.
+description: AI briefing on demand — refresh stale context before a meeting or decision. "what's happening in AI", "AI briefing", "AI landscape"
 user_invocable: true
 model: sonnet
 context: fork

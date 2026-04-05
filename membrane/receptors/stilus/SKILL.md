@@ -1,6 +1,6 @@
 ---
 name: stilus
-description: Gmail operations via gog CLI — inbox triage, send/reply, archive, batch modify, drafts. Use for email actions. NOT for Cora features (briefs, todos, AI chat) — use nuntius.
+description: Gmail operations via gog CLI — inbox triage, send/reply, archive, batch modify, drafts. "send email", "check inbox", "reply to email". NOT for Cora features — use nuntius.
 user_invocable: true
 triggers:
   - stilus

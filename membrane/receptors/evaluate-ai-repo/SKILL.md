@@ -1,6 +1,6 @@
 ---
 name: evaluate-ai-repo
-description: Evaluate AI tooling repos (configs, MCP servers, agent frameworks) for adoption into existing setup.
+description: Evaluate AI tooling repos (configs, MCP servers, agent frameworks) for adoption. Use when deciding "should I adopt this?" for AI tools. "evaluate repo", "should I use this"
 user_invocable: true
 ---
 

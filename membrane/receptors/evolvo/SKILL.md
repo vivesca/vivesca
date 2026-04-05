@@ -1,6 +1,6 @@
 ---
 name: evolvo
-description: Scan Claude Code session JSONL to extract wrap outputs, compute multi-wrap rate, and sample output quality for monthly skill-review.
+description: Scan Claude Code session JSONL to extract wrap outputs and compute quality stats. Use when reviewing session output quality for skill-review. "wrap quality", "session review", "evolvo"
 triggers: [wrap quality, session review, skill-review step 5, multi-wrap, evolvo]
 ---
 

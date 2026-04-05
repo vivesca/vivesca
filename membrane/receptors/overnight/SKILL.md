@@ -1,6 +1,6 @@
 ---
 name: overnight
-description: "Check async queue results and manage tasks. 'overnight', 'overnight results', 'queue status', 'what ran'"
+description: "Check async queue results and manage tasks. \"overnight\", \"overnight results\", \"queue status\", \"what ran\""
 user_invocable: true
 ---
 

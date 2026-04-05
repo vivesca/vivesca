@@ -1,6 +1,6 @@
 ---
 name: monthly
-description: Monthly maintenance — content digests, skill review, AI deep review, vault hygiene. Run on first Friday or anytime in the first week.
+description: Monthly maintenance — content digests, skill review, AI deep review, vault hygiene. "monthly", "monthly maintenance", "run monthly"
 user_invocable: true
 ---
 

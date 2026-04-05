@@ -1,6 +1,6 @@
 ---
 name: presentation
-description: Reference for visual communication patterns in presentations and data storytelling. Consult when creating slides, LinkedIn visuals, or any content that shows scale, proportion, or adoption data.
+description: Visual communication patterns for presentations and data storytelling. Use when creating slides, infographics, or data visualizations. "slides", "presentation", "data storytelling", "chart"
 user_invocable: true
 disable-model-invocation: true
 triggers:

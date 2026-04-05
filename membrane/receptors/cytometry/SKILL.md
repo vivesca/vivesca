@@ -1,6 +1,6 @@
 ---
 name: cytometry
-description: Classify subsystems as self-governing vs human-gated. "autonomy audit"
+description: Classify subsystems as self-governing vs human-gated. Use when auditing which components need human approval. "autonomy audit", "classify autonomy"
 user_invocable: true
 triggers:
   - cytometry

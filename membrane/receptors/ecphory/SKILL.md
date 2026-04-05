@@ -1,6 +1,6 @@
 ---
 name: ecphory
-description: Recall prior-session data and decisions by cue. Not for new research.
+description: Recall prior-session data and decisions by cue. Use when looking up past decisions or session history. "we talked about", "what did we decide", "prior session"
 user_invocable: true
 model: sonnet
 epistemics: [research, learn]

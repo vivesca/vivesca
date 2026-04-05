@@ -1,6 +1,6 @@
 ---
 name: epistula
-description: "Guided inbox triage — review Gmail with Terry, prioritise action items, archive noise."
+description: "Guided inbox triage — review Gmail with Terry, prioritise action items, archive noise. \"email triage\", \"review inbox\", \"epistula\""
 user_invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: eow
-description: "End-of-work checkpoint. Synthesise the work day, capture mood, note unfinished threads. NOT for session end (legatum) or bedtime (daily)."
+description: "End-of-work checkpoint. Synthesise the work day, capture mood, note unfinished threads. \"eow\", \"end of work\", \"done working\". NOT for session end (legatum) or bedtime (daily)."
 user_invocable: true
 ---
 

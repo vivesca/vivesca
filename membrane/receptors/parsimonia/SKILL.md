@@ -1,6 +1,6 @@
 ---
 name: parsimonia
-description: Essential vs accidental complexity, premature abstraction, when removal is safe. Reference skill for code review, refactoring, and architecture decisions. Not user-invocable.
+description: Simplification theory — essential vs accidental complexity, premature abstraction, when removal is safe. Use when refactoring or reviewing code for unnecessary complexity. "simplify", "YAGNI", "dead code"
 version: 1
 tags: [reference, simplification, complexity, cognition]
 triggers: [simplify, refactor, complexity, abstraction, YAGNI, remove, delete, inline, dead code, parsimonia]

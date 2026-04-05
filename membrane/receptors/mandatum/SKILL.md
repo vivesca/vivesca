@@ -1,6 +1,6 @@
 ---
 name: mandatum
-description: Key considerations when delegating — spec quality, decomposition depth, when ambiguity helps vs hurts. Reference skill consulted by rector, opifex, and when writing delegate specs. Not user-invocable.
+description: Delegation theory — spec quality, decomposition depth, when ambiguity helps vs hurts. Use when writing delegate specs or debugging poor delegation results. "delegation theory"
 version: 1
 tags: [reference, delegation, cognition, agents]
 disable-model-invocation: true

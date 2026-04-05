@@ -1,6 +1,6 @@
 ---
 name: differentiation
-description: Coach a live gym session — prescribe sets, track reps, log workout. "gym"
+description: Coach a live gym session — prescribe sets, track reps, log workout. "gym", "workout", "gym session"
 user_invocable: true
 epistemics: [monitor, learn]
 ---

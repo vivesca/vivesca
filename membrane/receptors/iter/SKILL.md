@@ -1,6 +1,6 @@
 ---
 name: iter
-description: "HK bus stop navigator — tracks stops on unfamiliar routes with alerts. Also does Google Maps transit directions. NOT for MTR-only (use poros)."
+description: "HK bus stop navigator — tracks stops on unfamiliar routes with alerts. Also does transit directions. \"bus route\", \"which stop\", \"how do I get to\". NOT for MTR-only (use poros)."
 ---
 
 # iter — HK Bus Stop Navigator

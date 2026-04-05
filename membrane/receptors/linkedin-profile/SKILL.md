@@ -1,6 +1,6 @@
 ---
 name: linkedin-profile
-description: Manage Terry's LinkedIn profile — Featured links, About section, headline, announcements, job updates. NOT for researching other people.
+description: Manage Terry's LinkedIn profile — Featured links, About section, headline, announcements. "update my LinkedIn", "LinkedIn announcement", "featured link". NOT for researching other people.
 triggers:
   - update my LinkedIn
   - add to LinkedIn profile

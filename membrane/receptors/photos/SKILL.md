@@ -1,6 +1,6 @@
 ---
 name: photos
-description: Access iCloud Photos from Claude Code sessions. Reference skill — not user-invocable.
+description: Access iCloud Photos from Claude Code sessions. Use when checking recent photos, viewing a photo, or exporting images. "check my photos", "recent photos", "export photo"
 user_invocable: true
 disable-model-invocation: true
 ---

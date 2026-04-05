@@ -1,6 +1,6 @@
 ---
 name: derepression
-description: Extract tacit LLM knowledge into permanent reference skills. "mine knowledge"
+description: Extract tacit LLM knowledge into permanent reference skills. Use when capturing implicit model expertise. "mine knowledge", "extract knowledge"
 user_invocable: true
 tags: [meta, knowledge, skills]
 context: fork

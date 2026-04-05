@@ -1,6 +1,6 @@
 ---
 name: legatus
-description: Session-independent AI agent dispatcher — list tasks, dispatch immediately, cancel, view results. Use for any background AI job that should run detached from the current CC session.
+description: Session-independent AI agent dispatcher — list, dispatch, cancel, view results. Use when running background AI jobs detached from the current session. "dispatch task", "background job", "overnight task"
 triggers:
   - legatus
   - dispatch

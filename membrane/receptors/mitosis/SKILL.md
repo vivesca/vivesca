@@ -1,6 +1,6 @@
 ---
 name: mitosis
-description: Monthly review — parallel audits + cross-domain synthesis. "monthly"
+description: Monthly review — parallel audits + cross-domain synthesis. "monthly review", "monthly audit", "mitosis"
 model: opus
 disable-model-invocation: true
 context: fork

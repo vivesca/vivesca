@@ -1,6 +1,6 @@
 ---
 name: palpation
-description: Deep-probe a single component by hand — deeper than integrin scan. "deep probe"
+description: Deep-probe a single component by hand — deeper than integrin scan. Use when a specific subsystem needs manual investigation. "deep probe", "palpation", "investigate component"
 user_invocable: true
 model: sonnet
 context: fork

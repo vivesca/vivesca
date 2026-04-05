@@ -1,6 +1,6 @@
 ---
 name: hybridization
-description: Stress-test bio naming — find gaps where the analogy breaks down. "naming audit"
+description: Stress-test bio naming — find gaps where the analogy breaks down. Use when checking if a bio name fits its mechanism. "naming audit", "analogy check"
 user_invocable: true
 triggers:
   - hybridization

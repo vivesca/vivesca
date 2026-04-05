@@ -1,6 +1,6 @@
 ---
 name: methylation
-description: Crystallize repair lessons into permanent probes and patterns. "crystallize"
+description: Crystallize repair lessons into permanent probes and patterns. Use when turning recurring fixes into permanent capability. "crystallize", "crystallize repairs"
 user_invocable: true
 triggers:
   - methylation

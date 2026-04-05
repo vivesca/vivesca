@@ -1,6 +1,6 @@
 ---
 name: auspex
-description: Wake-up brief — weather, calendar, key deadlines today. Run when you wake up. Invoke with /auspex.
+description: Wake-up brief — weather, calendar, key deadlines today. Use when waking up. "morning brief", "wake-up brief", "auspex"
 user_invocable: true
 triggers:
   - auspex

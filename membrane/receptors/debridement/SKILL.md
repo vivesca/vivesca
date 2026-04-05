@@ -1,6 +1,6 @@
 ---
 name: debridement
-description: Sweep skill names for violations and stale references. "naming sweep"
+description: Sweep skill names for violations and stale references. Use when checking bio naming compliance. "naming sweep", "name audit"
 user_invocable: true
 model: sonnet
 context: fork

@@ -1,6 +1,6 @@
 ---
 name: quies
-description: Evening wind-down ritual — brain dump, overnight queue, screens-off gate. NOT for work closure (use eow) or daily reflection (use daily).
+description: Evening wind-down ritual — brain dump, overnight queue, screens-off gate. "quies", "wind down", "bedtime", "screens off". NOT for work closure (use eow) or daily reflection (use daily).
 user_invocable: true
 triggers:
   - quies

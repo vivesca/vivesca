@@ -1,6 +1,6 @@
 ---
 name: iris
-description: "Email verification link relay — polls Gmail for verification emails, extracts the link, opens it in an agent-browser tab. For same-browser-session 2FA flows."
+description: "Email verification link relay — polls Gmail for verification emails, extracts the link, opens it in agent-browser. Use when handling 2FA email verification. \"verify email\", \"verification link\""
 ---
 
 # iris — Email Verification Link Relay

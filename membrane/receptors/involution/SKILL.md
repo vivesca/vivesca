@@ -1,6 +1,6 @@
 ---
 name: involution
-description: Evening wind-down — brain dump, queue overnight tasks, gate screens-off.
+description: Evening wind-down — brain dump, queue overnight tasks, gate screens-off. "wind down", "bedtime", "brain dump", "shutdown"
 triggers:
   - involution
   - wind-down

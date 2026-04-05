@@ -1,6 +1,6 @@
 ---
 name: integrin
-description: Scan CLI binaries and skills for breakage or dormancy. "health check"
+description: Scan CLI binaries and skills for breakage or dormancy. Use when verifying tools still work. "health check", "check skills", "probe tools"
 user_invocable: true
 triggers:
   - integrin

@@ -1,6 +1,6 @@
 ---
 name: custodia
-description: Reference for persistence layer decisions — when to save, where, how many layers. Consult from wrap Step 4, scrinium, or any moment you're about to file an insight. Not user-invocable.
+description: Reference for persistence layer decisions. Use when deciding where to save an insight or how many storage layers to use. "where should this go", "persistence"
 disable-model-invocation: true
 tags: [meta, reference]
 ---

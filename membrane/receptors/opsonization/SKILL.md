@@ -1,6 +1,6 @@
 ---
 name: opsonization
-description: Drill for upcoming meetings or interviews with scenario practice. "meeting prep"
+description: Drill for upcoming meetings or interviews with scenario practice. "meeting prep", "prep for meeting", "prep for interview"
 user_invocable: true
 triggers:
   - meeting prep
