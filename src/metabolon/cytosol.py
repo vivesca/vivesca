@@ -5,8 +5,8 @@ from pathlib import Path
 
 """Shared helpers for invoking external CLI organelles and LLM calls from tools."""
 
-# Repo root: metabolon → germline
-VIVESCA_ROOT = Path(__file__).resolve().parent.parent
+# Repo root: src/metabolon/cytosol.py → germline/
+VIVESCA_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def invoke_organelle(

@@ -99,3 +99,4 @@ loci/ribosome-outputs/
 .worktrees/
 .env.vivesca
 .hypothesis/
+$HOME/.agent-browser-profile/

@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""ab-drift-check — detect agent-browser CLI drift vs chemotaxis MCP surface.
+
+Compares `agent-browser --help` against a stored baseline. If new commands
+are detected, outputs a drift report. Designed to run as a Temporal
+scheduled workflow on soma.
+
+Exit codes:
+  0 — no drift (or baseline created on first run)
+  1 — drift detected (new commands found)
+  2 — error
+"""
+
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+BASELINE_PATH = Path.home() / "germline" / "loci" / "ab-help-baseline.txt"
+DRIFT_LOG = Path.home() / "germline" / "loci" / "ab-drift-log.jsonl"
+
+
+def get_help_output() -> str:
+    """Get agent-browser --help output."""
+    try:
+        result = subprocess.run(
+            ["agent-browser", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"Error running agent-browser: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def extract_commands(help_text: str) -> set[str]:
+    """Extract command names from help output."""
+    commands = set()
+    for line in help_text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith(
+            ("-", "#", "Usage", "Environment", "Install", "Examples", "Command")
+        ):
+            # Lines like "  open <url>   Navigate to URL"
+            parts = stripped.split()
+            if parts and not parts[0].startswith("$") and len(parts[0]) > 1:
+                commands.add(parts[0])
+    return commands
+
+
+def main() -> None:
+    current_help = get_help_output()
+    current_hash = hashlib.sha256(current_help.encode()).hexdigest()[:16]
+    current_commands = extract_commands(current_help)
+
+    if not BASELINE_PATH.exists():
+        BASELINE_PATH.write_text(current_help)
+        print(f"Baseline created ({len(current_commands)} commands, hash={current_hash})")
+        sys.exit(0)
+
+    baseline_help = BASELINE_PATH.read_text()
+    baseline_hash = hashlib.sha256(baseline_help.encode()).hexdigest()[:16]
+
+    if current_hash == baseline_hash:
+        print(f"No drift (hash={current_hash})")
+        sys.exit(0)
+
+    baseline_commands = extract_commands(baseline_help)
+    new_commands = current_commands - baseline_commands
+    removed_commands = baseline_commands - current_commands
+
+    if not new_commands and not removed_commands:
+        # Help text changed but commands are the same (description updates)
+        BASELINE_PATH.write_text(current_help)
+        print(f"Help text updated, no command drift (hash={baseline_hash} -> {current_hash})")
+        sys.exit(0)
+
+    # Real drift detected
+    import datetime
+
+    report = {
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+        "old_hash": baseline_hash,
+        "new_hash": current_hash,
+        "new_commands": sorted(new_commands),
+        "removed_commands": sorted(removed_commands),
+        "version": subprocess.run(
+            ["agent-browser", "--version"], capture_output=True, text=True, timeout=5
+        ).stdout.strip(),
+    }
+
+    # Append to drift log
+    with DRIFT_LOG.open("a") as f:
+        f.write(json.dumps(report) + "\n")
+
+    # Update baseline
+    BASELINE_PATH.write_text(current_help)
+
+    print(f"DRIFT DETECTED: +{len(new_commands)} new, -{len(removed_commands)} removed")
+    if new_commands:
+        print(f"  New: {', '.join(sorted(new_commands))}")
+    if removed_commands:
+        print(f"  Removed: {', '.join(sorted(removed_commands))}")
+    print(f"  Logged to {DRIFT_LOG}")
+
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
