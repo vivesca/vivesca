@@ -79,7 +79,7 @@ Don't build a 5-task campaign for a one-liner fix.
 
 - **Data governance:** can this code leave the machine? No `.env`, secrets, proprietary code.
 - **Parallel sessions?** → `lucus new <branch>` first.
-- **Naming?** → HARD GATE: name before code. Check registry availability (PyPI/crates.io). See `artifex`.
+- **Naming?** → HARD GATE: name before code. Check registry availability (PyPI/crates.io). See `organogenesis`.
 - **Solutions KB:** `cerno "<topic>"` before starting.
 
 ### Phase 1: What matters? (CC judgment — do this BEFORE dispatch)

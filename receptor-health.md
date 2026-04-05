@@ -67,7 +67,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - agoras
 - analyze
 - anam
-- artifex
+- organogenesis
 - askesis
 - assay
 - auceps

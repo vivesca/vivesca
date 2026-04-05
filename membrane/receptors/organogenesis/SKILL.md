@@ -1,6 +1,6 @@
 ---
-name: artifex
-description: Guide for designing skills. Use when noticing a recurring pattern, wondering if something deserves a skill, creating new skills, refactoring existing ones, reviewing skill architecture, or during any skill review. Load early — before you know if a skill is warranted, not just when you've decided to write one.
+name: organogenesis
+description: Guide for designing skills (functional organs). Use when noticing a recurring pattern, wondering if something deserves a skill, creating new skills, refactoring existing ones, reviewing skill architecture, or during any skill review. "design a skill", "skill quality", "how should I structure this". Load early — before you know if a skill is warranted.
 epistemics: [skill, design]
 ---
 
@@ -327,7 +327,7 @@ Add to skills that are commonly called by other skills. Not needed for pure user
 - The same pattern was applied to multiple targets (batch scraping, bulk processing)
 - User says "keep going" on a batch — the pattern is proven at scale
 
-This principle applies to ontogenesis, cytokinesis, and artifex — all three should fire proactively, not wait for `/crystallize`.
+This principle applies to ontogenesis, cytokinesis, and organogenesis — all three should fire proactively, not wait for `/crystallize`.
 
 ### 20. Knowledge-Base Skills
 
@@ -353,7 +353,7 @@ tags: category, topic
 
 Followed by explanation, then `**Incorrect:**` and `**Correct:**` code blocks. The Incorrect/Correct pairs serve three purposes: specification (clearer than prose), eval generation (extract as test cases), and coaching (show the failure mode, not just the fix).
 
-Reference implementation: `compile-coaching` effector + `~/germline/loci/coaching/rules/`. Pattern source: vercel-labs/agent-skills.
+Reference implementation: `polymerase` effector + `~/germline/loci/regulon/rules/`. Pattern source: vercel-labs/agent-skills.
 
 ### 21. Trigger-Phrase Descriptions
 

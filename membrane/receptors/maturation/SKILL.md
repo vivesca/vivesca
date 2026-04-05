@@ -145,6 +145,6 @@ This is not optional. The LLM's default is "add, commit, move on." This step cat
 | Description mirrors body | Description = trigger only |
 | Heavy-handed MUSTs | Explain why; reasoning > commands |
 | Reference docs inline | Move to `references/`, point from body |
-| 10+ rules in one file | Knowledge-base pattern: individual rule files + compiler (artifex #20) |
-| Abstract trigger description | Enumerate exact user phrases (artifex #21) |
-| Nested if/else paths | State-gather-then-branch with ### per path (artifex #22) |
+| 10+ rules in one file | Knowledge-base pattern: individual rule files + compiler (organogenesis #20) |
+| Abstract trigger description | Enumerate exact user phrases (organogenesis #21) |
+| Nested if/else paths | State-gather-then-branch with ### per path (organogenesis #22) |

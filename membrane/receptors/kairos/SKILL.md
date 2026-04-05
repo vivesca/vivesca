@@ -42,11 +42,11 @@ If `date` fails, use system-provided current time and continue.
 
 ### 2. Today's calendar + Due reminders
 
-Always run both — Due reminders are not visible in fasti, calendar events are not visible in moneo:
+Always run both — Due reminders are not visible in fasti, calendar events are not visible in pacemaker:
 
 ```bash
 fasti list        # Google Calendar events (today by default)
-moneo ls          # Due app reminders
+pacemaker ls          # Due app reminders
 ```
 
 - If `fasti` fails, fall back to `gog calendar list`. Note "Calendar unavailable" and continue if both fail.
@@ -56,7 +56,7 @@ moneo ls          # Due app reminders
 - Flag: anything within the next 60 minutes (needs prep or imminent)
 - Flag: anything within 2–4 hours (good to know)
 - If nothing remaining on either, note "clear"
-- If moneo fails or isn't installed, skip silently
+- If pacemaker fails or isn't installed, skip silently
 
 ### 3. Active decisions and gates — NOW.md
 

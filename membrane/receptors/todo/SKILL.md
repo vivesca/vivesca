@@ -192,12 +192,12 @@ Show the `🔋 Spare Capacity` section items — low-priority maintenance for wh
 When adding a task with `due:` within 7 days, also set a phone alarm:
 
 ```bash
-moneo add --date YYYY-MM-DD "<task title>"
+pacemaker add --date YYYY-MM-DD "<task title>"
 ```
 
 **Bar for Due at all:** Would forgetting cause real damage? If missing the moment has no cost (low-stakes admin, "sometime in April"), it belongs in TODO.md only — not Due. Due is for time-critical only.
 
-**When to apply a moneo alarm:** Hard deadlines requiring action on a specific day — not `someday`, not `when:` gates, not recurring habits. Pick a time that fits the day (not just 9am default). This is a manual step — don't automate it, so the time is chosen deliberately.
+**When to apply a pacemaker alarm:** Hard deadlines requiring action on a specific day — not `someday`, not `when:` gates, not recurring habits. Pick a time that fits the day (not just 9am default). This is a manual step — don't automate it, so the time is chosen deliberately.
 
 ## Boundaries
 

@@ -1,0 +1,371 @@
+#!/usr/bin/env python3
+"""polymerase -- compile regulon rule files into coaching transcript.
+
+Like RNA polymerase reads DNA template and produces mRNA, this reads
+individual coaching rules and compiles them into the coaching document.
+
+Usage:
+    polymerase                  # Compile to default output (compact)
+    polymerase --full           # All rules, full content
+    polymerase --critical       # CRITICAL + HIGH only, compact
+    polymerase --validate       # Structural validation
+    polymerase --test-cases     # Extract eval test cases as JSON
+    polymerase --stats          # Show rule counts by section/impact
+    polymerase --dry-run        # Print to stdout instead of writing
+
+Source:  ~/germline/loci/regulon/rules/
+Output:  ~/epigenome/marks/feedback_ribosome_coaching.md
+"""
+
+import json
+import re
+import sys
+from pathlib import Path
+
+RULES_DIR = Path.home() / "germline/loci/regulon/rules"
+SECTIONS_FILE = Path.home() / "germline/loci/regulon/_sections.md"
+OUTPUT_FILE = Path.home() / "epigenome/marks/feedback_ribosome_coaching.md"
+TEST_CASES_FILE = Path.home() / "germline/loci/regulon/test-cases.json"
+
+VALID_IMPACTS = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+
+FRONTMATTER = """---
+name: ribosome coaching notes
+description: Known failure patterns + correction guidance for all ribosome backends (GLM-5.1, deepseek-v3.2, ark-code). Prepended to every ribosome and sortase prompt.
+type: feedback
+source: cc
+durability: methyl
+---"""
+
+# --- Parsing ---
+
+
+def parse_sections() -> dict[str, dict]:
+    """Parse _sections.md into {prefix: {number, title, impact, description}}."""
+    if not SECTIONS_FILE.exists():
+        return {}
+    text = SECTIONS_FILE.read_text(encoding="utf-8")
+    sections = {}
+    for block in re.split(r"(?=^## \d+\. )", text, flags=re.MULTILINE):
+        m = re.match(r"^## (\d+)\.\s+(.+?)\s+\((\w+)\)\s*$", block, re.MULTILINE)
+        if not m:
+            continue
+        number = int(m.group(1))
+        title = m.group(2).strip()
+        prefix = m.group(3).strip()
+        impact_m = re.search(r"\*\*Impact:\*\*\s+(\w+)", block)
+        impact = impact_m.group(1) if impact_m else "MEDIUM"
+        desc_m = re.search(r"\*\*Description:\*\*\s+(.+?)(?=\n\n|$)", block, re.DOTALL)
+        desc = desc_m.group(1).strip() if desc_m else ""
+        sections[prefix] = {
+            "number": number,
+            "title": title,
+            "impact": impact,
+            "description": desc,
+        }
+    return sections
+
+
+def parse_rule(path: Path) -> dict | None:
+    """Parse a rule markdown file into a structured dict."""
+    text = path.read_text(encoding="utf-8")
+    frontmatter = {}
+    content = text
+
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) >= 3:
+            for line in parts[1].strip().splitlines():
+                key, _, val = line.partition(":")
+                if val:
+                    frontmatter[key.strip()] = val.strip()
+            content = parts[2].strip()
+
+    # Infer section from filename prefix
+    stem = path.stem
+    prefix = stem.split("-")[0] if "-" in stem else "misc"
+
+    # Extract title
+    title = frontmatter.get("title", "")
+    if not title:
+        h2 = re.search(r"^## (.+)$", content, re.MULTILINE)
+        title = h2.group(1).strip() if h2 else stem
+
+    # Strip the ## heading from content for compact output
+    body = re.sub(r"^## .+\n+", "", content).strip()
+    # Strip leading bold title (migration artifact: body starts with **Title.** ...)
+    body = re.sub(r"^\*\*[^*]+\*\*\s*", "", body).strip()
+
+    # Extract Incorrect/Correct examples for test cases
+    examples = []
+    for m in re.finditer(
+        r"\*\*(Incorrect|Correct|Don't|Do)\b[^*]*\*\*[:\s]*\n*```(\w+)?\n(.*?)```",
+        content,
+        re.DOTALL,
+    ):
+        label = m.group(1)
+        lang = m.group(2) or "python"
+        code = m.group(3).strip()
+        examples.append({"label": label, "language": lang, "code": code})
+
+    return {
+        "path": path,
+        "prefix": prefix,
+        "title": title,
+        "impact": frontmatter.get("impact", "MEDIUM"),
+        "impactDescription": frontmatter.get("impactDescription", ""),
+        "tags": [t.strip() for t in frontmatter.get("tags", "").split(",") if t.strip()],
+        "body": body,
+        "examples": examples,
+    }
+
+
+def load_rules() -> list[dict]:
+    """Load and parse all rule files."""
+    if not RULES_DIR.exists():
+        print(f"Rules directory not found: {RULES_DIR}", file=sys.stderr)
+        return []
+    files = sorted(RULES_DIR.glob("*.md"))
+    files = [f for f in files if not f.name.startswith("_")]
+    rules = []
+    for f in files:
+        rule = parse_rule(f)
+        if rule:
+            rules.append(rule)
+    return rules
+
+
+# --- Compilation ---
+
+
+def compile_compact(rules: list[dict], sections: dict, impact_filter: set | None = None) -> str:
+    """Compile rules into the compact format (### headings + - bullets).
+
+    This is the format consumed by sortase/coaching.py and ribosome effector.
+    """
+    if impact_filter:
+        rules = [r for r in rules if r["impact"] in impact_filter]
+
+    # Group by section
+    grouped: dict[str, list[dict]] = {}
+    for rule in rules:
+        prefix = rule["prefix"]
+        grouped.setdefault(prefix, []).append(rule)
+
+    # Sort sections by number
+    sorted_prefixes = sorted(
+        grouped.keys(),
+        key=lambda p: sections.get(p, {}).get("number", 99),
+    )
+
+    lines = [
+        FRONTMATTER,
+        "",
+        "## ribosome coaching (compact -- every token here costs output tokens)",
+        "",
+    ]
+
+    for prefix in sorted_prefixes:
+        sec = sections.get(prefix, {"title": prefix.title(), "number": 99})
+        lines.append(f"### {sec['title']}")
+
+        # Sort rules within section: CRITICAL first, then alphabetical
+        impact_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+        section_rules = sorted(
+            grouped[prefix],
+            key=lambda r: (impact_order.get(r["impact"], 9), r["title"]),
+        )
+
+        for rule in section_rules:
+            # Compact: one bullet per rule, bold title + body
+            body = rule["body"]
+            # Collapse multiline to single line for compact
+            body_lines = body.splitlines()
+            # Take only the first paragraph (up to first blank line or code block)
+            compact_lines = []
+            for bl in body_lines:
+                if (
+                    bl.strip() == ""
+                    or bl.startswith("```")
+                    or bl.startswith("**Incorrect")
+                    or bl.startswith("**Correct")
+                    or bl.startswith("**Don't")
+                    or bl.startswith("**Do:")
+                ):
+                    break
+                compact_lines.append(bl)
+            compact_body = " ".join(compact_lines).strip()
+            if compact_body:
+                lines.append(f"- **{rule['title']}.** {compact_body}")
+            else:
+                lines.append(f"- **{rule['title']}.**")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def compile_full(rules: list[dict], sections: dict) -> str:
+    """Compile all rules with full content (for reference reading)."""
+    grouped: dict[str, list[dict]] = {}
+    for rule in rules:
+        grouped.setdefault(rule["prefix"], []).append(rule)
+
+    sorted_prefixes = sorted(
+        grouped.keys(),
+        key=lambda p: sections.get(p, {}).get("number", 99),
+    )
+
+    lines = [FRONTMATTER, "", "## ribosome coaching (full reference)", ""]
+
+    for prefix in sorted_prefixes:
+        sec = sections.get(prefix, {"title": prefix.title(), "number": 99})
+        lines.append(f"### {sec['title']}")
+        lines.append("")
+
+        impact_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+        section_rules = sorted(
+            grouped[prefix],
+            key=lambda r: (impact_order.get(r["impact"], 9), r["title"]),
+        )
+
+        for rule in section_rules:
+            impact_tag = f"[{rule['impact']}]"
+            if rule["impactDescription"]:
+                impact_tag = f"[{rule['impact']}: {rule['impactDescription']}]"
+            lines.append(f"#### {rule['title']} {impact_tag}")
+            lines.append("")
+            lines.append(rule["body"])
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+# --- Validation ---
+
+
+def validate(rules: list[dict], sections: dict) -> list[str]:
+    """Validate all rule files for structural completeness."""
+    errors = []
+    for rule in rules:
+        fname = rule["path"].name
+        if not rule["title"]:
+            errors.append(f"{fname}: missing title")
+        if rule["impact"] not in VALID_IMPACTS:
+            errors.append(
+                f"{fname}: invalid impact '{rule['impact']}' (must be {', '.join(VALID_IMPACTS)})"
+            )
+        if rule["prefix"] not in sections:
+            errors.append(f"{fname}: prefix '{rule['prefix']}' not in _sections.md")
+        if not rule["body"].strip():
+            errors.append(f"{fname}: empty body")
+    return errors
+
+
+# --- Test case extraction ---
+
+
+def extract_test_cases(rules: list[dict]) -> list[dict]:
+    """Extract Incorrect/Correct examples as eval test cases."""
+    cases = []
+    for rule in rules:
+        for ex in rule["examples"]:
+            case_type = "bad" if ex["label"] in ("Incorrect", "Don't") else "good"
+            cases.append(
+                {
+                    "ruleTitle": rule["title"],
+                    "impact": rule["impact"],
+                    "type": case_type,
+                    "language": ex["language"],
+                    "code": ex["code"],
+                }
+            )
+    return cases
+
+
+# --- Stats ---
+
+
+def print_stats(rules: list[dict], sections: dict):
+    """Print rule counts by section and impact."""
+    print(f"Total rules: {len(rules)}")
+    print()
+
+    # By impact
+    impact_counts: dict[str, int] = {}
+    for r in rules:
+        impact_counts[r["impact"]] = impact_counts.get(r["impact"], 0) + 1
+    print("By impact:")
+    for imp in VALID_IMPACTS:
+        print(f"  {imp}: {impact_counts.get(imp, 0)}")
+    print()
+
+    # By section
+    section_counts: dict[str, int] = {}
+    for r in rules:
+        section_counts[r["prefix"]] = section_counts.get(r["prefix"], 0) + 1
+    print("By section:")
+    sorted_prefixes = sorted(
+        section_counts.keys(),
+        key=lambda p: sections.get(p, {}).get("number", 99),
+    )
+    for prefix in sorted_prefixes:
+        sec = sections.get(prefix, {"title": prefix, "number": 99})
+        print(f"  {sec['number']:2d}. {sec['title']}: {section_counts[prefix]}")
+
+
+# --- Main ---
+
+
+def main():
+    args = set(sys.argv[1:])
+    sections = parse_sections()
+    rules = load_rules()
+
+    if "--validate" in args:
+        errors = validate(rules, sections)
+        if errors:
+            print(f"Validation failed ({len(errors)} errors):", file=sys.stderr)
+            for e in errors:
+                print(f"  {e}", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"All {len(rules)} rules valid.", file=sys.stderr)
+        return
+
+    if "--stats" in args:
+        print_stats(rules, sections)
+        return
+
+    if "--test-cases" in args:
+        cases = extract_test_cases(rules)
+        output = json.dumps(cases, indent=2)
+        if "--dry-run" in args:
+            print(output)
+        else:
+            TEST_CASES_FILE.write_text(output, encoding="utf-8")
+            print(f"Extracted {len(cases)} test cases to {TEST_CASES_FILE}", file=sys.stderr)
+            print(f"  bad: {sum(1 for c in cases if c['type'] == 'bad')}", file=sys.stderr)
+            print(f"  good: {sum(1 for c in cases if c['type'] == 'good')}", file=sys.stderr)
+        return
+
+    # Compile
+    if "--full" in args:
+        output = compile_full(rules, sections)
+    elif "--critical" in args:
+        output = compile_compact(rules, sections, impact_filter={"CRITICAL", "HIGH"})
+    else:
+        output = compile_compact(rules, sections)
+
+    if "--dry-run" in args:
+        print(output)
+    else:
+        OUTPUT_FILE.write_text(output + "\n", encoding="utf-8")
+        print(f"Compiled {len(rules)} rules to {OUTPUT_FILE}", file=sys.stderr)
+        if "--critical" in args:
+            filtered = [r for r in rules if r["impact"] in ("CRITICAL", "HIGH")]
+            print(f"  (filtered to {len(filtered)} CRITICAL+HIGH rules)", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

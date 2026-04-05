@@ -177,5 +177,5 @@ Lighter version for weekly reset:
 
 ## Related Skills
 
-- `artifex` — How skills should be structured
+- `organogenesis` — How skills should be structured
 - `vault-search` — Finding content skills reference

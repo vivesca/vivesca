@@ -34,7 +34,7 @@ fasti delete <event-id>
 When discussing or checking schedule, always run both:
 ```bash
 fasti list [date]   # Google Calendar events
-moneo ls            # Due app reminders
+pacemaker ls            # Due app reminders
 ```
 Due reminders (one-off and recurring) are not visible in fasti. Both together give the full picture.
 

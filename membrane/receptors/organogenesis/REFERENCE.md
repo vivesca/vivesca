@@ -1,4 +1,4 @@
-# Artifex Extended Reference
+# Organogenesis Extended Reference
 
 Detailed patterns for principles 20-23. Source: evaluation of vercel-labs/agent-skills (2026-04-05).
 
@@ -49,7 +49,7 @@ rules/*.md (source)
        Incorrect/Correct code blocks -> JSON eval dataset
 ```
 
-Reference implementation: `~/germline/effectors/compile-coaching`
+Reference implementation: `~/germline/effectors/polymerase`
 
 ### Rule file format
 

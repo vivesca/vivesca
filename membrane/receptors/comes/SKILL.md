@@ -14,7 +14,7 @@ Crate: `phron` on crates.io. Binary: `comes`. Source: `~/code/phron/`. GitHub: h
 |---|---|
 | `comes health` | Oura readiness → Green/Yellow/Red + HRV + sleep score |
 | `comes brief` | Morning brief: health + calendar (fasti) + LLM synthesis |
-| `comes nudge` | If Red: moneo Due reminder + Telegram alert |
+| `comes nudge` | If Red: pacemaker Due reminder + Telegram alert |
 | `comes overnight` | OpenRouter research per topic → vault digest → Telegram summary |
 | `comes status` | Stub (Phase 3) |
 
@@ -51,7 +51,7 @@ Key fields:
 
 - **`ANTHROPIC_API_KEY` does NOT work for direct API calls** — it's the Claude Code Max plan key, not a pay-per-token API key. All LLM calls route through OpenRouter (`OPENROUTER_API_KEY`). This is by design.
 - **OpenRouter model IDs** use `provider/model` format: `anthropic/claude-sonnet-4-5`, `google/gemini-flash-1.5`. Not the same as Anthropic's native model IDs (`claude-sonnet-4-6`).
-- **`moneo add` auto-syncs to iPhone via CloudKit** — no `--sync` flag needed (flag doesn't exist). Syntax: `moneo add --date YYYY-MM-DD "<title>"`.
+- **`pacemaker add` auto-syncs to iPhone via CloudKit** — no `--sync` flag needed (flag doesn't exist). Syntax: `pacemaker add --date YYYY-MM-DD "<title>"`.
 - **LaunchAgents exit 0 always** — nudge and overnight commands catch all errors internally and log to `~/logs/comes-*.log`. Never let LaunchAgent retry on business logic failures.
 - **config.toml must exist** — binary panics with a clear error if missing. Run `scripts/setup-config.sh` on first install.
 - **`cargo install --path .`** to update the installed binary after code changes. `cargo build --release` alone does NOT update `~/.cargo/bin/comes`.
