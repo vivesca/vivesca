@@ -88,7 +88,7 @@ Trigger phrases indexed: 244
 
 ### Dispatch
 
-- **agent-cli** [ref]: Design patterns for CLIs intended to be used by AI agents rather than humans. Consult when building a new CLI that Claud
+- **ectodomain** [ref]: Design a CLI interface — principles, decisions, checklist. Use when building a new CLI, reviewing one, or deciding CLI vs MCP. Covers human + agent-facing design.
 - **centrosome** [ref]: RETIRED — merged into /mitogen. Use /mitogen for all dispatch.
 - **heuretes**: Agent research org — run a hierarchical team of AI agents on open-ended research or exploration tasks. Chief orchestrato
 - **involution**: Evening wind-down — brain dump, queue overnight tasks, gate screens-off. "wind down", "bedtime", "brain dump", "shutdown (calls: sporulation, sopor)
