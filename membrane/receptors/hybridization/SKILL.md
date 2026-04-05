@@ -49,7 +49,7 @@ Invoke when: one component needs a name, or an existing name hasn't been mined.
 
 The naming convention isn't decoration — it's a design review tool. Every bio name is a hypothesis: "this component behaves like [biological entity]." Study the biology, check whether the implementation matches. Mismatches are design gaps.
 
-**Layer convention:** Tools (MCP enzymes) = objects (enzymes, proteins). Skills (workflows) = processes. Organelles = system/function names. A tool named after a process is a design smell — either (a) the tool IS one object and should be renamed to that object, or (b) the tool implements an entire pathway and should be decomposed into focused tools that each map to one object. The naming failure is the design finding.
+**Layer convention:** Tools (MCP enzymes) = objects when single-purpose (thrombin, proteasome), processes when cohesive (endocytosis, mitosis). Skills = processes. A tool named after a process that bundles unrelated actions is a design smell — decompose it. A process-named tool where all actions serve one domain is fine. The naming test surfaces the question; the cohesion test answers it.
 
 ### 2. System Audit — Organelle Completeness
 Map the system against the canonical cell organelle set. Score each: **mapped / partial / gap**.

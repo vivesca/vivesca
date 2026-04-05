@@ -12,7 +12,7 @@ Debridement removes necrotic tissue before it harbors infection. In vivesca, the
 
 **The rule:** cell concepts get bio names; runtime mechanics (Python keywords, framework conventions, `__dunder__`, `self`, `cls`) keep Python names. Forced violations are not cosmetic — they signal confused architecture.
 
-**Layer convention:** MCP enzymes (tools) = objects (enzymes, proteins, structural molecules). Skills (workflows) = processes. Organelles = system/function names. A tool named after a process is a design smell: either rename to the single object it maps to, or decompose the tool into focused pieces that each map to one object. Use `lysin` to find the correct enzyme — if no single enzyme fits, the tool needs splitting, not renaming.
+**Layer convention:** MCP enzymes = objects when single-purpose (thrombin, proteasome), processes when cohesive (endocytosis, mitosis). Skills = processes. A process-named tool that bundles unrelated actions is a design smell — decompose. A process-named tool where all actions serve one domain is fine. Use `lysin` to find the object — if no single object fits, check cohesion before splitting.
 
 ---
 
