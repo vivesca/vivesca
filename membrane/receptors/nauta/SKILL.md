@@ -24,9 +24,17 @@ Is the page public?
 
 **Known Tier 3 sites (Playwright login blocked):** LinkedIn, Schwab, most financial sites.
 **Unautomatable (reCAPTCHA v3 + popups):** PPS (ppshk.com) — call 2311 9876 instead.
-**Known Tier 2 sites:** Vercel (Google OAuth → porta), Substack, Taobao.
-**Known Tier 1 sites (form auth, no bot detection):** RVD e-billing (gov.hk SSO).
+**Known Tier 2 sites:** Vercel (Google OAuth → porta), Substack, Taobao, Shopify checkout (3D Secure needs headed).
+**Known Tier 1 sites (form auth, no bot detection):** RVD e-billing (gov.hk SSO), BuyAndShip (email OTP).
 **Always Tier 1:** Public pages, sites with valid session cookies.
+
+### Auth Escalation (when Google OAuth is blocked headless)
+
+Google Sign-In SDK opens popups that headless Chrome blocks silently. Escalation:
+1. **porta cookie injection** — `porta_inject domain=accounts.google.com` before navigating. Works for redirect-based OAuth, fails for popup-based.
+2. **Email OTP fallback** — many sites offer email OTP as alternative to Google login. Enter email → click "Log in with OTP" → grab code from Gmail via `gog gmail search` → fill OTP fields. Fully headless, no user intervention.
+3. **Headed mode** — `AGENT_BROWSER_HEADED=1 agent-browser open <url>`. User clicks Google login in visible window.
+4. **`--auto-connect`** — `agent-browser --auto-connect open <url>`. Connects to user's real Chrome (requires Chrome launched with `--remote-debugging-port=9222`).
 
 ---
 
@@ -53,6 +61,48 @@ agent-browser get text body               # extract page text
 agent-browser screenshot out.png           # visual capture
 agent-browser close                        # cleanup
 ```
+
+### Iframe Support (0.24.1+)
+
+agent-browser auto-inlines iframe content in snapshots via `Target.setAutoAttach`. Refs inside iframes work directly — no frame switching needed.
+
+```bash
+agent-browser snapshot -i | grep "Card number"
+# → Iframe "Field container for: Card number" [ref=e344]
+#     - textbox "Card number" [required, ref=e344]
+
+agent-browser fill @e344 "4111111111111111"  # fills directly into iframe
+```
+
+**Confirmed working:** Shopify checkout card fields (card number, expiry, CVV, name — each in separate iframes). chemotaxis MCP cannot do this yet — use agent-browser CLI directly for iframe fills.
+
+### Session Persistence
+
+```bash
+agent-browser --session-name buyandship open "https://site.com"  # auto-saves cookies/localStorage
+# Next time:
+agent-browser --session-name buyandship open "https://site.com"  # auto-restores state
+```
+
+### E-commerce Checkout (Shopify)
+
+**Cart API** — when "Add to Cart" button doesn't render or is broken:
+```bash
+# Discover variant IDs
+agent-browser eval 'fetch(window.location.pathname + ".js").then(r=>r.json()).then(p=>p.variants.map(v=>({id:v.id,title:v.title,available:v.available,price:v.price})))'
+
+# Add to cart directly
+agent-browser eval 'fetch("/cart/add.js",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:[{id:VARIANT_ID,quantity:1}]})}).then(r=>r.json())'
+```
+
+**Checkout flow:**
+1. Add to cart via API → navigate to `/checkout`
+2. Fill shipping fields with `fill` (standard inputs)
+3. Fill card fields with `fill @ref` (iframes — agent-browser handles automatically)
+4. Click "Review order" → verify totals → click "Pay now"
+5. **3D Secure:** headless Chrome cannot handle 3DS popups. Switch to `AGENT_BROWSER_HEADED=1` for the payment step. User approves 3DS in visible browser or via bank app notification.
+
+**Session expiry:** Shopify checkout sessions expire after ~10 min of inactivity. If you get "There was a problem with our checkout", clear cart (`/cart/clear`), re-add items, and start fresh.
 
 ### Navigation Gotcha
 

@@ -85,4 +85,25 @@ Escalation: `peruro` (Firecrawl proxies) → kleis + stealth Playwright → nodr
 
 ## Google OAuth
 
-Google blocks Playwright login. Use porta cookie bridge or headed login in real Chrome.
+Google blocks Playwright login (popup-based, not redirect). Escalation:
+1. `porta_inject domain=accounts.google.com` — works for redirect-based OAuth, fails for popup-based (GIS SDK)
+2. **Email OTP fallback** — if the site offers email login, use email OTP + Gmail API instead (fully headless)
+3. Headed mode — `AGENT_BROWSER_HEADED=1` for user to click Google login manually
+4. `--auto-connect` — connect to user's real Chrome (needs `--remote-debugging-port=9222`)
+
+## BuyAndShip (buyandship.today) — Tier 1 via email OTP
+
+- **Google OAuth:** Blocked headless (popup-based). Use email OTP instead.
+- **Login flow:** Enter email → click "Log in with a OTP" → grab code from Gmail (`gog gmail search "from:buyandship newer_than:5m" --account terry.li.hm@gmail.com`) → fill 6 digit boxes → logged in.
+- **Warehouse addresses:** `/account/v2020/warehouse/` (NOT `/member/warehouses` which 404s). Click country flag to expand.
+- **UK warehouse:** Terry BSWNZZTR, Unit 13 Ashford Business Centre, 166 Feltham Road, Ashford, TW15 1YQ, UK. Tel: 07468 466826.
+- **Account email:** terry.li.hm@gmail.com
+
+## Orea Shop (shop.orea.uk) — Tier 1 headless + Tier 2 for payment
+
+- **Shopify-based.** Cart API works for adding items. Variant discovery via `/products/SLUG.js`.
+- **V4 Wide variant ID:** 54607238070657
+- **Card fields:** In Shopify iframes — agent-browser 0.24.1 handles via `snapshot -i` + `fill @ref`.
+- **3D Secure:** Needs headed mode. `AGENT_BROWSER_HEADED=1` for the "Pay now" step.
+- **Checkout session expiry:** ~10 min. If "problem with checkout" error, clear cart and restart.
+- **Shipping to BuyAndShip UK:** GBP 1.99 (UK Standard). Direct to HK: HK$190 (FedEx). BuyAndShip saves ~HK$143.
