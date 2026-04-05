@@ -33,7 +33,9 @@ Every vivesca CLI has two callers: Terry (human, on Blink over SSH) and agents (
 | Design | When to use | Reference |
 |--------|-------------|-----------|
 | **Human-pretty default, `--json` opt-in** | Terry is the primary caller; agents tolerate the extra flag. Fit: `hygroreception`, `fasti`, `sopor`, `usage`, most status-read CLIs. | clig.dev / Heroku convention |
-| **JSON-default, humans pipe through `jq`** | Agents are the primary caller; Terry reads via `jq` on Blink. Fit: organism infrastructure CLIs (`ribosome`, `sortase`, `transposase`, `endosomal`, `polymerase`). | joelclaw.com/cli-design-for-ai-agents |
+| **JSON-default, humans pipe through `jq`** | Agents are the primary caller; Terry reads via `jq` on Blink. Fit: organism infrastructure CLIs (`mtor`, `sortase`, `transposase`, `endosomal`, `polymerase`). | joelclaw.com/cli-design-for-ai-agents |
+
+**Agent-first means suppress `--help`, not add `--json`.** When agents are the primary caller, `--help` is a second source of truth that drifts against the JSON command tree. Suppress it entirely (`add_help_option=False` in Click). Bare command returns the JSON tree — that IS the help. Humans pipe through `jq`. This is a deeper fork than output format: agent-first CLIs actively remove human affordances that create drift. (Lesson from mtor CLI, 2026-04-06.)
 
 Other rules apply to both:
 - No interactive prompts without a non-interactive override (`--yes`, `--force`, env var).
@@ -290,6 +292,8 @@ Event types: `start`, `step`, `progress`, `log`, `event`, `result` (terminal suc
 
 All give `--help`, subcommands, shell completion, and conventional flag parsing for free. Don't hand-roll argv parsing — every hand-rolled parser eventually fails on `--flag=value` vs `--flag value` or `--`-terminated argv.
 
+**When NOT to use a framework:** If the tool's entire job is "configure environment variables and invoke a CLI binary with flags" — that's bash's native shape. A Python wrapper adds `subprocess.run()` + `os.environ` overhead for the same result. Decision: "Is the primary action env-var config + binary invocation? → bash script." Example: `ribosome` (the executor) sets provider API keys/URLs and invokes the CC harness — pure bash, no framework needed. (Lesson from mtor design, 2026-04-06.)
+
 ## Patterns worth stealing
 
 - **`tool doctor`** — self-diagnosis subcommand. Exits non-zero if any check fails. Used by brew, rustup, flutter, op. Cheap to add, high value.
@@ -301,6 +305,11 @@ All give `--help`, subcommands, shell completion, and conventional flag parsing 
 - **Exit with usage on bare `tool`** — print help and exit non-zero. Don't drop into a REPL, don't wait.
 - **Flag aliases only for the top ~5 most-used flags.** Every extra short flag is a conflict waiting to happen.
 - **`--` pass-through terminator** — for CLIs that forward args to another process.
+
+## Naming
+
+- **Name the role, not the substrate.** When a CLI *manages* a thing that already exists as a binary, naming the CLI after the thing creates a collision. Name the CLI after its role. `mtor` controls ribosomes; it isn't one. `kubectl` manages kubes; it isn't `kube`. `flyctl` manages fly machines; it isn't `fly-machine`. The managed thing keeps the "natural" name because it has more live callers and is harder to rename. (Lesson from mtor, 2026-04-06.)
+- **Execution/dispatch split requires different names.** When a tool chain has an executor and a dispatcher, they NEED different names. The executor keeps the natural name (more callers, harder to rename). The dispatcher gets the role-name. Failing to split creates a name collision caught at integration time, not design time — by then the wrong name has tests and callers. Check for this collision at Step 2 (audience mix): if "agents call it to dispatch work" and "a worker calls it to execute work" are both true, you have two tools, not one.
 
 ## Anti-patterns
 
