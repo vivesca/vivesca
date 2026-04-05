@@ -1,4 +1,4 @@
-"""Tests for ribosome-cli.
+"""Tests for mtor.
 
 All tests use Click's CliRunner so no live Temporal server is required.
 Temporal client calls are mocked via unittest.mock.patch.
@@ -10,7 +10,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from click.testing import CliRunner
-from ribosome_cli.cli import cli
+from mtor.cli import cli
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -74,7 +74,7 @@ def make_mock_client():
 
 def _patch_client(mock_client):
     """Context manager: patch _get_client to return mock_client."""
-    return patch("ribosome_cli.cli._get_client", return_value=(mock_client, None))
+    return patch("mtor.cli._get_client", return_value=(mock_client, None))
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ class TestBareInvocation:
 
     def test_command_field_present(self):
         _, data = invoke([])
-        assert data["command"] == "ribosome"
+        assert data["command"] == "mtor"
 
     def test_next_actions_present(self):
         _, data = invoke([])
@@ -110,13 +110,13 @@ class TestBareInvocation:
         {cmd["name"].split()[0] for cmd in data["result"]["commands"]}
         # ribosome (bare), ribosome <prompt>, ribosome list, status, logs, cancel, doctor, schema
         for expected in [
-            "ribosome",
-            "ribosome list",
-            "ribosome status <workflow_id>",
-            "ribosome logs <workflow_id>",
-            "ribosome cancel <workflow_id>",
-            "ribosome doctor",
-            "ribosome schema",
+            "mtor",
+            "mtor list",
+            "mtor status <workflow_id>",
+            "mtor logs <workflow_id>",
+            "mtor cancel <workflow_id>",
+            "mtor doctor",
+            "mtor schema",
         ]:
             first_word = expected.split()[0]
             assert any(
@@ -182,7 +182,7 @@ class TestExitCodes:
         )
 
     def test_temporal_unreachable_exits_3(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "Connection refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
             exit_code, data = invoke(["doctor"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -228,7 +228,7 @@ class TestDispatch:
         assert "fix" in data, "Error envelope must include 'fix' field"
 
     def test_dispatch_temporal_unreachable_exits_3(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "Connection refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
             exit_code, data = invoke(["Write tests for foo.py"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -264,7 +264,7 @@ class TestList:
         assert "workflows" in data["result"]
 
     def test_list_temporal_unreachable(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "Connection refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
             exit_code, data = invoke(["list"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -303,7 +303,7 @@ class TestStatus:
         assert data["error"]["code"] == "WORKFLOW_NOT_FOUND"
 
     def test_status_temporal_unreachable(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "timeout")):
+        with patch("mtor.cli._get_client", return_value=(None, "timeout")):
             exit_code, data = invoke(["status", "any-id"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -342,7 +342,7 @@ class TestCancel:
         assert data["ok"] is True
 
     def test_cancel_temporal_unreachable(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "refused")):
             exit_code, data = invoke(["cancel", "any-id"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -355,14 +355,14 @@ class TestCancel:
 
 class TestDoctor:
     def test_doctor_unreachable_temporal_exits_3(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "Connection refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
             exit_code, data = invoke(["doctor"])
         assert exit_code == 3
         assert data["ok"] is False
         assert "fix" in data
 
     def test_doctor_has_checks_list(self):
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "Connection refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
             _, data = invoke(["doctor"])
         # Even failed doctor has checks in result
         assert "result" in data
@@ -418,7 +418,7 @@ class TestEnvelopeInvariants:
             outputs.append(invoke(["list"]))
             outputs.append(invoke(["status", "ribosome-test1234"]))
 
-        with patch("ribosome_cli.cli._get_client", return_value=(None, "refused")):
+        with patch("mtor.cli._get_client", return_value=(None, "refused")):
             outputs.append(invoke(["doctor"]))
             outputs.append(invoke(["status", "any"]))
             outputs.append(invoke(["cancel", "any"]))

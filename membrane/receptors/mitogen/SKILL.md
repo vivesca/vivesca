@@ -30,13 +30,13 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 
 ## Architecture
 
-**Temporal on ganglion is the sole dispatch path.** CC dispatches via the `ribosome` CLI — no MCP, no markdown queue, no poller.
+**Temporal on ganglion is the sole dispatch path.** CC dispatches via `mtor` CLI (translation controller) — no MCP, no markdown queue, no poller.
 
 ```
-CC (soma) --ribosome CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome script --> zhipu/GLM-5.1
+CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome script --> zhipu/GLM-5.1
 ```
 
-- **CLI:** `ribosome` — dispatch, list, status, logs, cancel, doctor, schema (agent-first JSON envelope)
+- **CLI:** `mtor` — dispatch, list, status, logs, cancel, doctor, schema (agent-first JSON envelope)
 - **Translocase:** `polysome/translocase.py` on ganglion (eEF2 — drives the translation cycle)
 - **Workflow:** `polysome/workflow.py`, retry policy (2 attempts), review activity
 - **Review:** auto-rejects no_commit_on_success, target_file_missing, destruction patterns
@@ -55,10 +55,10 @@ CC (soma) --ribosome CLI--> Temporal server (ganglion:7233) --> translocase.py (
 Check dispatch health:
 ```bash
 # CLI — list recent workflows
-ribosome list --count 5
+mtor list --count 5
 
 # Health check (Temporal reachable, worker alive)
-ribosome doctor
+mtor doctor
 
 # Worker status (fallback if CLI not yet installed)
 ssh ganglion "sudo systemctl status temporal-worker --no-pager"

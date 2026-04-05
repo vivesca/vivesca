@@ -119,7 +119,7 @@ def mod_anamnesis(data):
 ALLOW_STATE = HOME / ".local/share/respirometry/budget-tier.json"
 ALLOW_GUIDANCE = {
     "anabolic": "",
-    "homeostatic": "Delegate implementation to ribosome (`ribosome` CLI or Sonnet subagent). CC designs and reviews only.",
+    "homeostatic": "Delegate implementation to ribosome (`mtor` CLI or Sonnet subagent). CC designs and reviews only.",
     "catabolic": "STOP CODING. CC is architect only — spec tasks for Goose, review results. No direct implementation. Minimize tool calls — verify critical facts only.",
     "autophagic": "WRAP UP. Deliver what you have now. /sporulation immediately. No new work — checkpoint and stop.",
 }

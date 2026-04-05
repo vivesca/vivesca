@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 requires = [ "hatchling" ]
 
 [project]
-name = "ribosome-cli"
+name = "mtor"
 version = "0.1.0"
-description = "Agent-first Temporal dispatch CLI for ribosome workflows"
+description = "Agent-first translation controller — dispatch, inspect, and manage ribosome workflows via Temporal"
 requires-python = ">=3.11"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
@@ -19,7 +19,7 @@ dependencies = [
   "temporalio>=1.7",
 ]
 
-scripts.ribosome = "ribosome_cli.cli:cli"
+scripts.mtor = "mtor.cli:cli"
 
 [dependency-groups]
 dev = [
@@ -27,7 +27,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = [ "ribosome_cli" ]
+packages = [ "mtor" ]
 
 [tool.pytest.ini_options]
 testpaths = [ "assays" ]

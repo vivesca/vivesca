@@ -1,4 +1,4 @@
-"""ribosome — agent-first Temporal dispatch CLI.
+"""mtor — agent-first translation controller Temporal dispatch CLI.
 
 Every response is a JSON envelope:
   ok:true   -> {"ok": true, "command": "...", "result": {...}, "next_actions": [...]}
@@ -113,12 +113,12 @@ def _load_coaching() -> str:
 COMMAND_TREE = {
     "commands": [
         {
-            "name": "ribosome",
+            "name": "mtor",
             "description": "Bare invocation — returns this JSON command tree for agent self-discovery",
             "params": [],
         },
         {
-            "name": "ribosome <prompt>",
+            "name": "mtor <prompt>",
             "description": "Dispatch a task prompt to Temporal. Prepends coaching content before sending.",
             "params": [
                 {
@@ -130,7 +130,7 @@ COMMAND_TREE = {
             ],
         },
         {
-            "name": "ribosome list",
+            "name": "mtor list",
             "description": "List recent workflows",
             "params": [
                 {
@@ -151,7 +151,7 @@ COMMAND_TREE = {
             ],
         },
         {
-            "name": "ribosome status <workflow_id>",
+            "name": "mtor status <workflow_id>",
             "description": "Query status of a single workflow",
             "params": [
                 {
@@ -163,7 +163,7 @@ COMMAND_TREE = {
             ],
         },
         {
-            "name": "ribosome logs <workflow_id>",
+            "name": "mtor logs <workflow_id>",
             "description": f"Last {LOG_TAIL_LINES} lines of workflow stdout + path to full log on ganglion",
             "params": [
                 {
@@ -175,7 +175,7 @@ COMMAND_TREE = {
             ],
         },
         {
-            "name": "ribosome cancel <workflow_id>",
+            "name": "mtor cancel <workflow_id>",
             "description": "Cancel a running workflow. Idempotent — cancelling an already-cancelled workflow is ok.",
             "params": [
                 {
@@ -187,12 +187,12 @@ COMMAND_TREE = {
             ],
         },
         {
-            "name": "ribosome doctor",
+            "name": "mtor doctor",
             "description": "Health check: Temporal server reachability, worker liveness, provider info",
             "params": [],
         },
         {
-            "name": "ribosome schema",
+            "name": "mtor schema",
             "description": "Emit full JSON schema of all commands with params, types, enums, defaults",
             "params": [],
         },
@@ -212,7 +212,7 @@ FULL_SCHEMA = {
     "schema_version": "1",
     "commands": [
         {
-            "name": "ribosome",
+            "name": "mtor",
             "description": "Returns command tree (this schema)",
             "params": [],
             "returns": {
@@ -223,7 +223,7 @@ FULL_SCHEMA = {
             },
         },
         {
-            "name": "ribosome <prompt>",
+            "name": "mtor <prompt>",
             "description": "Dispatch task to Temporal workflow",
             "params": [
                 {
@@ -246,7 +246,7 @@ FULL_SCHEMA = {
             },
         },
         {
-            "name": "ribosome list",
+            "name": "mtor list",
             "description": "List recent workflows with optional filters",
             "params": [
                 {
@@ -274,11 +274,11 @@ FULL_SCHEMA = {
                     "workflows": "array of {workflow_id, status, start_time, close_time}",
                     "count": "integer",
                 },
-                "next_actions": "array (one ribosome status per workflow)",
+                "next_actions": "array (one mtor status per workflow)",
             },
         },
         {
-            "name": "ribosome status <workflow_id>",
+            "name": "mtor status <workflow_id>",
             "description": "Get detailed status of a single workflow",
             "params": [
                 {
@@ -314,7 +314,7 @@ FULL_SCHEMA = {
             ],
         },
         {
-            "name": "ribosome logs <workflow_id>",
+            "name": "mtor logs <workflow_id>",
             "description": f"Fetch last {LOG_TAIL_LINES} lines of workflow output from ganglion",
             "params": [
                 {
@@ -337,7 +337,7 @@ FULL_SCHEMA = {
             },
         },
         {
-            "name": "ribosome cancel <workflow_id>",
+            "name": "mtor cancel <workflow_id>",
             "description": "Cancel a workflow. Idempotent.",
             "params": [
                 {
@@ -356,7 +356,7 @@ FULL_SCHEMA = {
             },
         },
         {
-            "name": "ribosome doctor",
+            "name": "mtor doctor",
             "description": "Health check for Temporal server and worker",
             "params": [],
             "returns": {
@@ -372,7 +372,7 @@ FULL_SCHEMA = {
             },
         },
         {
-            "name": "ribosome schema",
+            "name": "mtor schema",
             "description": "Full JSON schema of all commands",
             "params": [],
             "returns": {"schema_version": "string", "commands": "array"},
@@ -396,9 +396,9 @@ FULL_SCHEMA = {
 @click.group(invoke_without_command=True, add_help_option=False)
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    """ribosome — agent-first Temporal dispatch CLI. Bare invocation returns command tree."""
+    """mtor — agent-first translation controller Temporal dispatch CLI. Bare invocation returns command tree."""
     if ctx.invoked_subcommand is None:
-        _ok("ribosome", COMMAND_TREE)
+        _ok("mtor", COMMAND_TREE)
 
 
 @cli.command(name="list", add_help_option=False)
@@ -410,7 +410,7 @@ def cli(ctx: click.Context) -> None:
 @click.option("--count", type=int, default=10)
 def list_cmd(status: str | None, count: int) -> None:
     """List recent workflows."""
-    cmd = "ribosome list" + (f" --status {status}" if status else "") + f" --count {count}"
+    cmd = "mtor list" + (f" --status {status}" if status else "") + f" --count {count}"
 
     client, err = _get_client()
     if err:
@@ -420,7 +420,7 @@ def list_cmd(status: str | None, count: int) -> None:
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
                 "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
-                [_action("ribosome doctor", "Run health check to diagnose connectivity")],
+                [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
         )
@@ -458,9 +458,7 @@ def list_cmd(status: str | None, count: int) -> None:
                     "close_time": close_time,
                 }
             )
-            next_actions.append(
-                _action(f"ribosome status {wf_id}", f"Get full status for {wf_id}")
-            )
+            next_actions.append(_action(f"mtor status {wf_id}", f"Get full status for {wf_id}"))
 
         _ok(cmd, {"workflows": workflows, "count": len(workflows)}, next_actions)
     except Exception as exc:
@@ -469,8 +467,8 @@ def list_cmd(status: str | None, count: int) -> None:
                 cmd,
                 str(exc),
                 "LIST_ERROR",
-                "Check Temporal server health with: ribosome doctor",
-                [_action("ribosome doctor", "Run health check")],
+                "Check Temporal server health with: mtor doctor",
+                [_action("mtor doctor", "Run health check")],
             )
         )
 
@@ -479,7 +477,7 @@ def list_cmd(status: str | None, count: int) -> None:
 @click.argument("workflow_id")
 def status(workflow_id: str) -> None:
     """Query status of a single workflow."""
-    cmd = f"ribosome status {workflow_id}"
+    cmd = f"mtor status {workflow_id}"
 
     client, err = _get_client()
     if err:
@@ -489,7 +487,7 @@ def status(workflow_id: str) -> None:
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
                 "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
-                [_action("ribosome doctor", "Run health check to diagnose connectivity")],
+                [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
         )
@@ -516,8 +514,8 @@ def status(workflow_id: str) -> None:
                 "close_time": close_time,
             },
             [
-                _action(f"ribosome logs {workflow_id}", "Fetch last 30 lines of output"),
-                _action(f"ribosome cancel {workflow_id}", "Cancel this workflow"),
+                _action(f"mtor logs {workflow_id}", "Fetch last 30 lines of output"),
+                _action(f"mtor cancel {workflow_id}", "Cancel this workflow"),
             ],
         )
     except Exception as exc:
@@ -528,8 +526,8 @@ def status(workflow_id: str) -> None:
                     cmd,
                     f"Workflow {workflow_id} not found",
                     "WORKFLOW_NOT_FOUND",
-                    "Verify the workflow ID with: ribosome list",
-                    [_action("ribosome list", "List all recent workflows")],
+                    "Verify the workflow ID with: mtor list",
+                    [_action("mtor list", "List all recent workflows")],
                     exit_code=4,
                 )
             )
@@ -538,8 +536,8 @@ def status(workflow_id: str) -> None:
                 cmd,
                 exc_str,
                 "STATUS_ERROR",
-                "Check Temporal server health with: ribosome doctor",
-                [_action("ribosome doctor", "Run health check")],
+                "Check Temporal server health with: mtor doctor",
+                [_action("mtor doctor", "Run health check")],
             )
         )
 
@@ -548,7 +546,7 @@ def status(workflow_id: str) -> None:
 @click.argument("workflow_id")
 def logs(workflow_id: str) -> None:
     """Fetch last 30 lines of workflow output from ganglion."""
-    cmd = f"ribosome logs {workflow_id}"
+    cmd = f"mtor logs {workflow_id}"
     log_path = f"{RIBOSOME_OUTPUTS_DIR}/{workflow_id}/stdout.log"
     full_log_path = f"/home/vivesca/germline/loci/ribosome-outputs/{workflow_id}/stdout.log"
 
@@ -569,8 +567,8 @@ def logs(workflow_id: str) -> None:
                         cmd,
                         f"Log file not found on ganglion: {log_path}",
                         "LOG_NOT_FOUND",
-                        f"Verify the workflow ID with: ribosome status {workflow_id}",
-                        [_action(f"ribosome status {workflow_id}", "Check if workflow exists")],
+                        f"Verify the workflow ID with: mtor status {workflow_id}",
+                        [_action(f"mtor status {workflow_id}", "Check if workflow exists")],
                         exit_code=4,
                     )
                 )
@@ -580,7 +578,7 @@ def logs(workflow_id: str) -> None:
                     f"SSH command failed: {stderr_msg}",
                     "SSH_ERROR",
                     "Verify ganglion is reachable via Tailscale: ping ganglion",
-                    [_action("ribosome doctor", "Run health check")],
+                    [_action("mtor doctor", "Run health check")],
                 )
             )
 
@@ -593,8 +591,8 @@ def logs(workflow_id: str) -> None:
                 "truncated": len(lines) == LOG_TAIL_LINES,
             },
             [
-                _action(f"ribosome status {workflow_id}", "Check workflow status"),
-                _action(f"ribosome cancel {workflow_id}", "Cancel if still running"),
+                _action(f"mtor status {workflow_id}", "Check workflow status"),
+                _action(f"mtor cancel {workflow_id}", "Cancel if still running"),
             ],
         )
     except subprocess.TimeoutExpired:
@@ -604,7 +602,7 @@ def logs(workflow_id: str) -> None:
                 "SSH to ganglion timed out after 30s",
                 "SSH_TIMEOUT",
                 "Check Tailscale connectivity: ping ganglion",
-                [_action("ribosome doctor", "Run health check")],
+                [_action("mtor doctor", "Run health check")],
             )
         )
     except FileNotFoundError:
@@ -623,7 +621,7 @@ def logs(workflow_id: str) -> None:
 @click.argument("workflow_id")
 def cancel(workflow_id: str) -> None:
     """Cancel a running workflow. Idempotent."""
-    cmd = f"ribosome cancel {workflow_id}"
+    cmd = f"mtor cancel {workflow_id}"
 
     client, err = _get_client()
     if err:
@@ -633,7 +631,7 @@ def cancel(workflow_id: str) -> None:
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
                 "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
-                [_action("ribosome doctor", "Run health check to diagnose connectivity")],
+                [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
         )
@@ -650,7 +648,7 @@ def cancel(workflow_id: str) -> None:
             cmd,
             {"workflow_id": workflow_id, "cancelled": True},
             [
-                _action(f"ribosome status {workflow_id}", "Verify cancellation status"),
+                _action(f"mtor status {workflow_id}", "Verify cancellation status"),
             ],
         )
     except Exception as exc:
@@ -662,8 +660,8 @@ def cancel(workflow_id: str) -> None:
                     cmd,
                     f"Workflow {workflow_id} not found",
                     "WORKFLOW_NOT_FOUND",
-                    "Verify the workflow ID with: ribosome list",
-                    [_action("ribosome list", "List all recent workflows")],
+                    "Verify the workflow ID with: mtor list",
+                    [_action("mtor list", "List all recent workflows")],
                     exit_code=4,
                 )
             )
@@ -680,7 +678,7 @@ def cancel(workflow_id: str) -> None:
                     "note": "Workflow was already in terminal state",
                 },
                 [
-                    _action(f"ribosome status {workflow_id}", "Verify final status"),
+                    _action(f"mtor status {workflow_id}", "Verify final status"),
                 ],
             )
             return
@@ -689,8 +687,8 @@ def cancel(workflow_id: str) -> None:
                 cmd,
                 exc_str,
                 "CANCEL_ERROR",
-                "Check Temporal server health with: ribosome doctor",
-                [_action("ribosome doctor", "Run health check")],
+                "Check Temporal server health with: mtor doctor",
+                [_action("mtor doctor", "Run health check")],
             )
         )
 
@@ -698,7 +696,7 @@ def cancel(workflow_id: str) -> None:
 @cli.command(add_help_option=False)
 def doctor() -> None:
     """Health check: Temporal reachability, worker liveness, provider info."""
-    cmd = "ribosome doctor"
+    cmd = "mtor doctor"
     checks = []
     all_ok = True
 
@@ -793,7 +791,7 @@ def doctor() -> None:
 @cli.command(add_help_option=False)
 def schema() -> None:
     """Emit full JSON schema of all commands."""
-    _ok("ribosome schema", FULL_SCHEMA)
+    _ok("mtor schema", FULL_SCHEMA)
 
 
 # ---------------------------------------------------------------------------
@@ -807,22 +805,22 @@ def schema() -> None:
 @cli.command(name="dispatch", add_help_option=False, hidden=True)
 @click.argument("prompt")
 def dispatch(prompt: str) -> None:
-    """Internal: dispatch a prompt to Temporal. Use 'ribosome <prompt>' directly."""
+    """Internal: dispatch a prompt to Temporal. Use 'mtor <prompt>' directly."""
     _dispatch_prompt(prompt)
 
 
 def _dispatch_prompt(prompt: str) -> None:
     """Core dispatch logic — shared by the group's bare-prompt handler."""
-    cmd = f"ribosome {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
+    cmd = f"mtor {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
 
     if not prompt.strip():
         sys.exit(
             _err(
-                "ribosome",
+                "mtor",
                 "Prompt is required",
                 "MISSING_PROMPT",
-                'Provide a task description: ribosome "Write tests for metabolon/foo.py"',
-                [_action("ribosome", "Show command tree")],
+                'Provide a task description: mtor "Write tests for metabolon/foo.py"',
+                [_action("mtor", "Show command tree")],
                 exit_code=2,
             )
         )
@@ -842,7 +840,7 @@ def _dispatch_prompt(prompt: str) -> None:
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
                 "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
-                [_action("ribosome doctor", "Run health check to diagnose connectivity")],
+                [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
         )
@@ -871,9 +869,9 @@ def _dispatch_prompt(prompt: str) -> None:
                 "prompt_preview": prompt[:100],
             },
             [
-                _action(f"ribosome status {started_id}", "Poll workflow status"),
-                _action(f"ribosome logs {started_id}", "Fetch output when complete"),
-                _action(f"ribosome cancel {started_id}", "Cancel if needed"),
+                _action(f"mtor status {started_id}", "Poll workflow status"),
+                _action(f"mtor logs {started_id}", "Fetch output when complete"),
+                _action(f"mtor cancel {started_id}", "Cancel if needed"),
             ],
         )
     except Exception as exc:
@@ -882,14 +880,14 @@ def _dispatch_prompt(prompt: str) -> None:
                 cmd,
                 f"Failed to start workflow: {exc}",
                 "DISPATCH_ERROR",
-                "Check Temporal server health: ribosome doctor",
-                [_action("ribosome doctor", "Run health check")],
+                "Check Temporal server health: mtor doctor",
+                [_action("mtor doctor", "Run health check")],
             )
         )
 
 
 # ---------------------------------------------------------------------------
-# Allow bare positional: `ribosome "some task prompt"`
+# Allow bare positional: `mtor "some task prompt"`
 # Click dispatches unknown subcommand names as errors by default.
 # We override result_callback to handle any non-subcommand first argument
 # as a prompt dispatch.
