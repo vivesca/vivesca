@@ -67,7 +67,7 @@ def now_ts() -> int:
 def hkt_from_ts(ts: int, timezone: str = "Asia/Hong_Kong") -> datetime:
     try:
         tz = ZoneInfo(timezone)
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:
         fatal(f"Invalid timezone '{timezone}': {exc}")
     return datetime.fromtimestamp(ts, tz=UTC).astimezone(tz)
 

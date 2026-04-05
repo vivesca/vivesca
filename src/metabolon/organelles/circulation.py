@@ -525,13 +525,12 @@ def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        state = preflight(
-            {  # type: ignore[arg-type]
-                "systole_num": 0,
-                "budget_status": "green",
-                "mode": args.mode,
-            }
-        )
+        initial: CirculationState = {
+            "systole_num": 0,
+            "budget_status": "green",
+            "mode": args.mode,
+        }
+        state = preflight(initial)
         print(f"Budget: {state['budget_status']}")
         print(f"North stars loaded: {len(state.get('north_stars', ''))} chars")
         print(f"Praxis items loaded: {len(state.get('praxis_items', ''))} chars")
