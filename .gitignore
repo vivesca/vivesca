@@ -103,28 +103,6 @@ $HOME/.agent-browser-profile/
 loci/poiesis
 loci/copia
 loci/pulse
-/loci/plans/done/dispatch-gap-junction-tests.md
-/loci/plans/done/explore-consulting-readiness.md
-/loci/plans/done/wave1-tests-quick-wins.md
-/loci/plans/done/wave2-core-infra-tests.md
-/loci/plans/explore-consulting-v2.md
-/loci/plans/golem-article-analysis-training.md
-/loci/plans/home-terry-to-vivesca-rename.md
-/loci/plans/overnight-capco-90day-scorecard.md
-/loci/plans/overnight-capco-day1-audit-v2.md
-/loci/plans/overnight-capco-day1-audit.md
-/loci/plans/overnight-capco-day1-checklist.md
-/loci/plans/overnight-capco-escalation-playbook.md
-/loci/plans/overnight-capco-networking-map.md
-/loci/plans/overnight-consulting-ip-index.md
-/loci/plans/overnight-garden-calibration-trap.md
-/loci/plans/overnight-garden-consulting-lessons.md
-/loci/plans/overnight-garden-guardrail-post.md
-/loci/plans/overnight-garp-fairness-cheatsheet.md
-/loci/plans/overnight-hsbc-competitor-landscape.md
-/loci/plans/overnight-hsbc-stakeholder-prep.md
-/loci/plans/overnight-linkedin-capco-week1.md
-/loci/plans/overnight-linkedin-content-calendar.md
-/loci/plans/phenotype-consolidation.md
-/loci/plans/rheotaxis-dissolve.md
-/loci/plans/skill-agent-audit-report.md
+# Plans moved to ~/epigenome/chromatin/loci/plans/ (private repo) — 2026-04-06
+# HSBC/Capco leak audit retired this path; see genome.md "Specs go to" rule.
+loci/plans/

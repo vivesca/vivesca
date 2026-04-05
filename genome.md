@@ -22,7 +22,7 @@
   - `membrane/receptors/` (skills) → **Sortase with validator + CC reviews diff.** Never raw translocon --build.
   - `metabolon/`, `effectors/`, `assays/` (code/tests) → Sortase or translocon --build. Validator checks.
   - Read access → unrestricted for all agents.
-- **Specs go to `~/germline/loci/plans/`** with status frontmatter. Never `/tmp/`.
+- **Specs go to `~/epigenome/chromatin/loci/plans/`** (private repo) with status frontmatter. Never `germline/loci/plans/` (public repo — HSBC/Capco leak audit 2026-04-06 retired that path) and never `/tmp/`.
 - **PII boundary:** Memory files with `pii: true` in frontmatter (user_salary, user_insurance, user_health_*, user_financial) are CC-only. Never send to external LLM APIs. Non-PII marks (feedback, finding, reference) are safe for goose/droid via translocon coaching injection.
 - **Atomic commits:** Every sortase dispatch uses `--commit`. Each build = one commit with clear message. Don't accumulate uncommitted changes across builds.
 
