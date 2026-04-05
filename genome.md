@@ -64,10 +64,11 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **CLI + skill by default; MCP only where it earns its keep.** For every new tool, run this sharp decision tree in order — each step is a binary test against a concrete property, no spectrum, no judgment:
 
-1. **Does tool correctness require the agent's own LLM to make decisions mid-execution?** (semantic filtering of retrieved results, LLM-based reranking, content-aware workflow branching) → **SKILL** (must run inside the agent process to access its LLM; MCP's process boundary prevents this — Milvus/Zilliz lesson Apr 2026).
-2. **Does the tool need cross-invocation mutable state that cannot live on the filesystem?** (in-memory session, persistent connection, push/streaming channel to the client, browser tabs, daemon/worker process) → **MCP** (stateful server).
-3. **Does the input schema contain nested objects or arrays of structured records** — not just strings, numbers, or lists of primitives? → **MCP** (the typed schema earns its keep over flat CLI flags).
-4. **Otherwise** → **CLI + skill**.
+**Pre-check (exceptional tools only):** Does the tool need to process intermediate data too large to fit in the main agent's remaining context? (e.g., retrieval + semantic filtering where raw results exceed ~5K tokens — Zilliz memsearch case) → **Nested context architecture: subagent dispatch (Task tool) or MCP tool with its own nested LLM call.** This is ~<5% of tools. Skill is the *interface* for this pattern, subagent is the *mechanism* — a skill alone doesn't isolate context because the main agent still reads the raw data. If the tool needs intermediate-data isolation, design it as a subagent dispatch wrapped in a skill, not as a skill with instructions the main agent follows. For the remaining 95%+, continue:
+
+1. **Does the tool need cross-invocation mutable state that cannot live on the filesystem?** (in-memory session, persistent connection, push/streaming channel to the client, browser tabs, daemon/worker process) → **MCP** (stateful server).
+2. **Does the input schema contain nested objects or arrays of structured records** — not just strings, numbers, or lists of primitives? → **MCP** (the typed schema earns its keep over flat CLI flags).
+3. **Otherwise** → **CLI + skill**.
 
 **Deployment caveat (not a step):** if a target agent harness cannot spawn shell (hosted sandboxes without exec, web UIs, constrained environments), every CLI+skill candidate becomes MCP by necessity. For the CC/Codex/Gemini CLI/Goose stack this is dormant — all have shell — so it only matters in Capco-consulting contexts.
 
