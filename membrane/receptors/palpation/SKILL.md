@@ -78,7 +78,7 @@ Severity: [blocks operation / degrades / cosmetic]
 
 ### Step 6 — Hand off to repair or clear
 
-If finding confirmed: hand off to the appropriate repair skill (hemostasis if urgent, debridement if dead tissue, direct fix if known).
+If finding confirmed: hand off to the appropriate repair skill (thrombin if urgent, debridement if dead tissue, direct fix if known).
 
 If cleared: document the clearance. "Palpated [component] on [date]. No findings. Behavior matches spec." Negative results are data.
 

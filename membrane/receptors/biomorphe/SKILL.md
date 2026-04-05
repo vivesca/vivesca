@@ -80,7 +80,7 @@ When opposing pathways run simultaneously (synthesis + breakdown of same molecul
 - **Anti-pattern:** "write code and review it" in one prompt
 - **Pattern:** sortase separates build from review. Ribosomes write, CC judges.
 
-### 14. Distinct modes for catabolism and anabolism
+### 14. Distinct modes for proteasome and anabolism
 Breaking down vs building up. Both essential, but not simultaneously on the same substrate. **Agent systems need distinct modes for cleanup (debugging, auditing, deleting) vs creation (building, extending).** Running both on the same codebase creates confusion.
 - **Validates:** metabolic tier system — catabolic mode for cleanup, anabolic for building
 

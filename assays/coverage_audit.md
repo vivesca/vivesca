@@ -60,13 +60,13 @@
 |--------|-----------|-------|-------|
 | metabolon/enzymes/assay.py | test_assay_actions.py | 4 | 44 |
 | metabolon/enzymes/auscultation.py | test_auscultation_actions.py | 3 | 129 |
-| metabolon/enzymes/catabolism.py | test_catabolism_actions.py | 3 | 166 |
+| metabolon/enzymes/proteasome.py | test_proteasome_actions.py | 3 | 166 |
 | metabolon/enzymes/differentiation.py | test_differentiation_actions.py | 4 | 84 |
 | metabolon/enzymes/efferens.py | test_efferens_actions.py | 4 | 51 |
 | metabolon/enzymes/emit.py | test_emit_actions.py | 4 | 330 |
 | metabolon/enzymes/expression.py | test_expression_actions.py | 3 | 166 |
 | metabolon/enzymes/ingestion.py | test_ingestion_actions.py | 3 | 107 |
-| metabolon/enzymes/lysis.py | test_lysis_actions.py | 3 | 35 |
+| metabolon/enzymes/lysozyme.py | test_lysozyme_actions.py | 3 | 35 |
 | metabolon/enzymes/mitosis.py | test_mitosis_actions.py | 3 | 80 |
 | metabolon/enzymes/noesis.py | test_noesis_actions.py | 4 | 69 |
 | metabolon/enzymes/polarization.py | test_polarization_actions.py | 3 | 160 |

@@ -47,7 +47,9 @@ Invoke when: one component needs a name, or an existing name hasn't been mined.
 | sporulation | Environmentally triggered, not user-initiated; mother cell flushes before lysing | User-initiated only | Auto-suggest at budget=red; flush before checkpoint | Built |
 | endocytosis | Pathway selection is cargo-dependent; endosome sorts after intake | Each skill reimplemented fetch | Canonical routing table; intake/processing separation | Built |
 
-The naming convention isn't decoration — it's a design review tool. Every bio name is a hypothesis: "this component behaves like [biological process]." Study the biology, check whether the implementation matches. Mismatches are design gaps.
+The naming convention isn't decoration — it's a design review tool. Every bio name is a hypothesis: "this component behaves like [biological entity]." Study the biology, check whether the implementation matches. Mismatches are design gaps.
+
+**Layer convention:** Tools (MCP enzymes) = objects (enzymes, proteins). Skills (workflows) = processes. Organelles = system/function names. A tool named after a process is a design smell — either (a) the tool IS one object and should be renamed to that object, or (b) the tool implements an entire pathway and should be decomposed into focused tools that each map to one object. The naming failure is the design finding.
 
 ### 2. System Audit — Organelle Completeness
 Map the system against the canonical cell organelle set. Score each: **mapped / partial / gap**.

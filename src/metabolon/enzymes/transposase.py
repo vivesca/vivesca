@@ -55,11 +55,11 @@ def _needs_word_boundary(term: str) -> bool:
     """Detect if a term is a substring of common words and needs word-boundary matching.
 
     Short terms and terms that are common suffixes/prefixes in biology
-    (e.g. 'lysis' in 'analysis', 'glycolysis') need boundary protection.
+    (e.g. 'lysozyme' in 'analysis', 'glycolysis') need boundary protection.
     """
     # Known dangerous suffixes/prefixes in biology
     _DANGEROUS_SUBSTRINGS = {
-        "lysis",
+        "lysozyme",
         "osis",
         "ase",
         "tion",
@@ -83,8 +83,8 @@ def _needs_word_boundary(term: str) -> bool:
 def _replace_word_boundary(content: str, old: str, new: str) -> str:
     """Replace old with new using word-boundary matching.
 
-    Handles compound forms: both 'lysis' as a standalone word AND
-    as a component in hyphenated/underscore names like 'lysis-tool'.
+    Handles compound forms: both 'lysozyme' as a standalone word AND
+    as a component in hyphenated/underscore names like 'lysozyme-tool'.
     Does NOT replace inside other words like 'analysis'.
     """
     # Match: word boundary OR preceded by [-_./] (compound separator)

@@ -1,4 +1,4 @@
-"""lysis — Firecrawl URL scraper, fallback for bot-protected pages.
+"""lysozyme — Firecrawl URL scraper, fallback for bot-protected pages.
 
 Extends chemotaxis with Firecrawl-backed scraping for sites that block
 headless browsers. Returns clean markdown.
@@ -11,15 +11,15 @@ from mcp.types import ToolAnnotations
 
 from metabolon.organelles.effector import run_cli
 
-BINARY = str(Path.home() / "germline/effectors/lysis")
+BINARY = str(Path.home() / "germline/effectors/lysozyme")
 
 
 @tool(
-    name="lysis",
+    name="lysozyme",
     description="Web content extraction. Actions: scrape|search",
     annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
 )
-def lysis(action: str, url: str = "", query: str = "") -> str:
+def lysozyme(action: str, url: str = "", query: str = "") -> str:
     """Scrape or search via Firecrawl.
 
     Args:

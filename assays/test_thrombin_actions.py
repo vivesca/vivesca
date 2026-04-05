@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Comprehensive tests for hemostasis enzyme — all actions and branches."""
+"""Comprehensive tests for thrombin enzyme — all actions and branches."""
 
 
 import subprocess
@@ -9,11 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metabolon.enzymes.hemostasis import ProcessListResult, hemostasis
+from metabolon.enzymes.thrombin import ProcessListResult, thrombin
 from metabolon.morphology import EffectorResult
 
 # Patch target: mock where subprocess is looked up, not where it is defined.
-_SUB_RUN = "metabolon.enzymes.hemostasis.subprocess.run"
+_SUB_RUN = "metabolon.enzymes.thrombin.subprocess.run"
 
 
 # ---------------------------------------------------------------------------
@@ -36,13 +36,13 @@ def _is_process_list(r):
 
 class TestUnknownAction:
     def test_returns_effector_result(self):
-        result = hemostasis(action="nonexistent")
+        result = thrombin(action="nonexistent")
         assert _is_effector(result)
         assert not result.success
         assert "Unknown action" in result.message
 
     def test_valid_actions_listed_in_message(self):
-        result = hemostasis(action="bogus")
+        result = thrombin(action="bogus")
         for a in ("ps", "kill", "launchagent", "handoff"):
             assert a in result.message
 
@@ -51,7 +51,7 @@ class TestUnknownAction:
         """Upper/mixed case still routes correctly (not 'unknown')."""
         # These should NOT fall through to the unknown branch.
         with patch(_SUB_RUN, return_value=MagicMock(stdout="", returncode=0)):
-            result = hemostasis(action=action, pattern="test")
+            result = thrombin(action=action, pattern="test")
         # ps returns ProcessListResult (has summary), others return EffectorResult (has message)
         text = result.summary if _is_process_list(result) else result.message
         assert "Unknown action" not in text
@@ -67,7 +67,7 @@ class TestPsAction:
         with patch(
             _SUB_RUN, return_value=MagicMock(stdout="123 python\n456 node\n", returncode=0)
         ):
-            result = hemostasis(action="ps", pattern="python")
+            result = thrombin(action="ps", pattern="python")
         assert _is_process_list(result)
         assert result.count == 2
         assert result.matches == ["123 python", "456 node"]
@@ -75,14 +75,14 @@ class TestPsAction:
 
     def test_empty_output(self):
         with patch(_SUB_RUN, return_value=MagicMock(stdout="", returncode=0)):
-            result = hemostasis(action="ps", pattern="nothing_matches")
+            result = thrombin(action="ps", pattern="nothing_matches")
         assert result.count == 0
         assert result.matches == []
         assert "(none)" in result.summary
 
     def test_summary_contains_pattern(self):
         with patch(_SUB_RUN, return_value=MagicMock(stdout="1 foo\n", returncode=0)):
-            result = hemostasis(action="ps", pattern="myapp")
+            result = thrombin(action="ps", pattern="myapp")
         assert "myapp" in result.summary
         assert "1 found" in result.summary
 
@@ -90,20 +90,20 @@ class TestPsAction:
         with patch(
             _SUB_RUN, return_value=MagicMock(stdout="100 proc\n\n\n200 other\n", returncode=0)
         ):
-            result = hemostasis(action="ps", pattern="proc")
+            result = thrombin(action="ps", pattern="proc")
         assert result.count == 2
         assert "" not in result.matches
 
     def test_timeout_returns_empty(self):
         with patch(_SUB_RUN, side_effect=subprocess.TimeoutExpired(cmd="pgrep", timeout=5)):
-            result = hemostasis(action="ps", pattern="slow")
+            result = thrombin(action="ps", pattern="slow")
         assert _is_process_list(result)
         assert result.count == 0
         assert result.matches == []
 
     def test_subprocess_called_with_pgrep(self):
         with patch(_SUB_RUN, return_value=MagicMock(stdout="", returncode=0)) as mock:
-            hemostasis(action="ps", pattern="test")
+            thrombin(action="ps", pattern="test")
         mock.assert_called_once()
         args = mock.call_args[0][0]
         assert args[0] == "pgrep"
@@ -121,7 +121,7 @@ class TestPsAction:
 class TestKillAction:
     def test_success_returns_effector(self):
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)):
-            result = hemostasis(action="kill", pattern="zombie-proc", signal="TERM")
+            result = thrombin(action="kill", pattern="zombie-proc", signal="TERM")
         assert _is_effector(result)
         assert result.success
         assert "TERM" in result.message
@@ -129,43 +129,43 @@ class TestKillAction:
 
     def test_no_match(self):
         with patch(_SUB_RUN, return_value=MagicMock(returncode=1, stderr="")):
-            result = hemostasis(action="kill", pattern="nonexistent")
+            result = thrombin(action="kill", pattern="nonexistent")
         assert not result.success
         assert "No processes" in result.message
 
     def test_pkill_error_exit_code(self):
         with patch(_SUB_RUN, return_value=MagicMock(returncode=2, stderr="permission denied")):
-            result = hemostasis(action="kill", pattern="protected")
+            result = thrombin(action="kill", pattern="protected")
         assert not result.success
         assert "pkill error" in result.message
         assert result.data["stderr"] == "permission denied"
 
     def test_timeout(self):
         with patch(_SUB_RUN, side_effect=subprocess.TimeoutExpired(cmd="pkill", timeout=10)):
-            result = hemostasis(action="kill", pattern="hung")
+            result = thrombin(action="kill", pattern="hung")
         assert not result.success
         assert "timed out" in result.message
 
     @pytest.mark.parametrize("signal", ["TERM", "KILL", "HUP", "INT", "QUIT", "USR1", "USR2"])
     def test_all_valid_signals(self, signal):
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)):
-            result = hemostasis(action="kill", pattern="target", signal=signal)
+            result = thrombin(action="kill", pattern="target", signal=signal)
         assert result.success
         assert signal in result.message
 
     def test_invalid_signal(self):
-        result = hemostasis(action="kill", pattern="test", signal="INVALID")
+        result = thrombin(action="kill", pattern="test", signal="INVALID")
         assert not result.success
         assert "Invalid signal" in result.message
 
     def test_invalid_signal_lists_valid_ones(self):
-        result = hemostasis(action="kill", pattern="test", signal="BOOM")
+        result = thrombin(action="kill", pattern="test", signal="BOOM")
         for sig in ("TERM", "KILL", "HUP"):
             assert sig in result.message
 
     def test_signal_case_insensitive(self):
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)) as mock:
-            result = hemostasis(action="kill", pattern="proc", signal="term")
+            result = thrombin(action="kill", pattern="proc", signal="term")
         assert result.success
         # Verify pkill was called with uppercase signal
         called_args = mock.call_args[0][0]
@@ -173,7 +173,7 @@ class TestKillAction:
 
     def test_subprocess_called_with_pkill(self):
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)) as mock:
-            hemostasis(action="kill", pattern="myproc", signal="KILL")
+            thrombin(action="kill", pattern="myproc", signal="KILL")
         args = mock.call_args[0][0]
         assert args[0] == "pkill"
         assert "-KILL" in args
@@ -188,14 +188,14 @@ class TestKillAction:
 
 class TestLaunchAgentAction:
     def test_invalid_sub_action(self):
-        result = hemostasis(action="launchagent", launchagent_action="restart")
+        result = thrombin(action="launchagent", launchagent_action="restart")
         assert _is_effector(result)
         assert not result.success
         assert "Invalid action" in result.message
 
     @pytest.mark.parametrize("bad_action", ["load", "unload"])
     def test_missing_plist(self, bad_action):
-        result = hemostasis(
+        result = thrombin(
             action="launchagent", plist_path="/no/such/file.plist", launchagent_action=bad_action
         )
         assert not result.success
@@ -205,7 +205,7 @@ class TestLaunchAgentAction:
         plist = tmp_path / "com.test.plist"
         plist.write_text("<plist></plist>")
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path=str(plist),
                 launchagent_action="unload",
@@ -218,7 +218,7 @@ class TestLaunchAgentAction:
         plist = tmp_path / "com.test.plist"
         plist.write_text("<plist></plist>")
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path=str(plist),
                 launchagent_action="load",
@@ -231,7 +231,7 @@ class TestLaunchAgentAction:
         plist = tmp_path / "com.test.plist"
         plist.write_text("<plist></plist>")
         with patch(_SUB_RUN, return_value=MagicMock(returncode=1, stderr="operation failed")):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path=str(plist),
                 launchagent_action="unload",
@@ -244,7 +244,7 @@ class TestLaunchAgentAction:
         plist = tmp_path / "com.test.plist"
         plist.write_text("<plist></plist>")
         with patch(_SUB_RUN, side_effect=subprocess.TimeoutExpired(cmd="launchctl", timeout=15)):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path=str(plist),
                 launchagent_action="unload",
@@ -256,7 +256,7 @@ class TestLaunchAgentAction:
         plist = tmp_path / "com.test.plist"
         plist.write_text("<plist></plist>")
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)) as mock:
-            hemostasis(
+            thrombin(
                 action="launchagent",
                 plist_path=str(plist),
                 launchagent_action="unload",
@@ -271,7 +271,7 @@ class TestLaunchAgentAction:
         with patch(_SUB_RUN, return_value=MagicMock(returncode=0)) as mock:
             # Use a real file via tmp_path trick: we patch Path.exists to return True
             with patch.object(Path, "exists", return_value=True):
-                result = hemostasis(
+                result = thrombin(
                     action="launchagent",
                     plist_path="~/Library/LaunchAgents/com.test.plist",
                     launchagent_action="load",
@@ -289,57 +289,57 @@ class TestLaunchAgentAction:
 
 class TestHandoffAction:
     def test_writes_file(self, tmp_path):
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", tmp_path):
-            result = hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", tmp_path):
+            result = thrombin(
                 action="handoff",
                 what_stopped="killed rogue cron",
                 known_gaps="cron not restarted",
                 next_steps="investigate root cause",
             )
         assert result.success
-        files = list(tmp_path.glob("hemostasis-*.md"))
+        files = list(tmp_path.glob("thrombin-*.md"))
         assert len(files) == 1
 
     def test_file_content_sections(self, tmp_path):
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", tmp_path):
-            hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", tmp_path):
+            thrombin(
                 action="handoff",
                 what_stopped="killed rogue cron",
                 known_gaps="cron not restarted",
                 next_steps="investigate root cause",
             )
-        content = (tmp_path / next(tmp_path.glob("hemostasis-*.md"))).read_text()
+        content = (tmp_path / next(tmp_path.glob("thrombin-*.md"))).read_text()
         assert "killed rogue cron" in content
         assert "cron not restarted" in content
         assert "investigate root cause" in content
 
     def test_file_has_frontmatter(self, tmp_path):
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", tmp_path):
-            hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", tmp_path):
+            thrombin(
                 action="handoff",
                 what_stopped="stopped X",
                 known_gaps="gap Y",
                 next_steps="do Z",
             )
-        content = (tmp_path / next(tmp_path.glob("hemostasis-*.md"))).read_text()
+        content = (tmp_path / next(tmp_path.glob("thrombin-*.md"))).read_text()
         assert content.startswith("---")
-        assert "hemostasis-handoff" in content
+        assert "thrombin-handoff" in content
 
     def test_file_name_pattern(self, tmp_path):
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", tmp_path):
-            hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", tmp_path):
+            thrombin(
                 action="handoff",
                 what_stopped="a",
                 known_gaps="b",
                 next_steps="c",
             )
-        files = list(tmp_path.glob("hemostasis-????-??-??-????.md"))
+        files = list(tmp_path.glob("thrombin-????-??-??-????.md"))
         assert len(files) == 1
 
     def test_creates_directory_if_missing(self, tmp_path):
         subdir = tmp_path / "nested" / "dir"
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", subdir):
-            result = hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", subdir):
+            result = thrombin(
                 action="handoff",
                 what_stopped="a",
                 known_gaps="b",
@@ -347,22 +347,22 @@ class TestHandoffAction:
             )
         assert result.success
         assert subdir.exists()
-        assert list(subdir.glob("hemostasis-*.md"))
+        assert list(subdir.glob("thrombin-*.md"))
 
     def test_result_message_contains_path(self, tmp_path):
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", tmp_path):
-            result = hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", tmp_path):
+            result = thrombin(
                 action="handoff",
                 what_stopped="a",
                 known_gaps="b",
                 next_steps="c",
             )
         assert str(tmp_path) in result.message
-        assert result.data["path"] == str(next(tmp_path.glob("hemostasis-*.md")))
+        assert result.data["path"] == str(next(tmp_path.glob("thrombin-*.md")))
 
     def test_empty_fields_allowed(self, tmp_path):
-        with patch("metabolon.enzymes.hemostasis._HANDOFF_DIR", tmp_path):
-            result = hemostasis(
+        with patch("metabolon.enzymes.thrombin._HANDOFF_DIR", tmp_path):
+            result = thrombin(
                 action="handoff",
                 what_stopped="",
                 known_gaps="",

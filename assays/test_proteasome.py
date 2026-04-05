@@ -1,15 +1,15 @@
-"""Tests for metabolon.enzymes.catabolism."""
+"""Tests for metabolon.enzymes.proteasome."""
 
 from __future__ import annotations
 
 from unittest.mock import patch
 
-from metabolon.enzymes.catabolism import (
-    CatabolismConfirmResult,
-    CatabolismResult,
+from metabolon.enzymes.proteasome import (
+    ProteasomeConfirmResult,
+    ProteasomeResult,
     _confirm,
     _spending,
-    catabolism,
+    proteasome,
 )
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ from metabolon.enzymes.catabolism import (
 def test_spending_no_statements_no_alerts(mock_meta, mock_overdue, mock_missing):
     """When there are no statements, payments, or missing alerts, return a calm summary."""
     result = _spending()
-    assert isinstance(result, CatabolismResult)
+    assert isinstance(result, ProteasomeResult)
     assert result.statements_processed == 0
     assert result.total_alerts == 0
     assert "No new statements" in result.summary
@@ -45,7 +45,7 @@ def test_spending_digests_statements(mock_meta, mock_overdue, mock_missing):
         },
     ]
     result = _spending()
-    assert isinstance(result, CatabolismResult)
+    assert isinstance(result, ProteasomeResult)
     assert result.statements_processed == 1
     assert "SCB" in result.summary
     assert "4,321.50" in result.summary
@@ -61,7 +61,7 @@ def test_spending_digests_statements(mock_meta, mock_overdue, mock_missing):
 def test_spending_includes_payment_alerts(mock_meta, mock_overdue, mock_missing):
     """Payment alerts are surfaced in the summary and counted."""
     result = _spending()
-    assert isinstance(result, CatabolismResult)
+    assert isinstance(result, ProteasomeResult)
     assert "Payment alerts" in result.summary
     assert "MOX payment overdue" in result.summary
     assert result.total_alerts == 1
@@ -103,7 +103,7 @@ def test_confirm_removes_pending_payment(mock_dequeue):
     """Successful dequeue returns success with amount and due date."""
     mock_dequeue.return_value = {"amount": 1234.56, "due_date": "2026-04-10"}
     result = _confirm(bank="mox")
-    assert isinstance(result, CatabolismConfirmResult)
+    assert isinstance(result, ProteasomeConfirmResult)
     assert result.success is True
     assert "MOX" in result.message
     assert "1,234.56" in result.message
@@ -114,7 +114,7 @@ def test_confirm_removes_pending_payment(mock_dequeue):
 def test_confirm_no_pending_payment(mock_dequeue):
     """When nothing to dequeue, return failure message."""
     result = _confirm(bank="ccba")
-    assert isinstance(result, CatabolismConfirmResult)
+    assert isinstance(result, ProteasomeConfirmResult)
     assert result.success is False
     assert "No pending payment" in result.message
     assert "CCBA" in result.message
@@ -133,32 +133,32 @@ def test_confirm_bank_case_insensitive(mock_dequeue):
 
 
 # ---------------------------------------------------------------------------
-# catabolism dispatch
+# proteasome dispatch
 # ---------------------------------------------------------------------------
 
 
-@patch("metabolon.enzymes.catabolism._spending")
-def test_catabolism_dispatches_spending(mock_spending):
+@patch("metabolon.enzymes.proteasome._spending")
+def test_proteasome_dispatches_spending(mock_spending):
     """Action 'spending' delegates to _spending with days kwarg."""
-    mock_spending.return_value = CatabolismResult(summary="ok")
-    result = catabolism(action="spending", days=7)
+    mock_spending.return_value = ProteasomeResult(summary="ok")
+    result = proteasome(action="spending", days=7)
     mock_spending.assert_called_once_with(days=7)
-    assert isinstance(result, CatabolismResult)
+    assert isinstance(result, ProteasomeResult)
 
 
-@patch("metabolon.enzymes.catabolism._confirm")
-def test_catabolism_dispatches_confirm(mock_confirm):
+@patch("metabolon.enzymes.proteasome._confirm")
+def test_proteasome_dispatches_confirm(mock_confirm):
     """Action 'confirm' delegates to _confirm with bank kwarg."""
-    mock_confirm.return_value = CatabolismConfirmResult(success=True, message="done")
-    result = catabolism(action="confirm", bank="hsbc")
+    mock_confirm.return_value = ProteasomeConfirmResult(success=True, message="done")
+    result = proteasome(action="confirm", bank="hsbc")
     mock_confirm.assert_called_once_with(bank="hsbc")
-    assert isinstance(result, CatabolismConfirmResult)
+    assert isinstance(result, ProteasomeConfirmResult)
 
 
-def test_catabolism_unknown_action():
-    """Unknown action returns a failure CatabolismConfirmResult."""
-    result = catabolism(action="bogus")
-    assert isinstance(result, CatabolismConfirmResult)
+def test_proteasome_unknown_action():
+    """Unknown action returns a failure ProteasomeConfirmResult."""
+    result = proteasome(action="bogus")
+    assert isinstance(result, ProteasomeConfirmResult)
     assert result.success is False
     assert "Unknown action" in result.message
     assert "bogus" in result.message

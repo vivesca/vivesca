@@ -22,12 +22,6 @@ class PinocytosisResult(Secretion):
     output: str
 
 
-class EntrainmentStatusResult(Secretion):
-    signals: dict
-    recommendations: dict
-    summary: str
-
-
 def _hkt_now() -> datetime:
     return datetime.now(HKT)
 
@@ -88,7 +82,7 @@ def _read_efferens() -> str:
     try:
         import acta
 
-        messages = acta.read()  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
+        messages = getattr(acta, "read", lambda: [])()
     except Exception as exc:
         return f"Efferens unavailable: {exc}"
     if not messages:
@@ -266,7 +260,7 @@ def _overnight_list() -> PinocytosisResult:
 
 @tool(
     name="pinocytosis",
-    description="Context. Actions: morning|day|evening|weekly|overnight|results|list|polarization|entrainment",
+    description="Circadian context intake. Actions: morning|day|evening|weekly|overnight|results|list",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def pinocytosis(
@@ -274,7 +268,7 @@ def pinocytosis(
     json_output: bool = True,
     send_weather: bool = False,
     task: str = "",
-) -> PinocytosisResult | EntrainmentStatusResult | EffectorResult:
+) -> PinocytosisResult | EffectorResult:
     action = action.lower().strip()
 
     if action == "morning":
@@ -299,24 +293,10 @@ def pinocytosis(
         return _overnight_results(task)
     if action == "overnight_list":
         return _overnight_list()
-    if action == "polarization":
-        from metabolon.pinocytosis import polarization
-
-        return PinocytosisResult(output=polarization.intake(as_json=json_output))
-    if action == "entrainment_status":
-        from metabolon.organelles.entrainment import optimal_schedule, zeitgebers
-
-        signals = zeitgebers()
-        schedule = optimal_schedule(signals)
-        return EntrainmentStatusResult(
-            signals=signals,
-            recommendations=schedule["recommendations"],
-            summary=schedule["summary"],
-        )
     return EffectorResult(
         success=False,
         message=(
             "Unknown action. Valid: morning, day, evening, weekly, overnight, "
-            "overnight_results, overnight_list, polarization, entrainment_status"
+            "overnight_results, overnight_list"
         ),
     )

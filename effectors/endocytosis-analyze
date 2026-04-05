@@ -1,0 +1,550 @@
+#!/usr/bin/env python3
+"""Analyze endocytosis-cached articles: classify, rank, and extract themes.
+
+Usage:
+    endocytosis-analyze [--top N] [--topic TOPIC] [--output FILE]
+
+Reads all .json and .md files from ~/.cache/endocytosis-articles/.
+Classifies each by topic (AI, banking, regulation, technology, other).
+Outputs: (1) summary table by topic, (2) top N most relevant to
+banking AI consulting, (3) key themes across all articles.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter, defaultdict
+from pathlib import Path
+
+ARTICLE_DIR = Path.home() / ".cache" / "endocytosis-articles"
+
+TOPICS = ("AI", "banking", "regulation", "technology", "other")
+
+TOPIC_KEYWORDS: dict[str, list[str]] = {
+    "AI": [
+        "artificial intelligence",
+        "machine learning",
+        "deep learning",
+        "neural network",
+        "llm",
+        "large language model",
+        "gpt",
+        "claude",
+        "transformer",
+        "diffusion",
+        "generative ai",
+        "genai",
+        "agi",
+        "chatbot",
+        "copilot",
+        "foundation model",
+        "fine-tun",
+        "embedding",
+        "reinforcement learning",
+        "computer vision",
+        "nlp",
+        "natural language",
+        "openai",
+        "anthropic",
+        "deepseek",
+        "hugging face",
+        "model training",
+        "inference",
+        "prompt",
+        "rag",
+        "retrieval-augmented",
+        "ai agent",
+        "autonomous agent",
+        "mcp",
+        "tool use",
+        "reasoning model",
+    ],
+    "banking": [
+        "bank",
+        "financial service",
+        "fintech",
+        "lending",
+        "credit",
+        "mortgage",
+        "deposit",
+        "payment",
+        "trading",
+        "hedge fund",
+        "asset management",
+        "wealth management",
+        "insurance",
+        "risk management",
+        "compliance",
+        "capital market",
+        "loan",
+        "central bank",
+        "hsbc",
+        "jpmorgan",
+        "goldman sachs",
+        "td bank",
+        "barclays",
+        "deutsche bank",
+        "standard chartered",
+        "cba",
+        "anz bank",
+        "digital banking",
+        "neobank",
+        "open banking",
+        "fraud detect",
+    ],
+    "regulation": [
+        "regulation",
+        "regulatory",
+        "compliance",
+        "governance",
+        "legislation",
+        "eu ai act",
+        "ai act",
+        "gdpr",
+        "data protection",
+        "privacy law",
+        "fca",
+        "sec ",
+        "eba",
+        "hkma",
+        "mas",
+        "osfi",
+        "fed governor",
+        "supervision",
+        "enforcement",
+        "policy framework",
+        "consultation",
+        "draft regulation",
+        "rulemaking",
+        "congress",
+        "parliament",
+        "algorithmic accountability",
+        "model risk management",
+        "sr 11-7",
+        "stress test",
+        "systemically important",
+    ],
+    "technology": [
+        "kubernetes",
+        "docker",
+        "cloud",
+        "devops",
+        "software engineer",
+        "programming",
+        "open source",
+        "api",
+        "microservice",
+        "database",
+        "rust ",
+        "python ",
+        "javascript",
+        "typescript",
+        "golang",
+        "framework",
+        "compiler",
+        "debugging",
+        "benchmark",
+        "scalability",
+        "infrastructure",
+        "serverless",
+        "edge computing",
+        "webassembly",
+        "linux",
+        "git",
+        "ci/cd",
+        "monitoring",
+        "observability",
+    ],
+}
+
+
+def classify_topic(title: str, source: str, text: str) -> str:
+    """Classify an article into one of the defined topics.
+
+    Scores each topic by counting keyword matches in the combined
+    title + source + first 2000 chars of text.  Returns the highest
+    scoring topic, or 'other' if no keywords match.
+    """
+    text = text or ""
+    blob = f"{title} {source} {text[:2000]}".lower()
+    scores: dict[str, int] = {}
+    for topic, keywords in TOPIC_KEYWORDS.items():
+        score = sum(blob.count(kw.lower()) for kw in keywords)
+        scores[topic] = score
+    best = max(scores, key=lambda t: scores[t])
+    if scores[best] == 0:
+        return "other"
+    return best
+
+
+def relevance_score(title: str, source: str, text: str) -> float:
+    """Score an article's relevance to *banking AI consulting*.
+
+    Banking keywords count 2x, AI keywords count 1.5x, regulation 1x.
+    Source bonus for known finance/AI outlets.
+    """
+    text = text or ""
+    blob = f"{title} {source} {text[:3000]}".lower()
+
+    banking_kw = [
+        "bank",
+        "financial service",
+        "fintech",
+        "lending",
+        "credit",
+        "trading",
+        "asset management",
+        "wealth management",
+        "risk management",
+        "compliance",
+        "capital market",
+        "hsbc",
+        "jpmorgan",
+        "td bank",
+        "hkma",
+        "fca",
+        "eba",
+        "insurance",
+        "mortgage",
+        "payment",
+    ]
+    ai_kw = [
+        "artificial intelligence",
+        "machine learning",
+        "deep learning",
+        "llm",
+        "large language model",
+        "gpt",
+        "claude",
+        "transformer",
+        "generative ai",
+        "genai",
+        "agi",
+        "foundation model",
+        "ai agent",
+        "copilot",
+        "chatbot",
+        "prompt",
+        "rag",
+        "ai governance",
+    ]
+    reg_kw = [
+        "regulation",
+        "ai act",
+        "governance",
+        "model risk",
+        "algorithmic accountability",
+        "supervision",
+        "policy",
+    ]
+
+    score = 0.0
+    score += 2.0 * sum(blob.count(kw) for kw in banking_kw)
+    score += 1.5 * sum(blob.count(kw) for kw in ai_kw)
+    score += 1.0 * sum(blob.count(kw) for kw in reg_kw)
+
+    source_lower = source.lower()
+    source_bonus = {
+        "layer 6": 5,
+        "td bank": 5,
+        "hkma": 6,
+        "fca": 6,
+        "eba": 6,
+        "evident": 5,
+        "norton rose": 4,
+        "aqr": 3,
+        "银行科技": 6,
+        "quantum": 2,
+    }
+    for hint, bonus in source_bonus.items():
+        if hint in source_lower:
+            score += bonus
+
+    return score
+
+
+def extract_themes(articles: list[dict], top_n: int = 15) -> list[tuple[str, int]]:
+    """Extract recurring themes across articles via keyword frequency.
+
+    Returns the top *top_n* (theme, count) pairs sorted by count desc.
+    """
+    theme_patterns: list[tuple[str, str]] = [
+        (
+            "Trustworthy AI / AI ethics",
+            r"\b(?:trustworthy ai|ai ethics|responsible ai|ai fairness|ai bias|ai safety|ai alignment)\b",
+        ),
+        (
+            "Generative AI / LLMs",
+            r"\b(?:generative ai|large language model|llm|gpt|claude|foundation model|chatgpt|openai o[13]|reasoning model)\b",
+        ),
+        (
+            "AI in banking / finance",
+            r"\b(?:ai in bank|bank.*ai|ai.*bank|financial.*ai|ai.*fintech|ai.*trading|ai.*risk|ai.*compliance|ai.*fraud)\b",
+        ),
+        (
+            "AI regulation / governance",
+            r"\b(?:ai act|ai regulation|ai governance|algorithmic accountability|model risk management|ai policy|ai legislation)\b",
+        ),
+        (
+            "Banking regulation",
+            r"\b(?:basel|capital requirement|stress test|prudential|systemically important|banking supervision)\b",
+        ),
+        (
+            "Machine learning ops",
+            r"\b(?:mlops|model deployment|model monitor|feature store|data pipeline|training pipeline)\b",
+        ),
+        (
+            "Startup / venture",
+            r"\b(?:startup|venture capital|series [a-d]|funding round|y combinator|seed round|unicorn)\b",
+        ),
+        (
+            "Open source AI",
+            r"\b(?:open source model|open weight|hugging face|llama|mistral|deepseek|qwen)\b",
+        ),
+        (
+            "AI agents / automation",
+            r"\b(?:ai agent|autonomous agent|agentic|tool use|mcp|computer use|workflow automation)\b",
+        ),
+        (
+            "Cybersecurity",
+            r"\b(?:cybersecurity|data breach|ransomware|zero.?day|vulnerability|penetration test|security incident)\b",
+        ),
+        (
+            "Cloud / infrastructure",
+            r"\b(?:cloud computing|kubernetes|serverless|microservice|infrastructure as code)\b",
+        ),
+        (
+            "Data privacy",
+            r"\b(?:differential privacy|gdpr|data protection|privacy.?preserving|federated learning)\b",
+        ),
+        ("HKMA / HK regulation", r"\b(?:hkma|hong kong monetary|hkma.*ai|hkma.*fintech)\b"),
+        (
+            "Coding / developer tools",
+            r"\b(?:copilot|code generation|developer tool|ide|cursor|vscode|code completion)\b",
+        ),
+        (
+            "Investment / markets",
+            r"\b(?:hedge fund|portfolio|alpha|quantitative|factor investing|market neutral)\b",
+        ),
+    ]
+
+    all_text = " ".join(f"{a['title']} {(a.get('text') or '')[:1500]}" for a in articles).lower()
+
+    theme_counts: list[tuple[str, int]] = []
+    for label, pattern in theme_patterns:
+        count = len(re.findall(pattern, all_text, re.IGNORECASE))
+        if count > 0:
+            theme_counts.append((label, count))
+
+    theme_counts.sort(key=lambda x: x[1], reverse=True)
+    return theme_counts[:top_n]
+
+
+def load_articles(article_dir: Path) -> list[dict]:
+    """Load all .json and .md files from the article directory.
+
+    Returns a list of dicts with keys: file, title, source, date,
+    snippet, text, topic, relevance.
+    """
+    articles: list[dict] = []
+
+    if not article_dir.is_dir():
+        print(f"Error: article directory not found: {article_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    for path in sorted(article_dir.iterdir()):
+        if path.suffix == ".json":
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as exc:
+                print(f"Warning: skipping {path.name}: {exc}", file=sys.stderr)
+                continue
+            title = raw.get("title", path.stem)
+            source = raw.get("source", "unknown")
+            date = raw.get("date", "unknown")
+            text = raw.get("text") or ""
+            snippet = text[:200].strip().replace("\n", " ") if text else ""
+            articles.append(
+                {
+                    "file": path.name,
+                    "title": title,
+                    "source": source,
+                    "date": date,
+                    "snippet": snippet,
+                    "text": text,
+                }
+            )
+
+        elif path.suffix == ".md":
+            try:
+                content = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                print(f"Warning: skipping {path.name}: {exc}", file=sys.stderr)
+                continue
+            lines = content.splitlines()
+            title = lines[0].lstrip("# ").strip() if lines else path.stem
+            date_match = re.search(r"\d{4}-\d{2}-\d{2}", path.name)
+            date = date_match.group(0) if date_match else "unknown"
+            source = "markdown"
+            text = content
+            snippet = text[:200].strip().replace("\n", " ")
+            articles.append(
+                {
+                    "file": path.name,
+                    "title": title,
+                    "source": source,
+                    "date": date,
+                    "snippet": snippet,
+                    "text": text,
+                }
+            )
+
+    return articles
+
+
+def format_summary_table(articles: list[dict]) -> str:
+    """Format the topic summary table."""
+    topic_counts: dict[str, int] = Counter(a["topic"] for a in articles)
+    topic_sources: dict[str, set[str]] = defaultdict(set)
+    for a in articles:
+        topic_sources[a["topic"]].add(a["source"])
+
+    lines = []
+    lines.append("=" * 72)
+    lines.append("ENDOCYTOSIS ARTICLE ANALYSIS SUMMARY")
+    lines.append("=" * 72)
+    lines.append(f"Total articles: {len(articles)}")
+    lines.append(f"Unique sources: {len({a['source'] for a in articles})}")
+    lines.append("")
+    lines.append(f"{'Topic':<15} {'Count':>6} {'  Pct':>6}  Top sources")
+    lines.append("-" * 72)
+    for topic in TOPICS:
+        cnt = topic_counts.get(topic, 0)
+        pct = 100.0 * cnt / len(articles) if articles else 0
+        top_src = Counter(topic_sources.get(topic, set())).most_common(3)
+        src_str = ", ".join(f"{s} ({c})" for s, c in top_src) if top_src else "-"
+        lines.append(f"{topic:<15} {cnt:>6} {pct:>5.1f}%  {src_str}")
+    lines.append("-" * 72)
+    return "\n".join(lines)
+
+
+def format_top_articles(articles: list[dict], top_n: int) -> str:
+    """Format the top N articles ranked by banking-AI relevance."""
+    ranked = sorted(articles, key=lambda a: a["relevance"], reverse=True)
+    top = ranked[:top_n]
+
+    lines = []
+    lines.append("")
+    lines.append("=" * 72)
+    lines.append(f"TOP {len(top)} ARTICLES — BANKING AI CONSULTING RELEVANCE")
+    lines.append("=" * 72)
+    for i, a in enumerate(top, 1):
+        lines.append(f"\n{i:>3}. [{a['relevance']:.0f}] {a['title']}")
+        lines.append(f"     Source: {a['source']}  |  Date: {a['date']}")
+        lines.append(f"     Topic: {a['topic']}")
+        if a["snippet"]:
+            lines.append(f"     Snippet: {a['snippet'][:160]}...")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_themes(themes: list[tuple[str, int]]) -> str:
+    """Format the key themes section."""
+    lines = []
+    lines.append("=" * 72)
+    lines.append("KEY THEMES ACROSS ALL ARTICLES")
+    lines.append("=" * 72)
+    if not themes:
+        lines.append("(no significant themes detected)")
+    else:
+        max_count = themes[0][1] if themes else 1
+        for label, count in themes:
+            bar_len = int(40 * count / max_count)
+            bar = "█" * bar_len
+            lines.append(f"  {label:<35} {count:>5}  {bar}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Analyze endocytosis-cached articles by topic and relevance.",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=20,
+        help="Number of top-ranked articles to show (default: 20)",
+    )
+    parser.add_argument(
+        "--topic",
+        type=str,
+        default=None,
+        help="Filter to a single topic (AI, banking, regulation, technology, other)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Write output to FILE instead of stdout",
+    )
+    parser.add_argument(
+        "--dir",
+        type=str,
+        default=None,
+        help="Override article directory (default: ~/.cache/endocytosis-articles/)",
+    )
+    return parser
+
+
+def main() -> None:
+    """Main entry point."""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    article_dir = Path(args.dir) if args.dir else ARTICLE_DIR
+    articles = load_articles(article_dir)
+
+    if not articles:
+        print("No articles found.", file=sys.stderr)
+        sys.exit(0)
+
+    # Classify and score every article.
+    for a in articles:
+        a["topic"] = classify_topic(a["title"], a["source"], a["text"])
+        a["relevance"] = relevance_score(a["title"], a["source"], a["text"])
+
+    # Filter by topic if requested.
+    if args.topic:
+        normalized = args.topic.lower()
+        topic_map = {t.lower(): t for t in TOPICS}
+        if normalized not in topic_map:
+            print(
+                f"Error: unknown topic '{args.topic}'. Choose from: {', '.join(TOPICS)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        chosen = topic_map[normalized]
+        articles = [a for a in articles if a["topic"] == chosen]
+
+    # Build report sections.
+    sections = [
+        format_summary_table(articles),
+        format_top_articles(articles, args.top),
+        format_themes(extract_themes(articles)),
+    ]
+    report = "\n".join(sections)
+
+    if args.output:
+        Path(args.output).write_text(report, encoding="utf-8")
+        print(f"Report written to {args.output}")
+    else:
+        print(report)
+
+
+if __name__ == "__main__":
+    main()

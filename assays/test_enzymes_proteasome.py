@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-"""Tests for metabolon/enzymes/catabolism.py"""
+"""Tests for metabolon/enzymes/proteasome.py"""
 
 
 from unittest.mock import patch
 
-from metabolon.enzymes.catabolism import (
-    CatabolismConfirmResult,
-    CatabolismResult,
+from metabolon.enzymes.proteasome import (
+    ProteasomeConfirmResult,
+    ProteasomeResult,
     _confirm,
     _spending,
-    catabolism,
+    proteasome,
 )
 
 # Imports are lazy (inside function bodies), so we patch at the source module.
@@ -32,7 +32,7 @@ class TestSpending:
     def test_no_statements_no_alerts(self, mock_metabolize, mock_flag, mock_missing):
         result = _spending()
 
-        assert isinstance(result, CatabolismResult)
+        assert isinstance(result, ProteasomeResult)
         assert "No new statements found" in result.summary
         assert result.statements_processed == 0
         assert result.total_alerts == 0
@@ -183,7 +183,7 @@ class TestConfirm:
 
         result = _confirm("SCB")
 
-        assert isinstance(result, CatabolismConfirmResult)
+        assert isinstance(result, ProteasomeConfirmResult)
         assert result.success is True
         assert "SCB" in result.message
         assert "5,432.10" in result.message
@@ -195,7 +195,7 @@ class TestConfirm:
 
         result = _confirm("mox")
 
-        assert isinstance(result, CatabolismConfirmResult)
+        assert isinstance(result, ProteasomeConfirmResult)
         assert result.success is False
         assert "No pending payment" in result.message
         assert "MOX" in result.message
@@ -213,35 +213,35 @@ class TestConfirm:
 
 
 # ---------------------------------------------------------------------------
-# catabolism dispatch
+# proteasome dispatch
 # ---------------------------------------------------------------------------
 
 
-class TestCatabolismDispatch:
-    """Tests for the top-level catabolism tool dispatch."""
+class TestProteasomeDispatch:
+    """Tests for the top-level proteasome tool dispatch."""
 
-    @patch("metabolon.enzymes.catabolism._spending")
+    @patch("metabolon.enzymes.proteasome._spending")
     def test_spending_action(self, mock_spend):
-        mock_spend.return_value = CatabolismResult(summary="ok", statements_processed=1)
+        mock_spend.return_value = ProteasomeResult(summary="ok", statements_processed=1)
 
-        result = catabolism(action="spending", days=60)
+        result = proteasome(action="spending", days=60)
 
         mock_spend.assert_called_once_with(days=60)
-        assert isinstance(result, CatabolismResult)
+        assert isinstance(result, ProteasomeResult)
 
-    @patch("metabolon.enzymes.catabolism._confirm")
+    @patch("metabolon.enzymes.proteasome._confirm")
     def test_confirm_action(self, mock_conf):
-        mock_conf.return_value = CatabolismConfirmResult(success=True, message="done")
+        mock_conf.return_value = ProteasomeConfirmResult(success=True, message="done")
 
-        result = catabolism(action="confirm", bank="mox")
+        result = proteasome(action="confirm", bank="mox")
 
         mock_conf.assert_called_once_with(bank="mox")
         assert result.success is True
 
     def test_unknown_action(self):
-        result = catabolism(action="bogus")
+        result = proteasome(action="bogus")
 
-        assert isinstance(result, CatabolismConfirmResult)
+        assert isinstance(result, ProteasomeConfirmResult)
         assert result.success is False
         assert "Unknown action" in result.message
         assert "bogus" in result.message

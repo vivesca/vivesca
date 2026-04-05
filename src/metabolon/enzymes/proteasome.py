@@ -1,7 +1,7 @@
 """spending -- catabolic metabolism of credit card statements.
 
 Tools:
-  catabolism -- parse statements, summarise spending, flag issues, confirm payments
+  proteasome -- parse statements, summarise spending, flag issues, confirm payments
 """
 
 from fastmcp.tools.function_tool import tool
@@ -15,7 +15,7 @@ SPENDING_DIR = spending
 PAYMENTS_FILE = SPENDING_DIR / "payments.yaml"
 
 
-class CatabolismResult(Secretion):
+class ProteasomeResult(Secretion):
     """Product of catabolic spending digestion."""
 
     summary: str
@@ -24,11 +24,11 @@ class CatabolismResult(Secretion):
     details: list[dict] = Field(default_factory=list)
 
 
-class CatabolismConfirmResult(EffectorResult):
+class ProteasomeConfirmResult(EffectorResult):
     """Result of confirming a catabolic payment."""
 
 
-def _spending(days: int = 30) -> CatabolismResult:
+def _spending(days: int = 30) -> ProteasomeResult:
     """Catabolic digestion of credit card statements.
 
     Args:
@@ -45,7 +45,7 @@ def _spending(days: int = 30) -> CatabolismResult:
     missing_alerts = assess_missing_statements(config_file, SPENDING_DIR)
 
     if not results and not payment_alerts and not missing_alerts:
-        return CatabolismResult(summary="No new statements found. All cards accounted for.")
+        return ProteasomeResult(summary="No new statements found. All cards accounted for.")
 
     degraded = [r for r in results if "error" in r]
     digested = [r for r in results if "error" not in r]
@@ -96,7 +96,7 @@ def _spending(days: int = 30) -> CatabolismResult:
             parts.append("Alerts:")
             parts.extend(f"  - {a}" for a in monitor_alerts)
 
-    return CatabolismResult(
+    return ProteasomeResult(
         summary="\n".join(parts),
         statements_processed=len(digested),
         total_alerts=len(all_alerts),
@@ -104,7 +104,7 @@ def _spending(days: int = 30) -> CatabolismResult:
     )
 
 
-def _confirm(bank: str) -> CatabolismConfirmResult:
+def _confirm(bank: str) -> ProteasomeConfirmResult:
     """Confirm catabolic payment — remove pending entry.
 
     Args:
@@ -116,14 +116,14 @@ def _confirm(bank: str) -> CatabolismConfirmResult:
     removed = dequeue_payment(PAYMENTS_FILE, bank)
 
     if removed is None:
-        return CatabolismConfirmResult(
+        return ProteasomeConfirmResult(
             success=False,
             message=f"No pending payment found for {bank.upper()}.",
         )
 
     amount = removed.get("amount", 0)
     due_date = removed.get("due_date", "unknown")
-    return CatabolismConfirmResult(
+    return ProteasomeConfirmResult(
         success=True,
         message=(
             f"Payment confirmed: {bank.upper()} HKD {amount:,.2f} "
@@ -133,15 +133,15 @@ def _confirm(bank: str) -> CatabolismConfirmResult:
 
 
 @tool(
-    name="catabolism",
+    name="proteasome",
     description="Financial tracking. Actions: spending|confirm",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def catabolism(
+def proteasome(
     action: str,
     days: int = 30,
     bank: str = "",
-) -> CatabolismResult | CatabolismConfirmResult:
+) -> ProteasomeResult | ProteasomeConfirmResult:
     """Financial tracking — spending summaries and payment confirmation.
 
     Args:
@@ -154,7 +154,7 @@ def catabolism(
     elif action == "confirm":
         return _confirm(bank=bank)
     else:
-        return CatabolismConfirmResult(
+        return ProteasomeConfirmResult(
             success=False,
             message=f"Unknown action '{action}'. Use spending or confirm.",
         )

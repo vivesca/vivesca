@@ -4,11 +4,11 @@
 # dependencies = ["requests"]
 # ///
 """
-lysis — burn through bot protection and JS rendering, return clean markdown.
+lysozyme — burn through bot protection and JS rendering, return clean markdown.
 
 Usage:
-  lysis <url>             scrape a URL → markdown
-  lysis search <query>    web search + scrape results → markdown
+  lysozyme <url>             scrape a URL → markdown
+  lysozyme search <query>    web search + scrape results → markdown
 """
 
 import json
@@ -81,7 +81,7 @@ def main() -> None:
     key = get_api_key()
     if args[0] == "search":
         if len(args) < 2:
-            print("Usage: lysis search <query>", file=sys.stderr)
+            print("Usage: lysozyme search <query>", file=sys.stderr)
             sys.exit(1)
         search(" ".join(args[1:]), key)
     else:

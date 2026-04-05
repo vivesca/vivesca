@@ -447,7 +447,7 @@ def _looks_like_gene(term: str) -> bool:
         "ance",
         "ence",
         "ism",
-        "lysis",
+        "lysozyme",
         "trophy",
         "plasia",
         "kinesis",

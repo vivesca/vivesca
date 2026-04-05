@@ -1,4 +1,4 @@
-"""Tests for metabolon/enzymes/hemostasis.py"""
+"""Tests for metabolon/enzymes/thrombin.py"""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ from unittest.mock import MagicMock, patch
 
 
 class TestPsAction:
-    """Tests for the 'ps' action of hemostasis."""
+    """Tests for the 'ps' action of thrombin."""
 
     def test_ps_returns_matching_processes(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.stdout = "1234 /usr/bin/python app.py\n5678 /usr/bin/python worker.py\n"
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result):
-            result = hemostasis(action="ps", pattern="python")
+        with patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result):
+            result = thrombin(action="ps", pattern="python")
 
         assert result.count == 2
         assert result.matches == [
@@ -24,12 +24,12 @@ class TestPsAction:
         assert "python" in result.summary
 
     def test_ps_no_matches(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.stdout = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result):
-            result = hemostasis(action="ps", pattern="nonexistent_xyz")
+        with patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result):
+            result = thrombin(action="ps", pattern="nonexistent_xyz")
 
         assert result.count == 0
         assert result.matches == []
@@ -38,72 +38,72 @@ class TestPsAction:
     def test_ps_timeout_returns_empty(self):
         import subprocess
 
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         with patch(
-            "metabolon.enzymes.hemostasis.subprocess.run",
+            "metabolon.enzymes.thrombin.subprocess.run",
             side_effect=subprocess.TimeoutExpired("pgrep", 5),
         ):
-            result = hemostasis(action="ps", pattern="slow_proc")
+            result = thrombin(action="ps", pattern="slow_proc")
 
         assert result.count == 0
         assert result.matches == []
 
     def test_ps_strips_blank_lines(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.stdout = "1234 proc1\n\n\n5678 proc2\n\n"
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result):
-            result = hemostasis(action="ps", pattern="proc")
+        with patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result):
+            result = thrombin(action="ps", pattern="proc")
 
         assert result.count == 2
 
 
 class TestKillAction:
-    """Tests for the 'kill' action of hemostasis."""
+    """Tests for the 'kill' action of thrombin."""
 
     def test_kill_success(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result):
-            result = hemostasis(action="kill", pattern="rogue_proc", signal="TERM")
+        with patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result):
+            result = thrombin(action="kill", pattern="rogue_proc", signal="TERM")
 
         assert result.success is True
         assert "TERM" in result.message
         assert "rogue_proc" in result.message
 
     def test_kill_no_match(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stderr = ""
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result):
-            result = hemostasis(action="kill", pattern="nonexistent")
+        with patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result):
+            result = thrombin(action="kill", pattern="nonexistent")
 
         assert result.success is False
         assert "No processes found" in result.message
 
     def test_kill_pkill_error(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 2
         mock_result.stderr = "permission denied"
-        with patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result):
-            result = hemostasis(action="kill", pattern="something")
+        with patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result):
+            result = thrombin(action="kill", pattern="something")
 
         assert result.success is False
         assert "pkill error" in result.message
 
     def test_kill_invalid_signal(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
-        result = hemostasis(action="kill", pattern="proc", signal="BADSIG")
+        result = thrombin(action="kill", pattern="proc", signal="BADSIG")
 
         assert result.success is False
         assert "Invalid signal" in result.message
@@ -111,27 +111,27 @@ class TestKillAction:
     def test_kill_timeout(self):
         import subprocess
 
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         with patch(
-            "metabolon.enzymes.hemostasis.subprocess.run",
+            "metabolon.enzymes.thrombin.subprocess.run",
             side_effect=subprocess.TimeoutExpired("pkill", 10),
         ):
-            result = hemostasis(action="kill", pattern="hung_proc")
+            result = thrombin(action="kill", pattern="hung_proc")
 
         assert result.success is False
         assert "timed out" in result.message
 
     def test_kill_accepts_valid_signals(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
         with patch(
-            "metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result
+            "metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result
         ) as mock_run:
-            result = hemostasis(action="kill", pattern="proc", signal="KILL")
+            result = thrombin(action="kill", pattern="proc", signal="KILL")
 
         assert result.success is True
         mock_run.assert_called_once_with(
@@ -143,20 +143,20 @@ class TestKillAction:
 
 
 class TestLaunchagentAction:
-    """Tests for the 'launchagent' action of hemostasis."""
+    """Tests for the 'launchagent' action of thrombin."""
 
     def test_unload_success(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
         with (
-            patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result),
-            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
-            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+            patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result),
+            patch("metabolon.enzymes.thrombin.Path.exists", return_value=True),
+            patch("metabolon.enzymes.thrombin.platform.system", return_value="Darwin"),
         ):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.example.agent.plist",
                 launchagent_action="unload",
@@ -166,17 +166,17 @@ class TestLaunchagentAction:
         assert "Unloaded" in result.message
 
     def test_load_success(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stderr = ""
         with (
-            patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result),
-            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
-            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+            patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result),
+            patch("metabolon.enzymes.thrombin.Path.exists", return_value=True),
+            patch("metabolon.enzymes.thrombin.platform.system", return_value="Darwin"),
         ):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.example.agent.plist",
                 launchagent_action="load",
@@ -186,13 +186,13 @@ class TestLaunchagentAction:
         assert "Loaded" in result.message
 
     def test_plist_not_found(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         with (
-            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=False),
-            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+            patch("metabolon.enzymes.thrombin.Path.exists", return_value=False),
+            patch("metabolon.enzymes.thrombin.platform.system", return_value="Darwin"),
         ):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path="/nonexistent/plist.plist",
             )
@@ -201,13 +201,13 @@ class TestLaunchagentAction:
         assert "not found" in result.message.lower()
 
     def test_invalid_launchagent_action(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         with (
-            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
-            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+            patch("metabolon.enzymes.thrombin.Path.exists", return_value=True),
+            patch("metabolon.enzymes.thrombin.platform.system", return_value="Darwin"),
         ):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
                 launchagent_action="restart",
@@ -217,17 +217,17 @@ class TestLaunchagentAction:
         assert "Invalid action" in result.message
 
     def test_launchctl_failure(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stderr = "operation not permitted"
         with (
-            patch("metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result),
-            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
-            patch("metabolon.enzymes.hemostasis.platform.system", return_value="Darwin"),
+            patch("metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result),
+            patch("metabolon.enzymes.thrombin.Path.exists", return_value=True),
+            patch("metabolon.enzymes.thrombin.platform.system", return_value="Darwin"),
         ):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
                 launchagent_action="unload",
@@ -239,16 +239,16 @@ class TestLaunchagentAction:
     def test_launchagent_timeout(self):
         import subprocess
 
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         with (
             patch(
-                "metabolon.enzymes.hemostasis.subprocess.run",
+                "metabolon.enzymes.thrombin.subprocess.run",
                 side_effect=subprocess.TimeoutExpired("launchctl", 15),
             ),
-            patch("metabolon.enzymes.hemostasis.Path.exists", return_value=True),
+            patch("metabolon.enzymes.thrombin.Path.exists", return_value=True),
         ):
-            result = hemostasis(
+            result = thrombin(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
             )
@@ -258,10 +258,10 @@ class TestLaunchagentAction:
 
     def test_launchagent_non_darwin_rejected(self):
         """On non-Darwin platforms, launchagent action should be rejected."""
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
-        with patch("metabolon.enzymes.hemostasis.platform.system", return_value="Linux"):
-            result = hemostasis(
+        with patch("metabolon.enzymes.thrombin.platform.system", return_value="Linux"):
+            result = thrombin(
                 action="launchagent",
                 plist_path="/Library/LaunchAgents/com.test.plist",
                 launchagent_action="unload",
@@ -273,14 +273,14 @@ class TestLaunchagentAction:
 
 
 class TestHandoffAction:
-    """Tests for the 'handoff' action of hemostasis."""
+    """Tests for the 'handoff' action of thrombin."""
 
     def test_writes_handoff_note(self, tmp_path):
-        from metabolon.enzymes import hemostasis as mod
+        from metabolon.enzymes import thrombin as mod
 
-        handoff_dir = tmp_path / "Hemostasis"
+        handoff_dir = tmp_path / "Thrombin"
         with patch.object(mod, "_HANDOFF_DIR", handoff_dir):
-            result = mod.hemostasis(
+            result = mod.thrombin(
                 action="handoff",
                 what_stopped="Rogue worker process",
                 known_gaps="Redis still flaky",
@@ -291,23 +291,23 @@ class TestHandoffAction:
         assert "Handoff note written" in result.message
 
         # Verify file was created
-        files = list(handoff_dir.glob("hemostasis-*.md"))
+        files = list(handoff_dir.glob("thrombin-*.md"))
         assert len(files) == 1
 
         content = files[0].read_text()
         assert "Rogue worker process" in content
         assert "Redis still flaky" in content
         assert "Restart workers after Redis fix" in content
-        assert "hemostasis-handoff" in content
+        assert "thrombin-handoff" in content
 
     def test_handoff_creates_directory(self, tmp_path):
-        from metabolon.enzymes import hemostasis as mod
+        from metabolon.enzymes import thrombin as mod
 
-        handoff_dir = tmp_path / "nested" / "Hemostasis"
+        handoff_dir = tmp_path / "nested" / "Thrombin"
         assert not handoff_dir.exists()
 
         with patch.object(mod, "_HANDOFF_DIR", handoff_dir):
-            result = mod.hemostasis(
+            result = mod.thrombin(
                 action="handoff",
                 what_stopped="test",
                 known_gaps="none",
@@ -322,22 +322,22 @@ class TestUnknownAction:
     """Tests for unknown/invalid actions."""
 
     def test_unknown_action_returns_error(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
-        result = hemostasis(action="foobar")
+        result = thrombin(action="foobar")
 
         assert result.success is False
         assert "Unknown action" in result.message
 
     def test_action_is_case_insensitive(self):
-        from metabolon.enzymes.hemostasis import hemostasis
+        from metabolon.enzymes.thrombin import thrombin
 
         mock_result = MagicMock()
         mock_result.stdout = ""
         with patch(
-            "metabolon.enzymes.hemostasis.subprocess.run", return_value=mock_result
+            "metabolon.enzymes.thrombin.subprocess.run", return_value=mock_result
         ) as mock_run:
-            result = hemostasis(action="PS", pattern="test")
+            result = thrombin(action="PS", pattern="test")
 
         assert result.count == 0
         mock_run.assert_called_once()

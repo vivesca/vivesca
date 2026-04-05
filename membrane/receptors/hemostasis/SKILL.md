@@ -1,14 +1,14 @@
 ---
-name: hemostasis
+name: thrombin
 description: Emergency stop — halt bleeding, don't fix root cause. "stop the bleeding"
 user_invocable: true
 model: sonnet
 context: fork
 ---
 
-# Hemostasis — Clot First, Heal Later
+# Thrombin — Clot First, Heal Later
 
-Hemostasis is the body's emergency bleeding response. It doesn't heal the wound — it stops the loss long enough for healing to begin. Platelets aggregate, clot forms, bleeding stops. Repair comes later.
+Thrombin is the body's emergency bleeding response. It doesn't heal the wound — it stops the loss long enough for healing to begin. Platelets aggregate, clot forms, bleeding stops. Repair comes later.
 
 This skill is not debugging. It is not root cause analysis. It is not fixing. It is: stop the organism from losing more than it already has.
 
@@ -20,7 +20,7 @@ This skill is not debugging. It is not root cause analysis. It is not fixing. It
 - A service is down and taking dependent services with it
 - You don't know what's wrong yet but you know it's getting worse
 
-## The Hemostasis Protocol
+## The Thrombin Protocol
 
 ### Phase 1 — Tourniquet (< 2 minutes)
 
@@ -57,14 +57,14 @@ Apply secondary clots as needed.
 
 ### Phase 3 — Handoff note
 
-Before leaving hemostasis mode, write three lines:
+Before leaving thrombin mode, write three lines:
 1. What was stopped and why
 2. What is currently broken as a result (known gaps)
 3. What the next person (or future session) needs to do to resume
 
-Do not skip this. Hemostasis without a handoff note causes secondary hemorrhage when someone unknowingly restarts the stopped process.
+Do not skip this. Thrombin without a handoff note causes secondary hemorrhage when someone unknowingly restarts the stopped process.
 
-## What Hemostasis Is Not
+## What Thrombin Is Not
 
 - Not root cause analysis (that's palpation or auscultation)
 - Not cleanup (that's debridement)
@@ -74,4 +74,4 @@ Do not skip this. Hemostasis without a handoff note causes secondary hemorrhage 
 
 - **Diagnosing while bleeding:** spending 20 minutes understanding the problem while the damage compounds. Stop first, understand second.
 - **Overtightening the tourniquet:** shutting down more than necessary. Match clot to wound. Don't kill the organism to save it.
-- **No handoff note:** hemostasis without documentation leaves the wound reopenable.
+- **No handoff note:** thrombin without documentation leaves the wound reopenable.

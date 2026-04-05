@@ -53,8 +53,8 @@ async def test_handshake():
 
         expected_tools = [
             "anabolism_flywheel",
-            "catabolism_confirm",
-            "catabolism_spending",
+            "proteasome_confirm",
+            "proteasome_spending",
             "checkpoint_delete",
             "checkpoint_list",
             "checkpoint_move",

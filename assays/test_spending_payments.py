@@ -281,9 +281,9 @@ class TestConfirmPaymentTool:
         assert dequeue_payment(pf, "ccba") is None
 
 
-class TestCatabolismConfirmResultType:
+class TestProteasomeConfirmResultType:
     def test_result_is_effector_result(self):
-        from metabolon.enzymes.catabolism import CatabolismConfirmResult
+        from metabolon.enzymes.proteasome import ProteasomeConfirmResult
         from metabolon.morphology import EffectorResult
 
-        assert issubclass(CatabolismConfirmResult, EffectorResult)
+        assert issubclass(ProteasomeConfirmResult, EffectorResult)

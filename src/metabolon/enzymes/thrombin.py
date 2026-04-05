@@ -1,6 +1,6 @@
-"""hemostasis — Emergency stabilization: stop the bleeding.
+"""thrombin — Emergency stabilization: stop the bleeding.
 
-Deterministic triage tools for the hemostasis skill:
+Deterministic triage tools for the thrombin skill:
 - List processes matching a pattern (tourniquet candidates)
 - Kill a process by name (pkill)
 - Unload / load a LaunchAgent by plist path
@@ -21,7 +21,7 @@ from mcp.types import ToolAnnotations
 from metabolon.locus import chromatin
 from metabolon.morphology import EffectorResult, Secretion
 
-_HANDOFF_DIR = chromatin / "System" / "Hemostasis"
+_HANDOFF_DIR = chromatin / "System" / "Thrombin"
 
 
 class ProcessListResult(Secretion):
@@ -37,11 +37,11 @@ _ACTIONS = "ps|kill|launchagent|handoff — emergency process stabilization"
 
 
 @tool(
-    name="hemostasis",
+    name="thrombin",
     description="Emergency stabilization. Actions: ps|kill|launchagent|handoff",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
-def hemostasis(
+def thrombin(
     action: str,
     pattern: str = "",
     signal: str = "TERM",
@@ -57,7 +57,7 @@ def hemostasis(
       ps          List running processes matching a pattern (tourniquet candidates).
       kill        Kill processes matching a name (pkill -f).
       launchagent Load or unload a LaunchAgent plist.
-      handoff     Write a hemostasis handoff note.
+      handoff     Write a thrombin handoff note.
     """
     action = action.lower().strip()
 
@@ -187,15 +187,15 @@ def hemostasis(
         _HANDOFF_DIR.mkdir(parents=True, exist_ok=True)
 
         now = datetime.datetime.now()
-        filename = now.strftime("hemostasis-%Y-%m-%d-%H%M.md")
+        filename = now.strftime("thrombin-%Y-%m-%d-%H%M.md")
         path = _HANDOFF_DIR / filename
 
         content = f"""---
 created: {now.strftime("%Y-%m-%d %H:%M")}
-type: hemostasis-handoff
+type: thrombin-handoff
 ---
 
-# Hemostasis Handoff — {now.strftime("%Y-%m-%d %H:%M")}
+# Thrombin Handoff — {now.strftime("%Y-%m-%d %H:%M")}
 
 ## What Was Stopped
 {what_stopped}
