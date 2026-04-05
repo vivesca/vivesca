@@ -186,3 +186,49 @@ web_sources:
     # Category: research/academic — model releases and research summaries
     rss: https://huggingface.co/blog/feed.xml
     url: https://huggingface.co/blog
+
+  # --- Added 2026-04-05 after CLI-vs-MCP session sweep ---
+  # Sources that were primary citations but missing from the intake layer.
+
+  - name: Cloudflare Blog
+    tier: 1
+    cadence: daily
+    tags: [ai, infra]
+    # Category: breaking/official — Code Mode, Agent SDK, Workers AI product announcements
+    # High-signal for agent-infra and edge-compute consulting angles
+    rss: https://blog.cloudflare.com/rss/
+    url: https://blog.cloudflare.com/
+
+  - name: The New Stack (AI)
+    tier: 2
+    cadence: daily
+    tags: [ai, infra]
+    # Category: enterprise AI/tooling coverage — MCP roadmap, platform-practitioner content
+    rss: https://thenewstack.io/category/ai/feed/
+    url: https://thenewstack.io/ai/
+
+  - name: Block Goose Blog
+    tier: 2
+    cadence: weekly
+    tags: [ai]
+    # Category: open-source agent framework — client-side code mode impl before Cloudflare shipped
+    # Practitioner insights from Block's Goose team
+    rss: https://block.github.io/goose/blog/rss.xml
+    url: https://block.github.io/goose/blog/
+
+  - name: Milvus Blog (Zilliz Engineering)
+    tier: 2
+    cadence: weekly
+    tags: [ai, infra]
+    # Category: practitioner engineering — "Is MCP Dead?" framework post, memsearch, Zilliz CLI
+    # No working RSS (probed 2026-04-05) — scrape fallback like Anthropic Blog
+    url: https://milvus.io/blog
+
+  - name: Pomerium Blog
+    tier: 3
+    cadence: weekly
+    tags: [ai, security, infra]
+    # Category: MCP governance vendor perspective (Kong/Pomerium/MintMCP/Strata track)
+    # Enterprise MCP security + AI gateway content — underrepresented angle
+    # No working RSS (probed 2026-04-05) — scrape fallback
+    url: https://www.pomerium.com/blog
