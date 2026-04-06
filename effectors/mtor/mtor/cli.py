@@ -890,6 +890,11 @@ def dispatch(prompt: str, provider: str) -> None:
 
 def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
     """Core dispatch logic — shared by the group's bare-prompt handler."""
+    # If prompt is a file path, read it as the spec
+    prompt_path = Path(prompt).expanduser()
+    if prompt_path.is_file():
+        prompt = prompt_path.read_text(encoding="utf-8").strip()
+
     cmd = f"mtor {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
 
     if not prompt.strip():
