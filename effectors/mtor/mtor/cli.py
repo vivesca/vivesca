@@ -732,7 +732,13 @@ def doctor() -> None:
     # Check 4: Provider readiness on ganglion (where ribosome executes)
     try:
         provider_result = subprocess.run(
-            ["ssh", "ganglion", "ribosome status --compact --json"],
+            [
+                "ssh",
+                "ganglion",
+                "set -a; source ~/.temporal-worker.env 2>/dev/null; set +a;"
+                " PATH=$HOME/germline/effectors:$PATH"
+                " ribosome-tools status --compact --json",
+            ],
             capture_output=True,
             text=True,
             timeout=30,
