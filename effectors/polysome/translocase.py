@@ -386,18 +386,10 @@ async def translate(task: str, provider: str) -> dict:
     if is_supervised:
         effective_task = effective_task.replace("[supervised]", "").strip()
 
-    # max-turns: extract from task tag, pass to ribosome
-    max_turns_args: list[str] = []
-    mt_match = _re.search(r"\[max-turns:(\d+)\]", effective_task)
-    if mt_match:
-        max_turns_args = ["--max-turns", mt_match.group(1)]
-        effective_task = effective_task.replace(mt_match.group(0), "").strip()
-
     cmd = [
         "bash",
         str(RIBOSOME_SCRIPT),
         *(["--supervised"] if is_supervised else []),
-        *max_turns_args,
         "--provider",
         provider,
         effective_task,

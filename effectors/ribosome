@@ -19,8 +19,9 @@ _ribosome_crash_handler() {
 }
 trap '_ribosome_crash_handler $LINENO' ERR
 
-# Hardcoded ceiling — stall detection + activity timeout are the real guards.
-MAX_TURNS=200
+# Wall-limit (seconds) is the sole cost guard. No turn counter — CC finishes
+# naturally, stall detection catches loops, wall-limit caps total time.
+WALL_LIMIT=1680  # 28 minutes
 BARE=true
 FULL_REQUESTED=false
 FORCE=false
@@ -182,7 +183,7 @@ while [[ "${1:-}" == -* ]]; do
     --quiet) QUIET=true; shift ;;
     --json) JSON_OUTPUT=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
-    --max-turns) MAX_TURNS="$2"; shift 2 ;;
+    --max-turns) echo "[deprecated] --max-turns removed — wall-limit is the sole guard" >&2; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
     --explore) echo "[deprecated] --explore flag is deprecated, use: ribosome explore \"query\"" >&2; _SUBCOMMAND=explore; shift ;;
     --force) FORCE=true; shift ;;
@@ -193,8 +194,8 @@ done
 
 # Per-subcommand defaults
 case $_SUBCOMMAND in
-  explore) BARE=true; [[ $MAX_TURNS -gt 30 ]] && MAX_TURNS=30 ;;
-  test|batch) ;;  # use defaults (BARE=true, MAX_TURNS=200)
+  explore) BARE=true ;;
+  test|batch) ;;
   build) ;;
 esac
 
@@ -374,7 +375,7 @@ EXPLORE_SYS
     prompt="${_explore_sys}"$'\n\n'"## Query"$'\n'"${prompt}"
   fi
 
-  local args=(--print --no-session-persistence --dangerously-skip-permissions --max-turns "$MAX_TURNS")
+  local args=(--print --no-session-persistence --dangerously-skip-permissions)
   $BARE && args+=(--bare)
   if $SUPERVISED; then
     args+=(--output-format json --settings "$HOME/germline/loci/ribosome-supervised-settings.json")
@@ -386,17 +387,10 @@ EXPLORE_SYS
   # All providers use ANTHROPIC_API_KEY (x-api-key header). Volcano accepts it too.
   unset ANTHROPIC_AUTH_TOKEN  # prevent inheritance from parent env
 
-  # Max wall-clock time for claude: max_turns * 60s + 120s buffer
-  local _claude_timeout=$(( MAX_TURNS * 60 + 120 ))
-
-  # Auto-scale wall limit to always accommodate at least one full attempt.
-  # Honor explicit RIBOSOME_WALL_LIMIT if user set it; otherwise default to
-  # max(1680, _claude_timeout + 180) so the first attempt always fits.
-  local _wall_limit_default=$(( _claude_timeout + 180 ))
-  if [[ $_wall_limit_default -lt 1680 ]]; then
-    _wall_limit_default=1680
-  fi
-  local _wall_limit="${RIBOSOME_WALL_LIMIT:-$_wall_limit_default}"
+  # Wall-limit: sole cost guard. RIBOSOME_WALL_LIMIT env overrides default.
+  local _wall_limit="${RIBOSOME_WALL_LIMIT:-$WALL_LIMIT}"
+  # Per-attempt timeout: wall-limit minus buffer for retry overhead
+  local _claude_timeout=$(( _wall_limit - 120 ))
   local _wall_start=$(date +%s)
 
   # Retry loop with exponential backoff for rate limits (429)
@@ -626,7 +620,7 @@ EXPLORE_SYS
   local _mode="build"
   [[ $_SUBCOMMAND == explore ]] && _mode="explore"
   printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$_mode" "$duration" "$exit_code" "$MAX_TURNS" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$_mode" "$duration" "$exit_code" "$_wall_limit" \
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$RIBOSOME_LOG"

@@ -301,13 +301,12 @@ def default_handler(
     prompt: str | None = None,
     *,
     provider: Annotated[str, Parameter(name=["-p", "--provider"])] = "zhipu",
-    max_turns: Annotated[int, Parameter(name=["-t", "--max-turns"])] = 25,
 ) -> None:
     """Bare invocation returns command tree; with a prompt, dispatches to Temporal."""
     if prompt is None:
         _ok("mtor", tree.to_dict(), version=VERSION)
     else:
-        _dispatch_prompt(prompt, provider=provider, max_turns=max_turns)
+        _dispatch_prompt(prompt, provider=provider)
 
 
 @app.command(name="list")
@@ -867,7 +866,7 @@ def deny(workflow_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _dispatch_prompt(prompt: str, *, provider: str = "zhipu", max_turns: int = 25) -> None:
+def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
     """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
     prompt_path = Path(prompt).expanduser()
@@ -915,7 +914,6 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu", max_turns: int = 2
             "task": full_prompt,
             "provider": provider,
             "mode": "build",
-            "max_turns": max_turns,
         }
 
         async def _start():
