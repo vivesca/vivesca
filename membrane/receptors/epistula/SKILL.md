@@ -117,6 +117,8 @@ Categorise every email into one of four buckets:
 
 **Cora Briefs emails — read before archiving.** Each brief email in inbox represents unread digest content. Read via `cora brief show <id>` first, extract action items, then archive the email. Never batch-archive briefs without reading them.
 
+**Post-discussion cleanup.** After presenting items and getting Terry's agreement ("archive", "mark read", "all fine"), immediately mark_read + archive the discussed noise items in one batch. Don't wait for a separate instruction — agreement IS the gate.
+
 **Batch processing over one-by-one.** Don't work through items sequentially waiting for approval on each. Instead:
 1. Present all action-required items with recommendations
 2. Present borderline items as a compact list
@@ -148,8 +150,11 @@ After working through all action items, batch-archive using the right tool per s
 
 Batch, one call per source. Verify with `endosomal action=search query="in:inbox"` at the end.
 
+**HARD GATE: Cora brief emails must be read via `cora brief show <id>` before archiving.** Even in ad-hoc inbox checks outside full triage mode — never batch-archive a Cora brief notification without reading its content first. Extract action items, then archive.
+
 Then mark all processed briefs as read and archive their notification emails:
 ```bash
+cora brief show <brief_id>                          # read content FIRST
 cora brief read <brief_id>                          # mark brief as read
 cora email archive <brief_notification_email_id>    # archive the "Morning Brief | ..." email
 ```
