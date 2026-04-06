@@ -853,7 +853,7 @@ def reset_pipeline_counter(data):
             _IMPL_READ_COUNT_FILE.write_text("0")
 
 
-def guard_rheotaxis(data):
+def guard_rheotaxis(_data):
     """Nudge or block: use rheotaxis instead of bare WebSearch.
 
     If rheotaxis backends are healthy → nudge (allow with advisory).
