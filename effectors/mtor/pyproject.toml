@@ -15,11 +15,11 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "click>=8.1",
+  "cyclopts",
   "temporalio>=1.7",
 ]
 
-scripts.mtor = "mtor.cli:cli"
+scripts.mtor = "mtor.cli:app"
 
 [dependency-groups]
 dev = [

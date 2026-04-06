@@ -21,9 +21,9 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
-import click
+from cyclopts import App, Parameter
 
 TEMPORAL_HOST = os.environ.get("TEMPORAL_HOST", "ganglion:7233")
 TASK_QUEUE = "translation-queue"
@@ -401,26 +401,31 @@ FULL_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# Click CLI
+# Cyclopts CLI
 # ---------------------------------------------------------------------------
 
+app = App(help_flags=[], version_flags=[])
 
-@click.group(invoke_without_command=True, add_help_option=False)
-@click.pass_context
-def cli(ctx: click.Context) -> None:
-    """mtor — agent-first translation controller Temporal dispatch CLI. Bare invocation returns command tree."""
-    if ctx.invoked_subcommand is None:
+
+@app.default
+def default_handler(
+    prompt: str | None = None,
+    *,
+    provider: Annotated[str, Parameter(name=["-p", "--provider"])] = "zhipu",
+) -> None:
+    """Bare invocation returns command tree; with a prompt, dispatches to Temporal."""
+    if prompt is None:
         _ok("mtor", COMMAND_TREE)
+    else:
+        _dispatch_prompt(prompt, provider=provider)
 
 
-@cli.command(name="list", add_help_option=False)
-@click.option(
-    "--status",
-    type=click.Choice(["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"]),
-    default=None,
-)
-@click.option("--count", type=int, default=10)
-def list_cmd(status: str | None, count: int) -> None:
+@app.command(name="list")
+def list_cmd(
+    *,
+    status: Literal["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"] | None = None,
+    count: int = 10,
+) -> None:
     """List recent workflows."""
     cmd = "mtor list" + (f" --status {status}" if status else "") + f" --count {count}"
 
@@ -485,8 +490,7 @@ def list_cmd(status: str | None, count: int) -> None:
         )
 
 
-@cli.command(add_help_option=False)
-@click.argument("workflow_id")
+@app.command
 def status(workflow_id: str) -> None:
     """Query status of a single workflow."""
     cmd = f"mtor status {workflow_id}"
@@ -572,8 +576,7 @@ def status(workflow_id: str) -> None:
         )
 
 
-@cli.command(add_help_option=False)
-@click.argument("workflow_id")
+@app.command
 def logs(workflow_id: str) -> None:
     """Fetch last 30 lines of workflow output from ganglion."""
     cmd = f"mtor logs {workflow_id}"
@@ -695,8 +698,7 @@ def logs(workflow_id: str) -> None:
         )
 
 
-@cli.command(add_help_option=False)
-@click.argument("workflow_id")
+@app.command
 def cancel(workflow_id: str) -> None:
     """Cancel a running workflow. Idempotent."""
     cmd = f"mtor cancel {workflow_id}"
@@ -771,7 +773,7 @@ def cancel(workflow_id: str) -> None:
         )
 
 
-@cli.command(add_help_option=False)
+@app.command
 def doctor() -> None:
     """Health check: Temporal reachability, worker liveness, provider info."""
     cmd = "mtor doctor"
@@ -866,30 +868,19 @@ def doctor() -> None:
         sys.exit(3)
 
 
-@cli.command(add_help_option=False)
+@app.command
 def schema() -> None:
     """Emit full JSON schema of all commands."""
     _ok("mtor schema", FULL_SCHEMA)
 
 
 # ---------------------------------------------------------------------------
-# Dispatch subcommand (bare positional prompt)
-# The Click group handles bare invocation (no args = command tree).
-# A positional prompt that doesn't match a subcommand name goes here.
-# We implement this as a special case in the group's result_callback.
+# Dispatch logic (called by @app.default when prompt is provided)
 # ---------------------------------------------------------------------------
 
 
-@cli.command(name="dispatch", add_help_option=False, hidden=True)
-@click.argument("prompt")
-@click.option("-p", "--provider", default="zhipu", help="LLM provider")
-def dispatch(prompt: str, provider: str) -> None:
-    """Internal: dispatch a prompt to Temporal. Use 'mtor <prompt>' directly."""
-    _dispatch_prompt(prompt, provider=provider)
-
-
 def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
-    """Core dispatch logic — shared by the group's bare-prompt handler."""
+    """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
     prompt_path = Path(prompt).expanduser()
     if prompt_path.is_file():
@@ -973,33 +964,3 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
                 [_action("mtor doctor", "Run health check")],
             )
         )
-
-
-# ---------------------------------------------------------------------------
-# Allow bare positional: `mtor "some task prompt"`
-# Click dispatches unknown subcommand names as errors by default.
-# We override result_callback to handle any non-subcommand first argument
-# as a prompt dispatch.
-# ---------------------------------------------------------------------------
-
-
-@cli.result_callback()
-def _process_result(*args: Any, **kwargs: Any) -> None:
-    pass
-
-
-# Monkey-patch the group to treat unknown subcommands as prompts
-_original_make_context = cli.make_context
-
-
-def _patched_make_context(info_name, args, **kwargs):
-    # If the first arg looks like a dispatch prompt (not a known subcommand),
-    # rewrite args to use the 'dispatch' subcommand
-    if args and not args[0].startswith("-"):
-        known = {cmd_obj.name for cmd_obj in cli.commands.values()}
-        if args[0] not in known:
-            args = ["dispatch", *args]
-    return _original_make_context(info_name, args, **kwargs)
-
-
-cli.make_context = _patched_make_context

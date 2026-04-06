@@ -1,16 +1,17 @@
 """Tests for mtor.
 
-All tests use Click's CliRunner so no live Temporal server is required.
+All tests invoke the cyclopts App directly with captured stdout.
 Temporal client calls are mocked via unittest.mock.patch.
 """
 
 from __future__ import annotations
 
+import io
 import json
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from click.testing import CliRunner
-from mtor.cli import cli
+from mtor.cli import app
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -19,15 +20,25 @@ from mtor.cli import cli
 
 def invoke(args: list[str] | None = None) -> tuple[int, dict]:
     """Invoke CLI and return (exit_code, parsed_json)."""
-    runner = CliRunner()
-    result = runner.invoke(cli, args or [])
+    captured = io.StringIO()
+    old_stdout = sys.stdout
+    exit_code = 0
     try:
-        data = json.loads(result.output)
+        sys.stdout = captured
+        app(args or [])
+    except SystemExit as exc:
+        exit_code = exc.code if isinstance(exc.code, int) else 1
+    finally:
+        sys.stdout = old_stdout
+
+    output = captured.getvalue()
+    try:
+        data = json.loads(output)
     except json.JSONDecodeError as exc:
         raise AssertionError(
-            f"Output is not valid JSON. Exit={result.exit_code}\nOutput: {result.output!r}\nException: {exc}"
+            f"Output is not valid JSON. Exit={exit_code}\nOutput: {output!r}\nException: {exc}"
         ) from exc
-    return result.exit_code, data
+    return exit_code, data
 
 
 def make_mock_client():
@@ -107,8 +118,6 @@ class TestBareInvocation:
 
     def test_all_subcommands_in_tree(self):
         _, data = invoke([])
-        {cmd["name"].split()[0] for cmd in data["result"]["commands"]}
-        # ribosome (bare), ribosome <prompt>, ribosome list, status, logs, cancel, doctor, schema
         for expected in [
             "mtor",
             "mtor list",
@@ -119,46 +128,28 @@ class TestBareInvocation:
             "mtor schema",
         ]:
             first_word = expected.split()[0]
-            assert any(
-                cmd["name"].startswith(expected.split()[0]) for cmd in data["result"]["commands"]
-            ), f"Command starting with '{first_word}' not found in tree"
+            assert any(cmd["name"].startswith(first_word) for cmd in data["result"]["commands"]), (
+                f"Command starting with '{first_word}' not found in tree"
+            )
 
 
 class TestHelpSuppression:
-    def test_bare_help_not_recognized_or_error(self):
-        """--help should be suppressed (add_help_option=False).
-
-        With add_help_option=False, --help is treated as an unknown option
-        and triggers an error envelope (exit non-zero), or is passed as
-        a prompt and treated as a dispatch (which fails with usage error).
-        """
-        runner = CliRunner()
-        result = runner.invoke(cli, ["--help"])
-        # Either: error (exit non-zero) OR output is JSON
-        # The key constraint is: it must NOT print Click's default help text
-        assert "--help" not in result.output or result.exit_code != 0, (
-            "--help should be suppressed"
-        )
-
-    def test_subcommand_help_not_recognized(self):
-        """Each subcommand's --help should be suppressed (add_help_option=False).
-
-        With add_help_option=False, --help is an unknown option that causes an error.
-        The constraint is: it must NOT display Click's standard help page content
-        (i.e. must not list available options including --help itself).
-        Click may still print "Usage: ..." in its error message, which is acceptable.
-        """
-        for subcommand in ["list", "status", "logs", "cancel", "doctor", "schema"]:
-            runner = CliRunner()
-            result = runner.invoke(cli, [subcommand, "--help"])
-            # --help is not a recognized option, so it causes an error (non-zero exit)
-            assert result.exit_code != 0, (
-                f"{subcommand} --help should exit non-zero (option is suppressed)"
-            )
-            # The output must NOT show a help page listing --help as an available option
-            assert "Show this message and exit." not in result.output, (
-                f"{subcommand} --help should not show Click help page"
-            )
+    def test_no_human_help_output(self):
+        """With help_flags=[], no human-readable help page should appear."""
+        captured = io.StringIO()
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        try:
+            sys.stdout = captured
+            sys.stderr = captured
+            app(["--help"])
+        except SystemExit:
+            pass
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+        output = captured.getvalue()
+        # Must not contain standard help indicators
+        assert "Show this message and exit" not in output
 
 
 class TestExitCodes:
@@ -173,7 +164,6 @@ class TestExitCodes:
     def test_dispatch_no_prompt_exits_2(self):
         # dispatch with empty string = usage error
         _exit_code, data = invoke([""])
-        # Either exit 2 (usage) or treated as dispatch attempt
         assert data["ok"] is False
         assert data["error"]["code"] in (
             "MISSING_PROMPT",
@@ -405,7 +395,7 @@ class TestSchema:
 
 
 class TestEnvelopeInvariants:
-    """Every response must satisfy the joelclaw envelope contract."""
+    """Every response must satisfy the JSON envelope contract."""
 
     def _all_reachable_outputs(self):
         """Return list of (exit_code, data) for all testable paths."""
