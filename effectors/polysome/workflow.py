@@ -59,6 +59,9 @@ class TranslationWorkflow:
         task = spec.get("task", "")
         provider = spec.get("provider", "zhipu")
         mode = spec.get("mode", "raw")
+        max_turns = spec.get("max_turns")
+        if max_turns and isinstance(max_turns, int):
+            task = f"[max-turns:{max_turns}] {task}"
 
         # #3: Version guard — new code paths gated behind patched()
         use_review_v2 = workflow.patched("review-v2-slim-payload")

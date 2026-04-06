@@ -386,10 +386,18 @@ async def translate(task: str, provider: str) -> dict:
     if is_supervised:
         effective_task = effective_task.replace("[supervised]", "").strip()
 
+    # max-turns: extract from task tag, pass to ribosome
+    max_turns_args: list[str] = []
+    mt_match = _re.search(r"\[max-turns:(\d+)\]", effective_task)
+    if mt_match:
+        max_turns_args = ["--max-turns", mt_match.group(1)]
+        effective_task = effective_task.replace(mt_match.group(0), "").strip()
+
     cmd = [
         "bash",
         str(RIBOSOME_SCRIPT),
         *(["--supervised"] if is_supervised else []),
+        *max_turns_args,
         "--provider",
         provider,
         effective_task,
@@ -790,7 +798,6 @@ async def chaperone(result: dict) -> dict:
     }
 
 
-
 def _gc_worktrees(repo_root: str) -> None:
     """Remove orphaned ribosome worktrees older than 2 hours."""
     worktree_base = os.path.join(repo_root, ".worktrees")
@@ -810,12 +817,16 @@ def _gc_worktrees(repo_root: str) -> None:
         with contextlib.suppress(Exception):
             _subprocess.run(
                 ["git", "worktree", "remove", "--force", wt_path],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
         with contextlib.suppress(Exception):
             _subprocess.run(
                 ["git", "branch", "-D", entry],
-                capture_output=True, timeout=10, cwd=repo_root,
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
             )
 
 

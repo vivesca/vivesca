@@ -301,12 +301,13 @@ def default_handler(
     prompt: str | None = None,
     *,
     provider: Annotated[str, Parameter(name=["-p", "--provider"])] = "zhipu",
+    max_turns: Annotated[int, Parameter(name=["-t", "--max-turns"])] = 25,
 ) -> None:
     """Bare invocation returns command tree; with a prompt, dispatches to Temporal."""
     if prompt is None:
         _ok("mtor", tree.to_dict(), version=VERSION)
     else:
-        _dispatch_prompt(prompt, provider=provider)
+        _dispatch_prompt(prompt, provider=provider, max_turns=max_turns)
 
 
 @app.command(name="list")
@@ -757,6 +758,29 @@ def doctor() -> None:
             }
         )
 
+    # Check 5: Ganglion-side env keys
+    required_keys = ["ZHIPU_API_KEY", "ZHIPUAI_API_KEY", "INFINI_API_KEY", "VOLCANO_API_KEY"]
+    try:
+        present = []
+        missing = []
+        for key_name in required_keys:
+            key_result = subprocess.run(
+                ["ssh", "ganglion", f"grep -q '{key_name}' ~/.temporal-worker.env"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            (present if key_result.returncode == 0 else missing).append(key_name)
+        ganglion_ok = len(missing) == 0
+        detail = f"{len(present)}/{len(required_keys)} keys present"
+        if missing:
+            detail += f", missing: {', '.join(missing)}"
+            all_ok = False
+        checks.append({"name": "ganglion_env", "ok": ganglion_ok, "detail": detail})
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        all_ok = False
+        checks.append({"name": "ganglion_env", "ok": False, "detail": f"SSH failed: {exc}"})
+
     result = {
         "temporal_reachable": temporal_ok,
         "temporal_host": TEMPORAL_HOST,
@@ -851,7 +875,7 @@ def deny(workflow_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
+def _dispatch_prompt(prompt: str, *, provider: str = "zhipu", max_turns: int = 25) -> None:
     """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
     prompt_path = Path(prompt).expanduser()
@@ -899,6 +923,7 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
             "task": full_prompt,
             "provider": provider,
             "mode": "build",
+            "max_turns": max_turns,
         }
 
         async def _start():
