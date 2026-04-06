@@ -599,6 +599,14 @@ _ERROR_PATTERNS = _re.compile(
     _re.IGNORECASE,
 )
 
+# Coaching-promoted checks: patterns that were prose coaching notes,
+# now enforced as deterministic gate checks. Coaching entries should
+# decay toward zero — each one either gets promoted here or retired.
+_PLACEHOLDER_PATTERNS = _re.compile(r"\bTODO\b|\bFIXME\b|\bstub\b", _re.IGNORECASE)
+_HARDCODED_HOME = _re.compile(r"/Users/terry/|/home/terry/")
+_PY2_EXCEPT = _re.compile(r"^\s*except\s+\w+\s*,\s*\w+\s*:", _re.MULTILINE)
+_DUPE_FUTURE = _re.compile(r"from\s+__future__\s+import\s+annotations")
+
 
 @activity.defn
 async def chaperone(result: dict) -> dict:
@@ -626,6 +634,22 @@ async def chaperone(result: dict) -> dict:
     if error_hits:
         flags.append(f"errors: {', '.join(list(set(error_hits))[:3])}")
 
+    # Coaching-promoted checks (deterministic, formerly prose-only)
+    placeholder_hits = _PLACEHOLDER_PATTERNS.findall(combined)
+    if placeholder_hits:
+        flags.append(f"placeholders: {', '.join(list(set(placeholder_hits))[:3])}")
+
+    if _HARDCODED_HOME.search(combined):
+        flags.append("hardcoded_home_path")
+
+    if _PY2_EXCEPT.search(combined):
+        flags.append("py2_except_syntax")
+
+    # Check for duplicate `from __future__ import annotations` per file in output
+    future_count = len(_DUPE_FUTURE.findall(combined))
+    if future_count > 1:
+        flags.append(f"dupe_future_import: {future_count} occurrences")
+
     task_words = len(task.split())
     output_words = len(stdout.split())
     if task_words > 20 and output_words < 10 and exit_code == 0:
@@ -646,6 +670,13 @@ async def chaperone(result: dict) -> dict:
         else 0
     )
     branch_name = result.get("branch_name", "")
+
+    # Test files must be in assays/ flat (not nested subdirectories)
+    if post_stat_text:
+        for line in post_stat_text.splitlines():
+            fname = line.strip().split("|")[0].strip() if "|" in line else line.strip()
+            if fname.startswith("assays/") and fname.count("/") > 1 and "test_" in fname:
+                flags.append(f"nested_test_file: {fname}")
 
     if exit_code == 0 and not post_stat_text.strip() and commit_count == 0:
         flags.append("no_commit_on_success")
