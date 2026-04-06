@@ -1,6 +1,7 @@
 ---
 name: elencho
 description: Parallel AI research — runs query through all search tools (Grok, Exa, noesis), synthesises agreements and disagreements. For factual research, not opinions.
+effort: high
 user_invocable: false
 platform: all
 triggers:

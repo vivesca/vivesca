@@ -1,6 +1,7 @@
 ---
 name: taxis
 description: Architecture of the Claude Code enforcement and knowledge system. Use when adding hooks, rules, or deciding where knowledge lives. "system design", "hook architecture", "where does this go"
+effort: high
 ---
 
 # System Design

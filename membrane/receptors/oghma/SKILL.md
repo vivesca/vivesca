@@ -1,6 +1,7 @@
 ---
 name: oghma
 description: oghma memory tool — search memories, check status, manage daemon. Use when user mentions oghma, memory search, or session memory.
+effort: low
 triggers:
   - oghma
   - memory search

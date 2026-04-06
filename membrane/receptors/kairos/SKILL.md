@@ -1,6 +1,7 @@
 ---
 name: kairos
 description: "Any-time situational snapshot — what's actionable right now. Use when user says 'kairos', 'what now', 'what should I do', 'what's next', or needs a mid-session priority check."
+effort: high
 user_invocable: true
 triggers:
   - kairos

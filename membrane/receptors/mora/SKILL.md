@@ -1,6 +1,7 @@
 ---
 name: mora
 description: Surface productive low-energy tasks when you have downtime. Use when energy is low, between meetings, or during idle moments.
+effort: low
 user_invocable: true
 triggers:
   - mora

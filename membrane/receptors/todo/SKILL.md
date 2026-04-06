@@ -1,6 +1,7 @@
 ---
 name: todo
 description: Manage TODO.md in the vault with time-based scheduling. Use when user says "todo", "add todo", "check todo", "done with", "overdue", or "someday".
+effort: low
 user_invocable: true
 ---
 

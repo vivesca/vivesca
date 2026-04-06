@@ -1,6 +1,7 @@
 ---
 name: hygroreception
 description: HK Observatory one-line weather CLI. Use when user asks about weather, temperature, typhoon, or rain in HK. "weather", "hko", "天氣". NOT for weather in other cities.
+effort: low
 user_invocable: true
 ---
 

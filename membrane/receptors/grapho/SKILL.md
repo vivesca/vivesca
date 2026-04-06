@@ -1,6 +1,7 @@
 ---
 name: grapho
 description: Manage MEMORY.md — add entries, demote over-budget entries to overflow, promote back, review overflow, scaffold solution files.
+effort: low
 triggers: [memory, overflow, demote, promote, gotcha, grapho, budget, solutions]
 user_invocable: false
 ---

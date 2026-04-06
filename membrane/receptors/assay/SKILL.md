@@ -1,6 +1,7 @@
 ---
 name: assay
 description: Check for running experiments and probe their state
+effort: low
 user_invocable: false
 triggers:
   - assay

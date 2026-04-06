@@ -1,6 +1,7 @@
 ---
 name: usage
 description: Check Claude Code Max plan usage stats and token consumption. "usage", "token usage", "how much have I used", "quota"
+effort: low
 triggers:
   - usage
   - ccusage

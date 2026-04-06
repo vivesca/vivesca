@@ -1,6 +1,7 @@
 ---
 name: weekly
 description: Weekly synthesis and review. Use when user says "weekly", "weekly review", "week in review", or on Fridays.
+effort: high
 user_invocable: true
 triggers:
   - weekly

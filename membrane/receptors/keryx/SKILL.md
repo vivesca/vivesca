@@ -1,6 +1,7 @@
 ---
 name: keryx
 description: WhatsApp CLI wrapper — contact name resolution, conversation merging, daemon-aware send. Use when sending or reading WhatsApp messages. "whatsapp", "send message", "read chat"
+effort: low
 triggers:
   - keryx
   - whatsapp

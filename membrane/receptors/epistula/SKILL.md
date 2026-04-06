@@ -1,6 +1,7 @@
 ---
 name: epistula
 description: "Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triage\", \"send email\", \"reply\", \"draft\", \"cora\", \"brief\", \"email todos\", \"epistula\""
+effort: high
 user_invocable: true
 triggers:
   - epistula

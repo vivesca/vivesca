@@ -1,6 +1,7 @@
 ---
 name: scrutor
 description: Code audit using Codex, OpenCode, or consilium. Use when reviewing code for bugs, security issues, or logic errors.
+effort: high
 user_invocable: true
 triggers:
   - scrutor

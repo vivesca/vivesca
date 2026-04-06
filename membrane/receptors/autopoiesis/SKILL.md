@@ -1,6 +1,7 @@
 ---
 name: autopoiesis
 description: Self-repair loop — detect organism gaps, fix, learn from the fix. "self-repair"
+effort: high
 user_invocable: false
 ---
 

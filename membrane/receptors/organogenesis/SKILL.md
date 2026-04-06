@@ -1,6 +1,7 @@
 ---
 name: organogenesis
 description: Guide for designing skills (functional organs). Use when noticing a recurring pattern, wondering if something deserves a skill, creating new skills, refactoring existing ones, reviewing skill architecture, or during any skill review. "design a skill", "skill quality", "how should I structure this". Load early — before you know if a skill is warranted.
+effort: high
 epistemics: [skill, design]
 ---
 

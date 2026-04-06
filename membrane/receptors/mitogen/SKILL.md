@@ -1,6 +1,7 @@
 ---
 name: mitogen
 description: Dispatch ribosome for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", "blitz", "batch"
+effort: high
 model: opus
 user_invocable: true
 allowed-tools:

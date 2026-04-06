@@ -1,6 +1,7 @@
 ---
 name: sopor
 description: >
+effort: low
   Unified sleep health CLI — Oura Ring + EightSleep data in one DuckDB.
   Use when checking sleep data, running sync, asking "how did I sleep",
   or any sleep/readiness/HRV/activity query. Replaces oura, nyx, somnus.

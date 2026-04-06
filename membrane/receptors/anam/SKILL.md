@@ -1,6 +1,7 @@
 ---
 name: anam
 description: Search past chat history and AI coding memories. Use when recalling what was discussed, finding past decisions, or looking up extracted learnings and gotchas.
+effort: low
 user_invocable: true
 ---
 

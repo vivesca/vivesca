@@ -1,6 +1,7 @@
 ---
 name: etiology
 description: Root-cause diagnosis for bugs and process failures. "broken", "debug"
+effort: high
 user_invocable: true
 triggers:
   - etiology

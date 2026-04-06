@@ -1,6 +1,7 @@
 ---
 name: splicing
 description: Trim always-loaded context files for signal dilution. "genome trim", "coaching trim", "context audit"
+effort: high
 user_invocable: true
 model: sonnet
 context: fork

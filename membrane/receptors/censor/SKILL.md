@@ -1,6 +1,7 @@
 ---
 name: censor
 description: "Review client-facing deliverables (SOWs, proposals, decks, reports) against quality criteria before sending. NOT for code review."
+effort: high
 user_invocable: false
 ---
 

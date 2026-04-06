@@ -1,6 +1,7 @@
 ---
 name: examen
 description: Premise audit — surface and test load-bearing assumptions before acting. Consult before delegating a large task, committing to an approach, or making a high-stakes decision when the plan "feels right" but assumptions haven't been checked.
+effort: high
 user_invocable: false
 ---
 

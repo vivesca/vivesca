@@ -1,6 +1,7 @@
 ---
 name: proliferation
 description: Overproduce skill variants for a domain; let selection pick. Use when entering a new domain and need many skills fast. "proliferate", "skill burst", "adaptive radiation"
+effort: high
 user_invocable: true
 context: fork
 ---

@@ -1,6 +1,7 @@
 ---
 name: usus
 description: Check exact Claude Code Max plan usage limits (session %, weekly %, Sonnet %). Use when asked about usage, weekly limits, or /status data. Reads from Anthropic's OAuth API via macOS Keychain — same source as /status interactive dialog.
+effort: low
 user_invocable: false
 ---
 

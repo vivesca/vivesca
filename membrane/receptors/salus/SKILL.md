@@ -1,6 +1,7 @@
 ---
 name: salus
 description: "Manulife health insurance claims checker CLI. Use when checking claim status, reimbursement amounts, or claim history. Commands: salus claims, salus claims --all."
+effort: low
 ---
 
 # salus — Manulife Claims Checker

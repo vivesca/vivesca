@@ -1,6 +1,7 @@
 ---
 name: amicus
 description: Personal CRM CLI — relationship intelligence from Gmail + Calendar. Rust binary. Use when checking stale contacts, looking up who someone is, or getting pre-meeting context.
+effort: low
 user_invocable: true
 ---
 

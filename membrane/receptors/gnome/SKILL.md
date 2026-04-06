@@ -1,6 +1,7 @@
 ---
 name: gnome
 description: Capture structured decisions with past-decision surfacing (bouncer pattern). Use when user says "gnome", "/gnome", "I need to decide", or is weighing options with trade-offs.
+effort: high
 user_invocable: true
 ---
 

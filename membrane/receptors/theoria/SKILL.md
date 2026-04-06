@@ -1,6 +1,7 @@
 ---
 name: theoria
 description: Automated AI landscape synthesis pipeline (LangGraph + Opus). Use when checking landscape run status, running manual reviews, or debugging pipeline failures.
+effort: high
 ---
 
 # Theoria — Theoria Synthesis Pipeline

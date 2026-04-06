@@ -1,6 +1,7 @@
 ---
 name: skill-review
 description: Monthly review of skills for staleness, drift, and gaps. Use when skills feel out of sync or on first Friday of month. "skill review", "review skills", "skill audit"
+effort: high
 user_invocable: true
 ---
 

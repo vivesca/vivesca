@@ -1,6 +1,7 @@
 ---
 name: statio
 description: Start-of-work brief — priorities, gates, inbox triage. Use when sitting down to work. "statio", "start of work", "work brief"
+effort: high
 user_invocable: true
 ---
 

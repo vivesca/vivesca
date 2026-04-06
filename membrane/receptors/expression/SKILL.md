@@ -1,6 +1,7 @@
 ---
 name: expression
 description: Weekly consulting IP production — turn sparks into deliverable assets. "weekly IP", "forge", "produce assets"
+effort: high
 triggers:
   - expression
   - forge

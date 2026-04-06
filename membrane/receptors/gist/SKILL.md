@@ -1,6 +1,7 @@
 ---
 name: gist
 description: Create, update, and manage secret GitHub gists. Use when sharing code/text for mobile copy-paste, or when user says "gist", "/gist".
+effort: low
 user_invocable: true
 triggers:
   - gist

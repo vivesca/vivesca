@@ -1,6 +1,7 @@
 ---
 name: poros
 description: Query MTR (Hong Kong subway) point-to-point journey times. Use when asked how long the MTR takes between any two stations.
+effort: low
 user_invocable: false
 ---
 

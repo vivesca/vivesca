@@ -1,6 +1,7 @@
 ---
 name: dialexis
 description: Weekly and monthly AI landscape review for consulting conversations. Use when user says "ai review", "ai landscape", "what's happening in AI", "dialexis", or on Fridays alongside weekly review.
+effort: high
 user_invocable: true
 ---
 

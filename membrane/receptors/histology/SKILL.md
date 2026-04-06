@@ -1,6 +1,7 @@
 ---
 name: histology
 description: Map organism structure, find gaps and anomalies. "architecture review", "system audit"
+effort: high
 triggers:
   - histology
   - architecture

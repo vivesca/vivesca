@@ -1,6 +1,7 @@
 ---
 name: overnight
 description: "Check async queue results and manage tasks. \"overnight\", \"overnight results\", \"queue status\", \"what ran\""
+effort: low
 user_invocable: true
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: transcription
 description: Collaborative design before building — one question at a time. "let's build", "I want to add", "design first"
+effort: high
 user_invocable: true
 triggers:
   - transcription

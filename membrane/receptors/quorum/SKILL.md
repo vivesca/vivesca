@@ -2,6 +2,7 @@
 name: quorum
 description: Multi-model deliberation for judgment calls. "council", "ask llms"
 aliases: [ask-llms, council, ask llms]
+effort: high
 user_invocable: true
 runtime: python
 organelle: metabolon.organelles.quorum

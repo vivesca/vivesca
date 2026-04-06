@@ -1,6 +1,7 @@
 ---
 name: cron
 description: List all scheduled automation (LaunchAgents). Use when checking what's running automatically.
+effort: low
 user_invocable: true
 ---
 

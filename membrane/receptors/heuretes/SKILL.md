@@ -1,6 +1,7 @@
 ---
 name: heuretes
 description: >
+effort: high
   Agent research org — run a hierarchical team of AI agents on open-ended research or
   exploration tasks. Chief orchestrator + parallel junior agents on git worktrees.
   Use when the task is investigative/exploratory rather than well-specified implementation.

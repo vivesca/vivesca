@@ -1,6 +1,7 @@
 ---
 name: vectura
 description: Import Apple Passwords CSV exports into 1Password via the op CLI. Use when migrating passwords or catching new items saved to Apple Passwords after the initial import.
+effort: low
 ---
 
 ## Usage

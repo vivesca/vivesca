@@ -1,6 +1,7 @@
 ---
 name: autophagy
 description: Coach mode — Terry states position, I push back. "/autophagy", "coach me"
+effort: high
 epistemics: [learn, reflect]
 ---
 

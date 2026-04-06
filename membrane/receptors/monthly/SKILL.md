@@ -1,6 +1,7 @@
 ---
 name: monthly
 description: Monthly maintenance — content digests, skill review, AI deep review, vault hygiene. "monthly", "monthly maintenance", "run monthly"
+effort: high
 user_invocable: true
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: infradian
 description: Weekend review + plan — reflect on the week, plan the next. "weekly", "weekly review"
+effort: high
 user_invocable: true
 triggers:
   - infradian

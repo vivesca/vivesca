@@ -1,6 +1,7 @@
 ---
 name: deltos
 description: Send text/code snippets or image files to Telegram for mobile copy-paste. Use when relaying content to phone. "send to telegram", "deltos", "copy-paste relay"
+effort: low
 ---
 
 # deltos

@@ -1,6 +1,7 @@
 ---
 name: circadian
 description: Daily rhythm — morning brief, midday check, evening wrap. Auto-routes by time. "what now", "what's next", "morning brief", "evening routine"
+effort: high
 user_invocable: true
 triggers:
   - circadian
