@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cyclopts import App, Parameter
+from porin import action as _action
+from porin import emit_err, emit_ok
 
 TEMPORAL_HOST = os.environ.get("TEMPORAL_HOST", "ganglion:7233")
 TASK_QUEUE = "translation-queue"
@@ -46,19 +48,12 @@ def _extract_first_result(wf_result: dict) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# JSON envelope helpers
+# JSON envelope helpers (via porin)
 # ---------------------------------------------------------------------------
 
 
 def _ok(command: str, result: dict[str, Any], next_actions: list[dict] | None = None) -> None:
-    payload = {
-        "ok": True,
-        "command": command,
-        "result": result,
-        "next_actions": next_actions or [],
-    }
-    sys.stdout.write(json.dumps(payload) + "\n")
-    sys.stdout.flush()
+    emit_ok(command, result, next_actions)
 
 
 def _err(
@@ -69,20 +64,8 @@ def _err(
     next_actions: list[dict] | None = None,
     exit_code: int = 1,
 ) -> int:
-    payload = {
-        "ok": False,
-        "command": command,
-        "error": {"message": message, "code": code},
-        "fix": fix,
-        "next_actions": next_actions or [],
-    }
-    sys.stdout.write(json.dumps(payload) + "\n")
-    sys.stdout.flush()
+    emit_err(command, message, code, fix, next_actions)
     return exit_code
-
-
-def _action(command: str, description: str) -> dict:
-    return {"command": command, "description": description}
 
 
 # ---------------------------------------------------------------------------
