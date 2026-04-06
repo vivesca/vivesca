@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from mtor.cli import app
@@ -83,9 +84,28 @@ def make_mock_client():
     return client, wf_handle
 
 
+# Modules that import _get_client — patch all of them to keep tests reliable.
+_CLIENT_PATCH_TARGETS = [
+    "mtor.cli._get_client",
+    "mtor.doctor._get_client",
+    "mtor.dispatch._get_client",
+]
+
+
 def _patch_client(mock_client):
-    """Context manager: patch _get_client to return mock_client."""
-    return patch("mtor.cli._get_client", return_value=(mock_client, None))
+    """Context manager: patch _get_client in all modules that import it."""
+    stack = ExitStack()
+    for target in _CLIENT_PATCH_TARGETS:
+        stack.enter_context(patch(target, return_value=(mock_client, None)))
+    return stack
+
+
+def _patch_client_error(error_msg="Connection refused"):
+    """Context manager: patch _get_client to return error in all modules."""
+    stack = ExitStack()
+    for target in _CLIENT_PATCH_TARGETS:
+        stack.enter_context(patch(target, return_value=(None, error_msg)))
+    return stack
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +192,7 @@ class TestExitCodes:
         )
 
     def test_temporal_unreachable_exits_3(self):
-        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
+        with _patch_client_error("Connection refused"):
             exit_code, data = invoke(["doctor"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -218,7 +238,7 @@ class TestDispatch:
         assert "fix" in data, "Error envelope must include 'fix' field"
 
     def test_dispatch_temporal_unreachable_exits_3(self):
-        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
+        with _patch_client_error("Connection refused"):
             exit_code, data = invoke(["Write tests for foo.py"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -254,7 +274,7 @@ class TestList:
         assert "workflows" in data["result"]
 
     def test_list_temporal_unreachable(self):
-        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
+        with _patch_client_error("Connection refused"):
             exit_code, data = invoke(["list"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -293,7 +313,7 @@ class TestStatus:
         assert data["error"]["code"] == "WORKFLOW_NOT_FOUND"
 
     def test_status_temporal_unreachable(self):
-        with patch("mtor.cli._get_client", return_value=(None, "timeout")):
+        with _patch_client_error("timeout"):
             exit_code, data = invoke(["status", "any-id"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -332,7 +352,7 @@ class TestCancel:
         assert data["ok"] is True
 
     def test_cancel_temporal_unreachable(self):
-        with patch("mtor.cli._get_client", return_value=(None, "refused")):
+        with _patch_client_error("refused"):
             exit_code, data = invoke(["cancel", "any-id"])
         assert exit_code == 3
         assert data["ok"] is False
@@ -345,14 +365,14 @@ class TestCancel:
 
 class TestDoctor:
     def test_doctor_unreachable_temporal_exits_3(self):
-        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
+        with _patch_client_error("Connection refused"):
             exit_code, data = invoke(["doctor"])
         assert exit_code == 3
         assert data["ok"] is False
         assert "fix" in data
 
     def test_doctor_has_checks_list(self):
-        with patch("mtor.cli._get_client", return_value=(None, "Connection refused")):
+        with _patch_client_error("Connection refused"):
             _, data = invoke(["doctor"])
         # Even failed doctor has checks in result
         assert "result" in data
@@ -408,7 +428,7 @@ class TestEnvelopeInvariants:
             outputs.append(invoke(["list"]))
             outputs.append(invoke(["status", "ribosome-test1234"]))
 
-        with patch("mtor.cli._get_client", return_value=(None, "refused")):
+        with _patch_client_error("refused"):
             outputs.append(invoke(["doctor"]))
             outputs.append(invoke(["status", "any"]))
             outputs.append(invoke(["cancel", "any"]))
