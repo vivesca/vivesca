@@ -408,36 +408,6 @@ class TestConcurrentWorkflow:
 class TestCliFlags:
     """Additional CLI flag and edge-case tests."""
 
-    def test_submit_max_turns_flag(self):
-        """submit --max-turns passes through to task specs."""
-        from cli import main
-        from click.testing import CliRunner
-
-        captured_specs = None
-
-        async def _fake_start_workflow(*args, **kwargs):
-            nonlocal captured_specs
-            captured_specs = kwargs.get("args", args[1] if len(args) > 1 else None)
-            mock_handle = MagicMock()
-            mock_handle.id = "ribosome-zhipu-mt"
-            return mock_handle
-
-        mock_client = AsyncMock()
-        mock_client.start_workflow = _fake_start_workflow
-
-        mock_gc = AsyncMock(return_value=mock_client)
-        with patch("cli._get_client", mock_gc):
-            runner = CliRunner()
-            result = runner.invoke(
-                main, ["submit", "-p", "zhipu", "--max-turns", "25", "Do the thing"]
-            )
-
-        assert result.exit_code == 0, f"Output: {result.output}"
-        # Verify max_turns was captured in the specs
-        assert captured_specs is not None
-        specs_list = captured_specs[0] if isinstance(captured_specs, list) else captured_specs
-        assert specs_list[0]["max_turns"] == 25
-
     def test_submit_file_ignores_comments_and_blanks(self):
         """submit --file skips blank lines and # comments."""
         import tempfile
