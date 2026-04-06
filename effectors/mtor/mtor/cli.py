@@ -24,9 +24,11 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cyclopts import App, Parameter
+from porin import CommandTree
 from porin import action as _action
-from porin import emit_err, emit_ok
+from porin import emit_err, ok as _porin_ok
 
+VERSION = "0.3.0"
 TEMPORAL_HOST = os.environ.get("TEMPORAL_HOST", "ganglion:7233")
 TASK_QUEUE = "translation-queue"
 WORKFLOW_TYPE = "TranslationWorkflow"
@@ -52,8 +54,13 @@ def _extract_first_result(wf_result: dict) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def _ok(command: str, result: dict[str, Any], next_actions: list[dict] | None = None) -> None:
-    emit_ok(command, result, next_actions)
+def _ok(
+    command: str,
+    result: dict[str, Any],
+    next_actions: list[dict] | None = None,
+    version: str | None = None,
+) -> None:
+    print(json.dumps(_porin_ok(command, result, next_actions, version)))
 
 
 def _err(
@@ -102,309 +109,90 @@ def _load_coaching() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Command tree (bare invocation)
+# Command tree (built with porin CommandTree)
 # ---------------------------------------------------------------------------
 
-COMMAND_TREE = {
-    "commands": [
-        {
-            "name": "mtor",
-            "description": "Bare invocation — returns this JSON command tree for agent self-discovery",
-            "params": [],
+tree = CommandTree("mtor")
+tree.add_command(
+    "mtor",
+    "Bare invocation — returns this JSON command tree for agent self-discovery",
+    params=[],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "mtor <prompt>",
+    "Dispatch a task prompt to Temporal. Prepends coaching content before sending.",
+    params=[{"name": "prompt", "type": "string", "required": True, "description": "Task instruction for the ribosome worker"}],
+    returns={
+        "ok": "boolean",
+        "command": "string",
+        "result": {
+            "workflow_id": "string",
+            "status": "string",
+            "prompt_preview": "string (first 100 chars of full prompt after coaching injection)",
         },
-        {
-            "name": "mtor <prompt>",
-            "description": "Dispatch a task prompt to Temporal. Prepends coaching content before sending.",
-            "params": [
-                {
-                    "name": "prompt",
-                    "type": "string",
-                    "required": True,
-                    "description": "Task instruction for the ribosome worker",
-                },
-            ],
-        },
-        {
-            "name": "mtor list",
-            "description": "List recent workflows",
-            "params": [
-                {
-                    "name": "--status",
-                    "type": "enum",
-                    "enum": ["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"],
-                    "required": False,
-                    "default": None,
-                    "description": "Filter by execution status",
-                },
-                {
-                    "name": "--count",
-                    "type": "integer",
-                    "required": False,
-                    "default": 10,
-                    "description": "Maximum workflows to return",
-                },
-            ],
-        },
-        {
-            "name": "mtor status <workflow_id>",
-            "description": "Query status of a single workflow",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-        },
-        {
-            "name": "mtor logs <workflow_id>",
-            "description": f"Last {LOG_TAIL_LINES} lines of workflow stdout + path to full log on ganglion",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-        },
-        {
-            "name": "mtor cancel <workflow_id>",
-            "description": "Cancel a running workflow. Idempotent — cancelling an already-cancelled workflow is ok.",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-        },
-        {
-            "name": "mtor approve <workflow_id>",
-            "description": "Approve a deferred (SRP-paused) ribosome task. Sends approval signal to Temporal.",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-        },
-        {
-            "name": "mtor deny <workflow_id>",
-            "description": "Deny a deferred (SRP-paused) ribosome task. Sends rejection signal to Temporal.",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-        },
-        {
-            "name": "mtor doctor",
-            "description": "Health check: Temporal server reachability, worker liveness, provider info",
-            "params": [],
-        },
-        {
-            "name": "mtor schema",
-            "description": "Emit full JSON schema of all commands with params, types, enums, defaults",
-            "params": [],
-        },
-    ],
-    "exit_codes": {
-        "0": "ok",
-        "1": "error (generic)",
-        "2": "usage error (missing required argument)",
-        "3": "temporal unreachable",
-        "4": "workflow not found",
+        "next_actions": "array",
     },
-    "temporal_host": TEMPORAL_HOST,
-    "task_queue": TASK_QUEUE,
-}
-
-FULL_SCHEMA = {
-    "schema_version": "1",
-    "commands": [
-        {
-            "name": "mtor",
-            "description": "Returns command tree (this schema)",
-            "params": [],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {"commands": "array"},
-                "next_actions": "array",
-            },
-        },
-        {
-            "name": "mtor <prompt>",
-            "description": "Dispatch task to Temporal workflow",
-            "params": [
-                {
-                    "name": "prompt",
-                    "type": "string",
-                    "required": True,
-                    "positional": True,
-                    "description": "Task instruction. Coaching content is prepended automatically.",
-                },
-            ],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {
-                    "workflow_id": "string",
-                    "status": "string",
-                    "prompt_preview": "string (first 100 chars of full prompt after coaching injection)",
-                },
-                "next_actions": "array",
-            },
-        },
-        {
-            "name": "mtor list",
-            "description": "List recent workflows with optional filters",
-            "params": [
-                {
-                    "name": "--status",
-                    "type": "enum",
-                    "enum": ["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"],
-                    "required": False,
-                    "default": None,
-                    "description": "Filter workflows by execution status",
-                },
-                {
-                    "name": "--count",
-                    "type": "integer",
-                    "required": False,
-                    "default": 10,
-                    "min": 1,
-                    "max": 100,
-                    "description": "Maximum number of workflows to return",
-                },
-            ],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {
-                    "workflows": "array of {workflow_id, status, start_time, close_time}",
-                    "count": "integer",
-                },
-                "next_actions": "array (one mtor status per workflow)",
-            },
-        },
-        {
-            "name": "mtor status <workflow_id>",
-            "description": "Get detailed status of a single workflow",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "positional": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {
-                    "workflow_id": "string",
-                    "status": "string",
-                    "start_time": "string (ISO8601)",
-                    "close_time": "string or null",
-                },
-                "next_actions": "array",
-            },
-            "errors": [
-                {
-                    "code": "WORKFLOW_NOT_FOUND",
-                    "exit_code": 4,
-                    "message": "No workflow with that ID",
-                },
-                {
-                    "code": "TEMPORAL_UNREACHABLE",
-                    "exit_code": 3,
-                    "message": "Cannot connect to Temporal server",
-                },
-            ],
-        },
-        {
-            "name": "mtor logs <workflow_id>",
-            "description": f"Fetch last {LOG_TAIL_LINES} lines of workflow output from ganglion",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "positional": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {
-                    "lines": "array of strings",
-                    "log_path": "string (full path on ganglion)",
-                    "truncated": "boolean",
-                },
-                "next_actions": "array",
-            },
-        },
-        {
-            "name": "mtor cancel <workflow_id>",
-            "description": "Cancel a workflow. Idempotent.",
-            "params": [
-                {
-                    "name": "workflow_id",
-                    "type": "string",
-                    "required": True,
-                    "positional": True,
-                    "description": "Temporal workflow ID",
-                },
-            ],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {"workflow_id": "string", "cancelled": "boolean"},
-                "next_actions": "array",
-            },
-        },
-        {
-            "name": "mtor doctor",
-            "description": "Health check for Temporal server and worker",
-            "params": [],
-            "returns": {
-                "ok": "boolean",
-                "command": "string",
-                "result": {
-                    "temporal_reachable": "boolean",
-                    "temporal_host": "string",
-                    "worker_alive": "boolean",
-                    "checks": "array of {name, ok, detail}",
-                },
-                "next_actions": "array",
-            },
-        },
-        {
-            "name": "mtor schema",
-            "description": "Full JSON schema of all commands",
-            "params": [],
-            "returns": {"schema_version": "string", "commands": "array"},
-        },
+    annotations={"readonly": False, "destructive": False},
+)
+tree.add_command(
+    "mtor list",
+    "List recent workflows with optional filters",
+    params=[
+        {"name": "--status", "type": "enum", "enum": ["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"], "required": False, "default": None, "description": "Filter by execution status"},
+        {"name": "--count", "type": "integer", "required": False, "default": 10, "description": "Maximum workflows to return"},
     ],
-    "exit_codes": {
-        "0": "ok",
-        "1": "error (generic, non-temporal)",
-        "2": "usage error (missing required argument)",
-        "3": "temporal unreachable",
-        "4": "workflow not found",
-    },
-}
+    returns={"ok": "boolean", "command": "string", "result": {"workflows": "array of {workflow_id, status, start_time, close_time}", "count": "integer"}, "next_actions": "array (one mtor status per workflow)"},
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "mtor status <workflow_id>",
+    "Get detailed status of a single workflow",
+    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    returns={"ok": "boolean", "command": "string", "result": {"workflow_id": "string", "status": "string", "start_time": "string (ISO8601)", "close_time": "string or null"}, "next_actions": "array"},
+    errors=[{"code": "WORKFLOW_NOT_FOUND", "exit_code": 4, "message": "No workflow with that ID"}, {"code": "TEMPORAL_UNREACHABLE", "exit_code": 3, "message": "Cannot connect to Temporal server"}],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "mtor logs <workflow_id>",
+    f"Fetch last {LOG_TAIL_LINES} lines of workflow output from ganglion",
+    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    returns={"ok": "boolean", "command": "string", "result": {"lines": "array of strings", "log_path": "string (full path on ganglion)", "truncated": "boolean"}, "next_actions": "array"},
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "mtor cancel <workflow_id>",
+    "Cancel a running workflow. Idempotent — cancelling an already-cancelled workflow is ok.",
+    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    returns={"ok": "boolean", "command": "string", "result": {"workflow_id": "string", "cancelled": "boolean"}, "next_actions": "array"},
+    annotations={"readonly": False, "destructive": False, "idempotent": True},
+)
+tree.add_command(
+    "mtor approve <workflow_id>",
+    "Approve a deferred (SRP-paused) ribosome task. Sends approval signal to Temporal.",
+    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    annotations={"readonly": False, "destructive": False},
+)
+tree.add_command(
+    "mtor deny <workflow_id>",
+    "Deny a deferred (SRP-paused) ribosome task. Sends rejection signal to Temporal.",
+    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    annotations={"readonly": False, "destructive": False},
+)
+tree.add_command(
+    "mtor doctor",
+    "Health check: Temporal server reachability, worker liveness, provider info",
+    params=[],
+    returns={"ok": "boolean", "command": "string", "result": {"temporal_reachable": "boolean", "temporal_host": "string", "worker_alive": "boolean", "checks": "array of {name, ok, detail}"}, "next_actions": "array"},
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "mtor schema",
+    "Emit full JSON schema of all commands with params, types, enums, defaults",
+    params=[],
+    returns={"schema_version": "string", "commands": "array"},
+    annotations={"readonly": True},
+)
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +210,7 @@ def default_handler(
 ) -> None:
     """Bare invocation returns command tree; with a prompt, dispatches to Temporal."""
     if prompt is None:
-        _ok("mtor", COMMAND_TREE)
+        _ok("mtor", tree.to_dict(), version=VERSION)
     else:
         _dispatch_prompt(prompt, provider=provider)
 
@@ -484,7 +272,7 @@ def list_cmd(
             )
             next_actions.append(_action(f"mtor status {wf_id}", f"Get full status for {wf_id}"))
 
-        _ok(cmd, {"workflows": workflows, "count": len(workflows)}, next_actions)
+        _ok(cmd, {"workflows": workflows, "count": len(workflows)}, next_actions, version=VERSION)
     except Exception as exc:
         sys.exit(
             _err(
@@ -558,6 +346,7 @@ def status(workflow_id: str) -> None:
                 _action(f"mtor logs {workflow_id}", "Fetch last 30 lines of output"),
                 _action(f"mtor cancel {workflow_id}", "Cancel this workflow"),
             ],
+            version=VERSION,
         )
     except Exception as exc:
         exc_str = str(exc)
@@ -682,6 +471,7 @@ def logs(workflow_id: str) -> None:
                 _action(f"mtor status {workflow_id}", "Check workflow status"),
                 _action(f"mtor cancel {workflow_id}", "Cancel if still running"),
             ],
+            version=VERSION,
         )
     except subprocess.TimeoutExpired:
         sys.exit(
@@ -737,6 +527,7 @@ def cancel(workflow_id: str) -> None:
             [
                 _action(f"mtor status {workflow_id}", "Verify cancellation status"),
             ],
+            version=VERSION,
         )
     except Exception as exc:
         exc_str = str(exc)
@@ -767,6 +558,7 @@ def cancel(workflow_id: str) -> None:
                 [
                     _action(f"mtor status {workflow_id}", "Verify final status"),
                 ],
+                version=VERSION,
             )
             return
         sys.exit(
@@ -851,7 +643,7 @@ def doctor() -> None:
     }
 
     if all_ok:
-        _ok(cmd, result, [])
+        _ok(cmd, result, [], version=VERSION)
     else:
         payload = {
             "ok": False,
@@ -878,7 +670,7 @@ def doctor() -> None:
 @app.command
 def schema() -> None:
     """Emit full JSON schema of all commands."""
-    _ok("mtor schema", FULL_SCHEMA)
+    _ok("mtor schema", tree.to_schema(), version=VERSION)
 
 
 @app.command
@@ -903,7 +695,7 @@ def approve(workflow_id: str) -> None:
         await handle.signal("approve_task", workflow_id)
 
     asyncio.run(_signal())
-    _ok("mtor approve", {"workflow_id": workflow_id, "decision": "approved"})
+    _ok("mtor approve", {"workflow_id": workflow_id, "decision": "approved"}, version=VERSION)
 
 
 @app.command
@@ -928,7 +720,7 @@ def deny(workflow_id: str) -> None:
         await handle.signal("reject_task", workflow_id)
 
     asyncio.run(_signal())
-    _ok("mtor deny", {"workflow_id": workflow_id, "decision": "denied"})
+    _ok("mtor deny", {"workflow_id": workflow_id, "decision": "denied"}, version=VERSION)
 
 
 # ---------------------------------------------------------------------------
@@ -1010,6 +802,7 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
                 _action(f"mtor logs {started_id}", "Fetch output when complete"),
                 _action(f"mtor cancel {started_id}", "Cancel if needed"),
             ],
+            version=VERSION,
         )
     except Exception as exc:
         sys.exit(
