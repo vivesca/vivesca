@@ -89,7 +89,7 @@ def doctor() -> None:
             timeout=30,
         )
         providers = json.loads(provider_result.stdout) if provider_result.returncode == 0 else []
-        healthy = [p for p in providers if p.get("health") == "OK"]
+        healthy = [p for p in providers if p.get("health") in ("OK", "HEALTHY")]
         checks.append(
             {
                 "name": "providers",
