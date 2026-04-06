@@ -8,24 +8,30 @@ from metabolon.organelles import rheotaxis_engine
 
 @tool(
     name="rheotaxis",
-    description="Web search. Default: 8 backends parallel (~$0.03). mode=research: Perplexity deep ($0.40).",
+    description="Web search. Default: 7 backends parallel (~$0.03). mode=research: Perplexity deep ($0.40). exclude: skip backends by name.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 async def rheotaxis(
     query: str,
     mode: str = "",
+    exclude: str = "",
 ) -> str:
     """Web search.
 
     Args:
         query: Search query. Pipe-separate for multi-framing.
-        mode: Empty (default) = 8 backends parallel (~$0.03).
+        mode: Empty (default) = 7 backends parallel (~$0.03).
               'research' = Perplexity deep research (~$0.40).
+        exclude: Comma-separated backend names to skip (e.g. 'zhipu' for English-only queries).
+                 Available: grok, exa, perplexity, tavily, serper, zhipu, jina.
     """
     if mode == "research":
         return rheotaxis_engine.perplexity_deep(query)
 
     from metabolon.enzymes._parallel_search import _report, _run_all
 
-    results = await _run_all(query)
+    exclude_set = (
+        {name.strip().lower() for name in exclude.split(",") if name.strip()} if exclude else set()
+    )
+    results = await _run_all(query, exclude=exclude_set)
     return _report(query, results)

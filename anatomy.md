@@ -147,7 +147,7 @@ pseudopod — browser cookie bridge + translocon dispatch for LLM tasks.
 
 ### rheotaxis
 rheotaxis — web search. Default: all cheap backends + synthesis. Named modes for expensive ones.
-- `rheotaxis(query, mode)` -- Web search.
+- `rheotaxis(query, mode, exclude)` -- Web search.
 
 ### ribosome_queue
 ribosome_queue — MCP tool for managing the ribosome task queue.
@@ -394,8 +394,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **766**
-- Most active: `rheotaxis` (189), `server` (146), `fetch` (129), `ribosome_dispatch` (77), `endosomal` (56)
+- Signals (last 7 days): **768**
+- Most active: `rheotaxis` (191), `server` (146), `fetch` (129), `ribosome_dispatch` (77), `endosomal` (56)
 
 ## Known Lesions
 

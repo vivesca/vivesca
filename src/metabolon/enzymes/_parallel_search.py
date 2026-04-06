@@ -8,7 +8,6 @@ Tools:
 """
 
 import asyncio
-import contextlib
 import json
 import os
 import shutil
@@ -61,6 +60,7 @@ async def _run_tool(
 ) -> ToolResult:
     """Run a CLI tool async, return ToolResult."""
     start = time.time()
+    proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
             binary,
@@ -87,8 +87,8 @@ async def _run_tool(
             latency_s=latency,
         )
     except TimeoutError:
-        with contextlib.suppress(Exception):
-            proc.kill()  # type: ignore[possibly-unbound]
+        if proc is not None:
+            proc.kill()
         return ToolResult(
             tool=name,
             query="",
@@ -633,23 +633,18 @@ def _report(query: str, results: list[ToolResult]) -> str:
     total = len(results)
     failed = len(errored)
 
-    # If majority of backends failed, write health file and raise.
-    # Health file lets PreToolUse hook block WebSearch fallback.
-    # Raising makes this a tool error that CC cannot silently ignore.
     health_file = Path.home() / ".cache" / "vivesca" / "rheotaxis-health"
     health_file.parent.mkdir(parents=True, exist_ok=True)
+
+    if failed == total:
+        health_file.write_text(f"down {failed}/{total}")
+        error_details = "; ".join(f"{r.tool}: {(r.error or '')[:80]}" for r in errored)
+        raise RuntimeError(f"rheotaxis down: all {total} backends failed. Errors: {error_details}")
+
     if failed > 0:
         backend_names = ", ".join(r.tool for r in errored)
-        ok_names = ", ".join(r.tool for r in ok) or "none"
-        error_details = "; ".join(f"{r.tool}: {r.error[:80]}" for r in errored)
         health_file.write_text(f"degraded {failed}/{total} {backend_names}")
-        raise RuntimeError(
-            f"rheotaxis degraded: {failed}/{total} backends failed "
-            f"({backend_names}). Only {ok_names} returned results. "
-            f"Errors: {error_details}"
-        )
     else:
-        # Healthy — clear the flag
         health_file.unlink(missing_ok=True)
 
     lines = []
@@ -658,24 +653,28 @@ def _report(query: str, results: list[ToolResult]) -> str:
         lines.append(r.result)
         lines.append("")
     if errored:
-        lines.append(f"*{len(errored)} backends errored: {', '.join(r.tool for r in errored)}*")
+        error_details = "; ".join(f"{r.tool}: {(r.error or '')[:60]}" for r in errored)
+        lines.append(
+            f"*{failed}/{total} backends failed ({error_details}) — results from {total - failed} sources above*"
+        )
     return "\n".join(lines)
 
 
 # --- Orchestrator ---
 
 
-async def _run_all(query: str) -> list[ToolResult]:
-    tasks = [
-        _run_grok(query),
-        _run_exa(query),
-        _run_perplexity(query),
-        _run_tavily(query),
-        _run_serper(query),
-        _run_zhipu(query),
-        _run_jina(query),
-        # firecrawl removed — 500 free credits reserved for pinocytosis scraping
-    ]
+async def _run_all(query: str, exclude: set[str] | None = None) -> list[ToolResult]:
+    backend_map = {
+        "grok": _run_grok,
+        "exa": _run_exa,
+        "perplexity": _run_perplexity,
+        "tavily": _run_tavily,
+        "serper": _run_serper,
+        "zhipu": _run_zhipu,
+        "jina": _run_jina,
+    }
+    skip = exclude or set()
+    tasks = [func(query) for name, func in backend_map.items() if name not in skip]
 
     raw = await asyncio.gather(*tasks, return_exceptions=True)
     results = []
