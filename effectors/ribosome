@@ -345,10 +345,11 @@ _run_ribosome() {
     local _explore_sys
     _explore_sys="$(cat <<'EXPLORE_SYS'
 <mode>explore</mode>
-You are an exploration agent. Your job is to search a codebase and return structured findings. You do NOT write or modify code.
+You are an exploration agent. Your job is to search a codebase or the web and return structured findings. You do NOT write or modify code.
 
 ## Rules
-- Use Grep, Glob, Read, and Bash (read-only commands like ls, wc, file) to explore
+- Use Grep, Glob, Read, and Bash (read-only commands like ls, wc, file, curl, jq) to explore
+- For web research: use curl to fetch URLs, pipe large responses through head/tail/grep to avoid OOM
 - Search breadth-first: cast a wide net with Glob/Grep, then drill into the most relevant hits
 - Follow references across files — if a function is imported, find where it's defined
 - Stop when you have enough signal to answer the query — don't exhaustively read every file
