@@ -26,7 +26,7 @@ def _extract_decorated_names(module_path: Path, decorator_name: str) -> list[dic
     results: list[dict] = []
     try:
         tree = ast.parse(module_path.read_text())
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return results
 
     for node in ast.walk(tree):
@@ -106,6 +106,39 @@ def _scan_directory(
     return lines
 
 
+
+def _scan_resource_functions(directory: Path) -> list[str]:
+    """Scan resources directory for express_* functions (not @resource-decorated)."""
+    lines: list[str] = []
+    if not directory.exists():
+        lines.append("  _(no resources directory)_")
+        return lines
+
+    modules = sorted(p for p in directory.glob("*.py") if p.name != "__init__.py")
+    if not modules:
+        lines.append("  _(no resource modules)_")
+        return lines
+
+    for mod in modules:
+        try:
+            tree = ast.parse(mod.read_text())
+            funcs = [
+                node.name
+                for node in ast.walk(tree)
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name.startswith("express_")
+            ]
+            if funcs:
+                names = ", ".join(f"`{f}`" for f in funcs)
+                lines.append(f"- **{mod.name}**: {names}")
+            else:
+                lines.append(f"- **{mod.name}**: _(no express_* functions)_")
+        except (SyntaxError, OSError):
+            lines.append(f"- **{mod.name}**: _(parse error)_")
+
+    return lines
+
+
 def _metabolism_summary() -> list[str]:
     """Read metabolism state — graceful fallback if empty."""
     lines: list[str] = []
@@ -146,7 +179,7 @@ def _extract_module_docstring(module_path: Path) -> str:
     try:
         tree = ast.parse(module_path.read_text())
         return ast.get_docstring(tree) or ""
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return ""
 
 
@@ -155,7 +188,7 @@ def _extract_tool_details(module_path: Path) -> list[dict]:
     results: list[dict] = []
     try:
         tree = ast.parse(module_path.read_text())
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return results
 
     for node in ast.walk(tree):
@@ -236,7 +269,7 @@ def _extract_substrate_info(module_path: Path) -> dict | None:
     try:
         source = module_path.read_text()
         tree = ast.parse(source)
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return None
 
     mod_doc = ast.get_docstring(tree) or ""
@@ -315,7 +348,7 @@ def _extract_module_summary(module_path: Path) -> dict | None:
     try:
         source = module_path.read_text()
         tree = ast.parse(source)
-    except SyntaxError, OSError:
+    except (SyntaxError, OSError):
         return None
 
     mod_doc = ast.get_docstring(tree) or ""
@@ -716,7 +749,7 @@ def express_anatomy(src_root: Path | None = None) -> str:
 
     # Resources (existing)
     sections.append("## Registered Resources\n")
-    sections.extend(_scan_directory(src / "resources", "resource", "resources"))
+    sections.extend(_scan_resource_functions(src / "resources"))
     sections.append("")
 
     # Codons (prompts)

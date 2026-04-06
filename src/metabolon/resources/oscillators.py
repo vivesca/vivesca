@@ -47,7 +47,7 @@ def _launchctl_status(label: str) -> dict:
             "last_exit": last_exit,
             "loaded": True,
         }
-    except subprocess.TimeoutExpired, OSError:
+    except (subprocess.TimeoutExpired, OSError):
         return {"running": False, "pid": None, "last_exit": None, "loaded": False}
 
 
