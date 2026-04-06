@@ -15,6 +15,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -25,12 +26,23 @@ from typing import Any
 import click
 
 TEMPORAL_HOST = os.environ.get("TEMPORAL_HOST", "ganglion:7233")
-TASK_QUEUE = "golem-queue"
-WORKFLOW_TYPE = "GolemDispatchWorkflow"
+TASK_QUEUE = "translation-queue"
+WORKFLOW_TYPE = "TranslationWorkflow"
 COACHING_PATH = Path.home() / "epigenome/marks/feedback_ribosome_coaching.md"
 
 LOG_TAIL_LINES = 30
 RIBOSOME_OUTPUTS_DIR = "~/germline/loci/ribosome-outputs"
+
+
+def _extract_first_result(wf_result: dict) -> dict | None:
+    """Extract the first task result from the batch envelope."""
+    results = wf_result.get("results")
+    if isinstance(results, list) and results:
+        return results[0]
+    # Flat result (direct task output, not batch envelope)
+    if "exit_code" in wf_result:
+        return wf_result
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -498,21 +510,39 @@ def status(workflow_id: str) -> None:
         async def _status():
             handle = client.get_workflow_handle(workflow_id)
             desc = await handle.describe()
-            return desc
+            wf_result = None
+            if desc.status and desc.status.name == "COMPLETED":
+                with contextlib.suppress(Exception):
+                    wf_result = await handle.result()
+            return desc, wf_result
 
-        desc = asyncio.run(_status())
+        desc, wf_result = asyncio.run(_status())
         status_val = desc.status.name if desc.status else "UNKNOWN"
         start_time = desc.start_time.isoformat() if desc.start_time else None
         close_time = desc.close_time.isoformat() if desc.close_time else None
 
+        result_payload: dict[str, Any] = {
+            "workflow_id": workflow_id,
+            "status": status_val,
+            "start_time": start_time,
+            "close_time": close_time,
+        }
+        if wf_result and isinstance(wf_result, dict):
+            task_result = _extract_first_result(wf_result)
+            if task_result:
+                result_payload["success"] = task_result.get("success")
+                result_payload["exit_code"] = task_result.get("exit_code")
+                result_payload["provider"] = task_result.get("provider")
+                result_payload["task_preview"] = task_result.get("task", "")[:120]
+                result_payload["output_path"] = task_result.get("review", {}).get(
+                    "output_path", ""
+                )
+                result_payload["merged"] = task_result.get("merged")
+                result_payload["verdict"] = task_result.get("review", {}).get("verdict")
+
         _ok(
             cmd,
-            {
-                "workflow_id": workflow_id,
-                "status": status_val,
-                "start_time": start_time,
-                "close_time": close_time,
-            },
+            result_payload,
             [
                 _action(f"mtor logs {workflow_id}", "Fetch last 30 lines of output"),
                 _action(f"mtor cancel {workflow_id}", "Cancel this workflow"),
@@ -547,11 +577,59 @@ def status(workflow_id: str) -> None:
 def logs(workflow_id: str) -> None:
     """Fetch last 30 lines of workflow output from ganglion."""
     cmd = f"mtor logs {workflow_id}"
-    log_path = f"{RIBOSOME_OUTPUTS_DIR}/{workflow_id}/stdout.log"
-    full_log_path = f"/home/vivesca/germline/loci/ribosome-outputs/{workflow_id}/stdout.log"
 
-    # TODO: Replace with Temporal query when polysome exposes a QueryWorkflow handler.
-    # Currently reads directly from ganglion filesystem via SSH.
+    # Step 1: Query Temporal for the workflow result to get output_path
+    log_path = ""
+    client, client_err = _get_client()
+    if client and not client_err:
+        try:
+            import asyncio
+
+            async def _get_output_path():
+                handle = client.get_workflow_handle(workflow_id)
+                wf_result = await handle.result()
+                if isinstance(wf_result, dict):
+                    task_result = _extract_first_result(wf_result)
+                    if task_result:
+                        return task_result.get("review", {}).get("output_path", "")
+                return ""
+
+            log_path = asyncio.run(_get_output_path())
+        except Exception:
+            pass
+
+    # Step 2: If no output_path from result, fall back to ls + grep
+    if not log_path:
+        try:
+            find_result = subprocess.run(
+                ["ssh", "ganglion", f"ls -t {RIBOSOME_OUTPUTS_DIR}/*.txt 2>/dev/null | head -20"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if find_result.returncode == 0:
+                # Extract the hex suffix from workflow_id (e.g. ribosome-zhipu-af3c43d1 -> af3c43d1)
+                wf_suffix = workflow_id.rsplit("-", 1)[-1] if "-" in workflow_id else workflow_id
+                for line in find_result.stdout.strip().splitlines():
+                    fname = line.strip().rsplit("/", 1)[-1]
+                    if wf_suffix in fname:
+                        log_path = line.strip()
+                        break
+        except subprocess.TimeoutExpired, OSError:
+            pass
+
+    if not log_path:
+        sys.exit(
+            _err(
+                cmd,
+                f"No log file found for workflow {workflow_id}",
+                "LOG_NOT_FOUND",
+                f"Verify the workflow ID with: mtor status {workflow_id}",
+                [_action(f"mtor status {workflow_id}", "Check if workflow exists")],
+                exit_code=4,
+            )
+        )
+
     try:
         result = subprocess.run(
             ["ssh", "ganglion", f"tail -{LOG_TAIL_LINES} {log_path}"],
@@ -587,7 +665,7 @@ def logs(workflow_id: str) -> None:
             cmd,
             {
                 "lines": lines,
-                "log_path": full_log_path,
+                "log_path": log_path,
                 "truncated": len(lines) == LOG_TAIL_LINES,
             },
             [
@@ -850,11 +928,17 @@ def _dispatch_prompt(prompt: str) -> None:
         import uuid
 
         workflow_id = f"ribosome-{uuid.uuid4().hex[:8]}"
+        spec = {
+            "task": full_prompt,
+            "provider": "zhipu",
+            "max_turns": 25,
+            "mode": "build",
+        }
 
         async def _start():
             handle = await client.start_workflow(
                 WORKFLOW_TYPE,
-                full_prompt,
+                args=[[spec]],
                 id=workflow_id,
                 task_queue=TASK_QUEUE,
             )
