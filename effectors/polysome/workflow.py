@@ -114,19 +114,41 @@ class TranslationWorkflow:
                     heartbeat_timeout=timedelta(minutes=5),
                     retry_policy=_RETRY_POLICY,
                 )
-                try:
-                    review = await workflow.execute_activity(
-                        chaperone,
-                        args=[result],
-                        start_to_close_timeout=timedelta(minutes=2),
-                        retry_policy=_REVIEW_RETRY,
-                    )
-                except Exception:
+                # SRP defer: if activity returned deferred, wait for approval signal
+                if result.get("deferred"):
+                    task_id = spec.get("task", "")[:50]
                     review = {
-                        "approved": result.get("success", False),
-                        "flags": ["review_failed"],
-                        "verdict": "review_error",
+                        "approved": False,
+                        "verdict": "deferred",
+                        "flags": [f"deferred:{result.get('deferred_tool', 'unknown')}"],
+                        "session_id": result.get("session_id", ""),
                     }
+                    try:
+                        await workflow.wait_condition(
+                            lambda tid=task_id: tid in self._approval_signals,
+                            timeout=timedelta(minutes=30),
+                        )
+                        decision = self._approval_signals.get(task_id, "reject")
+                        if decision == "approve":
+                            review = {**review, "verdict": "deferred_approved", "approved": True}
+                        else:
+                            review = {**review, "verdict": "deferred_rejected"}
+                    except TimeoutError:
+                        review = {**review, "verdict": "deferred_timeout"}
+                else:
+                    try:
+                        review = await workflow.execute_activity(
+                            chaperone,
+                            args=[result],
+                            start_to_close_timeout=timedelta(minutes=2),
+                            retry_policy=_REVIEW_RETRY,
+                        )
+                    except Exception:
+                        review = {
+                            "approved": result.get("success", False),
+                            "flags": ["review_failed"],
+                            "verdict": "review_error",
+                        }
 
         except Exception as exc:
             result = {

@@ -381,9 +381,15 @@ async def translate(task: str, provider: str) -> dict:
     await asyncio.to_thread(_git_pull_ff_only, work_dir)
     pre_diff = await asyncio.to_thread(_git_snapshot, work_dir)
 
+    # SRP: detect [supervised] marker in task string
+    is_supervised = "[supervised]" in task
+    if is_supervised:
+        effective_task = effective_task.replace("[supervised]", "").strip()
+
     cmd = [
         "bash",
         str(RIBOSOME_SCRIPT),
+        *(["--supervised"] if is_supervised else []),
         "--provider",
         provider,
         effective_task,
@@ -503,6 +509,32 @@ async def translate(task: str, provider: str) -> dict:
     rc = proc.returncode or 0
     stdout = stdout_bytes.decode(errors="replace")
     stderr = stderr_bytes.decode(errors="replace")
+
+    # SRP defer detection: supervised mode returns JSON with stop_reason
+    if is_supervised and rc == 0:
+        with contextlib.suppress(Exception):
+            import json as _json
+
+            output_json = _json.loads(stdout)
+            if output_json.get("stop_reason") == "tool_deferred":
+                return {
+                    "success": False,
+                    "exit_code": 0,
+                    "provider": provider,
+                    "task": task[:200],
+                    "stdout": stdout[:1000],
+                    "stderr": stderr[:500],
+                    "deferred": True,
+                    "session_id": output_json.get("session_id", ""),
+                    "deferred_tool": output_json.get("deferred_tool_use", {}).get(
+                        "name", "unknown"
+                    ),
+                    "pre_diff": pre_diff,
+                    "post_diff": {"stat": "", "numstat": ""},
+                    "output_path": "",
+                    "branch_name": branch_name if worktree_path else "",
+                    "merged": False,
+                }
 
     post_diff = await asyncio.to_thread(_git_snapshot, work_dir)
     commit_count = post_diff.get("commit_count", 0)

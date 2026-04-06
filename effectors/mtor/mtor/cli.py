@@ -182,6 +182,30 @@ COMMAND_TREE = {
             ],
         },
         {
+            "name": "mtor approve <workflow_id>",
+            "description": "Approve a deferred (SRP-paused) ribosome task. Sends approval signal to Temporal.",
+            "params": [
+                {
+                    "name": "workflow_id",
+                    "type": "string",
+                    "required": True,
+                    "description": "Temporal workflow ID",
+                },
+            ],
+        },
+        {
+            "name": "mtor deny <workflow_id>",
+            "description": "Deny a deferred (SRP-paused) ribosome task. Sends rejection signal to Temporal.",
+            "params": [
+                {
+                    "name": "workflow_id",
+                    "type": "string",
+                    "required": True,
+                    "description": "Temporal workflow ID",
+                },
+            ],
+        },
+        {
             "name": "mtor doctor",
             "description": "Health check: Temporal server reachability, worker liveness, provider info",
             "params": [],
@@ -855,6 +879,56 @@ def doctor() -> None:
 def schema() -> None:
     """Emit full JSON schema of all commands."""
     _ok("mtor schema", FULL_SCHEMA)
+
+
+@app.command
+def approve(workflow_id: str) -> None:
+    """Approve a deferred (SRP-paused) ribosome task."""
+    client, err = _get_client()
+    if err:
+        sys.exit(
+            _err(
+                "mtor approve",
+                f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
+                "TEMPORAL_UNREACHABLE",
+                "Check Temporal connectivity",
+                exit_code=3,
+            )
+        )
+
+    import asyncio
+
+    async def _signal():
+        handle = client.get_workflow_handle(workflow_id)
+        await handle.signal("approve_task", workflow_id)
+
+    asyncio.run(_signal())
+    _ok("mtor approve", {"workflow_id": workflow_id, "decision": "approved"})
+
+
+@app.command
+def deny(workflow_id: str) -> None:
+    """Deny a deferred (SRP-paused) ribosome task."""
+    client, err = _get_client()
+    if err:
+        sys.exit(
+            _err(
+                "mtor deny",
+                f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
+                "TEMPORAL_UNREACHABLE",
+                "Check Temporal connectivity",
+                exit_code=3,
+            )
+        )
+
+    import asyncio
+
+    async def _signal():
+        handle = client.get_workflow_handle(workflow_id)
+        await handle.signal("reject_task", workflow_id)
+
+    asyncio.run(_signal())
+    _ok("mtor deny", {"workflow_id": workflow_id, "decision": "denied"})
 
 
 # ---------------------------------------------------------------------------
