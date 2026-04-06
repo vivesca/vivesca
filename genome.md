@@ -155,6 +155,8 @@ Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference
 
 Append recurring GLM failure patterns to `~/epigenome/marks/feedback_ribosome_coaching.md`. Prepended to every ribosome dispatch. Format: pattern name, what GLM does wrong, fix instruction.
 
+**Coaching entries decay toward zero.** Each entry either gets promoted to a deterministic gate check (grep in `chaperone`, pre-commit hook) or retired when the LLM stops violating it. A coaching file that only grows means the enforcement layer isn't working. At each addition, ask: "Can this be a grep?" If yes, add it to the review gate and mark the coaching entry as promoted.
+
 <!-- BEGIN CODEX TOOL MAP -->
 ## Codex Tool Mapping
 
