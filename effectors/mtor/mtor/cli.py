@@ -883,13 +883,12 @@ def schema() -> None:
 @cli.command(name="dispatch", add_help_option=False, hidden=True)
 @click.argument("prompt")
 @click.option("-p", "--provider", default="zhipu", help="LLM provider")
-@click.option("-t", "--max-turns", default=25, type=int, help="Max agent turns")
-def dispatch(prompt: str, provider: str, max_turns: int) -> None:
+def dispatch(prompt: str, provider: str) -> None:
     """Internal: dispatch a prompt to Temporal. Use 'mtor <prompt>' directly."""
-    _dispatch_prompt(prompt, provider=provider, max_turns=max_turns)
+    _dispatch_prompt(prompt, provider=provider)
 
 
-def _dispatch_prompt(prompt: str, *, provider: str = "zhipu", max_turns: int = 25) -> None:
+def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
     """Core dispatch logic — shared by the group's bare-prompt handler."""
     cmd = f"mtor {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
 
@@ -933,7 +932,7 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu", max_turns: int = 2
         spec = {
             "task": full_prompt,
             "provider": provider,
-            "max_turns": max_turns,
+            "max_turns": 25,
             "mode": "build",
         }
 
