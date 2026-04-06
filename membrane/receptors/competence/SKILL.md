@@ -98,6 +98,14 @@ This prevents re-scanning the same changelog entries next time.
 - Don't scan every dependency — focus on the 5 tools that matter (CC, uv, ruff, Temporal, MCP spec)
 - Don't block on low-priority adoptions — batch them for the next cycle
 
+## Split with evergreen
+
+**Evergreen** (daily cron, deterministic): version bumps for CC, uv, ruff, Rust, npm globals, ganglion sync. No judgment needed — if latest > current, upgrade.
+
+**Competence** (manual/monthly, judgment): feature adoption. Read changelogs, evaluate fit, design integrations, dispatch implementation. This is the part that needs CC.
+
+If a version bump introduces a new FEATURE worth adopting, evergreen installs the version but competence decides whether to use the feature.
+
 ## Related skills
 
 - `integrin` — scans for breakage (health), not growth (competence)
