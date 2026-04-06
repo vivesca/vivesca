@@ -35,21 +35,26 @@ def _strip_pubmed_refs(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 _UNIPROT_SEARCH = "https://rest.uniprot.org/uniprotkb/search"
-_UNIPROT_FIELDS = (
-    "accession,protein_name,cc_function,cc_catalytic_activity,cc_domain,cc_subunit,cc_pathway"
-)
+_UNIPROT_FIELDS = "accession,gene_names,protein_name,cc_function,cc_catalytic_activity,cc_domain,cc_subunit,cc_pathway"
 
 
 def _term_in_protein_name(term: str, result: dict) -> bool:
     """Check if the search term appears in the protein's actual name or gene names."""
     term_lower = term.lower()
-    # Check protein name
-    for name_key in ("recommendedName", "alternativeName"):
-        name_obj = result.get("proteinDescription", {}).get(name_key, {})
-        full = name_obj.get("fullName", {}).get("value", "")
+    # Check protein recommended name
+    rec_name = result.get("proteinDescription", {}).get("recommendedName", {})
+    full = rec_name.get("fullName", {}).get("value", "")
+    if term_lower in full.lower():
+        return True
+    for short in rec_name.get("shortNames", []):
+        if term_lower in short.get("value", "").lower():
+            return True
+    # Check alternative names (UniProt uses plural "alternativeNames" as a list)
+    for alt_name in result.get("proteinDescription", {}).get("alternativeNames", []):
+        full = alt_name.get("fullName", {}).get("value", "")
         if term_lower in full.lower():
             return True
-        for short in name_obj.get("shortNames", []):
+        for short in alt_name.get("shortNames", []):
             if term_lower in short.get("value", "").lower():
                 return True
     # Check submitted names
@@ -67,22 +72,30 @@ def _term_in_protein_name(term: str, result: dict) -> bool:
 
 
 def _fetch_uniprot(term: str) -> BioArticle | None:
-    """Search UniProt for a human protein by gene name or keyword."""
-    queries = [
-        f"gene_exact:{term} AND organism_id:9606 AND reviewed:true",
-        f"gene:{term} AND organism_id:9606 AND reviewed:true",
-        f"{term} AND organism_id:9606 AND reviewed:true",
-        f"{term} AND organism_id:9606",
+    """Search UniProt for a protein by gene name or keyword.
+
+    Tries human proteins first (organism_id:9606), then falls back to any
+    organism for bacterial/non-human proteins like porins and OmpF.
+    """
+    # (query, needs_name_filter): gene_exact/gene queries are precise;
+    # keyword-only queries are broad and need relevance filtering.
+    query_tiers = [
+        # Human-specific
+        (f"gene_exact:{term} AND organism_id:9606 AND reviewed:true", False),
+        (f"gene:{term} AND organism_id:9606 AND reviewed:true", False),
+        (f"{term} AND organism_id:9606 AND reviewed:true", True),
+        (f"{term} AND organism_id:9606", True),
+        # Organism-agnostic fallback — catches bacterial proteins (porins, OmpF, etc.)
+        (f"gene_exact:{term} AND reviewed:true", False),
+        (f"gene:{term} AND reviewed:true", False),
+        (f"{term} AND reviewed:true", True),
     ]
-    # Broad queries (index 2+) need relevance filtering — they match any
-    # protein that mentions the term anywhere in its record.
-    _BROAD_QUERY_INDEX = 2
 
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=15.0) as client:
-        for qi, q in enumerate(queries):
+        for query, needs_filter in query_tiers:
             resp = client.get(
                 _UNIPROT_SEARCH,
-                params={"query": q, "format": "json", "fields": _UNIPROT_FIELDS, "size": "5"},
+                params={"query": query, "format": "json", "fields": _UNIPROT_FIELDS, "size": "5"},
             )
             if resp.status_code != 200:
                 continue
@@ -92,7 +105,7 @@ def _fetch_uniprot(term: str) -> BioArticle | None:
 
             # For broad queries, find the first result where the term
             # actually appears in the protein/gene name (not just description).
-            if qi >= _BROAD_QUERY_INDEX:
+            if needs_filter:
                 r = None
                 for candidate in results:
                     if _term_in_protein_name(term, candidate):
@@ -385,7 +398,17 @@ def _fetch_wikipedia(term: str) -> BioArticle | None:
             results = _search_wikipedia(term)
             if not results:
                 return None
-            url = _WIKI_SUMMARY.format(title=results[0])
+            # Validate: only accept results where the search term appears in the title.
+            # Prevents "OmpF" → "Omphalos hypothesis" false matches.
+            term_lower = term.lower()
+            matched = None
+            for candidate in results:
+                if term_lower in candidate.lower():
+                    matched = candidate
+                    break
+            if matched is None:
+                return None
+            url = _WIKI_SUMMARY.format(title=matched)
             resp = client.get(url)
 
         if resp.status_code != 200:

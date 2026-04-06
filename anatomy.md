@@ -394,8 +394,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **752**
-- Most active: `rheotaxis` (186), `server` (146), `fetch` (123), `ribosome_dispatch` (77), `endosomal` (56)
+- Signals (last 7 days): **766**
+- Most active: `rheotaxis` (189), `server` (146), `fetch` (129), `ribosome_dispatch` (77), `endosomal` (56)
 
 ## Known Lesions
 
