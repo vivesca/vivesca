@@ -203,7 +203,7 @@ _configure_provider() {
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
       _URL="https://cloud.infini-ai.com/maas/coding"
-      _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.7" ;;
+      _OPUS="minimax-m2.7"; _SONNET="minimax-m2.7"; _HAIKU="minimax-m2.5" ;;
     gemini)
       _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
       _CLI="gemini"  # uses gemini CLI, not claude
