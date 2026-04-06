@@ -148,6 +148,16 @@ PROVIDERS = {
         "model": "gpt-5.4",
         "key_var": "OPENAI_API_KEY",
     },
+    "goose": {
+        "model": "GLM-5.1 (via Goose)",
+        "key_var": "ZHIPU_API_KEY",
+        "cli": "goose",
+    },
+    "droid": {
+        "model": "GLM-5.1 (via Droid)",
+        "key_var": "ZHIPU_API_KEY",
+        "cli": "droid",
+    },
 }
 
 

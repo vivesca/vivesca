@@ -98,16 +98,6 @@ def _get_client():
         return None, str(exc)
 
 
-def _load_coaching() -> str:
-    """Load coaching content from feedback_ribosome_coaching.md. Empty string if missing."""
-    if COACHING_PATH.exists():
-        try:
-            return COACHING_PATH.read_text(encoding="utf-8")
-        except OSError:
-            pass
-    return ""
-
-
 # ---------------------------------------------------------------------------
 # Command tree (built with porin CommandTree)
 # ---------------------------------------------------------------------------
@@ -882,12 +872,10 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
             )
         )
 
-    # Prepend coaching content
-    coaching = _load_coaching()
-    if coaching:
-        full_prompt = f"<coaching-notes>\n{coaching}\n</coaching-notes>\n\n{prompt}"
-    else:
-        full_prompt = prompt
+    # Coaching injection is handled by the ribosome executor per provider:
+    # CC: prepended to prompt; goose: MOIM file; droid: --append-system-prompt-file.
+    # Do NOT prepend here — it causes double injection.
+    full_prompt = prompt
 
     client, err = _get_client()
     if err:
@@ -906,7 +894,7 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
         import asyncio
         import uuid
 
-        workflow_id = f"ribosome-{uuid.uuid4().hex[:8]}"
+        workflow_id = f"ribosome-{provider}-{uuid.uuid4().hex[:8]}"
         spec = {
             "task": full_prompt,
             "provider": provider,
