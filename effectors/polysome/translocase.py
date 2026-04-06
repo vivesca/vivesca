@@ -44,7 +44,7 @@ _MERGE_LOCK_PATH = Path(__file__).resolve().parent.parent.parent / ".worktrees" 
 _LOCKFILE_NAMES = {"uv.lock", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock"}
 
 _HEARTBEAT_INTERVAL = 30.0
-_ACTIVITY_TIMEOUT = timedelta(minutes=30)
+_ACTIVITY_TIMEOUT = timedelta(hours=2)  # generous circuit breaker; stall detection fires first
 
 
 def _git_snapshot(cwd: str | None = None) -> dict:
@@ -306,7 +306,7 @@ def _detect_prior_commits(
 
 
 @activity.defn
-async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
+async def translate(task: str, provider: str) -> dict:
     """Execute a single ribosome task as a subprocess."""
     task_id_match = _re.search(r"\[t-([0-9a-fA-F]+)\]", task)
     tid_str = task_id_match.group(1) if task_id_match else ""
@@ -386,8 +386,6 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
         str(RIBOSOME_SCRIPT),
         "--provider",
         provider,
-        "--max-turns",
-        str(max_turns),
         effective_task,
     ]
     proc = await asyncio.create_subprocess_exec(

@@ -58,7 +58,6 @@ class TranslationWorkflow:
         """Execute a single spec, then review the result."""
         task = spec.get("task", "")
         provider = spec.get("provider", "zhipu")
-        max_turns = spec.get("max_turns", 50)
         mode = spec.get("mode", "raw")
 
         # #3: Version guard — new code paths gated behind patched()
@@ -71,7 +70,7 @@ class TranslationWorkflow:
                     result = await workflow.execute_activity(
                         translate_graph,
                         args=[task, provider],
-                        start_to_close_timeout=timedelta(minutes=35),
+                        start_to_close_timeout=timedelta(hours=2),
                         heartbeat_timeout=timedelta(minutes=10),
                         retry_policy=_RETRY_POLICY,
                     )
@@ -88,8 +87,8 @@ class TranslationWorkflow:
                     mode = "raw_fallback"
                     result = await workflow.execute_activity(
                         translate,
-                        args=[task, provider, max_turns],
-                        start_to_close_timeout=timedelta(minutes=35),
+                        args=[task, provider],
+                        start_to_close_timeout=timedelta(hours=2),
                         heartbeat_timeout=timedelta(minutes=5),
                         retry_policy=_RETRY_POLICY,
                     )
@@ -110,8 +109,8 @@ class TranslationWorkflow:
                 # Raw subprocess mode (default)
                 result = await workflow.execute_activity(
                     translate,
-                    args=[task, provider, max_turns],
-                    start_to_close_timeout=timedelta(minutes=35),
+                    args=[task, provider],
+                    start_to_close_timeout=timedelta(hours=2),
                     heartbeat_timeout=timedelta(minutes=5),
                     retry_policy=_RETRY_POLICY,
                 )
@@ -195,14 +194,10 @@ class TranslationWorkflow:
         all_results: list[dict] = []
         stage_count = len(staged)
         for stage_idx, stage_specs in enumerate(staged):
-            stage_results = await asyncio.gather(
-                *[self._execute_one(s) for s in stage_specs]
-            )
+            stage_results = await asyncio.gather(*[self._execute_one(s) for s in stage_specs])
             all_results.extend(stage_results)
 
-            stage_failed = any(
-                not r.get("review", {}).get("approved") for r in stage_results
-            )
+            stage_failed = any(not r.get("review", {}).get("approved") for r in stage_results)
             if stage_failed and stage_idx < stage_count - 1:
                 for skipped_stage in staged[stage_idx + 1 :]:
                     for spec in skipped_stage:
@@ -225,9 +220,7 @@ class TranslationWorkflow:
         succeeded = sum(1 for r in all_results if r.get("success"))
         approved = sum(1 for r in all_results if r.get("review", {}).get("approved"))
         flagged = sum(
-            1
-            for r in all_results
-            if r.get("review", {}).get("verdict") == "approved_with_flags"
+            1 for r in all_results if r.get("review", {}).get("verdict") == "approved_with_flags"
         )
         rejected = sum(1 for r in all_results if not r.get("review", {}).get("approved"))
 

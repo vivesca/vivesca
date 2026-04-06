@@ -932,7 +932,6 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
         spec = {
             "task": full_prompt,
             "provider": provider,
-            "max_turns": 25,
             "mode": "build",
         }
 
