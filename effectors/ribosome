@@ -147,7 +147,7 @@ case "${1:-}" in
     fi
     exit 0
     ;;
-  dash|health|report|review|reviewer|top|validate)
+  dash|health|status|review)
     _subcmd="$1"; shift
     exec python3 "$_RIBOSOME_TOOLS" "$_subcmd" "$@"
     ;;
