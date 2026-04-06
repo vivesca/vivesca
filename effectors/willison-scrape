@@ -3,12 +3,13 @@
 # requires-python = ">=3.12"
 # dependencies = ["aiohttp", "beautifulsoup4", "tqdm", "lxml"]
 # ///
-"""Scrape all Simon Willison blog posts from simonwillison.net into SQLite."""
+"""Scrape all Simon Willison blog posts from simonwillison.net into JSONL."""
 
 import argparse
 import asyncio
+import json
+import os
 import re
-import sqlite3
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
@@ -20,23 +21,22 @@ POST_URL_RE = re.compile(r"https://simonwillison\.net/\d{4}/\w+/\d+/[\w-]+/?")
 SITEMAP_URL = "https://simonwillison.net/sitemap.xml"
 
 
-def init_db(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS posts (
-            url TEXT PRIMARY KEY,
-            title TEXT,
-            date TEXT,
-            body TEXT,
-            fetched_at TEXT
-        )"""
-    )
-    conn.commit()
-    return conn
-
-
-def existing_urls(conn: sqlite3.Connection) -> set[str]:
-    return {row[0] for row in conn.execute("SELECT url FROM posts")}
+def load_existing_urls(path: str) -> set[str]:
+    urls: set[str] = set()
+    if not os.path.exists(path):
+        return urls
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                if "url" in record:
+                    urls.add(record["url"])
+            except json.JSONDecodeError:
+                continue
+    return urls
 
 
 async def fetch_sitemap(session: aiohttp.ClientSession) -> list[str]:
@@ -90,13 +90,13 @@ async def fetch_post(
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Scrape Simon Willison blog posts")
-    parser.add_argument("--db", default="willison.db", help="SQLite database path")
+    parser.add_argument("--output", default="willison.jsonl", help="JSONL output path")
     parser.add_argument("--concurrency", type=int, default=5, help="Max concurrent requests")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of posts to fetch (0=all)")
     args = parser.parse_args()
 
-    conn = init_db(args.db)
-    already_fetched = existing_urls(conn)
+    already_fetched = load_existing_urls(args.output)
+    write_lock = asyncio.Lock()
 
     async with aiohttp.ClientSession(
         headers={"User-Agent": "willison-scrape/1.0 (blog archiver)"}
@@ -109,8 +109,7 @@ async def main() -> None:
             to_fetch = to_fetch[: args.limit]
 
         if not to_fetch:
-            print(f"Nothing to do — {len(already_fetched)} posts already in DB.")
-            conn.close()
+            print(f"Nothing to do — {len(already_fetched)} posts already in file.")
             return
 
         print(f"Found {len(all_urls)} posts, {len(already_fetched)} already fetched, {len(to_fetch)} to scrape.")
@@ -124,24 +123,28 @@ async def main() -> None:
                 tasks = [fetch_post(session, url, semaphore) for url in batch]
                 results = await asyncio.gather(*tasks)
 
-                rows = []
+                records = []
                 for result in results:
                     if result is not None:
                         url, title, date, body = result
-                        rows.append((url, title, date, body, datetime.now(timezone.utc).isoformat()))
+                        records.append({
+                            "url": url,
+                            "title": title,
+                            "date": date,
+                            "body": body,
+                            "fetched_at": datetime.now(timezone.utc).isoformat(),
+                        })
 
-                if rows:
-                    conn.executemany(
-                        "INSERT OR REPLACE INTO posts (url, title, date, body, fetched_at) VALUES (?, ?, ?, ?, ?)",
-                        rows,
-                    )
-                    conn.commit()
-                    fetched_count += len(rows)
+                if records:
+                    async with write_lock:
+                        with open(args.output, "a") as f:
+                            for record in records:
+                                f.write(json.dumps(record, sort_keys=True) + "\n")
+                    fetched_count += len(records)
 
                 progress_bar.update(len(batch))
 
-    print(f"Done. {fetched_count} posts saved to {args.db}.")
-    conn.close()
+    print(f"Done. {fetched_count} posts saved to {args.output}.")
 
 
 if __name__ == "__main__":

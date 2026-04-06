@@ -29,9 +29,13 @@ JSON_OUTPUT=false
 SUMMARY=false
 SUPERVISED=false
 RECENT=0
-PROVIDER="${RIBOSOME_PROVIDER:-zhipu}"
+PROVIDER=""
+HARNESS=""
+BACKEND=""
+PROVIDER_COMPAT="${RIBOSOME_PROVIDER:-}"
 FALLBACK=false
 FALLBACK_PROVIDER=""
+MANIFEST_MODE=false
 RIBOSOME_TASK_ID=""
 
 RIBOSOME_LOG="${RIBOSOME_LOG:-$HOME/.local/share/vivesca/ribosome.jsonl}"
@@ -181,10 +185,17 @@ while [[ "${1:-}" == -* ]]; do
     --supervised) SUPERVISED=true; BARE=false; shift ;;
     --quiet) QUIET=true; shift ;;
     --json) JSON_OUTPUT=true; shift ;;
-    --provider) PROVIDER="$2"; shift 2 ;;
+    --harness) HARNESS="$2"; shift 2 ;;
+    --backend) BACKEND="$2"; shift 2 ;;
+    --provider) PROVIDER_COMPAT="$2"; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
     --explore) echo "[deprecated] --explore flag is deprecated, use: ribosome explore \"query\"" >&2; _SUBCOMMAND=explore; shift ;;
     --force) FORCE=true; shift ;;
+    --mode)
+      shift
+      [[ "${1:-}" == "manifest" ]] && MANIFEST_MODE=true
+      shift
+      ;;
     -h|--help) head -10 "$0" | tail -9 | sed 's/^# */  /'; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
@@ -204,10 +215,10 @@ if $FULL_REQUESTED && ! $FORCE; then
   exit 1
 fi
 
-# Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
-_configure_provider() {
-  local prov="$1"
-  case "$prov" in
+# Backend config: API key, base URL, model tiers
+_configure_backend() {
+  local backend="$1"
+  case "$backend" in
     zhipu)
       _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
       _URL="https://open.bigmodel.cn/api/anthropic"
@@ -215,7 +226,6 @@ _configure_provider() {
     volcano)
       _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
       _URL="https://ark.cn-beijing.volces.com/api/coding"
-      # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
       _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
@@ -223,36 +233,83 @@ _configure_provider() {
       _OPUS="minimax-m2.7"; _SONNET="minimax-m2.7"; _HAIKU="minimax-m2.5" ;;
     gemini)
       _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
-      _CLI="gemini"  # uses gemini CLI, not claude
-      ;;
+      _URL=""; _OPUS=""; _SONNET=""; _HAIKU="" ;;
     codex)
       _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
-      _CLI="codex"  # uses codex CLI, not claude
-      ;;
-    goose)
-      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-      _CLI="goose"
-      ;;
-    droid)
-      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-      _CLI="droid"
-      _DROID_MODEL="custom:GLM-5.1"
-      _DROID_AUTO="medium"
-      ;;
-    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex|goose|droid)" >&2; exit 1 ;;
+      _URL=""; _OPUS=""; _SONNET=""; _HAIKU="" ;;
+    *)
+      echo "Unknown backend: $backend" >&2; exit 1 ;;
   esac
 }
 
+# Map legacy provider name to harness
+_provider_to_harness() {
+  case "$1" in
+    zhipu|infini|volcano) echo "claude" ;;
+    goose) echo "goose" ;;
+    droid) echo "droid" ;;
+    gemini) echo "gemini" ;;
+    codex) echo "codex" ;;
+  esac
+}
+
+# Map --provider / RIBOSOME_PROVIDER to harness+backend (backward compat)
+if [[ -n "$PROVIDER_COMPAT" ]]; then
+  case "$PROVIDER_COMPAT" in
+    zhipu|infini|volcano)
+      HARNESS="${HARNESS:-claude}"
+      BACKEND="${BACKEND:-$PROVIDER_COMPAT}" ;;
+    goose|droid)
+      HARNESS="${HARNESS:-$PROVIDER_COMPAT}"
+      BACKEND="${BACKEND:-zhipu}" ;;
+    gemini|codex)
+      HARNESS="${HARNESS:-$PROVIDER_COMPAT}" ;;
+    *) echo "Unknown provider: $PROVIDER_COMPAT" >&2; exit 1 ;;
+  esac
+fi
+
+# Defaults
+HARNESS="${HARNESS:-claude}"
+BACKEND="${BACKEND:-zhipu}"
+
+# Validate harness
+case "$HARNESS" in
+  claude|goose|droid|gemini|codex) ;;
+  *) echo "Unknown harness: $HARNESS" >&2; exit 1 ;;
+esac
+
+# Validate backend for harnesses that use it
+case "$HARNESS" in
+  claude|goose|droid)
+    case "$BACKEND" in
+      zhipu|infini|volcano) ;;
+      *) echo "Unknown backend: $BACKEND" >&2; exit 1 ;;
+    esac ;;
+esac
+
+# Derive PROVIDER for logging/backward compat
+if [[ -n "$PROVIDER_COMPAT" ]]; then
+  PROVIDER="$PROVIDER_COMPAT"
+elif [[ "$HARNESS" != "claude" ]]; then
+  PROVIDER="$HARNESS"
+else
+  PROVIDER="$BACKEND"
+fi
+
 # Auto-route: complex tasks (--full) get strongest free provider;
 # simple/batch tasks get most unlimited. User --provider overrides both.
-if [[ "$PROVIDER" == "zhipu" && -z "${RIBOSOME_PROVIDER:-}" && "$FULL_REQUESTED" == "true" ]]; then
+if [[ "$BACKEND" == "zhipu" && -z "${RIBOSOME_PROVIDER:-}" && "$FULL_REQUESTED" == "true" && "$HARNESS" == "claude" ]]; then
+  BACKEND="infini"
   PROVIDER="infini"
 fi
-_CLI="claude"
-_configure_provider "$PROVIDER"
+
+# Only configure backend when LLM may be needed (manifest mode is zero-LLM)
+if ! $MANIFEST_MODE; then
+  _configure_backend "$BACKEND"
+fi
 
 # Explore: cheap model tier (separate rate-limit pool from GLM-5.1)
-if [[ $_SUBCOMMAND == explore && $PROVIDER == zhipu ]]; then
+if [[ $_SUBCOMMAND == explore && $BACKEND == zhipu && "$HARNESS" == "claude" ]]; then
   _OPUS="GLM-4.5-air"; _SONNET="GLM-4.5-air"
 fi
 
@@ -271,19 +328,21 @@ _find_fallback() {
   for candidate in "${_FALLBACK_PRIORITY[@]}"; do
     [[ "$candidate" == "$failed" ]] && continue
     # Save/restore global state around preflight probe
-    local _save_cli="$_CLI" _save_key="${_KEY:-}" _save_url="${_URL:-}"
-    _configure_provider "$candidate" 2>/dev/null || continue
-    if [[ "$_CLI" != "claude" ]]; then
-      # Gemini/codex — no API preflight, assume available
-      _CLI="$_save_cli"; _KEY="$_save_key"; _URL="$_save_url"
+    local _save_key="${_KEY:-}" _save_url="${_URL:-}" _save_opus="${_OPUS:-}" _save_sonnet="${_SONNET:-}" _save_haiku="${_HAIKU:-}"
+    _configure_backend "$candidate" 2>/dev/null || continue
+    local _harness
+    _harness=$(_provider_to_harness "$candidate")
+    if [[ "$_harness" != "claude" ]]; then
+      # Non-CC harness — no API preflight, assume available
+      _KEY="$_save_key"; _URL="$_save_url"; _OPUS="$_save_opus"; _SONNET="$_save_sonnet"; _HAIKU="$_save_haiku"
       echo "$candidate"; return 0
     fi
     if _preflight_check >/dev/null 2>&1; then
-      _CLI="$_save_cli"; _KEY="$_save_key"; _URL="$_save_url"
+      _KEY="$_save_key"; _URL="$_save_url"; _OPUS="$_save_opus"; _SONNET="$_save_sonnet"; _HAIKU="$_save_haiku"
       echo "$candidate"; return 0
     fi
     $QUIET || echo "[fallback] $candidate unhealthy, skipping" >&2
-    _CLI="$_save_cli"; _KEY="$_save_key"; _URL="$_save_url"
+    _KEY="$_save_key"; _URL="$_save_url"; _OPUS="$_save_opus"; _SONNET="$_save_sonnet"; _HAIKU="$_save_haiku"
   done
   echo ""; return 1
 }
@@ -329,13 +388,165 @@ _preflight_check() {
   esac
 }
 
+# Per-harness runners: each uses env -i to isolate from parent env.
+# This prevents ANTHROPIC_* leakage from a parent CC session (mtor/Temporal bug).
+_run_harness_claude() {
+  local prompt="$1"
+  local _timeout="$2"
+  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
+    CLAUDECODE= \
+    ANTHROPIC_API_KEY="$_KEY" \
+    ANTHROPIC_BASE_URL="$_URL" \
+    ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
+    ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
+    ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
+    API_TIMEOUT_MS=3000000 \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    CLAUDE_CODE_MAX_RETRIES="${RIBOSOME_CLAUDE_RETRIES:-2}" \
+    CLAUDE_CODE_TMPDIR="/tmp/ribosome-${PROVIDER}" \
+    MCP_CONNECTION_NONBLOCKING=true \
+    ${RIBOSOME_DEFER_ENABLED:+RIBOSOME_DEFER_ENABLED="$RIBOSOME_DEFER_ENABLED"} \
+    timeout "$_timeout" \
+    claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
+}
+
+_run_harness_goose() {
+  local prompt="$1"
+  local _timeout="$2"
+  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
+    ANTHROPIC_API_KEY="$_KEY" \
+    ANTHROPIC_HOST="$_URL" \
+    GOOSE_MOIM_MESSAGE_FILE="$COACHING_FILE" \
+    timeout "$_timeout" \
+    goose run -q --no-session \
+      --provider anthropic --model "$_OPUS" \
+      -t "$prompt" 2>&1
+}
+
+_run_harness_droid() {
+  local prompt="$1"
+  local _timeout="$2"
+  local _droid_args=(exec --auto medium -m "custom:$_OPUS")
+  [[ -f "$COACHING_FILE" ]] && _droid_args+=(--append-system-prompt-file "$COACHING_FILE")
+  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
+    ZHIPU_API_KEY="$_KEY" \
+    timeout "$_timeout" \
+    droid "${_droid_args[@]}" "$prompt" 2>&1
+}
+
+_run_harness_gemini() {
+  local prompt="$1"
+  local _timeout="$2"
+  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
+    GEMINI_API_KEY="$_KEY" \
+    GOOGLE_API_KEY="$_KEY" \
+    timeout "$_timeout" \
+    gemini --sandbox=false --yolo -p "$prompt" < /dev/null 2>&1
+}
+
+_run_harness_codex() {
+  local prompt="$1"
+  local _timeout="$2"
+  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
+    OPENAI_API_KEY="$_KEY" \
+    timeout "$_timeout" \
+    codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$prompt" 2>&1
+}
+
+_execute_manifest() {
+  local manifest="$1"
+  local last_run_exit=0
+  local last_run_cmd=""
+  local last_run_output=""
+
+  # Phase 1: Create files deterministically (zero LLM tokens)
+  local in_file=false
+  local current_file=""
+  local current_content=""
+  local commit_msg=""
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^FILE:\ (.+) ]]; then
+      # Flush previous file
+      if [[ -n "$current_file" ]]; then
+        mkdir -p "$(dirname "$current_file")"
+        printf '%s' "$current_content" > "$current_file"
+        $QUIET || echo "[manifest] created $current_file" >&2
+      fi
+      current_file="${BASH_REMATCH[1]}"
+      current_content=""
+      in_file=true
+    elif [[ "$line" == "END_FILE" ]]; then
+      if [[ -n "$current_file" ]]; then
+        mkdir -p "$(dirname "$current_file")"
+        printf '%s' "$current_content" > "$current_file"
+        $QUIET || echo "[manifest] created $current_file" >&2
+      fi
+      current_file=""
+      current_content=""
+      in_file=false
+    elif $in_file; then
+      current_content+="${line}"$'\n'
+    elif [[ "$line" =~ ^RUN:\ (.+) ]]; then
+      last_run_cmd="${BASH_REMATCH[1]}"
+      $QUIET || echo "[manifest] RUN: $last_run_cmd" >&2
+      last_run_output=$(eval "$last_run_cmd" 2>&1) && last_run_exit=0 || last_run_exit=$?
+      if [[ $last_run_exit -ne 0 ]]; then
+        $QUIET || echo "[manifest] FAILED (exit=$last_run_exit)" >&2
+        $QUIET || echo "$last_run_output" | tail -20 >&2
+      fi
+    elif [[ "$line" == "FIX_IF_FAILING" && $last_run_exit -ne 0 ]]; then
+      $QUIET || echo "[manifest] tests failed, handing off to LLM for fixes" >&2
+      local fix_prompt
+      fix_prompt="Tests failed. Fix the code so tests pass. Do NOT rewrite files from scratch — read them and make surgical fixes only.
+
+Test command: $last_run_cmd
+Exit code: $last_run_exit
+
+Test output (last 50 lines):
+$(echo "$last_run_output" | tail -50)
+
+Changed files:
+$(git diff --name-only 2>/dev/null)"
+      # Delegate to normal ribosome LLM dispatch
+      MANIFEST_MODE=false
+      _run_ribosome "$fix_prompt"
+      return $?
+    elif [[ "$line" =~ ^COMMIT:\ (.+) ]]; then
+      commit_msg="${BASH_REMATCH[1]}"
+    fi
+  done <<< "$manifest"
+
+  # Final commit if all succeeded
+  if [[ $last_run_exit -eq 0 && -n "$commit_msg" ]]; then
+    local changed_files
+    changed_files=$(git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null)
+    if [[ -n "$changed_files" ]]; then
+      echo "$changed_files" | xargs git add
+      git commit -m "$commit_msg"
+      $QUIET || echo "[manifest] committed: $commit_msg" >&2
+    fi
+  fi
+
+  return $last_run_exit
+}
+
 _run_ribosome() {
   local prompt="$1"
+
+  # Auto-detect manifest format
+  if [[ "$prompt" =~ ^FILE:\  ]]; then
+    if ! $MANIFEST_MODE; then
+      MANIFEST_MODE=true
+      _execute_manifest "$prompt"
+      return $?
+    fi
+  fi
 
   # Prepend provider-specific coaching notes
   # goose/droid inject coaching via native mechanisms (MOIM / --append-system-prompt-file)
   local _coaching_source="$COACHING_FILE"
-  case "$PROVIDER" in
+  case "$HARNESS" in
     codex)  _coaching_source="${COACHING_FILE%.*}_codex.md" ;;
     gemini) _coaching_source="${COACHING_FILE%.*}_gemini.md" ;;
     goose|droid) _coaching_source="" ;;
@@ -419,9 +630,9 @@ EXPLORE_SYS
     fi
 
     # Pre-flight health check: detect rate-limit before wasting time on claude
-    # Skip preflight for non-CC providers (gemini, codex have their own error handling)
-    if [[ -n "${_CLI:-}" && "${_CLI}" != "claude" ]]; then
-      : # non-CC provider, skip preflight
+    # Skip preflight for non-CC harnesses (gemini, codex have their own error handling)
+    if [[ "$HARNESS" != "claude" ]]; then
+      : # non-CC harness, skip preflight
     else
       local _preflight_result
       local _pf_rc=0
@@ -493,59 +704,8 @@ EXPLORE_SYS
     # NOTE: With set -e, `output=$(cmd)` where cmd exits non-zero kills the
     # script before `exit_code=$?` is reached.  Use `&& exit_code=0 || exit_code=$?`
     # to capture the exit code without triggering set -e.
-    if [[ "${_CLI:-claude}" == "gemini" ]]; then
-      output=$(
-      timeout "$_claude_timeout" \
-      env GEMINI_API_KEY="$_KEY" GOOGLE_API_KEY="$_KEY" \
-      gemini --sandbox=false --yolo -p "$prompt" < /dev/null 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
-    elif [[ "${_CLI:-claude}" == "codex" ]]; then
-      output=$(
-      timeout "$_claude_timeout" \
-      env OPENAI_API_KEY="$_KEY" \
-      codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$prompt" 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
-    elif [[ "${_CLI:-claude}" == "goose" ]]; then
-      # Use built-in anthropic provider + ANTHROPIC_HOST (not custom provider — streaming bug)
-      output=$(
-      timeout "$_claude_timeout" \
-      env ANTHROPIC_API_KEY="$_KEY" \
-        ANTHROPIC_HOST="https://open.bigmodel.cn/api/anthropic" \
-        GOOSE_MOIM_MESSAGE_FILE="$COACHING_FILE" \
-      goose run -q --no-session \
-        --provider anthropic --model GLM-5.1 \
-        -t "$prompt" 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
-    elif [[ "${_CLI:-claude}" == "droid" ]]; then
-      local _droid_args=(exec --auto "${_DROID_AUTO}" -m "${_DROID_MODEL}")
-      [[ -f "$COACHING_FILE" ]] && _droid_args+=(--append-system-prompt-file "$COACHING_FILE")
-      output=$(
-      timeout "$_claude_timeout" \
-      env ZHIPU_API_KEY="$_KEY" \
-      droid "${_droid_args[@]}" "$prompt" 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
-    else
-      output=$(
-      timeout "$_claude_timeout" \
-      env CLAUDECODE= \
-      ANTHROPIC_API_KEY="$_KEY" \
-      ANTHROPIC_BASE_URL="$_URL" \
-      ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
-      ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
-      ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
-      API_TIMEOUT_MS=3000000 \
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-      CLAUDE_CODE_MAX_RETRIES="${RIBOSOME_CLAUDE_RETRIES:-2}" \
-      CLAUDE_CODE_TMPDIR="/tmp/ribosome-${PROVIDER}" \
-      MCP_CONNECTION_NONBLOCKING=true \
-      claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
-    fi
+    output=$(_run_harness_"$HARNESS" "$prompt" "$_claude_timeout") && exit_code=0 || exit_code=$?
+    _claude_ran=true
     # Timeout returns 124 — treat as rate-limit for retry purposes
     [[ $exit_code -eq 124 ]] && exit_code=1
 
@@ -611,25 +771,6 @@ EXPLORE_SYS
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
 
-  # Capture worker reflection if it wrote one
-  local _reflection_file="/tmp/ribosome-reflection.md"
-  local _reflection=""
-  if [[ -f "$_reflection_file" ]]; then
-    _reflection=$(cat "$_reflection_file" 2>/dev/null || true)
-    rm -f "$_reflection_file"
-    if [[ -n "$_reflection" ]]; then
-      $QUIET || echo "[reflection] $(echo "$_reflection" | head -1)" >&2
-    fi
-  fi
-
-  # Capture worker stall signal if it wrote one
-  local _stall_file="/tmp/ribosome-stall.txt"
-  local _stall_signal=""
-  if [[ -f "$_stall_file" ]]; then
-    _stall_signal=$(cat "$_stall_file" 2>/dev/null || true)
-    rm -f "$_stall_file"
-  fi
-
   # Enriched logging: count files and run pytest on new test files
   local files_created=0
   local tests_passed=0
@@ -652,26 +793,6 @@ EXPLORE_SYS
     [[ -z "$tests_failed" ]] && tests_failed=0
   fi
 
-  # Post-hoc stall classification from output patterns (OpenHands-inspired)
-  local _stall_type=""
-  if [[ -z "$_stall_signal" && $exit_code -ne 0 && -n "$output" ]]; then
-    # Monologue: long output with no code changes, ran >5min
-    if [[ $files_created -eq 0 && $duration -gt 300 && ${#output} -gt 5000 ]]; then
-      _stall_type="monologue"
-    fi
-    # Built nothing: ran to completion but no files created (the worst failure mode)
-    if [[ $files_created -eq 0 && $duration -gt 60 ]]; then
-      _stall_type="built-nothing"
-    fi
-  fi
-  # Worker self-reported stall takes priority
-  if [[ -n "$_stall_signal" ]]; then
-    _stall_type="self-reported"
-  fi
-  if [[ -n "$_stall_type" ]]; then
-    echo "RIBOSOME_STALL: provider=$PROVIDER type=$_stall_type duration=${duration}s signal=${_stall_signal:-none}" >&2
-  fi
-
   # Auto-merge to main if ribosome succeeded and tests passed (skip in explore mode)
   local _current_branch
   _current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
@@ -689,15 +810,11 @@ EXPLORE_SYS
   local task_id="${RIBOSOME_TASK_ID:-}"
   local _mode="build"
   [[ $_SUBCOMMAND == explore ]] && _mode="explore"
-  local _refl_json=""
-  if [[ -n "$_reflection" ]]; then
-    _refl_json=$(echo "$_reflection" | tr '"' "'" | tr '\n' ' ' | cut -c1-300)
-  fi
-  printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s","reflection":"%s","stall":"%s"}\n' \
+  printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$_mode" "$duration" "$exit_code" "$_wall_limit" \
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
-    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" "$_refl_json" "$_stall_type" >> "$RIBOSOME_LOG"
+    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$RIBOSOME_LOG"
   # Emit rate-limit marker on stderr if detected — ensures daemon's tail always
   # catches it even when claude output is long (pushing error msg out of last 200 chars)
   local _rl_window=""
@@ -774,12 +891,26 @@ _run_with_fallback() {
     if [[ -n "$FALLBACK_PROVIDER" ]]; then
       $QUIET || echo "[fallback] primary provider '$PROVIDER' failed (exit=$final_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
       PROVIDER="$FALLBACK_PROVIDER"
-      _configure_provider "$PROVIDER"
+      HARNESS=$(_provider_to_harness "$FALLBACK_PROVIDER")
+      if [[ "$HARNESS" == "claude" ]]; then
+        BACKEND="$FALLBACK_PROVIDER"
+      fi
+      _configure_backend "$BACKEND"
       _run_ribosome "$prompt" || final_exit=$?
     fi
   fi
   return $final_exit
 }
+
+# Manifest mode: deterministic file creation, no LLM/backend needed.
+# Must be after function definitions but before backend config and dispatch.
+if $MANIFEST_MODE; then
+  case $_SUBCOMMAND in
+    batch|test|explore) ;;
+    *) _execute_manifest "${*:-}" ;;
+  esac
+  exit $?
+fi
 
 case $_SUBCOMMAND in
   batch)
@@ -794,6 +925,11 @@ case $_SUBCOMMAND in
     _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'ribosome: tests for $(basename "${mod%.py}")'."
     ;;
   *)
-    _run_with_fallback "$*"
+    if $MANIFEST_MODE; then
+      _execute_manifest "$*"
+      exit $?
+    else
+      _run_with_fallback "$*"
+    fi
     ;;
 esac
