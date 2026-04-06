@@ -91,7 +91,7 @@ repos:
 
       - id: temporal-tests
         name: temporal tests
-        entry: bash -c 'test -f assays/test_polysome.py && HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_polysome.py -x -q -p no:cacheprovider -p no:hypothesis || echo "test_polysome.py removed — skipping"'
+        entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_polysome_stages.py -x -q -p no:cacheprovider -p no:hypothesis'
         language: system
         pass_filenames: false
         files: (polysome/|temporal)
