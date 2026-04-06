@@ -156,7 +156,7 @@ rheotaxis — web search. Default: all cheap backends + synthesis. Named modes f
 
 ### ribosome_queue
 ribosome_queue — MCP tool for managing the ribosome task queue.
-- `ribosome_queue(action, task_id, tags, provider, max_turns, prompt)` -- Manage the ribosome task queue.
+- `ribosome_queue(action, task_id, tags, provider, prompt)` -- Manage the ribosome task queue.
 
 ### sortase
 sortase — dispatch coding tasks to cheap LLM backends.
@@ -188,6 +188,9 @@ tonus tool — session state. Actions: mark|status
 
 ## Effectors
 
+### __pycache__
+_(no description)_
+
 ### hatchet-golem
 Retired Hatchet-based task orchestrator. Replaced by polysome (Temporal). Kept for reference during the eval period.
   Files: `README.md`, `dispatch.py`, `docker-compose.yml`, `start-worker.sh`, `worker.py`
@@ -201,7 +204,7 @@ Temporal.io-based workflow orchestrator for translation task dispatch. Replaces 
   Files: `CLAUDE.md`, `README.md`, `cli.py`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
 
 ### Standalone scripts (212 total, on PATH)
-  Recent: `ribosome`, `mitosis-sync`, `ecdysis`, `soma-bootstrap`, `refresh-env-secrets`, `vivesca-preflight`, `soma-activate`, `screenshot_receiver.py`, `iphone-look`, `compile-coaching`
+  Recent: `queue-gen`, `ribosome-top`, `ribosome`, `evergreen`, `mitosis-sync`, `ecdysis`, `soma-bootstrap`, `refresh-env-secrets`, `vivesca-preflight`, `soma-activate`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -417,10 +420,10 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **769**
-- Most active: `rheotaxis` (191), `server` (146), `fetch` (130), `ribosome_dispatch` (77), `endosomal` (56)
+- Signals (last 7 days): **797**
+- Most active: `rheotaxis` (194), `server` (146), `fetch` (130), `ribosome_dispatch` (95), `endosomal` (56)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: _(could not run)_
+- Tests: UNHEALTHY (0 passed, 0 failed, 1 errors)

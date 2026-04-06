@@ -85,9 +85,8 @@ def _parse_entries(lines: list[str]) -> list[dict[str, Any]]:
             state = {" ": "pending", "x": "completed", "!": "failed"}.get(state_char, "pending")
             tags = m.group("tags") or ""
             rest = m.group("rest") or ""
-            # Extract --provider, --max-turns, and the prompt from rest
+            # Extract --provider and the prompt from rest
             provider_match = re.search(r"--provider\s+(\S+)", rest)
-            turns_match = re.search(r"--max-turns\s+(\d+)", rest)
             # Prompt is the quoted string at the end
             prompt_match = re.search(r'"(.+)"\s*$', rest)
 
@@ -98,7 +97,6 @@ def _parse_entries(lines: list[str]) -> list[dict[str, Any]]:
                     "task_id": m.group("task_id"),
                     "tags": tags,
                     "provider": provider_match.group(1) if provider_match else "",
-                    "max_turns": int(turns_match.group(1)) if turns_match else 0,
                     "prompt": prompt_match.group(1) if prompt_match else rest,
                     "raw": line.rstrip("\n"),
                 }
@@ -110,7 +108,6 @@ def _build_entry_line(
     task_id: str,
     tags: str,
     provider: str,
-    max_turns: int,
     prompt: str,
     state: str = " ",
 ) -> str:
@@ -119,10 +116,7 @@ def _build_entry_line(
     if tags:
         tag_parts = f" [{tags}]"
     state_char = {"pending": " ", "completed": "x", "failed": "!"}.get(state, " ")
-    return (
-        f"- [{state_char}] `ribosome [{task_id}]{tag_parts}"
-        f' --provider {provider} --max-turns {max_turns} "{prompt}"`\n'
-    )
+    return f'- [{state_char}] `ribosome [{task_id}]{tag_parts} --provider {provider} "{prompt}"`\n'
 
 
 # ── MCP tool ─────────────────────────────────────────────────────────────────
@@ -142,7 +136,6 @@ def ribosome_queue(
     task_id: str = "",
     tags: str = "",
     provider: str = "zhipu",
-    max_turns: int = 15,
     prompt: str = "",
 ) -> QueueResult | EffectorResult:
     """Manage the ribosome task queue.
@@ -157,8 +150,6 @@ def ribosome_queue(
         Comma-separated tag/alias IDs for the task (add only).
     provider : str
         Provider name (default ``zhipu``, add only).
-    max_turns : int
-        Maximum agent turns (default 15, add only).
     prompt : str
         Task description prompt (add only).
     """
@@ -219,7 +210,7 @@ def ribosome_queue(
                 message=f"Task {task_id} already exists in queue.",
             )
 
-        new_entry = _build_entry_line(task_id, tags, provider, max_turns, prompt)
+        new_entry = _build_entry_line(task_id, tags, provider, prompt)
 
         pending_idx = _find_pending_section(lines)
         if pending_idx == -1:

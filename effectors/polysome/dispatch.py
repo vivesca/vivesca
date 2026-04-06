@@ -307,10 +307,10 @@ def log(msg: str) -> None:
         pass
 
 
-def parse_queue() -> list[tuple[int, str, str, str, int]]:
+def parse_queue() -> list[tuple[int, str, str, str]]:
     """Parse queue file under QueueLock.
 
-    Returns [(line_num, prompt, provider, task_id, max_turns)].
+    Returns [(line_num, prompt, provider, task_id)].
     Generates a unique task ID (t-xxxxxx) for each task that doesn't have one,
     and writes it back into the queue file inside the backtick (like ribosome-daemon).
     High-priority [!!] tasks are sorted before normal [ ] tasks.
@@ -363,12 +363,9 @@ def parse_queue() -> list[tuple[int, str, str, str, int]]:
             prompt = prompt[1:-1]
         prompt = prompt or cmd
 
-        turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
-        max_turns = int(turns_match.group(1)) if turns_match else 50
-
         is_high = stripped.startswith("- [!!] ")
         priority_map[i] = 0 if is_high else 1
-        pending.append((i, prompt, provider, task_id, max_turns))
+        pending.append((i, prompt, provider, task_id))
 
     # Write back if any IDs were generated
     if modified:
@@ -511,7 +508,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     log(f"Found {len(pending)} pending tasks")
 
     if dry_run:
-        for _line_num, prompt, provider, task_id, _max_turns in pending:
+        for _line_num, prompt, provider, task_id in pending:
             log(f"[DRY] [{task_id}] {provider}: {prompt[:60]}...")
         return len(pending)
 
@@ -519,7 +516,7 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
     specs = []
     dispatched = []  # list of (line_num, task_id) for mark_done
     skipped = 0
-    for line_num, prompt, provider, task_id, max_turns in pending:
+    for line_num, prompt, provider, task_id in pending:
         # Enforce test-file gate: prompt must reference a test file
         # Exception: tasks referencing a spec file (loci/plans/) have their own
         # verification section and don't need test file references.
@@ -556,7 +553,6 @@ async def dispatch_all(dry_run: bool = False, mode: str = "raw") -> int:
             {
                 "task": prompt,
                 "provider": dispatch_provider,
-                "max_turns": max_turns,
                 "mode": mode,
             }
         )

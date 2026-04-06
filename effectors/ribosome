@@ -5,7 +5,6 @@
 #   ribosome "Write tests for metabolon/foo.py"        # bare (default, fast)
 #   ribosome --full "Task needing MCP/skills/context"   # full organism access
 #   ribosome --batch metabolon/bar.py metabolon/baz.py  # sequential test gen
-#   ribosome --max-turns 30 "Complex task"
 #   ribosome --quiet "Task"                            # suppress all output, exit code only
 #   ribosome --json "Task"                             # output result as JSON
 #   ribosome summary [--recent N] [--json]              # show provider stats
@@ -20,7 +19,8 @@ _ribosome_crash_handler() {
 }
 trap '_ribosome_crash_handler $LINENO' ERR
 
-MAX_TURNS="${RIBOSOME_MAX_TURNS:-50}"
+# Hardcoded ceiling — stall detection + activity timeout are the real guards.
+MAX_TURNS=200
 BARE=true
 BATCH=false
 TEST=false
@@ -168,7 +168,7 @@ while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --batch) BATCH=true; shift ;;
     --test) TEST=true; shift ;;
-    --max-turns) MAX_TURNS="$2"; shift 2 ;;
+    --max-turns) shift 2 ;;  # ignored, kept for backward compat with queue entries
     --full) BARE=false; FULL_REQUESTED=true; shift ;;
     --bare) BARE=true; shift ;;
     --supervised) SUPERVISED=true; BARE=false; shift ;;
@@ -495,7 +495,7 @@ _run_ribosome() {
     # _attempt == 0 means we never even ran a preflight — almost always the wall-limit math,
     # not an actual provider rate limit.
     if [[ $_attempt -eq 0 ]]; then
-      output="WallLimitSelfKill: $PROVIDER dispatch aborted before first attempt (wall=${_wall_limit}s, per-attempt=${_claude_timeout}s). Raise RIBOSOME_WALL_LIMIT or lower --max-turns."
+      output="WallLimitSelfKill: $PROVIDER dispatch aborted before first attempt (wall=${_wall_limit}s, per-attempt=${_claude_timeout}s). Raise RIBOSOME_WALL_LIMIT."
     else
       output="AccountQuotaExceeded: $PROVIDER rate-limit retries exhausted after $_attempt attempts, claude was never launched"
     fi

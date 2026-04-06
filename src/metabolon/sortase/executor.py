@@ -114,8 +114,6 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "claude",
         "--print",
         "--bare",
-        "--max-turns",
-        "20",
         "-p",
         prompt,
     ],

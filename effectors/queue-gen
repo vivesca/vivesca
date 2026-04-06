@@ -6,7 +6,6 @@ and generates formatted queue entries with smart batching by size.
 
 Usage:
     queue-gen effectors/                    # generate entries for effectors
-    queue-gen metabolon/ --max-turns 40     # custom turn limit
     queue-gen effectors/ --provider zhipu   # specific provider
     queue-gen effectors/ --dry-run          # just print, don't write
 
@@ -129,24 +128,19 @@ def batch_entries(entries: list[FileEntry]) -> list[list[FileEntry]]:
     return batches
 
 
-def generate_entry(batch: list[FileEntry], provider: str, max_turns: int) -> str:
+def generate_entry(batch: list[FileEntry], provider: str) -> str:
     """Generate a translation-queue entry for a batch."""
     if len(batch) == 1:
         entry = batch[0]
         rel_path = entry.path.relative_to(GERMLINE)
         lines_str = f"({entry.lines} lines)" if entry.lines >= MEDIUM else ""
 
-        # Determine turn limit based on size
-        turns = max_turns
-        if entry.lines >= LARGE:
-            turns = min(max_turns + 20, 60)
-
         title = f"Write tests for {rel_path}"
         test_file = f"assays/{entry.test_name}"
         modules = str(rel_path)
 
         return f"""#### {title} {lines_str}
-- [ ] `ribosome --provider {provider} --max-turns {turns} "Write tests for {modules}. Write {test_file}. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`"""
+- [ ] `ribosome --provider {provider} "Write tests for {modules}. Write {test_file}. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`"""
 
     # Multiple files in batch
     rel_paths = [str(e.path.relative_to(GERMLINE)) for e in batch]
@@ -158,7 +152,7 @@ def generate_entry(batch: list[FileEntry], provider: str, max_turns: int) -> str
     tests_str = " ".join(test_files)
 
     return f"""#### {title}
-- [ ] `ribosome --provider {provider} --max-turns {max_turns} "Write tests: {tests_str}. Run pytest. Fix failures. Modules: {modules_str}"`"""
+- [ ] `ribosome --provider {provider} "Write tests: {tests_str}. Run pytest. Fix failures. Modules: {modules_str}"`"""
 
 
 def main():
@@ -176,12 +170,6 @@ def main():
         default="volcano",
         choices=["zhipu", "infini", "volcano"],
         help="Ribosome provider to use (default: volcano)",
-    )
-    parser.add_argument(
-        "--max-turns",
-        type=int,
-        default=30,
-        help="Maximum turns for ribosome tasks (default: 30)",
     )
     parser.add_argument(
         "--dry-run",
@@ -212,7 +200,7 @@ def main():
     ]
 
     for batch in batches:
-        output_lines.append(generate_entry(batch, args.provider, args.max_turns))
+        output_lines.append(generate_entry(batch, args.provider))
         output_lines.append("")
 
     output_text = "\n".join(output_lines)

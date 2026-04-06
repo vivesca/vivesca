@@ -36,13 +36,11 @@ def main():
 @click.option("-p", "--provider", default="zhipu", help="Provider name")
 @click.option("-w", "--workflow-id", default=None, help="Custom workflow ID")
 @click.option("-f", "--file", "filepath", default=None, help="Read tasks from file")
-@click.option("--max-turns", default=50, type=int, help="Max turns per task")
 @click.argument("tasks", nargs=-1)
 def submit(
     provider: str,
     workflow_id: str | None,
     filepath: str | None,
-    max_turns: int,
     tasks: tuple[str, ...],
 ):
     """Submit one or more translation tasks as a Temporal workflow."""
@@ -59,7 +57,7 @@ def submit(
         click.echo(json.dumps({"error": "no tasks provided"}))
         sys.exit(1)
 
-    specs = [{"task": t, "provider": provider, "max_turns": max_turns} for t in task_list]
+    specs = [{"task": t, "provider": provider} for t in task_list]
 
     wf_id = workflow_id or f"ribosome-{provider}-{uuid.uuid4().hex[:8]}"
 
