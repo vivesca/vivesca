@@ -417,6 +417,7 @@ async def translate(task: str, provider: str) -> dict:
         stall_oscillation_threshold = 6  # alternating between 2 hashes
         recent_hashes: list[str] = []
         warnings_sent = 0
+        empty_diff_hash = hashlib.sha256(b"").hexdigest()[:12]
 
         tick = 0
         while True:
@@ -448,6 +449,12 @@ async def translate(task: str, provider: str) -> dict:
 
             # Skip stall checks for first 2 minutes (4 ticks) — let agent ramp up
             if tick < 4:
+                continue
+
+            # Skip stall checks when diff is empty — agent hasn't started writing
+            # yet (CC startup, dep install, web fetch, or explore mode which is
+            # read-only). Only detect stalls once the agent has made changes.
+            if diff_hash == empty_diff_hash:
                 continue
 
             # Detect frozen: last N hashes identical
