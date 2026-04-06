@@ -168,7 +168,7 @@ def source_env_file(env_file: Path) -> dict[str, str]:
         return {}
 
     # Use bash to source the file and print env
-    cmd = f'source "{env_file}" && env'
+    cmd = f'set -a && source "{env_file}" && env'
     result = subprocess.run(
         ["bash", "-c", cmd],
         capture_output=True,
