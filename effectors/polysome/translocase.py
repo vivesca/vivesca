@@ -52,14 +52,14 @@ def _git_snapshot(cwd: str | None = None) -> dict:
     work_dir = cwd or str(Path.home() / "germline")
     try:
         stat = _subprocess.run(
-            ["git", "diff", "--stat", "HEAD"],
+            ["git", "diff", "--stat", "main..HEAD"],
             capture_output=True,
             text=True,
             timeout=10,
             cwd=work_dir,
         )
         numstat = _subprocess.run(
-            ["git", "diff", "--numstat", "HEAD"],
+            ["git", "diff", "--numstat", "main..HEAD"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -74,7 +74,7 @@ def _git_snapshot(cwd: str | None = None) -> dict:
         )
         commit_lines = [ln.strip() for ln in commits_r.stdout.strip().splitlines() if ln.strip()]
         patch_r = _subprocess.run(
-            ["git", "diff", "HEAD"],
+            ["git", "diff", "main..HEAD"],
             capture_output=True,
             text=True,
             timeout=10,
