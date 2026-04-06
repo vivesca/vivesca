@@ -246,7 +246,7 @@ ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,
 ignore = [ "DEP002" ]
 [tool.deptry.per_rule_ignores]
 DEP001 = [ "workflow", "nodriver", "pycookiecheat" ]
-DEP003 = [ "mcp", "httpx", "google", "langchain_core" ]
+DEP003 = [ "mcp", "httpx", "google", "langchain_core", "pycookiecheat" ]
 
 [tool.pytest.ini_options]
 testpaths = [ "assays" ]
