@@ -30,7 +30,23 @@ REVIEW_LOG = Path.home() / "germline" / "loci" / "ribosome-reviews.jsonl"
 PROVIDER_CONFIGS = {
     "zhipu": {
         "model": "GLM-5.1",
-        "api_key_env": "ZHIPUAI_API_KEY",
+        "api_key_env": "ZHIPU_API_KEY",
+        "base_url": "https://open.bigmodel.cn/api/anthropic",
+    },
+    "infini": {
+        "model": "minimax-m2.7",
+        "api_key_env": "INFINI_API_KEY",
+        "base_url": "https://cloud.infini-ai.com/maas/coding",
+    },
+    "volcano": {
+        "model": "doubao-seed-2.0-code",
+        "api_key_env": "VOLCANO_API_KEY",
+        "base_url": "https://ark.cn-beijing.volces.com/api/coding",
+    },
+    "codex": {
+        "model": "gpt-5.4",
+        "api_key_env": "OPENAI_API_KEY",
+        "base_url": None,  # uses native OpenAI endpoint
     },
 }
 
@@ -110,16 +126,22 @@ Rules:
 
 
 def _get_llm(provider: str) -> ChatZhipuAI:
-    """Create LLM client for the given provider."""
+    """Create LLM client for the given provider.
+
+    All Anthropic-compatible providers (zhipu, infini, volcano) route through
+    ChatZhipuAI with ZHIPUAI_API_KEY + base_url override. The class name is
+    misleading but the wire protocol is identical.
+    """
     config = PROVIDER_CONFIGS.get(provider, PROVIDER_CONFIGS["zhipu"])
     api_key = os.environ.get(config["api_key_env"], "")
     if not api_key:
         raise ValueError(f"No API key found in env var {config['api_key_env']}")
+    # ChatZhipuAI reads ZHIPUAI_API_KEY from env — set it regardless of provider
     os.environ["ZHIPUAI_API_KEY"] = api_key
-    return ChatZhipuAI(
-        model=config["model"],
-        temperature=0.1,
-    )
+    kwargs: dict = {"model": config["model"], "temperature": 0.1}
+    if config.get("base_url"):
+        kwargs["zhipuai_api_base"] = config["base_url"]
+    return ChatZhipuAI(**kwargs)
 
 
 def plan_node(state: TranslationState) -> dict:
