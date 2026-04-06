@@ -24,9 +24,9 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cyclopts import App, Parameter
-from porin import CommandTree
+from porin import CommandTree, emit_err
 from porin import action as _action
-from porin import emit_err, ok as _porin_ok
+from porin import ok as _porin_ok
 
 VERSION = "0.3.0"
 TEMPORAL_HOST = os.environ.get("TEMPORAL_HOST", "ganglion:7233")
@@ -122,7 +122,14 @@ tree.add_command(
 tree.add_command(
     "mtor <prompt>",
     "Dispatch a task prompt to Temporal. Prepends coaching content before sending.",
-    params=[{"name": "prompt", "type": "string", "required": True, "description": "Task instruction for the ribosome worker"}],
+    params=[
+        {
+            "name": "prompt",
+            "type": "string",
+            "required": True,
+            "description": "Task instruction for the ribosome worker",
+        }
+    ],
     returns={
         "ok": "boolean",
         "command": "string",
@@ -139,51 +146,148 @@ tree.add_command(
     "mtor list",
     "List recent workflows with optional filters",
     params=[
-        {"name": "--status", "type": "enum", "enum": ["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"], "required": False, "default": None, "description": "Filter by execution status"},
-        {"name": "--count", "type": "integer", "required": False, "default": 10, "description": "Maximum workflows to return"},
+        {
+            "name": "--status",
+            "type": "enum",
+            "enum": ["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"],
+            "required": False,
+            "default": None,
+            "description": "Filter by execution status",
+        },
+        {
+            "name": "--count",
+            "type": "integer",
+            "required": False,
+            "default": 10,
+            "description": "Maximum workflows to return",
+        },
     ],
-    returns={"ok": "boolean", "command": "string", "result": {"workflows": "array of {workflow_id, status, start_time, close_time}", "count": "integer"}, "next_actions": "array (one mtor status per workflow)"},
+    returns={
+        "ok": "boolean",
+        "command": "string",
+        "result": {
+            "workflows": "array of {workflow_id, status, start_time, close_time}",
+            "count": "integer",
+        },
+        "next_actions": "array (one mtor status per workflow)",
+    },
     annotations={"readonly": True},
 )
 tree.add_command(
     "mtor status <workflow_id>",
     "Get detailed status of a single workflow",
-    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
-    returns={"ok": "boolean", "command": "string", "result": {"workflow_id": "string", "status": "string", "start_time": "string (ISO8601)", "close_time": "string or null"}, "next_actions": "array"},
-    errors=[{"code": "WORKFLOW_NOT_FOUND", "exit_code": 4, "message": "No workflow with that ID"}, {"code": "TEMPORAL_UNREACHABLE", "exit_code": 3, "message": "Cannot connect to Temporal server"}],
+    params=[
+        {
+            "name": "workflow_id",
+            "type": "string",
+            "required": True,
+            "description": "Temporal workflow ID",
+        }
+    ],
+    returns={
+        "ok": "boolean",
+        "command": "string",
+        "result": {
+            "workflow_id": "string",
+            "status": "string",
+            "start_time": "string (ISO8601)",
+            "close_time": "string or null",
+        },
+        "next_actions": "array",
+    },
+    errors=[
+        {"code": "WORKFLOW_NOT_FOUND", "exit_code": 4, "message": "No workflow with that ID"},
+        {
+            "code": "TEMPORAL_UNREACHABLE",
+            "exit_code": 3,
+            "message": "Cannot connect to Temporal server",
+        },
+    ],
     annotations={"readonly": True},
 )
 tree.add_command(
     "mtor logs <workflow_id>",
     f"Fetch last {LOG_TAIL_LINES} lines of workflow output from ganglion",
-    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
-    returns={"ok": "boolean", "command": "string", "result": {"lines": "array of strings", "log_path": "string (full path on ganglion)", "truncated": "boolean"}, "next_actions": "array"},
+    params=[
+        {
+            "name": "workflow_id",
+            "type": "string",
+            "required": True,
+            "description": "Temporal workflow ID",
+        }
+    ],
+    returns={
+        "ok": "boolean",
+        "command": "string",
+        "result": {
+            "lines": "array of strings",
+            "log_path": "string (full path on ganglion)",
+            "truncated": "boolean",
+        },
+        "next_actions": "array",
+    },
     annotations={"readonly": True},
 )
 tree.add_command(
     "mtor cancel <workflow_id>",
     "Cancel a running workflow. Idempotent — cancelling an already-cancelled workflow is ok.",
-    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
-    returns={"ok": "boolean", "command": "string", "result": {"workflow_id": "string", "cancelled": "boolean"}, "next_actions": "array"},
+    params=[
+        {
+            "name": "workflow_id",
+            "type": "string",
+            "required": True,
+            "description": "Temporal workflow ID",
+        }
+    ],
+    returns={
+        "ok": "boolean",
+        "command": "string",
+        "result": {"workflow_id": "string", "cancelled": "boolean"},
+        "next_actions": "array",
+    },
     annotations={"readonly": False, "destructive": False, "idempotent": True},
 )
 tree.add_command(
     "mtor approve <workflow_id>",
     "Approve a deferred (SRP-paused) ribosome task. Sends approval signal to Temporal.",
-    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    params=[
+        {
+            "name": "workflow_id",
+            "type": "string",
+            "required": True,
+            "description": "Temporal workflow ID",
+        }
+    ],
     annotations={"readonly": False, "destructive": False},
 )
 tree.add_command(
     "mtor deny <workflow_id>",
     "Deny a deferred (SRP-paused) ribosome task. Sends rejection signal to Temporal.",
-    params=[{"name": "workflow_id", "type": "string", "required": True, "description": "Temporal workflow ID"}],
+    params=[
+        {
+            "name": "workflow_id",
+            "type": "string",
+            "required": True,
+            "description": "Temporal workflow ID",
+        }
+    ],
     annotations={"readonly": False, "destructive": False},
 )
 tree.add_command(
     "mtor doctor",
     "Health check: Temporal server reachability, worker liveness, provider info",
     params=[],
-    returns={"ok": "boolean", "command": "string", "result": {"temporal_reachable": "boolean", "temporal_host": "string", "worker_alive": "boolean", "checks": "array of {name, ok, detail}"}, "next_actions": "array"},
+    returns={
+        "ok": "boolean",
+        "command": "string",
+        "result": {
+            "temporal_reachable": "boolean",
+            "temporal_host": "string",
+            "worker_alive": "boolean",
+            "checks": "array of {name, ok, detail}",
+        },
+        "next_actions": "array",
+    },
     annotations={"readonly": True},
 )
 tree.add_command(
@@ -633,6 +737,35 @@ def doctor() -> None:
             "detail": str(COACHING_PATH) if coaching_ok else f"Missing: {COACHING_PATH}",
         }
     )
+
+    # Check 4: Provider readiness (via ribosome status)
+    try:
+        provider_result = subprocess.run(
+            ["ribosome", "status", "--compact", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        providers = json.loads(provider_result.stdout) if provider_result.returncode == 0 else []
+        healthy = [p for p in providers if p.get("health") == "OK"]
+        checks.append(
+            {
+                "name": "providers",
+                "ok": len(healthy) > 0,
+                "detail": f"{len(healthy)}/{len(providers)} providers available",
+                "providers": providers,
+            }
+        )
+        if not healthy:
+            all_ok = False
+    except Exception:
+        checks.append(
+            {
+                "name": "providers",
+                "ok": False,
+                "detail": "ribosome status not available",
+            }
+        )
 
     result = {
         "temporal_reachable": temporal_ok,

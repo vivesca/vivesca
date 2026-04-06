@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
   "cyclopts",
+  "porin",
   "temporalio>=1.7",
 ]
 
