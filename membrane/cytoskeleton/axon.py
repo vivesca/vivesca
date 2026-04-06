@@ -609,7 +609,7 @@ def guard_agent(data):
         )
         sys.exit(2)
 
-    if subtype in ("general-purpose", "translocon", "Explore") and model not in ("haiku", ""):
+    if subtype in ("general-purpose", "Explore") and model not in ("haiku", ""):
         print(f"HAIKU GUARD: Agent('{subtype}') must use model: \"haiku\".", file=sys.stderr)
         sys.exit(2)
 
@@ -618,7 +618,7 @@ def guard_agent(data):
     tool_indicators = any(
         kw in prompt.lower() for kw in ["read file", "grep", "search code", "find file", "glob"]
     )
-    if subtype in ("general-purpose", "translocon") and not tool_indicators:
+    if subtype == "general-purpose" and not tool_indicators:
         print(
             "[bud-nudge] This agent task may not need CC tools. "
             "Consider: Bash(command='bud \"<prompt>\"') for free GLM-5.1 dispatch.",
