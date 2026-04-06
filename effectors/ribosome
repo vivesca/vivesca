@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ribosome — headless CC + GLM-5.1 via ZhiPu. Faithful instruction executor.
+# ribosome — headless CC + cheap LLM backends. Faithful instruction executor.
 #
 # Usage:
 #   ribosome "Write tests for metabolon/foo.py"        # bare (default, fast)
@@ -217,18 +217,44 @@ _configure_provider() {
   esac
 }
 
-# Initial configuration
+# Auto-route: complex tasks (--full) get strongest free provider;
+# simple/batch tasks get most unlimited. User --provider overrides both.
+if [[ "$PROVIDER" == "zhipu" && -z "${RIBOSOME_PROVIDER:-}" && "$FULL_REQUESTED" == "true" ]]; then
+  PROVIDER="infini"
+fi
 _CLI="claude"
 _configure_provider "$PROVIDER"
 
-# Fallback provider mapping
-_fallback_provider() {
-  case "$1" in
-    zhipu) echo "infini" ;;
-    infini) echo "zhipu" ;;
-    volcano) echo "infini" ;;
-    *) echo "" ;;
-  esac
+# Fallback priority: strongest model first, free before paid at same tier.
+# Iterates list, preflights API providers, returns first healthy one.
+# Gemini/codex skip preflight (no API endpoint to probe).
+# SWE-bench Verified (Apr 2026): Gemini 3.1 Pro 80.6%, M2.5 80.2%,
+#   GPT-5.4 ~80%, GLM-5 77.8%, Doubao Seed 2.0 ~Kilo#4.
+# Tier 1 (~80%): infini (free) > codex (paid) > gemini (paid)
+# Tier 2 (~78%): volcano (free) > zhipu (free)
+_FALLBACK_PRIORITY=(infini codex gemini volcano zhipu)
+
+_find_fallback() {
+  local failed="$1"
+  local candidate
+  for candidate in "${_FALLBACK_PRIORITY[@]}"; do
+    [[ "$candidate" == "$failed" ]] && continue
+    # Save/restore global state around preflight probe
+    local _save_cli="$_CLI" _save_key="${_KEY:-}" _save_url="${_URL:-}"
+    _configure_provider "$candidate" 2>/dev/null || continue
+    if [[ "$_CLI" != "claude" ]]; then
+      # Gemini/codex — no API preflight, assume available
+      _CLI="$_save_cli"; _KEY="$_save_key"; _URL="$_save_url"
+      echo "$candidate"; return 0
+    fi
+    if _preflight_check >/dev/null 2>&1; then
+      _CLI="$_save_cli"; _KEY="$_save_key"; _URL="$_save_url"
+      echo "$candidate"; return 0
+    fi
+    $QUIET || echo "[fallback] $candidate unhealthy, skipping" >&2
+    _CLI="$_save_cli"; _KEY="$_save_key"; _URL="$_save_url"
+  done
+  echo ""; return 1
 }
 
 # Pre-flight health check: curl the provider's /v1/messages endpoint with a
@@ -617,7 +643,7 @@ _run_with_fallback() {
   _run_ribosome "$prompt" || final_exit=$?
 
   if $FALLBACK && [[ $final_exit -ne 0 ]]; then
-    FALLBACK_PROVIDER="$(_fallback_provider "$PROVIDER")"
+    FALLBACK_PROVIDER="$(_find_fallback "$PROVIDER")"
     if [[ -n "$FALLBACK_PROVIDER" ]]; then
       $QUIET || echo "[fallback] primary provider '$PROVIDER' failed (exit=$final_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
       PROVIDER="$FALLBACK_PROVIDER"
