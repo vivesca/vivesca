@@ -611,6 +611,25 @@ EXPLORE_SYS
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
 
+  # Capture worker reflection if it wrote one
+  local _reflection_file="/tmp/ribosome-reflection.md"
+  local _reflection=""
+  if [[ -f "$_reflection_file" ]]; then
+    _reflection=$(cat "$_reflection_file" 2>/dev/null || true)
+    rm -f "$_reflection_file"
+    if [[ -n "$_reflection" ]]; then
+      $QUIET || echo "[reflection] $(echo "$_reflection" | head -1)" >&2
+    fi
+  fi
+
+  # Capture worker stall signal if it wrote one
+  local _stall_file="/tmp/ribosome-stall.txt"
+  local _stall_signal=""
+  if [[ -f "$_stall_file" ]]; then
+    _stall_signal=$(cat "$_stall_file" 2>/dev/null || true)
+    rm -f "$_stall_file"
+  fi
+
   # Enriched logging: count files and run pytest on new test files
   local files_created=0
   local tests_passed=0
@@ -633,6 +652,26 @@ EXPLORE_SYS
     [[ -z "$tests_failed" ]] && tests_failed=0
   fi
 
+  # Post-hoc stall classification from output patterns (OpenHands-inspired)
+  local _stall_type=""
+  if [[ -z "$_stall_signal" && $exit_code -ne 0 && -n "$output" ]]; then
+    # Monologue: long output with no code changes, ran >5min
+    if [[ $files_created -eq 0 && $duration -gt 300 && ${#output} -gt 5000 ]]; then
+      _stall_type="monologue"
+    fi
+    # Built nothing: ran to completion but no files created (the worst failure mode)
+    if [[ $files_created -eq 0 && $duration -gt 60 ]]; then
+      _stall_type="built-nothing"
+    fi
+  fi
+  # Worker self-reported stall takes priority
+  if [[ -n "$_stall_signal" ]]; then
+    _stall_type="self-reported"
+  fi
+  if [[ -n "$_stall_type" ]]; then
+    echo "RIBOSOME_STALL: provider=$PROVIDER type=$_stall_type duration=${duration}s signal=${_stall_signal:-none}" >&2
+  fi
+
   # Auto-merge to main if ribosome succeeded and tests passed (skip in explore mode)
   local _current_branch
   _current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
@@ -650,11 +689,15 @@ EXPLORE_SYS
   local task_id="${RIBOSOME_TASK_ID:-}"
   local _mode="build"
   [[ $_SUBCOMMAND == explore ]] && _mode="explore"
-  printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
+  local _refl_json=""
+  if [[ -n "$_reflection" ]]; then
+    _refl_json=$(echo "$_reflection" | tr '"' "'" | tr '\n' ' ' | cut -c1-300)
+  fi
+  printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s","reflection":"%s","stall":"%s"}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$_mode" "$duration" "$exit_code" "$_wall_limit" \
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
-    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$RIBOSOME_LOG"
+    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" "$_refl_json" "$_stall_type" >> "$RIBOSOME_LOG"
   # Emit rate-limit marker on stderr if detected — ensures daemon's tail always
   # catches it even when claude output is long (pushing error msg out of last 200 chars)
   local _rl_window=""
