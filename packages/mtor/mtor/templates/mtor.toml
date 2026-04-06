@@ -1,0 +1,16 @@
+[mtor]
+coaching_file = "coaching.md"
+workdir = "."
+log_file = "mtor.jsonl"
+default_provider = "zhipu"
+
+[providers.zhipu]
+url = "https://open.bigmodel.cn/api/anthropic"
+model = "GLM-5.1"
+key_env = "ZHIPU_API_KEY"
+concurrency = 8
+harness = "claude"
+
+[hooks]
+post_success = ""
+post_fail = ""
