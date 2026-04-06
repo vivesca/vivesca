@@ -215,11 +215,11 @@ if [[ -z "$_SUBCOMMAND" ]]; then
       _SUBCOMMAND="build"
       ;;
     -h|--help)
-      head -30 "$0" | tail -29 | sed 's/^# */  /'; exit 0
+      _show_help; exit 0
       ;;
     "")
       # No arguments
-      head -30 "$0" | tail -29 | sed 's/^# */  /'; exit 0
+      _show_help; exit 0
       ;;
     *)
       # Default to build subcommand for bare prompt
