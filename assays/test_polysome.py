@@ -356,8 +356,8 @@ class TestFileStructure:
     def test_pyproject_toml_exists(self):
         assert (_POLYSOME_DIR / "pyproject.toml").is_file()
 
-    def test_worker_py_exists(self):
-        assert (_POLYSOME_DIR / "worker.py").is_file()
+    def test_translocase_py_exists(self):
+        assert (_POLYSOME_DIR / "translocase.py").is_file()
 
     def test_workflow_py_exists(self):
         assert (_POLYSOME_DIR / "workflow.py").is_file()
