@@ -137,11 +137,13 @@ def _decode_body(payload: dict) -> str:
 def _format_message(msg: dict, include_body: bool = False) -> str:
     """Format a message dict into a readable string."""
     msg_id = msg.get("id", "")
+    thread_id = msg.get("threadId", "")
     date = _date_str(msg)
     sender = _header(msg, "From")
     subject = _header(msg, "Subject")
     snippet = msg.get("snippet", "")
-    line = f"{msg_id}  {date} | {sender} | {subject} | {snippet}"
+    thread_tag = f" [thread:{thread_id}]" if thread_id and thread_id != msg_id else ""
+    line = f"{msg_id}{thread_tag}  {date} | {sender} | {subject} | {snippet}"
     if include_body:
         body = _decode_body(msg.get("payload", {}))
         line += f"\n---\n{body}\n---"
@@ -277,10 +279,38 @@ def _search_threads(svc, query: str, max_results: int) -> str:
     return "\n\n".join(block for _, block in collected)
 
 
-def get_thread(thread_id: str) -> str:
-    """Get full thread content."""
+def resolve_thread_id(identifier: str) -> str:
+    """Resolve a message ID or thread ID to the canonical thread ID.
+
+    Gmail message IDs and thread IDs share the same format. For the first
+    message in a thread they are identical; for replies they differ. This
+    function accepts either and returns the thread ID by fetching the
+    identifier as a message and reading its ``threadId`` field.
+    """
     svc = service()
-    thread = svc.users().threads().get(userId="me", id=thread_id, format="full").execute()
+    msg = svc.users().messages().get(userId="me", id=identifier, format="minimal").execute()
+    return msg.get("threadId", identifier)
+
+
+def get_thread(thread_id: str) -> str:
+    """Get full thread content.
+
+    Accepts a thread ID **or** a message ID. If a message ID is passed,
+    it is resolved to the owning thread ID first (one extra lightweight
+    API call with ``format=minimal``).
+    """
+    from googleapiclient.errors import HttpError
+
+    svc = service()
+    try:
+        thread = svc.users().threads().get(userId="me", id=thread_id, format="full").execute()
+    except HttpError as exc:
+        if exc.resp.status == 404:
+            # Likely a message ID — resolve to the owning thread ID.
+            resolved = resolve_thread_id(thread_id)
+            thread = svc.users().threads().get(userId="me", id=resolved, format="full").execute()
+        else:
+            raise
     messages = thread.get("messages", [])
     lines = []
     for msg in messages:

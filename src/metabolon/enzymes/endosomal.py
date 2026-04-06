@@ -17,8 +17,8 @@ class EndosomalResult(Secretion):
 
 
 _ACTIONS = (
-    "search — search Gmail. Requires: query. "
-    "thread — get full thread content. Requires: thread_id. "
+    "search — search Gmail. Requires: query. Returns message IDs with [thread:ID] tags when the thread ID differs. "
+    "thread — get full thread content. Requires: thread_id (accepts a message ID or thread ID). "
     "categorize — classify email text. Requires: email_text. "
     "archive — batch archive messages. Requires: message_ids. "
     "mark_read — batch mark messages as read. Requires: message_ids. "
