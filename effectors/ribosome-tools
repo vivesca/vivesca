@@ -351,6 +351,135 @@ def cmd_health(argv: list[str] | None = None) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# ══ STATUS subcommand — unified provider readiness view
+# ══════════════════════════════════════════════════════════════════════
+
+
+# Known daily limits (None = unlimited)
+_PROVIDER_LIMITS: dict[str, int | None] = {
+    "zhipu": None,
+    "infini": None,
+    "volcano": None,
+    "gemini": 1500,
+    "codex": 150,  # Plus tier 5-hour window (approximate)
+}
+
+
+def _load_today_usage(log_path: Path) -> dict[str, dict]:
+    """Count today's dispatches per provider from JSONL log."""
+    from datetime import UTC, datetime
+
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    usage: dict[str, dict] = {}
+    if not log_path.exists():
+        return usage
+    with open(log_path, errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            ts = rec.get("ts", "")
+            if not ts.startswith(today):
+                continue
+            prov = rec.get("provider", "unknown")
+            if prov not in usage:
+                usage[prov] = {"total": 0, "pass": 0, "fail": 0, "duration": 0}
+            usage[prov]["total"] += 1
+            if rec.get("exit", -1) == 0:
+                usage[prov]["pass"] += 1
+            else:
+                usage[prov]["fail"] += 1
+            usage[prov]["duration"] += rec.get("duration", 0)
+    return usage
+
+
+def cmd_status(argv: list[str] | None = None) -> int:
+    """Unified provider readiness: health + today's usage + quota."""
+    parser = argparse.ArgumentParser(description="Provider readiness overview.")
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    parser.add_argument(
+        "--compact", action="store_true", help="One-line per provider, no health probe"
+    )
+    args = parser.parse_args(argv)
+
+    log_path = Path.home() / ".local" / "share" / "vivesca" / "ribosome.jsonl"
+    usage = _load_today_usage(log_path)
+
+    # Source env
+    env = os.environ.copy()
+    if ENV_FILE.exists():
+        sourced = source_env_file(ENV_FILE)
+        env.update(sourced)
+
+    rows = []
+    for prov, cfg in PROVIDERS.items():
+        key_var = cfg["key_var"]
+        has_key = key_var in env
+        today = usage.get(prov, {"total": 0, "pass": 0, "fail": 0, "duration": 0})
+        limit = _PROVIDER_LIMITS.get(prov)
+        pass_rate = f"{today['pass'] * 100 // today['total']}%" if today["total"] > 0 else "-"
+
+        if limit is not None and today["total"] > 0:
+            remaining = max(0, limit - today["total"])
+            quota_str = f"{remaining}/{limit}"
+        elif limit is not None:
+            quota_str = f"{limit}/{limit}"
+        else:
+            quota_str = "unlimited"
+
+        # Health: skip probe in compact mode, just check key presence
+        if args.compact:
+            health = "OK" if has_key else "NO_KEY"
+        elif not has_key:
+            health = "NO_KEY"
+        else:
+            ribosome_path = Path(__file__).parent / "ribosome"
+            result = check_provider(prov, env, ribosome_path)
+            health = result.status
+            if result.error and "rate-limited" in (result.error or ""):
+                health = "RATELIM"
+
+        rows.append(
+            {
+                "provider": prov,
+                "model": cfg["model"],
+                "health": health,
+                "today": today["total"],
+                "pass_rate": pass_rate,
+                "quota": quota_str,
+                "has_key": has_key,
+            }
+        )
+
+    if args.json:
+        print(json.dumps(rows, indent=2))
+        return 0
+
+    # Table output
+    header = f"{'Provider':<10} | {'Health':<8} | {'Today':>5} | {'Pass%':>5} | {'Quota':<15} | {'Model':<18}"
+    separator = "-" * len(header)
+    print(header)
+    print(separator)
+    for row in rows:
+        print(
+            f"{row['provider']:<10} | {row['health']:<8} | {row['today']:>5} | "
+            f"{row['pass_rate']:>5} | {row['quota']:<15} | {row['model']:<18}"
+        )
+
+    unhealthy = [r for r in rows if r["health"] != "OK"]
+    if unhealthy:
+        print(
+            f"\n⚠ {len(unhealthy)} provider(s) unavailable: {', '.join(r['provider'] for r in unhealthy)}"
+        )
+        return 1
+    return 0
+
+
+# ══════════════════════════════════════════════════════════════════════
 # ══ REPORT subcommand
 # ══════════════════════════════════════════════════════════════════════
 
@@ -3601,8 +3730,13 @@ def main():
 
     # health
     p = sub.add_parser("health", help="Health check for ribosome providers")
-    p.add_argument("--provider", choices=["zhipu", "infini", "volcano"])
+    p.add_argument("--provider", choices=list(PROVIDERS.keys()))
     p.add_argument("--json", action="store_true")
+
+    # status
+    p = sub.add_parser("status", help="Provider readiness: health + usage + quota")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--compact", action="store_true")
 
     # report
     p = sub.add_parser("report", help="Analytics report from ribosome task logs")
@@ -3654,6 +3788,14 @@ def main():
         if args.json:
             argv += ["--json"]
         return cmd_health(argv)
+
+    if args.command == "status":
+        argv = []
+        if args.json:
+            argv += ["--json"]
+        if args.compact:
+            argv += ["--compact"]
+        return cmd_status(argv)
 
     if args.command == "report":
         argv = ["ribosome-report"]
