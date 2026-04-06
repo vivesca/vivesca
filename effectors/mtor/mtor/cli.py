@@ -734,7 +734,7 @@ def doctor() -> None:
             [
                 "ssh",
                 "ganglion",
-                "set -a; source ~/.temporal-worker.env 2>/dev/null; set +a;"
+                "set -a; source ~/.env.bootstrap 2>/dev/null; set +a;"
                 " PATH=$HOME/germline/effectors:$PATH"
                 " ribosome-tools status --compact --json",
             ],
