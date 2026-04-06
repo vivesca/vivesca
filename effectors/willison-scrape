@@ -1,0 +1,148 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["aiohttp", "beautifulsoup4", "tqdm", "lxml"]
+# ///
+"""Scrape all Simon Willison blog posts from simonwillison.net into SQLite."""
+
+import argparse
+import asyncio
+import re
+import sqlite3
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+
+import aiohttp
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+
+POST_URL_RE = re.compile(r"https://simonwillison\.net/\d{4}/\w+/\d+/[\w-]+/?")
+SITEMAP_URL = "https://simonwillison.net/sitemap.xml"
+
+
+def init_db(db_path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS posts (
+            url TEXT PRIMARY KEY,
+            title TEXT,
+            date TEXT,
+            body TEXT,
+            fetched_at TEXT
+        )"""
+    )
+    conn.commit()
+    return conn
+
+
+def existing_urls(conn: sqlite3.Connection) -> set[str]:
+    return {row[0] for row in conn.execute("SELECT url FROM posts")}
+
+
+async def fetch_sitemap(session: aiohttp.ClientSession) -> list[str]:
+    async with session.get(SITEMAP_URL) as resp:
+        text = await resp.text()
+    root = ET.fromstring(text)
+    ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    urls = [loc.text for loc in root.findall(".//s:loc", ns) if loc.text]
+    return [url for url in urls if POST_URL_RE.match(url)]
+
+
+def parse_date_from_url(url: str) -> str:
+    match = re.search(r"/(\d{4})/(\w+)/(\d+)/", url)
+    if not match:
+        return ""
+    year, month_name, day = match.groups()
+    try:
+        month_num = datetime.strptime(month_name, "%b").month
+    except ValueError:
+        return f"{year}-{month_name}-{day}"
+    return f"{year}-{month_num:02d}-{int(day):02d}"
+
+
+def extract_content(html: str) -> tuple[str, str]:
+    soup = BeautifulSoup(html, "lxml")
+    title_tag = soup.select_one(".entry h2") or soup.select_one("h2") or soup.find("title")
+    title = title_tag.get_text(strip=True) if title_tag else ""
+    body_tag = soup.select_one(".entry") or soup.select_one("article") or soup.select_one(".entry-content")
+    body = body_tag.get_text(separator="\n", strip=True) if body_tag else ""
+    return title, body
+
+
+async def fetch_post(
+    session: aiohttp.ClientSession,
+    url: str,
+    semaphore: asyncio.Semaphore,
+) -> tuple[str, str, str, str] | None:
+    async with semaphore:
+        try:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    return None
+                html = await resp.text()
+        except (aiohttp.ClientError, TimeoutError):
+            return None
+    title, body = extract_content(html)
+    date = parse_date_from_url(url)
+    fetched_at = datetime.now(timezone.utc).isoformat()
+    return url, title, date, body
+
+
+async def main() -> None:
+    parser = argparse.ArgumentParser(description="Scrape Simon Willison blog posts")
+    parser.add_argument("--db", default="willison.db", help="SQLite database path")
+    parser.add_argument("--concurrency", type=int, default=5, help="Max concurrent requests")
+    parser.add_argument("--limit", type=int, default=0, help="Limit number of posts to fetch (0=all)")
+    args = parser.parse_args()
+
+    conn = init_db(args.db)
+    already_fetched = existing_urls(conn)
+
+    async with aiohttp.ClientSession(
+        headers={"User-Agent": "willison-scrape/1.0 (blog archiver)"}
+    ) as session:
+        print("Fetching sitemap...")
+        all_urls = await fetch_sitemap(session)
+        to_fetch = [url for url in all_urls if url not in already_fetched]
+
+        if args.limit > 0:
+            to_fetch = to_fetch[: args.limit]
+
+        if not to_fetch:
+            print(f"Nothing to do — {len(already_fetched)} posts already in DB.")
+            conn.close()
+            return
+
+        print(f"Found {len(all_urls)} posts, {len(already_fetched)} already fetched, {len(to_fetch)} to scrape.")
+        semaphore = asyncio.Semaphore(args.concurrency)
+        batch_size = 50
+        fetched_count = 0
+
+        with tqdm(total=len(to_fetch), desc="Scraping") as progress_bar:
+            for batch_start in range(0, len(to_fetch), batch_size):
+                batch = to_fetch[batch_start : batch_start + batch_size]
+                tasks = [fetch_post(session, url, semaphore) for url in batch]
+                results = await asyncio.gather(*tasks)
+
+                rows = []
+                for result in results:
+                    if result is not None:
+                        url, title, date, body = result
+                        rows.append((url, title, date, body, datetime.now(timezone.utc).isoformat()))
+
+                if rows:
+                    conn.executemany(
+                        "INSERT OR REPLACE INTO posts (url, title, date, body, fetched_at) VALUES (?, ?, ?, ?, ?)",
+                        rows,
+                    )
+                    conn.commit()
+                    fetched_count += len(rows)
+
+                progress_bar.update(len(batch))
+
+    print(f"Done. {fetched_count} posts saved to {args.db}.")
+    conn.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
