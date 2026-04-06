@@ -85,7 +85,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py312" # ganglion runs 3.12; must target lowest deployed version
 line-length = 99
 src = [ "src" ]
 extend-include = [ "effectors/*" ]
