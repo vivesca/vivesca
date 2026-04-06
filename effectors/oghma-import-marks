@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Import epigenome marks into oghma semantic store for ecphory retrieval."""
+
+from pathlib import Path
+
+from oghma.config import get_db_path, load_config
+from oghma.storage import Storage
+
+MARKS_DIR = Path.home() / "epigenome" / "marks"
+TYPE_TO_CATEGORY = {
+    "feedback": "preference",
+    "finding": "gotcha",
+    "reference": "project_context",
+    "user": "project_context",
+    "project": "project_context",
+}
+
+
+def main():
+    config = load_config()
+    db_path = get_db_path(config)
+    store = Storage(db_path=db_path, config=config)
+    imported = 0
+    skipped = 0
+
+    for mark_file in sorted(MARKS_DIR.glob("*.md")):
+        if mark_file.name == "MEMORY.md":
+            continue
+        content = mark_file.read_text()
+        # Extract type from frontmatter
+        mark_type = "reference"
+        for line in content.split("\n"):
+            if line.startswith("type:"):
+                mark_type = line.split(":", 1)[1].strip()
+                break
+        category = TYPE_TO_CATEGORY.get(mark_type, "project_context")
+        result = store.add_memory(
+            content=content,
+            category=category,
+            source_tool="marks-import",
+            source_file=str(mark_file),
+        )
+        if result:
+            imported += 1
+        else:
+            skipped += 1
+
+    print(f"Imported: {imported}, Skipped (duplicates): {skipped}")
+
+
+if __name__ == "__main__":
+    main()
