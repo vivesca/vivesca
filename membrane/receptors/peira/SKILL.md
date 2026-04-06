@@ -1,7 +1,7 @@
 ---
 name: peira
-description: >-
 effort: high
+description: >-
   Autonomous experiment-optimize loop for any measurable target. Use when
   prompt engineering, habit tuning, performance benchmarking, classifier
   improvement, config search — any "what works better?" question with a
