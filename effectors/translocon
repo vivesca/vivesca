@@ -33,6 +33,7 @@ _DEFAULT_ROUTES: dict = {
     "skill": {"model": "GLM-4.7", "chain": ["goose", "droid"]},
 }
 
+
 class _ProgressTicker:
     """Print a dot to stderr every N seconds while a subprocess runs."""
 
@@ -61,8 +62,10 @@ def _load_routes() -> dict:
     """Load routing config. Falls back to hardcoded defaults if no file."""
     if ROUTES_PATH.exists():
         import yaml
+
         return yaml.safe_load(ROUTES_PATH.read_text())
     return dict(_DEFAULT_ROUTES)
+
 
 def _is_healthy(backend: str) -> bool:
     """Check if backend is healthy (not in cooldown)."""
@@ -72,6 +75,7 @@ def _is_healthy(backend: str) -> bool:
     entry = state.get(backend, {})
     cooldown = entry.get("cooldown_until")
     return not (cooldown and datetime.fromisoformat(cooldown) > datetime.now())
+
 
 def _record_result(backend: str, success: bool) -> None:
     """Update health state after a backend call."""
@@ -89,6 +93,7 @@ def _record_result(backend: str, success: bool) -> None:
             entry["cooldown_until"] = (datetime.now() + timedelta(seconds=COOLDOWN)).isoformat()
     HEALTH_PATH.write_text(json.dumps(state, indent=2))
 
+
 def _record_rate_limit(backend: str) -> None:
     """Record a rate limit hit — shorter cooldown than general failures."""
     HEALTH_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -101,6 +106,7 @@ def _record_rate_limit(backend: str) -> None:
     entry["last_rate_limit"] = datetime.now().isoformat()
     HEALTH_PATH.write_text(json.dumps(state, indent=2))
 
+
 def _log_call(entry: dict) -> None:
     """Append a call record to the per-call log."""
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -108,14 +114,17 @@ def _log_call(entry: dict) -> None:
     with open(LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
 
+
 def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
     import urllib.request
+
     key = os.environ.get("ZHIPU_API_KEY", "")
     if not key:
         print("translocon: ZHIPU_API_KEY not set", file=sys.stderr)
         return 1
-    body = json.dumps({"model": model, "max_tokens": 8192,
-                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    body = json.dumps(
+        {"model": model, "max_tokens": 8192, "messages": [{"role": "user", "content": prompt}]}
+    ).encode()
     req = urllib.request.Request("https://open.bigmodel.cn/api/anthropic/v1/messages", body)
     req.add_header("x-api-key", key)
     req.add_header("anthropic-version", "2023-06-01")
@@ -131,6 +140,7 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
 
 _TOTAL_SIZE_CAP = 100_000  # 100 KB cumulative cap to protect token budgets
 
+
 def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
     parts: list[str] = []
     cumulative = 0
@@ -145,7 +155,10 @@ def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
             continue
         parts.append(f"### {f.name}\n```\n{content}\n```")
     if skipped:
-        print(f"translocon: skipped {skipped} file(s) after reaching {_TOTAL_SIZE_CAP} byte cap", file=sys.stderr)
+        print(
+            f"translocon: skipped {skipped} file(s) after reaching {_TOTAL_SIZE_CAP} byte cap",
+            file=sys.stderr,
+        )
     return "\n\n".join(parts)
 
 
@@ -158,13 +171,14 @@ def _inject_coaching(prompt: str) -> str:
         if notes.startswith("---"):
             end = notes.find("---", 3)
             if end > 0:
-                notes = notes[end + 3:].strip()
+                notes = notes[end + 3 :].strip()
         return f"{notes}\n\n---\n\nTask:\n{prompt}"
     return prompt
 
 
-def _build_ribosome_cmd(model: str, directory: str, prompt: str,
-                        auto: str | None = None) -> list[str]:
+def _build_ribosome_cmd(
+    model: str, directory: str, prompt: str, auto: str | None = None
+) -> list[str]:
     """Build ribosome CLI command (replaces goose/droid)."""
     cmd = ["ribosome"]
     # Map model to provider if it matches a known one
@@ -211,7 +225,9 @@ def _resolve_mode(args: argparse.Namespace) -> tuple[list[str], str, str, str | 
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Unified dispatch CLI for LLM tasks (translocon).")
+    parser = argparse.ArgumentParser(
+        description="Unified dispatch CLI for LLM tasks (translocon)."
+    )
     parser.add_argument("dir", nargs="?", default=".", help="Working directory")
     parser.add_argument("prompt", nargs="*", default=[], help="Task prompt")
     parser.add_argument("--build", action="store_true", help="Implementation mode")
@@ -224,13 +240,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output", help="Route output: file path, 'telegram', or omit for stdout")
     parser.add_argument("--eval", action="store_true", help="Analyze sortase traces")
     parser.add_argument("--count", type=int, default=20, help="Traces to analyze (with --eval)")
-    parser.add_argument("--failures-only", action="store_true", help="Show only failures (with --eval)")
+    parser.add_argument(
+        "--failures-only", action="store_true", help="Show only failures (with --eval)"
+    )
     parser.add_argument("--stats", action="store_true", help="Print dispatch statistics")
-    parser.add_argument("--metrics", action="store_true", help="Print per-backend duration metrics (avg/p50/p95)")
-    parser.add_argument("--batch", metavar="GLOB", help="Dispatch all plan files matching glob sequentially")
-    parser.add_argument("--retries", type=int, default=0, help="Retry failed plans N times (with --batch)")
+    parser.add_argument(
+        "--metrics", action="store_true", help="Print per-backend duration metrics (avg/p50/p95)"
+    )
+    parser.add_argument(
+        "--batch", metavar="GLOB", help="Dispatch all plan files matching glob sequentially"
+    )
+    parser.add_argument(
+        "--retries", type=int, default=0, help="Retry failed plans N times (with --batch)"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
-    parser.add_argument("--output-file", action="store_true", help="Tee full stdout+stderr to ~/logs/translocon-<task>-<ts>.log")
+    parser.add_argument(
+        "--output-file",
+        action="store_true",
+        help="Tee full stdout+stderr to ~/logs/translocon-<task>-<ts>.log",
+    )
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args(argv)
@@ -325,9 +353,7 @@ def _run_stats(days: int = 7) -> int:
     avg_duration = sum(durations) / len(durations) if durations else 0
 
     failure_reasons = Counter(
-        t.get("failure_reason") or "unknown"
-        for t in traces
-        if not t.get("success")
+        t.get("failure_reason") or "unknown" for t in traces if not t.get("success")
     )
     top_failure = failure_reasons.most_common(1)
     top_failure_str = f"{top_failure[0][0]} ({top_failure[0][1]})" if top_failure else "none"
@@ -348,6 +374,7 @@ def _run_stats(days: int = 7) -> int:
 
 def _run_eval(count: int = 20, failures_only: bool = False) -> int:
     from collections import Counter
+
     log_path = Path.home() / ".local/share/sortase/log.jsonl"
     if not log_path.exists():
         print("translocon: no sortase log found", file=sys.stderr)
@@ -365,12 +392,14 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
         return 0
     success = sum(1 for t in traces if t.get("success"))
     fail = total - success
-    print(f"Sortase traces: {total} | Success: {success} ({success/total*100:.0f}%) | Fail: {fail}")
+    print(
+        f"Sortase traces: {total} | Success: {success} ({success / total * 100:.0f}%) | Fail: {fail}"
+    )
     print()
     tools = Counter(t.get("tool", "?") for t in traces)
     for tool, n in tools.most_common():
         ts = sum(1 for t in traces if t.get("tool") == tool and t.get("success"))
-        print(f"  {tool}: {ts}/{n} ({ts/n*100:.0f}%)")
+        print(f"  {tool}: {ts}/{n} ({ts / n * 100:.0f}%)")
     print()
     reasons = Counter(t.get("failure_reason", "unknown") for t in traces if not t.get("success"))
     if reasons:
@@ -383,8 +412,10 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
         if failed:
             print("Failed traces:")
             for t in failed:
-                print(f"  [{t.get('tool','?')}] {t.get('plan','?')} — "
-                      f"{t.get('failure_reason','?')} ({t.get('duration_s',0):.0f}s)")
+                print(
+                    f"  [{t.get('tool', '?')}] {t.get('plan', '?')} — "
+                    f"{t.get('failure_reason', '?')} ({t.get('duration_s', 0):.0f}s)"
+                )
     return 0
 
 
@@ -397,7 +428,7 @@ def _extract_task_summary(prompt: str) -> str:
     """
     marker = "\n\n---\n\nTask:\n"
     idx = prompt.find(marker)
-    task = prompt[idx + len(marker):] if idx >= 0 else prompt
+    task = prompt[idx + len(marker) :] if idx >= 0 else prompt
     # Take first meaningful line
     for line in task.strip().splitlines():
         stripped = line.strip()
@@ -408,9 +439,16 @@ def _extract_task_summary(prompt: str) -> str:
 
 def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
     """Auto-commit after successful build. Mitosis is the safety net; this is the primary."""
-    diff = subprocess.run(["git", "diff", "--stat"], cwd=directory, capture_output=True, text=True, timeout=30)
-    untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
-                               cwd=directory, capture_output=True, text=True, timeout=30)
+    diff = subprocess.run(
+        ["git", "diff", "--stat"], cwd=directory, capture_output=True, text=True, timeout=30
+    )
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     if not diff.stdout.strip() and not untracked.stdout.strip():
         return  # nothing to commit
     # Stage only modified/new files — NOT unrelated plan files
@@ -498,8 +536,12 @@ def _batch_dispatch(args: argparse.Namespace) -> int:
                 break
             if attempt < max_retries:
                 import time
+
                 backoff = 15 * (attempt + 1)
-                print(f"  {plan_name}: retrying in {backoff}s (attempt {attempt + 2}/{max_retries + 1})", file=sys.stderr)
+                print(
+                    f"  {plan_name}: retrying in {backoff}s (attempt {attempt + 2}/{max_retries + 1})",
+                    file=sys.stderr,
+                )
                 time.sleep(backoff)
         ok = rc == 0
         if ok:
@@ -512,7 +554,10 @@ def _batch_dispatch(args: argparse.Namespace) -> int:
 
     success_count + fail_count
     print(file=sys.stderr)
-    print(f"Batch complete: {success_count} ok, {fail_count} fail, {skip_count} skipped, {len(paths)} total", file=sys.stderr)
+    print(
+        f"Batch complete: {success_count} ok, {fail_count} fail, {skip_count} skipped, {len(paths)} total",
+        file=sys.stderr,
+    )
     for plan_name, _, status in results:
         print(f"  {status}\t{plan_name}", file=sys.stderr)
 
@@ -525,6 +570,7 @@ def main_impl(args: argparse.Namespace) -> int:
         return _run_stats()
     if args.metrics:
         from metabolon.organelles.translocon_metrics import format_report
+
         print(format_report(days=30))
         return 0
     if args.eval:
@@ -573,18 +619,31 @@ def main_impl(args: argparse.Namespace) -> int:
     import time
 
     from metabolon.organelles.translocon_metrics import record as _record_metric
+
     t0 = time.monotonic()
     capture = args.output is not None
 
     def _entry(backend: str, success: bool, out_len: int = 0) -> dict:
         dur = round(time.monotonic() - t0, 2)
         _record_metric(
-            backend=backend, model=model, prompt_length=len(prompt),
-            output_length=out_len, duration_s=dur, success=success, mode=mode,
+            backend=backend,
+            model=model,
+            prompt_length=len(prompt),
+            output_length=out_len,
+            duration_s=dur,
+            success=success,
+            mode=mode,
         )
-        return {"mode": mode, "backend": backend, "model": model, "skill": args.skill,
-                "duration_s": dur, "success": success,
-                "directory": directory, "prompt_length": len(prompt)}
+        return {
+            "mode": mode,
+            "backend": backend,
+            "model": model,
+            "skill": args.skill,
+            "duration_s": dur,
+            "success": success,
+            "directory": directory,
+            "prompt_length": len(prompt),
+        }
 
     # Direct API fast path for explore/safe
     if mode in ("explore", "safe") and not args.backend and not capture:

@@ -892,7 +892,7 @@ def guard_rheotaxis_depth(data):
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         sys.exit(0)
 
     tool = data.get("tool", "")

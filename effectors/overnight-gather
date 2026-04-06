@@ -74,7 +74,11 @@ def parse_run_timestamp(name: str) -> str:
 def discover_runs(limit: int | None = None) -> list[Path]:
     if not RUNS_DIR.exists():
         return []
-    runs = [path for path in RUNS_DIR.iterdir() if path.is_dir() and re.match(r"^2\d{3}-\d{2}-\d{2}-\d{4}$", path.name)]
+    runs = [
+        path
+        for path in RUNS_DIR.iterdir()
+        if path.is_dir() and re.match(r"^2\d{3}-\d{2}-\d{2}-\d{4}$", path.name)
+    ]
     runs.sort(key=lambda path: path.name, reverse=True)
     return runs[:limit] if limit is not None else runs
 
@@ -85,7 +89,9 @@ def latest_run() -> Path | None:
 
 
 def extract_flagged_lines(text: str) -> list[str]:
-    return [line for line in text.splitlines() if any(pattern in line for pattern in FLAG_PATTERNS)]
+    return [
+        line for line in text.splitlines() if any(pattern in line for pattern in FLAG_PATTERNS)
+    ]
 
 
 def parse_queue_metadata() -> dict[str, dict[str, str]]:
@@ -188,7 +194,11 @@ def cmd_brief(args: argparse.Namespace) -> None:
         fail(f"No morning dashboard found in {run_dir.name}", json_mode=args.json)
 
     flagged_lines = extract_flagged_lines(morning.stdout)
-    passed = sum(1 for task in tasks if task.status == "completed" and not task.flagged and not task.has_errors)
+    passed = sum(
+        1
+        for task in tasks
+        if task.status == "completed" and not task.flagged and not task.has_errors
+    )
     flagged = sum(1 for task in tasks if task.flagged or task.has_errors)
 
     if args.json:
@@ -323,7 +333,11 @@ def cmd_list(args: argparse.Namespace) -> None:
     items = []
     for run_dir in runs:
         tasks = collect_tasks(run_dir, metadata)
-        passed = sum(1 for task in tasks if task.status == "completed" and not task.flagged and not task.has_errors)
+        passed = sum(
+            1
+            for task in tasks
+            if task.status == "completed" and not task.flagged and not task.has_errors
+        )
         flagged = sum(1 for task in tasks if task.flagged or task.has_errors)
         items.append(
             {
@@ -351,9 +365,17 @@ def cmd_list(args: argparse.Namespace) -> None:
 
     print(f"{BOLD}─── Overnight Runs ──────────────────────────────{RESET}")
     for item in items:
-        print(f"  {item['timestamp']}  {DIM}({item['task_count']} tasks, {item['passed']} passed, {item['flagged']} flagged){RESET}")
+        print(
+            f"  {item['timestamp']}  {DIM}({item['task_count']} tasks, {item['passed']} passed, {item['flagged']} flagged){RESET}"
+        )
         for task in item["tasks"]:
-            marker = WARN if task["flagged"] or task["has_errors"] else OK if task["status"] == "completed" else ERR
+            marker = (
+                WARN
+                if task["flagged"] or task["has_errors"]
+                else OK
+                if task["status"] == "completed"
+                else ERR
+            )
             label = f"{task['name']} ({task['title']})" if task["title"] else task["name"]
             suffix = ""
             if task["flagged"]:

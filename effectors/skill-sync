@@ -34,6 +34,7 @@ GOOSE_CONFIG = Path.home() / ".config" / "goose" / "config.yaml"
 # Parsing
 # ---------------------------------------------------------------------------
 
+
 def parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
     """Extract YAML frontmatter and body from SKILL.md content.
 
@@ -61,6 +62,7 @@ def extract_title(body: str) -> str:
 # ---------------------------------------------------------------------------
 # Recipe generation
 # ---------------------------------------------------------------------------
+
 
 def _indent(text: str, spaces: int = 2) -> str:
     """Indent every line of text by the given number of spaces."""
@@ -103,6 +105,7 @@ def build_recipe(name: str, description: str, title: str, body: str) -> str:
 # Skill discovery
 # ---------------------------------------------------------------------------
 
+
 def find_skills(receptors_dir: Path, single_name: str | None = None) -> list[Path]:
     """Return sorted list of skill directories containing SKILL.md."""
     if not receptors_dir.is_dir():
@@ -124,6 +127,7 @@ def find_skills(receptors_dir: Path, single_name: str | None = None) -> list[Pat
 # Config management
 # ---------------------------------------------------------------------------
 
+
 def load_goose_config(path: Path) -> dict:
     """Load goose config.yaml, returning empty dict if missing."""
     if not path.is_file():
@@ -142,6 +146,7 @@ def save_goose_config(path: Path, config: dict) -> None:
 # ---------------------------------------------------------------------------
 # Sync logic
 # ---------------------------------------------------------------------------
+
 
 def sync(
     receptors_dir: Path,
@@ -209,29 +214,26 @@ def sync(
     # Remove stale entries (recipe.yaml no longer exists)
     existing_commands = {c.get("command", ""): c for c in slash_commands}
     stale_commands = [
-        cmd for cmd, entry in existing_commands.items()
+        cmd
+        for cmd, entry in existing_commands.items()
         if cmd not in valid_recipes
         and not Path(entry.get("recipe_path", "")).expanduser().is_file()
     ]
 
     # Track adds
-    added_commands = [
-        cmd for cmd in valid_recipes
-        if cmd not in existing_commands
-    ]
+    added_commands = [cmd for cmd in valid_recipes if cmd not in existing_commands]
 
     if not dry_run:
         # Remove stale
-        slash_commands = [
-            c for c in slash_commands
-            if c.get("command", "") not in stale_commands
-        ]
+        slash_commands = [c for c in slash_commands if c.get("command", "") not in stale_commands]
         # Add new
         for cmd in added_commands:
-            slash_commands.append({
-                "command": cmd,
-                "recipe_path": valid_recipes[cmd],
-            })
+            slash_commands.append(
+                {
+                    "command": cmd,
+                    "recipe_path": valid_recipes[cmd],
+                }
+            )
         # Ensure all existing entries have correct paths
         for entry in slash_commands:
             cmd = entry.get("command", "")
@@ -243,19 +245,30 @@ def sync(
 
     # --- Report ---
     action_prefix = "[dry-run] " if dry_run else ""
-    print(f"skill-sync: {action_prefix}{generated} recipes generated, {updated} updated, {unchanged} unchanged")
-    print(f"goose config: {action_prefix}{len(added_commands)} commands added, {len(stale_commands)} removed, {len(slash_commands) - len(added_commands)} unchanged")
+    print(
+        f"skill-sync: {action_prefix}{generated} recipes generated, {updated} updated, {unchanged} unchanged"
+    )
+    print(
+        f"goose config: {action_prefix}{len(added_commands)} commands added, {len(stale_commands)} removed, {len(slash_commands) - len(added_commands)} unchanged"
+    )
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Sync SKILL.md files to Goose recipe.yaml and config")
+    parser = argparse.ArgumentParser(
+        description="Sync SKILL.md files to Goose recipe.yaml and config"
+    )
     parser.add_argument("name", nargs="?", help="Sync a single skill by name")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would change without writing")
-    parser.add_argument("--force", action="store_true", help="Regenerate all recipe.yaml even if they exist")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would change without writing"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Regenerate all recipe.yaml even if they exist"
+    )
     args = parser.parse_args()
 
     sync(

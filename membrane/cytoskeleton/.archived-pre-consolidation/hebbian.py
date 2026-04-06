@@ -33,7 +33,7 @@ def recent_suggestions(skill_name: str, window_seconds: int = 30) -> bool:
                 ts = datetime.strptime(parts[0], "%Y-%m-%dT%H:%M:%S")
                 if (now - ts).total_seconds() < window_seconds:
                     return True
-    except ValueError, OSError:
+    except (ValueError, OSError):
         pass
     return False
 
@@ -41,7 +41,7 @@ def recent_suggestions(skill_name: str, window_seconds: int = 30) -> bool:
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         return
 
     skill_name = data.get("tool_input", {}).get("skill", "") or data.get("tool_input", {}).get(

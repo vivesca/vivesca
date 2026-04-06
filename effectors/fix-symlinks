@@ -8,6 +8,7 @@
 Replaces macOS home-directory symlink targets with the current Linux home path
 in key directories. Idempotent and safe to run multiple times.
 """
+
 from __future__ import annotations
 
 import os

@@ -46,10 +46,12 @@ class TestStagedExecution:
 
         wf._execute_one = mock_execute_one
 
-        result = await wf.run([
-            {"task": "task_a"},
-            {"task": "task_b"},
-        ])
+        result = await wf.run(
+            [
+                {"task": "task_a"},
+                {"task": "task_b"},
+            ]
+        )
 
         assert set(executed) == {"task_a", "task_b"}
         assert result["total"] == 2
@@ -90,10 +92,12 @@ class TestStagedExecution:
 
         wf._execute_one = mock_execute_one
 
-        result = await wf.run([
-            [{"task": "s1"}, {"task": "s2"}],
-            [{"task": "s3"}],
-        ])
+        result = await wf.run(
+            [
+                [{"task": "s1"}, {"task": "s2"}],
+                [{"task": "s3"}],
+            ]
+        )
 
         assert result["total"] == 3
         # s1 and s2 overlapped (concurrent within stage)
@@ -116,10 +120,12 @@ class TestStagedExecution:
 
         wf._execute_one = mock_execute_one
 
-        result = await wf.run([
-            [{"task": "s_fail"}, {"task": "s_ok"}],
-            [{"task": "s_downstream"}],
-        ])
+        result = await wf.run(
+            [
+                [{"task": "s_fail"}, {"task": "s_ok"}],
+                [{"task": "s_downstream"}],
+            ]
+        )
 
         # Only stage-1 specs were actually executed
         assert set(executed) == {"s_fail", "s_ok"}

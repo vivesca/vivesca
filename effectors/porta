@@ -163,16 +163,18 @@ def read_chrome_cookies(
         cookies: list[dict[str, Any]] = []
         for row in cur.fetchall():
             host_key, name, path, enc_val, expires_utc, is_secure, is_httponly, samesite = row
-            cookies.append({
-                "domain": host_key,
-                "name": name,
-                "value": _decrypt_value(enc_val, key),
-                "path": path,
-                "expires": expires_utc,
-                "secure": bool(is_secure),
-                "httponly": bool(is_httponly),
-                "samesite": _samesite_str(samesite),
-            })
+            cookies.append(
+                {
+                    "domain": host_key,
+                    "name": name,
+                    "value": _decrypt_value(enc_val, key),
+                    "path": path,
+                    "expires": expires_utc,
+                    "secure": bool(is_secure),
+                    "httponly": bool(is_httponly),
+                    "samesite": _samesite_str(samesite),
+                }
+            )
         conn.close()
     finally:
         os.unlink(tmp_path)
@@ -198,10 +200,7 @@ def read_firefox_cookies(
             shutil.copy2(db_path, tmp_path)
             conn = sqlite3.connect(tmp_path)
             cur = conn.cursor()
-            query = (
-                "SELECT host, name, value, path, expiry, isSecure, isHttpOnly "
-                "FROM moz_cookies"
-            )
+            query = "SELECT host, name, value, path, expiry, isSecure, isHttpOnly FROM moz_cookies"
             params: tuple = ()
             if domain_filter:
                 query += " WHERE host LIKE ?"
@@ -209,16 +208,18 @@ def read_firefox_cookies(
             cur.execute(query, params)
             for row in cur.fetchall():
                 host, name, value, path, expiry, is_secure, is_httponly = row
-                cookies.append({
-                    "domain": host,
-                    "name": name,
-                    "value": value,
-                    "path": path,
-                    "expires": expiry,
-                    "secure": bool(is_secure),
-                    "httponly": bool(is_httponly),
-                    "samesite": "Unspecified",
-                })
+                cookies.append(
+                    {
+                        "domain": host,
+                        "name": name,
+                        "value": value,
+                        "path": path,
+                        "expires": expiry,
+                        "secure": bool(is_secure),
+                        "httponly": bool(is_httponly),
+                        "samesite": "Unspecified",
+                    }
+                )
             conn.close()
         finally:
             os.unlink(tmp_path)
@@ -271,23 +272,27 @@ def list_sessions() -> list[dict[str, Any]]:
     for f in sorted(SESSION_DIR.glob("*.json")):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            sessions.append({
-                "service": data.get("service", f.stem),
-                "domain": data.get("domain", "?"),
-                "cookies": data.get("cookie_count", 0),
-                "captured_at": data.get("captured_at", "?"),
-                "source": data.get("source", "?"),
-                "path": str(f),
-            })
+            sessions.append(
+                {
+                    "service": data.get("service", f.stem),
+                    "domain": data.get("domain", "?"),
+                    "cookies": data.get("cookie_count", 0),
+                    "captured_at": data.get("captured_at", "?"),
+                    "source": data.get("source", "?"),
+                    "path": str(f),
+                }
+            )
         except (json.JSONDecodeError, KeyError):
-            sessions.append({
-                "service": f.stem,
-                "domain": "?",
-                "cookies": 0,
-                "captured_at": "?",
-                "source": "?",
-                "path": str(f),
-            })
+            sessions.append(
+                {
+                    "service": f.stem,
+                    "domain": "?",
+                    "cookies": 0,
+                    "captured_at": "?",
+                    "source": "?",
+                    "path": str(f),
+                }
+            )
     return sessions
 
 
@@ -316,13 +321,13 @@ def clear_all_sessions() -> int:
 
 def format_curl(cookies: list[dict[str, Any]]) -> str:
     """Format cookies as a curl -b header string."""
-    pairs = "; ".join(f'{c["name"]}={c["value"]}' for c in cookies)
+    pairs = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
     return pairs
 
 
 def format_headers(cookies: list[dict[str, Any]], domain: str) -> str:
     """Format cookies as Cookie header for HTTP."""
-    pairs = "; ".join(f'{c["name"]}={c["value"]}' for c in cookies)
+    pairs = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
     return f"Cookie: {pairs}"
 
 
@@ -363,7 +368,9 @@ def cmd_status(_args: argparse.Namespace) -> int:
 
     print(f"Sessions in {SESSION_DIR}:\n")
     for s in sessions:
-        print(f"  {s['service']:20s}  domain={s['domain']:<30s}  cookies={s['cookies']:>3d}  source={s['source']}")
+        print(
+            f"  {s['service']:20s}  domain={s['domain']:<30s}  cookies={s['cookies']:>3d}  source={s['source']}"
+        )
         print(f"  {'':20s}  captured={s['captured_at']}")
     print(f"\nTotal: {len(sessions)} session(s)")
     return 0
@@ -462,7 +469,10 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     if match is None:
         # Try extracting fresh from browser
-        for browser_fn, _source in [(read_chrome_cookies, "chrome"), (read_firefox_cookies, "firefox")]:
+        for browser_fn, _source in [
+            (read_chrome_cookies, "chrome"),
+            (read_firefox_cookies, "firefox"),
+        ]:
             cookies = browser_fn(domain_filter=domain)
             if cookies:
                 print(json.dumps(cookies, indent=2, ensure_ascii=False))
@@ -513,18 +523,34 @@ def build_parser() -> argparse.ArgumentParser:
     # login
     login_p = sub.add_parser("login", help="Capture cookies from browser for a service")
     login_p.add_argument("service", help="Service name (e.g. linkedin, github)")
-    login_p.add_argument("--domain", "-d", default=None, help="Domain filter (default: service name)")
-    login_p.add_argument("--browser", "-b", default="chrome", choices=["chrome", "firefox"], help="Browser to read from")
+    login_p.add_argument(
+        "--domain", "-d", default=None, help="Domain filter (default: service name)"
+    )
+    login_p.add_argument(
+        "--browser",
+        "-b",
+        default="chrome",
+        choices=["chrome", "firefox"],
+        help="Browser to read from",
+    )
     login_p.add_argument("--profile", "-p", default="Default", help="Browser profile name")
 
     # export
     export_p = sub.add_parser("export", help="Export stored cookies in various formats")
     export_p.add_argument("--service", "-s", required=True, help="Service name to export")
-    export_p.add_argument("--format", "-f", default="curl", choices=["curl", "headers", "json", "dict", "netscape"], help="Output format (default: curl)")
+    export_p.add_argument(
+        "--format",
+        "-f",
+        default="curl",
+        choices=["curl", "headers", "json", "dict", "netscape"],
+        help="Output format (default: curl)",
+    )
 
     # inject (compat with adhesion receptor)
     inject_p = sub.add_parser("inject", help="Extract cookies from browser for a domain")
-    inject_p.add_argument("--browser", "-b", default="chrome", choices=["chrome", "firefox"], help="Browser source")
+    inject_p.add_argument(
+        "--browser", "-b", default="chrome", choices=["chrome", "firefox"], help="Browser source"
+    )
     inject_p.add_argument("--domain", "-d", required=True, help="Domain to extract cookies for")
 
     # run (compat with circadian receptor)

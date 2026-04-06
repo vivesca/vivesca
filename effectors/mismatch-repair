@@ -101,9 +101,14 @@ def _load_conf() -> dict:
                 key, _, val = line.partition("=")
                 key = key.strip()
                 val = val.split("#")[0].strip()  # strip inline comments
-                if key in ("days", "max_per_session", "snippet_cap",
-                           "correction_snippets_cap", "session_sample_cap",
-                           "correction_threshold"):
+                if key in (
+                    "days",
+                    "max_per_session",
+                    "snippet_cap",
+                    "correction_snippets_cap",
+                    "session_sample_cap",
+                    "correction_threshold",
+                ):
                     conf[key] = int(val)
         if pattern_lines:
             conf["correction_patterns"] = pattern_lines
@@ -117,10 +122,7 @@ _CONF = _load_conf()
 
 # ── Correction signal patterns ────────────────────────────────────────────────
 # Loaded from conf; hard-coded list above is the fallback.
-CORRECTION_PATTERNS = [
-    re.compile(p, re.IGNORECASE)
-    for p in _CONF["correction_patterns"]
-]
+CORRECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in _CONF["correction_patterns"]]
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -210,11 +212,13 @@ def _read_cc_sessions(days: int = 1) -> list[dict]:
                         if not content or len(content) < 3:
                             continue
 
-                        messages.append({
-                            "role": role,
-                            "content": content,
-                            "timestamp": ts_str,
-                        })
+                        messages.append(
+                            {
+                                "role": role,
+                                "content": content,
+                                "timestamp": ts_str,
+                            }
+                        )
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -301,11 +305,13 @@ def _read_codex_sessions(days: int = 1) -> list[dict]:
                     except (ValueError, AttributeError):
                         continue
 
-                    messages.append({
-                        "role": role,
-                        "content": content,
-                        "timestamp": ts_str,
-                    })
+                    messages.append(
+                        {
+                            "role": role,
+                            "content": content,
+                            "timestamp": ts_str,
+                        }
+                    )
         except (OSError, UnicodeDecodeError):
             continue
 
@@ -380,8 +386,11 @@ def _read_opencode_sessions(days: int = 1) -> list[dict]:
                 continue
 
             msg_files = sorted(
-                (f for f in msg_dir.iterdir()
-                 if f.name.startswith("msg_") and f.name.endswith(".json")),
+                (
+                    f
+                    for f in msg_dir.iterdir()
+                    if f.name.startswith("msg_") and f.name.endswith(".json")
+                ),
                 key=lambda f: f.name,
             )
 
@@ -411,17 +420,21 @@ def _read_opencode_sessions(days: int = 1) -> list[dict]:
 
                 # Convert ms timestamp to ISO string for consistency
                 ts_dt = datetime.fromtimestamp(ts_ms / 1000, tz=UTC)
-                messages.append({
-                    "role": role,
-                    "content": content,
-                    "timestamp": ts_dt.isoformat(),
-                })
+                messages.append(
+                    {
+                        "role": role,
+                        "content": content,
+                        "timestamp": ts_dt.isoformat(),
+                    }
+                )
 
             if messages:
-                sessions.append({
-                    "session_id": f"opencode-{sess_id}",
-                    "messages": messages,
-                })
+                sessions.append(
+                    {
+                        "session_id": f"opencode-{sess_id}",
+                        "messages": messages,
+                    }
+                )
 
     return sessions
 
@@ -450,11 +463,13 @@ def extract_corrections(sessions: list[dict]) -> list[dict]:
                     break  # one match per message is enough
 
         if session_corrections:
-            corrections.append({
-                "session": sid,
-                "count": len(session_corrections),
-                "snippets": session_corrections[:_CONF["snippet_cap"]],
-            })
+            corrections.append(
+                {
+                    "session": sid,
+                    "count": len(session_corrections),
+                    "snippets": session_corrections[: _CONF["snippet_cap"]],
+                }
+            )
 
     return corrections
 
@@ -525,7 +540,7 @@ def classify_corrections(corrections: list[dict]) -> str:
         return "No correction snippets to classify."
 
     # Sample if too many
-    sample = all_snippets[:_CONF["correction_snippets_cap"]]
+    sample = all_snippets[: _CONF["correction_snippets_cap"]]
 
     prompt = f"""You are classifying user corrections from Claude Code sessions.
 Each snippet is the user pushing back on something the AI said or did.
@@ -551,7 +566,7 @@ def extract_topics(session_prompts: list[dict]) -> str:
         return "No session prompts to analyse."
 
     # Cap for glm context window
-    sample = session_prompts[:_CONF["session_sample_cap"]]
+    sample = session_prompts[: _CONF["session_sample_cap"]]
 
     prompt = f"""You are analysing user prompts from {len(sample)} Claude Code sessions
 over recent days. Identify topics that recur across 3+ DIFFERENT sessions.
@@ -574,8 +589,17 @@ def post_acta(msg: str, severity: str = "info") -> None:
     """Post finding to ACTA notice board."""
     with contextlib.suppress(Exception):
         subprocess.run(
-            [str(ACTA), "post", msg,
-             "--from", "anam-scan", "--to", "terry", "--severity", severity],
+            [
+                str(ACTA),
+                "post",
+                msg,
+                "--from",
+                "anam-scan",
+                "--to",
+                "terry",
+                "--severity",
+                severity,
+            ],
             capture_output=True,
             timeout=10,
         )
@@ -656,12 +680,15 @@ Daily scan of {len(sessions)} sessions. {correction_count} correction signal(s) 
     log(f"Daily brief written: {brief_path}")
 
     # Phase 6: Signal and notify
-    emit_signal("anam_scan_daily", {
-        "sessions": len(sessions),
-        "corrections": correction_count,
-        "correction_sessions": len(corrections),
-        "brief_path": str(brief_path),
-    })
+    emit_signal(
+        "anam_scan_daily",
+        {
+            "sessions": len(sessions),
+            "corrections": correction_count,
+            "correction_sessions": len(corrections),
+            "brief_path": str(brief_path),
+        },
+    )
 
     if correction_count > _CONF["correction_threshold"]:
         post_acta(
@@ -699,7 +726,9 @@ def weekly_synthesis(dry_run: bool = False) -> None:
         session_prompts = extract_user_prompts(sessions)
         correction_clusters = classify_corrections(corrections)
         topics = extract_topics(session_prompts)
-        briefs = [f"Ad-hoc full-week extraction:\n\nCorrections:\n{correction_clusters}\n\nTopics:\n{topics}"]
+        briefs = [
+            f"Ad-hoc full-week extraction:\n\nCorrections:\n{correction_clusters}\n\nTopics:\n{topics}"
+        ]
 
     if dry_run:
         print("\n--- DRY RUN (weekly) ---")
@@ -762,11 +791,14 @@ week_end: {today}
 """)
     log(f"Weekly synthesis written: {output_path}")
 
-    emit_signal("anam_scan_weekly", {
-        "week": week_num,
-        "briefs_consumed": len(briefs),
-        "output_path": str(output_path),
-    })
+    emit_signal(
+        "anam_scan_weekly",
+        {
+            "week": week_num,
+            "briefs_consumed": len(briefs),
+            "output_path": str(output_path),
+        },
+    )
 
     post_acta(
         f"Weekly anam synthesis W{week_num} ready: {output_path.name}",
@@ -780,15 +812,19 @@ def main() -> None:
         description="Cross-session transcript scanner (anam-scan)",
     )
     parser.add_argument(
-        "--weekly", action="store_true",
+        "--weekly",
+        action="store_true",
         help="Run weekly synthesis instead of daily scan",
     )
     parser.add_argument(
-        "--days", type=int, default=_CONF["days"],
+        "--days",
+        type=int,
+        default=_CONF["days"],
         help="Days to scan (daily default: from conf, fallback 1)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print what would be done without writing files or calling LLMs",
     )
     args = parser.parse_args()

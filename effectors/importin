@@ -38,7 +38,10 @@ CREDENTIALS = {
     "XAI_API_KEY": ("xai-api-key", "op://Agents/Agent Environment/xai_api_key"),
     "DEEPGRAM_API_KEY": ("deepgram-api-key", None),
     "SPEECHMATICS_API_KEY": ("speechmatics-api-key", None),
-    "GOG_KEYRING_PASSWORD": ("gog-keyring-password", "op://Agents/Agent Environment/gog_keyring_password"),
+    "GOG_KEYRING_PASSWORD": (
+        "gog-keyring-password",
+        "op://Agents/Agent Environment/gog_keyring_password",
+    ),
     # From .secrets
     "GEMINI_API_KEY": ("gemini-api-key-secrets", "op://Agents/Agent Environment/google_api_key"),
     "GOOGLE_API_KEY": ("google-api-key-secrets", "op://Agents/Agent Environment/google_api_key"),
@@ -47,7 +50,10 @@ CREDENTIALS = {
     "MOONSHOT_API_KEY": ("moonshot-api-key", "op://Agents/Agent Environment/moonshot_api_key"),
     "BRAVE_API_KEY": ("brave-api-key", None),
     "TAVILY_API_KEY": ("tavily-api-key", None),
-    "PERPLEXITY_API_KEY": ("perplexity-api-key", "op://Agents/Agent Environment/perplexity_api_key"),
+    "PERPLEXITY_API_KEY": (
+        "perplexity-api-key",
+        "op://Agents/Agent Environment/perplexity_api_key",
+    ),
     "EXA_API_KEY": ("exa-api-key", "op://Agents/Agent Environment/exa_api_key"),
     "SERPER_API_KEY": ("serper-api-key", None),
     "PYPI_TOKEN": ("pypi-token", None),
@@ -58,7 +64,10 @@ CREDENTIALS = {
     "MXBAI_API_KEY": ("mxbai-api-key", "op://Agents/Agent Environment/mxbai_api_key"),
     "KILO_API_TOKEN": ("kilo-api-token", None),
     "HKGBOOK_API_KEY": ("hkgbook-api-key", None),
-    "TELEGRAM_BOT_TOKEN": ("telegram-bot-token", "op://Agents/Agent Environment/telegram_bot_token"),
+    "TELEGRAM_BOT_TOKEN": (
+        "telegram-bot-token",
+        "op://Agents/Agent Environment/telegram_bot_token",
+    ),
     "TELEGRAM_CHAT_ID": ("telegram-chat-id", "op://Agents/Agent Environment/telegram_chat_id"),
     "PLAYWRIGHT_MCP_EXTENSION_TOKEN": ("playwright-mcp-token", None),
     "OPENROUTER_API_KEY": (None, "op://Agents/Agent Environment/openrouter_api_key"),
@@ -66,6 +75,7 @@ CREDENTIALS = {
 
 
 # -- Backend: macOS Keychain --
+
 
 def get_keychain_value(service: str) -> str | None:
     """Fetch a password from macOS Keychain."""
@@ -84,6 +94,7 @@ def get_keychain_value(service: str) -> str | None:
 
 
 # -- Backend: 1Password CLI --
+
 
 def get_op_value(reference: str) -> str | None:
     """Fetch a secret from 1Password via `op read`."""

@@ -60,7 +60,7 @@ def count_lines(path: Path, since_ts: float = 0) -> tuple[int, int]:
                 total += 1
                 if entry.get("hasError"):
                     errors += 1
-            except json.JSONDecodeError, ValueError:
+            except (json.JSONDecodeError, ValueError):
                 continue
     except Exception:
         pass
@@ -86,7 +86,7 @@ def count_denials(since_ts: float = 0) -> int:
                     if entry_ts < since_ts:
                         continue
                 count += 1
-            except json.JSONDecodeError, ValueError:
+            except (json.JSONDecodeError, ValueError):
                 continue
     except Exception:
         pass

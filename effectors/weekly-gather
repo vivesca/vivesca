@@ -24,6 +24,7 @@ from pathlib import Path
 # ~/code/vivesca/lib/gather.py is absent.
 _gather = None
 
+
 def _load_gather():
     global _gather
     if _gather is not None:
@@ -33,10 +34,12 @@ def _load_gather():
         sys.path.insert(0, lib_dir)
     try:
         import gather as _mod
+
         _gather = _mod
     except ImportError:
         _gather = False
     return _gather
+
 
 HOME = Path.home()
 NOTES = HOME / "notes"
@@ -45,6 +48,7 @@ NOTES = HOME / "notes"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def run_cmd(cmd: list[str], timeout: int = 15) -> tuple[int, str, str]:
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -52,9 +56,11 @@ def run_cmd(cmd: list[str], timeout: int = 15) -> tuple[int, str, str]:
     except Exception as e:
         return -1, "", str(e)
 
+
 # ---------------------------------------------------------------------------
 # Gatherers
 # ---------------------------------------------------------------------------
+
 
 def gather_calendar():
     today = datetime.now()
@@ -69,10 +75,10 @@ def gather_calendar():
         return {"raw": {}, "summary": "Calendar unavailable (gather lib missing)", "total": 0}
 
     res = lib.get_calendar(next_mon.strftime("%Y-%m-%d"), 7)
-    
+
     events_by_day = {}
     total_events = 0
-    
+
     if res.get("available") and res.get("events"):
         for ev in res["events"]:
             # Count fixed commitments
@@ -89,24 +95,28 @@ def gather_calendar():
         count = events_by_day.get(d_str, 0)
         if count > 0:
             day_counts.append(f"{count} {d.strftime('%a')}")
-            
+
     summary = f"{total_events} events next week"
     if day_counts:
         summary += f" ({', '.join(day_counts)})"
-        
+
     return {"raw": res, "summary": summary, "total": total_events}
+
 
 def gather_todo():
     lib = _load_gather()
     if not lib:
         return {
-            "due_this_week": 0, "overdue": 0, "stale": 0,
-            "completed": 0, "someday": 0,
+            "due_this_week": 0,
+            "overdue": 0,
+            "stale": 0,
+            "completed": 0,
+            "someday": 0,
             "summary": "Todo unavailable (gather lib missing)",
         }
 
     todo_ctx = lib.read_todo()
-    
+
     today = datetime.now().date()
     days_ahead = 7 - today.weekday()
     if days_ahead == 0:
@@ -114,29 +124,29 @@ def gather_todo():
     next_mon = today + timedelta(days=days_ahead)
     next_sun = next_mon + timedelta(days=6)
     two_weeks_ago = today - timedelta(days=14)
-    
+
     due_this_week = 0
     overdue = 0
     stale = 0
     completed = 0
     someday = 0
-    
+
     if todo_ctx.get("available"):
         for item in todo_ctx.get("items", []):
             if item.get("done"):
                 completed += 1
                 continue
-                
+
             due_str = item.get("due")
             when_str = item.get("when")
-            
+
             # Someday
             if when_str and when_str.lower() == "someday":
                 someday += 1
                 continue
-                
+
             is_due_this_week = False
-            
+
             if due_str:
                 try:
                     d = datetime.strptime(due_str, "%Y-%m-%d").date()
@@ -173,15 +183,16 @@ def gather_todo():
         if someday > 0:
             extras.append(f"{someday} someday")
         summary += f", {', '.join(extras)}"
-        
+
     return {
         "due_this_week": due_this_week,
         "overdue": overdue,
         "stale": stale,
         "completed": completed,
         "someday": someday,
-        "summary": summary
+        "summary": summary,
     }
+
 
 def gather_now():
     lib = _load_gather()
@@ -190,41 +201,42 @@ def gather_now():
 
     now_ctx = lib.read_now()
     open_items = len(now_ctx.get("progress", []))
-    return {
-        "open_items": open_items,
-        "summary": f"{open_items} open items"
-    }
+    return {"open_items": open_items, "summary": f"{open_items} open items"}
+
 
 def gather_quarterly():
     today = datetime.now()
     quarter = (today.month - 1) // 3 + 1
     year = today.year
     q_note = NOTES / "Quarterly" / f"{year}-Q{quarter}.md"
-    
+
     found = q_note.exists()
     content = q_note.read_text(encoding="utf-8") if found else None
-    
+
     return {
         "found": found,
         "quarter": f"Q{quarter} {year}",
-        "summary": f"Q{quarter} {year} note found" if found else f"Q{quarter} {year} note NOT found",
-        "content": content
+        "summary": f"Q{quarter} {year} note found"
+        if found
+        else f"Q{quarter} {year} note NOT found",
+        "content": content,
     }
+
 
 def gather_daily():
     today = datetime.now().date()
     daily_data = []
     notes_found = 0
     commute_closes = 0
-    
+
     for i in range(6, -1, -1):
         d_date = today - timedelta(days=i)
         d_str = d_date.strftime("%Y-%m-%d")
         path = NOTES / "Daily" / f"{d_str}.md"
-        
+
         cc_section = None
         headers = []
-        
+
         if path.exists():
             notes_found += 1
             try:
@@ -243,26 +255,23 @@ def gather_daily():
                     elif line.startswith("### "):
                         if re.match(r"^###\s+\d{1,2}:\d{2}", line):
                             headers.append(line.strip())
-                            
+
                 if cc_lines:
                     cc_section = "\n".join(cc_lines)
                     commute_closes += 1
             except Exception:
                 pass
 
-        daily_data.append({
-            "date": d_str,
-            "commute_close": cc_section,
-            "session_headers": headers
-        })
-        
+        daily_data.append({"date": d_str, "commute_close": cc_section, "session_headers": headers})
+
     summary = f"{notes_found}/7 daily notes, {commute_closes} Commute Close sections"
     return {
         "notes_found": notes_found,
         "commute_closes": commute_closes,
         "daily_data": daily_data,
-        "summary": summary
+        "summary": summary,
     }
+
 
 def gather_oura():
     # Attempt sopor trend --days 7 first, fallback to sopor week
@@ -300,18 +309,19 @@ def gather_oura():
         "hrv_avg": hrv_avg,
         "readiness_avg": readiness_avg,
         "raw": out,
-        "summary": summary
+        "summary": summary,
     }
+
 
 def gather_job_alerts():
     today = datetime.now().date()
     unchecked = 0
-    
+
     for i in range(6, -1, -1):
         d_date = today - timedelta(days=i)
         d_str = d_date.strftime("%Y-%m-%d")
         path = NOTES / "Job Hunting" / f"Job Alerts {d_str}.md"
-        
+
         if path.exists():
             try:
                 content = path.read_text(encoding="utf-8")
@@ -321,10 +331,8 @@ def gather_job_alerts():
             except Exception:
                 pass
 
-    return {
-        "unchecked": unchecked,
-        "summary": f"{unchecked} unchecked this week"
-    }
+    return {"unchecked": unchecked, "summary": f"{unchecked} unchecked this week"}
+
 
 def gather_garden():
     garden_dir = NOTES / "Writing" / "Blog" / "Published"
@@ -340,17 +348,15 @@ def gather_garden():
                         posts.append(f.stem)
         except Exception:
             pass
-            
+
     summary = f"{len(posts)} posts published this week"
-    return {
-        "count": len(posts),
-        "posts": posts,
-        "summary": summary
-    }
+    return {"count": len(posts), "posts": posts, "summary": summary}
+
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def run_all():
     dispatch = {
@@ -363,7 +369,7 @@ def run_all():
         "job_alerts": gather_job_alerts,
         "garden": gather_garden,
     }
-    
+
     results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(dispatch)) as pool:
         futures = {pool.submit(fn): key for key, fn in dispatch.items()}
@@ -373,8 +379,9 @@ def run_all():
                 results[key] = future.result()
             except Exception as e:
                 results[key] = {"error": str(e), "summary": f"Error: {e}"}
-                
+
     return results
+
 
 def render_text(results):
     lines = [
@@ -391,17 +398,19 @@ def render_text(results):
     ]
     return "\n".join(lines)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Gather context for /weekly skill.")
     parser.add_argument("--json", action="store_true", help="Output structured JSON.")
     args = parser.parse_args()
-    
+
     results = run_all()
-    
+
     if args.json:
         print(json.dumps(results, indent=2, ensure_ascii=False))
     else:
         print(render_text(results))
+
 
 if __name__ == "__main__":
     main()

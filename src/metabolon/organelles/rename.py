@@ -69,7 +69,7 @@ def scan(old_name: str, scope: list[Path]) -> ScanResult:
                 continue
             try:
                 text = path.read_text(errors="replace")
-            except OSError, PermissionError:
+            except (OSError, PermissionError):
                 continue
             count = text.count(old_name)
             if count:
@@ -164,7 +164,7 @@ def update_contents(
             continue
         try:
             original = path.read_text(errors="replace")
-        except OSError, PermissionError:
+        except (OSError, PermissionError):
             continue
         if old_name not in original:
             continue
@@ -185,7 +185,7 @@ def update_locus(old_name: str, new_name: str, *, dry_run: bool) -> bool:
         return False
     try:
         original = _LOCUS_PATH.read_text()
-    except OSError, PermissionError:
+    except (OSError, PermissionError):
         return False
     if old_name not in original:
         return False
@@ -215,7 +215,7 @@ def fix_symlinks(
                 continue
             try:
                 target = str(path.readlink())
-            except OSError, AttributeError:
+            except (OSError, AttributeError):
                 # Fallback for Python < 3.9
                 import os
 
@@ -422,7 +422,7 @@ def run_rename(
         try:
             if old_name in _LOCUS_PATH.read_text(errors="replace"):
                 content_files.append(_LOCUS_PATH)
-        except OSError, PermissionError:
+        except (OSError, PermissionError):
             pass
 
     updated_contents = update_contents(old_name, new_name, content_files, dry_run=dry_run)

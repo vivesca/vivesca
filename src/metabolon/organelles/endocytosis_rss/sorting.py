@@ -22,7 +22,7 @@ def _cargo_score(item: dict) -> int:
     raw = item.get("score", 0)
     try:
         return int(raw)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return 0
 
 

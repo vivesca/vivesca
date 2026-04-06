@@ -34,9 +34,22 @@ NOW = datetime.now(UTC)
 SEVEN_DAYS_AGO_ISO = (NOW - timedelta(days=7)).strftime("%Y-%m-%d")
 
 CLI_TOOLS = [
-    "noesis", "exauro", "defuddle", "grok", "endocytosis", "qianli",
-    "pinocytosis", "bird", "auceps", "keryx", "agent-browser",
-    "rodney", "comes", "amicus", "fasti", "salus",
+    "noesis",
+    "exauro",
+    "defuddle",
+    "grok",
+    "endocytosis",
+    "qianli",
+    "pinocytosis",
+    "bird",
+    "auceps",
+    "keryx",
+    "agent-browser",
+    "rodney",
+    "comes",
+    "amicus",
+    "fasti",
+    "salus",
 ]
 
 BIN_PATHS = [
@@ -47,14 +60,29 @@ BIN_PATHS = [
 ]
 
 MCP_TOOLS = [
-    "rheotaxis", "histone", "gap_junction", "circadian",
-    "chemotaxis", "interoception", "ergometer", "cytosol",
-    "ribosome", "porta_inject", "constitution", "nociceptor",
+    "rheotaxis",
+    "histone",
+    "gap_junction",
+    "circadian",
+    "chemotaxis",
+    "interoception",
+    "ergometer",
+    "cytosol",
+    "ribosome",
+    "porta_inject",
+    "constitution",
+    "nociceptor",
 ]
 
 SKILL_NAMES = [
-    "elencho", "indago", "scintigraphy", "circadian", "autoimmune",
-    "chromatin-backup", "backup-due", "chemoreception",
+    "elencho",
+    "indago",
+    "scintigraphy",
+    "circadian",
+    "autoimmune",
+    "chromatin-backup",
+    "backup-due",
+    "chemoreception",
 ]
 
 SIGNAL_LOG = HOME / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
@@ -72,15 +100,15 @@ TOOL_TRACE_DIRS = [
 ]
 
 # ── Colours ──────────────────────────────────────────────────────────────────
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
-DIM    = "\033[2m"
-RED    = "\033[31m"
-GREEN  = "\033[32m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RED = "\033[31m"
+GREEN = "\033[32m"
 YELLOW = "\033[33m"
-CYAN   = "\033[36m"
+CYAN = "\033[36m"
 MAGENTA = "\033[35m"
-WHITE  = "\033[37m"
+WHITE = "\033[37m"
 
 
 def verdict(count: int) -> str:
@@ -174,10 +202,17 @@ def check_mcp(name: str) -> tuple[bool, str]:
     # Try calling tachometer first
     try:
         result = subprocess.run(
-            ["curl", "-sf", "--max-time", "3",
-             "http://127.0.0.1:8741/mcp",
-             "-d", json.dumps({"tool": f"vivesca__{name}", "action": "status"})],
-            capture_output=True, text=True,
+            [
+                "curl",
+                "-sf",
+                "--max-time",
+                "3",
+                "http://127.0.0.1:8741/mcp",
+                "-d",
+                json.dumps({"tool": f"vivesca__{name}", "action": "status"}),
+            ],
+            capture_output=True,
+            text=True,
         )
         if result.returncode == 0:
             return True, "vivesca (live)"
@@ -321,42 +356,48 @@ def run_audit(days: int = 7) -> list[Row]:
         exists, location = check_cli(name)
         usage = count_cli_usage(name, since) if exists else 0
         v = verdict(usage)
-        rows.append({
-            "tool": name,
-            "type": "CLI",
-            "exists": exists,
-            "location": location,
-            "usage_7d": usage,
-            "verdict": v,
-        })
+        rows.append(
+            {
+                "tool": name,
+                "type": "CLI",
+                "exists": exists,
+                "location": location,
+                "usage_7d": usage,
+                "verdict": v,
+            }
+        )
 
     # MCP tools
     for name in MCP_TOOLS:
         available, source = check_mcp(name)
         usage = count_mcp_usage(name, since) if available else 0
         v = verdict(usage)
-        rows.append({
-            "tool": f"vivesca__{name}",
-            "type": "MCP",
-            "exists": available,
-            "location": source,
-            "usage_7d": usage,
-            "verdict": v,
-        })
+        rows.append(
+            {
+                "tool": f"vivesca__{name}",
+                "type": "MCP",
+                "exists": available,
+                "location": source,
+                "usage_7d": usage,
+                "verdict": v,
+            }
+        )
 
     # Skills
     for name in SKILL_NAMES:
         exists, location = check_skill(name)
         usage = count_skill_usage(name, since) if exists else 0
         v = verdict(usage)
-        rows.append({
-            "tool": name,
-            "type": "skill",
-            "exists": exists,
-            "location": location,
-            "usage_7d": usage,
-            "verdict": v,
-        })
+        rows.append(
+            {
+                "tool": name,
+                "type": "skill",
+                "exists": exists,
+                "location": location,
+                "usage_7d": usage,
+                "verdict": v,
+            }
+        )
 
     return rows
 
@@ -415,9 +456,7 @@ def print_table(rows: list[Row], filter_type: str | None = None) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="scintigraphy — functional usage scan"
-    )
+    parser = argparse.ArgumentParser(description="scintigraphy — functional usage scan")
     parser.add_argument("--json", action="store_true", help="JSON output")
     parser.add_argument("--days", type=int, default=7, help="lookback window (default 7)")
     parser.add_argument("--type", choices=["CLI", "MCP", "skill"], help="filter to one type")

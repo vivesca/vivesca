@@ -48,13 +48,17 @@ def check_git() -> dict:
             issues.append({"repo": str(repo), "status": "MISSING"})
             continue
         _, uncommitted = _run(["git", "status", "--short"], cwd=repo)
-        _, unpushed = _run(["git", "log", "--branches", "--not", "--remotes", "--oneline"], cwd=repo)
+        _, unpushed = _run(
+            ["git", "log", "--branches", "--not", "--remotes", "--oneline"], cwd=repo
+        )
         if uncommitted or unpushed:
-            issues.append({
-                "repo": repo.name,
-                "uncommitted": len(uncommitted.splitlines()) if uncommitted else 0,
-                "unpushed": len(unpushed.splitlines()) if unpushed else 0,
-            })
+            issues.append(
+                {
+                    "repo": repo.name,
+                    "uncommitted": len(uncommitted.splitlines()) if uncommitted else 0,
+                    "unpushed": len(unpushed.splitlines()) if unpushed else 0,
+                }
+            )
     return {"name": "git-health", "ok": len(issues) == 0, "issues": issues}
 
 
@@ -66,17 +70,26 @@ def check_deps() -> dict:
 def check_docima() -> dict:
     docima_dir = Path.home() / "code" / "docima"
     if not docima_dir.is_dir():
-        return {"name": "docima-benchmark", "ok": True, "output": "skipped (~/code/docima not present)"}
+        return {
+            "name": "docima-benchmark",
+            "ok": True,
+            "output": "skipped (~/code/docima not present)",
+        }
     code, output = _run(
         ["uv", "run", "docima", "benchmark", "--daily", "-b", "markdown"],
         cwd=docima_dir,
         timeout=60,
     )
-    return {"name": "docima-benchmark", "ok": code == 0, "output": output[:300] if code != 0 else "ok"}
+    return {
+        "name": "docima-benchmark",
+        "ok": code == 0,
+        "output": output[:300] if code != 0 else "ok",
+    }
 
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Nightly deterministic health checks")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -85,7 +98,11 @@ def main():
     all_ok = all(c["ok"] for c in checks)
 
     if args.json:
-        print(json.dumps({"date": datetime.now().isoformat(), "all_ok": all_ok, "checks": checks}, indent=2))
+        print(
+            json.dumps(
+                {"date": datetime.now().isoformat(), "all_ok": all_ok, "checks": checks}, indent=2
+            )
+        )
     else:
         for c in checks:
             status = "OK" if c["ok"] else "NEEDS_ATTENTION"
@@ -101,7 +118,11 @@ def main():
     # Write report for morning dashboard
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = REPORTS_DIR / "nightly-health.json"
-    report_path.write_text(json.dumps({"date": datetime.now().isoformat(), "all_ok": all_ok, "checks": checks}, indent=2))
+    report_path.write_text(
+        json.dumps(
+            {"date": datetime.now().isoformat(), "all_ok": all_ok, "checks": checks}, indent=2
+        )
+    )
 
     sys.exit(0 if all_ok else 1)
 

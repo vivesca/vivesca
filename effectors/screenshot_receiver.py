@@ -57,12 +57,14 @@ async def upload_screenshot(file: UploadFile = File(...)):
     _rotate()
     _update_symlink(filepath)
 
-    return JSONResponse({
-        "status": "ok",
-        "filename": filename,
-        "path": str(filepath),
-        "size_bytes": filepath.stat().st_size,
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "filename": filename,
+            "path": str(filepath),
+            "size_bytes": filepath.stat().st_size,
+        }
+    )
 
 
 @app.get("/latest")
@@ -79,10 +81,12 @@ async def get_latest():
 @app.get("/list")
 async def list_screenshots():
     files = sorted(STORAGE_DIR.glob("screenshot_*.png"), key=lambda p: p.stat().st_mtime)
-    return JSONResponse({
-        "count": len(files),
-        "files": [{"name": f.name, "size_bytes": f.stat().st_size} for f in files],
-    })
+    return JSONResponse(
+        {
+            "count": len(files),
+            "files": [{"name": f.name, "size_bytes": f.stat().st_size} for f in files],
+        }
+    )
 
 
 @app.get("/health")
@@ -92,4 +96,5 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=7755)

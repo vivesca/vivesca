@@ -98,7 +98,7 @@ def _read_jsonl(path: Path, max_age_hours: float = 24) -> list[dict]:
                             ts = ts.replace(tzinfo=HKT)
                         if ts < cutoff:
                             continue
-                    except ValueError, TypeError:
+                    except (ValueError, TypeError):
                         pass
                 entries.append(entry)
             except json.JSONDecodeError:

@@ -290,7 +290,7 @@ def sleep_detail(target_date: str | None = None) -> dict[str, Any]:
         v = rec.get("total_sleep_duration", 0)
         try:
             return int(v) if v else 0
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return 0
 
     best = max(records, key=_duration)

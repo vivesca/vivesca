@@ -95,7 +95,7 @@ def scan_orphan_links() -> list[str]:
             if line.strip() and not line.strip().startswith("(")
         ]
         return orphans[:MAX_ORPHAN_REPORT]
-    except subprocess.TimeoutExpired, FileNotFoundError:
+    except (subprocess.TimeoutExpired, FileNotFoundError):
         return []
 
 
@@ -187,7 +187,7 @@ def scan_prospective_memory() -> list[str]:
                             if len(action) > 100:
                                 action = action[:97] + "..."
                             triggered.append(action)
-            except ValueError, KeyError:
+            except (ValueError, KeyError):
                 pass
 
     # Deduplicate

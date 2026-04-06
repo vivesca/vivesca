@@ -128,7 +128,7 @@ def list_youtube_videos(handle: str, max_items: int = 15) -> list[dict]:
             else:
                 data["date"] = None
             videos.append(data)
-        except json.JSONDecodeError, ValueError:
+        except (json.JSONDecodeError, ValueError):
             continue
     return videos
 
@@ -260,7 +260,7 @@ def _deduplicate_audio_matches(episodes: list[dict], podcast_eps: list[dict]) ->
     for pep in podcast_eps:
         try:
             pod_dur_by_url[pep["audio_url"]] = int(float(pep.get("duration", 0)))
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             pod_dur_by_url[pep["audio_url"]] = 0
 
     # Group episodes by audio_url
@@ -280,7 +280,7 @@ def _deduplicate_audio_matches(episodes: list[dict], podcast_eps: list[dict]) ->
         for idx in indices:
             try:
                 yt_dur = int(float(episodes[idx].get("duration", 0)))
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 yt_dur = 0
             diff = abs(yt_dur - pod_dur) if yt_dur and pod_dur else float("inf")
             if diff < best_diff:
@@ -629,7 +629,7 @@ def write_digest(source: dict, episodes_insights: list[dict], month_str: str) ->
             try:
                 mins = int(float(duration_s)) // 60
                 duration_str = f" ({mins} min)"
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 duration_str = ""
         else:
             duration_str = ""
@@ -763,7 +763,7 @@ def main():
             duration_s = ep.get("duration", "0")
             try:
                 mins = int(float(duration_s)) // 60
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 mins = 0
             date_str = ep["date"].strftime("%Y-%m-%d") if ep.get("date") else "?"
             print(f"  [{date_str}] {ep['title']} ({mins}m)", file=sys.stderr)

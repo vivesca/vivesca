@@ -15,6 +15,7 @@ Usage:
   oci-region-subscribe              # one-shot check
   oci-region-subscribe --loop       # poll every 5 min until success
 """
+
 import contextlib
 import json
 import os
@@ -26,11 +27,13 @@ TENANCY = "ocid1.tenancy.oc1..aaaaaaaapkyvu7vwtpn5x7fgvcoy45wo6m457s4c6frhcwqivf
 REGIONS = ["KIX", "SYD", "ICN"]  # Osaka, Sydney, Seoul
 ENV = {"SUPPRESS_LABEL_WARNING": "True"}
 
+
 def oci(*args):
     try:
         r = subprocess.run(
             ["oci", *list(args)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             env={**os.environ, **ENV},
             timeout=300,
         )
@@ -38,6 +41,7 @@ def oci(*args):
         print("Error: 'oci' CLI not found. Install with: pip install oci-cli", file=sys.stderr)
         sys.exit(1)
     return r.returncode, r.stdout, r.stderr
+
 
 def get_subscribed_regions():
     rc, out, _ = oci("iam", "region-subscription", "list", "--tenancy-id", TENANCY)
@@ -48,18 +52,22 @@ def get_subscribed_regions():
     except Exception:
         return []
 
+
 def subscribe_region(key):
-    rc, _out, err = oci("iam", "region-subscription", "create",
-                       "--tenancy-id", TENANCY, "--region-key", key)
+    rc, _out, err = oci(
+        "iam", "region-subscription", "create", "--tenancy-id", TENANCY, "--region-key", key
+    )
     if rc == 0:
         return True, "OK"
     if "TenantCapacityExceeded" in err:
         return False, "PAYG not active yet"
     return False, err.strip()[:100]
 
+
 def notify(msg):
     with contextlib.suppress(Exception):
         subprocess.run(["deltos", msg], capture_output=True, timeout=10)
+
 
 def main():
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -106,6 +114,7 @@ def main():
         break
 
     print("Done.")
+
 
 if __name__ == "__main__":
     main()

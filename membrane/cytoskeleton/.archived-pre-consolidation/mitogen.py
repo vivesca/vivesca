@@ -64,7 +64,7 @@ def set_state(session_id: str, state: dict) -> None:
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         return
 
     prompt = data.get("prompt", "")

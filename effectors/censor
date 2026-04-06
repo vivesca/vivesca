@@ -44,31 +44,91 @@ RUBRICS: dict[str, dict] = {
     "article": {
         "description": "Garden/blog post quality",
         "criteria": [
-            {"name": "clear_thesis", "weight": "HIGH", "prompt": "Is there one clear main point that the reader can state after reading?"},
-            {"name": "evidence", "weight": "HIGH", "prompt": "Are claims supported with examples, reasoning, or experience — not just assertions?"},
-            {"name": "hook", "weight": "MED", "prompt": "Does the opening draw the reader in within the first two sentences?"},
-            {"name": "conclusion", "weight": "MED", "prompt": "Does it end with a clear takeaway, not a summary or platitude?"},
-            {"name": "concise", "weight": "LOW", "prompt": "Is every paragraph earning its place? No filler, no redundancy?"},
+            {
+                "name": "clear_thesis",
+                "weight": "HIGH",
+                "prompt": "Is there one clear main point that the reader can state after reading?",
+            },
+            {
+                "name": "evidence",
+                "weight": "HIGH",
+                "prompt": "Are claims supported with examples, reasoning, or experience — not just assertions?",
+            },
+            {
+                "name": "hook",
+                "weight": "MED",
+                "prompt": "Does the opening draw the reader in within the first two sentences?",
+            },
+            {
+                "name": "conclusion",
+                "weight": "MED",
+                "prompt": "Does it end with a clear takeaway, not a summary or platitude?",
+            },
+            {
+                "name": "concise",
+                "weight": "LOW",
+                "prompt": "Is every paragraph earning its place? No filler, no redundancy?",
+            },
         ],
     },
     "job-eval": {
         "description": "Job evaluation analysis quality",
         "criteria": [
-            {"name": "fit_analysis", "weight": "HIGH", "prompt": "Does the analysis cover all relevant fit dimensions with specific evidence from the JD, not vague impressions?"},
-            {"name": "red_flags", "weight": "HIGH", "prompt": "Are potential red flags (anti-signals, competition, seniority mismatch) identified and addressed honestly?"},
-            {"name": "specificity", "weight": "HIGH", "prompt": "Is the reasoning specific to THIS role, not generic advice that could apply to any job?"},
-            {"name": "recommendation", "weight": "MED", "prompt": "Is the APPLY/CONSIDER/PASS recommendation clearly justified and actionable?"},
-            {"name": "career_direction", "weight": "MED", "prompt": "Does the analysis consider long-term career trajectory, not just immediate fit?"},
+            {
+                "name": "fit_analysis",
+                "weight": "HIGH",
+                "prompt": "Does the analysis cover all relevant fit dimensions with specific evidence from the JD, not vague impressions?",
+            },
+            {
+                "name": "red_flags",
+                "weight": "HIGH",
+                "prompt": "Are potential red flags (anti-signals, competition, seniority mismatch) identified and addressed honestly?",
+            },
+            {
+                "name": "specificity",
+                "weight": "HIGH",
+                "prompt": "Is the reasoning specific to THIS role, not generic advice that could apply to any job?",
+            },
+            {
+                "name": "recommendation",
+                "weight": "MED",
+                "prompt": "Is the APPLY/CONSIDER/PASS recommendation clearly justified and actionable?",
+            },
+            {
+                "name": "career_direction",
+                "weight": "MED",
+                "prompt": "Does the analysis consider long-term career trajectory, not just immediate fit?",
+            },
         ],
     },
     "outreach": {
         "description": "Outreach message quality",
         "criteria": [
-            {"name": "tone", "weight": "HIGH", "prompt": "Is the tone professional but warm — not stiff, not sycophantic, not salesy?"},
-            {"name": "specificity", "weight": "HIGH", "prompt": "Does the message reference something specific about the recipient, not just their title?"},
-            {"name": "no_hallucination", "weight": "HIGH", "prompt": "Are all claims consistent with the input? Do NOT flag proper nouns, organisation names, or technical terms simply because you don't recognise them. Only flag claims that contradict the input or are internally inconsistent."},
-            {"name": "cta", "weight": "MED", "prompt": "Is there a clear, low-friction call to action?"},
-            {"name": "concise", "weight": "LOW", "prompt": "Is every sentence earning its place? Under 150 words for cold outreach?"},
+            {
+                "name": "tone",
+                "weight": "HIGH",
+                "prompt": "Is the tone professional but warm — not stiff, not sycophantic, not salesy?",
+            },
+            {
+                "name": "specificity",
+                "weight": "HIGH",
+                "prompt": "Does the message reference something specific about the recipient, not just their title?",
+            },
+            {
+                "name": "no_hallucination",
+                "weight": "HIGH",
+                "prompt": "Are all claims consistent with the input? Do NOT flag proper nouns, organisation names, or technical terms simply because you don't recognise them. Only flag claims that contradict the input or are internally inconsistent.",
+            },
+            {
+                "name": "cta",
+                "weight": "MED",
+                "prompt": "Is there a clear, low-friction call to action?",
+            },
+            {
+                "name": "concise",
+                "weight": "LOW",
+                "prompt": "Is every sentence earning its place? Under 150 words for cold outreach?",
+            },
         ],
     },
 }
@@ -107,8 +167,7 @@ def build_user_prompt(content: str, rubric_name: str, context: str | None = None
     """Build the user prompt from content and rubric."""
     rubric = RUBRICS[rubric_name]
     criteria_text = "\n".join(
-        f"- {c['name']} ({c['weight']}): {c['prompt']}"
-        for c in rubric["criteria"]
+        f"- {c['name']} ({c['weight']}): {c['prompt']}" for c in rubric["criteria"]
     )
 
     parts = [
@@ -126,18 +185,28 @@ def build_user_prompt(content: str, rubric_name: str, context: str | None = None
 # LLM call
 # ---------------------------------------------------------------------------
 
-def evaluate(content: str, rubric_name: str, context: str | None = None, model: str | None = None) -> dict:
+
+def evaluate(
+    content: str, rubric_name: str, context: str | None = None, model: str | None = None
+) -> dict:
     """Run the censor evaluation via claude --print --bare. Returns parsed verdict dict."""
     chosen_model = model or "sonnet"
     user_prompt = build_user_prompt(content, rubric_name, context)
 
     cmd = [
-        "claude", "--print", "--bare",
-        "--model", chosen_model,
-        "--system-prompt", SYSTEM_PROMPT,
-        "--output-format", "json",
-        "--max-turns", "1",
-        "--", user_prompt,
+        "claude",
+        "--print",
+        "--bare",
+        "--model",
+        chosen_model,
+        "--system-prompt",
+        SYSTEM_PROMPT,
+        "--output-format",
+        "json",
+        "--max-turns",
+        "1",
+        "--",
+        user_prompt,
     ]
 
     # Unset CLAUDECODE to avoid nociceptor hook interference
@@ -148,13 +217,17 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
     except subprocess.TimeoutExpired:
         return {
-            "verdict": "FAIL", "score": 0, "criteria": {},
+            "verdict": "FAIL",
+            "score": 0,
+            "criteria": {},
             "summary": "Censor timed out after 120s",
         }
 
     if proc.returncode != 0:
         return {
-            "verdict": "FAIL", "score": 0, "criteria": {},
+            "verdict": "FAIL",
+            "score": 0,
+            "criteria": {},
             "summary": f"claude exited {proc.returncode}: {proc.stderr[:200]}",
         }
 
@@ -162,7 +235,9 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     raw = proc.stdout.strip()
     if not raw:
         return {
-            "verdict": "FAIL", "score": 0, "criteria": {},
+            "verdict": "FAIL",
+            "score": 0,
+            "criteria": {},
             "summary": "claude returned empty output",
         }
 
@@ -185,7 +260,9 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
         result = json.loads(text)
     except json.JSONDecodeError:
         return {
-            "verdict": "FAIL", "score": 0, "criteria": {},
+            "verdict": "FAIL",
+            "score": 0,
+            "criteria": {},
             "summary": f"Censor returned unparsable output: {text[:200]}",
             "_raw": text,
         }
@@ -193,7 +270,11 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
     # Ensure required fields exist
     for field in ("verdict", "score", "summary"):
         if field not in result:
-            result[field] = {"verdict": "FAIL", "score": 0, "summary": "Missing fields in censor output"}.get(field)
+            result[field] = {
+                "verdict": "FAIL",
+                "score": 0,
+                "summary": "Missing fields in censor output",
+            }.get(field)
 
     # Normalise verdict
     v = str(result["verdict"]).upper().strip()
@@ -207,6 +288,7 @@ def evaluate(content: str, rubric_name: str, context: str | None = None, model: 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -305,7 +387,11 @@ def main() -> int:
             for name, detail in criteria.items():
                 s = detail.get("score", "?")
                 note = detail.get("note", "")
-                indicator = "\033[32m+\033[0m" if isinstance(s, (int, float)) and s >= 70 else "\033[31m-\033[0m"
+                indicator = (
+                    "\033[32m+\033[0m"
+                    if isinstance(s, (int, float)) and s >= 70
+                    else "\033[31m-\033[0m"
+                )
                 print(f"  {indicator} {name}: {s} — {note}")
 
     # Exit code based on verdict

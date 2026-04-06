@@ -297,7 +297,7 @@ def sense_endocytosis(
         try:
             if int(score) < 6:  # only signal-grade items
                 continue
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             continue
 
         raw_ts = row.get("timestamp", "")
@@ -307,7 +307,7 @@ def sense_endocytosis(
                 ts = ts.replace(tzinfo=UTC)
             if ts < cutoff:
                 continue
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
 
         title = str(row.get("title", ""))
@@ -333,7 +333,7 @@ def sense_signals(days: int) -> dict[str, int]:
                 ts = ts.replace(tzinfo=UTC)
             if ts < cutoff:
                 continue
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
 
         tool_name = str(row.get("tool", ""))

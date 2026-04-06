@@ -12,7 +12,7 @@ from pathlib import Path
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         return
 
     custom = data.get("custom_instructions", "")

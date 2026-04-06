@@ -123,5 +123,5 @@ def vessel_registry() -> list[dict]:
         return []
     try:
         return json.loads(VESSEL_REGISTRY.read_text())
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return []

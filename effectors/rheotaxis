@@ -47,7 +47,11 @@ def _build_tree() -> CommandTree:
         params=[
             {"name": "query", "type": "positional", "required": False},
             {"name": "--text", "type": "flag", "description": "Markdown output"},
-            {"name": "--exclude", "type": "string", "description": "Comma-separated backends to skip"},
+            {
+                "name": "--exclude",
+                "type": "string",
+                "description": "Comma-separated backends to skip",
+            },
             {"name": "-b", "type": "string", "description": "Comma-separated backend whitelist"},
             {"name": "-q", "type": "multi", "description": "Additional queries"},
         ],
@@ -81,11 +85,13 @@ def _list_backends() -> None:
     backends = []
     for name in ALL_BACKENDS:
         meta = BACKEND_META[name]
-        backends.append({
-            "name": name,
-            "env_var": meta["env"],
-            "cost_usd": meta["cost"],
-        })
+        backends.append(
+            {
+                "name": name,
+                "env_var": meta["env"],
+                "cost_usd": meta["cost"],
+            }
+        )
     emit_ok(
         "rheotaxis backends",
         {"backends": backends, "health": health_status},
@@ -98,13 +104,15 @@ def _format_results(q: str, results: list[ToolResult]) -> dict:
     total = len(results)
     backends = []
     for r in results:
-        backends.append({
-            "name": r.tool,
-            "latency_s": r.latency_s,
-            "answer": r.result if not r.error else None,
-            "results": r.result if not r.error else None,
-            "error": r.error,
-        })
+        backends.append(
+            {
+                "name": r.tool,
+                "latency_s": r.latency_s,
+                "answer": r.result if not r.error else None,
+                "results": r.result if not r.error else None,
+                "error": r.error,
+            }
+        )
     return {
         "query": q,
         "backends": backends,
@@ -117,27 +125,35 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Multi-backend web search CLI")
     parser.add_argument("query", nargs="?", help="Search query")
     parser.add_argument(
-        "-q", "--queries", action="append", default=[],
+        "-q",
+        "--queries",
+        action="append",
+        default=[],
         help="Additional query framings (repeat -q for each)",
     )
     parser.add_argument(
-        "--research", action="store_true",
+        "--research",
+        action="store_true",
         help="Deep research via Perplexity sonar-deep-research",
     )
     parser.add_argument(
-        "--text", action="store_true",
+        "--text",
+        action="store_true",
         help="Human-readable markdown output instead of JSON",
     )
     parser.add_argument(
-        "--exclude", default=None,
+        "--exclude",
+        default=None,
         help="Comma-separated backends to exclude",
     )
     parser.add_argument(
-        "-b", default=None,
+        "-b",
+        default=None,
         help="Comma-separated backend whitelist",
     )
     parser.add_argument(
-        "--backends", action="store_true",
+        "--backends",
+        action="store_true",
         help="List all backends with health status",
     )
     args = parser.parse_args()
@@ -266,14 +282,16 @@ def main() -> None:
                 total_count += len(results)
                 total_cost += sum(r.cost for r in results)
                 for r in results:
-                    combined_backends.append({
-                        "name": r.tool,
-                        "latency_s": r.latency_s,
-                        "answer": r.result if not r.error else None,
-                        "results": r.result if not r.error else None,
-                        "error": r.error,
-                        "query": q,
-                    })
+                    combined_backends.append(
+                        {
+                            "name": r.tool,
+                            "latency_s": r.latency_s,
+                            "answer": r.result if not r.error else None,
+                            "results": r.result if not r.error else None,
+                            "error": r.error,
+                            "query": q,
+                        }
+                    )
             if total_ok == 0:
                 emit_err(
                     "rheotaxis search",

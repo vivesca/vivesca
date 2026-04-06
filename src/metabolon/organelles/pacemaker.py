@@ -535,7 +535,7 @@ def confirm_action(reminder: dict[str, Any], action: str) -> bool:
     prompt = f"{action} #{uid} '{title}' (due {due_str})? [y/N] "
     try:
         answer = input(prompt).strip().lower()
-    except EOFError, KeyboardInterrupt:
+    except (EOFError, KeyboardInterrupt):
         print()
         return False
     return answer in ("y", "yes")

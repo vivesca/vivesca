@@ -25,7 +25,7 @@ def read_last_open_files() -> list[str]:
     try:
         data = json.loads(WORKSPACE.read_text())
         return data.get("lastOpenFiles", [])
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return []
 
 

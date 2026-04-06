@@ -98,9 +98,7 @@ class TestTaskIDParsing:
 class TestProviderConfig:
     def test_unknown_provider_exit(self):
         """Unknown provider should cause exit code 1."""
-        r = _run_ribosome_shell(
-            "ribosome --provider nonexistent --max-turns 3 'test'"
-        )
+        r = _run_ribosome_shell("ribosome --provider nonexistent --max-turns 3 'test'")
         assert r.returncode == 1
         assert "Unknown provider" in r.stderr
 

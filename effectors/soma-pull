@@ -12,6 +12,7 @@ Usage:
     soma-pull              # Pull all repos
     soma-pull --help       # Show this help
 """
+
 import subprocess
 import sys
 from datetime import datetime
@@ -33,7 +34,10 @@ def pull(repo: Path) -> tuple[str, bool]:
     try:
         result = subprocess.run(
             ["git", "pull", "--ff-only", "--quiet"],
-            cwd=repo, capture_output=True, text=True, timeout=30,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             changed = "Already up to date" not in result.stdout

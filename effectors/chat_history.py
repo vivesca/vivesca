@@ -109,7 +109,7 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
                         try:
                             ts_dt = datetime.fromisoformat(ts_str)
                             ts_ms = int(ts_dt.timestamp() * 1000)
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             continue
 
                         if not (start_ms <= ts_ms < end_ms):
@@ -150,9 +150,9 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
                                     "tool": "Claude",
                                 }
                             )
-                    except json.JSONDecodeError, Exception:
+                    except (json.JSONDecodeError, Exception):
                         continue
-        except OSError, Exception:
+        except (OSError, Exception):
             continue
 
     # Sort by timestamp descending (most recent first)
@@ -214,7 +214,7 @@ def search_prompts(
                             "tool": label,
                         }
                     )
-                except json.JSONDecodeError, Exception:
+                except (json.JSONDecodeError, Exception):
                     continue
 
     # Also search OpenCode if applicable
@@ -306,7 +306,7 @@ def scan_opencode(start_ms: int, end_ms: int) -> list:
                                     "tool": "OpenCode",
                                 }
                             )
-        except OSError, json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             continue
     return prompts
 
@@ -355,7 +355,7 @@ def scan_history(target_date_str: str, limit: int = 50, tool: str | None = None)
                             "tool": label,
                         }
                     )
-                except json.JSONDecodeError, Exception:
+                except (json.JSONDecodeError, Exception):
                     continue
 
     if tool is None or (tool and tool.lower() == "opencode"):

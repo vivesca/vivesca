@@ -49,8 +49,14 @@ REGULATOR_CONFIGS = {
 def parse_date(date_str: str) -> datetime | None:
     """Try multiple date formats and return a datetime or None."""
     formats = [
-        "%d %b %Y", "%d %B %Y", "%Y-%m-%d", "%d/%m/%Y",
-        "%d.%m.%Y", "%b %d, %Y", "%B %d, %Y", "%Y-%m-%dT%H:%M:%S",
+        "%d %b %Y",
+        "%d %B %Y",
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%d.%m.%Y",
+        "%b %d, %Y",
+        "%B %d, %Y",
+        "%Y-%m-%dT%H:%M:%S",
     ]
     cleaned = date_str.strip()
     for fmt in formats:
@@ -79,7 +85,7 @@ def extract_publications_from_page(
 
         title = (title_el.inner_text() or "").strip()
         if regulator == "hkma":
-            title = re.sub(r'\(PDF File, .*\)', '', title).strip()
+            title = re.sub(r"\(PDF File, .*\)", "", title).strip()
 
         href = title_el.get_attribute("href") or ""
         if href and not href.startswith("http"):
@@ -103,13 +109,15 @@ def extract_publications_from_page(
         if since and pub_date and pub_date < since:
             continue
 
-        results.append({
-            "title": title,
-            "date": pub_date.strftime("%Y-%m-%d") if pub_date else date_text,
-            "url": href,
-            "summary": summary,
-            "source": config["name"],
-        })
+        results.append(
+            {
+                "title": title,
+                "date": pub_date.strftime("%Y-%m-%d") if pub_date else date_text,
+                "url": href,
+                "summary": summary,
+                "source": config["name"],
+            }
+        )
 
     return results
 
@@ -121,6 +129,7 @@ def scrape_regulator(
 ) -> list[dict]:
     """Scrape publications for a given regulator using Playwright."""
     import time
+
     config = REGULATOR_CONFIGS.get(regulator)
     if not config:
         print(f"Unknown regulator: {regulator}", file=sys.stderr)
@@ -131,10 +140,10 @@ def scrape_regulator(
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(config["url"], timeout=60_000)
-        
+
         # Wait for SPA rendering
         page.wait_for_load_state("networkidle", timeout=30_000)
-        time.sleep(10) # Safety buffer for React components
+        time.sleep(10)  # Safety buffer for React components
 
         results = extract_publications_from_page(page, config, since, regulator)
 
@@ -156,7 +165,8 @@ def main() -> None:
         description="Capture regulatory publications from HKMA and SFC."
     )
     parser.add_argument(
-        "--regulator", required=True,
+        "--regulator",
+        required=True,
         choices=list(REGULATOR_CONFIGS.keys()),
         help="Regulator to scrape",
     )

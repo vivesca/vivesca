@@ -17,11 +17,11 @@ MODELS = ["gemini-3.1-pro", "codex"]
 TIMEOUT = 120
 
 PROMPT_TEMPLATE = (
-    'Read the file at {manifest_path}. It\'s a manifest of an autonomous AI '
-    'system\'s overnight outputs. Review: (1) ROUTING: outputs labeled '
-    '\'self-sufficient\' vs \'needs Terry\' — flag any borderline mislabels. '
-    '(2) QUALITY: spot-check deliverables for factual issues or risky advice. '
-    'Only flag genuinely borderline items. If clean, say so.'
+    "Read the file at {manifest_path}. It's a manifest of an autonomous AI "
+    "system's overnight outputs. Review: (1) ROUTING: outputs labeled "
+    "'self-sufficient' vs 'needs Terry' — flag any borderline mislabels. "
+    "(2) QUALITY: spot-check deliverables for factual issues or risky advice. "
+    "Only flag genuinely borderline items. If clean, say so."
 )
 
 MODEL_LABELS = {
@@ -66,14 +66,16 @@ def main() -> None:
     for model in MODELS:
         label = MODEL_LABELS.get(model, model)
         review = results_dict.get(model, "(no response)")
-        lines.extend([
-            "",
-            f"## {label}",
-            "",
-            review,
-            "",
-            "---",
-        ])
+        lines.extend(
+            [
+                "",
+                f"## {label}",
+                "",
+                review,
+                "",
+                "---",
+            ]
+        )
 
     output = "\n".join(lines) + "\n"
 

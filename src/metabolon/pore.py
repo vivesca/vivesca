@@ -1699,7 +1699,7 @@ def endocytosis_status():
     def _parse_aware(value: str) -> datetime | None:
         try:
             dt = datetime.fromisoformat(value)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)

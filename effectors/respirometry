@@ -112,9 +112,7 @@ def _write_history(usage: dict) -> None:
     row = {
         "ts": datetime.now(UTC).isoformat(),
         "metrics": {
-            k: usage[k]
-            for k in ["seven_day", "seven_day_sonnet", "five_hour"]
-            if k in usage
+            k: usage[k] for k in ["seven_day", "seven_day_sonnet", "five_hour"] if k in usage
         },
     }
     with open(HISTORY, "a") as f:
@@ -293,7 +291,8 @@ def get_cost_tracking(now: datetime | None = None) -> dict[str, Any]:
         "duration_hours_delta": round(
             current_summary["duration_hours"] - previous_summary["duration_hours"], 2
         ),
-        "flat_rate_runs_delta": current_summary["flat_rate_runs"] - previous_summary["flat_rate_runs"],
+        "flat_rate_runs_delta": current_summary["flat_rate_runs"]
+        - previous_summary["flat_rate_runs"],
         "metered_runs_delta": current_summary["metered_runs"] - previous_summary["metered_runs"],
         "metered_cost_usd_delta": round(
             current_summary["metered_cost_usd"] - previous_summary["metered_cost_usd"], 4
@@ -446,7 +445,9 @@ def _derive_session_stats(reference_time: datetime | None = None) -> tuple[int, 
     return len(session_dates), goose_dispatches
 
 
-def record_snapshot(usage: dict[str, Any] | None = None, reference_time: datetime | None = None) -> None:
+def record_snapshot(
+    usage: dict[str, Any] | None = None, reference_time: datetime | None = None
+) -> None:
     """Append current week's usage stats to USAGE_HISTORY JSONL."""
     usage = usage or get_usage()
     if "error" in usage:
@@ -510,9 +511,7 @@ def cmd_trend() -> None:
             window_start = datetime.strptime(row["date"], "%Y-%m-%d")
             window_end = window_start + timedelta(days=6)
             if window_start.month != window_end.month:
-                week_label = (
-                    f"{window_start.strftime('%b %d')}-{window_end.strftime('%b %d')}"
-                )
+                week_label = f"{window_start.strftime('%b %d')}-{window_end.strftime('%b %d')}"
             else:
                 week_label = f"{window_start.strftime('%b %d')}-{window_end.strftime('%d')}"
         except (ValueError, KeyError):
@@ -637,7 +636,9 @@ def main() -> None:
                 f"{current['flat_rate_runs']} runs / {current['duration_hours']:.2f}h / "
                 f"{current['tasks']} tasks"
             )
-            print(f"  Metered          {current['metered_runs']} runs / ${current['metered_cost_usd']:.4f}")
+            print(
+                f"  Metered          {current['metered_runs']} runs / ${current['metered_cost_usd']:.4f}"
+            )
             print(
                 "  Split            "
                 f"{current['flat_rate_pct']:.0f}% flat-rate / {current['metered_pct']:.0f}% metered"

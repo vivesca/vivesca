@@ -35,14 +35,20 @@ CACHE_DIR = Path.home() / ".cache/linkedin-monitor"
 def _find_agent_browser() -> str:
     """Locate agent-browser: check PATH first, then platform-specific fallbacks."""
     from shutil import which
+
     found = which("agent-browser")
     if found:
         return found
-    candidates = ["/opt/homebrew/bin/agent-browser", "/usr/bin/agent-browser", "/usr/local/bin/agent-browser"]
+    candidates = [
+        "/opt/homebrew/bin/agent-browser",
+        "/usr/bin/agent-browser",
+        "/usr/local/bin/agent-browser",
+    ]
     for c in candidates:
         if Path(c).exists():
             return c
     return "/opt/homebrew/bin/agent-browser"  # fallback
+
 
 AGENT_BROWSER = _find_agent_browser()
 
@@ -51,6 +57,7 @@ INTER_PROFILE_DELAY = 5  # seconds
 
 
 # --- Helpers ---
+
 
 def _run(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
     """Run command, return (success, stdout)."""
@@ -230,8 +237,13 @@ def _parse_snapshot(snapshot: str) -> list[dict]:
 # --- Auth gate detection ---
 
 AUTH_SIGNALS = [
-    "sign in", "log in", "create account", "join now", "authwall",
-    "join linkedin", "see who's hiring"
+    "sign in",
+    "log in",
+    "create account",
+    "join now",
+    "authwall",
+    "join linkedin",
+    "see who's hiring",
 ]
 
 
@@ -243,6 +255,7 @@ def is_auth_gated(posts: list[dict], raw_text: str = "") -> bool:
 
 
 # --- Digest formatting ---
+
 
 def format_digest(profile: dict, posts: list[dict], new_count: int) -> str:
     name = profile["name"]
@@ -276,6 +289,7 @@ def format_digest(profile: dict, posts: list[dict], new_count: int) -> str:
 
 
 # --- Main ---
+
 
 def main():
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -314,7 +328,7 @@ def main():
         url = profile.get("url", "")
         slug = profile_slug(name)
 
-        print(f"[{i+1}/{len(profiles)}] Fetching: {name}", file=sys.stderr)
+        print(f"[{i + 1}/{len(profiles)}] Fetching: {name}", file=sys.stderr)
 
         if dry_run:
             activity_url = url.rstrip("/") + "/recent-activity/all/"
@@ -328,8 +342,7 @@ def main():
         if not posts:
             print(f"  [warn] No posts extracted for {name}", file=sys.stderr)
             section = (
-                f"## {name}\n"
-                f"**Status:** No posts extracted — possible auth gate or empty feed.\n"
+                f"## {name}\n**Status:** No posts extracted — possible auth gate or empty feed.\n"
             )
             all_sections.append(section)
             all_sections.append("")

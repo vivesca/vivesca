@@ -38,7 +38,7 @@ def extract_description(path: Path, max_len: int = 120) -> str:
                 if stripped.startswith("module:") or stripped.startswith("category:"):
                     continue
                 return stripped[:max_len]
-    except UnicodeDecodeError, PermissionError:
+    except (UnicodeDecodeError, PermissionError):
         pass
     return ""
 

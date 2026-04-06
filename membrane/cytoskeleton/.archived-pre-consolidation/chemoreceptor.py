@@ -62,7 +62,7 @@ KEYWORD_SKILL_MAP = [
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         return
 
     prompt = data.get("prompt", "")

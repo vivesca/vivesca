@@ -34,7 +34,7 @@ def parse_frontmatter(content: str) -> dict:
     try:
         end = content.index("---", 3)
         return yaml.safe_load(content[3:end]) or {}
-    except ValueError, yaml.YAMLError:
+    except (ValueError, yaml.YAMLError):
         return {}
 
 

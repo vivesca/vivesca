@@ -231,7 +231,15 @@ def main() -> None:
     # top-level convenience flags
     parser.add_argument("--topic", "-t", dest="topic_flag", help="Card topic (implies generate)")
     parser.add_argument("--output", "-o", dest="output_flag", help="Output path (with --topic)")
-    parser.add_argument("--list", "-l", dest="list_flag", nargs="?", const=True, default=None, help="List or search cards")
+    parser.add_argument(
+        "--list",
+        "-l",
+        dest="list_flag",
+        nargs="?",
+        const=True,
+        default=None,
+        help="List or search cards",
+    )
 
     args = parser.parse_args()
 

@@ -72,7 +72,7 @@ def _article_is_fresh(
         return True  # no date available → don't suppress
     try:
         pub = datetime.fromisoformat(str(raw))
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return True  # malformed date → don't suppress
     if pub.tzinfo is None:
         pub = pub.replace(tzinfo=UTC)
@@ -111,7 +111,7 @@ def restore_breaking_state(path: Path, now: datetime) -> dict[str, Any]:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
                 return payload
-        except OSError, json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             pass
     return {
         "last_check": None,
@@ -175,7 +175,7 @@ def _age_minutes(published_at: str, now: datetime) -> float | None:
         return None
     try:
         pub = datetime.fromisoformat(str(published_at))
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
     if pub.tzinfo is None:
         pub = pub.replace(tzinfo=UTC)

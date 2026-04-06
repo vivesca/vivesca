@@ -69,7 +69,9 @@ def git_status(path: Path) -> str | None:
     try:
         r = subprocess.run(
             ["git", "-C", str(path), "status", "--short"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return r.stdout.strip() if r.returncode == 0 else None
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -81,7 +83,7 @@ def now_age() -> tuple[str, int]:
     try:
         mtime = os.path.getmtime(NOW_MD)
         age = int(time.time() - mtime)
-        if age < 900:       # 15 min
+        if age < 900:  # 15 min
             return "fresh", age
         elif age < 3600:
             return "recent", age
@@ -116,7 +118,9 @@ def dep_check() -> list[str]:
     try:
         r = subprocess.run(
             ["proteostasis"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip().splitlines()
@@ -129,7 +133,10 @@ def peira_status() -> str | None:
     """Return peira active experiment info, or None."""
     try:
         r = subprocess.run(
-            ["peira", "status"], capture_output=True, text=True, timeout=10,
+            ["peira", "status"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
@@ -143,7 +150,10 @@ def latest_session_id() -> str | None:
     """Get the most recent session ID from anam."""
     try:
         r = subprocess.run(
-            ["anam", "today"], capture_output=True, text=True, timeout=10,
+            ["anam", "today"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode != 0:
             return None
@@ -163,7 +173,9 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
     try:
         r = subprocess.run(
             ["anam", "search", ".", "--session", session_id, "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode != 0 or not r.stdout.strip():
             return [], usage
@@ -191,7 +203,9 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
     try:
         r = subprocess.run(
             ["channel", "glm", "-p", prompt],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         if r.returncode != 0:
             return [], usage
@@ -300,10 +314,10 @@ def cmd_gather(args):
     reflect = results.get("reflect", [])
     if reflect:
         ru = results.get("reflect_usage", {})
-        cost_est = f" ~{ru.get('input_tokens',0)+ru.get('output_tokens',0)}tok" if ru else ""
+        cost_est = f" ~{ru.get('input_tokens', 0) + ru.get('output_tokens', 0)}tok" if ru else ""
         print(f"reflect:{len(reflect)} candidates{cost_est}")
         for i, f in enumerate(reflect, 1):
-            print(f"  {i}. [{f.get('category','')}] {f.get('lesson','')}")
+            print(f"  {i}. [{f.get('category', '')}] {f.get('lesson', '')}")
     return
 
 
@@ -433,7 +447,9 @@ def cmd_archive(args):
         first_section = archive_text.find("\n## ")
         if first_section >= 0:
             insert_text = f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
-            archive_text = archive_text[:first_section] + insert_text + archive_text[first_section:]
+            archive_text = (
+                archive_text[:first_section] + insert_text + archive_text[first_section:]
+            )
         else:
             archive_text += f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
 
@@ -554,7 +570,7 @@ def cmd_reflect(args):
             quote = f.get("quote", "")
             print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson}")
             if quote:
-                print(f"       {DIM}\"{quote[:100]}\"{RESET}")
+                print(f'       {DIM}"{quote[:100]}"{RESET}')
         print(f"{BOLD}──────────────────────────────────────────────{RESET}")
 
 
@@ -620,18 +636,24 @@ def cmd_extract(args):
         quote = c.get("quote", "")
         candidate_text.append(f"{i}. [{cat}] {lesson}")
         if quote:
-            candidate_text.append(f"   Quote: \"{quote}\"")
+            candidate_text.append(f'   Quote: "{quote}"')
 
     prompt = EXTRACT_PROMPT + "\n".join(candidate_text)
 
     try:
         r = subprocess.run(
             ["channel", "glm", "-p", prompt],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         if r.returncode != 0:
-            print(json.dumps({"error": r.stderr.strip()}) if json_mode
-                  else f"extract failed: {r.stderr.strip()}", file=sys.stderr)
+            print(
+                json.dumps({"error": r.stderr.strip()})
+                if json_mode
+                else f"extract failed: {r.stderr.strip()}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         if json_mode:
             recs = []
@@ -664,8 +686,9 @@ def main():
 
     # Shared format flag
     fmt = argparse.ArgumentParser(add_help=False)
-    fmt.add_argument("--format", choices=["text", "json"], default="text",
-                      help="Output format (default: text)")
+    fmt.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format (default: text)"
+    )
 
     # gather
     g = sub.add_parser("gather", parents=[fmt], help="Run all pre-wrap checks")

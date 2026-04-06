@@ -139,7 +139,7 @@ def should_debounce() -> bool:
             last = float(DEBOUNCE_FILE.read_text().strip())
             if time.time() - last < DEBOUNCE_SECONDS:
                 return True
-    except ValueError, OSError:
+    except (ValueError, OSError):
         pass
     return False
 
@@ -256,7 +256,7 @@ def main():
     # Read hook input from stdin
     try:
         hook_input = json.loads(sys.stdin.read())
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         return
 
     prompt = hook_input.get("prompt", "")

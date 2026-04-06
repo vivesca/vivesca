@@ -36,8 +36,15 @@ DRY_RUN = "--dry-run" in sys.argv
 FORCE = "--force" in sys.argv
 
 CC_BREAKING_KEYWORDS = [
-    "breaking", "removed", "deprecated", "no longer",
-    "hook", "plugin", "permissions", "api change", "renamed",
+    "breaking",
+    "removed",
+    "deprecated",
+    "no longer",
+    "hook",
+    "plugin",
+    "permissions",
+    "api change",
+    "renamed",
 ]
 
 # Git-pinned: skip normal upgrade, auto-install when PyPI has >= min_version.
@@ -55,6 +62,7 @@ PY_SMOKE_IMPORTS = [
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _path() -> str:
     extra = [
@@ -87,7 +95,10 @@ def _mise_python() -> str:
 def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
     try:
         r = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
             env={**os.environ, "PATH": _path()},
         )
         out = (r.stdout or "").strip()
@@ -102,6 +113,7 @@ def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
 
 
 # ── State ────────────────────────────────────────────────────────────────────
+
 
 def load_state() -> dict:
     try:
@@ -127,12 +139,15 @@ def should_run(state: dict) -> bool:
     if not last:
         return True
     try:
-        return (datetime.now(HKT) - datetime.fromisoformat(last)).total_seconds() > FREQUENCY_HOURS * 3600
+        return (
+            datetime.now(HKT) - datetime.fromisoformat(last)
+        ).total_seconds() > FREQUENCY_HOURS * 3600
     except Exception:
         return True
 
 
 # ── Signal emission ──────────────────────────────────────────────────────────
+
 
 def emit_signal(blocked: dict) -> None:
     """Write blocked packages to a known location for circulation pickup."""
@@ -140,22 +155,30 @@ def emit_signal(blocked: dict) -> None:
         return
     SIGNAL_PATH.parent.mkdir(parents=True, exist_ok=True)
     if blocked:
-        SIGNAL_PATH.write_text(json.dumps({
-            "updated": datetime.now(HKT).isoformat(),
-            "blocked": blocked,
-        }, indent=2))
+        SIGNAL_PATH.write_text(
+            json.dumps(
+                {
+                    "updated": datetime.now(HKT).isoformat(),
+                    "blocked": blocked,
+                },
+                indent=2,
+            )
+        )
     elif SIGNAL_PATH.exists():
         SIGNAL_PATH.unlink()  # all clear — remove signal
 
 
 # ── Smoke test & diagnosis ───────────────────────────────────────────────────
 
+
 def smoke_test() -> tuple[bool, str]:
     imports = "; ".join(f"__import__('{m}')" for m in PY_SMOKE_IMPORTS)
     try:
         r = subprocess.run(
             [_mise_python(), "-c", imports],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         return r.returncode == 0, (r.stdout or r.stderr or "").strip()
     except Exception as e:
@@ -171,7 +194,8 @@ def diagnose() -> dict:
     for line in out.splitlines():
         m = re.match(
             r"(.+?) [\d.]+ has requirement (.+?)(?:>=|<=|==|!=|~=|>|<)(.+?),"
-            r" but you have (.+?) ([\d.]+)", line,
+            r" but you have (.+?) ([\d.]+)",
+            line,
         )
         if m:
             source, _, _, dep_name, installed_ver = m.groups()
@@ -188,7 +212,15 @@ def attempt_fix(conflicts: dict) -> tuple[bool, str]:
     if not conflicts:
         return False, "no conflicts detected"
     ok, out = run(
-        [_uv(), "pip", "install", "--upgrade", "--python", _mise_python(), *list(conflicts.keys())],
+        [
+            _uv(),
+            "pip",
+            "install",
+            "--upgrade",
+            "--python",
+            _mise_python(),
+            *list(conflicts.keys()),
+        ],
         timeout=120,
     )
     if not ok:
@@ -199,6 +231,7 @@ def attempt_fix(conflicts: dict) -> tuple[bool, str]:
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
 
+
 def check_claude_code(state: dict) -> list[str]:
     installed = None
     link = Path.home() / ".local" / "bin" / "claude"
@@ -208,8 +241,8 @@ def check_claude_code(state: dict) -> list[str]:
         return []
 
     ok, out = run(
-        ["gh", "release", "view", "--repo", "anthropics/claude-code",
-         "--json", "tagName,body"], timeout=20,
+        ["gh", "release", "view", "--repo", "anthropics/claude-code", "--json", "tagName,body"],
+        timeout=20,
     )
     if not ok:
         return []
@@ -227,6 +260,7 @@ def check_claude_code(state: dict) -> list[str]:
 
 
 # ── Python auto-update ───────────────────────────────────────────────────────
+
 
 def _uv_outdated() -> dict[str, dict]:
     """All outdated pip packages via uv."""
@@ -276,8 +310,11 @@ def _bisect_upgrades(upgraded, blocked, alerts):
             }
             alerts.append(
                 f"pip blocked: {pkg} {new} — "
-                + (", ".join(c["constraint"] for c in conflicts.values())
-                   if conflicts else detail[:100])
+                + (
+                    ", ".join(c["constraint"] for c in conflicts.values())
+                    if conflicts
+                    else detail[:100]
+                )
             )
 
 
@@ -301,7 +338,9 @@ def auto_update_python(state: dict) -> list[str]:
 
     if DRY_RUN:
         for name, info in sorted(to_upgrade.items()):
-            alerts.append(f"pip would upgrade: {name} {info['version']} → {info['latest_version']}")
+            alerts.append(
+                f"pip would upgrade: {name} {info['version']} → {info['latest_version']}"
+            )
         for name, blk in sorted(blocked.items()):
             alerts.append(f"pip blocked: {name} {blk['version']} (since {blk['since']})")
         for name, min_ver in PY_GIT_PINNED.items():
@@ -375,6 +414,7 @@ def auto_update_python(state: dict) -> list[str]:
 
 # ── npm auto-update ──────────────────────────────────────────────────────────
 
+
 def auto_update_npm(state: dict) -> list[str]:
     alerts = []
     ok, out = run(["npm", "outdated", "-g", "--json"], timeout=30)
@@ -405,6 +445,7 @@ def auto_update_npm(state: dict) -> list[str]:
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     state = load_state()

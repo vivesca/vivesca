@@ -237,7 +237,7 @@ def read_cc_settings(path: Path = CC_SETTINGS_PATH) -> dict[str, Any]:
     try:
         with path.open(encoding="utf-8") as fh:
             return json.load(fh)
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return {}
 
 
@@ -248,7 +248,7 @@ def read_gemini_settings(path: Path = GEMINI_SETTINGS_PATH) -> dict[str, Any]:
     try:
         with path.open(encoding="utf-8") as fh:
             return json.load(fh)
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return {}
 
 

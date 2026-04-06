@@ -7,6 +7,7 @@ directories into the organism's biological structure.
 
 Usage: express [--dry-run]
 """
+
 import os
 import sys
 from pathlib import Path
@@ -89,7 +90,9 @@ def integrate(dry_run: bool = False) -> None:
                 current = os.readlink(link)
                 if current == str(item):
                     continue
-                print(f"  UPDATE {platform_dir}/{item.name} → {org_rel}/{item.name} (was {current})")
+                print(
+                    f"  UPDATE {platform_dir}/{item.name} → {org_rel}/{item.name} (was {current})"
+                )
                 if not dry_run:
                     link.unlink()
                     link.symlink_to(item)

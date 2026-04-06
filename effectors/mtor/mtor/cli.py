@@ -509,7 +509,7 @@ def logs(workflow_id: str) -> None:
                     if wf_suffix in fname:
                         log_path = line.strip()
                         break
-        except subprocess.TimeoutExpired, OSError:
+        except (subprocess.TimeoutExpired, OSError):
             pass
 
     if not log_path:
@@ -729,13 +729,13 @@ def doctor() -> None:
         }
     )
 
-    # Check 4: Provider readiness (via ribosome status)
+    # Check 4: Provider readiness on ganglion (where ribosome executes)
     try:
         provider_result = subprocess.run(
-            ["ribosome", "status", "--compact", "--json"],
+            ["ssh", "ganglion", "ribosome status --compact --json"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=30,
         )
         providers = json.loads(provider_result.stdout) if provider_result.returncode == 0 else []
         healthy = [p for p in providers if p.get("health") == "OK"]
@@ -743,43 +743,29 @@ def doctor() -> None:
             {
                 "name": "providers",
                 "ok": len(healthy) > 0,
-                "detail": f"{len(healthy)}/{len(providers)} providers available",
+                "detail": f"{len(healthy)}/{len(providers)} providers available (ganglion)",
                 "providers": providers,
             }
         )
         if not healthy:
             all_ok = False
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        all_ok = False
+        checks.append(
+            {
+                "name": "providers",
+                "ok": False,
+                "detail": f"ganglion unreachable: {exc}",
+            }
+        )
     except Exception:
         checks.append(
             {
                 "name": "providers",
                 "ok": False,
-                "detail": "ribosome status not available",
+                "detail": "ribosome status not available on ganglion",
             }
         )
-
-    # Check 5: Ganglion-side env keys
-    required_keys = ["ZHIPU_API_KEY", "ZHIPUAI_API_KEY", "INFINI_API_KEY", "VOLCANO_API_KEY"]
-    try:
-        present = []
-        missing = []
-        for key_name in required_keys:
-            key_result = subprocess.run(
-                ["ssh", "ganglion", f"grep -q '{key_name}' ~/.temporal-worker.env"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            (present if key_result.returncode == 0 else missing).append(key_name)
-        ganglion_ok = len(missing) == 0
-        detail = f"{len(present)}/{len(required_keys)} keys present"
-        if missing:
-            detail += f", missing: {', '.join(missing)}"
-            all_ok = False
-        checks.append({"name": "ganglion_env", "ok": ganglion_ok, "detail": detail})
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        all_ok = False
-        checks.append({"name": "ganglion_env", "ok": False, "detail": f"SSH failed: {exc}"})
 
     result = {
         "temporal_reachable": temporal_ok,

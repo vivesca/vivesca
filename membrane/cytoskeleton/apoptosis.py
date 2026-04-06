@@ -34,7 +34,7 @@ def classify(error: dict) -> str:
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         sys.exit(0)
 
     error = data.get("error", {}) or {}

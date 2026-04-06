@@ -79,7 +79,9 @@ def git_status(path: Path) -> str | None:
     try:
         r = subprocess.run(
             ["git", "-C", str(path), "status", "--short"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return r.stdout.strip() if r.returncode == 0 else None
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -91,7 +93,7 @@ def now_age() -> tuple[str, int]:
     try:
         mtime = os.path.getmtime(NOW_MD)
         age = int(time.time() - mtime)
-        if age < 900:       # 15 min
+        if age < 900:  # 15 min
             return "fresh", age
         elif age < 3600:
             return "recent", age
@@ -127,6 +129,7 @@ def skill_gaps() -> list[str]:
 def cli_gaps() -> list[str]:
     """Skills declaring cli: in frontmatter where the CLI is missing from PATH."""
     import shutil
+
     gaps = []
     try:
         for d in Path(SKILLS).iterdir():
@@ -155,6 +158,7 @@ def rfts_verify() -> list[dict]:
     project references aren't stale, tool names are still valid.
     """
     import shutil
+
     memory_dir = MEMORY.parent
     stale = []
 
@@ -189,17 +193,48 @@ def rfts_verify() -> list[dict]:
         for m in re.finditer(r"`([a-z][\w-]{2,20})`", content):
             cmd = m.group(1)
             # Skip common non-command words
-            if cmd in ("true", "false", "none", "null", "done", "info", "type",
-                       "hits", "last", "name", "date", "feedback", "finding",
-                       "project", "user", "reference", "memory", "debug",
-                       "plan", "build", "evaluate", "monitor", "research",
-                       "learn", "reflect", "decide", "negotiate", "communicate",
-                       "brainstorm", "delegate", "unstuck", "protected"):
+            if cmd in (
+                "true",
+                "false",
+                "none",
+                "null",
+                "done",
+                "info",
+                "type",
+                "hits",
+                "last",
+                "name",
+                "date",
+                "feedback",
+                "finding",
+                "project",
+                "user",
+                "reference",
+                "memory",
+                "debug",
+                "plan",
+                "build",
+                "evaluate",
+                "monitor",
+                "research",
+                "learn",
+                "reflect",
+                "decide",
+                "negotiate",
+                "communicate",
+                "brainstorm",
+                "delegate",
+                "unstuck",
+                "protected",
+            ):
                 continue
             # Only flag if it looks like it was a CLI tool (in a command context)
-            if ("search" in content[max(0,m.start()-20):m.start()] or \
-               "run" in content[max(0,m.start()-20):m.start()] or \
-               cmd.endswith("-scan") or cmd.endswith("-check")) and not shutil.which(cmd):
+            if (
+                "search" in content[max(0, m.start() - 20) : m.start()]
+                or "run" in content[max(0, m.start() - 20) : m.start()]
+                or cmd.endswith("-scan")
+                or cmd.endswith("-check")
+            ) and not shutil.which(cmd):
                 issues.append(f"cli missing: {cmd}")
 
         if issues:
@@ -213,7 +248,9 @@ def dep_check() -> list[str]:
     try:
         r = subprocess.run(
             ["proteostasis"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip().splitlines()
@@ -226,7 +263,10 @@ def peira_status() -> str | None:
     """Return peira active experiment info, or None."""
     try:
         r = subprocess.run(
-            ["peira", "status"], capture_output=True, text=True, timeout=10,
+            ["peira", "status"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
@@ -240,7 +280,10 @@ def latest_session_id() -> str | None:
     """Get the most recent session ID from engram."""
     try:
         r = subprocess.run(
-            ["engram", "today"], capture_output=True, text=True, timeout=10,
+            ["engram", "today"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode != 0:
             return None
@@ -260,7 +303,9 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
     try:
         r = subprocess.run(
             ["engram", "search", ".", "--session", session_id, "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode != 0 or not r.stdout.strip():
             return [], usage
@@ -288,7 +333,9 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
     try:
         r = subprocess.run(
             ["channel", "glm", "-p", prompt],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if r.returncode != 0:
@@ -369,7 +416,7 @@ def cmd_gather(args):
         deps_fut = pool.submit(dep_check)
         peira_fut = pool.submit(peira_status)
         # LLM calls — skip with --fast
-        if not getattr(args, 'fast', False):
+        if not getattr(args, "fast", False):
             sid = latest_session_id()
             reflect_fut = pool.submit(run_reflect, sid) if sid else None
             methyl_fut = pool.submit(run_methylation_audit)
@@ -456,7 +503,9 @@ def cmd_gather(args):
     if recent_posts:
         gates["publish_check"] = f"DONE — published: {', '.join(recent_posts)}"
     else:
-        gates["publish_check"] = "PENDING — no posts published this session. Scan for publishable insights. If none, state explicitly."
+        gates["publish_check"] = (
+            "PENDING — no posts published this session. Scan for publishable insights. If none, state explicitly."
+        )
 
     # Gate 2: Corrections — check if feedback_*.md was modified in last 4 hours
     marks_dir = EPIGENOME_DIR / "marks"
@@ -467,9 +516,13 @@ def cmd_gather(args):
             if mark_file.stat().st_mtime > cutoff:
                 recent_feedback.append(mark_file.stem)
     if recent_feedback:
-        gates["corrections_filed"] = f"DONE — filed {len(recent_feedback)}: {', '.join(recent_feedback[:5])}"
+        gates["corrections_filed"] = (
+            f"DONE — filed {len(recent_feedback)}: {', '.join(recent_feedback[:5])}"
+        )
     else:
-        gates["corrections_filed"] = "PENDING — no feedback memories filed this session. Scan for corrections from Terry."
+        gates["corrections_filed"] = (
+            "PENDING — no feedback memories filed this session. Scan for corrections from Terry."
+        )
 
     # Gate 3: Tonus — check freshness (already computed above)
     if secs < 1800:  # updated in last 30 min
@@ -478,12 +531,20 @@ def cmd_gather(args):
         gates["tonus_updated"] = f"PENDING — Tonus is {label} ({secs // 60}m old). Update now."
 
     # Gate 4: Process audit — always requires LLM judgment
-    gates["process_audit"] = "PENDING — 5 questions: repeated patterns, misallocated work, lazy avoidance, branch discipline, best practices."
+    gates["process_audit"] = (
+        "PENDING — 5 questions: repeated patterns, misallocated work, lazy avoidance, branch discipline, best practices."
+    )
 
     # Gate 5: Repos flushed — check if any dirty
-    dirty_repos = [name for name, info in results["repos"].items() if not info.get("clean") and info.get("clean") is not None]
+    dirty_repos = [
+        name
+        for name, info in results["repos"].items()
+        if not info.get("clean") and info.get("clean") is not None
+    ]
     if dirty_repos:
-        gates["repos_flushed"] = f"WARNING — dirty: {', '.join(dirty_repos)}. Commit atomically with meaningful messages."
+        gates["repos_flushed"] = (
+            f"WARNING — dirty: {', '.join(dirty_repos)}. Commit atomically with meaningful messages."
+        )
     else:
         gates["repos_flushed"] = "DONE — all repos clean"
 
@@ -511,15 +572,15 @@ def cmd_gather(args):
     reflect = results.get("reflect", [])
     if reflect:
         ru = results.get("reflect_usage", {})
-        cost_est = f" ~{ru.get('input_tokens',0)+ru.get('output_tokens',0)}tok" if ru else ""
+        cost_est = f" ~{ru.get('input_tokens', 0) + ru.get('output_tokens', 0)}tok" if ru else ""
         print(f"reflect:{len(reflect)} candidates{cost_est}")
         for i, f in enumerate(reflect, 1):
-            print(f"  {i}. [{f.get('category','')}] {f.get('lesson','')}")
+            print(f"  {i}. [{f.get('category', '')}] {f.get('lesson', '')}")
     meth = results.get("methylation", [])
     if meth:
         print(f"methylation:{len(meth)} demote candidates")
         for m in meth:
-            print(f"  [{m.get('verdict','')}] {m.get('rule','')} → {m.get('enforced_by','')}")
+            print(f"  [{m.get('verdict', '')}] {m.get('rule', '')} → {m.get('enforced_by', '')}")
     return
 
 
@@ -666,7 +727,9 @@ def cmd_archive(args):
         first_section = archive_text.find("\n## ")
         if first_section >= 0:
             insert_text = f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
-            archive_text = archive_text[:first_section] + insert_text + archive_text[first_section:]
+            archive_text = (
+                archive_text[:first_section] + insert_text + archive_text[first_section:]
+            )
         else:
             archive_text += f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
 
@@ -683,29 +746,53 @@ def cmd_archive(args):
 def _since_flag(hours: int = 2) -> str:
     """Return ISO timestamp for N hours ago (session window approximation)."""
     from datetime import timedelta
+
     return (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _gather_filed(hours: int = 2) -> list[str]:
     """List memory files created/modified in the last N hours."""
-    mem_dir = home / ".claude" / "projects" / ("-" + str(germline).lstrip("/").replace("/", "-")) / "memory"
+    mem_dir = (
+        home
+        / ".claude"
+        / "projects"
+        / ("-" + str(germline).lstrip("/").replace("/", "-"))
+        / "memory"
+    )
     since = _since_flag(hours)
     try:
         # Committed today
         r = subprocess.run(
-            ["git", "log", "--since", since, "--diff-filter=AM", "--name-only", "--pretty=format:"],
-            capture_output=True, text=True, timeout=10, cwd=mem_dir,
+            [
+                "git",
+                "log",
+                "--since",
+                since,
+                "--diff-filter=AM",
+                "--name-only",
+                "--pretty=format:",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=mem_dir,
         )
         files = {f for f in r.stdout.strip().splitlines() if f and not f.startswith("MEMORY")}
         # Also uncommitted
         r2 = subprocess.run(
             ["git", "diff", "--name-only", "HEAD"],
-            capture_output=True, text=True, timeout=10, cwd=mem_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=mem_dir,
         )
         files |= {f for f in r2.stdout.strip().splitlines() if f and not f.startswith("MEMORY")}
         r3 = subprocess.run(
             ["git", "ls-files", "--others", "--exclude-standard"],
-            capture_output=True, text=True, timeout=10, cwd=mem_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=mem_dir,
         )
         files |= {f for f in r3.stdout.strip().splitlines() if f and not f.startswith("MEMORY")}
         return sorted(f"memory/{f}" for f in files) if files else []
@@ -721,19 +808,39 @@ def _gather_mechanised(hours: int = 2) -> list[str]:
         try:
             # Committed today
             r = subprocess.run(
-                ["git", "log", "--since", since, "--diff-filter=AM", "--name-only", "--pretty=format:"],
-                capture_output=True, text=True, timeout=10, cwd=repo_path,
+                [
+                    "git",
+                    "log",
+                    "--since",
+                    since,
+                    "--diff-filter=AM",
+                    "--name-only",
+                    "--pretty=format:",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=repo_path,
             )
             for f in r.stdout.strip().splitlines():
-                if any(k in f for k in ["SKILL.md", "genome.md", "synapse.py", "axon.py", "dendrite.py"]):
+                if any(
+                    k in f
+                    for k in ["SKILL.md", "genome.md", "synapse.py", "axon.py", "dendrite.py"]
+                ):
                     hits.add(f)
             # Uncommitted
             r2 = subprocess.run(
                 ["git", "diff", "--name-only", "HEAD"],
-                capture_output=True, text=True, timeout=10, cwd=repo_path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=repo_path,
             )
             for f in r2.stdout.strip().splitlines():
-                if any(k in f for k in ["SKILL.md", "genome.md", "synapse.py", "axon.py", "dendrite.py"]):
+                if any(
+                    k in f
+                    for k in ["SKILL.md", "genome.md", "synapse.py", "axon.py", "dendrite.py"]
+                ):
                     hits.add(f)
         except Exception:
             pass
@@ -818,7 +925,9 @@ filed={residual_n}, skipped=?
 
     daily_path.write_text(content, encoding="utf-8")
     print(f"  {OK}  Daily note: {daily_path}")
-    print(f"       Pre-filled: Filed={len(filed)}, Mechanised={len(mechanised)}, Published={len(published)}")
+    print(
+        f"       Pre-filled: Filed={len(filed)}, Mechanised={len(mechanised)}, Published={len(published)}"
+    )
     print("       LLM fills: Outcomes, Parked, Arc")
 
 
@@ -869,7 +978,11 @@ def run_methylation_audit():
         hook_path = germline / "membrane" / "cytoskeleton" / hook_file
         if hook_path.exists():
             for line in hook_path.read_text().splitlines():
-                if line.startswith("def mod_") or line.startswith("def check_") or line.startswith("def guard_"):
+                if (
+                    line.startswith("def mod_")
+                    or line.startswith("def check_")
+                    or line.startswith("def guard_")
+                ):
                     hook_funcs.append(f"{hook_file}:{line.strip()}")
 
     # Gather skill names
@@ -889,7 +1002,9 @@ def run_methylation_audit():
     try:
         result = subprocess.run(
             ["channel", "glm", "-p", prompt],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if result.returncode != 0:
@@ -1003,7 +1118,7 @@ def cmd_reflect(args):
             quote = f.get("quote", "")
             print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson}")
             if quote:
-                print(f"       {DIM}\"{quote[:100]}\"{RESET}")
+                print(f'       {DIM}"{quote[:100]}"{RESET}')
         print(f"{BOLD}──────────────────────────────────────────────{RESET}")
 
 
@@ -1062,14 +1177,16 @@ def cmd_extract(args):
         quote = c.get("quote", "")
         candidate_text.append(f"{i}. [{cat}] {lesson}")
         if quote:
-            candidate_text.append(f"   Quote: \"{quote}\"")
+            candidate_text.append(f'   Quote: "{quote}"')
 
     prompt = EXTRACT_PROMPT + "\n".join(candidate_text)
 
     try:
         r = subprocess.run(
             ["channel", "glm", "-p", prompt],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if r.returncode != 0:
@@ -1123,7 +1240,15 @@ def cmd_verify(_args):
 
     # Corrections
     marks_dir = epigenome_dir / "marks"
-    recent_fb = sum(1 for mark_file in marks_dir.glob("feedback_*.md") if mark_file.stat().st_mtime > cutoff) if marks_dir.is_dir() else 0
+    recent_fb = (
+        sum(
+            1
+            for mark_file in marks_dir.glob("feedback_*.md")
+            if mark_file.stat().st_mtime > cutoff
+        )
+        if marks_dir.is_dir()
+        else 0
+    )
     gates["corrections_filed"] = f"DONE ({recent_fb} filed)" if recent_fb else "PENDING"
 
     # Tonus
@@ -1157,7 +1282,9 @@ def main():
 
     # gather
     g = sub.add_parser("gather", help="Run all pre-wrap checks")
-    g.add_argument("--semantic", action="store_true", help="Human-readable output (default is JSON)")
+    g.add_argument(
+        "--semantic", action="store_true", help="Human-readable output (default is JSON)"
+    )
     g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
     g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
     g.add_argument("--reflect", action="store_true", help="Include LLM reflection scan (slow)")

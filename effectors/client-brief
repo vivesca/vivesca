@@ -145,9 +145,7 @@ def search_chromatin(company: str, top_k: int = 10) -> list[ChromatinHit]:
 
         fm = _read_frontmatter(content)
         snippets = _extract_snippets(content, tokens, max_snippets=5)
-        hits.append(
-            ChromatinHit(path=md_file, score=total, snippets=snippets, frontmatter=fm)
-        )
+        hits.append(ChromatinHit(path=md_file, score=total, snippets=snippets, frontmatter=fm))
 
     hits.sort(key=lambda h: h.score, reverse=True)
     return hits[:top_k]
@@ -187,7 +185,9 @@ def _summarise_ai_posture(snippets: list[str], company: str) -> str:
     if "aml" in corpus and ("model" in corpus or "ai" in corpus):
         signals.append("AI/ML applied to AML and fraud detection.")
     if not signals:
-        signals.append("Limited evidence in current knowledge base — further research recommended.")
+        signals.append(
+            "Limited evidence in current knowledge base — further research recommended."
+        )
     return " ".join(signals)
 
 
@@ -221,7 +221,9 @@ def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
     # Sources summary
     sources_lines: list[str] = []
     for h in hits:
-        rel = h.path.relative_to(CHROMATIN_PATH) if h.path.is_relative_to(CHROMATIN_PATH) else h.path
+        rel = (
+            h.path.relative_to(CHROMATIN_PATH) if h.path.is_relative_to(CHROMATIN_PATH) else h.path
+        )
         sources_lines.append(f"- [{rel.stem}]({rel}) (relevance: {h.score:.0f})")
 
     industry = _detect_industry(all_snippets)
@@ -238,9 +240,13 @@ def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
             seen.add(short)
             recent_lines.append(f"- {short}")
 
-    oops_lines = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(oops))
+    oops_lines = "\n".join(f"  {i + 1}. {o}" for i, o in enumerate(oops))
     sources_md = "\n".join(sources_lines[:8])
-    recent_md = "\n".join(recent_lines) if recent_lines else "- No recent news extracted from knowledge base."
+    recent_md = (
+        "\n".join(recent_lines)
+        if recent_lines
+        else "- No recent news extracted from knowledge base."
+    )
 
     return f"""# Client Brief: {company}
 

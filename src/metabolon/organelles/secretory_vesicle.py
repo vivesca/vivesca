@@ -83,7 +83,7 @@ def _is_cooled_down(key: str, cooldown_seconds: int) -> bool:
     if _COOLDOWN_FILE.exists():
         try:
             stamps = json.loads(_COOLDOWN_FILE.read_text())
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):
             stamps = {}
     last_sent = stamps.get(key, 0)
     if now - last_sent < cooldown_seconds:

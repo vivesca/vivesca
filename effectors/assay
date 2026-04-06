@@ -40,10 +40,12 @@ def _ensure_metabolon_imports() -> None:
     from organelles.chemoreceptor import _get_token as token_fn
 
     from metabolon.locus import meal_plan
+
     _fetch = fetch_fn
     _get_token = token_fn
     if MEAL_PLAN is None:
         MEAL_PLAN = meal_plan
+
 
 VAULT = Path.home() / "epigenome" / "chromatin"
 EXPERIMENT_DIR = VAULT / "experiments"
@@ -53,10 +55,40 @@ EXPERIMENT_DIR = VAULT / "experiments"
 # ---------------------------------------------------------------------------
 
 _STOP_WORDS = {
-    "the", "and", "with", "from", "that", "this", "will", "days", "within",
-    "improves", "does", "have", "been", "more", "less", "over", "into",
-    "for", "not", "but", "are", "was", "were", "its", "via", "per",
-    "after", "before", "during", "each", "when", "than", "then", "also",
+    "the",
+    "and",
+    "with",
+    "from",
+    "that",
+    "this",
+    "will",
+    "days",
+    "within",
+    "improves",
+    "does",
+    "have",
+    "been",
+    "more",
+    "less",
+    "over",
+    "into",
+    "for",
+    "not",
+    "but",
+    "are",
+    "was",
+    "were",
+    "its",
+    "via",
+    "per",
+    "after",
+    "before",
+    "during",
+    "each",
+    "when",
+    "than",
+    "then",
+    "also",
 }
 
 _DOMAIN_SYNONYMS: dict[str, list[str]] = {
@@ -100,6 +132,7 @@ def _extract_keywords(name: str, hypothesis: str) -> list[str]:
 
     return base_keywords + extras
 
+
 # ---------------------------------------------------------------------------
 # Oura helpers
 # ---------------------------------------------------------------------------
@@ -139,8 +172,12 @@ def summarise_period(data: dict[str, dict]) -> dict[str, Any]:
         "days": len(data),
         "sleep_avg": round(sum(sleep_scores) / len(sleep_scores), 1) if sleep_scores else None,
         "sleep_range": f"{min(sleep_scores)}-{max(sleep_scores)}" if sleep_scores else None,
-        "readiness_avg": round(sum(readiness_scores) / len(readiness_scores), 1) if readiness_scores else None,
-        "readiness_range": f"{min(readiness_scores)}-{max(readiness_scores)}" if readiness_scores else None,
+        "readiness_avg": round(sum(readiness_scores) / len(readiness_scores), 1)
+        if readiness_scores
+        else None,
+        "readiness_range": f"{min(readiness_scores)}-{max(readiness_scores)}"
+        if readiness_scores
+        else None,
         "hrv_balance_avg": round(sum(hrv_vals) / len(hrv_vals), 1) if hrv_vals else None,
         "hrv_balance_range": f"{min(hrv_vals)}-{max(hrv_vals)}" if hrv_vals else None,
     }
@@ -273,21 +310,23 @@ watch_keywords: {watch_keywords_yaml}
 
 ## Protocol
 - **Duration:** {days} days ({start} to {end})
-- **Intervention:** {args.intervention or 'TBD'}
+- **Intervention:** {args.intervention or "TBD"}
 - **Metrics:** Oura sleep score, readiness score, HRV balance
 
 ## Baseline ({baseline_start} to {baseline_end})
-- Sleep: avg {baseline_summary['sleep_avg']}, range {baseline_summary['sleep_range']}
-- Readiness: avg {baseline_summary['readiness_avg']}, range {baseline_summary['readiness_range']}
-- HRV balance: avg {baseline_summary['hrv_balance_avg']}, range {baseline_summary['hrv_balance_range']}
-- Days with data: {baseline_summary['days']}
+- Sleep: avg {baseline_summary["sleep_avg"]}, range {baseline_summary["sleep_range"]}
+- Readiness: avg {baseline_summary["readiness_avg"]}, range {baseline_summary["readiness_range"]}
+- HRV balance: avg {baseline_summary["hrv_balance_avg"]}, range {baseline_summary["hrv_balance_range"]}
+- Days with data: {baseline_summary["days"]}
 
 ## Check-ins
 """
 
     path.write_text(content)
     print(f"Created: {path}")
-    print(f"Baseline: sleep {baseline_summary['sleep_avg']}, readiness {baseline_summary['readiness_avg']}, HRV balance {baseline_summary['hrv_balance_avg']}")
+    print(
+        f"Baseline: sleep {baseline_summary['sleep_avg']}, readiness {baseline_summary['readiness_avg']}, HRV balance {baseline_summary['hrv_balance_avg']}"
+    )
     print(f"Experiment runs {start} to {end} ({days} days)")
     print(f"Watch keywords: {', '.join(watch_keywords)}")
 
@@ -384,7 +423,9 @@ def cmd_close(args: argparse.Namespace) -> None:
     cross_linked: list[str] = []
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("> **Intake logged:**") or stripped.startswith("> **Symptom logged:**"):
+        if stripped.startswith("> **Intake logged:**") or stripped.startswith(
+            "> **Symptom logged:**"
+        ):
             cross_linked.append(stripped)
 
     cross_linked_section = ""

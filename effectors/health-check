@@ -37,7 +37,9 @@ def _run_sopor() -> list[dict] | None:
     try:
         result = subprocess.run(
             [sopor_path, "trend", "--days", "3", "--json"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         if result.returncode != 0:
             return None
@@ -78,6 +80,7 @@ def _read_oura_api() -> list[dict] | None:
         return None
     try:
         from urllib.request import Request, urlopen
+
         end = datetime.now().strftime("%Y-%m-%d")
         start = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
         url = f"https://api.ouraring.com/v2/usercollection/daily_sleep?start_date={start}&end_date={end}"
@@ -132,7 +135,11 @@ def classify(metrics: dict) -> str:
     hrv = metrics.get("hrv", 40)
     if readiness < THRESHOLD_READINESS_RED or sleep_hours < 4.5:
         return "red"
-    if readiness < THRESHOLD_READINESS_YELLOW or sleep_hours < THRESHOLD_SLEEP_YELLOW or hrv < THRESHOLD_HRV_YELLOW:
+    if (
+        readiness < THRESHOLD_READINESS_YELLOW
+        or sleep_hours < THRESHOLD_SLEEP_YELLOW
+        or hrv < THRESHOLD_HRV_YELLOW
+    ):
         return "yellow"
     return "green"
 
@@ -152,17 +159,27 @@ def format_status(metrics: dict, status: str, use_json: bool = False) -> str:
         advisories.append("Sleep debt — prioritize early bedtime.")
 
     if use_json:
-        return json.dumps({
-            "status": status,
-            "date": date_str,
-            "readiness": readiness,
-            "sleep_hours": sleep_hours,
-            "sleep_score": sleep_score,
-            "hrv": hrv,
-            "advisories": advisories,
-        }, indent=2)
+        return json.dumps(
+            {
+                "status": status,
+                "date": date_str,
+                "readiness": readiness,
+                "sleep_hours": sleep_hours,
+                "sleep_score": sleep_score,
+                "hrv": hrv,
+                "advisories": advisories,
+            },
+            indent=2,
+        )
 
-    parts = [f"[{status.upper()}", f"{date_str}]", f"readiness={readiness}", f"sleep={sleep_hours}h", f"sleep_score={sleep_score}", f"hrv={hrv}"]
+    parts = [
+        f"[{status.upper()}",
+        f"{date_str}]",
+        f"readiness={readiness}",
+        f"sleep={sleep_hours}h",
+        f"sleep_score={sleep_score}",
+        f"hrv={hrv}",
+    ]
     line = " ".join(parts)
     if advisories:
         line += "  " + " ".join(advisories)
@@ -170,9 +187,13 @@ def format_status(metrics: dict, status: str, use_json: bool = False) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="One-line health status from sleep/HRV/readiness data.")
+    parser = argparse.ArgumentParser(
+        description="One-line health status from sleep/HRV/readiness data."
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--days", type=int, default=3, help="Days of history to consider (default: 3)")
+    parser.add_argument(
+        "--days", type=int, default=3, help="Days of history to consider (default: 3)"
+    )
     args = parser.parse_args(argv)
 
     # Try data sources in order

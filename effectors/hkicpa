@@ -31,20 +31,25 @@ def ab(*args: str) -> None:
 
 def get_password() -> str:
     import shutil
+
     user = os.environ.get("USER", "terry")
     if shutil.which("secret-tool"):
         pw = run(f"secret-tool lookup service hkicpa account {user} 2>/dev/null")
         if pw:
             return pw
         print("No HKICPA password in keyring.", file=sys.stderr)
-        print(f"  secret-tool store --label='HKICPA' service hkicpa account {user}", file=sys.stderr)
+        print(
+            f"  secret-tool store --label='HKICPA' service hkicpa account {user}", file=sys.stderr
+        )
         sys.exit(1)
     elif shutil.which("security"):
         pw = run(f"security find-generic-password -s hkicpa -a {user} -w 2>/dev/null")
         if pw:
             return pw
         print("No HKICPA password in keychain.", file=sys.stderr)
-        print(f"  security add-generic-password -s hkicpa -a {user} -w <password>", file=sys.stderr)
+        print(
+            f"  security add-generic-password -s hkicpa -a {user} -w <password>", file=sys.stderr
+        )
         sys.exit(1)
     else:
         print("No supported secret store found (need secret-tool or security).", file=sys.stderr)

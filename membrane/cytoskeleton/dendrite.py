@@ -690,7 +690,7 @@ def mod_ligation(data):
             if time.time() - last < 60:
                 subprocess.run(["git", "-C", repo_root, "add", "-A"], capture_output=True)
                 return
-    except ValueError, OSError:
+    except (ValueError, OSError):
         pass
 
     try:
@@ -1236,7 +1236,7 @@ def mod_receptome_sync(data):
             last = float(marker.read_text().strip())
             if now - last < 2.0:
                 return
-        except ValueError, OSError:
+        except (ValueError, OSError):
             pass
 
     try:
@@ -1461,7 +1461,7 @@ def mod_antisera_discovery(data):
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         sys.exit(0)
 
     tool = data.get("tool", "")

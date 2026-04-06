@@ -53,9 +53,7 @@ def _which(name: str) -> str | None:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Slim LLM CLI — routes prompts through channel."
-    )
+    parser = argparse.ArgumentParser(description="Slim LLM CLI — routes prompts through channel.")
     parser.add_argument("prompt", nargs="?", help="Prompt text (or pipe via stdin)")
     parser.add_argument("--model", help="Model override (haiku/sonnet/opus or full id)")
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")

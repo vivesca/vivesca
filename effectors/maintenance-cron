@@ -93,10 +93,7 @@ def check_pyright(dry_run: bool, verbose: bool) -> tuple[bool, int]:
         if error_count == 0:
             diags = data.get("generalDiagnostics", [])
             if isinstance(diags, list):
-                error_count = sum(
-                    1 for d in diags
-                    if d.get("severity") == "error"
-                )
+                error_count = sum(1 for d in diags if d.get("severity") == "error")
     except (json.JSONDecodeError, AttributeError, TypeError):
         if verbose:
             print("  Could not parse pyright JSON output")
@@ -146,9 +143,7 @@ def check_effector_health(
 
     # Collect candidate effectors (files only, skip symlinks and directories)
     candidates = sorted(
-        p
-        for p in EFFECTORS_DIR.iterdir()
-        if p.is_file() and not p.name.startswith(".")
+        p for p in EFFECTORS_DIR.iterdir() if p.is_file() and not p.name.startswith(".")
     )
     if not candidates:
         print("  No effectors found.")
@@ -176,10 +171,7 @@ def check_effector_health(
             issues.append(f"read error: {exc}")
 
         # 3. Python files pass ast.parse
-        is_python = (
-            eff.suffix == ".py"
-            or (first_line.startswith("#!") and "python" in first_line)
-        )
+        is_python = eff.suffix == ".py" or (first_line.startswith("#!") and "python" in first_line)
         if is_python:
             try:
                 ast.parse(eff.read_text(encoding="utf-8", errors="replace"))
@@ -252,9 +244,7 @@ def main() -> int:
 
     pyright_pass, pyright_errors = check_pyright(args.dry_run, args.verbose)
     ruff_pass, ruff_issues = check_ruff(args.dry_run, args.verbose)
-    health_pass, health_ok, health_total = check_effector_health(
-        args.dry_run, args.verbose
-    )
+    health_pass, health_ok, health_total = check_effector_health(args.dry_run, args.verbose)
 
     if not pyright_pass:
         all_pass = False

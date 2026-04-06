@@ -35,7 +35,7 @@ def normalize(text: str) -> str:
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         return
 
     prompt = data.get("prompt", "")
@@ -51,7 +51,7 @@ def main():
 
     try:
         triggers = json.load(TRIGGERS_FILE.open())
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return
 
     prompt_norm = normalize(prompt)

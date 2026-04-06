@@ -65,7 +65,7 @@ def load_state() -> dict:
     if STATE_FILE.exists():
         try:
             return json.loads(STATE_FILE.read_text())
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):
             pass
     return {}
 
@@ -118,7 +118,7 @@ def main():
 
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         sys.exit(0)
 
     # Only care about publish skill invocations

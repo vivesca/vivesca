@@ -30,32 +30,84 @@ MEMORY_DIR = _CLAUDE_PROJ_DIR / f"-{_HOME_STEM}" / "memory"
 # Behavioral axes — feedbacks that pull on the same dimension
 AXES = {
     "autonomy": [
-        "autonomous", "ask", "confirm", "permission", "just do", "stop asking",
-        "act and report", "gated", "hold", "judgment", "taste", "calibrat",
+        "autonomous",
+        "ask",
+        "confirm",
+        "permission",
+        "just do",
+        "stop asking",
+        "act and report",
+        "gated",
+        "hold",
+        "judgment",
+        "taste",
+        "calibrat",
     ],
     "verbosity": [
-        "terse", "concise", "verbose", "summary", "summariz", "detail",
-        "explain", "brief", "short",
+        "terse",
+        "concise",
+        "verbose",
+        "summary",
+        "summariz",
+        "detail",
+        "explain",
+        "brief",
+        "short",
     ],
     "speed_vs_quality": [
-        "two-minute", "immediately", "quick", "fast", "careful", "thorough",
-        "verify", "validate", "check", "research before",
+        "two-minute",
+        "immediately",
+        "quick",
+        "fast",
+        "careful",
+        "thorough",
+        "verify",
+        "validate",
+        "check",
+        "research before",
     ],
     "scope": [
-        "full scope", "comprehensive", "minimal", "simple", "over-engineer",
-        "scope", "cautious", "aggressive", "hedge",
+        "full scope",
+        "comprehensive",
+        "minimal",
+        "simple",
+        "over-engineer",
+        "scope",
+        "cautious",
+        "aggressive",
+        "hedge",
     ],
     "routing": [
-        "sonnet", "opus", "haiku", "opencode", "gemini", "codex", "delegate",
-        "subagent", "model",
+        "sonnet",
+        "opus",
+        "haiku",
+        "opencode",
+        "gemini",
+        "codex",
+        "delegate",
+        "subagent",
+        "model",
     ],
     "capture_vs_flow": [
-        "capture", "save", "remember", "flow", "thread", "energy",
-        "don't cut", "immediately", "ship",
+        "capture",
+        "save",
+        "remember",
+        "flow",
+        "thread",
+        "energy",
+        "don't cut",
+        "immediately",
+        "ship",
     ],
     "intervention": [
-        "nag", "nudge", "flag", "alert", "silent", "autonomic",
-        "self-heal", "major the major",
+        "nag",
+        "nudge",
+        "flag",
+        "alert",
+        "silent",
+        "autonomic",
+        "self-heal",
+        "major the major",
     ],
 }
 
@@ -79,15 +131,17 @@ def load_feedback_memories() -> list[dict]:
         else:
             meta, body = {}, text
 
-        memories.append({
-            "file": path.name,
-            "name": meta.get("name", path.stem),
-            "description": meta.get("description", ""),
-            "body": body,
-            "full_text": (
-                f"{meta.get('name', '')} {meta.get('description', '')} {body}"
-            ).lower(),
-        })
+        memories.append(
+            {
+                "file": path.name,
+                "name": meta.get("name", path.stem),
+                "description": meta.get("description", ""),
+                "body": body,
+                "full_text": (
+                    f"{meta.get('name', '')} {meta.get('description', '')} {body}"
+                ).lower(),
+            }
+        )
     return memories
 
 
@@ -111,21 +165,31 @@ def detect_tensions(clusters: dict[str, list[dict]]) -> list[dict]:
         hold = []
         for mem in clusters["autonomy"]:
             t = mem["full_text"]
-            if any(w in t for w in ["just do", "stop asking", "act and report",
-                                     "don't ask", "autonomous", "obvious"]):
+            if any(
+                w in t
+                for w in [
+                    "just do",
+                    "stop asking",
+                    "act and report",
+                    "don't ask",
+                    "autonomous",
+                    "obvious",
+                ]
+            ):
                 do_it.append(mem)
-            if any(w in t for w in ["hold", "gate", "judgment", "calibrat",
-                                     "confirm", "taste"]):
+            if any(w in t for w in ["hold", "gate", "judgment", "calibrat", "confirm", "taste"]):
                 hold.append(mem)
         if do_it and hold:
-            tensions.append({
-                "axis": "autonomy",
-                "pull_a": [m["file"] for m in do_it],
-                "pull_b": [m["file"] for m in hold],
-                "label_a": "act immediately",
-                "label_b": "gate on judgment",
-                "count": len(do_it) + len(hold),
-            })
+            tensions.append(
+                {
+                    "axis": "autonomy",
+                    "pull_a": [m["file"] for m in do_it],
+                    "pull_b": [m["file"] for m in hold],
+                    "label_a": "act immediately",
+                    "label_b": "gate on judgment",
+                    "count": len(do_it) + len(hold),
+                }
+            )
 
     # Speed vs quality
     if "speed_vs_quality" in clusters:
@@ -133,21 +197,24 @@ def detect_tensions(clusters: dict[str, list[dict]]) -> list[dict]:
         careful = []
         for mem in clusters["speed_vs_quality"]:
             t = mem["full_text"]
-            if any(w in t for w in ["two-minute", "immediately", "quick",
-                                     "fast", "don't flag"]):
+            if any(w in t for w in ["two-minute", "immediately", "quick", "fast", "don't flag"]):
                 fast.append(mem)
-            if any(w in t for w in ["verify", "validate", "research before",
-                                     "check", "careful", "thorough"]):
+            if any(
+                w in t
+                for w in ["verify", "validate", "research before", "check", "careful", "thorough"]
+            ):
                 careful.append(mem)
         if fast and careful:
-            tensions.append({
-                "axis": "speed_vs_quality",
-                "pull_a": [m["file"] for m in fast],
-                "pull_b": [m["file"] for m in careful],
-                "label_a": "act fast",
-                "label_b": "verify first",
-                "count": len(fast) + len(careful),
-            })
+            tensions.append(
+                {
+                    "axis": "speed_vs_quality",
+                    "pull_a": [m["file"] for m in fast],
+                    "pull_b": [m["file"] for m in careful],
+                    "label_a": "act fast",
+                    "label_b": "verify first",
+                    "count": len(fast) + len(careful),
+                }
+            )
 
     # Capture vs flow
     if "capture_vs_flow" in clusters:
@@ -155,32 +222,33 @@ def detect_tensions(clusters: dict[str, list[dict]]) -> list[dict]:
         flow = []
         for mem in clusters["capture_vs_flow"]:
             t = mem["full_text"]
-            if any(w in t for w in ["capture", "save", "remember", "ship",
-                                     "immediately"]):
+            if any(w in t for w in ["capture", "save", "remember", "ship", "immediately"]):
                 capture.append(mem)
             if any(w in t for w in ["flow", "thread", "energy", "don't cut"]):
                 flow.append(mem)
         if capture and flow:
-            tensions.append({
-                "axis": "capture_vs_flow",
-                "pull_a": [m["file"] for m in capture],
-                "pull_b": [m["file"] for m in flow],
-                "label_a": "capture everything",
-                "label_b": "protect flow",
-                "count": len(capture) + len(flow),
-            })
+            tensions.append(
+                {
+                    "axis": "capture_vs_flow",
+                    "pull_a": [m["file"] for m in capture],
+                    "pull_b": [m["file"] for m in flow],
+                    "label_a": "capture everything",
+                    "label_b": "protect flow",
+                    "count": len(capture) + len(flow),
+                }
+            )
 
     return tensions
 
 
 # ── Terminal formatting ──────────────────────────────────────────────────────
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
-CYAN   = "\033[36m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+CYAN = "\033[36m"
 YELLOW = "\033[33m"
-RED    = "\033[31m"
-GREEN  = "\033[32m"
-DIM    = "\033[2m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+DIM = "\033[2m"
 
 
 def print_clusters(clusters: dict[str, list[dict]]) -> None:
@@ -205,9 +273,9 @@ def reconcile_tension(tension: dict, memories: list[dict]) -> str:
     context = "\n\n".join(context_parts)
     prompt = f"""You are reviewing feedback memories that may contradict each other.
 
-Axis: {tension['axis']}
-Side A ({tension['label_a']}): {', '.join(tension['pull_a'][:5])}
-Side B ({tension['label_b']}): {', '.join(tension['pull_b'][:5])}
+Axis: {tension["axis"]}
+Side A ({tension["label_a"]}): {", ".join(tension["pull_a"][:5])}
+Side B ({tension["label_b"]}): {", ".join(tension["pull_b"][:5])}
 
 Full text of memories:
 {context}
@@ -222,14 +290,14 @@ If FALSE POSITIVE or ALREADY RESOLVED, explain in one sentence why.
 
 Format: TYPE: explanation"""
 
-    env_clean = {
-        k: v for k, v in __import__("os").environ.items()
-        if k != "CLAUDECODE"
-    }
+    env_clean = {k: v for k, v in __import__("os").environ.items() if k != "CLAUDECODE"}
     try:
         result = subprocess.run(
             ["channel", "glm", "-p", prompt],
-            capture_output=True, text=True, timeout=60, env=env_clean,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env_clean,
         )
         return result.stdout.strip() or result.stderr.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
@@ -242,14 +310,17 @@ def print_tensions(tensions: list[dict]) -> None:
         return
     print(f"\n{BOLD}{RED}Tension pairs:{RESET}")
     for t in tensions:
-        print(f"\n  {BOLD}{YELLOW}{t['axis']}{RESET} "
-              f"({t['count']} memories in tension)")
-        print(f"  {GREEN}← {t['label_a']}{RESET}: "
-              f"{', '.join(t['pull_a'][:3])}"
-              f"{'...' if len(t['pull_a']) > 3 else ''}")
-        print(f"  {RED}→ {t['label_b']}{RESET}: "
-              f"{', '.join(t['pull_b'][:3])}"
-              f"{'...' if len(t['pull_b']) > 3 else ''}")
+        print(f"\n  {BOLD}{YELLOW}{t['axis']}{RESET} ({t['count']} memories in tension)")
+        print(
+            f"  {GREEN}← {t['label_a']}{RESET}: "
+            f"{', '.join(t['pull_a'][:3])}"
+            f"{'...' if len(t['pull_a']) > 3 else ''}"
+        )
+        print(
+            f"  {RED}→ {t['label_b']}{RESET}: "
+            f"{', '.join(t['pull_b'][:3])}"
+            f"{'...' if len(t['pull_b']) > 3 else ''}"
+        )
 
 
 def main() -> None:
@@ -264,12 +335,18 @@ def main() -> None:
 
     if "--json" in sys.argv:
         import json
+
         tensions = detect_tensions(clusters)
-        print(json.dumps({
-            "total": len(memories),
-            "clusters": {k: [m["file"] for m in v] for k, v in clusters.items()},
-            "tensions": tensions,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "total": len(memories),
+                    "clusters": {k: [m["file"] for m in v] for k, v in clusters.items()},
+                    "tensions": tensions,
+                },
+                indent=2,
+            )
+        )
         return
 
     print_clusters(clusters)

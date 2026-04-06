@@ -106,7 +106,6 @@ def _scan_directory(
     return lines
 
 
-
 def _scan_resource_functions(directory: Path) -> list[str]:
     """Scan resources directory for express_* functions (not @resource-decorated)."""
     lines: list[str] = []
