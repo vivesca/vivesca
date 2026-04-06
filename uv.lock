@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -2040,6 +2040,7 @@ dependencies = [
     { name = "telethon" },
     { name = "temporalio" },
     { name = "trafilatura" },
+    { name = "trogocytosis" },
     { name = "typer" },
 ]
 
@@ -2087,6 +2088,7 @@ requires-dist = [
     { name = "telethon", specifier = ">=1.36" },
     { name = "temporalio", specifier = ">=1.24" },
     { name = "trafilatura", specifier = ">=1.9" },
+    { name = "trogocytosis", specifier = ">=0.7" },
     { name = "typer", specifier = ">=0.9" },
 ]
 
@@ -2101,8 +2103,8 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-randomly", specifier = ">=4.0.1" },
-    { name = "pytest-timeout", specifier = ">=2.4.0" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pytest-timeout", specifier = ">=2.4" },
+    { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "ruff" },
     { name = "ty", specifier = ">=0.0.28" },
 ]
@@ -3862,6 +3864,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/06/25/e3ebeefdebfdfae8c4a4396f5a6ea51fc6fa0831d63ce338e5090a8003dc/trafilatura-2.0.0.tar.gz", hash = "sha256:ceb7094a6ecc97e72fea73c7dba36714c5c5b577b6470e4520dca893706d6247", size = 253404, upload-time = "2024-12-03T15:23:24.16Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/b6/097367f180b6383a3581ca1b86fcae284e52075fa941d1232df35293363c/trafilatura-2.0.0-py3-none-any.whl", hash = "sha256:77eb5d1e993747f6f20938e1de2d840020719735690c840b9a1024803a4cd51d", size = 132557, upload-time = "2024-12-03T15:23:21.41Z" },
+]
+
+[[package]]
+name = "trogocytosis"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastmcp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/8f/4837d3fbbb2d58a4a9de902b9ab992e92b40b986eafe452d47e8791db541/trogocytosis-0.7.0.tar.gz", hash = "sha256:cdb41cb118a87ae41c2c7ce1013d2034bf38b166c7c1a19ff85b56e0be92acaf", size = 12364, upload-time = "2026-04-05T07:41:06.054Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/b2/cfd93c08361286d2cf9995671c764d79adabb641e22126a341957b32eb3c/trogocytosis-0.7.0-py3-none-any.whl", hash = "sha256:eaad699b5bdf1a768eabc4cfbe0eacb4cf4a6aa4540a34eb1922af5d0b396ebc", size = 15964, upload-time = "2026-04-05T07:41:04.943Z" },
 ]
 
 [[package]]
