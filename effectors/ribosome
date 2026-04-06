@@ -5,6 +5,7 @@
 #   ribosome "Write tests for metabolon/foo.py"        # bare (default, fast)
 #   ribosome --full "Task needing MCP/skills/context"   # full organism access
 #   ribosome --batch metabolon/bar.py metabolon/baz.py  # sequential test gen
+#   ribosome --explore "How does MCP registration work?" # codebase exploration (no writes)
 #   ribosome --quiet "Task"                            # suppress all output, exit code only
 #   ribosome --json "Task"                             # output result as JSON
 #   ribosome summary [--recent N] [--json]              # show provider stats
@@ -28,6 +29,7 @@ FULL_REQUESTED=false
 FORCE=false
 QUIET=false
 JSON_OUTPUT=false
+EXPLORE=false
 SUMMARY=false
 SUPERVISED=false
 RECENT=0
@@ -175,11 +177,18 @@ while [[ "${1:-}" == --* ]]; do
     --json) JSON_OUTPUT=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
+    --explore) EXPLORE=true; shift ;;
     --force) FORCE=true; shift ;;
     -h|--help) head -11 "$0" | tail -10 | sed 's/^# */  /'; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
+
+# Explore mode defaults: bare + capped turns (exploration is read-only, converges fast)
+if $EXPLORE; then
+  BARE=true
+  [[ $MAX_TURNS -gt 30 ]] && MAX_TURNS=30
+fi
 
 # Guard: --full uses Opus (expensive). Require --force for non-interactive use.
 if $FULL_REQUESTED && ! $FORCE; then
@@ -224,6 +233,11 @@ if [[ "$PROVIDER" == "zhipu" && -z "${RIBOSOME_PROVIDER:-}" && "$FULL_REQUESTED"
 fi
 _CLI="claude"
 _configure_provider "$PROVIDER"
+
+# Explore mode: downgrade to cheap model tier (separate rate-limit pool from GLM-5.1)
+if $EXPLORE && [[ "$PROVIDER" == "zhipu" ]]; then
+  _OPUS="GLM-4.5-air"; _SONNET="GLM-4.5-air"
+fi
 
 # Fallback priority: strongest model first, free before paid at same tier.
 # Iterates list, preflights API providers, returns first healthy one.
@@ -317,6 +331,40 @@ _run_ribosome() {
     prompt="$(cat "$_coaching_tmp")"
     rm -f "$_coaching_tmp"
   fi
+
+  # Explore mode: wrap user query in exploration system prompt
+  if $EXPLORE; then
+    local _explore_sys
+    _explore_sys="$(cat <<'EXPLORE_SYS'
+<mode>explore</mode>
+You are an exploration agent. Your job is to search a codebase and return structured findings. You do NOT write or modify code.
+
+## Rules
+- Use Grep, Glob, Read, and Bash (read-only commands like ls, wc, file) to explore
+- Search breadth-first: cast a wide net with Glob/Grep, then drill into the most relevant hits
+- Follow references across files — if a function is imported, find where it's defined
+- Stop when you have enough signal to answer the query — don't exhaustively read every file
+- Budget: aim to finish in ≤15 tool calls. Use parallel tool calls when searches are independent
+
+## Output format
+Return findings as a structured report:
+
+### Summary
+1-3 sentence answer to the query.
+
+### Files
+- `path/to/file.ext:L10-L25` — what this section does / why it matters
+
+### Patterns
+Key patterns, conventions, or architectural decisions found.
+
+### Open questions
+Anything you couldn't determine from the code alone.
+EXPLORE_SYS
+)"
+    prompt="${_explore_sys}"$'\n\n'"## Query"$'\n'"${prompt}"
+  fi
+
   local args=(--print --no-session-persistence --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
   if $SUPERVISED; then
@@ -551,10 +599,10 @@ _run_ribosome() {
     [[ -z "$tests_failed" ]] && tests_failed=0
   fi
 
-  # Auto-merge to main if ribosome succeeded and tests passed
+  # Auto-merge to main if ribosome succeeded and tests passed (skip in explore mode)
   local _current_branch
   _current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  if [[ $exit_code -eq 0 && $pytest_exit -eq 0 && "$_current_branch" == ribosome-* ]]; then
+  if ! $EXPLORE && [[ $exit_code -eq 0 && $pytest_exit -eq 0 && "$_current_branch" == ribosome-* ]]; then
     $QUIET || echo "[auto-merge] branch $_current_branch -> main (exit=0, tests passed)" >&2
     if git checkout main 2>/dev/null && git merge --no-edit "$_current_branch" 2>/dev/null; then
       git push origin main 2>/dev/null && $QUIET || echo "[auto-merge] pushed to main" >&2
@@ -566,8 +614,10 @@ _run_ribosome() {
 
   # Log result with enriched fields
   local task_id="${RIBOSOME_TASK_ID:-}"
-  printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$duration" "$exit_code" "$MAX_TURNS" \
+  local _mode="build"
+  $EXPLORE && _mode="explore"
+  printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$_mode" "$duration" "$exit_code" "$MAX_TURNS" \
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$RIBOSOME_LOG"
