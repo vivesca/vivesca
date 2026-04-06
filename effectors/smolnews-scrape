@@ -1,0 +1,221 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["aiohttp", "beautifulsoup4", "tqdm", "lxml"]
+# ///
+"""Scrape all smol AI News editions from news.smol.ai into JSONL."""
+
+import argparse
+import asyncio
+import json
+import os
+import re
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+
+import aiohttp
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+
+RSS_URL = "https://news.smol.ai/rss.xml"
+ISSUES_URL = "https://news.smol.ai/issues/"
+BASE_URL = "https://news.smol.ai"
+EDITION_RE = re.compile(r"/issues/[\w-]+$")
+
+
+def load_existing_urls(path: str) -> set[str]:
+    urls: set[str] = set()
+    if not os.path.exists(path):
+        return urls
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                if "url" in record:
+                    urls.add(record["url"])
+            except json.JSONDecodeError:
+                continue
+    return urls
+
+
+async def fetch_rsis_urls(session: aiohttp.ClientSession) -> list[str]:
+    """Prefer RSS feed — structured, fast, has dates."""
+    async with session.get(RSS_URL) as resp:
+        text = await resp.text()
+    root = ET.fromstring(text)
+    items = root.findall(".//item")
+    urls = []
+    for item in items:
+        link = item.findtext("link", "").rstrip("/")
+        if link and "/issues/" in link:
+            urls.append(link)
+    return urls
+
+
+async def fetch_issues_page_urls(session: aiohttp.ClientSession) -> list[str]:
+    """Fallback: scrape the /issues/ listing page."""
+    async with session.get(ISSUES_URL) as resp:
+        html = await resp.text()
+    soup = BeautifulSoup(html, "lxml")
+    links = soup.find_all("a", href=True)
+    urls = []
+    seen = set()
+    for a in links:
+        href = a["href"]
+        if not EDITION_RE.match(href):
+            continue
+        full = BASE_URL + href if href.startswith("/") else href
+        full = full.rstrip("/")
+        if full not in seen:
+            seen.add(full)
+            urls.append(full)
+    return urls
+
+
+def parse_date_from_url(url: str) -> str:
+    """Extract ISO date from edition URL like …/issues/26-04-03-not-much."""
+    m = re.search(r"/issues/(\d{2})-(\d{2})-(\d{2})-", url)
+    if not m:
+        return ""
+    yy, mm, dd = m.groups()
+    return f"20{yy}-{mm}-{dd}"
+
+
+def extract_content(html: str) -> tuple[str, str]:
+    soup = BeautifulSoup(html, "lxml")
+
+    # Title: text in <h1> minus the date sub-<div>
+    h1 = soup.find("h1")
+    if h1:
+        date_div = h1.find("div")
+        if date_div:
+            date_div.extract()
+        title = h1.get_text(strip=True)
+    else:
+        title_tag = soup.find("title")
+        title = title_tag.get_text(strip=True) if title_tag else ""
+
+    # Body: <article> tag contains the newsletter content
+    article = soup.select_one("article")
+    if article:
+        body = article.get_text(separator="\n", strip=True)
+    else:
+        main = soup.select_one("main")
+        body = main.get_text(separator="\n", strip=True) if main else ""
+
+    return title, body
+
+
+async def fetch_edition(
+    session: aiohttp.ClientSession,
+    url: str,
+    semaphore: asyncio.Semaphore,
+) -> dict | None:
+    async with semaphore:
+        try:
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                html = await resp.text()
+        except (aiohttp.ClientError, TimeoutError):
+            return None
+
+    title, body = extract_content(html)
+    date = parse_date_from_url(url)
+    if not date:
+        # Try <time> tag as fallback
+        soup = BeautifulSoup(html, "lxml")
+        time_tag = soup.find("time")
+        if time_tag and time_tag.get("datetime"):
+            date = time_tag["datetime"][:10]
+
+    return {
+        "body": body,
+        "date": date,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "title": title,
+        "url": url,
+    }
+
+
+async def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Scrape smol AI News editions from news.smol.ai"
+    )
+    parser.add_argument(
+        "--output", default="smolnews.jsonl", help="JSONL output path"
+    )
+    parser.add_argument(
+        "--concurrency", type=int, default=3, help="Max concurrent requests"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Limit editions to fetch (0=all)"
+    )
+    args = parser.parse_args()
+
+    already_fetched = load_existing_urls(args.output)
+    write_lock = asyncio.Lock()
+
+    async with aiohttp.ClientSession(
+        headers={"User-Agent": "smolnews-scrape/1.0 (newsletter archiver)"}
+    ) as session:
+        # Prefer RSS, fall back to issues listing
+        print("Discovering editions via RSS feed...")
+        try:
+            all_urls = await fetch_rsis_urls(session)
+        except Exception:
+            print("RSS failed, falling back to /issues/ page...")
+            all_urls = await fetch_issues_page_urls(session)
+
+        print(f"Found {len(all_urls)} editions in feed.")
+
+        to_fetch = [url for url in all_urls if url not in already_fetched]
+
+        if args.limit > 0:
+            to_fetch = to_fetch[: args.limit]
+
+        if not to_fetch:
+            print(
+                f"Nothing to do — {len(already_fetched)} editions already in file."
+            )
+            return
+
+        print(
+            f"{len(already_fetched)} already fetched, {len(to_fetch)} to scrape."
+        )
+
+        semaphore = asyncio.Semaphore(args.concurrency)
+        batch_size = 20
+        fetched_count = 0
+
+        with tqdm(total=len(to_fetch), desc="Scraping") as progress_bar:
+            for batch_start in range(0, len(to_fetch), batch_size):
+                batch = to_fetch[batch_start : batch_start + batch_size]
+                tasks = [
+                    fetch_edition(session, url, semaphore) for url in batch
+                ]
+                results = await asyncio.gather(*tasks)
+
+                records = [r for r in results if r is not None]
+
+                if records:
+                    async with write_lock:
+                        with open(args.output, "a") as f:
+                            for record in records:
+                                f.write(
+                                    json.dumps(record, sort_keys=True) + "\n"
+                                )
+                    fetched_count += len(records)
+
+                progress_bar.update(len(batch))
+
+    print(f"Done. {fetched_count} editions saved to {args.output}.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
