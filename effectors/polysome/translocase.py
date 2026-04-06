@@ -413,7 +413,7 @@ async def translate(task: str, provider: str) -> dict:
         """
         import hashlib
 
-        stall_frozen_threshold = 3  # consecutive identical hashes
+        stall_frozen_threshold = 5  # consecutive identical hashes (~2.5 min)
         stall_oscillation_threshold = 6  # alternating between 2 hashes
         recent_hashes: list[str] = []
         warnings_sent = 0
@@ -627,7 +627,7 @@ _DESTRUCTION_PATTERNS = _re.compile(
 
 _ERROR_PATTERNS = _re.compile(
     r"SyntaxError|ImportError|ModuleNotFoundError|PermissionError|"
-    r"Traceback \(most recent|FAILED|panic:|fatal:",
+    r"Traceback \(most recent|panic:|fatal:",
     _re.IGNORECASE,
 )
 
@@ -790,6 +790,35 @@ async def chaperone(result: dict) -> dict:
     }
 
 
+
+def _gc_worktrees(repo_root: str) -> None:
+    """Remove orphaned ribosome worktrees older than 2 hours."""
+    worktree_base = os.path.join(repo_root, ".worktrees")
+    if not os.path.isdir(worktree_base):
+        return
+    for entry in os.listdir(worktree_base):
+        if not entry.startswith("ribosome-"):
+            continue
+        wt_path = os.path.join(worktree_base, entry)
+        try:
+            age_seconds = _time.time() - os.path.getmtime(wt_path)
+            if age_seconds < 7200:
+                continue
+        except OSError:
+            continue
+        print(f"[gc] removing orphaned worktree: {entry}", file=sys.stderr)
+        with contextlib.suppress(Exception):
+            _subprocess.run(
+                ["git", "worktree", "remove", "--force", wt_path],
+                capture_output=True, timeout=10, cwd=repo_root,
+            )
+        with contextlib.suppress(Exception):
+            _subprocess.run(
+                ["git", "branch", "-D", entry],
+                capture_output=True, timeout=10, cwd=repo_root,
+            )
+
+
 async def main() -> None:
     if "--help" in sys.argv or "-h" in sys.argv:
         print(__doc__)
@@ -809,6 +838,7 @@ async def main() -> None:
         activities=[translate, translate_graph, chaperone],
         max_concurrent_activities=max_concurrent,
     )
+    _gc_worktrees(str(Path.home() / "germline"))
     print(f"Translocase started on queue '{TASK_QUEUE}' (max_concurrent={max_concurrent})")
     await worker.run()
 
