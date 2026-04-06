@@ -3,6 +3,7 @@
 # Runs daily via supercronic. Personal repos only.
 #
 # Covers: Python version, all pip deps, ganglion worker sync,
+# CC, uv, Rust toolchain, npm globals, Go binaries,
 # pyproject.toml target-version, vivesca restart.
 set -euo pipefail
 
@@ -104,6 +105,75 @@ if ssh -o ConnectTimeout=5 "$GANGLION" true 2>/dev/null; then
 else
     log "WARN: ganglion unreachable, skipping sync"
 fi
+
+# ── 5a. Claude Code ────────────────────────────────────────────────────────
+
+update_claude_code() {
+    local CC_CURRENT CC_LATEST
+    CC_CURRENT=$(claude --version 2>/dev/null | awk '{print $1}')
+    CC_LATEST=$(npm view @anthropic-ai/claude-code version 2>/dev/null)
+    if [ -n "$CC_LATEST" ] && [ "$CC_CURRENT" != "$CC_LATEST" ]; then
+        claude update 2>>"$LOG" && log "CC updated to $CC_LATEST" || log "WARN: CC update failed"
+    fi
+    if ssh -o ConnectTimeout=5 "$GANGLION" true 2>/dev/null; then
+        ssh "$GANGLION" '~/.local/bin/claude update' 2>>"$LOG" && log "Ganglion CC updated" || log "WARN: Ganglion CC update failed"
+    fi
+}
+update_claude_code || log "WARN: Claude Code section failed"
+
+# ── 5b. uv ──────────────────────────────────────────────────────────────────
+
+update_uv() {
+    local UV_CURRENT UV_LATEST
+    UV_CURRENT=$(uv --version 2>/dev/null | awk '{print $2}')
+    UV_LATEST=$(curl -sf https://api.github.com/repos/astral-sh/uv/releases/latest | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -n "$UV_LATEST" ] && [ "$UV_CURRENT" != "$UV_LATEST" ]; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh 2>>"$LOG" && log "uv updated to $UV_LATEST" || log "WARN: uv update failed"
+    fi
+}
+update_uv || log "WARN: uv section failed"
+
+# ── 5c. Rust toolchain ─────────────────────────────────────────────────────
+
+update_rust() {
+    rustup update stable 2>>"$LOG" && log "Rust toolchain updated" || log "WARN: rustup update failed"
+}
+update_rust || log "WARN: Rust section failed"
+
+# ── 5d. npm globals ────────────────────────────────────────────────────────
+
+update_npm_globals() {
+    local pkg CURRENT LATEST
+    for pkg in agent-browser @google/gemini-cli @openai/codex pnpm agnix promptfoo ccusage; do
+        CURRENT=$(npm ls -g "$pkg" --depth=0 2>/dev/null | grep "$pkg@" | sed 's/.*@//')
+        LATEST=$(npm view "$pkg" version 2>/dev/null)
+        if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
+            npm install -g "$pkg@$LATEST" 2>>"$LOG" && log "Updated $pkg to $LATEST" || log "WARN: $pkg update failed"
+        fi
+    done
+}
+update_npm_globals || log "WARN: npm globals section failed"
+
+# ── 5e. Go binaries ────────────────────────────────────────────────────────
+
+update_go_binaries() {
+    local GH_CURRENT GH_LATEST
+    GH_CURRENT=$(gh --version 2>/dev/null | head -1 | awk '{print $3}')
+    GH_LATEST=$(curl -sf https://api.github.com/repos/cli/cli/releases/latest | grep -o '"tag_name":"v[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+    if [ -n "$GH_LATEST" ] && [ "$GH_CURRENT" != "$GH_LATEST" ]; then
+        gh extension upgrade --all 2>>"$LOG" || true
+        log "gh $GH_CURRENT -> $GH_LATEST available (manual upgrade)"
+    fi
+    # op CLI — managed by 1Password, skip auto-update
+}
+update_go_binaries || log "WARN: Go binaries section failed"
+
+# ── 5f. Rust CLIs inventory ────────────────────────────────────────────────
+
+log_rust_cli_inventory() {
+    log "Rust CLIs: $(ls ~/.cargo/bin/ 2>/dev/null | grep -v -e cargo -e rust | wc -l) installed"
+}
+log_rust_cli_inventory || log "WARN: Rust CLI inventory failed"
 
 # ── 7. Update supercronic ─────────────────────────────────────────────────
 
