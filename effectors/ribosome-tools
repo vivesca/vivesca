@@ -1317,7 +1317,7 @@ def parse_log_timestamp(ts_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(ts_str.strip(), "%Y-%m-%d %H:%M:%S")
-    except ValueError, AttributeError:
+    except (ValueError, AttributeError):
         return None
 
 
@@ -1337,7 +1337,7 @@ def scan_log(since: timedelta) -> dict:
 
     try:
         content = LOGFILE.read_text()
-    except PermissionError, OSError, UnicodeDecodeError:
+    except (PermissionError, OSError, UnicodeDecodeError):
         return result
 
     cutoff = datetime.now(UTC).replace(tzinfo=None) - since
@@ -1646,7 +1646,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         entry["exists"] = True
         try:
             text = full_path.read_text()
-        except PermissionError, OSError, UnicodeDecodeError:
+        except (PermissionError, OSError, UnicodeDecodeError):
             results.append(entry)
             continue
 
@@ -1859,7 +1859,7 @@ def read_log_tail(n: int = 50) -> str:
     try:
         lines = LOGFILE.read_text().splitlines()
         return "\n".join(lines[-n:]) if n > 0 else ""
-    except PermissionError, OSError, UnicodeDecodeError:
+    except (PermissionError, OSError, UnicodeDecodeError):
         return ""
 
 
@@ -1872,7 +1872,7 @@ def count_pending_tasks() -> int:
         return 0
     try:
         content = QUEUE_FILE.read_text()
-    except PermissionError, OSError, UnicodeDecodeError:
+    except (PermissionError, OSError, UnicodeDecodeError):
         return 0
     count = 0
     for line in content.splitlines():
@@ -1951,7 +1951,7 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
     if QUEUE_FILE.exists():
         try:
             content = QUEUE_FILE.read_text()
-        except PermissionError, OSError, UnicodeDecodeError:
+        except (PermissionError, OSError, UnicodeDecodeError):
             content = "## Pending\n\n## Done\n"
     else:
         content = "## Pending\n\n## Done\n"
@@ -1964,7 +1964,7 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
 
     try:
         QUEUE_FILE.write_text(content)
-    except PermissionError, OSError:
+    except (PermissionError, OSError):
         return 0
 
     return len(task_lines)
@@ -2350,7 +2350,7 @@ def dash_load_jsonl(window_minutes: int = 60) -> list[dict]:
                     ts = parse_ts(rec.get("ts", ""))
                     if ts >= cutoff:
                         records.append(rec)
-                except json.JSONDecodeError, ValueError:
+                except (json.JSONDecodeError, ValueError):
                     continue
     except OSError:
         pass
@@ -2370,7 +2370,7 @@ def load_all_jsonl() -> list[dict]:
                     continue
                 try:
                     records.append(json.loads(line))
-                except json.JSONDecodeError, ValueError:
+                except (json.JSONDecodeError, ValueError):
                     continue
     except OSError:
         pass
@@ -2383,7 +2383,7 @@ def load_running() -> list[dict]:
         return []
     try:
         return json.loads(RUNNING_JSON_PATH.read_text())
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return []
 
 
@@ -2400,7 +2400,7 @@ def load_cooldowns() -> dict[str, str]:
                 if isinstance(e, dict)
             }
         return {}
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return {}
 
 
@@ -3648,7 +3648,7 @@ def tail_jsonl(file_path: Path, from_byte: int = 0):
                     yield line.strip()
                 else:
                     time.sleep(0.5)
-    except OSError, KeyboardInterrupt:
+    except (OSError, KeyboardInterrupt):
         return
 
 
