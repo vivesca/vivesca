@@ -18,11 +18,17 @@ def _run_ribosome(*args, timeout=10):
     """Run ribosome with args. Short timeout since we expect fast failures (no claude)."""
     env = os.environ.copy()
     env["PATH"] = f"{Path.home() / 'germline' / 'effectors'}:{env.get('PATH', '')}"
-    env.setdefault("ZHIPU_API_KEY", "test-zhipu-key")
-    env.setdefault("VOLCANO_API_KEY", "test-volcano-key")
-    env.setdefault("INFINI_API_KEY", "test-infini-key")
-    env.setdefault("GOOGLE_API_KEY", "test-google-key")
-    env.setdefault("OPENAI_API_KEY", "test-openai-key")
+    env["ZHIPU_API_KEY"] = "test-zhipu-key"
+    env["VOLCANO_API_KEY"] = "test-volcano-key"
+    env["INFINI_API_KEY"] = "test-infini-key"
+    env["GOOGLE_API_KEY"] = "test-google-key"
+    env["OPENAI_API_KEY"] = "test-openai-key"
+    # Prevent real API keys from being inherited
+    env.pop("ANTHROPIC_API_KEY", None)
+    env.pop("ANTHROPIC_BASE_URL", None)
+    env.pop("ANTHROPIC_DEFAULT_OPUS_MODEL", None)
+    env.pop("ANTHROPIC_DEFAULT_SONNET_MODEL", None)
+    env.pop("ANTHROPIC_DEFAULT_HAIKU_MODEL", None)
     return subprocess.run(
         [str(RIBOSOME), *list(args)],
         capture_output=True,

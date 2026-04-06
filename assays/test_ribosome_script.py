@@ -98,30 +98,24 @@ class TestTaskIDParsing:
 class TestProviderConfig:
     def test_unknown_provider_exit(self):
         """Unknown provider should cause exit code 1."""
-        r = _run_ribosome("--provider", "nonexistent", "--max-turns", "3", "test")
+        r = _run_ribosome_shell(
+            "ribosome --provider nonexistent --max-turns 3 'test'"
+        )
         assert r.returncode == 1
         assert "Unknown provider" in r.stderr
 
     def test_zhipu_provider(self):
         """ZhiPu provider should require ZHIPU_API_KEY."""
-        r = _run_ribosome(
-            "--provider",
-            "zhipu",
-            "--max-turns",
-            "3",
-            "test",
+        r = _run_ribosome_shell(
+            "ribosome --provider zhipu --max-turns 3 'test'",
             env_extra={"ZHIPU_API_KEY": ""},
         )
         assert r.returncode != 0
 
     def test_volcano_provider(self):
         """Volcano provider should require VOLCANO_API_KEY."""
-        r = _run_ribosome(
-            "--provider",
-            "volcano",
-            "--max-turns",
-            "3",
-            "test",
+        r = _run_ribosome_shell(
+            "ribosome --provider volcano --max-turns 3 'test'",
             env_extra={"VOLCANO_API_KEY": ""},
         )
         assert r.returncode != 0
@@ -222,8 +216,9 @@ class TestRateLimitFailFast:
 
     @pytest.fixture(autouse=True)
     def skip_without_volcano_key(self):
-        if not os.environ.get("VOLCANO_API_KEY"):
-            pytest.skip("VOLCANO_API_KEY not set")
+        key = os.environ.get("VOLCANO_API_KEY", "")
+        if not key or key.startswith("test-"):
+            pytest.skip("VOLCANO_API_KEY not set (or is test key)")
 
     def test_volcano_rate_limited_exits_nonzero(self):
         """Rate-limited volcano should exit with non-zero code (not 0)."""
@@ -288,8 +283,8 @@ class TestExit2Regression:
         Previously: exit_code stayed 0 (initialized but never set).
         Now: returns 1 with AccountQuotaExceeded message.
         """
-        volcano_key = os.environ.get("VOLCANO_API_KEY")
-        if not volcano_key:
+        volcano_key = os.environ.get("VOLCANO_API_KEY", "")
+        if not volcano_key or volcano_key.startswith("test-"):
             pytest.skip("VOLCANO_API_KEY not set")
 
         r = _run_ribosome_shell(
@@ -300,8 +295,8 @@ class TestExit2Regression:
 
     def test_fail_fast_does_not_waste_time(self):
         """Should fail in under 15 seconds when quota window is > 30 min."""
-        volcano_key = os.environ.get("VOLCANO_API_KEY")
-        if not volcano_key:
+        volcano_key = os.environ.get("VOLCANO_API_KEY", "")
+        if not volcano_key or volcano_key.startswith("test-"):
             pytest.skip("VOLCANO_API_KEY not set")
 
         start = time.time()
@@ -392,8 +387,8 @@ class TestSetEExitCodeCapture:
         (rate-limit) or 2 (connection error) caused the script to exit with that
         code instead of handling it in the retry loop.
         """
-        volcano_key = os.environ.get("VOLCANO_API_KEY")
-        if not volcano_key:
+        volcano_key = os.environ.get("VOLCANO_API_KEY", "")
+        if not volcano_key or volcano_key.startswith("test-"):
             pytest.skip("VOLCANO_API_KEY not set")
 
         r = _run_ribosome_shell(

@@ -1,25 +1,13 @@
 #!/usr/bin/env bash
 # ribosome — headless CC + cheap LLM backends. Faithful instruction executor.
-
-_show_help() {
-  cat << 'EOF'
-  ribosome — headless CC + cheap LLM backends. Faithful instruction executor.
-
-  Usage:
-    ribosome build "prompt"                           # default — build/implement
-    ribosome explore "query"                          # codebase exploration (read-only)
-    ribosome test <module>                            # write tests for a module
-    ribosome batch <mod1> <mod2> ...                  # sequential test gen
-    ribosome summary [--recent N] [--json]            # show provider stats
-
-  Deprecated (will emit warning):
-    ribosome "prompt" (same as ribosome build)
-    ribosome --explore "query" (same as ribosome explore)
-    ribosome --test <module> (same as ribosome test)
-    ribosome --batch <mod1> ... (same as ribosome batch)
-EOF
-}
-
+#
+# Usage:
+#   ribosome "prompt"                                    # build (default)
+#   ribosome explore "How does MCP registration work?"   # codebase exploration
+#   ribosome build "Write tests for metabolon/foo.py"    # explicit build
+#   ribosome test metabolon/foo.py                       # write tests for module
+#   ribosome batch metabolon/foo.py metabolon/bar.py     # sequential test gen
+#   ribosome summary [--recent N] [--json]               # provider stats
 set -euo pipefail
 
 # ERR trap: produce diagnostic output when a command fails (set -e kills the script).
@@ -34,13 +22,10 @@ trap '_ribosome_crash_handler $LINENO' ERR
 # Hardcoded ceiling — stall detection + activity timeout are the real guards.
 MAX_TURNS=200
 BARE=true
-BATCH=false
-TEST=false
 FULL_REQUESTED=false
 FORCE=false
 QUIET=false
 JSON_OUTPUT=false
-EXPLORE=false
 SUMMARY=false
 SUPERVISED=false
 RECENT=0
@@ -48,8 +33,6 @@ PROVIDER="${RIBOSOME_PROVIDER:-zhipu}"
 FALLBACK=false
 FALLBACK_PROVIDER=""
 RIBOSOME_TASK_ID=""
-_SUBCOMMAND=""  # will be "build", "explore", "test", "batch", or "summary"
-_DEPRECATED_FLAG=false
 
 RIBOSOME_LOG="${RIBOSOME_LOG:-$HOME/.local/share/vivesca/ribosome.jsonl}"
 mkdir -p "$(dirname "$RIBOSOME_LOG")"
@@ -145,7 +128,6 @@ PYTHON_SCRIPT
 _RIBOSOME_TOOLS="$(dirname "$0")/ribosome-tools"
 case "${1:-}" in
   summary)
-    _SUBCOMMAND="summary"
     shift
     summary_args=()
     while [[ "${1:-}" == --* ]]; do
@@ -154,7 +136,7 @@ case "${1:-}" in
         --json) summary_args+=("--json"); JSON_OUTPUT=true; shift ;;
         --log=*) summary_args+=("$1"); shift ;;
         --quiet) QUIET=true; shift ;;
-        -h|--help) _show_help; exit 0 ;;
+        -h|--help) head -11 "$0" | tail -10 | sed 's/^# */  /'; exit 0 ;;
         *) echo "Unknown flag: $1" >&2; exit 1 ;;
       esac
     done
@@ -165,68 +147,11 @@ case "${1:-}" in
     fi
     exit 0
     ;;
-  explore)
-    _SUBCOMMAND="explore"
-    EXPLORE=true
-    shift
-    ;;
-  build)
-    _SUBCOMMAND="build"
-    shift
-    ;;
-  test)
-    _SUBCOMMAND="test"
-    TEST=true
-    shift
-    ;;
-  batch)
-    _SUBCOMMAND="batch"
-    BATCH=true
-    shift
-    ;;
-  dash|health|status|report|review|reviewer|top|validate)
+  dash|health|report|review|reviewer|top|validate)
     _subcmd="$1"; shift
     exec python3 "$_RIBOSOME_TOOLS" "$_subcmd" "$@"
     ;;
 esac
-
-# If no subcommand yet, check for deprecated flags
-if [[ -z "$_SUBCOMMAND" ]]; then
-  # Strip optional task ID prefix first
-  if [[ "${1:-}" =~ ^\[t-[0-9a-fA-F]+\]$ ]]; then
-    shift  # will process it later
-  fi
-  # Check for deprecated flags
-  case "${1:-}" in
-    --explore)
-      _DEPRECATED_FLAG=true
-      echo "[ribosome] WARNING: --explore flag is deprecated, use 'ribosome explore' instead" >&2
-      ;;
-    --test)
-      _DEPRECATED_FLAG=true
-      echo "[ribosome] WARNING: --test flag is deprecated, use 'ribosome test' instead" >&2
-      ;;
-    --batch)
-      _DEPRECATED_FLAG=true
-      echo "[ribosome] WARNING: --batch flag is deprecated, use 'ribosome batch' instead" >&2
-      ;;
-    --full|--bare|--supervised|--quiet|--json|--provider|--fallback|--force)
-      # Valid flags, no warning but still default to build subcommand
-      _SUBCOMMAND="build"
-      ;;
-    -h|--help)
-      _show_help; exit 0
-      ;;
-    "")
-      # No arguments
-      _show_help; exit 0
-      ;;
-    *)
-      # Default to build subcommand for bare prompt
-      _SUBCOMMAND="build"
-      ;;
-  esac
-fi
 
 # Strip optional task ID prefix: [t-xxxxxx] placed by ribosome-daemon before flags
 # e.g. "ribosome [t-a4a00f] --provider volcano ..." → task_id=t-a4a00f, then parse flags
@@ -236,49 +161,41 @@ if [[ "${1:-}" =~ ^\[t-[0-9a-fA-F]+\]$ ]]; then
   shift
 fi
 
+# Subcommand routing — detect mode from first positional arg
+_SUBCOMMAND=build  # default
+case "${1:-}" in
+  explore) _SUBCOMMAND=explore; shift ;;
+  build)   _SUBCOMMAND=build; shift ;;
+  test)    _SUBCOMMAND=test; shift ;;
+  batch)   _SUBCOMMAND=batch; shift ;;
+  summary) ;;  # already handled upstream, don't touch
+esac
+
 # Parse regular flags
-while [[ "${1:-}" == --* ]]; do
+while [[ "${1:-}" == -* ]]; do
   case "$1" in
-    --batch) BATCH=true; shift ;;
-    --test) TEST=true; shift ;;
+    --batch) echo "[deprecated] --batch flag is deprecated, use: ribosome batch <mod1> <mod2>" >&2; _SUBCOMMAND=batch; shift ;;
+    --test) echo "[deprecated] --test flag is deprecated, use: ribosome test <module>" >&2; _SUBCOMMAND=test; shift ;;
     --full) BARE=false; FULL_REQUESTED=true; shift ;;
     --bare) BARE=true; shift ;;
     --supervised) SUPERVISED=true; BARE=false; shift ;;
     --quiet) QUIET=true; shift ;;
     --json) JSON_OUTPUT=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
+    --max-turns) MAX_TURNS="$2"; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
-    --explore) EXPLORE=true; shift ;;
+    --explore) echo "[deprecated] --explore flag is deprecated, use: ribosome explore \"query\"" >&2; _SUBCOMMAND=explore; shift ;;
     --force) FORCE=true; shift ;;
-    -h|--help) _show_help; exit 0 ;;
+    -h|--help) head -10 "$0" | tail -9 | sed 's/^# */  /'; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
 
-# Explore mode defaults: bare + capped turns (exploration is read-only, converges fast)
-if [[ "$_SUBCOMMAND" == "explore" || "$EXPLORE" == "true" ]]; then
-  EXPLORE=true
-  BARE=true
-  [[ $MAX_TURNS -gt 30 ]] && MAX_TURNS=30
-fi
-
-# Set subcommand-specific defaults
-case "$_SUBCOMMAND" in
-  build)
-    MAX_TURNS=200
-    BARE=true
-    ;;
-  test)
-    MAX_TURNS=200
-    BARE=true
-    ;;
-  batch)
-    MAX_TURNS=200
-    BARE=true
-    ;;
-  explore)
-    # already set above
-    ;;
+# Per-subcommand defaults
+case $_SUBCOMMAND in
+  explore) BARE=true; [[ $MAX_TURNS -gt 30 ]] && MAX_TURNS=30 ;;
+  test|batch) ;;  # use defaults (BARE=true, MAX_TURNS=200)
+  build) ;;
 esac
 
 # Guard: --full uses Opus (expensive). Require --force for non-interactive use.
@@ -313,19 +230,7 @@ _configure_provider() {
       _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
       _CLI="codex"  # uses codex CLI, not claude
       ;;
-    goose)
-      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-      _CLI="goose"
-      _GOOSE_PROVIDER="glm-coding"
-      _GOOSE_MODEL="GLM-5.1"
-      ;;
-    droid)
-      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-      _CLI="droid"
-      _DROID_MODEL="custom:GLM-5.1"
-      _DROID_AUTO="medium"
-      ;;
-    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex|goose|droid)" >&2; exit 1 ;;
+    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
   esac
 }
 
@@ -337,8 +242,8 @@ fi
 _CLI="claude"
 _configure_provider "$PROVIDER"
 
-# Explore mode: downgrade to cheap model tier (separate rate-limit pool from GLM-5.1)
-if $EXPLORE && [[ "$PROVIDER" == "zhipu" ]]; then
+# Explore: cheap model tier (separate rate-limit pool from GLM-5.1)
+if [[ $_SUBCOMMAND == explore && $PROVIDER == zhipu ]]; then
   _OPUS="GLM-4.5-air"; _SONNET="GLM-4.5-air"
 fi
 
@@ -419,14 +324,12 @@ _run_ribosome() {
   local prompt="$1"
 
   # Prepend provider-specific coaching notes
-  # goose/droid inject coaching via native mechanisms (MOIM / --append-system-prompt-file)
   local _coaching_source="$COACHING_FILE"
   case "$PROVIDER" in
     codex)  _coaching_source="${COACHING_FILE%.*}_codex.md" ;;
     gemini) _coaching_source="${COACHING_FILE%.*}_gemini.md" ;;
-    goose|droid) _coaching_source="" ;;  # handled in invocation block
   esac
-  if [[ -n "$_coaching_source" && -f "$_coaching_source" ]]; then
+  if [[ -f "$_coaching_source" ]]; then
     local _coaching_tmp
     _coaching_tmp="$(mktemp)"
     printf '%s\n' "<coaching-notes>" > "$_coaching_tmp"
@@ -438,7 +341,7 @@ _run_ribosome() {
   fi
 
   # Explore mode: wrap user query in exploration system prompt
-  if $EXPLORE; then
+  if [[ $_SUBCOMMAND == explore ]]; then
     local _explore_sys
     _explore_sys="$(cat <<'EXPLORE_SYS'
 <mode>explore</mode>
@@ -599,25 +502,6 @@ EXPLORE_SYS
       codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$prompt" 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
-    elif [[ "${_CLI:-claude}" == "goose" ]]; then
-      output=$(
-      timeout "$_claude_timeout" \
-      env ZHIPU_API_KEY="$_KEY" \
-        GOOSE_MOIM_MESSAGE_FILE="$COACHING_FILE" \
-      goose run -q --no-session \
-        --provider "${_GOOSE_PROVIDER}" --model "${_GOOSE_MODEL}" \
-        -t "$prompt" 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
-    elif [[ "${_CLI:-claude}" == "droid" ]]; then
-      local _droid_args=(exec --auto "${_DROID_AUTO}" -m "${_DROID_MODEL}")
-      [[ -f "$COACHING_FILE" ]] && _droid_args+=(--append-system-prompt-file "$COACHING_FILE")
-      output=$(
-      timeout "$_claude_timeout" \
-      env ZHIPU_API_KEY="$_KEY" \
-      droid "${_droid_args[@]}" "$prompt" 2>&1
-      ) && exit_code=0 || exit_code=$?
-      _claude_ran=true
     else
       output=$(
       timeout "$_claude_timeout" \
@@ -726,7 +610,7 @@ EXPLORE_SYS
   # Auto-merge to main if ribosome succeeded and tests passed (skip in explore mode)
   local _current_branch
   _current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  if ! $EXPLORE && [[ $exit_code -eq 0 && $pytest_exit -eq 0 && "$_current_branch" == ribosome-* ]]; then
+  if [[ $_SUBCOMMAND != explore ]] && [[ $exit_code -eq 0 && $pytest_exit -eq 0 && "$_current_branch" == ribosome-* ]]; then
     $QUIET || echo "[auto-merge] branch $_current_branch -> main (exit=0, tests passed)" >&2
     if git checkout main 2>/dev/null && git merge --no-edit "$_current_branch" 2>/dev/null; then
       git push origin main 2>/dev/null && $QUIET || echo "[auto-merge] pushed to main" >&2
@@ -739,7 +623,7 @@ EXPLORE_SYS
   # Log result with enriched fields
   local task_id="${RIBOSOME_TASK_ID:-}"
   local _mode="build"
-  $EXPLORE && _mode="explore"
+  [[ $_SUBCOMMAND == explore ]] && _mode="explore"
   printf '{"ts":"%s","provider":"%s","mode":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d,"task_id":"%s"}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$_mode" "$duration" "$exit_code" "$MAX_TURNS" \
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
@@ -828,15 +712,19 @@ _run_with_fallback() {
   return $final_exit
 }
 
-if $BATCH; then
-  for mod in "$@"; do
-    ($QUIET || $JSON_OUTPUT) || echo ">>> ribosome: $mod"
-    _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'ribosome: tests for $(basename "${mod%.py}")'." || true
-    ($QUIET || $JSON_OUTPUT) || echo
-  done
-elif $TEST; then
-  mod="$1"
-  _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'ribosome: tests for $(basename "${mod%.py}")'."
-else
-  _run_with_fallback "$*"
-fi
+case $_SUBCOMMAND in
+  batch)
+    for mod in "$@"; do
+      ($QUIET || $JSON_OUTPUT) || echo ">>> ribosome: $mod"
+      _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'ribosome: tests for $(basename "${mod%.py}")'." || true
+      ($QUIET || $JSON_OUTPUT) || echo
+    done
+    ;;
+  test)
+    mod="$1"
+    _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'ribosome: tests for $(basename "${mod%.py}")'."
+    ;;
+  *)
+    _run_with_fallback "$*"
+    ;;
+esac
