@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Autonomic thresholds with calibration.
 
 A threshold is a pain level that triggers an autonomic response (clean disk,
@@ -31,7 +29,6 @@ Cortical components (evolution, constitution, memory) use deliberation instead.
 Storage: ~/.local/share/vivesca/setpoints/{name}.json
 Events:  ~/.local/share/vivesca/setpoints/{name}-events.jsonl
 """
-
 
 import json
 from datetime import date, datetime
@@ -202,7 +199,7 @@ class Threshold:
         data = {"value": value, "reason": reason, "updated": date.today().isoformat()}
         self._state_store.write_text(json.dumps(data))
 
-    def status(self) -> SetpointStatus:
+    def status(self) -> "SetpointStatus":
         """Current state for reporting."""
         try:
             lines = self._events.read_text().splitlines()

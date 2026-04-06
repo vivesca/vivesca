@@ -12,8 +12,6 @@ Supports Google OAuth2 with two credential sources:
 Env vars take priority. Token file is the fallback.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from dataclasses import dataclass, field
