@@ -574,11 +574,10 @@ def _operon_summary() -> list[str]:
 
 
 def _effector_map(project_root: Path) -> list[str]:
-    """Scan effectors/ for standalone execution engines (polysome, mtor, etc.).
+    """Scan effectors/ for subdirectory-based engines and standalone scripts.
 
-    Each effector is a subdirectory under germline/effectors/.
-    Description sourced from CLAUDE.md, README.md, or pyproject.toml (first wins).
-    Key files listed to orient future sessions without deep exploration.
+    Subdirectories (polysome, mtor, etc.) get full description + file listing.
+    Standalone scripts get a count + recent-by-mtime sample to orient sessions.
     """
     lines: list[str] = []
     effectors_dir = project_root / "effectors"
@@ -651,6 +650,20 @@ def _effector_map(project_root: Path) -> list[str]:
         lines.append(description)
         if key_files:
             lines.append(f"  Files: {', '.join(f'`{f}`' for f in key_files)}")
+        lines.append("")
+
+    # Standalone scripts (flat files in effectors/, on PATH)
+    scripts = sorted(
+        (f for f in effectors_dir.iterdir() if f.is_file() and not f.name.startswith(".")),
+        key=lambda f: f.stat().st_mtime,
+        reverse=True,
+    )
+    if scripts:
+        # Show count + 10 most recently modified as orientation sample
+        sample = [s.name for s in scripts[:10]]
+        lines.append(f"### Standalone scripts ({len(scripts)} total, on PATH)")
+        lines.append(f"  Recent: {', '.join(f'`{s}`' for s in sample)}")
+        lines.append("  Discovery: `ls ~/germline/effectors/` or `which <name>`")
         lines.append("")
 
     return lines

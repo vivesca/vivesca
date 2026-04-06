@@ -188,12 +188,9 @@ tonus tool — session state. Actions: mark|status
 
 ## Effectors
 
-### __pycache__
-_(no description)_
-
 ### hatchet-golem
-_(no description)_
-  Files: `dispatch.py`, `docker-compose.yml`, `start-worker.sh`, `worker.py`
+Retired Hatchet-based task orchestrator. Replaced by polysome (Temporal). Kept for reference during the eval period.
+  Files: `README.md`, `dispatch.py`, `docker-compose.yml`, `start-worker.sh`, `worker.py`
 
 ### mtor
 Agent-first translation controller — dispatch, inspect, and manage ribosome workflows via Temporal
@@ -202,6 +199,10 @@ Agent-first translation controller — dispatch, inspect, and manage ribosome wo
 ### polysome
 Temporal.io-based workflow orchestrator for translation task dispatch. Replaces the markdown queue-based ribosome-daemon polling loop with durable workflows.
   Files: `CLAUDE.md`, `README.md`, `cli.py`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
+
+### Standalone scripts (212 total, on PATH)
+  Recent: `ribosome`, `mitosis-sync`, `ecdysis`, `soma-bootstrap`, `refresh-env-secrets`, `vivesca-preflight`, `soma-activate`, `screenshot_receiver.py`, `iphone-look`, `compile-coaching`
+  Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
 
@@ -422,4 +423,4 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 1 errors)
+- Tests: _(could not run)_
