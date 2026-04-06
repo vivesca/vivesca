@@ -126,6 +126,8 @@ Categorise every email into one of four buckets:
 4. Pull full details on action items in parallel
 5. Terry gives calls on the batch — then execute
 
+**Thematic grouping for large inboxes (>10 items).** When presenting, group by theme (banking/tax, shipping, notifications, action-needed) rather than chronological order. Batch auto-archivable groups first (expired OTPs, superseded notifications, bot reviews on closed PRs), then present remaining groups for review. This lets Terry process faster — one "y" per theme instead of per email.
+
 Present the action-required list first. For each item, include:
 - Who it's from and subject
 - What's needed (reply / decision / read)
