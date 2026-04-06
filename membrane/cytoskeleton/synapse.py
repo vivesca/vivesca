@@ -40,14 +40,14 @@ _SYNAPSE_CONF.read(_VIVESCA_ROOT / "germline" / "synapse.conf")
 def _sconf_float(section, key, default):
     try:
         return float(_SYNAPSE_CONF[section][key])
-    except KeyError, ValueError:
+    except (KeyError, ValueError):
         return default
 
 
 def _sconf_int(section, key, default):
     try:
         return int(_SYNAPSE_CONF[section][key])
-    except KeyError, ValueError:
+    except (KeyError, ValueError):
         return default
 
 
@@ -108,6 +108,26 @@ def mod_anamnesis(data):
         c = ANAM_NOW.read_text(encoding="utf-8").strip()
         if c:
             lines.append(f"\nTonus.md (active session state):\n{c}")
+    except Exception:
+        pass
+
+    # Dirty-state detection — warn if previous session left uncommitted work
+    try:
+        dirty = {}
+        for label, repo in [("germline", HOME / "germline"), ("epigenome", EPIGENOME_DIR)]:
+            r = subprocess.run(
+                ["git", "-C", str(repo), "status", "--short"],
+                capture_output=True, text=True, timeout=5,
+            )
+            n = len([l for l in r.stdout.splitlines() if l.strip()])
+            if n:
+                dirty[label] = n
+        if dirty:
+            summary = ", ".join(f"{n} in {k}" for k, n in dirty.items())
+            lines.append(
+                f"Previous session left {summary} dirty files. "
+                "Commit or review before new work."
+            )
     except Exception:
         pass
 
@@ -180,7 +200,7 @@ def _burn_mode(util, hours_left):
                     return "manual", hours_left, util
             else:
                 return "manual", hours_left, util
-        except ValueError, OSError:
+        except (ValueError, OSError):
             return "manual", hours_left, util
 
     # Auto: high utilization + imminent reset
@@ -853,7 +873,7 @@ def mod_overnight(data):
 def main():
     try:
         data = json.load(sys.stdin)
-    except json.JSONDecodeError, EOFError:
+    except (json.JSONDecodeError, EOFError):
         sys.exit(0)
 
     modules = [
