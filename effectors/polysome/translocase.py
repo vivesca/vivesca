@@ -48,7 +48,7 @@ _ACTIVITY_TIMEOUT = timedelta(minutes=30)
 
 
 def _git_snapshot(cwd: str | None = None) -> dict:
-    """Capture git diff stat + numstat for before/after comparison."""
+    """Capture git diff stat + numstat + commit list + full patch for review."""
     work_dir = cwd or str(Path.home() / "germline")
     try:
         stat = _subprocess.run(
@@ -65,9 +65,30 @@ def _git_snapshot(cwd: str | None = None) -> dict:
             timeout=10,
             cwd=work_dir,
         )
-        return {"stat": stat.stdout[:2000], "numstat": numstat.stdout[:2000]}
+        commits_r = _subprocess.run(
+            ["git", "log", "--oneline", "main..HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=work_dir,
+        )
+        commit_lines = [ln.strip() for ln in commits_r.stdout.strip().splitlines() if ln.strip()]
+        patch_r = _subprocess.run(
+            ["git", "diff", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=work_dir,
+        )
+        return {
+            "stat": stat.stdout[:2000],
+            "numstat": numstat.stdout[:2000],
+            "commits": commit_lines,
+            "commit_count": len(commit_lines),
+            "patch": patch_r.stdout[:5000],
+        }
     except Exception:
-        return {"stat": "", "numstat": ""}
+        return {"stat": "", "numstat": "", "commits": [], "commit_count": 0, "patch": ""}
 
 
 def _git_pull_ff_only(repo_root: str) -> None:
@@ -413,12 +434,31 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
     stderr = stderr_bytes.decode(errors="replace")
 
     post_diff = await asyncio.to_thread(_git_snapshot, work_dir)
+    commit_count = post_diff.get("commit_count", 0)
 
+    # Incomplete: non-zero exit but commits exist — preserve branch for re-dispatch
+    is_incomplete = rc != 0 and commit_count > 0
     merged = False
     if worktree_path:
-        merged = await asyncio.to_thread(_merge_worktree, repo_root, branch_name, worktree_path)
-        if not merged:
-            print(f"WARNING: worktree merge failed for {branch_name}", file=sys.stderr)
+        if is_incomplete:
+            # Just remove the worktree; leave branch alive for manual recovery
+            with contextlib.suppress(Exception):
+                _subprocess.run(
+                    ["git", "worktree", "remove", "--force", worktree_path],
+                    capture_output=True,
+                    timeout=10,
+                    cwd=repo_root,
+                )
+            print(
+                f"INCOMPLETE: branch {branch_name} preserved ({commit_count} commits)",
+                file=sys.stderr,
+            )
+        else:
+            merged = await asyncio.to_thread(
+                _merge_worktree, repo_root, branch_name, worktree_path
+            )
+            if not merged:
+                print(f"WARNING: worktree merge failed for {branch_name}", file=sys.stderr)
 
     if rc == 0 and merged and post_diff.get("stat", "").strip():
         await asyncio.to_thread(_git_push, repo_root)
@@ -434,11 +474,17 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
     try:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         out_file = OUTPUT_DIR / f"{_time.strftime('%Y%m%d')}-{tid_str}.txt"
-        out_file.write_text(
+        out_text = (
             f"Task: {task}\nProvider: {provider}\nExit: {rc}\n\n"
             f"--- stdout ---\n{stdout}\n\n--- stderr ---\n{stderr}\n\n"
             f"--- diff ---\n{post_diff.get('stat', '')}\n"
         )
+        if is_incomplete:
+            out_text += f"\nBranch preserved for re-dispatch: {branch_name}\n"
+        # Preserve full patch when rejected or incomplete so work is recoverable
+        if rc != 0 or not merged:
+            out_text += f"\n\n--- full patch (recoverable) ---\n{post_diff.get('patch', '')}\n"
+        out_file.write_text(out_text)
         out_path = str(out_file)
     except OSError:
         pass
@@ -454,6 +500,8 @@ async def translate(task: str, provider: str, max_turns: int = 50) -> dict:
         "post_diff": post_diff,
         "cost_info": cost_info[:500],
         "output_path": out_path,
+        "branch_name": branch_name if worktree_path else "",
+        "merged": merged,
     }
 
 
@@ -521,7 +569,14 @@ async def chaperone(result: dict) -> dict:
         if isinstance(result.get("post_diff"), dict)
         else ""
     )
-    if exit_code == 0 and not post_stat_text.strip():
+    commit_count = (
+        result.get("post_diff", {}).get("commit_count", 0)
+        if isinstance(result.get("post_diff"), dict)
+        else 0
+    )
+    branch_name = result.get("branch_name", "")
+
+    if exit_code == 0 and not post_stat_text.strip() and commit_count == 0:
         flags.append("no_commit_on_success")
 
     target_match = _re.search(r"(?:at|to)\s+([\w/]+\.py)", task)
@@ -550,12 +605,17 @@ async def chaperone(result: dict) -> dict:
                 except ValueError:
                     pass
 
-    approved = exit_code == 0 and not any(
-        f.startswith("destruction") or f == "no_commit_on_success" for f in flags
-    )
-    verdict = "approved" if approved else "rejected"
-    if flags and approved:
-        verdict = "approved_with_flags"
+    # Determine verdict: incomplete when work was done but process failed
+    if exit_code != 0 and commit_count > 0:
+        verdict = "incomplete"
+        approved = False
+    else:
+        approved = exit_code == 0 and not any(
+            f.startswith("destruction") or f == "no_commit_on_success" for f in flags
+        )
+        verdict = "approved" if approved else "rejected"
+        if flags and approved:
+            verdict = "approved_with_flags"
 
     review = {
         "ts": _time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -569,6 +629,8 @@ async def chaperone(result: dict) -> dict:
         "diff": post_stat[:500] if post_stat else "",
         "cost_info": result.get("cost_info", ""),
     }
+    if verdict == "incomplete" and branch_name:
+        review["branch_name"] = branch_name
 
     try:
         REVIEW_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -578,9 +640,9 @@ async def chaperone(result: dict) -> dict:
         pass
 
     requeue_prompt = ""
-    if verdict == "rejected" and any("thin_output" in f for f in flags):
+    if verdict in ("rejected", "incomplete") and any("thin_output" in f for f in flags):
         requeue_prompt = task[:200] + " -- Be thorough. Read files before editing. Show your work."
-    elif verdict == "rejected" and any("file_shrunk" in f for f in flags):
+    elif verdict in ("rejected", "incomplete") and any("file_shrunk" in f for f in flags):
         requeue_prompt = (
             task[:200]
             + " -- IMPORTANT: Read the entire file before modifying. Preserve ALL existing content."
