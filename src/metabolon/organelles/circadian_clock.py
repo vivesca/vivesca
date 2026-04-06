@@ -104,17 +104,29 @@ def scheduled_events_json(date_str: str = "today") -> list[dict]:
         return []
 
 
-def schedule_event(title: str, date_str: str, time_str: str, duration: int = 60) -> str:
+def schedule_event(
+    title: str,
+    date_str: str,
+    time_str: str,
+    duration: int = 60,
+    *,
+    description: str | None = None,
+    location: str | None = None,
+) -> str:
     """Create a calendar event. Returns event ID."""
     day = date.fromisoformat(date_str)
     hour, minute = (int(p) for p in time_str.split(":"))
     start_dt = datetime(day.year, day.month, day.day, hour, minute, tzinfo=HKT)
     end_dt = start_dt + timedelta(minutes=duration)
-    body = {
+    body: dict = {
         "summary": title,
         "start": {"dateTime": start_dt.isoformat()},
         "end": {"dateTime": end_dt.isoformat()},
     }
+    if description:
+        body["description"] = description
+    if location:
+        body["location"] = location
     event = service().events().insert(calendarId="primary", body=body).execute()
     return event.get("id", "")
 
