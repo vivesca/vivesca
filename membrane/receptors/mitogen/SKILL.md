@@ -34,7 +34,7 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 **Temporal on ganglion is the sole dispatch path.** CC dispatches via `mtor` CLI (translation controller) — no MCP, no markdown queue, no poller.
 
 ```
-CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome script --> zhipu/GLM-5.1 or infini/minimax-m2.7
+CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome --provider {zhipu|infini|volcano|goose|droid|gemini|codex}
 ```
 
 - **CLI:** `mtor` — dispatch, list, status, logs, cancel, doctor, schema (agent-first JSON envelope)
@@ -45,10 +45,12 @@ CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (gang
 - **COMPLETED status is unreliable** — verify against reviews.jsonl (`finding_temporal_completed_is_a_lie.md`)
 
 **Provider reality (2026-04):**
-- **zhipu (GLM-5.1):** Primary provider on ganglion. ~44% rate-limited on heavy days. 90% capability when not rate-limited.
-- **infini (minimax-m2.7):** Coding plan, SWE-Pro 56.2% (near Opus 4.6). Tested 2026-04-06. Use `--provider infini`. `sk-cp-` keys route to `/maas/coding/`.
+- **zhipu (GLM-5.1 via CC):** Primary. ~44% rate-limited on heavy days. 90% capability when not.
+- **infini (minimax-m2.7 via CC):** Coding plan, SWE-Pro 56.2% (near Opus 4.6). Use `--provider infini`.
+- **goose (GLM-5.1 via Goose):** Alternative harness. Streaming bug on long output — experimental.
+- **droid (GLM-5.1 via Factory Droid):** Alternative harness. Rich context (genome+skills+coaching). Tested 20/21 on hard tasks.
 - **volcano:** Cheap tier, quota-exhausted frequently. Fallback only.
-- **codex:** Not installed on ganglion.
+- **gemini/codex:** Available but less tested on ganglion.
 
 ## Process
 
