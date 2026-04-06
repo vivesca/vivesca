@@ -1,0 +1,1 @@
+{"timestamp": "2026-04-05T01:41:15.602885+00:00", "old_hash": "d4afc597c7a380fc", "new_hash": "f09b66192277dc6c", "new_commands": ["AGENT_BROWSER_IOS_UUID"], "removed_commands": ["AGENT_BROWSER_IOS_UUID"], "version": "agent-browser 0.24.1"}
