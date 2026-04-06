@@ -313,7 +313,19 @@ _configure_provider() {
       _KEY="${OPENAI_API_KEY:?OPENAI_API_KEY not set}"
       _CLI="codex"  # uses codex CLI, not claude
       ;;
-    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex)" >&2; exit 1 ;;
+    goose)
+      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+      _CLI="goose"
+      _GOOSE_PROVIDER="glm-coding"
+      _GOOSE_MODEL="GLM-5.1"
+      ;;
+    droid)
+      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+      _CLI="droid"
+      _DROID_MODEL="custom:GLM-5.1"
+      _DROID_AUTO="medium"
+      ;;
+    *) echo "Unknown provider: $prov (zhipu|volcano|infini|gemini|codex|goose|droid)" >&2; exit 1 ;;
   esac
 }
 
@@ -407,12 +419,14 @@ _run_ribosome() {
   local prompt="$1"
 
   # Prepend provider-specific coaching notes
+  # goose/droid inject coaching via native mechanisms (MOIM / --append-system-prompt-file)
   local _coaching_source="$COACHING_FILE"
   case "$PROVIDER" in
     codex)  _coaching_source="${COACHING_FILE%.*}_codex.md" ;;
     gemini) _coaching_source="${COACHING_FILE%.*}_gemini.md" ;;
+    goose|droid) _coaching_source="" ;;  # handled in invocation block
   esac
-  if [[ -f "$_coaching_source" ]]; then
+  if [[ -n "$_coaching_source" && -f "$_coaching_source" ]]; then
     local _coaching_tmp
     _coaching_tmp="$(mktemp)"
     printf '%s\n' "<coaching-notes>" > "$_coaching_tmp"
@@ -583,6 +597,25 @@ EXPLORE_SYS
       timeout "$_claude_timeout" \
       env OPENAI_API_KEY="$_KEY" \
       codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$prompt" 2>&1
+      ) && exit_code=0 || exit_code=$?
+      _claude_ran=true
+    elif [[ "${_CLI:-claude}" == "goose" ]]; then
+      output=$(
+      timeout "$_claude_timeout" \
+      env ZHIPU_API_KEY="$_KEY" \
+        GOOSE_MOIM_MESSAGE_FILE="$COACHING_FILE" \
+      goose run -q --no-session \
+        --provider "${_GOOSE_PROVIDER}" --model "${_GOOSE_MODEL}" \
+        -t "$prompt" 2>&1
+      ) && exit_code=0 || exit_code=$?
+      _claude_ran=true
+    elif [[ "${_CLI:-claude}" == "droid" ]]; then
+      local _droid_args=(exec --auto "${_DROID_AUTO}" -m "${_DROID_MODEL}")
+      [[ -f "$COACHING_FILE" ]] && _droid_args+=(--append-system-prompt-file "$COACHING_FILE")
+      output=$(
+      timeout "$_claude_timeout" \
+      env ZHIPU_API_KEY="$_KEY" \
+      droid "${_droid_args[@]}" "$prompt" 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
     else
