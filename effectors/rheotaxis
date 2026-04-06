@@ -1,86 +1,299 @@
 #!/usr/bin/env python3
-"""rheotaxis — multi-backend search CLI.
+"""rheotaxis — multi-backend web search CLI with porin output envelopes.
 
 Usage:
-    rheotaxis "JINS glasses store Hong Kong Island"
-    rheotaxis -b perplexity,serper "nearest gym Quarry Bay"
-    rheotaxis -q "JINS Wan Chai" -q "JINS Hong Kong Island" -q "JINS store locator HK"
+    rheotaxis                              # show command tree
+    rheotaxis "query"                      # search all 7 backends
+    rheotaxis "query" --text               # markdown output
+    rheotaxis "query" --research           # deep research via Perplexity
+    rheotaxis "query" --exclude grok,zhipu # skip backends
+    rheotaxis "query" -b exa,serper        # whitelist backends
+    rheotaxis "q1" -q "q2" -q "q3"        # multi-query
+    rheotaxis --backends                   # list backends + health
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 
-# Add germline to path for organelle imports
-sys.path.insert(0, str(Path.home() / "germline"))
+# Add germline/src for metabolon imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from metabolon.organelles import rheotaxis_engine
+from porin import CommandTree, emit_ok, emit_err, action, EXIT_OK, EXIT_ERROR
+from metabolon.enzymes._parallel_search import _run_all, _report, ToolResult
+from metabolon.organelles.rheotaxis_engine import perplexity_deep
+
+ALL_BACKENDS = ["grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"]
+
+BACKEND_META = {
+    "grok": {"env": "XAI_API_KEY", "cost": 0.05},
+    "exa": {"env": "EXA_API_KEY", "cost": 0.01},
+    "perplexity": {"env": "PERPLEXITY_API_KEY", "cost": 0.006},
+    "tavily": {"env": "TAVILY_API_KEY", "cost": 0.0},
+    "serper": {"env": "SERPER_API_KEY", "cost": 0.0},
+    "zhipu": {"env": "ZHIPU_API_KEY", "cost": 0.0},
+    "jina": {"env": "JINA_API_KEY", "cost": 0.0},
+}
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Multi-backend web search")
+def _build_tree() -> CommandTree:
+    tree = CommandTree("rheotaxis")
+    tree.add_command(
+        "search",
+        "Search all backends in parallel",
+        params=[
+            {"name": "query", "type": "positional", "required": False},
+            {"name": "--text", "type": "flag", "description": "Markdown output"},
+            {"name": "--exclude", "type": "string", "description": "Comma-separated backends to skip"},
+            {"name": "-b", "type": "string", "description": "Comma-separated backend whitelist"},
+            {"name": "-q", "type": "multi", "description": "Additional queries"},
+        ],
+    )
+    tree.add_command(
+        "research",
+        "Deep research via Perplexity sonar-deep-research",
+        params=[
+            {"name": "query", "type": "positional", "required": True},
+            {"name": "--text", "type": "flag", "description": "Raw answer to stdout"},
+        ],
+    )
+    tree.add_command(
+        "backends",
+        "List all backends with health status",
+        params=[],
+    )
+    return tree
+
+
+def _read_health() -> str:
+    health_file = Path.home() / ".cache" / "vivesca" / "rheotaxis-health"
+    try:
+        return health_file.read_text().strip()
+    except FileNotFoundError:
+        return "unknown"
+
+
+def _list_backends() -> None:
+    health_status = _read_health()
+    backends = []
+    for name in ALL_BACKENDS:
+        meta = BACKEND_META[name]
+        backends.append({
+            "name": name,
+            "env_var": meta["env"],
+            "cost_usd": meta["cost"],
+        })
+    emit_ok(
+        "rheotaxis backends",
+        {"backends": backends, "health": health_status},
+        next_actions=[action("rheotaxis query", "Run a search")],
+    )
+
+
+def _format_results(q: str, results: list[ToolResult]) -> dict:
+    ok_count = sum(1 for r in results if not r.error)
+    total = len(results)
+    backends = []
+    for r in results:
+        backends.append({
+            "name": r.tool,
+            "latency_s": r.latency_s,
+            "answer": r.result if not r.error else None,
+            "results": r.result if not r.error else None,
+            "error": r.error,
+        })
+    return {
+        "query": q,
+        "backends": backends,
+        "health": f"{ok_count}/{total}",
+        "cost_usd": sum(r.cost for r in results),
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Multi-backend web search CLI")
     parser.add_argument("query", nargs="?", help="Search query")
     parser.add_argument(
         "-q", "--queries", action="append", default=[],
-        help="Multiple query framings (repeat -q for each)",
+        help="Additional query framings (repeat -q for each)",
     )
     parser.add_argument(
-        "-b", "--backends", default=None,
-        help="Comma-separated backends: perplexity,exa,tavily,serper (default: all)",
+        "--research", action="store_true",
+        help="Deep research via Perplexity sonar-deep-research",
     )
     parser.add_argument(
-        "-t", "--timeout", type=int, default=20,
-        help="Timeout per backend in seconds (default: 20)",
+        "--text", action="store_true",
+        help="Human-readable markdown output instead of JSON",
     )
     parser.add_argument(
-        "--json", action="store_true",
-        help="Output raw JSON instead of formatted text",
+        "--exclude", default=None,
+        help="Comma-separated backends to exclude",
+    )
+    parser.add_argument(
+        "-b", default=None,
+        help="Comma-separated backend whitelist",
+    )
+    parser.add_argument(
+        "--backends", action="store_true",
+        help="List all backends with health status",
     )
     args = parser.parse_args()
 
-    queries = args.queries or []
+    # --backends mode: list and exit
+    if args.backends:
+        _list_backends()
+        sys.exit(EXIT_OK)
+
+    # Collect queries: positional + -q flags
+    queries = list(args.queries)
     if args.query:
         queries.insert(0, args.query)
-    if not queries:
-        parser.error("Provide a query or use -q for multiple framings")
 
-    backends = args.backends.split(",") if args.backends else None
+    # Bare invocation (no query) -> command tree
+    if not queries:
+        tree = _build_tree()
+        emit_ok("rheotaxis", tree.to_dict())
+        sys.exit(EXIT_OK)
+
+    # Mutual exclusivity: --exclude and -b
+    if args.exclude and args.b:
+        emit_err(
+            "rheotaxis search",
+            "--exclude and -b are mutually exclusive",
+            "MUTUAL_EXCLUSION",
+            fix="Use --exclude OR -b, not both",
+        )
+        sys.exit(EXIT_ERROR)
+
+    # Compute exclude set
+    exclude: set[str] = set()
+    if args.exclude:
+        exclude = {b.strip() for b in args.exclude.split(",") if b.strip()}
+    elif args.b:
+        selected = {b.strip() for b in args.b.split(",") if b.strip()}
+        exclude = set(ALL_BACKENDS) - selected
+
+    # --- Research mode ---
+    if args.research:
+        for q in queries:
+            try:
+                answer = perplexity_deep(q)
+            except Exception as exc:
+                emit_err(
+                    "rheotaxis research",
+                    str(exc),
+                    "RESEARCH_FAILED",
+                    fix="Check PERPLEXITY_API_KEY and network connectivity",
+                )
+                sys.exit(EXIT_ERROR)
+            if args.text:
+                print(answer)
+            else:
+                emit_ok(
+                    "rheotaxis research",
+                    {
+                        "query": q,
+                        "answer": answer,
+                        "citations": [],
+                        "cost_usd": 0.40,
+                    },
+                    next_actions=[
+                        action("rheotaxis --backends", "Check backend health"),
+                    ],
+                )
+        sys.exit(EXIT_OK)
+
+    # --- Default search mode ---
+    exclude_arg = exclude or None
 
     if len(queries) == 1:
-        results = rheotaxis_engine.parallel_search(
-            queries[0], backends=backends, timeout=args.timeout,
-        )
-        if args.json:
-            import json
-            print(json.dumps([
-                {"backend": r.backend, "query": r.query, "answer": r.answer,
-                 "results": r.results, "error": r.error}
-                for r in results
-            ], indent=2))
+        results = asyncio.run(_run_all(queries[0], exclude=exclude_arg))
+
+        if args.text:
+            try:
+                print(_report(queries[0], results))
+            except RuntimeError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                sys.exit(EXIT_ERROR)
         else:
-            print(rheotaxis_engine.format_results(results))
+            ok_count = sum(1 for r in results if not r.error)
+            total = len(results)
+            if ok_count == 0:
+                emit_err(
+                    "rheotaxis search",
+                    f"all {total} backends failed",
+                    "ALL_BACKENDS_FAILED",
+                    fix="Check API keys: eval $(importin). Run: rheotaxis --backends",
+                )
+                sys.exit(EXIT_ERROR)
+            emit_ok(
+                "rheotaxis search",
+                _format_results(queries[0], results),
+                next_actions=[
+                    action("rheotaxis --backends", "Check backend health"),
+                ],
+            )
     else:
-        all_results = rheotaxis_engine.multi_query_search(
-            queries, backends=backends, timeout=args.timeout,
-        )
-        if args.json:
-            import json
-            out = {}
-            for q, results in all_results.items():
-                out[q] = [
-                    {"backend": r.backend, "answer": r.answer,
-                     "results": r.results, "error": r.error}
-                    for r in results
-                ]
-            print(json.dumps(out, indent=2))
+        # Multi-query: run _run_all for each via asyncio.gather
+        async def _run_multi() -> list[list[ToolResult]]:
+            tasks = [_run_all(q, exclude=exclude_arg) for q in queries]
+            return await asyncio.gather(*tasks)
+
+        per_query = asyncio.run(_run_multi())
+
+        if args.text:
+            any_ok = False
+            for q, results in zip(queries, per_query):
+                print(f"\n## QUERY: {q}\n")
+                try:
+                    print(_report(q, results))
+                    any_ok = True
+                except RuntimeError:
+                    print(f"  All backends failed for: {q}\n")
+            if not any_ok:
+                sys.exit(EXIT_ERROR)
         else:
-            for q, results in all_results.items():
-                print(f"{'='*60}")
-                print(f"QUERY: {q}")
-                print(f"{'='*60}")
-                print(rheotaxis_engine.format_results(results))
+            combined_backends = []
+            total_ok = 0
+            total_count = 0
+            total_cost = 0.0
+            for q, results in zip(queries, per_query):
+                ok_count = sum(1 for r in results if not r.error)
+                total_ok += ok_count
+                total_count += len(results)
+                total_cost += sum(r.cost for r in results)
+                for r in results:
+                    combined_backends.append({
+                        "name": r.tool,
+                        "latency_s": r.latency_s,
+                        "answer": r.result if not r.error else None,
+                        "results": r.result if not r.error else None,
+                        "error": r.error,
+                        "query": q,
+                    })
+            if total_ok == 0:
+                emit_err(
+                    "rheotaxis search",
+                    f"all {total_count} backends failed across {len(queries)} queries",
+                    "ALL_BACKENDS_FAILED",
+                    fix="Check API keys: eval $(importin). Run: rheotaxis --backends",
+                )
+                sys.exit(EXIT_ERROR)
+            emit_ok(
+                "rheotaxis search",
+                {
+                    "queries": queries,
+                    "backends": combined_backends,
+                    "health": f"{total_ok}/{total_count}",
+                    "cost_usd": total_cost,
+                },
+                next_actions=[
+                    action("rheotaxis --backends", "Check backend health"),
+                ],
+            )
 
 
 if __name__ == "__main__":
