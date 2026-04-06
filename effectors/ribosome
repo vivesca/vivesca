@@ -168,7 +168,6 @@ while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --batch) BATCH=true; shift ;;
     --test) TEST=true; shift ;;
-    --max-turns) shift 2 ;;  # ignored, kept for backward compat with queue entries
     --full) BARE=false; FULL_REQUESTED=true; shift ;;
     --bare) BARE=true; shift ;;
     --supervised) SUPERVISED=true; BARE=false; shift ;;
