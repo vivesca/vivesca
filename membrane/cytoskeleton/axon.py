@@ -590,12 +590,12 @@ def guard_agent(data):
     bg = ti.get("run_in_background", False)
 
     # Explore subagents burn Opus tokens on search/read work.
-    # translocon --build is free (flat-rate GLM).
+    # ribosome explore uses GLM-4.5-air (free, separate rate-limit pool).
     if subtype == "Explore":
         deny(
-            "Explore subagents waste Opus tokens on search/read. "
-            'Use: translocon --build <dir> "<prompt>" (free GLM). '
-            'Or Bash: bud "<prompt>" for quick exploration.',
+            "Explore subagents burn Max20 budget on search/read. "
+            'Use: ribosome --explore "query" (free GLM-4.5-air, structured output). '
+            "Direct Grep/Glob/Read for quick lookups.",
             "metabolic-gate",
         )
 
