@@ -882,12 +882,14 @@ def schema() -> None:
 
 @cli.command(name="dispatch", add_help_option=False, hidden=True)
 @click.argument("prompt")
-def dispatch(prompt: str) -> None:
+@click.option("-p", "--provider", default="zhipu", help="LLM provider")
+@click.option("-t", "--max-turns", default=25, type=int, help="Max agent turns")
+def dispatch(prompt: str, provider: str, max_turns: int) -> None:
     """Internal: dispatch a prompt to Temporal. Use 'mtor <prompt>' directly."""
-    _dispatch_prompt(prompt)
+    _dispatch_prompt(prompt, provider=provider, max_turns=max_turns)
 
 
-def _dispatch_prompt(prompt: str) -> None:
+def _dispatch_prompt(prompt: str, *, provider: str = "zhipu", max_turns: int = 25) -> None:
     """Core dispatch logic — shared by the group's bare-prompt handler."""
     cmd = f"mtor {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
 
@@ -930,8 +932,8 @@ def _dispatch_prompt(prompt: str) -> None:
         workflow_id = f"ribosome-{uuid.uuid4().hex[:8]}"
         spec = {
             "task": full_prompt,
-            "provider": "zhipu",
-            "max_turns": 25,
+            "provider": provider,
+            "max_turns": max_turns,
             "mode": "build",
         }
 
