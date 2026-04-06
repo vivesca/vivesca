@@ -133,12 +133,20 @@ PROVIDERS = {
         "key_var": "ZHIPU_API_KEY",
     },
     "infini": {
-        "model": "glm-5",
+        "model": "minimax-m2.7",
         "key_var": "INFINI_API_KEY",
     },
     "volcano": {
         "model": "doubao-seed-2.0-code",
         "key_var": "VOLCANO_API_KEY",
+    },
+    "gemini": {
+        "model": "gemini-3.1-pro",
+        "key_var": "GOOGLE_API_KEY",
+    },
+    "codex": {
+        "model": "gpt-5.4",
+        "key_var": "OPENAI_API_KEY",
     },
 }
 
@@ -213,7 +221,7 @@ def check_provider(
     start = time.perf_counter()
     try:
         result = subprocess.run(
-            [str(ribosome_path), "--provider", provider, "--max-turns", "1", "Say hello"],
+            [str(ribosome_path), "--provider", provider, "echo hello"],
             capture_output=True,
             text=True,
             timeout=300,
