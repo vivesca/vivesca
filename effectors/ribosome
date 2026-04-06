@@ -29,6 +29,7 @@ FORCE=false
 QUIET=false
 JSON_OUTPUT=false
 SUMMARY=false
+SUPERVISED=false
 RECENT=0
 PROVIDER="${RIBOSOME_PROVIDER:-zhipu}"
 FALLBACK=false
@@ -170,6 +171,7 @@ while [[ "${1:-}" == --* ]]; do
     --max-turns) MAX_TURNS="$2"; shift 2 ;;
     --full) BARE=false; FULL_REQUESTED=true; shift ;;
     --bare) BARE=true; shift ;;
+    --supervised) SUPERVISED=true; BARE=false; shift ;;
     --quiet) QUIET=true; shift ;;
     --json) JSON_OUTPUT=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
@@ -292,6 +294,10 @@ _run_ribosome() {
   fi
   local args=(--print --no-session-persistence --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
+  if $SUPERVISED; then
+    args+=(--output-format json --settings "$HOME/germline/loci/ribosome-supervised-settings.json")
+    export RIBOSOME_DEFER_ENABLED=1
+  fi
   local start_ts=$(date +%s)
   local output
   local exit_code=0
