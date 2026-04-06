@@ -339,6 +339,11 @@ def assemble_organism(
         py_files = list(provider_dir.glob("*.py"))
         non_init = [f for f in py_files if f.name != "__init__.py"]
         assert non_init, f"No tool modules in {provider_dir} — check FileSystemProvider paths"
+    # Mount trogocytosis (persistent browser MCP)
+    from trogocytosis.server import app as trogocytosis_app
+
+    mcp.mount(trogocytosis_app, namespace="trogocytosis")
+
     logger.info("vivesca assembled from %s (%d tools in manifest)", _src, manifest.count("\n"))
 
     return mcp
