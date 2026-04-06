@@ -33,7 +33,7 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 **Temporal on ganglion is the sole dispatch path.** CC dispatches via `mtor` CLI (translation controller) — no MCP, no markdown queue, no poller.
 
 ```
-CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome script --> zhipu/GLM-5.1
+CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (ganglion, polysome/) --> ribosome script --> zhipu/GLM-5.1 or infini/minimax-m2.7
 ```
 
 - **CLI:** `mtor` — dispatch, list, status, logs, cancel, doctor, schema (agent-first JSON envelope)
@@ -44,8 +44,9 @@ CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (gang
 - **COMPLETED status is unreliable** — verify against reviews.jsonl (`finding_temporal_completed_is_a_lie.md`)
 
 **Provider reality (2026-04):**
-- **zhipu (GLM-5.1):** Only working provider on ganglion. ~44% rate-limited on heavy days. 90% capability when not rate-limited.
-- **volcano/infini:** Cheap tiers, quota-exhausted frequently. Not worth retrying.
+- **zhipu (GLM-5.1):** Primary provider on ganglion. ~44% rate-limited on heavy days. 90% capability when not rate-limited.
+- **infini (minimax-m2.7):** Coding plan, SWE-Pro 56.2% (near Opus 4.6). Tested 2026-04-06. Use `--provider infini`. `sk-cp-` keys route to `/maas/coding/`.
+- **volcano:** Cheap tier, quota-exhausted frequently. Fallback only.
 - **codex:** Not installed on ganglion.
 
 ## Process
@@ -121,18 +122,19 @@ Then prioritize:
 
 **Single task:**
 ```bash
-ribosome "prompt"
+mtor dispatch "prompt"
+mtor dispatch --provider infini "prompt"   # use minimax-m2.7
 ```
 
 **Check status:**
 ```bash
-ribosome list --count 10
-ribosome status <workflow_id>
+mtor list --count 10
+mtor status <workflow_id>
 ```
 
 **Cancel a stuck workflow:**
 ```bash
-ribosome cancel <workflow_id>
+mtor cancel <workflow_id>
 ```
 
 ### Phase 4: Verify
@@ -166,7 +168,7 @@ Three timeout layers (must be nested correctly):
 
 ## Gotchas
 
-- **Only zhipu on ganglion.** Other providers exit 127 or quota-exhaust.
+- **zhipu + infini on ganglion.** Infini uses minimax-m2.7 (SWE-Pro 56.2%). Use `--provider infini` for alternative.
 - **Rate-limits are billing reality.** Tasks trickle through as capacity frees up.
 - **Ribosome may not commit.** Review gate now catches this — no_commit_on_success = rejected.
 - **Mac-only tasks can't run on ganglion** (ARM Linux). Drop or tag for local.
