@@ -19,9 +19,8 @@ _ribosome_crash_handler() {
 }
 trap '_ribosome_crash_handler $LINENO' ERR
 
-# Wall-limit (seconds) is the sole cost guard. No turn counter — CC finishes
-# naturally, stall detection catches loops, wall-limit caps total time.
-WALL_LIMIT=1680  # 28 minutes
+# No turn counter, no wall-limit. CC finishes naturally.
+# Stall detection catches loops. Temporal activity timeout (2hr) is the outer bound.
 BARE=true
 FULL_REQUESTED=false
 FORCE=false
@@ -183,7 +182,6 @@ while [[ "${1:-}" == -* ]]; do
     --quiet) QUIET=true; shift ;;
     --json) JSON_OUTPUT=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
-    --max-turns) echo "[deprecated] --max-turns removed — wall-limit is the sole guard" >&2; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
     --explore) echo "[deprecated] --explore flag is deprecated, use: ribosome explore \"query\"" >&2; _SUBCOMMAND=explore; shift ;;
     --force) FORCE=true; shift ;;
@@ -387,10 +385,10 @@ EXPLORE_SYS
   # All providers use ANTHROPIC_API_KEY (x-api-key header). Volcano accepts it too.
   unset ANTHROPIC_AUTH_TOKEN  # prevent inheritance from parent env
 
-  # Wall-limit: sole cost guard. RIBOSOME_WALL_LIMIT env overrides default.
-  local _wall_limit="${RIBOSOME_WALL_LIMIT:-$WALL_LIMIT}"
-  # Per-attempt timeout: wall-limit minus buffer for retry overhead
-  local _claude_timeout=$(( _wall_limit - 120 ))
+  # Per-attempt timeout: matches Temporal activity timeout (2hr).
+  # No wall-limit — stall detection catches loops, Temporal is the outer bound.
+  local _claude_timeout=7200
+  local _wall_limit=$_claude_timeout  # legacy: retry checks still reference this
   local _wall_start=$(date +%s)
 
   # Retry loop with exponential backoff for rate limits (429)
