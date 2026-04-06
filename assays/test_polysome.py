@@ -60,7 +60,7 @@ class TestTranslate:
                 sys.modules.get("temporalio.activity", MagicMock()), "heartbeat", MagicMock()
             ),
         ):
-            result = await worker.translate("Write tests for foo.py", "zhipu", 50)
+            result = await worker.translate("Write tests for foo.py", "zhipu")
 
         assert result["success"] is True
         assert result["exit_code"] == 0
@@ -75,8 +75,8 @@ class TestTranslate:
         assert worker.RIBOSOME_SCRIPT.parent.name == "effectors"
 
     @pytest.mark.asyncio
-    async def test_command_includes_provider_and_turns(self):
-        """The subprocess command includes --provider and --max-turns."""
+    async def test_command_includes_provider(self):
+        """The subprocess command includes --provider."""
         import translocase as worker
 
         captured_cmd = None
@@ -95,14 +95,11 @@ class TestTranslate:
                 sys.modules.get("temporalio.activity", MagicMock()), "heartbeat", MagicMock()
             ),
         ):
-            await worker.translate("task desc", "infini", 42)
+            await worker.translate("task desc", "infini")
 
         assert "--provider" in captured_cmd
         idx = captured_cmd.index("--provider")
         assert captured_cmd[idx + 1] == "infini"
-        assert "--max-turns" in captured_cmd
-        idx2 = captured_cmd.index("--max-turns")
-        assert captured_cmd[idx2 + 1] == "42"
 
 
 # ============================================================================
