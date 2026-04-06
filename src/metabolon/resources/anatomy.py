@@ -573,6 +573,89 @@ def _operon_summary() -> list[str]:
     return lines
 
 
+def _effector_map(project_root: Path) -> list[str]:
+    """Scan effectors/ for standalone execution engines (polysome, mtor, etc.).
+
+    Each effector is a subdirectory under germline/effectors/.
+    Description sourced from CLAUDE.md, README.md, or pyproject.toml (first wins).
+    Key files listed to orient future sessions without deep exploration.
+    """
+    lines: list[str] = []
+    effectors_dir = project_root / "effectors"
+    if not effectors_dir.exists():
+        lines.append("_(no effectors directory)_")
+        return lines
+
+    dirs = sorted(d for d in effectors_dir.iterdir() if d.is_dir() and not d.name.startswith("."))
+    if not dirs:
+        lines.append("_(no effectors found)_")
+        return lines
+
+    for effector_dir in dirs:
+        name = effector_dir.name
+        description = ""
+
+        # Priority 1: CLAUDE.md — first non-heading, non-blank line
+        claude_md = effector_dir / "CLAUDE.md"
+        if claude_md.exists():
+            try:
+                for raw_line in claude_md.read_text().splitlines():
+                    stripped = raw_line.strip()
+                    if stripped and not stripped.startswith("#"):
+                        description = stripped
+                        break
+            except OSError:
+                pass
+
+        # Priority 2: README.md — first non-heading, non-blank line
+        if not description:
+            readme = effector_dir / "README.md"
+            if readme.exists():
+                try:
+                    for raw_line in readme.read_text().splitlines():
+                        stripped = raw_line.strip()
+                        if stripped and not stripped.startswith("#"):
+                            description = stripped
+                            break
+                except OSError:
+                    pass
+
+        # Priority 3: pyproject.toml description field
+        if not description:
+            pyproject = effector_dir / "pyproject.toml"
+            if pyproject.exists():
+                try:
+                    for raw_line in pyproject.read_text().splitlines():
+                        if raw_line.strip().startswith("description"):
+                            description = raw_line.split("=", 1)[1].strip().strip("\"'")
+                            break
+                except OSError:
+                    pass
+
+        if not description:
+            description = "_(no description)_"
+
+        # Collect key files (skip __pycache__, .venv, uv.lock, etc.)
+        skip_names = {"__pycache__", ".venv", "node_modules", "uv.lock", ".git"}
+        skip_suffixes = {".pyc", ".lock"}
+        key_files = sorted(
+            f.name
+            for f in effector_dir.iterdir()
+            if f.name not in skip_names
+            and f.suffix not in skip_suffixes
+            and not f.name.startswith(".")
+            and f.name != "__init__.py"
+        )
+
+        lines.append(f"### {name}")
+        lines.append(description)
+        if key_files:
+            lines.append(f"  Files: {', '.join(f'`{f}`' for f in key_files)}")
+        lines.append("")
+
+    return lines
+
+
 # ── Main generator ──────────────────────────────────────────────
 
 
@@ -582,7 +665,7 @@ def express_anatomy(src_root: Path | None = None) -> str:
     Accepts an optional *src_root* override for testing.
     """
     src = src_root or _SRC
-    project_root = src.parent  # project root (germline/)
+    project_root = src.parent.parent  # project root (germline/)
 
     sections: list[str] = []
     sections.append("# vivesca — Anatomy\n")
@@ -598,6 +681,10 @@ def express_anatomy(src_root: Path | None = None) -> str:
     # Organ Descriptions
     sections.append("## Organ Descriptions\n")
     sections.extend(_organ_descriptions(src))
+
+    # Effectors
+    sections.append("## Effectors\n")
+    sections.extend(_effector_map(project_root))
 
     # Substrate Map
     sections.append("## Substrate Map\n")
