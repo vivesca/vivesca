@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""proteome — queryable tool index for the organism.
+
+Scans effectors (CLI), skills (membrane/receptors), and MCP tools (enzymes/),
+builds a searchable index with caching.
+
+Usage:
+    proteome                  show full tool index (markdown)
+    proteome --json           show full tool index (JSON porin envelope)
+    proteome search QUERY     fuzzy search across names and descriptions
+    proteome stats            counts by type: {effectors: N, skills: N, mcp: N}
+    proteome --type T         filter index by layer (effector/skill/mcp)
+    proteome --refresh        force cache invalidation and rescan
+    proteome untested         find effectors with no test file
+    proteome stale [--days N] flag capabilities not touched in N days (default 90)
+    proteome deps NAME        show imports and calls for an effector
+    proteome hooks            inventory all hook functions from cytoskeleton
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+# Ensure metabolon is importable
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+try:
+    from porin import emit_err, emit_ok
+except ImportError:
+
+    def emit_ok(command, result, next_actions=None):
+        print(json.dumps({"ok": True, "command": command, "result": result, "next_actions": next_actions or []}))
+
+    def emit_err(command, message, code, fix, next_actions=None):
+        print(json.dumps({"ok": False, "command": command, "error": {"message": message, "code": code}, "fix": fix, "next_actions": next_actions or []}))
+
+
+def _build_index(force_refresh: bool = False) -> list[dict]:
+    """Build full capability index, using cache unless forced to refresh."""
+    from metabolon.resources.proteome import (
+        _BIN_DIR,
+        _VIVESCA_TOOLS,
+        _RECEPTORS_DIR,
+        _scan_effector_dir,
+        _scan_organelle_tools,
+        _scan_skills,
+        full_index,
+        invalidate_cache,
+    )
+
+    if force_refresh:
+        invalidate_cache()
+
+    return full_index(
+        bin_dir=_BIN_DIR,
+        tools_dir=_VIVESCA_TOOLS,
+        receptors_dir=_RECEPTORS_DIR,
+        use_cache=not force_refresh,
+    )
+
+
+def _filter_by_type(entries: list[dict], filter_type: str) -> list[dict]:
+    """Filter index entries by type string."""
+    if not filter_type:
+        return entries
+    return [e for e in entries if e.get("type") == filter_type]
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+
+def cmd_index(args) -> None:
+    """Show full tool index as markdown or JSON."""
+    from metabolon.resources.proteome import express_effector_index
+
+    entries = _build_index(force_refresh=args.refresh)
+    if args.type_filter:
+        entries = _filter_by_type(entries, args.type_filter)
+
+    if args.json:
+        emit_ok("proteome index", {
+            "total": len(entries),
+            "tools": entries,
+            "markdown": express_effector_index(),
+        })
+    else:
+        print(express_effector_index())
+
+
+def cmd_search(args) -> None:
+    """Fuzzy search across names and descriptions."""
+    from metabolon.resources.proteome import search_index
+
+    entries = _build_index(force_refresh=args.refresh)
+    matches = search_index(args.query, index=entries)
+
+    if args.type_filter:
+        matches = _filter_by_type(matches, args.type_filter)
+
+    if args.json:
+        emit_ok("proteome search", {
+            "query": args.query,
+            "total": len(matches),
+            "tools": matches,
+        })
+    else:
+        if not matches:
+            print(f"No tools matching '{args.query}'.")
+            return
+        print(f"Found {len(matches)} tool(s) matching '{args.query}':\n")
+        for t in matches:
+            name = t.get("name", "")
+            ttype = t.get("type", "")
+            source = t.get("source", "")
+            desc = t.get("description", "")
+            if desc:
+                print(f"  {name} ({ttype}) — {desc}  [{source}]")
+            else:
+                print(f"  {name} ({ttype})  [{source}]")
+
+
+def cmd_stats(args) -> None:
+    """Show counts by type."""
+    from metabolon.resources.proteome import get_stats
+
+    entries = _build_index(force_refresh=args.refresh)
+    stats = get_stats(entries)
+
+    if args.json:
+        emit_ok("proteome stats", stats)
+    else:
+        total = sum(stats.values())
+        parts = ", ".join(f"{k}: {v}" for k, v in sorted(stats.items()))
+        print(f"Total: {total}  ({parts})")
+
+
+def cmd_untested(args) -> None:
+    """Find effectors with no corresponding test file."""
+    from metabolon.resources.proteome import scan_untested
+
+    uncovered = scan_untested()
+
+    if args.json:
+        emit_ok("proteome untested", {
+            "count": len(uncovered),
+            "tools": uncovered,
+        })
+    else:
+        if not uncovered:
+            print("All effectors have tests. \u2713")
+        else:
+            print(f"{len(uncovered)} effectors without tests:\n")
+            for e in uncovered:
+                name = e.get("name", "")
+                path = e.get("path", "")
+                print(f"  {name}  [{path}]")
+
+
+def cmd_stale(args) -> None:
+    """Flag capabilities not touched recently."""
+    from metabolon.resources.proteome import scan_stale
+
+    stale = scan_stale(days=args.days)
+
+    if args.json:
+        emit_ok("proteome stale", {
+            "days_threshold": args.days,
+            "count": len(stale),
+            "tools": stale,
+        })
+    else:
+        if not stale:
+            print(f"All capabilities touched within {args.days} days. \u2713")
+        else:
+            print(f"{len(stale)} stale capabilities (> {args.days} days since last edit):\n")
+            print(f"{'Name':<30} {'Type':<12} {'Days ago':<10} {'Last modified'}")
+            print("-" * 70)
+            for e in stale:
+                name = e.get("name", "")
+                etype = e.get("type", "")
+                days = e.get("days_since", 0)
+                last = e.get("last_modified", "unknown")
+                print(f"{name:<30} {etype:<12} {days:<10} {last}")
+
+
+def cmd_deps(args) -> None:
+    """Show what an effector imports or calls."""
+    from metabolon.resources.proteome import scan_deps
+
+    deps = scan_deps(args.name)
+
+    if args.json:
+        emit_ok("proteome deps", deps)
+    else:
+        name = deps.get("name", args.name)
+        error = deps.get("error", "")
+        if error:
+            print(f"Error: {error}")
+            return
+        imports = deps.get("imports", [])
+        calls = deps.get("calls", [])
+        print(f"Dependencies for: {name}\n")
+        if imports:
+            print("Imports:")
+            for imp in imports:
+                print(f"  {imp}")
+        else:
+            print("Imports: (none)")
+        if calls:
+            print("Calls:")
+            for call in calls:
+                print(f"  {call}")
+        else:
+            print("Calls: (none)")
+
+
+def cmd_hooks(args) -> None:
+    """Inventory all hook functions from cytoskeleton modules."""
+    from metabolon.resources.proteome import scan_hooks
+
+    hooks = scan_hooks()
+
+    if args.json:
+        emit_ok("proteome hooks", {
+            "count": sum(len(h["functions"]) for h in hooks),
+            "files": hooks,
+        })
+    else:
+        if not hooks:
+            print("No hook files found.")
+            return
+        total = sum(len(h["functions"]) for h in hooks)
+        print(f"Hook functions ({total} total):\n")
+        for h in hooks:
+            hook_file = h.get("hook_file", "")
+            funcs = h.get("functions", [])
+            print(f"## {hook_file}\n")
+            for fn in funcs:
+                fname = fn.get("name", "")
+                trigger = fn.get("trigger_type", "")
+                desc = fn.get("description", "")
+                print(f"  {fname} [{trigger}]")
+                if desc:
+                    print(f"    {desc}")
+            print()
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="proteome — queryable tool index for the organism",
+    )
+    parser.add_argument("--json", action="store_true", help="Output as JSON (porin envelope)")
+    parser.add_argument(
+        "--type",
+        dest="type_filter",
+        default="",
+        help="Filter by layer: effector, skill, or mcp",
+    )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force cache invalidation and full rescan",
+    )
+
+    sub = parser.add_subparsers(dest="command")
+
+    # search
+    search_p = sub.add_parser("search", help="Fuzzy search across names and descriptions")
+    search_p.add_argument("query", help="Search term")
+    search_p.add_argument(
+        "--type",
+        dest="type_filter",
+        default="",
+        help="Filter results by type: effector, skill, or mcp",
+    )
+
+    # untested
+    sub.add_parser("untested", help="Find effectors with no corresponding test file")
+
+    # stale
+    stale_p = sub.add_parser("stale", help="Flag capabilities not touched recently")
+    stale_p.add_argument(
+        "--days",
+        type=int,
+        default=90,
+        help="Mark as stale if not touched in N days (default: 90)",
+    )
+
+    # deps
+    deps_p = sub.add_parser("deps", help="Show imports and calls for an effector")
+    deps_p.add_argument("name", help="Effector name")
+
+    # hooks
+    sub.add_parser("hooks", help="Inventory all hook functions from cytoskeleton")
+
+    # stats (default command -- no subcommand needed)
+    sub.add_parser("stats", help="Show counts by type")
+
+    args = parser.parse_args()
+
+    if args.command == "search":
+        cmd_search(args)
+    elif args.command == "untested":
+        cmd_untested(args)
+    elif args.command == "stale":
+        cmd_stale(args)
+    elif args.command == "deps":
+        cmd_deps(args)
+    elif args.command == "hooks":
+        cmd_hooks(args)
+    elif args.command == "stats":
+        cmd_stats(args)
+    else:
+        cmd_index(args)
+
+
+if __name__ == "__main__":
+    main()
