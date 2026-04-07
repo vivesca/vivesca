@@ -193,6 +193,9 @@ def status(workflow_id: str) -> None:
                 )
                 result_payload["merged"] = task_result.get("merged")
                 result_payload["verdict"] = task_result.get("review", {}).get("verdict")
+                satisfaction = task_result.get("review", {}).get("satisfaction")
+                if satisfaction is not None:
+                    result_payload["satisfaction"] = satisfaction
 
         _ok(
             cmd,
@@ -430,6 +433,26 @@ def doctor() -> None:
 
 
 @app.command
+def history(
+    *,
+    count: int = 20,
+) -> None:
+    """Show recent ribosome run history from JSONL log."""
+    import json as _json
+
+    log_path = Path.home() / "germline" / "loci" / "ribosome-runs.jsonl"
+    if not log_path.exists():
+        _ok("mtor history", {"runs": [], "count": 0}, version=VERSION)
+        return
+    lines = log_path.read_text().strip().splitlines()
+    runs = []
+    for line in reversed(lines[-count:]):
+        with contextlib.suppress(Exception):
+            runs.append(_json.loads(line))
+    _ok("mtor history", {"runs": runs, "count": len(runs)}, version=VERSION)
+
+
+@app.command
 def schema() -> None:
     """Emit full JSON schema of all commands."""
     _ok("mtor schema", tree.to_schema(), version=VERSION)
@@ -531,4 +554,20 @@ def deploy() -> None:
     steps.append({"step": "health check", "ok": True})
 
     _ok("mtor deploy", {"steps": steps, "healthy": True}, version=VERSION)
+
+
+@app.command
+def checkpoints() -> None:
+    """List saved checkpoints from failed ribosome runs."""
+    import json as _json
+
+    cp_dir = Path.home() / "germline" / "loci" / "checkpoints"
+    if not cp_dir.exists():
+        _ok("mtor checkpoints", {"checkpoints": [], "count": 0}, version=VERSION)
+        return
+    cps = []
+    for f in sorted(cp_dir.glob("*.json"), reverse=True):
+        with contextlib.suppress(Exception):
+            cps.append(_json.loads(f.read_text()))
+    _ok("mtor checkpoints", {"checkpoints": cps, "count": len(cps)}, version=VERSION)
 

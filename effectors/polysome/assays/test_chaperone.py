@@ -199,6 +199,27 @@ class TestApprovedWithFlags:
         assert any("errors" in f for f in review["flags"])
 
 
+class TestSatisfaction:
+    """Satisfaction scoring (0-100) based on objective signals."""
+
+    def test_clean_success_high_score(self):
+        result = _make_result()
+        review = _run(chaperone(result))
+        assert review["satisfaction"] >= 90
+
+    def test_nonzero_exit_low_score(self):
+        result = _make_result(exit_code=1)
+        review = _run(chaperone(result))
+        assert review["satisfaction"] <= 60
+
+    def test_no_commit_penalized(self):
+        result = _make_result(
+            post_diff={"stat": "", "numstat": "", "commits": [], "commit_count": 0}
+        )
+        review = _run(chaperone(result))
+        assert review["satisfaction"] <= 70
+
+
 class TestRequeuePrompt:
     """Requeue suggestions for specific failure types."""
 

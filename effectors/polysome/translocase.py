@@ -866,6 +866,35 @@ async def chaperone(result: dict) -> dict:
     except OSError:
         pass
 
+    # Satisfaction scoring: 0-100 based on objective signals
+    score = 100
+
+    # Major deductions
+    if exit_code != 0:
+        score -= 40
+    if not post_stat_text.strip():
+        score -= 30  # no changes
+    if any(f.startswith("destruction") for f in flags):
+        score -= 50
+
+    # Moderate deductions
+    if any("file_shrunk" in f for f in flags):
+        score -= 20
+    if any("thin_output" in f for f in flags):
+        score -= 15
+    if any("placeholders" in f for f in flags):
+        score -= 10
+    if any("errors" in f for f in flags):
+        score -= 10
+
+    # Bonuses
+    if commit_count > 0 and exit_code == 0:
+        score += 10  # actually committed
+    if any("test" in f.lower() for f in post_stat_text.splitlines()):
+        score += 5  # includes test files
+
+    score = max(0, min(100, score))
+
     requeue_prompt = ""
     if verdict in ("rejected", "incomplete") and any("thin_output" in f for f in flags):
         requeue_prompt = task[:200] + " -- Be thorough. Read files before editing. Show your work."
@@ -879,6 +908,7 @@ async def chaperone(result: dict) -> dict:
         "approved": approved,
         "flags": flags,
         "verdict": verdict,
+        "satisfaction": score,
         "requeue_prompt": requeue_prompt,
     }
 
