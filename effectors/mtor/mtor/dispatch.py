@@ -148,33 +148,19 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
             spec["experiment"] = True
 
         async def _start():
+            from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
+
             handle = await client.start_workflow(
                 WORKFLOW_TYPE,
                 args=[[spec]],
                 id=workflow_id,
                 task_queue=TASK_QUEUE,
+                id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
+                id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
             )
             return handle.id
 
-        try:
-            started_id = asyncio.run(_start())
-        except Exception as exc:
-            if "already started" in str(exc).lower() or "already running" in str(exc).lower():
-                _ok(
-                    cmd,
-                    {
-                        "workflow_id": workflow_id,
-                        "status": "ALREADY_RUNNING",
-                        "prompt_preview": prompt[:100],
-                    },
-                    [
-                        _action(f"mtor status {workflow_id}", "Check existing run"),
-                        _action(f"mtor cancel {workflow_id}", "Cancel to re-dispatch"),
-                    ],
-                    version=VERSION,
-                )
-                return
-            raise
+        started_id = asyncio.run(_start())
         result_envelope: dict = {
             "workflow_id": started_id,
             "status": "RUNNING",
