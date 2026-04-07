@@ -599,10 +599,10 @@ def guard_read(data):
 
 
 def guard_webfetch(_data):
-    """Route WebFetch → fetch MCP tool (genome preference)."""
+    """Route WebFetch → pinocytosis CLI (direct, no MCP overhead)."""
     allow_msg(
-        "FETCH: Prefer the `fetch` MCP tool over WebFetch — "
-        "it has smarter routing and fallback chains."
+        "FETCH: Use Bash(command='pinocytosis \"<url>\" --json') instead of WebFetch. "
+        "Parallel extraction (defuddle+jina+microlink) with fallback chain."
     )
 
 
