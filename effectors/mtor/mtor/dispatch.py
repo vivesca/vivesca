@@ -18,6 +18,9 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
     prompt_path = Path(prompt).expanduser()
     if prompt_path.is_file():
         prompt = prompt_path.read_text(encoding="utf-8").strip()
+        # Strip YAML frontmatter (--- ... ---) — confuses GLM into treating spec as document
+        import re
+        prompt = re.sub(r"\A---\n.*?\n---\n*", "", prompt, count=1, flags=re.DOTALL).strip()
 
     cmd = f"mtor {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
 
