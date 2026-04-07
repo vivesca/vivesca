@@ -9,7 +9,7 @@ from pathlib import Path
 
 from porin import action as _action
 
-from mtor import TASK_QUEUE, TEMPORAL_HOST, VERSION, WORKFLOW_TYPE
+from mtor import TASK_QUEUE, TEMPORAL_HOST, VERSION, WORKER_HOST, WORKFLOW_TYPE
 from mtor.client import _get_client
 from mtor.envelope import _err, _ok
 
@@ -125,7 +125,7 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )

@@ -117,12 +117,14 @@ class TestModuleImports:
 
     def test_version_in_init(self):
         from mtor import VERSION
-        assert VERSION == "0.4.0"
+        assert VERSION == "0.5.0"
 
     def test_constants_in_init(self):
-        from mtor import TEMPORAL_HOST, TASK_QUEUE, WORKFLOW_TYPE, COACHING_PATH
+        from mtor import TEMPORAL_HOST, TASK_QUEUE, WORKFLOW_TYPE, WORKER_HOST, REPO_DIR, OUTPUTS_DIR, COACHING_PATH
         assert TASK_QUEUE == "translation-queue"
         assert WORKFLOW_TYPE == "TranslationWorkflow"
+        assert WORKER_HOST == "localhost"
+        assert COACHING_PATH is None  # Unset by default in test env
 
     def test_envelope_exports(self):
         from mtor.envelope import _ok, _err, _extract_first_result
@@ -449,7 +451,8 @@ class TestCoachingInjection:
 
     def test_coaching_file_constant_path(self):
         from mtor import COACHING_PATH
-        assert "feedback_ribosome_coaching.md" in str(COACHING_PATH)
+        # COACHING_PATH is None when MTOR_COACHING_PATH env var is unset
+        assert COACHING_PATH is None
 
 
 # ---------------------------------------------------------------------------

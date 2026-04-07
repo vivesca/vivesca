@@ -27,9 +27,11 @@ from porin import action as _action
 
 from mtor import (
     LOG_TAIL_LINES,
-    RIBOSOME_OUTPUTS_DIR,
+    OUTPUTS_DIR,
+    REPO_DIR,
     TEMPORAL_HOST,
     VERSION,
+    WORKER_HOST,
 )
 from mtor.client import _get_client
 from mtor.dispatch import _dispatch_prompt
@@ -75,7 +77,7 @@ def list_cmd(
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -154,7 +156,7 @@ def status(workflow_id: str) -> None:
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -232,7 +234,7 @@ def status(workflow_id: str) -> None:
 
 @app.command
 def logs(workflow_id: str) -> None:
-    """Fetch last 30 lines of workflow output from ganglion."""
+    """Fetch last 30 lines of workflow output from worker host."""
     cmd = f"mtor logs {workflow_id}"
 
     # Step 1: Query Temporal for the workflow result to get output_path
@@ -257,7 +259,7 @@ def logs(workflow_id: str) -> None:
     if not log_path:
         try:
             find_result = subprocess.run(
-                ["ssh", "ganglion", f"ls -t {RIBOSOME_OUTPUTS_DIR}/*.txt 2>/dev/null | head -20"],
+                ["ssh", WORKER_HOST, f"ls -t {OUTPUTS_DIR}/*.txt 2>/dev/null | head -20"],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -287,7 +289,7 @@ def logs(workflow_id: str) -> None:
 
     try:
         result = subprocess.run(
-            ["ssh", "ganglion", f"tail -{LOG_TAIL_LINES} {log_path}"],
+            ["ssh", WORKER_HOST, f"tail -{LOG_TAIL_LINES} {log_path}"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -298,7 +300,7 @@ def logs(workflow_id: str) -> None:
                 sys.exit(
                     _err(
                         cmd,
-                        f"Log file not found on ganglion: {log_path}",
+                        f"Log file not found on worker host: {log_path}",
                         "LOG_NOT_FOUND",
                         f"Verify the workflow ID with: mtor status {workflow_id}",
                         [_action(f"mtor status {workflow_id}", "Check if workflow exists")],
@@ -310,7 +312,7 @@ def logs(workflow_id: str) -> None:
                     cmd,
                     f"SSH command failed: {stderr_msg}",
                     "SSH_ERROR",
-                    "Verify ganglion is reachable via Tailscale: ping ganglion",
+                    f"Verify worker host is reachable: ping {WORKER_HOST}",
                     [_action("mtor doctor", "Run health check")],
                 )
             )
@@ -333,9 +335,9 @@ def logs(workflow_id: str) -> None:
         sys.exit(
             _err(
                 cmd,
-                "SSH to ganglion timed out after 30s",
+                f"SSH to {WORKER_HOST} timed out after 30s",
                 "SSH_TIMEOUT",
-                "Check Tailscale connectivity: ping ganglion",
+                f"Check connectivity: ping {WORKER_HOST}",
                 [_action("mtor doctor", "Run health check")],
             )
         )
@@ -363,7 +365,7 @@ def cancel(workflow_id: str) -> None:
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -440,7 +442,7 @@ def history(
     """Show recent ribosome run history from JSONL log."""
     import json as _json
 
-    log_path = Path.home() / "germline" / "loci" / "ribosome-runs.jsonl"
+    log_path = Path(REPO_DIR) / "loci" / "ribosome-runs.jsonl"
     if not log_path.exists():
         _ok("mtor history", {"runs": [], "count": 0}, version=VERSION)
         return
@@ -505,17 +507,17 @@ def deny(workflow_id: str) -> None:
 
 @app.command
 def deploy() -> None:
-    """Sync code to ganglion, restart Temporal worker, verify health."""
+    """Sync code to worker host, restart Temporal worker, verify health."""
     import time
 
     steps = []
 
-    # Step 1: push to ganglion
-    print("[deploy] pushing to ganglion...", file=sys.stderr)
+    # Step 1: push to worker host
+    print(f"[deploy] pushing to {WORKER_HOST}...", file=sys.stderr)
     push = subprocess.run(
-        ["git", "push", "ganglion", "main"],
+        ["git", "push", WORKER_HOST, "main"],
         capture_output=True, text=True, timeout=30,
-        cwd=str(Path.home() / "germline"),
+        cwd=str(REPO_DIR),
     )
     if push.returncode != 0 and "Everything up-to-date" not in push.stderr:
         sys.exit(
@@ -523,7 +525,7 @@ def deploy() -> None:
                 "mtor deploy",
                 f"git push failed: {push.stderr.strip()[:200]}",
                 "PUSH_FAILED",
-                "Resolve divergence: cd ~/germline && git pull ganglion main --no-edit",
+                f"Resolve divergence: cd {REPO_DIR} && git pull {WORKER_HOST} main --no-edit",
                 exit_code=1,
             )
         )
@@ -532,7 +534,7 @@ def deploy() -> None:
     # Step 2: restart worker
     print("[deploy] restarting temporal-worker...", file=sys.stderr)
     restart = subprocess.run(
-        ["ssh", "ganglion", "sudo systemctl restart temporal-worker"],
+        ["ssh", WORKER_HOST, "sudo systemctl restart temporal-worker"],
         capture_output=True, text=True, timeout=15,
     )
     steps.append({"step": "restart worker", "ok": restart.returncode == 0})
@@ -542,7 +544,7 @@ def deploy() -> None:
                 "mtor deploy",
                 f"Worker restart failed: {restart.stderr.strip()[:200]}",
                 "RESTART_FAILED",
-                "SSH to ganglion and check: sudo systemctl status temporal-worker",
+                f"SSH to {WORKER_HOST} and check: sudo systemctl status temporal-worker",
                 exit_code=1,
             )
         )
@@ -604,7 +606,7 @@ def checkpoints() -> None:
     """List saved checkpoints from failed ribosome runs."""
     import json as _json
 
-    cp_dir = Path.home() / "germline" / "loci" / "checkpoints"
+    cp_dir = Path(OUTPUTS_DIR) / "checkpoints"
     if not cp_dir.exists():
         _ok("mtor checkpoints", {"checkpoints": [], "count": 0}, version=VERSION)
         return

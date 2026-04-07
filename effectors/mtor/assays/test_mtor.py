@@ -568,8 +568,9 @@ class TestHistory:
     def test_history_reads_jsonl(self, tmp_path, monkeypatch):
         """Reads and returns last N runs from JSONL file."""
         import json as _json
+        import mtor.cli as _cli
 
-        log_dir = tmp_path / "germline" / "loci"
+        log_dir = tmp_path / "loci"
         log_dir.mkdir(parents=True)
         log_file = log_dir / "ribosome-runs.jsonl"
         runs = [
@@ -577,7 +578,7 @@ class TestHistory:
             {"workflow_id": "run-2", "exit": 1},
         ]
         log_file.write_text("\n".join(_json.dumps(r) for r in runs))
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "REPO_DIR", str(tmp_path))
         exit_code, data = invoke(["history"])
         assert exit_code == 0
         assert data["ok"] is True
@@ -589,13 +590,14 @@ class TestHistory:
     def test_history_count_limit(self, tmp_path, monkeypatch):
         """--count limits returned runs."""
         import json as _json
+        import mtor.cli as _cli
 
-        log_dir = tmp_path / "germline" / "loci"
+        log_dir = tmp_path / "loci"
         log_dir.mkdir(parents=True)
         log_file = log_dir / "ribosome-runs.jsonl"
         runs = [{"workflow_id": f"run-{i}", "exit": 0} for i in range(10)]
         log_file.write_text("\n".join(_json.dumps(r) for r in runs))
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "REPO_DIR", str(tmp_path))
         exit_code, data = invoke(["history", "--count", "3"])
         assert exit_code == 0
         assert data["result"]["count"] == 3
@@ -603,8 +605,9 @@ class TestHistory:
     def test_history_skips_malformed_lines(self, tmp_path, monkeypatch):
         """Malformed JSONL lines are silently skipped."""
         import json as _json
+        import mtor.cli as _cli
 
-        log_dir = tmp_path / "germline" / "loci"
+        log_dir = tmp_path / "loci"
         log_dir.mkdir(parents=True)
         log_file = log_dir / "ribosome-runs.jsonl"
         lines = [
@@ -613,7 +616,7 @@ class TestHistory:
             _json.dumps({"workflow_id": "good-2", "exit": 0}),
         ]
         log_file.write_text("\n".join(lines))
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "REPO_DIR", str(tmp_path))
         exit_code, data = invoke(["history"])
         assert exit_code == 0
         assert data["result"]["count"] == 2
@@ -737,8 +740,9 @@ class TestCheckpoints:
     def test_checkpoints_reads_json(self, tmp_path, monkeypatch):
         """Reads checkpoint JSON files from the checkpoints dir."""
         import json as _json
+        import mtor.cli as _cli
 
-        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir = tmp_path / "checkpoints"
         cp_dir.mkdir(parents=True)
         cp_file = cp_dir / "t-abc123.json"
         cp_data = {
@@ -751,7 +755,7 @@ class TestCheckpoints:
             "diff_stat": "3 files changed",
         }
         cp_file.write_text(_json.dumps(cp_data))
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "OUTPUTS_DIR", str(tmp_path))
         exit_code, data = invoke(["checkpoints"])
         assert exit_code == 0
         assert data["ok"] is True
@@ -762,12 +766,13 @@ class TestCheckpoints:
     def test_checkpoints_sorted_newest_first(self, tmp_path, monkeypatch):
         """Checkpoints are returned in reverse sorted filename order."""
         import json as _json
+        import mtor.cli as _cli
 
-        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir = tmp_path / "checkpoints"
         cp_dir.mkdir(parents=True)
         for name in ["t-aaa.json", "t-zzz.json", "t-mmm.json"]:
             (cp_dir / name).write_text(_json.dumps({"workflow_id": name[:-5]}))
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "OUTPUTS_DIR", str(tmp_path))
         exit_code, data = invoke(["checkpoints"])
         assert exit_code == 0
         ids = [cp["workflow_id"] for cp in data["result"]["checkpoints"]]
@@ -776,12 +781,13 @@ class TestCheckpoints:
     def test_checkpoints_skips_malformed_json(self, tmp_path, monkeypatch):
         """Malformed JSON files are silently skipped."""
         import json as _json
+        import mtor.cli as _cli
 
-        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir = tmp_path / "checkpoints"
         cp_dir.mkdir(parents=True)
         (cp_dir / "good.json").write_text(_json.dumps({"workflow_id": "good-1"}))
         (cp_dir / "bad.json").write_text("not valid json{")
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "OUTPUTS_DIR", str(tmp_path))
         exit_code, data = invoke(["checkpoints"])
         assert exit_code == 0
         assert data["result"]["count"] == 1
@@ -789,9 +795,11 @@ class TestCheckpoints:
 
     def test_checkpoints_empty_dir(self, tmp_path, monkeypatch):
         """Empty checkpoints dir returns empty list."""
-        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        import mtor.cli as _cli
+
+        cp_dir = tmp_path / "checkpoints"
         cp_dir.mkdir(parents=True)
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(_cli, "OUTPUTS_DIR", str(tmp_path))
         exit_code, data = invoke(["checkpoints"])
         assert exit_code == 0
         assert data["result"]["checkpoints"] == []

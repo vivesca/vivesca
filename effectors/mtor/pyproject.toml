@@ -5,8 +5,8 @@ requires = [ "hatchling" ]
 
 [project]
 name = "mtor"
-version = "0.4.0"
-description = "Agent-first translation controller — dispatch, inspect, and manage ribosome workflows via Temporal"
+version = "0.5.0"
+description = "Agent-first coding task dispatcher for Temporal workflows"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
@@ -22,9 +22,8 @@ keywords = [
   "temporal",
   "agent",
   "cli",
-  "workflow",
-  "ribosome",
-  "translation",
+  "dispatch",
+  "ai-coding",
 ]
 dependencies = [
   "cyclopts",
@@ -35,8 +34,8 @@ dependencies = [
 scripts.mtor = "mtor.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/user/mtor"
-Repository = "https://github.com/user/mtor"
+Homepage = "https://github.com/terry-li-hm/mtor"
+Repository = "https://github.com/terry-li-hm/mtor"
 Issues = "https://github.com/user/mtor/issues"
 
 [dependency-groups]

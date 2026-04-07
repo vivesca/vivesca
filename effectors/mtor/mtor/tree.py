@@ -15,7 +15,7 @@ tree.add_command(
 )
 tree.add_command(
     "mtor <prompt>",
-    "Dispatch a task prompt to Temporal. Prepends coaching content before sending.",
+    "Dispatch a task prompt to Temporal for agent execution.",
     params=[
         {
             "name": "prompt",
@@ -30,7 +30,7 @@ tree.add_command(
         "result": {
             "workflow_id": "string",
             "status": "string",
-            "prompt_preview": "string (first 100 chars of full prompt after coaching injection)",
+            "prompt_preview": "string (first 100 chars of dispatched prompt)",
         },
         "next_actions": "array",
     },
@@ -101,7 +101,7 @@ tree.add_command(
 )
 tree.add_command(
     "mtor logs <workflow_id>",
-    f"Fetch last {LOG_TAIL_LINES} lines of workflow output from ganglion",
+    f"Fetch last {LOG_TAIL_LINES} lines of workflow output from worker host",
     params=[
         {
             "name": "workflow_id",
@@ -115,7 +115,7 @@ tree.add_command(
         "command": "string",
         "result": {
             "lines": "array of strings",
-            "log_path": "string (full path on ganglion)",
+            "log_path": "string (full path on worker host)",
             "truncated": "boolean",
         },
         "next_actions": "array",
