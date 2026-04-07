@@ -47,6 +47,19 @@ _HEARTBEAT_INTERVAL = 30.0
 _ACTIVITY_TIMEOUT = timedelta(hours=2)  # generous circuit breaker; stall detection fires first
 
 
+def _detect_repo(task: str, default: str) -> str:
+    """Detect target repo from task prompt, falling back to default."""
+    match = _re.search(r"~/code/[\w.-]+", task)
+    if not match:
+        return default
+    candidate = Path(match.group()).expanduser()
+    for d in [candidate] + list(candidate.parents):
+        if (d / ".git").is_dir():
+            print(f"[translocase] detected target repo: {d}", file=sys.stderr)
+            return str(d)
+    return default
+
+
 def _git_snapshot(cwd: str | None = None) -> dict:
     """Capture git diff stat + numstat + commit list + full patch for review."""
     work_dir = cwd or str(Path.home() / "germline")
@@ -347,7 +360,7 @@ async def translate(task: str, provider: str, mode: str = "build") -> dict:
         pass
 
     # Run from repo root, not polysome subdir
-    repo_root = str(Path.home() / "germline")
+    repo_root = _detect_repo(task, str(Path.home() / "germline"))
 
     branch_name = f"ribosome-{tid_str or _time.strftime('%H%M%S')}"
     worktree_path = None
