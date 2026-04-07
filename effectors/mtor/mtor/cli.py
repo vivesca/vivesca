@@ -557,6 +557,49 @@ def deploy() -> None:
 
 
 @app.command
+def stats() -> None:
+    """Show dispatch statistics: today's verdicts, running count, weekly totals."""
+    from datetime import datetime, timedelta, timezone
+
+    client, err = _get_client()
+    if err:
+        sys.exit(
+            _err(
+                "mtor stats",
+                f"Cannot connect: {err}",
+                "TEMPORAL_UNREACHABLE",
+                "mtor doctor",
+                exit_code=3,
+            )
+        )
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+    async def _count(query: str) -> int:
+        return await client.count_workflows(query=query)
+
+    counts: dict[str, int] = {}
+    queries = {
+        "running": "ExecutionStatus = 'Running'",
+        "today_total": f"StartTime > '{today}'",
+        "today_completed": f"StartTime > '{today}' AND ExecutionStatus = 'Completed'",
+        "week_total": f"StartTime > '{week_ago}'",
+        "week_completed": f"StartTime > '{week_ago}' AND ExecutionStatus = 'Completed'",
+    }
+
+    for name, query in queries.items():
+        try:
+            counts[name] = asyncio.run(_count(query))
+        except Exception:
+            counts[name] = -1
+
+    _ok("mtor stats", {"counts": counts}, version=VERSION)
+
+
+@app.command
 def checkpoints() -> None:
     """List saved checkpoints from failed ribosome runs."""
     import json as _json

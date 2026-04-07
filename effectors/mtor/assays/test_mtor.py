@@ -10,6 +10,7 @@ import io
 import json
 import sys
 from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from mtor.cli import app
@@ -80,6 +81,12 @@ def make_mock_client():
     cancel_coro = AsyncMock(return_value=None)
     wf_handle.cancel = cancel_coro
     client.get_workflow_handle = MagicMock(return_value=wf_handle)
+
+    # count_workflows returns a coroutine (async)
+    async def _fake_count(query=None):
+        return 0
+
+    client.count_workflows = _fake_count
 
     return client, wf_handle
 
@@ -543,6 +550,80 @@ class TestClassifyRisk:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# History tests
+# ---------------------------------------------------------------------------
+
+
+class TestHistory:
+    def test_history_no_log_file(self, tmp_path, monkeypatch):
+        """When JSONL file doesn't exist, return empty runs list."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["history"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        assert data["result"]["runs"] == []
+        assert data["result"]["count"] == 0
+
+    def test_history_reads_jsonl(self, tmp_path, monkeypatch):
+        """Reads and returns last N runs from JSONL file."""
+        import json as _json
+
+        log_dir = tmp_path / "germline" / "loci"
+        log_dir.mkdir(parents=True)
+        log_file = log_dir / "ribosome-runs.jsonl"
+        runs = [
+            {"workflow_id": "run-1", "exit": 0},
+            {"workflow_id": "run-2", "exit": 1},
+        ]
+        log_file.write_text("\n".join(_json.dumps(r) for r in runs))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["history"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        assert data["result"]["count"] == 2
+        # Most recent first (reversed order)
+        assert data["result"]["runs"][0]["workflow_id"] == "run-2"
+        assert data["result"]["runs"][1]["workflow_id"] == "run-1"
+
+    def test_history_count_limit(self, tmp_path, monkeypatch):
+        """--count limits returned runs."""
+        import json as _json
+
+        log_dir = tmp_path / "germline" / "loci"
+        log_dir.mkdir(parents=True)
+        log_file = log_dir / "ribosome-runs.jsonl"
+        runs = [{"workflow_id": f"run-{i}", "exit": 0} for i in range(10)]
+        log_file.write_text("\n".join(_json.dumps(r) for r in runs))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["history", "--count", "3"])
+        assert exit_code == 0
+        assert data["result"]["count"] == 3
+
+    def test_history_skips_malformed_lines(self, tmp_path, monkeypatch):
+        """Malformed JSONL lines are silently skipped."""
+        import json as _json
+
+        log_dir = tmp_path / "germline" / "loci"
+        log_dir.mkdir(parents=True)
+        log_file = log_dir / "ribosome-runs.jsonl"
+        lines = [
+            _json.dumps({"workflow_id": "good-1", "exit": 0}),
+            "not valid json{",
+            _json.dumps({"workflow_id": "good-2", "exit": 0}),
+        ]
+        log_file.write_text("\n".join(lines))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["history"])
+        assert exit_code == 0
+        assert data["result"]["count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Experiment mode tests
+# ---------------------------------------------------------------------------
+
+
 class TestExperimentMode:
     def test_default_is_build(self):
         """Verify the spec has mode=build by default."""
@@ -576,3 +657,142 @@ class TestExperimentMode:
         assert any("NOT auto-merge" in desc for desc in action_descs), (
             f"Expected auto-merge note in next_actions, got: {action_descs}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Stats tests
+# ---------------------------------------------------------------------------
+
+
+class TestStats:
+    def test_stats_returns_counts(self):
+        """Stats returns a counts dict with expected keys."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            exit_code, data = invoke(["stats"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        counts = data["result"]["counts"]
+        for key in ("running", "today_total", "today_completed", "week_total", "week_completed"):
+            assert key in counts, f"Missing key: {key}"
+
+    def test_stats_temporal_unreachable(self):
+        """Stats returns error when Temporal is unreachable."""
+        with _patch_client_error("Connection refused"):
+            exit_code, data = invoke(["stats"])
+        assert exit_code == 3
+        assert data["ok"] is False
+
+    def test_stats_graceful_on_query_error(self):
+        """If count_workflows raises, the count is -1 not a crash."""
+        mock_client, _ = make_mock_client()
+
+        async def _failing_count(query=None):
+            raise RuntimeError("visibility query failed")
+
+        mock_client.count_workflows = _failing_count
+        with _patch_client(mock_client):
+            exit_code, data = invoke(["stats"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        # All counts should be -1 since every query fails
+        for val in data["result"]["counts"].values():
+            assert val == -1
+
+    def test_stats_returns_actual_counts(self):
+        """Stats returns real counts from count_workflows."""
+        mock_client, _ = make_mock_client()
+        call_log = []
+
+        async def _counting(query=None):
+            call_log.append(query)
+            if "Running" in query:
+                return 3
+            return 10
+
+        mock_client.count_workflows = _counting
+        with _patch_client(mock_client):
+            exit_code, data = invoke(["stats"])
+        assert exit_code == 0
+        assert data["result"]["counts"]["running"] == 3
+        assert data["result"]["counts"]["today_total"] == 10
+        assert len(call_log) == 5
+
+
+# ---------------------------------------------------------------------------
+# Checkpoints tests
+# ---------------------------------------------------------------------------
+
+
+class TestCheckpoints:
+    def test_checkpoints_no_dir(self, tmp_path, monkeypatch):
+        """When checkpoints dir doesn't exist, return empty list."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["checkpoints"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        assert data["result"]["checkpoints"] == []
+        assert data["result"]["count"] == 0
+
+    def test_checkpoints_reads_json(self, tmp_path, monkeypatch):
+        """Reads checkpoint JSON files from the checkpoints dir."""
+        import json as _json
+
+        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir.mkdir(parents=True)
+        cp_file = cp_dir / "t-abc123.json"
+        cp_data = {
+            "workflow_id": "t-abc123",
+            "timestamp": "2026-04-07T12:00:00Z",
+            "task": "Write tests for foo",
+            "provider": "zhipu",
+            "exit_code": 1,
+            "stash_ref": "abc",
+            "diff_stat": "3 files changed",
+        }
+        cp_file.write_text(_json.dumps(cp_data))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["checkpoints"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        assert data["result"]["count"] == 1
+        assert data["result"]["checkpoints"][0]["workflow_id"] == "t-abc123"
+        assert data["result"]["checkpoints"][0]["stash_ref"] == "abc"
+
+    def test_checkpoints_sorted_newest_first(self, tmp_path, monkeypatch):
+        """Checkpoints are returned in reverse sorted filename order."""
+        import json as _json
+
+        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir.mkdir(parents=True)
+        for name in ["t-aaa.json", "t-zzz.json", "t-mmm.json"]:
+            (cp_dir / name).write_text(_json.dumps({"workflow_id": name[:-5]}))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["checkpoints"])
+        assert exit_code == 0
+        ids = [cp["workflow_id"] for cp in data["result"]["checkpoints"]]
+        assert ids == ["t-zzz", "t-mmm", "t-aaa"]
+
+    def test_checkpoints_skips_malformed_json(self, tmp_path, monkeypatch):
+        """Malformed JSON files are silently skipped."""
+        import json as _json
+
+        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir.mkdir(parents=True)
+        (cp_dir / "good.json").write_text(_json.dumps({"workflow_id": "good-1"}))
+        (cp_dir / "bad.json").write_text("not valid json{")
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["checkpoints"])
+        assert exit_code == 0
+        assert data["result"]["count"] == 1
+        assert data["result"]["checkpoints"][0]["workflow_id"] == "good-1"
+
+    def test_checkpoints_empty_dir(self, tmp_path, monkeypatch):
+        """Empty checkpoints dir returns empty list."""
+        cp_dir = tmp_path / "germline" / "loci" / "checkpoints"
+        cp_dir.mkdir(parents=True)
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        exit_code, data = invoke(["checkpoints"])
+        assert exit_code == 0
+        assert data["result"]["checkpoints"] == []
+        assert data["result"]["count"] == 0
