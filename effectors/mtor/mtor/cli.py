@@ -62,9 +62,10 @@ def default_handler(
 def list_cmd(
     *,
     status: Literal["RUNNING", "COMPLETED", "FAILED", "CANCELED", "TERMINATED"] | None = None,
-    count: int = 10,
+    count: int = 50,
+    since: Annotated[int | None, Parameter(name=["-s", "--since"])] = None,
 ) -> None:
-    """List recent workflows."""
+    """List recent workflows. --since N shows last N hours only."""
     cmd = "mtor list" + (f" --status {status}" if status else "") + f" --count {count}"
 
     client, err = _get_client()
@@ -81,9 +82,16 @@ def list_cmd(
         )
 
     try:
-        query_filter = ""
+        # Build Temporal visibility query
+        query_parts = []
         if status:
-            query_filter = f"ExecutionStatus = '{status}'"
+            status_map = {"RUNNING": "Running", "COMPLETED": "Completed", "FAILED": "Failed", "CANCELED": "Canceled", "TERMINATED": "Terminated"}
+            query_parts.append(f"ExecutionStatus = '{status_map.get(status, status)}'")
+        if since:
+            from datetime import datetime, timedelta, timezone
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=since)
+            query_parts.append(f"StartTime > '{cutoff.strftime('%Y-%m-%dT%H:%M:%SZ')}'")
+        query_filter = " AND ".join(query_parts) if query_parts else ""
 
         async def _list():
             results = []
@@ -103,10 +111,18 @@ def list_cmd(
             status_val = ex.status.name if ex.status else "UNKNOWN"
             start_time = ex.start_time.isoformat() if ex.start_time else None
             close_time = ex.close_time.isoformat() if ex.close_time else None
+            verdict = "\u2014"
+            with contextlib.suppress(Exception):
+                sa = getattr(ex, "search_attributes", None)
+                if sa:
+                    for key, val in sa.items():
+                        if "verdict" in str(key).lower() and val:
+                            verdict = str(val[0])
             workflows.append(
                 {
                     "workflow_id": wf_id,
                     "status": status_val,
+                    "verdict": verdict,
                     "start_time": start_time,
                     "close_time": close_time,
                 }
