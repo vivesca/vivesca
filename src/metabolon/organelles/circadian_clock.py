@@ -1,62 +1,37 @@
 """circadian_clock — Google Calendar API client for headless environments.
 
 Direct Google Calendar API access — no gog CLI dependency.
-Auth: refresh token from env vars or gog's token.json. No browser needed.
+Auth: centralized receptor_auth module with refresh token from env vars or
+gog's token.json. No browser needed.
 
 Phase detection: dawn (06–10), day (10–17), dusk (17–21), night (21–06).
 Weekend and holiday awareness for schedule-sensitive routing.
 """
 
 import logging
-import os
 import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+
+from metabolon.receptor_auth import OAuth2Config, get_google_credentials
 
 HKT = timezone(timedelta(hours=8))
 
 logger = logging.getLogger(__name__)
 
 CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+_AUTH_CONFIG = OAuth2Config(prefix="GCAL", scopes=CALENDAR_SCOPES)
 GOG_TOKEN_FILE = Path.home() / ".config" / "gog" / "token.json"
 _service_lock = threading.Lock()
 _cached_service = None
 
 
-def _get_credentials() -> Credentials:
-    """Build credentials from env vars or gog token file."""
-    client_id = os.environ.get("GCAL_CLIENT_ID", "")
-    client_secret = os.environ.get("GCAL_CLIENT_SECRET", "")
-    refresh_token = os.environ.get("GCAL_REFRESH_TOKEN", "")
-
-    if client_id and client_secret and refresh_token:
-        creds = Credentials(
-            token=None,
-            refresh_token=refresh_token,
-            client_id=client_id,
-            client_secret=client_secret,
-            token_uri="https://oauth2.googleapis.com/token",
-            scopes=CALENDAR_SCOPES,
-        )
-        creds.refresh(Request())
-        return creds
-
-    if GOG_TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(GOG_TOKEN_FILE), CALENDAR_SCOPES)
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        if creds and creds.valid:
-            return creds
-
-    raise RuntimeError(
-        "Calendar auth failed. Set GCAL_CLIENT_ID, GCAL_CLIENT_SECRET, "
-        "GCAL_REFRESH_TOKEN env vars, or place a valid token.json at "
-        f"{GOG_TOKEN_FILE}"
-    )
+def _get_credentials():
+    """Build credentials from env vars or gog token file via receptor_auth."""
+    return get_google_credentials(_AUTH_CONFIG)
 
 
 def service():
@@ -129,17 +104,29 @@ def scheduled_events_json(date_str: str = "today") -> list[dict]:
         return []
 
 
-def schedule_event(title: str, date_str: str, time_str: str, duration: int = 60) -> str:
+def schedule_event(
+    title: str,
+    date_str: str,
+    time_str: str,
+    duration: int = 60,
+    *,
+    description: str | None = None,
+    location: str | None = None,
+) -> str:
     """Create a calendar event. Returns event ID."""
     day = date.fromisoformat(date_str)
     hour, minute = (int(p) for p in time_str.split(":"))
     start_dt = datetime(day.year, day.month, day.day, hour, minute, tzinfo=HKT)
     end_dt = start_dt + timedelta(minutes=duration)
-    body = {
+    body: dict = {
         "summary": title,
         "start": {"dateTime": start_dt.isoformat()},
         "end": {"dateTime": end_dt.isoformat()},
     }
+    if description:
+        body["description"] = description
+    if location:
+        body["location"] = location
     event = service().events().insert(calendarId="primary", body=body).execute()
     return event.get("id", "")
 

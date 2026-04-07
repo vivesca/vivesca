@@ -5,14 +5,26 @@ requires = [ "hatchling" ]
 
 [project]
 name = "mtor"
-version = "0.1.0"
+version = "0.4.0"
 description = "Agent-first translation controller — dispatch, inspect, and manage ribosome workflows via Temporal"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+  "temporal",
+  "agent",
+  "cli",
+  "workflow",
+  "ribosome",
+  "translation",
 ]
 dependencies = [
   "cyclopts",
@@ -21,6 +33,11 @@ dependencies = [
 ]
 
 scripts.mtor = "mtor.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/user/mtor"
+Repository = "https://github.com/user/mtor"
+Issues = "https://github.com/user/mtor/issues"
 
 [dependency-groups]
 dev = [

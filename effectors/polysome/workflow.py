@@ -18,7 +18,9 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy, SearchAttributeKey
 
 with workflow.unsafe.imports_passed_through():
-    from translocase import chaperone, translate, translate_graph
+    from pathlib import Path
+
+    from translocase import chaperone, merge_approved, translate, translate_graph
 
 # #6: Search attributes (registered on server)
 SA_PROVIDER = SearchAttributeKey.for_keyword("TranslationProvider")
@@ -188,6 +190,21 @@ class TranslationWorkflow:
         # so dispatch can log it.  Old replays keep current behavior (no output_path).
         if use_review_v2:
             review = {**review, "output_path": result.get("output_path", "")}
+
+        # Merge to main only after chaperone approves (verdict gate)
+        if review.get("approved") and result.get("branch_name"):
+            try:
+                merge_result = await workflow.execute_activity(
+                    merge_approved,
+                    args=[{
+                        "repo_root": str(Path.home() / "germline"),
+                        "branch_name": result["branch_name"],
+                    }],
+                    start_to_close_timeout=timedelta(minutes=2),
+                )
+                result = {**result, "merged": merge_result.get("merged", False)}
+            except Exception as exc:
+                result = {**result, "merged": False, "merge_error": str(exc)[:200]}
 
         return {
             **result,

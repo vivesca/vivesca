@@ -548,30 +548,22 @@ async def translate(task: str, provider: str) -> dict:
 
     # Incomplete: non-zero exit but commits exist — preserve branch for re-dispatch
     is_incomplete = rc != 0 and commit_count > 0
+    # Merge deferred to workflow after chaperone review approves.
+    # Just clean up the worktree; keep the branch for review-gated merge.
     merged = False
     if worktree_path:
+        with contextlib.suppress(Exception):
+            _subprocess.run(
+                ["git", "worktree", "remove", "--force", worktree_path],
+                capture_output=True,
+                timeout=10,
+                cwd=repo_root,
+            )
         if is_incomplete:
-            # Just remove the worktree; leave branch alive for manual recovery
-            with contextlib.suppress(Exception):
-                _subprocess.run(
-                    ["git", "worktree", "remove", "--force", worktree_path],
-                    capture_output=True,
-                    timeout=10,
-                    cwd=repo_root,
-                )
             print(
                 f"INCOMPLETE: branch {branch_name} preserved ({commit_count} commits)",
                 file=sys.stderr,
             )
-        else:
-            merged = await asyncio.to_thread(
-                _merge_worktree, repo_root, branch_name, worktree_path
-            )
-            if not merged:
-                print(f"WARNING: worktree merge failed for {branch_name}", file=sys.stderr)
-
-    if rc == 0 and merged and post_diff.get("stat", "").strip():
-        await asyncio.to_thread(_git_push, repo_root)
 
     cost_info = ""
     for line in stdout.splitlines()[-10:]:
@@ -637,6 +629,75 @@ _ERROR_PATTERNS = _re.compile(
     r"Traceback \(most recent|panic:|fatal:",
     _re.IGNORECASE,
 )
+
+
+
+def _merge_branch(repo_root: str, branch_name: str) -> bool:
+    """Merge a branch into main under exclusive lock. FF then 3-way.
+
+    Extracted from _merge_worktree -- same merge logic, no worktree handling.
+    Deletes branch on successful merge.
+    """
+    _MERGE_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(_MERGE_LOCK_PATH, "w")
+    delete_branch = False
+    try:
+        _fcntl.flock(lock_fd, _fcntl.LOCK_EX)
+        check = _subprocess.run(
+            ["git", "log", "--oneline", f"main..{branch_name}"],
+            capture_output=True, text=True, timeout=10, cwd=repo_root,
+        )
+        if not check.stdout.strip():
+            delete_branch = True
+            return True
+        merge = _subprocess.run(
+            ["git", "merge", "--ff-only", branch_name],
+            capture_output=True, text=True, timeout=15, cwd=repo_root,
+        )
+        if merge.returncode == 0:
+            delete_branch = True
+            return True
+        merge = _subprocess.run(
+            ["git", "merge", "--no-ff", "--no-edit", branch_name],
+            capture_output=True, text=True, timeout=30, cwd=repo_root,
+        )
+        if merge.returncode == 0:
+            delete_branch = True
+            return True
+        # Conflicts -- abort
+        _subprocess.run(
+            ["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root
+        )
+        print(f"CONFLICT: {branch_name} has conflicts, leaving branch", file=sys.stderr)
+        return False
+    except Exception as exc:
+        print(f"ERROR: merge error for {branch_name}: {exc}", file=sys.stderr)
+        with contextlib.suppress(Exception):
+            _subprocess.run(
+                ["git", "merge", "--abort"], capture_output=True, timeout=10, cwd=repo_root
+            )
+        return False
+    finally:
+        _fcntl.flock(lock_fd, _fcntl.LOCK_UN)
+        lock_fd.close()
+        if delete_branch:
+            with contextlib.suppress(Exception):
+                _subprocess.run(
+                    ["git", "branch", "-D", branch_name],
+                    capture_output=True, timeout=10, cwd=repo_root,
+                )
+
+
+@activity.defn
+async def merge_approved(args: dict) -> dict:
+    """Merge an approved branch to main + push. Called by workflow after chaperone approves."""
+    repo_root = args["repo_root"]
+    branch_name = args["branch_name"]
+    merged = await asyncio.to_thread(_merge_branch, repo_root, branch_name)
+    if merged:
+        await asyncio.to_thread(_git_push, repo_root)
+    return {"merged": merged, "branch_name": branch_name}
+
 
 # Coaching-promoted checks: patterns that were prose coaching notes,
 # now enforced as deterministic gate checks. Coaching entries should
@@ -845,7 +906,7 @@ async def main() -> None:
         client=client,
         task_queue=TASK_QUEUE,
         workflows=[TranslationWorkflow],
-        activities=[translate, translate_graph, chaperone],
+        activities=[translate, translate_graph, chaperone, merge_approved],
         max_concurrent_activities=max_concurrent,
     )
     _gc_worktrees(str(Path.home() / "germline"))

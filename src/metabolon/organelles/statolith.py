@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """statolith — AI model benchmark aggregator (statolith = gravity-sensing dense body)."""
 
 # /// script
@@ -9,7 +7,6 @@ from __future__ import annotations
 #   "PyYAML",
 # ]
 # ///
-
 
 import argparse
 import contextlib
@@ -176,7 +173,7 @@ class AliasMap:
     _map: dict[str, str]
 
     @classmethod
-    def load(cls, override_path: str | None = None) -> AliasMap:
+    def load(cls, override_path: str | None = None) -> "AliasMap":
         return cls(_map=_build_alias_map(override_path))
 
     def resolve(self, name: str) -> str:

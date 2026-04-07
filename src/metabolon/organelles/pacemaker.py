@@ -1,7 +1,5 @@
 """pacemaker -- reminder signaling (pacemaker = generates signals at scheduled intervals)."""
 
-from __future__ import annotations
-
 import argparse
 import base64
 import gzip

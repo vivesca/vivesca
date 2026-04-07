@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 """Cold path — weekly differential evolution sweep."""
-
 
 import asyncio
 import configparser
@@ -32,7 +29,7 @@ def _load_conf() -> configparser.ConfigParser:
     return cfg
 
 
-def _default_sweep_config() -> SelectionParameters:
+def _default_sweep_config() -> "SelectionParameters":
     cfg = _load_conf()
     return SelectionParameters(
         min_phenotypes=cfg.getint("selection", "min_phenotypes"),
@@ -52,13 +49,13 @@ class SelectionParameters:
     offspring_per_generation: int = 2  # new candidates generated per sweep
 
     @classmethod
-    def from_conf(cls) -> SelectionParameters:
+    def from_conf(cls) -> "SelectionParameters":
         """Load a SelectionParameters from sweep.conf (falls back to dataclass defaults)."""
         return _default_sweep_config()
 
 
 def select(
-    emotions: dict[str, Emotion],
+    emotions: "dict[str, Emotion]",
 ) -> list[str]:
     """Identify tools that need optimisation.
 

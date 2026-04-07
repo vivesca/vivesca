@@ -4,15 +4,14 @@ Biology: the peroxisome processes and detoxifies cargo. Here, the Gmail
 client handles raw API calls — auth, fetch, modify — so higher-level
 organelles (endosomal) can focus on classification logic.
 
-Auth: uses refresh token from env vars (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET,
-GMAIL_REFRESH_TOKEN) or falls back to gog's token.json file. No browser needed
-after initial setup.
+Auth: uses centralized receptor_auth module with refresh token from env vars
+(GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN) or falls back to
+gog's token.json file. No browser needed after initial setup.
 """
 
 import base64
 import html
 import mimetypes
-import os
 import re
 from datetime import datetime
 from email.encoders import encode_base64
@@ -22,49 +21,18 @@ from email.mime.text import MIMEText
 from functools import lru_cache
 from pathlib import Path
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.http import BatchHttpRequest
+
+from metabolon.receptor_auth import OAuth2Config, get_google_credentials
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
-GOG_TOKEN_FILE = Path.home() / ".config" / "gog" / "token.json"
+_AUTH_CONFIG = OAuth2Config(prefix="GMAIL", scopes=GMAIL_SCOPES)
 
 
-def _get_credentials() -> Credentials:
-    """Build credentials from env vars or gog token file.
-
-    Priority:
-    1. Env vars: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN
-    2. gog's cached token.json (backwards compat)
-    """
-    client_id = os.environ.get("GMAIL_CLIENT_ID", "")
-    client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
-    refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
-
-    if client_id and client_secret and refresh_token:
-        creds = Credentials(
-            token=None,
-            refresh_token=refresh_token,
-            client_id=client_id,
-            client_secret=client_secret,
-            token_uri="https://oauth2.googleapis.com/token",
-            scopes=GMAIL_SCOPES,
-        )
-        creds.refresh(Request())
-        return creds
-
-    if GOG_TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(GOG_TOKEN_FILE), GMAIL_SCOPES)
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        if creds and creds.valid:
-            return creds
-
-    raise RuntimeError(
-        "Gmail auth failed. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, "
-        "GMAIL_REFRESH_TOKEN env vars, or place a valid token.json at "
-        f"{GOG_TOKEN_FILE}"
-    )
+def _get_credentials():
+    """Build credentials from env vars or gog token file via receptor_auth."""
+    return get_google_credentials(_AUTH_CONFIG)
 
 
 @lru_cache(maxsize=1)

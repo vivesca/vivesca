@@ -441,10 +441,16 @@ def cmd_status(argv: list[str] | None = None) -> int:
         else:
             quota_str = "unlimited"
 
-        # Health: skip probe in compact mode, just check key presence
+        # Health: in compact mode, infer from usage stats instead of env vars
         if args.compact:
-            health = "OK" if has_key else "NO_KEY"
-        elif not has_key:
+            if today["total"] > 0:
+                pr = today["pass"] / today["total"]
+                health = "HEALTHY" if pr > 0.5 else "DEGRADED"
+            elif has_key:
+                health = "UNKNOWN"
+            else:
+                health = "NO_KEY"
+        elif not has_key and today["total"] == 0:
             health = "NO_KEY"
         else:
             ribosome_path = Path(__file__).parent / "ribosome"
@@ -480,7 +486,7 @@ def cmd_status(argv: list[str] | None = None) -> int:
             f"{row['pass_rate']:>5} | {row['quota']:<15} | {row['model']:<18}"
         )
 
-    unhealthy = [r for r in rows if r["health"] != "OK"]
+    unhealthy = [r for r in rows if r["health"] not in ("OK", "HEALTHY", "UNKNOWN")]
     if unhealthy:
         print(
             f"\n⚠ {len(unhealthy)} provider(s) unavailable: {', '.join(r['provider'] for r in unhealthy)}"
