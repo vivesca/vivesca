@@ -49,12 +49,13 @@ def default_handler(
     prompt: str | None = None,
     *,
     provider: Annotated[str, Parameter(name=["-p", "--provider"])] = "zhipu",
+    experiment: Annotated[bool, Parameter(name=["-x", "--experiment"])] = False,
 ) -> None:
     """Bare invocation returns command tree; with a prompt, dispatches to Temporal."""
     if prompt is None:
         _ok("mtor", tree.to_dict(), version=VERSION)
     else:
-        _dispatch_prompt(prompt, provider=provider)
+        _dispatch_prompt(prompt, provider=provider, experiment=experiment)
 
 
 @app.command(name="list")
