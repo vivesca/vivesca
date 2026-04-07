@@ -1,0 +1,19 @@
+# env-mac.op — 1Password secret references for Mac
+# No secrets here — only op:// URIs. Safe to commit.
+# Usage: source <(set -a; source ~/.env.bootstrap; op inject -i ~/germline/loci/env-mac.op)
+
+# LLM providers
+ANTHROPIC_API_KEY=op://Agents/anthropic-api-key/credential
+OPENAI_API_KEY=op://Agents/openai-api-key/credential
+ZHIPU_API_KEY=op://Agents/zhipu-api-key/credential
+GOOGLE_API_KEY=op://Agents/gemini-api-key/credential
+PERPLEXITY_API_KEY=op://Agents/perplexity-api-key/credential
+MOONSHOT_API_KEY=op://Agents/moonshot-api-key/credential
+XAI_API_KEY=op://Agents/xai-api-key/credential
+EXA_API_KEY=op://Agents/exa-api-key/credential
+
+# Services
+OURA_TOKEN=op://Agents/oura-token/credential
+TELEGRAM_BOT_TOKEN=op://Agents/telegram-bot-token/credential
+WECHAT2RSS_TOKEN=op://Agents/wechat2rss-token/credential
+GOG_KEYRING_PASSWORD=op://Agents/gog-keyring-password/credential

@@ -1,0 +1,50 @@
+{
+  "harnesses": {
+    "claude": {
+      "binary": "claude",
+      "coaching": "prompt_prepend"
+    },
+    "goose": {
+      "binary": "goose",
+      "coaching": "moim_file"
+    },
+    "droid": {
+      "binary": "droid",
+      "coaching": "append_system_prompt_file"
+    },
+    "gemini": {
+      "binary": "gemini",
+      "coaching": "prompt_prepend"
+    },
+    "codex": {
+      "binary": "codex",
+      "coaching": "prompt_prepend"
+    }
+  },
+  "backends": {
+    "zhipu": {
+      "key_env": "ZHIPU_API_KEY",
+      "url": "https://open.bigmodel.cn/api/anthropic",
+      "model": "GLM-5.1",
+      "model_explore": "GLM-4.5-air"
+    },
+    "infini": {
+      "key_env": "INFINI_API_KEY",
+      "url": "https://cloud.infini-ai.com/maas/coding",
+      "model": "minimax-m2.7"
+    },
+    "volcano": {
+      "key_env": "VOLCANO_API_KEY",
+      "url": "https://ark.cn-beijing.volces.com/api/coding",
+      "model": "doubao-seed-2.0-code"
+    }
+  },
+  "routing": {
+    "explore": {"harness": "droid", "backend": "zhipu"},
+    "build": {"harness": "claude", "backend": "zhipu"},
+    "bugfix": {"harness": "goose", "backend": "zhipu"},
+    "test": {"harness": "claude", "backend": "zhipu"},
+    "default": {"harness": "claude", "backend": "zhipu"}
+  },
+  "bugfix_patterns": ["fix", "bug", "failing test", "broken", "debug", "diagnose"]
+}

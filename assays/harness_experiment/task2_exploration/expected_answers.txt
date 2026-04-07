@@ -1,0 +1,3 @@
+pattern: Abstract Factory
+methods: send validate create register available_channels notify bulk_notify
+dependencies: service.py -> factory.py, factory.py -> abc
