@@ -465,3 +465,56 @@ def deny(workflow_id: str) -> None:
 
     asyncio.run(_signal())
     _ok("mtor deny", {"workflow_id": workflow_id, "decision": "denied"}, version=VERSION)
+
+@app.command
+def deploy() -> None:
+    """Sync code to ganglion, restart Temporal worker, verify health."""
+    import time
+
+    steps = []
+
+    # Step 1: push to ganglion
+    print("[deploy] pushing to ganglion...", file=sys.stderr)
+    push = subprocess.run(
+        ["git", "push", "ganglion", "main"],
+        capture_output=True, text=True, timeout=30,
+        cwd=str(Path.home() / "germline"),
+    )
+    if push.returncode != 0 and "Everything up-to-date" not in push.stderr:
+        sys.exit(
+            _err(
+                "mtor deploy",
+                f"git push failed: {push.stderr.strip()[:200]}",
+                "PUSH_FAILED",
+                "Resolve divergence: cd ~/germline && git pull ganglion main --no-edit",
+                exit_code=1,
+            )
+        )
+    steps.append({"step": "git push", "ok": True})
+
+    # Step 2: restart worker
+    print("[deploy] restarting temporal-worker...", file=sys.stderr)
+    restart = subprocess.run(
+        ["ssh", "ganglion", "sudo systemctl restart temporal-worker"],
+        capture_output=True, text=True, timeout=15,
+    )
+    steps.append({"step": "restart worker", "ok": restart.returncode == 0})
+    if restart.returncode != 0:
+        sys.exit(
+            _err(
+                "mtor deploy",
+                f"Worker restart failed: {restart.stderr.strip()[:200]}",
+                "RESTART_FAILED",
+                "SSH to ganglion and check: sudo systemctl status temporal-worker",
+                exit_code=1,
+            )
+        )
+
+    # Step 3: wait + verify
+    time.sleep(3)
+    print("[deploy] verifying health...", file=sys.stderr)
+    _doctor()
+    steps.append({"step": "health check", "ok": True})
+
+    _ok("mtor deploy", {"steps": steps, "healthy": True}, version=VERSION)
+
