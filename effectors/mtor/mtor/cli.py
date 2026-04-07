@@ -19,6 +19,7 @@ import asyncio
 import contextlib
 import subprocess
 import sys
+from datetime import UTC
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -26,15 +27,19 @@ from cyclopts import App, Parameter
 from porin import action as _action
 
 from mtor import (
+    DEPLOY_REMOTE,
     LOG_TAIL_LINES,
-    RIBOSOME_OUTPUTS_DIR,
+    OUTPUTS_DIR,
+    REPO_DIR,
     TEMPORAL_HOST,
     VERSION,
+    WORKER_HOST,
 )
 from mtor.client import _get_client
 from mtor.dispatch import _dispatch_prompt
 from mtor.doctor import doctor as _doctor
 from mtor.envelope import _err, _extract_first_result, _ok
+from mtor.scan import _run_checks
 from mtor.tree import tree
 
 # ---------------------------------------------------------------------------
@@ -79,7 +84,7 @@ def list_cmd(
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -165,7 +170,7 @@ def status(workflow_id: str) -> None:
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -205,6 +210,9 @@ def status(workflow_id: str) -> None:
                 )
                 result_payload["merged"] = task_result.get("merged")
                 result_payload["verdict"] = task_result.get("review", {}).get("verdict")
+                satisfaction = task_result.get("review", {}).get("satisfaction")
+                if satisfaction is not None:
+                    result_payload["satisfaction"] = satisfaction
 
         _ok(
             cmd,
@@ -241,7 +249,7 @@ def status(workflow_id: str) -> None:
 
 @app.command
 def logs(workflow_id: str) -> None:
-    """Fetch last 30 lines of workflow output from ganglion."""
+    """Fetch last 30 lines of workflow output from worker host."""
     cmd = f"mtor logs {workflow_id}"
 
     # Step 1: Query Temporal for the workflow result to get output_path
@@ -267,7 +275,7 @@ def logs(workflow_id: str) -> None:
     if not log_path:
         try:
             find_result = subprocess.run(
-                ["ssh", "ganglion", f"ls -t {RIBOSOME_OUTPUTS_DIR}/*.txt 2>/dev/null | head -20"],
+                ["ssh", WORKER_HOST, f"ls -t {OUTPUTS_DIR}/*.txt 2>/dev/null | head -20"],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -297,7 +305,7 @@ def logs(workflow_id: str) -> None:
 
     try:
         result = subprocess.run(
-            ["ssh", "ganglion", f"tail -{LOG_TAIL_LINES} {log_path}"],
+            ["ssh", WORKER_HOST, f"tail -{LOG_TAIL_LINES} {log_path}"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -308,7 +316,7 @@ def logs(workflow_id: str) -> None:
                 sys.exit(
                     _err(
                         cmd,
-                        f"Log file not found on ganglion: {log_path}",
+                        f"Log file not found on worker host: {log_path}",
                         "LOG_NOT_FOUND",
                         f"Verify the workflow ID with: mtor status {workflow_id}",
                         [_action(f"mtor status {workflow_id}", "Check if workflow exists")],
@@ -320,7 +328,7 @@ def logs(workflow_id: str) -> None:
                     cmd,
                     f"SSH command failed: {stderr_msg}",
                     "SSH_ERROR",
-                    "Verify ganglion is reachable via Tailscale: ping ganglion",
+                    f"Verify worker host is reachable: ping {WORKER_HOST}",
                     [_action("mtor doctor", "Run health check")],
                 )
             )
@@ -343,9 +351,9 @@ def logs(workflow_id: str) -> None:
         sys.exit(
             _err(
                 cmd,
-                "SSH to ganglion timed out after 30s",
+                f"SSH to {WORKER_HOST} timed out after 30s",
                 "SSH_TIMEOUT",
-                "Check Tailscale connectivity: ping ganglion",
+                f"Check connectivity: ping {WORKER_HOST}",
                 [_action("mtor doctor", "Run health check")],
             )
         )
@@ -373,7 +381,7 @@ def cancel(workflow_id: str) -> None:
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -444,6 +452,56 @@ def doctor() -> None:
 
 
 @app.command
+def history(
+    *,
+    count: int = 20,
+) -> None:
+    """Show recent ribosome run history from JSONL log."""
+    import json as _json
+
+    log_path = Path(REPO_DIR) / "loci" / "ribosome-runs.jsonl"
+    if not log_path.exists():
+        _ok("mtor history", {"runs": [], "count": 0}, version=VERSION)
+        return
+    lines = log_path.read_text().strip().splitlines()
+    runs = []
+    for line in reversed(lines[-count:]):
+        with contextlib.suppress(Exception):
+            runs.append(_json.loads(line))
+    _ok("mtor history", {"runs": runs, "count": len(runs)}, version=VERSION)
+
+
+@app.command
+def scan() -> None:
+    """Run deterministic checks: TODO/FIXME, missing tests, stale marks."""
+    findings = _run_checks()
+    next_actions = [
+        _action("mtor scan", "Re-run scan after fixes"),
+    ]
+    _ok("mtor scan", {"findings": findings, "count": len(findings)}, next_actions, version=VERSION)
+
+
+@app.command
+def scout(
+    prompt: str,
+    *,
+    provider: Annotated[str | None, Parameter(name=["-p", "--provider"])] = None,
+) -> None:
+    """Dispatch a read-only analysis task. Returns findings, not code."""
+    _dispatch_prompt(prompt, provider=provider, mode="scout")
+
+
+@app.command
+def research(
+    prompt: str,
+    *,
+    provider: Annotated[str | None, Parameter(name=["-p", "--provider"])] = None,
+) -> None:
+    """Dispatch an external research task. Searches web, synthesizes findings."""
+    _dispatch_prompt(prompt, provider=provider, mode="research")
+
+
+@app.command
 def schema() -> None:
     """Emit full JSON schema of all commands."""
     _ok("mtor schema", tree.to_schema(), version=VERSION)
@@ -497,20 +555,19 @@ def deny(workflow_id: str) -> None:
 
 @app.command
 def deploy() -> None:
-    """Sync code to ganglion, restart Temporal worker, verify health."""
+    """Sync code to worker host, restart Temporal worker, verify health."""
     import time
 
     steps = []
 
-    # Step 1: sync to ganglion — push to temp branch, then ff-merge on ganglion
-    print("[deploy] syncing ganglion...", file=sys.stderr)
-    germline = str(Path.home() / "germline")
+    # Step 1: sync to worker — push to temp branch, then ff-merge on worker
+    print("[deploy] syncing to worker...", file=sys.stderr)
     push = subprocess.run(
-        ["git", "push", "ganglion", "main:deploy-sync", "--force"],
+        ["git", "push", DEPLOY_REMOTE, "main:deploy-sync", "--force"],
         capture_output=True,
         text=True,
         timeout=30,
-        cwd=germline,
+        cwd=REPO_DIR,
     )
     if push.returncode != 0:
         sys.exit(
@@ -525,8 +582,8 @@ def deploy() -> None:
     subprocess.run(
         [
             "ssh",
-            "ganglion",
-            "cd ~/germline && git merge deploy-sync --no-edit; git branch -d deploy-sync 2>/dev/null; true",
+            WORKER_HOST,
+            f"cd {REPO_DIR} && git merge deploy-sync --no-edit; git branch -d deploy-sync 2>/dev/null; true",
         ],
         capture_output=True,
         text=True,
@@ -537,7 +594,7 @@ def deploy() -> None:
     # Step 2: restart worker
     print("[deploy] restarting temporal-worker...", file=sys.stderr)
     restart = subprocess.run(
-        ["ssh", "ganglion", "sudo systemctl restart temporal-worker"],
+        ["ssh", WORKER_HOST, "sudo systemctl restart temporal-worker"],
         capture_output=True,
         text=True,
         timeout=15,
@@ -549,7 +606,7 @@ def deploy() -> None:
                 "mtor deploy",
                 f"Worker restart failed: {restart.stderr.strip()[:200]}",
                 "RESTART_FAILED",
-                "SSH to ganglion and check: sudo systemctl status temporal-worker",
+                f"SSH to {WORKER_HOST} and check: sudo systemctl status temporal-worker",
                 exit_code=1,
             )
         )
@@ -561,3 +618,60 @@ def deploy() -> None:
     steps.append({"step": "health check", "ok": True})
 
     _ok("mtor deploy", {"steps": steps, "healthy": True}, version=VERSION)
+
+
+@app.command
+def stats() -> None:
+    """Show dispatch statistics: today's verdicts, running count, weekly totals."""
+    from datetime import datetime, timedelta
+
+    client, err = _get_client()
+    if err:
+        sys.exit(
+            _err(
+                "mtor stats",
+                f"Cannot connect: {err}",
+                "TEMPORAL_UNREACHABLE",
+                "mtor doctor",
+                exit_code=3,
+            )
+        )
+
+    today = datetime.now(UTC).strftime("%Y-%m-%dT00:00:00Z")
+    week_ago = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    async def _count(query: str) -> int:
+        return await client.count_workflows(query=query)
+
+    counts: dict[str, int] = {}
+    queries = {
+        "running": "ExecutionStatus = 'Running'",
+        "today_total": f"StartTime > '{today}'",
+        "today_completed": f"StartTime > '{today}' AND ExecutionStatus = 'Completed'",
+        "week_total": f"StartTime > '{week_ago}'",
+        "week_completed": f"StartTime > '{week_ago}' AND ExecutionStatus = 'Completed'",
+    }
+
+    for name, query in queries.items():
+        try:
+            counts[name] = asyncio.run(_count(query))
+        except Exception:
+            counts[name] = -1
+
+    _ok("mtor stats", {"counts": counts}, version=VERSION)
+
+
+@app.command
+def checkpoints() -> None:
+    """List saved checkpoints from failed ribosome runs."""
+    import json as _json
+
+    cp_dir = Path(OUTPUTS_DIR) / "checkpoints"
+    if not cp_dir.exists():
+        _ok("mtor checkpoints", {"checkpoints": [], "count": 0}, version=VERSION)
+        return
+    cps = []
+    for f in sorted(cp_dir.glob("*.json"), reverse=True):
+        with contextlib.suppress(Exception):
+            cps.append(_json.loads(f.read_text()))
+    _ok("mtor checkpoints", {"checkpoints": cps, "count": len(cps)}, version=VERSION)

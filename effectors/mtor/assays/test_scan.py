@@ -1,21 +1,20 @@
-"""Tests for mtor scan — organism gap detection.
+"""Tests for mtor scan command — organism gap detection.
 
-mtor scan runs deterministic checks against the organism and returns
-a ranked JSON list of actionable tasks. Each task has enough context
-for CC to write a test file and dispatch.
+The scan command runs deterministic checks on the codebase and returns
+findings as a list of dicts in a porin envelope.
 """
 
 from __future__ import annotations
 
 import io
 import json
+import os
 import sys
-from unittest.mock import AsyncMock, patch
 
 from mtor.cli import app
 
 # ---------------------------------------------------------------------------
-# Helpers (same pattern as test_mtor.py)
+# Helpers
 # ---------------------------------------------------------------------------
 
 
@@ -43,144 +42,186 @@ def invoke(args: list[str] | None = None) -> tuple[int, dict]:
 
 
 # ---------------------------------------------------------------------------
-# scan command — returns JSON task list
+# VALID_CATEGORIES tests
 # ---------------------------------------------------------------------------
 
 
-class TestScanOutput:
-    """mtor scan returns a porin JSON envelope with detected tasks."""
+class TestValidCategories:
+    def test_categories_exist(self):
+        from mtor.scan import VALID_CATEGORIES
 
-    @patch("mtor.scan._run_checks")
-    def test_scan_returns_ok_envelope(self, mock_checks):
-        """scan returns ok=true with a tasks array."""
-        mock_checks.return_value = [
-            {
-                "description": "cytokinesis has no tests",
-                "category": "coverage",
-                "priority": 3,
-                "target": "~/germline/effectors/cytokinesis",
-                "suggested_test": "assays/test_cytokinesis.py",
-            }
-        ]
+        assert isinstance(VALID_CATEGORIES, tuple)
+
+    def test_categories_contain_expected(self):
+        from mtor.scan import VALID_CATEGORIES
+
+        for cat in ("hygiene", "coverage", "maintenance"):
+            assert cat in VALID_CATEGORIES, f"Missing category: {cat}"
+
+
+# ---------------------------------------------------------------------------
+# _run_checks tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunChecks:
+    def test_returns_list_of_dicts(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        assert isinstance(results, list)
+        for r in results:
+            assert isinstance(r, dict)
+
+    def test_each_finding_has_required_fields(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        required = {"description", "category", "priority", "target"}
+        for r in results:
+            assert required.issubset(r.keys()), f"Missing keys: {required - r.keys()}"
+
+    def test_categories_are_valid(self, tmp_path):
+        from mtor.scan import VALID_CATEGORIES, _run_checks
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        for r in results:
+            assert r["category"] in VALID_CATEGORIES, f"Invalid category: {r['category']}"
+
+    def test_priorities_are_valid(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        valid_priorities = {"low", "medium", "high"}
+        for r in results:
+            assert r["priority"] in valid_priorities, f"Invalid priority: {r['priority']}"
+
+    def test_finds_todo_fixme(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        # Create a fake effector with TODO
+        eff = tmp_path / "myeffector"
+        eff.mkdir()
+        (eff / "main.py").write_text("# TODO: fix this later\nprint('hello')\n")
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        todo_findings = [r for r in results if r["category"] == "hygiene"]
+        assert len(todo_findings) > 0
+        assert any(
+            "TODO" in r["description"] or "FIXME" in r["description"] for r in todo_findings
+        )
+
+    def test_finds_effectors_without_assays(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        # Create a fake effector WITHOUT assays dir
+        eff = tmp_path / "bare-effector"
+        eff.mkdir()
+        (eff / "run.py").write_text("print('hello')")
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        coverage_findings = [r for r in results if r["category"] == "coverage"]
+        assert len(coverage_findings) > 0
+        assert any("bare-effector" in r["target"] for r in coverage_findings)
+
+    def test_effector_with_assays_not_flagged(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        # Create a fake effector WITH assays dir
+        eff = tmp_path / "tested-effector"
+        eff.mkdir()
+        assays = eff / "assays"
+        assays.mkdir()
+        (assays / "test_main.py").write_text("def test_ok(): pass")
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        coverage_findings = [r for r in results if r["category"] == "coverage"]
+        assert not any("tested-effector" in r["target"] for r in coverage_findings)
+
+    def test_finds_stale_marks(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        marks = tmp_path / "marks"
+        marks.mkdir()
+        # Create a stale mark file (>30 days old mtime)
+        stale = marks / "old-mark.json"
+        stale.write_text('{"status": "active"}')
+        # Set mtime to 60 days ago
+        import time
+
+        old_time = time.time() - 60 * 86400
+        os.utime(stale, (old_time, old_time))
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=marks)
+        maint_findings = [r for r in results if r["category"] == "maintenance"]
+        assert len(maint_findings) > 0
+        assert any(
+            "old-mark" in r["target"] or "stale" in r["description"].lower()
+            for r in maint_findings
+        )
+
+    def test_recent_mark_not_flagged(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        marks = tmp_path / "marks"
+        marks.mkdir()
+        fresh = marks / "fresh-mark.json"
+        fresh.write_text('{"status": "active"}')
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=marks)
+        maint_findings = [r for r in results if r["category"] == "maintenance"]
+        assert not any("fresh-mark" in r["target"] for r in maint_findings)
+
+    def test_excludes_venv_dirs(self, tmp_path):
+        from mtor.scan import _run_checks
+
+        venv = tmp_path / ".venv"
+        venv.mkdir()
+        (venv / "lib.py").write_text("# TODO: bad\n")
+
+        results = _run_checks(effectors_dir=tmp_path, marks_dir=tmp_path)
+        hygiene_findings = [r for r in results if r["category"] == "hygiene"]
+        assert not any(".venv" in r.get("target", "") for r in hygiene_findings)
+
+
+# ---------------------------------------------------------------------------
+# scan CLI subcommand tests
+# ---------------------------------------------------------------------------
+
+
+class TestScanCLI:
+    def test_scan_returns_ok_envelope(self, tmp_path, monkeypatch):
+        import mtor.scan as _scan
+
+        monkeypatch.setattr(_scan, "REPO_DIR", str(tmp_path))
         exit_code, data = invoke(["scan"])
         assert exit_code == 0
         assert data["ok"] is True
-        assert "tasks" in data["result"]
 
-    @patch("mtor.scan._run_checks")
-    def test_scan_tasks_have_required_fields(self, mock_checks):
-        """Each task must have description, category, priority, target."""
-        mock_checks.return_value = [
-            {
-                "description": "missing test coverage for mtor deploy",
-                "category": "coverage",
-                "priority": 2,
-                "target": "~/germline/effectors/mtor/mtor/cli.py",
-                "suggested_test": "assays/test_deploy.py",
-            }
-        ]
-        _exit_code, data = invoke(["scan"])
-        tasks = data["result"]["tasks"]
-        assert len(tasks) >= 1
-        for task in tasks:
-            assert "description" in task
-            assert "category" in task
-            assert task["category"] in ("health", "coverage", "stale", "todo", "broken")
-            assert "priority" in task
-            assert isinstance(task["priority"], int)
-            assert 1 <= task["priority"] <= 5
-            assert "target" in task
+    def test_scan_has_findings_key(self, tmp_path, monkeypatch):
+        import mtor.scan as _scan
 
-    @patch("mtor.scan._run_checks")
-    def test_scan_tasks_sorted_by_priority(self, mock_checks):
-        """Tasks are returned highest priority first (5=critical, 1=low)."""
-        mock_checks.return_value = [
-            {"description": "low", "category": "todo", "priority": 1, "target": "a"},
-            {"description": "high", "category": "broken", "priority": 5, "target": "b"},
-            {"description": "mid", "category": "coverage", "priority": 3, "target": "c"},
-        ]
-        _exit_code, data = invoke(["scan"])
-        tasks = data["result"]["tasks"]
-        priorities = [t["priority"] for t in tasks]
-        assert priorities == sorted(priorities, reverse=True)
+        monkeypatch.setattr(_scan, "REPO_DIR", str(tmp_path))
+        _, data = invoke(["scan"])
+        assert "findings" in data["result"]
 
-    @patch("mtor.scan._run_checks")
-    def test_scan_empty_organism_returns_empty_tasks(self, mock_checks):
-        """If no gaps found, tasks is an empty list (not an error)."""
-        mock_checks.return_value = []
-        exit_code, data = invoke(["scan"])
-        assert exit_code == 0
-        assert data["result"]["tasks"] == []
-        assert data["result"]["count"] == 0
+    def test_scan_findings_is_list(self, tmp_path, monkeypatch):
+        import mtor.scan as _scan
 
+        monkeypatch.setattr(_scan, "REPO_DIR", str(tmp_path))
+        _, data = invoke(["scan"])
+        assert isinstance(data["result"]["findings"], list)
 
-# ---------------------------------------------------------------------------
-# scan check categories
-# ---------------------------------------------------------------------------
+    def test_scan_has_next_actions(self, tmp_path, monkeypatch):
+        import mtor.scan as _scan
 
+        monkeypatch.setattr(_scan, "REPO_DIR", str(tmp_path))
+        _, data = invoke(["scan"])
+        assert "next_actions" in data
 
-class TestScanChecks:
-    """_run_checks aggregates multiple detection strategies."""
+    def test_scan_command_field(self, tmp_path, monkeypatch):
+        import mtor.scan as _scan
 
-    def test_run_checks_returns_list(self):
-        """_run_checks returns a list (may be empty on clean organism)."""
-        from mtor.scan import _run_checks
-
-        result = _run_checks()
-        assert isinstance(result, list)
-        for item in result:
-            assert isinstance(item, dict)
-            assert "description" in item
-            assert "category" in item
-
-    def test_check_categories_are_valid(self):
-        """All returned categories are from the allowed set."""
-        from mtor.scan import VALID_CATEGORIES
-
-        assert "health" in VALID_CATEGORIES
-        assert "coverage" in VALID_CATEGORIES
-        assert "stale" in VALID_CATEGORIES
-        assert "todo" in VALID_CATEGORIES
-        assert "broken" in VALID_CATEGORIES
-
-
-# ---------------------------------------------------------------------------
-# test gate — build tasks require test file reference
-# ---------------------------------------------------------------------------
-
-
-class TestBuildGate:
-    """mtor refuses build dispatch without test file reference."""
-
-    @patch("mtor.dispatch._get_client")
-    def test_build_without_test_reference_rejected(self, mock_client):
-        """Prompt without test_*.py or assays/ is rejected with NO_TEST_FILE."""
-        exit_code, data = invoke(["Add a shiny new feature"])
-        assert exit_code == 2
-        assert data["ok"] is False
-        assert data["error"]["code"] == "NO_TEST_FILE"
-
-    @patch("mtor.dispatch._get_client")
-    def test_build_with_test_reference_accepted(self, mock_client):
-        """Prompt referencing test_*.py passes the gate."""
-        mock_async = AsyncMock()
-        mock_async.start_workflow = AsyncMock(return_value="wf-123")
-        mock_client.return_value = (mock_async, None)
-
-        # Should not raise NO_TEST_FILE — may fail later on Temporal connection
-        # but the gate itself should pass
-        _exit_code, data = invoke(["Make assays/test_feature.py pass"])
-        # If we get past the gate, error will be about Temporal, not NO_TEST_FILE
-        if not data["ok"]:
-            assert data["error"]["code"] != "NO_TEST_FILE"
-
-    @patch("mtor.dispatch._get_client")
-    def test_build_with_assays_path_accepted(self, mock_client):
-        """Prompt referencing assays/ directory passes the gate."""
-        mock_async = AsyncMock()
-        mock_async.start_workflow = AsyncMock(return_value="wf-123")
-        mock_client.return_value = (mock_async, None)
-
-        _exit_code, data = invoke(["Fix failing assays/test_mtor.py"])
-        if not data["ok"]:
-            assert data["error"]["code"] != "NO_TEST_FILE"
+        monkeypatch.setattr(_scan, "REPO_DIR", str(tmp_path))
+        _, data = invoke(["scan"])
+        assert data["command"] == "mtor scan"

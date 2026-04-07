@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import sys
 from pathlib import Path
 
 from porin import action as _action
 
-from mtor import TASK_QUEUE, TEMPORAL_HOST, VERSION, WORKFLOW_TYPE
+from mtor import TASK_QUEUE, TEMPORAL_HOST, VERSION, WORKER_HOST, WORKFLOW_TYPE
 from mtor.client import _get_client
 from mtor.envelope import _err, _ok
 
@@ -78,6 +79,15 @@ ROUTE_PATTERNS: dict[str, list[str]] = {
     ],
     "bugfix": ["fix ", "bug", "broken", "error ", "failing", "crash", "regression"],
     "test": ["write test", "add test", "test for", "coverage"],
+    "research": [
+        "research ",
+        "compare ",
+        "evaluate ",
+        "what is the latest",
+        "how do others",
+        "pricing",
+        "benchmark",
+    ],
 }
 
 ROUTE_TO_PROVIDER: dict[str, str] = {
@@ -85,6 +95,7 @@ ROUTE_TO_PROVIDER: dict[str, str] = {
     "bugfix": "goose",
     "build": "zhipu",
     "test": "zhipu",
+    "research": "zhipu",
 }
 
 
@@ -97,8 +108,56 @@ def detect_task_type(prompt: str) -> str:
     return "build"
 
 
+# ---------------------------------------------------------------------------
+# Workflow ID generation
+# ---------------------------------------------------------------------------
+
+PROVIDER_TO_MODEL: dict[str, str] = {
+    "zhipu": "glm51",
+    "infini": "mm27",
+    "volcano": "doubao",
+    "gemini": "gem31",
+    "codex": "gpt54",
+    "goose": "glm51g",
+    "droid": "glm51d",
+}
+
+_SLUG_WORD_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(text: str) -> str:
+    """Lowercase, drop apostrophes, replace non-alphanumeric runs with single hyphen."""
+    return _SLUG_WORD_RE.sub("-", text.lower().replace("'", "")).strip("-")
+
+
+def _make_workflow_id(prompt: str, provider: str, harness: str = "ribosome") -> str:
+    """Build a deterministic workflow ID: {harness}-{model}-{slug}-{hash}.
+
+    - model: short name mapped from *provider*
+    - slug: first 3 words of *prompt*, slugified
+    - hash: 8-char hex from sha256 of *prompt*
+    - total length capped at 80 characters (slug truncated if needed)
+    """
+    model = PROVIDER_TO_MODEL.get(provider, provider)
+    prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:8]
+
+    words = prompt.split()
+    slug = _slugify(" ".join(words[:3]))
+
+    # Assemble and enforce 80-char limit
+    wid = f"{harness}-{model}-{slug}-{prompt_hash}"
+    if len(wid) > 80:
+        # Truncate slug to fit: harness-model--hash + safety margin
+        overhead = len(harness) + 1 + len(model) + 1 + 1 + len(prompt_hash)
+        max_slug = 80 - overhead
+        slug = slug[: max(0, max_slug)].rstrip("-")
+        wid = f"{harness}-{model}-{slug}-{prompt_hash}"
+
+    return wid
+
+
 def _dispatch_prompt(
-    prompt: str, *, provider: str | None = None, experiment: bool = False
+    prompt: str, *, provider: str | None = None, experiment: bool = False, mode: str | None = None
 ) -> None:
     """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
@@ -122,10 +181,17 @@ def _dispatch_prompt(
             )
         )
 
+    # Determine spec mode: explicit mode > experiment flag > build default
+    if mode:
+        spec_mode = mode
+    elif experiment:
+        spec_mode = "experiment"
+    else:
+        spec_mode = "build"
+
     # Build tasks require a CC-written test file reference in the prompt.
     # Tests are judgment (CC writes), implementation is execution (ribosome).
-    mode = "experiment" if experiment else "build"
-    if mode == "build" and not re.search(r"test_\w+\.py|assays/", prompt):
+    if spec_mode == "build" and not re.search(r"test_\w+\.py|assays/", prompt):
         sys.exit(
             _err(
                 cmd,
@@ -137,10 +203,27 @@ def _dispatch_prompt(
             )
         )
 
-    # Coaching injection is handled by the ribosome executor per provider:
-    # CC: prepended to prompt; goose: MOIM file; droid: --append-system-prompt-file.
-    # Do NOT prepend here — it causes double injection.
-    full_prompt = prompt
+    # Mode-specific prompt suffixes
+    if spec_mode == "scout":
+        scout_suffix = (
+            "\n\nThis is a READ-ONLY analysis task. Do NOT modify any files. "
+            "Report your findings as structured output. Format: list each finding with: "
+            "file path, issue, recommendation."
+        )
+        full_prompt = prompt + scout_suffix
+    elif spec_mode == "research":
+        research_suffix = (
+            "\n\nThis is a RESEARCH task. Search external sources (web, docs, papers) "
+            "to answer the question. Use rheotaxis, curl, or any available search tools. "
+            "Do NOT modify any files in the repository. "
+            "Format findings as:\n"
+            "## Key Findings\n- finding 1 (source: URL)\n- finding 2 (source: URL)\n"
+            "## Synthesis\nOne paragraph summary.\n"
+            "## Recommendations\n- actionable item 1\n- actionable item 2"
+        )
+        full_prompt = prompt + research_suffix
+    else:
+        full_prompt = prompt
 
     client, err = _get_client()
     if err:
@@ -149,7 +232,7 @@ def _dispatch_prompt(
                 cmd,
                 f"Cannot connect to Temporal at {TEMPORAL_HOST}: {err}",
                 "TEMPORAL_UNREACHABLE",
-                "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+                f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
                 [_action("mtor doctor", "Run health check to diagnose connectivity")],
                 exit_code=3,
             )
@@ -158,18 +241,15 @@ def _dispatch_prompt(
     try:
         import asyncio
 
-        # Deterministic ID from prompt hash — Temporal rejects if already running (dedup)
-        import hashlib
-
-        prompt_hash = hashlib.sha256(full_prompt.encode()).hexdigest()[:8]
-        workflow_id = f"ribosome-{provider}-{prompt_hash}"
+        # Deterministic ID — Temporal rejects if already running (dedup)
+        workflow_id = _make_workflow_id(full_prompt, provider or "zhipu")
         spec = {
             "task": full_prompt,
             "provider": provider,
-            "mode": "experiment" if experiment else "build",
+            "mode": spec_mode,
             "risk": classify_risk(full_prompt),
         }
-        if experiment:
+        if spec_mode == "experiment":
             spec["experiment"] = True
 
         async def _start():
@@ -192,19 +272,25 @@ def _dispatch_prompt(
             "prompt_preview": prompt[:100],
             "risk": classify_risk(full_prompt),
         }
-        if experiment:
+        if spec_mode == "experiment":
             result_envelope["experiment"] = True
+        if spec_mode == "scout":
+            result_envelope["scout"] = True
 
         next_actions = [
             _action(f"mtor status {started_id}", "Poll workflow status"),
             _action(f"mtor logs {started_id}", "Fetch output when complete"),
             _action(f"mtor cancel {started_id}", "Cancel if needed"),
         ]
-        if experiment:
+        if spec_mode == "experiment":
             next_actions.append(
                 _action(
                     f"mtor status {started_id}", "Experiment mode — will NOT auto-merge to main"
                 )
+            )
+        if spec_mode == "scout":
+            next_actions.append(
+                _action(f"mtor logs {started_id}", "Scout mode — read-only analysis, no merge")
             )
 
         _ok(

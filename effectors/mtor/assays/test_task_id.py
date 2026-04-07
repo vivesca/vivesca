@@ -1,91 +1,105 @@
-"""Tests for human-readable task IDs.
+"""Tests for _make_workflow_id — deterministic task IDs with harness, model, slug, hash."""
 
-Task IDs encode harness, model, prompt slug, and hash for at-a-glance identification.
-Format: {harness}-{model}-{slug}-{hash}
-Example: ribosome-glm51-sha-gate-a1b2c3d4
-"""
+import hashlib
+from typing import ClassVar
 
-from __future__ import annotations
-
-import re
+import pytest
+from mtor.dispatch import _make_workflow_id
 
 
-class TestTaskIdFormat:
-    """Task IDs include harness, model, slug, and hash."""
+class TestFormat:
+    """Workflow ID format: {harness}-{model}-{slug}-{hash}"""
 
-    def test_slug_from_prompt(self):
-        from mtor.dispatch import _make_workflow_id
+    def test_starts_with_default_harness(self):
+        wid = _make_workflow_id("fix login bug", "zhipu")
+        assert wid.startswith("ribosome-")
 
-        wf_id = _make_workflow_id("Implement SHA gate for mtor dispatch", provider="zhipu")
-        parts = wf_id.split("-")
-        assert len(parts) > 3, f"ID too short, missing slug: {wf_id}"
+    def test_custom_harness(self):
+        wid = _make_workflow_id("fix login bug", "zhipu", harness="codex")
+        assert wid.startswith("codex-")
 
-    def test_includes_harness(self):
-        """ID starts with the harness name (ribosome, opencode, droid)."""
-        from mtor.dispatch import _make_workflow_id
+    def test_ends_with_prompt_hash(self):
+        prompt = "fix login bug"
+        wid = _make_workflow_id(prompt, "zhipu")
+        expected_hash = hashlib.sha256(prompt.encode()).hexdigest()[:8]
+        assert wid.endswith(expected_hash)
 
-        wf_id = _make_workflow_id("Add feature", provider="zhipu", harness="ribosome")
-        assert wf_id.startswith("ribosome-")
+    def test_hash_is_8_hex_chars(self):
+        prompt = "some prompt"
+        wid = _make_workflow_id(prompt, "zhipu")
+        # Extract hash: last 8 chars before the final segment
+        # Format: harness-model-slug-hash → last 8 chars are the hash
+        tail = wid.rsplit("-", 1)[-1]
+        assert len(tail) == 8
+        int(tail, 16)  # must be valid hex
 
-        wf_id2 = _make_workflow_id("Add feature", provider="zhipu", harness="opencode")
-        assert wf_id2.startswith("opencode-")
+    def test_deterministic(self):
+        wid1 = _make_workflow_id("fix login bug", "zhipu")
+        wid2 = _make_workflow_id("fix login bug", "zhipu")
+        assert wid1 == wid2
 
-    def test_includes_model_short_name(self):
-        """ID includes a short model identifier, not the full provider name."""
-        from mtor.dispatch import _make_workflow_id
+    def test_different_prompts_yield_different_ids(self):
+        wid1 = _make_workflow_id("fix login bug", "zhipu")
+        wid2 = _make_workflow_id("fix signup bug", "zhipu")
+        assert wid1 != wid2
 
-        wf_id = _make_workflow_id("Add feature", provider="zhipu")
-        # "zhipu" maps to model "glm51" (or similar short form)
-        # The second segment should be a model identifier, not the raw provider
-        parts = wf_id.split("-")
-        model_part = parts[1]
-        assert len(model_part) <= 10, f"Model segment too long: {model_part}"
 
-    def test_slug_is_lowercase_alphanumeric(self):
-        from mtor.dispatch import _make_workflow_id
+class TestProviderToModel:
+    """Provider strings map to short model names."""
 
-        wf_id = _make_workflow_id("Fix The BROKEN Cytokinesis CLI!!!", provider="zhipu")
-        # Extract slug: between model and hash
-        parts = wf_id.split("-")
-        slug_part = "-".join(parts[2:-1])
-        assert slug_part == slug_part.lower(), f"Slug not lowercase: {slug_part}"
-        assert re.match(r"^[a-z0-9-]+$", slug_part), f"Slug has invalid chars: {slug_part}"
+    CASES: ClassVar[dict[str, str]] = {
+        "zhipu": "glm51",
+        "infini": "mm27",
+        "volcano": "doubao",
+        "gemini": "gem31",
+        "codex": "gpt54",
+        "goose": "glm51g",
+        "droid": "glm51d",
+    }
 
-    def test_slug_max_length(self):
-        from mtor.dispatch import _make_workflow_id
+    @pytest.mark.parametrize("provider,model", list(CASES.items()))
+    def test_model_mapping(self, provider, model):
+        wid = _make_workflow_id("hello world task", provider)
+        # Model appears right after harness
+        assert f"ribosome-{model}-" in wid
 
-        long_prompt = "Implement a very long and detailed feature that spans multiple files and requires extensive refactoring of the entire codebase"
-        wf_id = _make_workflow_id(long_prompt, provider="zhipu")
-        assert len(wf_id) <= 80, f"ID too long: {len(wf_id)} chars"
+    def test_unknown_provider_passes_through(self):
+        wid = _make_workflow_id("hello world task", "unknown_provider")
+        assert "-unknown_provider-" in wid
 
-    def test_hash_suffix_for_uniqueness(self):
-        from mtor.dispatch import _make_workflow_id
 
-        wf_id = _make_workflow_id("Add tests for feature X", provider="zhipu")
-        parts = wf_id.split("-")
-        hash_part = parts[-1]
-        assert len(hash_part) == 8, f"Hash should be 8 chars: {hash_part}"
-        assert re.match(r"^[0-9a-f]+$", hash_part), f"Hash not hex: {hash_part}"
+class TestSlug:
+    """Slug is first 3-4 words of prompt, slugified."""
 
-    def test_different_prompts_different_ids(self):
-        from mtor.dispatch import _make_workflow_id
+    def test_three_word_prompt_slug(self):
+        wid = _make_workflow_id("fix login bug in auth", "zhipu")
+        assert "fix-login-bug" in wid
 
-        id1 = _make_workflow_id("Add feature A", provider="zhipu")
-        id2 = _make_workflow_id("Add feature B", provider="zhipu")
-        assert id1 != id2
+    def test_short_prompt_uses_available_words(self):
+        wid = _make_workflow_id("fix bug", "goose")
+        assert "fix-bug" in wid
 
-    def test_same_prompt_same_id(self):
-        """Deterministic — same prompt always produces same ID (for Temporal dedup)."""
-        from mtor.dispatch import _make_workflow_id
+    def test_special_characters_stripped(self):
+        wid = _make_workflow_id("what's the status? check now!", "droid")
+        assert "whats-the-status" in wid
 
-        id1 = _make_workflow_id("Add feature A", provider="zhipu")
-        id2 = _make_workflow_id("Add feature A", provider="zhipu")
-        assert id1 == id2
+    def test_single_word_prompt(self):
+        wid = _make_workflow_id("explore", "gemini")
+        assert "explore" in wid
 
-    def test_different_harness_different_ids(self):
-        """Same prompt on different harness = different ID."""
-        from mtor.dispatch import _make_workflow_id
 
-        id1 = _make_workflow_id("Add feature A", provider="zhipu", harness="ribosome")
-        id2 = _make_workflow_id("Add feature A", provider="zhipu", harness="opencode")
-        assert id1 != id2
+class TestMaxLength:
+    """Total ID must not exceed 80 characters."""
+
+    def test_short_prompt_within_limit(self):
+        wid = _make_workflow_id("fix bug", "zhipu")
+        assert len(wid) <= 80
+
+    def test_long_prompt_truncated_to_80(self):
+        long_prompt = " ".join(["word"] * 50)
+        wid = _make_workflow_id(long_prompt, "zhipu")
+        assert len(wid) <= 80
+
+    def test_very_long_harness_still_under_80(self):
+        wid = _make_workflow_id("fix bug", "zhipu", harness="a" * 40)
+        assert len(wid) <= 80

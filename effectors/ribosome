@@ -778,6 +778,26 @@ EXPLORE_SYS
     fi
   fi
 
+  # Checkpoint: save uncommitted work when ribosome fails
+  if [[ $exit_code -ne 0 ]]; then
+    local _uncommitted
+    _uncommitted=$(git diff --stat HEAD 2>/dev/null)
+    if [[ -n "$_uncommitted" ]]; then
+      local _stash_ref
+      _stash_ref=$(git stash create 2>/dev/null || true)
+      if [[ -n "$_stash_ref" ]]; then
+        mkdir -p ~/germline/loci/checkpoints
+        local _cp_file=~/germline/loci/checkpoints/${RIBOSOME_TASK_ID:-unknown}.json
+        local short_prompt_cp="${prompt:0:100}"
+        printf '{"workflow_id":"%s","timestamp":"%s","task":"%s","provider":"%s","exit_code":%d,"stash_ref":"%s","diff_stat":"%s"}\n' \
+          "${RIBOSOME_TASK_ID:-unknown}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          "$(echo "${short_prompt_cp:-}" | tr '"' "'")" "$PROVIDER" "$exit_code" \
+          "$_stash_ref" "$(echo "$_uncommitted" | tail -1 | tr '"' "'")" > "$_cp_file"
+        echo "[checkpoint] saved uncommitted work: $_cp_file" >&2
+      fi
+    fi
+  fi
+
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
 
@@ -814,6 +834,15 @@ EXPLORE_SYS
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$RIBOSOME_LOG"
+
+  # Structured JSONL record (supplements existing log)
+  local _jsonl_file=~/germline/loci/ribosome-runs.jsonl
+  printf '{"workflow_id":"%s","ts":"%s","task":"%s","provider":"%s","exit":%d,"duration":%d,"files_changed":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d}\n' \
+    "${RIBOSOME_TASK_ID:-unknown}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$(echo "${short_prompt:-}" | tr '"' "'" | tr '\n' ' ')" \
+    "$PROVIDER" "$exit_code" "$duration" "$files_created" \
+    "$tests_passed" "$tests_failed" "$pytest_exit" >> "$_jsonl_file"
+
   # Emit rate-limit marker on stderr if detected — ensures daemon's tail always
   # catches it even when claude output is long (pushing error msg out of last 200 chars)
   local _rl_window=""

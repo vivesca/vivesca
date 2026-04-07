@@ -14,13 +14,10 @@ import os
 import sys
 import tempfile
 from contextlib import ExitStack
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
+from mtor import TASK_QUEUE, TEMPORAL_HOST, VERSION, WORKFLOW_TYPE
 from mtor.cli import app
-from mtor import VERSION, TEMPORAL_HOST, TASK_QUEUE, WORKFLOW_TYPE
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -117,43 +114,54 @@ class TestModuleImports:
 
     def test_version_in_init(self):
         from mtor import VERSION
-        assert VERSION == "0.4.0"
+
+        assert VERSION == "0.5.0"
 
     def test_constants_in_init(self):
-        from mtor import TEMPORAL_HOST, TASK_QUEUE, WORKFLOW_TYPE, COACHING_PATH
+        from mtor import COACHING_PATH, WORKER_HOST
+
         assert TASK_QUEUE == "translation-queue"
         assert WORKFLOW_TYPE == "TranslationWorkflow"
+        assert WORKER_HOST == "localhost"
+        assert COACHING_PATH is None  # Unset by default in test env
 
     def test_envelope_exports(self):
-        from mtor.envelope import _ok, _err, _extract_first_result
+        from mtor.envelope import _err, _extract_first_result, _ok
+
         assert callable(_ok)
         assert callable(_err)
         assert callable(_extract_first_result)
 
     def test_client_exports(self):
         from mtor.client import _get_client
+
         assert callable(_get_client)
 
     def test_tree_exports(self):
         from mtor.tree import tree
+
         assert hasattr(tree, "to_dict")
         assert hasattr(tree, "to_schema")
 
     def test_dispatch_exports(self):
         from mtor.dispatch import _dispatch_prompt
+
         assert callable(_dispatch_prompt)
 
     def test_doctor_exports(self):
         from mtor.doctor import doctor
+
         assert callable(doctor)
 
     def test_cli_exports_app(self):
         from mtor.cli import app
+
         assert app is not None
 
     def test_no_circular_imports(self):
         """Importing each module individually succeeds without recursion."""
         import importlib
+
         modules = [
             "mtor",
             "mtor.envelope",
@@ -186,8 +194,17 @@ class TestBareInvocationIntegration:
         _, data = invoke([])
         names = [cmd["name"] for cmd in data["result"]["commands"]]
         # Must include all major subcommands
-        for prefix in ["mtor", "mtor list", "mtor status", "mtor logs", "mtor cancel",
-                        "mtor doctor", "mtor schema", "mtor approve", "mtor deny"]:
+        for prefix in [
+            "mtor",
+            "mtor list",
+            "mtor status",
+            "mtor logs",
+            "mtor cancel",
+            "mtor doctor",
+            "mtor schema",
+            "mtor approve",
+            "mtor deny",
+        ]:
             assert any(n.startswith(prefix.split()[0]) for n in names), (
                 f"Expected command starting with '{prefix}' in tree"
             )
@@ -274,7 +291,7 @@ class TestDoctorIntegration:
     def test_doctor_with_client_reachable(self):
         mock_client, _ = make_mock_client()
         with _patch_client(mock_client):
-            exit_code, data = invoke(["doctor"])
+            _exit_code, data = invoke(["doctor"])
         # Might fail on coaching file or providers, but structure is valid
         assert isinstance(data, dict)
         assert "result" in data
@@ -433,14 +450,14 @@ class TestCoachingInjection:
         """
         mock_client, _ = make_mock_client()
         with _patch_client(mock_client):
-            _, data = invoke(["Do the thing"])
+            _, _data = invoke(["Do the thing"])
 
         # The spec sent to start_workflow should have task == original prompt,
         # not prepended with coaching content.
         call_args = mock_client.start_workflow.call_args
         specs = call_args.kwargs.get("args") or call_args[1].get("args") or call_args[0]
         if isinstance(specs, list) and specs:
-            first_spec = specs[0] if isinstance(specs[0], dict) else specs[0]
+            first_spec = specs[0]
             if isinstance(first_spec, dict):
                 task = first_spec.get("task", "")
                 # Should not contain coaching markers
@@ -449,7 +466,9 @@ class TestCoachingInjection:
 
     def test_coaching_file_constant_path(self):
         from mtor import COACHING_PATH
-        assert "feedback_ribosome_coaching.md" in str(COACHING_PATH)
+
+        # COACHING_PATH is None when MTOR_COACHING_PATH env var is unset
+        assert COACHING_PATH is None
 
 
 # ---------------------------------------------------------------------------
@@ -465,14 +484,24 @@ class TestEnvelopeShapes:
         outputs = []
 
         with _patch_client(mock_client):
-            for args in [[], ["schema"], ["list"], ["status", "ribosome-test-abcd1234"],
-                          ["cancel", "ribosome-test-abcd1234"],
-                          ["Test dispatch prompt"]]:
+            for args in [
+                [],
+                ["schema"],
+                ["list"],
+                ["status", "ribosome-test-abcd1234"],
+                ["cancel", "ribosome-test-abcd1234"],
+                ["Test dispatch prompt"],
+            ]:
                 outputs.append(invoke(args))
 
         with _patch_client_error("refused"):
-            for args in [["doctor"], ["list"], ["status", "any-id"],
-                          ["cancel", "any-id"], ["Write code"]]:
+            for args in [
+                ["doctor"],
+                ["list"],
+                ["status", "any-id"],
+                ["cancel", "any-id"],
+                ["Write code"],
+            ]:
                 outputs.append(invoke(args))
 
         return outputs
@@ -481,12 +510,12 @@ class TestEnvelopeShapes:
         mock_client, _ = make_mock_client()
         with _patch_client(mock_client):
             _, data = invoke(["list"])
-        assert set(["ok", "command", "result", "next_actions"]).issubset(data.keys())
+        assert {"ok", "command", "result", "next_actions"}.issubset(data.keys())
 
     def test_error_shape_has_required_fields(self):
         with _patch_client_error("refused"):
             _, data = invoke(["list"])
-        assert set(["ok", "command", "error", "fix", "next_actions"]).issubset(data.keys())
+        assert {"ok", "command", "error", "fix", "next_actions"}.issubset(data.keys())
 
     def test_error_has_message_and_code(self):
         with _patch_client_error("refused"):
@@ -495,7 +524,7 @@ class TestEnvelopeShapes:
         assert "code" in data["error"]
 
     def test_all_outputs_valid_json(self):
-        for exit_code, data in self._collect_all_outputs():
+        for _exit_code, data in self._collect_all_outputs():
             assert isinstance(data, dict)
 
     def test_ok_is_boolean(self):
@@ -510,7 +539,7 @@ class TestEnvelopeShapes:
 
 class TestApproveDenyIntegration:
     def test_approve_sends_signal(self):
-        mock_client, mock_handle = make_mock_client()
+        mock_client, _mock_handle = make_mock_client()
         with _patch_client(mock_client):
             exit_code, data = invoke(["approve", "ribosome-test-123"])
         assert exit_code == 0
@@ -519,7 +548,7 @@ class TestApproveDenyIntegration:
         assert data["result"]["workflow_id"] == "ribosome-test-123"
 
     def test_deny_sends_signal(self):
-        mock_client, mock_handle = make_mock_client()
+        mock_client, _mock_handle = make_mock_client()
         with _patch_client(mock_client):
             exit_code, data = invoke(["deny", "ribosome-test-456"])
         assert exit_code == 0

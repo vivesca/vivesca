@@ -3732,6 +3732,34 @@ def cmd_dash():
 
 
 def main():
+    # Agent-facing: bare invocation returns JSON command tree
+    if len(sys.argv) == 1:
+        import json
+        print(json.dumps({
+            "ok": True,
+            "command": "ribosome-tools",
+            "result": {
+                "description": "Consolidated ribosome CLI — task management, health, and review",
+                "commands": {
+                    "status": "Provider readiness: health + usage + quota",
+                    "health": "Health check for ribosome providers",
+                    "dash": "Live dashboard for ribosome task queue",
+                    "report": "Analytics report from ribosome task logs",
+                    "review": "Review ribosome output, diagnose failures",
+                    "reviewer": "Monitor ribosome output, auto-review quality",
+                    "top": "Show running ribosome processes",
+                    "validate": "Validate Python files for ribosome quality",
+                },
+            },
+            "next_actions": [
+                {"command": "ribosome-tools status", "description": "Check provider readiness"},
+                {"command": "ribosome-tools health --json", "description": "Health check with JSON output"},
+                {"command": "ribosome-tools review --once", "description": "Single review pass"},
+            ],
+            "version": "0.1.0",
+        }))
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(
         prog="ribosome-tools",
         description="Consolidated ribosome CLI subcommands.",

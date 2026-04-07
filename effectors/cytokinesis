@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script --python 3.13
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["metabolon"]
+# dependencies = ["metabolon", "cyclopts>=4.0", "porin>=0.3"]
 #
 # [tool.uv.sources]
 # metabolon = { path = ".." }
@@ -9,20 +9,18 @@
 """
 cytokinesis — deterministic session-close gathering for the cytokinesis skill.
 
-Extracts mechanical checks from the skill so the LLM handles only
-judgment (garden, summary, learning routing).
-
 Subcommands:
-  gather              Run all pre-wrap checks (repos, skills, memory, NOW age)
-  archive             Move completed [x] items to archive
-  daily TITLE         Append session log template to today's daily note
+  gather [fast]        Run all pre-wrap checks (repos, skills, memory, NOW age)
+  archive              Move completed [x] items to archive
+  daily TITLE          Append session log template to today's daily note
+  flush                Warn about dirty repos
+  reflect SESSION      Scan transcript for reflection candidates
+  extract              Review candidates, recommend filings
+  verify               Re-check all gates deterministically
 
-Options:
-  --json              Machine-readable output (gather only)
-  --repos R1,R2,...   Extra repo paths to check (gather only)
+Bare invocation returns command tree as porin JSON envelope.
 """
 
-import argparse
 import json
 import os
 import re
@@ -31,6 +29,10 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated, Any, Literal
+
+from cyclopts import App, Parameter
+from porin import CommandTree, action, emit_err, emit_ok
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 from metabolon.locus import (
@@ -59,18 +61,138 @@ DEFAULT_REPOS = {
     "scripts": home / "scripts",
 }
 
-# ── Colours ──────────────────────────────────────────────────────────────────
-RESET = "\033[0m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-RED = "\033[31m"
-CYAN = "\033[36m"
+# ── Cyclopts App + Porin Envelope ────────────────────────────────────────────
 
-OK = f"{GREEN}✓{RESET}"
-WARN = f"{YELLOW}⚠{RESET}"
-ERR = f"{RED}✗{RESET}"
+app = App(help_flags=[], version_flags=[])
+
+
+def _ok(command: str, result: dict[str, Any], next_actions: list[dict] | None = None) -> None:
+    """Emit success envelope to stdout."""
+    emit_ok(command, result, next_actions)
+
+
+def _err(
+    command: str,
+    message: str,
+    code: str,
+    fix: str,
+    next_actions: list[dict] | None = None,
+    exit_code: int = 1,
+) -> int:
+    """Emit error envelope to stdout, return exit code for sys.exit()."""
+    emit_err(command, message, code, fix, next_actions)
+    return exit_code
+
+
+# ── Command Tree ─────────────────────────────────────────────────────────────
+
+tree = CommandTree("cytokinesis")
+
+tree.add_command(
+    "",
+    "Bare invocation — returns command tree for agent self-discovery",
+    params=[],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "gather",
+    "Run all pre-wrap checks — repos, skills, memory, NOW age, gates",
+    params=[
+        {
+            "name": "mode",
+            "type": "enum",
+            "enum": ["full", "fast"],
+            "required": False,
+            "default": "full",
+            "description": "fast skips LLM calls",
+        },
+        {
+            "name": "--semantic",
+            "type": "boolean",
+            "required": False,
+            "default": False,
+            "description": "Semantic key:value output format",
+        },
+        {
+            "name": "--repos",
+            "type": "string",
+            "required": False,
+            "description": "Extra repo paths (comma-separated)",
+        },
+    ],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "archive",
+    "Move completed [x] items from Praxis.md to archive",
+    params=[],
+    annotations={"readonly": False},
+)
+tree.add_command(
+    "flush",
+    "Warn about dirty repos",
+    params=[],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "daily",
+    "Append pre-filled session log to today's daily note",
+    params=[
+        {
+            "name": "title",
+            "type": "string",
+            "required": False,
+            "description": "Session title",
+        },
+        {
+            "name": "--hours",
+            "type": "integer",
+            "required": False,
+            "default": 2,
+            "description": "Look-back window in hours",
+        },
+    ],
+    annotations={"readonly": False},
+)
+tree.add_command(
+    "reflect",
+    "Scan session transcript for reflection candidates",
+    params=[
+        {
+            "name": "session",
+            "type": "string",
+            "required": True,
+            "description": "Session ID (prefix match for engram)",
+        },
+        {
+            "name": "--json",
+            "type": "boolean",
+            "required": False,
+            "default": False,
+            "description": "JSON output (kept for compat)",
+        },
+    ],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "extract",
+    "Review reflection candidates, recommend filings",
+    params=[
+        {
+            "name": "--input",
+            "type": "string",
+            "required": False,
+            "description": "Path to gather JSON (default: stdin)",
+        },
+    ],
+    annotations={"readonly": True},
+)
+tree.add_command(
+    "verify",
+    "Re-check all gates deterministically",
+    params=[],
+    annotations={"readonly": True},
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -364,7 +486,13 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
     return findings, usage
 
 
-def cmd_gather(args):
+@app.command
+def gather(
+    mode: Literal["full", "fast"] = "full",
+    *,
+    semantic: Annotated[bool, Parameter(name=["-s", "--semantic"])] = False,
+    repos: Annotated[str | None, Parameter(name=["--repos"])] = None,
+) -> None:
     """Run all deterministic pre-wrap checks + reflection scan."""
     results = {
         "repos": {},
@@ -378,14 +506,14 @@ def cmd_gather(args):
     }
 
     # Repos
-    repos = dict(DEFAULT_REPOS)
-    if args.repos:
-        for r in args.repos.split(","):
+    all_repos = dict(DEFAULT_REPOS)
+    if repos:
+        for r in repos.split(","):
             r = r.strip()
             p = Path(r).expanduser()
-            repos[p.name] = p
+            all_repos[p.name] = p
 
-    for label, path in sorted(repos.items()):
+    for label, path in sorted(all_repos.items()):
         status = git_status(path)
         if status is None:
             results["repos"][label] = {"clean": None, "status": "unavailable"}
@@ -407,16 +535,17 @@ def cmd_gather(args):
     results["now"]["age_label"] = label
     results["now"]["age_seconds"] = secs
 
-    # RFTS gate (methylation mark verification) — slow, run in thread
-    # Deps, Peira, Reflect, Methylation — parallelize all slow checks
+    # RFTS gate + Deps, Peira, Reflect, Methylation — parallelize all slow checks
     import concurrent.futures
+
+    fast_mode = mode == "fast"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
         rfts_fut = pool.submit(rfts_verify)
         deps_fut = pool.submit(dep_check)
         peira_fut = pool.submit(peira_status)
-        # LLM calls — skip with --fast
-        if not getattr(args, "fast", False):
+        # LLM calls — skip in fast mode
+        if not fast_mode:
             sid = latest_session_id()
             reflect_fut = pool.submit(run_reflect, sid) if sid else None
             methyl_fut = pool.submit(run_methylation_audit)
@@ -446,29 +575,6 @@ def cmd_gather(args):
                 results["reflect_usage"] = reflect_usage
             except (concurrent.futures.TimeoutError, Exception):
                 results["reflect"] = []
-
-    # --- Phase 1: print fast results immediately ---
-    if args.semantic and not args.perceptual:
-        for label, info in sorted(results["repos"].items()):
-            if not info["clean"] and info["clean"] is not None:
-                print(f"repo:{label} dirty {info['status']}")
-        gaps = results["skills"]["gaps"]
-        if gaps:
-            print(f"skills:unlinked {','.join(gaps)}")
-        missing_clis = results["skills"].get("cli_gaps", [])
-        if missing_clis:
-            print(f"skills:cli-missing {','.join(missing_clis)}")
-        mem = results["memory"]
-        print(f"memory:{mem['lines']}/{mem['limit']}")
-        rfts = results.get("rfts", [])
-        if rfts:
-            print(f"rfts:{len(rfts)} stale marks")
-            for r in rfts:
-                print(f"  {r['file']}: {'; '.join(r['issues'])}")
-        print(f"now:{results['now']['age_label']}")
-        if results["deps"]:
-            print(f"deps:{'; '.join(results['deps'])}")
-        sys.stdout.flush()
 
     # --- Phase 2: wait for LLM calls, append results ---
     if methyl_fut:
@@ -550,129 +656,32 @@ def cmd_gather(args):
 
     results["gates"] = gates
 
-    # Output
-    if not args.semantic and not args.perceptual:
-        # Summarize rfts for token efficiency — full list only in semantic/perceptual
+    # Output: wrap in porin envelope
+    if not semantic:
+        # Summarize rfts for token efficiency — full list only with --semantic
         raw_rfts = results.get("rfts", [])
         sorted_rfts = sorted(raw_rfts, key=lambda r: len(r.get("issues", [])), reverse=True)
         results["rfts"] = {
             "count": len(raw_rfts),
             "top": [{"file": r["file"], "issues": len(r["issues"])} for r in sorted_rfts[:5]],
         }
-        print(json.dumps(results, indent=2))
-        return
 
-    if args.perceptual:
-        _print_human(results, sid)
-        return
-
-    # Default: LLM results only (fast results already printed in phase 1)
-    if results["peira"]:
-        print(f"peira:{results['peira']}")
-    reflect = results.get("reflect", [])
-    if reflect:
-        ru = results.get("reflect_usage", {})
-        cost_est = f" ~{ru.get('input_tokens', 0) + ru.get('output_tokens', 0)}tok" if ru else ""
-        print(f"reflect:{len(reflect)} candidates{cost_est}")
-        for i, f in enumerate(reflect, 1):
-            print(f"  {i}. [{f.get('category', '')}] {f.get('lesson', '')}")
-    meth = results.get("methylation", [])
-    if meth:
-        print(f"methylation:{len(meth)} demote candidates")
-        for m in meth:
-            print(f"  [{m.get('verdict', '')}] {m.get('rule', '')} → {m.get('enforced_by', '')}")
-    return
-
-
-def _print_human(results, sid):
-    """Human-readable output for terminal debugging."""
-    print(f"{BOLD}─── Legatum Gather ───────────────────────────{RESET}")
-
-    # Repos
-    for label, info in sorted(results["repos"].items()):
-        if info["clean"] is None:
-            print(f"  {DIM}?{RESET}  {label}: unavailable")
-        elif info["clean"]:
-            print(f"  {OK}  {label}: clean")
-        else:
-            dirty_files = info["status"].count("\n") + 1
-            print(f"  {WARN}  {label}: {dirty_files} dirty")
-            for line in info["status"].splitlines():
-                print(f"       {DIM}{line}{RESET}")
-
-    # Skills
-    gaps = results["skills"]["gaps"]
-    cli_gaps = results["skills"].get("cli_gaps", [])
-    if gaps or cli_gaps:
-        if gaps:
-            print(f"  {WARN}  Skills: {len(gaps)} unlinked — {', '.join(gaps)}")
-        if cli_gaps:
-            print(f"  {WARN}  Skills: {len(cli_gaps)} CLI missing — {', '.join(cli_gaps)}")
-    else:
-        print(f"  {OK}  Skills: synced")
-
-    # Memory
-    mem = results["memory"]
-    marker = WARN if mem["lines"] > MEMORY_LIMIT else OK
-    print(f"  {marker}  MEMORY.md: {mem['lines']}/{MEMORY_LIMIT} lines")
-
-    # Tonus
-    now = results["now"]
-    marker = WARN if now["age_label"] in ("stale", "very stale", "missing") else OK
-    print(f"  {marker}  Tonus: {now['age_label']}")
-
-    # RFTS (methylation mark verification)
-    rfts = results.get("rfts", [])
-    if rfts:
-        print(f"  {WARN}  RFTS: {len(rfts)} stale marks")
-        for r in rfts:
-            print(f"       {DIM}{r['file']}: {'; '.join(r['issues'])}{RESET}")
-    else:
-        print(f"  {OK}  RFTS: marks verified")
-
-    # Deps
-    if results["deps"]:
-        for d in results["deps"]:
-            print(f"  {WARN}  dep: {d}")
-    else:
-        print(f"  {OK}  Deps: current")
-
-    # Peira
-    if results["peira"]:
-        print(f"  {WARN}  Peira: {results['peira']}")
-
-    # Reflection
-    reflect = results.get("reflect", [])
-    if reflect:
-        print(f"\n{BOLD}─── Reflection ({len(reflect)} candidates) ──────────{RESET}")
-        for i, f in enumerate(reflect, 1):
-            cat = f.get("category", "?").replace("_", " ").title()
-            lesson = f.get("lesson", "?")
-            print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson[:120]}")
-    elif sid:
-        print(f"  {OK}  Reflection: nothing surfaced")
-
-    # Methylation audit
-    meth = results.get("methylation", [])
-    if meth:
-        print(f"\n{BOLD}─── Methylation ({len(meth)} candidates) ──────────{RESET}")
-        for m in meth:
-            verdict = m.get("verdict", "?")
-            color = RED if verdict == "TRIM" else YELLOW
-            print(f"  {color}[{verdict}]{RESET} {m.get('rule', '?')}")
-            print(f"       {DIM}enforced by: {m.get('enforced_by', '?')}{RESET}")
-    else:
-        print(f"  {OK}  Methylation: genome is lean")
-
-    print(f"{BOLD}──────────────────────────────────────────────{RESET}")
+    _ok("cytokinesis gather", results)
 
 
 # ── Archive ──────────────────────────────────────────────────────────────────
-def cmd_archive(args):
+@app.command
+def archive() -> None:
     """Move completed [x] items from Praxis.md to Praxis Archive.md."""
     if not praxis.exists():
-        print("No Praxis.md found.", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(
+            _err(
+                "cytokinesis archive",
+                "No Praxis.md found",
+                "FILE_NOT_FOUND",
+                "Create Praxis.md or check path",
+            )
+        )
 
     lines = praxis.read_text(encoding="utf-8").splitlines(keepends=True)
     today = datetime.now().strftime("%Y-%m-%d")
@@ -706,7 +715,7 @@ def cmd_archive(args):
         remaining.append(line)
 
     if not completed:
-        print(f"  {OK}  No completed items to archive")
+        _ok("cytokinesis archive", {"archived": 0, "items": []})
         return
 
     # Read archive
@@ -737,9 +746,7 @@ def cmd_archive(args):
     praxis.write_text("".join(remaining), encoding="utf-8")
     praxis_archive.write_text(archive_text, encoding="utf-8")
 
-    print(f"  {OK}  Archived {len(completed)} completed item(s)")
-    for c in completed:
-        print(f"       {DIM}{c[:80]}{RESET}")
+    _ok("cytokinesis archive", {"archived": len(completed), "items": completed})
 
 
 # ── Daily ────────────────────────────────────────────────────────────────────
@@ -866,22 +873,21 @@ def _gather_published() -> list[str]:
     return published
 
 
-def cmd_daily(args):
-    """Append pre-filled session log to today's daily note.
-
-    Deterministic sections (Filed, Published, Mechanised, Residual) are
-    gathered automatically. Judgment sections (Outcomes, Parked, Arc) are
-    left as placeholders for the LLM to fill via Edit tool.
-    """
+@app.command
+def daily(
+    title: str | None = None,
+    *,
+    hours: Annotated[int, Parameter(name=["--hours"])] = 2,
+) -> None:
+    """Append pre-filled session log to today's daily note."""
     today = datetime.now().strftime("%Y-%m-%d")
     weekday = datetime.now().strftime("%A")
     datetime.now().strftime("%H:%M")
     daily_path = DAILY_DIR / f"{today}.md"
 
-    title = args.title if args.title else "Session"
+    session_title = title if title else "Session"
 
     # Gather deterministic sections
-    hours = getattr(args, "hours", 2)
     filed = _gather_filed(hours=hours)
     mechanised = _gather_mechanised(hours=hours)
     published = _gather_published()
@@ -892,7 +898,7 @@ def cmd_daily(args):
     pub_str = "\n".join(f"- {p}" for p in published) if published else "- none"
 
     template = f"""
-## Session: {title}
+## Session: {session_title}
 
 ### Outcomes
 - [LLM: what was done — outcomes, not process]
@@ -924,11 +930,16 @@ filed={residual_n}, skipped=?
         content = header + template
 
     daily_path.write_text(content, encoding="utf-8")
-    print(f"  {OK}  Daily note: {daily_path}")
-    print(
-        f"       Pre-filled: Filed={len(filed)}, Mechanised={len(mechanised)}, Published={len(published)}"
+    _ok(
+        "cytokinesis daily",
+        {
+            "path": str(daily_path),
+            "title": session_title,
+            "filed": len(filed),
+            "mechanised": len(mechanised),
+            "published": len(published),
+        },
     )
-    print("       LLM fills: Outcomes, Parked, Arc")
 
 
 # ── Methylation: genome audit ────────────────────────────────────────────────
@@ -1099,27 +1110,23 @@ TRANSCRIPT:
 """
 
 
-def cmd_reflect(args):
+@app.command
+def reflect(
+    session: str,
+    *,
+    json_output: Annotated[bool, Parameter(name=["--json"])] = False,
+) -> None:
     """Scan session transcript for reflection candidates."""
-    session_id = args.session
-    findings, _usage = run_reflect(session_id)
+    findings, _usage = run_reflect(session)
 
     if not findings:
-        print(f"  {OK}  No messages found for session {session_id}")
+        _ok("cytokinesis reflect", {"session": session, "findings": [], "count": 0})
         return
 
-    if args.json:
-        print(json.dumps(findings, indent=2))
-    else:
-        print(f"{BOLD}─── Reflection Scan ({len(findings)} candidates) ──────{RESET}")
-        for i, f in enumerate(findings, 1):
-            cat = f.get("category", "?").replace("_", " ").title()
-            lesson = f.get("lesson", "?")
-            quote = f.get("quote", "")
-            print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson}")
-            if quote:
-                print(f'       {DIM}"{quote[:100]}"{RESET}')
-        print(f"{BOLD}──────────────────────────────────────────────{RESET}")
+    _ok(
+        "cytokinesis reflect",
+        {"session": session, "findings": findings, "count": len(findings)},
+    )
 
 
 # ── Extract ─────────────────────────────────────────────────────────────────
@@ -1152,21 +1159,30 @@ CANDIDATES:
 """
 
 
-def cmd_extract(args):
+@app.command
+def extract(
+    *,
+    input_path: Annotated[str | None, Parameter(name=["--input"])] = None,
+) -> None:
     """Review reflection candidates and produce filing recommendations."""
     # Read gather output from stdin or file
-    data = Path(args.input).read_text() if args.input else sys.stdin.read()
+    data = Path(input_path).read_text() if input_path else sys.stdin.read()
 
     try:
         gather = json.loads(data)
         candidates = gather.get("reflect", [])
     except json.JSONDecodeError:
-        # Try parsing as the semantic format
-        print("extract requires gather output (JSON)", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(
+            _err(
+                "cytokinesis extract",
+                "extract requires gather output (JSON)",
+                "PARSE_ERROR",
+                "Run cytokinesis gather first and pipe output",
+            )
+        )
 
     if not candidates:
-        print("no candidates")
+        _ok("cytokinesis extract", {"candidates": 0, "recommendations": []})
         return
 
     # Format candidates for the prompt
@@ -1190,16 +1206,38 @@ def cmd_extract(args):
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if r.returncode != 0:
-            print(f"extract failed: {r.stderr.strip()}", file=sys.stderr)
-            sys.exit(1)
-        print(r.stdout.strip())
-    except Exception as e:
-        print(f"extract error: {e}", file=sys.stderr)
-        sys.exit(1)
+            sys.exit(
+                _err(
+                    "cytokinesis extract",
+                    f"channel glm failed: {r.stderr.strip()}",
+                    "LLM_ERROR",
+                    "Check channel glm availability",
+                )
+            )
+        _ok("cytokinesis extract", {"candidates": len(candidates), "recommendations": r.stdout.strip()})
+    except subprocess.TimeoutExpired:
+        sys.exit(
+            _err(
+                "cytokinesis extract",
+                "channel glm timed out after 15s",
+                "TIMEOUT",
+                "Try again or use fewer candidates",
+            )
+        )
+    except FileNotFoundError:
+        sys.exit(
+            _err(
+                "cytokinesis extract",
+                "channel command not found",
+                "COMMAND_NOT_FOUND",
+                "Install channel CLI",
+            )
+        )
 
 
 # ── Flush ───────────────────────────────────────────────────────────────────
-def cmd_flush(args):
+@app.command
+def flush() -> None:
     """Warn about dirty repos — atomic commits mean nothing to flush."""
     dirty = []
     for label, path in sorted(DEFAULT_REPOS.items()):
@@ -1207,22 +1245,20 @@ def cmd_flush(args):
         if status is None or not status:
             continue
         count = len([line for line in status.splitlines() if line.strip()])
-        dirty.append((label, count, status))
+        dirty.append({"repo": label, "count": count, "status": status.splitlines()[:5]})
     if not dirty:
-        print(f"  {OK}  All repos clean.")
+        _ok("cytokinesis flush", {"dirty": [], "clean": True})
         return
-    print(f"  {WARN}  {len(dirty)} dirty repo(s) — commit atomically with meaningful messages:")
-    for label, count, status in dirty:
-        print(f"    {label}: {count} file{'s' if count != 1 else ''}")
-        for line in status.splitlines()[:5]:
-            print(f"      {line.strip()}")
-    if not committed:
-        print(f"  {OK}  All repos clean")
-    return committed
+    _ok(
+        "cytokinesis flush",
+        {"dirty": dirty, "clean": False},
+        [action("cytokinesis gather", "Re-run gather after committing")],
+    )
 
 
 # ── Verify ───────────────────────────────────────────────────────────────────
-def cmd_verify(_args):
+@app.command
+def verify() -> None:
     """Re-check all gates deterministically. Reports DONE/PENDING for each."""
     gates = {}
     cutoff = time.time() - 4 * 3600
@@ -1267,72 +1303,18 @@ def cmd_verify(_args):
     gates["process_audit"] = "TRUST — requires LLM judgment"
 
     all_done = all("DONE" in v or "TRUST" in v for v in gates.values())
-    print(json.dumps({"gates": gates, "all_passed": all_done}, indent=2))
+    _ok("cytokinesis verify", {"gates": gates, "all_passed": all_done})
     if not all_done:
         sys.exit(1)
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(
-        prog="cytokinesis",
-        description="Deterministic session-close gathering.",
-    )
-    sub = parser.add_subparsers(dest="command")
+# ── Default Handler ─────────────────────────────────────────────────────────
 
-    # gather
-    g = sub.add_parser("gather", help="Run all pre-wrap checks")
-    g.add_argument(
-        "--semantic", action="store_true", help="Human-readable output (default is JSON)"
-    )
-    g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
-    g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
-    g.add_argument("--reflect", action="store_true", help="Include LLM reflection scan (slow)")
-    g.add_argument("--fast", action="store_true", help="Skip LLM calls, filesystem checks only")
-
-    # archive
-    sub.add_parser("archive", help="Move completed items to archive")
-
-    # flush
-    sub.add_parser("flush", help="Commit dirty repos")
-
-    # daily
-    d = sub.add_parser("daily", help="Append session log template")
-    d.add_argument("title", nargs="?", default=None, help="Session title")
-    d.add_argument("--hours", type=int, default=2, help="Look-back window in hours (default: 2)")
-
-    # reflect
-    rf = sub.add_parser("reflect", help="Scan transcript for reflection candidates")
-    rf.add_argument("session", help="Session ID (prefix match for engram)")
-    rf.add_argument("--json", action="store_true", help="JSON output")
-
-    # extract
-    ex = sub.add_parser("extract", help="Review candidates, recommend filings")
-    ex.add_argument("--input", type=str, help="Path to gather JSON (default: stdin)")
-
-    # verify
-    sub.add_parser("verify", help="Check all cytokinesis gates passed")
-
-    args = parser.parse_args()
-
-    if args.command == "gather":
-        cmd_gather(args)
-    elif args.command == "archive":
-        cmd_archive(args)
-    elif args.command == "flush":
-        cmd_flush(args)
-    elif args.command == "daily":
-        cmd_daily(args)
-    elif args.command == "reflect":
-        cmd_reflect(args)
-    elif args.command == "extract":
-        cmd_extract(args)
-    elif args.command == "verify":
-        cmd_verify(args)
-    else:
-        parser.print_help()
-        sys.exit(1)
+@app.default
+def default_handler() -> None:
+    """Bare invocation returns command tree."""
+    emit_ok("cytokinesis", tree.to_dict())
 
 
 if __name__ == "__main__":
-    main()
+    app()

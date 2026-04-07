@@ -8,9 +8,9 @@ import sys
 
 from porin import action as _action
 
-from mtor import COACHING_PATH, TEMPORAL_HOST, TASK_QUEUE, VERSION
+from mtor import COACHING_PATH, TASK_QUEUE, TEMPORAL_HOST, VERSION, WORKER_HOST
 from mtor.client import _get_client
-from mtor.envelope import _err, _ok
+from mtor.envelope import _ok
 
 
 def doctor() -> None:
@@ -64,24 +64,33 @@ def doctor() -> None:
         }
     )
 
-    # Check 3: Coaching file present
-    coaching_ok = COACHING_PATH.exists()
-    checks.append(
-        {
-            "name": "coaching_file",
-            "ok": coaching_ok,
-            "detail": str(COACHING_PATH) if coaching_ok else f"Missing: {COACHING_PATH}",
-        }
-    )
+    # Check 3: Coaching file present (optional — skip if not configured)
+    if COACHING_PATH is not None:
+        coaching_ok = COACHING_PATH.exists()
+        checks.append(
+            {
+                "name": "coaching_file",
+                "ok": coaching_ok,
+                "detail": str(COACHING_PATH) if coaching_ok else f"Missing: {COACHING_PATH}",
+            }
+        )
+    else:
+        coaching_ok = True
+        checks.append(
+            {
+                "name": "coaching_file",
+                "ok": True,
+                "detail": "Not configured (MTOR_COACHING_PATH unset)",
+            }
+        )
 
     # Check 4: Provider readiness on ganglion (where ribosome executes)
     try:
         provider_result = subprocess.run(
             [
                 "ssh",
-                "ganglion",
+                WORKER_HOST,
                 "set -a; source ~/.temporal-worker.env 2>/dev/null; set +a;"
-                " PATH=$HOME/germline/effectors:$PATH"
                 " ribosome-tools status --compact --json",
             ],
             capture_output=True,
@@ -94,7 +103,7 @@ def doctor() -> None:
             {
                 "name": "providers",
                 "ok": len(healthy) > 0,
-                "detail": f"{len(healthy)}/{len(providers)} providers available (ganglion)",
+                "detail": f"{len(healthy)}/{len(providers)} providers available ({WORKER_HOST})",
                 "providers": providers,
             }
         )
@@ -106,7 +115,7 @@ def doctor() -> None:
             {
                 "name": "providers",
                 "ok": False,
-                "detail": f"ganglion unreachable: {exc}",
+                "detail": f"{WORKER_HOST} unreachable: {exc}",
             }
         )
     except Exception:
@@ -114,7 +123,7 @@ def doctor() -> None:
             {
                 "name": "providers",
                 "ok": False,
-                "detail": "ribosome status not available on ganglion",
+                "detail": f"ribosome status not available on {WORKER_HOST}",
             }
         )
 
@@ -136,14 +145,16 @@ def doctor() -> None:
                 "message": "One or more health checks failed",
                 "code": "HEALTH_CHECK_FAILED",
             },
-            "fix": "Start Temporal worker on ganglion: ssh ganglion 'sudo systemctl start temporal-worker'",
+            "fix": f"Start Temporal worker: ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'",
             "result": result,
             "next_actions": [
                 _action(
-                    "ssh ganglion 'sudo systemctl status temporal-worker'",
+                    f"ssh {WORKER_HOST} 'sudo systemctl status temporal-worker'",
                     "Check worker service status",
                 ),
-                _action("ssh ganglion 'sudo systemctl start temporal-worker'", "Start the worker"),
+                _action(
+                    f"ssh {WORKER_HOST} 'sudo systemctl start temporal-worker'", "Start the worker"
+                ),
             ],
         }
         sys.stdout.write(json.dumps(payload) + "\n")
