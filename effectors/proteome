@@ -22,10 +22,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
-
-# Ensure metabolon is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 try:
     from porin import emit_err, emit_ok
