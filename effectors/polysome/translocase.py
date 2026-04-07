@@ -781,11 +781,36 @@ async def chaperone(result: dict) -> dict:
     if exit_code == 0 and not post_stat_text.strip() and commit_count == 0:
         flags.append("no_commit_on_success")
 
-    target_match = _re.search(r"(?:at|to)\s+([\w/]+\.py)", task)
-    if target_match and exit_code == 0 and post_stat_text:
-        target_file = target_match.group(1)
-        if target_file not in post_stat_text:
-            flags.append(f"target_file_missing: {target_file}")
+    # Extract ALL file paths mentioned in the task and check if they appear in the diff.
+    # Catches "task mentions dispatch.py but diff only touches cli.py" mismatches.
+    task_files = set(_re.findall(r"[\w./~-]+\.(?:py|sh|toml|md|yaml|yml|json)", task))
+    # Filter out common false positives (URLs, example paths in code blocks)
+    task_files = {f for f in task_files if not f.startswith("http") and len(f) > 4}
+    if task_files and exit_code == 0 and post_stat_text:
+        # Normalize: strip ~/ and leading path prefixes to match git diff short paths
+        def _normalize(path: str) -> str:
+            path = path.lstrip("~/")
+            # Strip common prefixes that git diff won't show
+            for prefix in ("germline/", "home/vivesca/germline/"):
+                if path.startswith(prefix):
+                    path = path[len(prefix):]
+            return path
+
+        diff_files = set()
+        for line in post_stat_text.splitlines():
+            fname = line.strip().split("|")[0].strip() if "|" in line else ""
+            if fname:
+                diff_files.add(fname)
+
+        for task_file in task_files:
+            norm = _normalize(task_file)
+            if norm and not any(norm in df or df.endswith(norm) for df in diff_files):
+                # Only flag .py files that were explicitly targeted (not just referenced)
+                if any(
+                    kw in task.lower()
+                    for kw in ["modify", "edit", "change", "add to", "update", "fix", "create"]
+                ):
+                    flags.append(f"target_file_missing: {norm}")
 
     pre_diff = result.get("pre_diff", {})
     post_diff = result.get("post_diff", {})
