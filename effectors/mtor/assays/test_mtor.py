@@ -501,6 +501,48 @@ class TestDecomposeSpec:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# classify_risk tests
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyRisk:
+    def test_delete_is_high(self):
+        from mtor.dispatch import classify_risk
+
+        assert classify_risk("Delete the old auth module") == "high"
+
+    def test_config_is_high(self):
+        from mtor.dispatch import classify_risk
+
+        assert classify_risk("Update config for new provider") == "high"
+
+    def test_test_is_low(self):
+        from mtor.dispatch import classify_risk
+
+        assert classify_risk("Write tests for dispatch.py") == "low"
+
+    def test_doc_is_low(self):
+        from mtor.dispatch import classify_risk
+
+        assert classify_risk("Add README for mtor package") == "low"
+
+    def test_default_is_medium(self):
+        from mtor.dispatch import classify_risk
+
+        assert classify_risk("Add logging to the worker") == "medium"
+
+    def test_mixed_uses_first_match(self):
+        from mtor.dispatch import classify_risk
+
+        assert classify_risk("Delete tests") == "high"
+
+
+# ---------------------------------------------------------------------------
+# Experiment mode tests
+# ---------------------------------------------------------------------------
+
+
 class TestExperimentMode:
     def test_default_is_build(self):
         """Verify the spec has mode=build by default."""
