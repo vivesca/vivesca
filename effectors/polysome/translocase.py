@@ -392,12 +392,13 @@ async def translate(task: str, provider: str, mode: str = "build") -> dict:
     if is_supervised:
         effective_task = effective_task.replace("[supervised]", "").strip()
 
+    resolved_provider = provider or "zhipu"
     cmd = [
         "bash",
         str(RIBOSOME_SCRIPT),
         *(["--supervised"] if is_supervised else []),
         "--provider",
-        provider,
+        resolved_provider,
         effective_task,
     ]
     proc = await asyncio.create_subprocess_exec(
@@ -405,7 +406,7 @@ async def translate(task: str, provider: str, mode: str = "build") -> dict:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=work_dir,
-        env={**os.environ, "RIBOSOME_PROVIDER": provider, "HOME": str(Path.home())},
+        env={**os.environ, "RIBOSOME_PROVIDER": resolved_provider, "HOME": str(Path.home())},
     )
 
     async def _heartbeat_with_stall_detection():
@@ -435,7 +436,7 @@ async def translate(task: str, provider: str, mode: str = "build") -> dict:
             try:
                 diff_result = await asyncio.to_thread(
                     lambda: _subprocess.run(
-                        ["git", "diff", "HEAD"],
+                        ["git", "diff", "main..HEAD"],
                         capture_output=True,
                         text=True,
                         timeout=10,
@@ -638,7 +639,6 @@ _ERROR_PATTERNS = _re.compile(
 )
 
 
-
 def _merge_branch(repo_root: str, branch_name: str) -> bool:
     """Merge a branch into main under exclusive lock. FF then 3-way.
 
@@ -652,21 +652,30 @@ def _merge_branch(repo_root: str, branch_name: str) -> bool:
         _fcntl.flock(lock_fd, _fcntl.LOCK_EX)
         check = _subprocess.run(
             ["git", "log", "--oneline", f"main..{branch_name}"],
-            capture_output=True, text=True, timeout=10, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=repo_root,
         )
         if not check.stdout.strip():
             delete_branch = True
             return True
         merge = _subprocess.run(
             ["git", "merge", "--ff-only", branch_name],
-            capture_output=True, text=True, timeout=15, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=repo_root,
         )
         if merge.returncode == 0:
             delete_branch = True
             return True
         merge = _subprocess.run(
             ["git", "merge", "--no-ff", "--no-edit", branch_name],
-            capture_output=True, text=True, timeout=30, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=repo_root,
         )
         if merge.returncode == 0:
             delete_branch = True
@@ -691,7 +700,9 @@ def _merge_branch(repo_root: str, branch_name: str) -> bool:
             with contextlib.suppress(Exception):
                 _subprocess.run(
                     ["git", "branch", "-D", branch_name],
-                    capture_output=True, timeout=10, cwd=repo_root,
+                    capture_output=True,
+                    timeout=10,
+                    cwd=repo_root,
                 )
 
 
@@ -799,8 +810,7 @@ async def chaperone(result: dict) -> dict:
             path = path.lstrip("~/")
             # Strip common prefixes that git diff won't show
             for prefix in ("germline/", "home/vivesca/germline/"):
-                if path.startswith(prefix):
-                    path = path[len(prefix):]
+                path = path.removeprefix(prefix)
             return path
 
         diff_files = set()
@@ -811,13 +821,15 @@ async def chaperone(result: dict) -> dict:
 
         for task_file in task_files:
             norm = _normalize(task_file)
-            if norm and not any(norm in df or df.endswith(norm) for df in diff_files):
-                # Only flag .py files that were explicitly targeted (not just referenced)
-                if any(
+            if (
+                norm
+                and not any(norm in df or df.endswith(norm) for df in diff_files)
+                and any(
                     kw in task.lower()
                     for kw in ["modify", "edit", "change", "add to", "update", "fix", "create"]
-                ):
-                    flags.append(f"target_file_missing: {norm}")
+                )
+            ):
+                flags.append(f"target_file_missing: {norm}")
 
     pre_diff = result.get("pre_diff", {})
     post_diff = result.get("post_diff", {})
@@ -849,7 +861,9 @@ async def chaperone(result: dict) -> dict:
             # Scout tasks don't produce commits — different approval criteria
             approved = exit_code == 0 and not any(f.startswith("destruction") for f in flags)
             # Don't flag no_commit_on_success or empty_stdout_on_success for scout
-            flags = [f for f in flags if f not in ("no_commit_on_success", "empty_stdout_on_success")]
+            flags = [
+                f for f in flags if f not in ("no_commit_on_success", "empty_stdout_on_success")
+            ]
         else:
             approved = exit_code == 0 and not any(
                 f.startswith("destruction") or f == "no_commit_on_success" for f in flags
