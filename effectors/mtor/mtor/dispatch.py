@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-import uuid
 from pathlib import Path
 
 from porin import action as _action
@@ -55,7 +54,10 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
     try:
         import asyncio
 
-        workflow_id = f"ribosome-{provider}-{uuid.uuid4().hex[:8]}"
+        # Deterministic ID from prompt hash — Temporal rejects if already running (dedup)
+        import hashlib
+        prompt_hash = hashlib.sha256(full_prompt.encode()).hexdigest()[:8]
+        workflow_id = f"ribosome-{provider}-{prompt_hash}"
         spec = {
             "task": full_prompt,
             "provider": provider,
@@ -71,7 +73,25 @@ def _dispatch_prompt(prompt: str, *, provider: str = "zhipu") -> None:
             )
             return handle.id
 
-        started_id = asyncio.run(_start())
+        try:
+            started_id = asyncio.run(_start())
+        except Exception as exc:
+            if "already started" in str(exc).lower() or "already running" in str(exc).lower():
+                _ok(
+                    cmd,
+                    {
+                        "workflow_id": workflow_id,
+                        "status": "ALREADY_RUNNING",
+                        "prompt_preview": prompt[:100],
+                    },
+                    [
+                        _action(f"mtor status {workflow_id}", "Check existing run"),
+                        _action(f"mtor cancel {workflow_id}", "Cancel to re-dispatch"),
+                    ],
+                    version=VERSION,
+                )
+                return
+            raise
         _ok(
             cmd,
             {
