@@ -793,20 +793,7 @@ EXPLORE_SYS
     [[ -z "$tests_failed" ]] && tests_failed=0
   fi
 
-  # Auto-merge to main if ribosome succeeded and tests passed (skip in explore mode)
-  # Uses local refspec push instead of checkout — works from worktrees where main
-  # is already checked out in the primary worktree.
-  local _current_branch
-  _current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  if [[ $_SUBCOMMAND != explore ]] && [[ $exit_code -eq 0 && $pytest_exit -eq 0 && "$_current_branch" == ribosome-* ]]; then
-    $QUIET || echo "[auto-merge] branch $_current_branch -> main (exit=0, tests passed)" >&2
-    if git push . "$_current_branch":main 2>/dev/null; then
-      $QUIET || echo "[auto-merge] fast-forwarded main to $_current_branch" >&2
-      git push origin main 2>/dev/null && $QUIET || echo "[auto-merge] pushed to origin" >&2
-    else
-      echo "[auto-merge] fast-forward failed (main diverged?), staying on $_current_branch" >&2
-    fi
-  fi
+  # Merge is deferred to translocase — only after chaperone review approves.
 
   # Log result with enriched fields
   local task_id="${RIBOSOME_TASK_ID:-}"
