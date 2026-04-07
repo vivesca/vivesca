@@ -11,18 +11,16 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import feedparser
 import requests
 import trafilatura
 from bs4 import BeautifulSoup
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 # ---------------------------------------------------------------------------
 # Browser process leak guard
@@ -47,7 +45,7 @@ def _kill_browser_pid(pid: int) -> None:
     # Then kill the parent
     try:
         os.kill(pid, signal.SIGKILL)
-    except ProcessLookupError, PermissionError:
+    except (ProcessLookupError, PermissionError):
         pass  # already dead — fine
     except Exception:
         pass
@@ -82,7 +80,7 @@ def _is_safe_url(url: str) -> bool:
             ip = ipaddress.ip_address(sockaddr[0])
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                 return False
-    except socket.gaierror, ValueError, OSError:
+    except (socket.gaierror, ValueError, OSError):
         return False
     return True
 
@@ -130,7 +128,7 @@ def _parse_feed_datetime(entry: Any) -> str:
                 ts = calendar.timegm(parsed)
                 dt = datetime.fromtimestamp(ts, tz=UTC)
                 return dt.isoformat()
-            except TypeError, OverflowError, OSError:
+            except (TypeError, OverflowError, OSError):
                 continue
 
     # Fallback: raw string fields (RFC 2822 / ISO 8601)
@@ -159,7 +157,7 @@ def _parse_tweet_date(date_str: str) -> str:
     try:
         dt = datetime.strptime(date_str, "%a %b %d %H:%M:%S %z %Y")
         return dt.strftime("%Y-%m-%d")
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return ""
 
 
@@ -182,7 +180,7 @@ def internalize_stealth_url(url: str, profile_dir: Path) -> str | None:
     try:
         import asyncio
 
-        import nodriver as uc  # type: ignore
+        import nodriver as uc
 
         async def _fetch() -> str:
             browser = await uc.start(
@@ -217,7 +215,7 @@ def internalize_stealth_html(url: str, profile_dir: Path) -> str | None:
     try:
         import asyncio
 
-        import nodriver as uc  # type: ignore
+        import nodriver as uc
 
         async def _fetch() -> str:
             browser = await uc.start(
@@ -504,12 +502,12 @@ def internalize_web(
                     if not link:
                         a = tag.find("a")
                         link = str(a.get("href", "")) if a else ""
-                    if link and not str(link).startswith("http"):  # type: ignore[arg-type]
+                    if link and not str(link).startswith("http"):
                         link = urljoin(url, str(link))
                     # Rewrite javascript: or other non-HTTP links via template
-                    if link_template and (not link or str(link).startswith("javascript:")):  # type: ignore[arg-type]
+                    if link_template and (not link or str(link).startswith("javascript:")):
                         # Extract argument from javascript:fn('arg') pattern
-                        m = re.search(r"'([^']+)'", str(link)) if link else None  # type: ignore[arg-type]
+                        m = re.search(r"'([^']+)'", str(link)) if link else None
                         arg = m.group(1) if m else ""
                         link = link_template.replace("{id}", arg) if arg else ""
                     articles.append({"title": title, "date": "", "summary": "", "link": str(link)})
@@ -521,8 +519,8 @@ def internalize_web(
             title = tag.get_text().strip()
             if title and len(title) > 10:
                 link = str(tag.get("href", ""))
-                if link and not link.startswith("http"):  # type: ignore[arg-type]
-                    link = urljoin(url, link)  # type: ignore[arg-type]
+                if link and not link.startswith("http"):
+                    link = urljoin(url, link)
                 articles.append({"title": title, "date": "", "summary": "", "link": str(link)})
 
         if not articles:
@@ -719,7 +717,7 @@ def archive_cargo(
                 if hashlib.md5(existing_text.encode()).hexdigest() == content_hash:
                     print(f"  Skipped (duplicate content): {filename}", file=sys.stderr)
                     return
-            except OSError, json.JSONDecodeError:
+            except (OSError, json.JSONDecodeError):
                 continue
 
     record = {
@@ -764,7 +762,7 @@ def probe_receptors(
             try:
                 days = (now - datetime.fromisoformat(last_str)).days
                 scan_col = f"{days}d ago"
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 scan_col = "parse-err"
         else:
             scan_col = "never"
