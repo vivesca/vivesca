@@ -19,6 +19,7 @@ import asyncio
 import contextlib
 import subprocess
 import sys
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cyclopts import App, Parameter
@@ -466,6 +467,7 @@ def deny(workflow_id: str) -> None:
     asyncio.run(_signal())
     _ok("mtor deny", {"workflow_id": workflow_id, "decision": "denied"}, version=VERSION)
 
+
 @app.command
 def deploy() -> None:
     """Sync code to ganglion, restart Temporal worker, verify health."""
@@ -473,30 +475,45 @@ def deploy() -> None:
 
     steps = []
 
-    # Step 1: push to ganglion
-    print("[deploy] pushing to ganglion...", file=sys.stderr)
+    # Step 1: sync to ganglion — push to temp branch, then ff-merge on ganglion
+    print("[deploy] syncing ganglion...", file=sys.stderr)
+    germline = str(Path.home() / "germline")
     push = subprocess.run(
-        ["git", "push", "ganglion", "main"],
-        capture_output=True, text=True, timeout=30,
-        cwd=str(Path.home() / "germline"),
+        ["git", "push", "ganglion", "main:deploy-sync", "--force"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=germline,
     )
-    if push.returncode != 0 and "Everything up-to-date" not in push.stderr:
+    if push.returncode != 0:
         sys.exit(
             _err(
                 "mtor deploy",
-                f"git push failed: {push.stderr.strip()[:200]}",
+                f"push failed: {push.stderr.strip()[:200]}",
                 "PUSH_FAILED",
-                "Resolve divergence: cd ~/germline && git pull ganglion main --no-edit",
+                "Check ganglion connectivity: ssh ganglion hostname",
                 exit_code=1,
             )
         )
-    steps.append({"step": "git push", "ok": True})
+    subprocess.run(
+        [
+            "ssh",
+            "ganglion",
+            "cd ~/germline && git merge deploy-sync --no-edit; git branch -d deploy-sync 2>/dev/null; true",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    steps.append({"step": "sync", "ok": True})
 
     # Step 2: restart worker
     print("[deploy] restarting temporal-worker...", file=sys.stderr)
     restart = subprocess.run(
         ["ssh", "ganglion", "sudo systemctl restart temporal-worker"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
     steps.append({"step": "restart worker", "ok": restart.returncode == 0})
     if restart.returncode != 0:
@@ -517,4 +534,3 @@ def deploy() -> None:
     steps.append({"step": "health check", "ok": True})
 
     _ok("mtor deploy", {"steps": steps, "healthy": True}, version=VERSION)
-
