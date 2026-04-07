@@ -34,6 +34,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Read anatomy first.** Before probing, querying, or debugging any subsystem, read its CLAUDE.md or README. The docs exist — use them before running blind commands. `~/germline/effectors/*/CLAUDE.md` for organism tools.
 
+**Check before building.** Before building a new tool or exploring manually to find one, `proteome search "keyword"`. One call, live scan of all effectors and skills. If a capability exists, use it.
+
 **Meta-rules:** Evidence > opinions. One correction = full sweep. When in doubt, test it. Work generates work — follow it. Origin is recoverable, spark is perishable. Fix what breaks before testing what doesn't — triage by blast radius. All dispatch orients toward north star goals — read `North Star.md` before selecting work.
 
 ## Facts
@@ -123,6 +125,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 **Fan out when no source is authoritative.** Multiple sources and framings. Convergence = confidence. Divergence = flag it. Silence ≠ absence.
 
 **Training mode.** Terry answers first when building a position he'll defend externally. For internal system design, lead with my view. Critique after in both cases.
+
+**"now" = execute, don't ask.** When Terry says "now", do it immediately. Don't offer to park, don't ask "want me to do X now or later?", don't present the option to defer. Execute.
 
 **Anxiety → system → `/circadian`.** "Should I check X?" → confirm system covers it.
 
