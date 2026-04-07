@@ -26,6 +26,7 @@ from cyclopts import App, Parameter
 from porin import action as _action
 
 from mtor import (
+    DEPLOY_REMOTE,
     LOG_TAIL_LINES,
     OUTPUTS_DIR,
     REPO_DIR,
@@ -37,6 +38,7 @@ from mtor.client import _get_client
 from mtor.dispatch import _dispatch_prompt
 from mtor.doctor import doctor as _doctor
 from mtor.envelope import _err, _extract_first_result, _ok
+from mtor.scan import _run_checks
 from mtor.tree import tree
 
 # ---------------------------------------------------------------------------
@@ -458,6 +460,16 @@ def history(
 
 
 @app.command
+def scan() -> None:
+    """Run deterministic checks: TODO/FIXME, missing tests, stale marks."""
+    findings = _run_checks()
+    next_actions = [
+        _action("mtor scan", "Re-run scan after fixes"),
+    ]
+    _ok("mtor scan", {"findings": findings, "count": len(findings)}, next_actions, version=VERSION)
+
+
+@app.command
 def scout(
     prompt: str,
     *,
@@ -536,15 +548,14 @@ def deploy() -> None:
 
     steps = []
 
-    # Step 1: sync to ganglion — push to temp branch, then ff-merge on ganglion
-    print("[deploy] syncing ganglion...", file=sys.stderr)
-    germline = str(Path.home() / "germline")
+    # Step 1: sync to worker — push to temp branch, then ff-merge on worker
+    print("[deploy] syncing to worker...", file=sys.stderr)
     push = subprocess.run(
-        ["git", "push", "ganglion", "main:deploy-sync", "--force"],
+        ["git", "push", DEPLOY_REMOTE, "main:deploy-sync", "--force"],
         capture_output=True,
         text=True,
         timeout=30,
-        cwd=germline,
+        cwd=REPO_DIR,
     )
     if push.returncode != 0:
         sys.exit(
@@ -559,8 +570,8 @@ def deploy() -> None:
     subprocess.run(
         [
             "ssh",
-            "ganglion",
-            "cd ~/germline && git merge deploy-sync --no-edit; git branch -d deploy-sync 2>/dev/null; true",
+            WORKER_HOST,
+            f"cd {REPO_DIR} && git merge deploy-sync --no-edit; git branch -d deploy-sync 2>/dev/null; true",
         ],
         capture_output=True,
         text=True,
@@ -571,7 +582,7 @@ def deploy() -> None:
     # Step 2: restart worker
     print("[deploy] restarting temporal-worker...", file=sys.stderr)
     restart = subprocess.run(
-        ["ssh", "ganglion", "sudo systemctl restart temporal-worker"],
+        ["ssh", WORKER_HOST, "sudo systemctl restart temporal-worker"],
         capture_output=True,
         text=True,
         timeout=15,
