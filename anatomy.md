@@ -109,10 +109,6 @@ interoception - sensing internal state.
 kinesin — session-independent agent dispatcher.
 - `translocation(action, name)` -- Dispatch and manage async kinesin tasks.
 
-### lysin
-lysin — fetch real biology for a term before naming.
-- `lysin(term)` -- Look up real cell biology for a term. Use before naming any component to verify the analogy is grounded.
-
 ### lysozyme
 lysozyme — Firecrawl URL scraper, fallback for bot-protected pages.
 - `lysozyme(action, url, query)` -- Scrape or search via Firecrawl.
@@ -186,8 +182,8 @@ Agent-first translation controller — dispatch, inspect, and manage ribosome wo
 Temporal.io-based workflow orchestrator for translation task dispatch. Replaces the markdown queue-based ribosome-daemon polling loop with durable workflows.
   Files: `CLAUDE.md`, `README.md`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
 
-### Standalone scripts (191 total, on PATH)
-  Recent: `soma-scale`, `wewe-rss-health.py`, `translocon`, `weekly-gather`, `lysozyme`, `screenshot_receiver.py`, `phagocytosis.py`, `soma-pull`, `express`, `chemoreception.py`
+### Standalone scripts (194 total, on PATH)
+  Recent: `oghma-import-marks`, `soma-watchdog`, `soma-scale`, `ribosome`, `willison-scrape`, `op-resolve-secrets`, `ribosome-tools`, `screenshot_receiver.py`, `soma-pull`, `pulse-review`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -305,7 +301,6 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **integrin.py**: `integrin`
 - **interoception.py**: `interoception`
 - **kinesin.py**: `translocation`
-- **lysin.py**: `lysin`
 - **lysozyme.py**: `lysozyme`
 - **necropsy.py**: `necropsy`
 - **noesis.py**: `noesis`
@@ -400,10 +395,10 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **814**
-- Most active: `rheotaxis` (198), `server` (146), `fetch` (134), `ribosome_dispatch` (102), `endosomal` (57)
+- Signals (last 7 days): **876**
+- Most active: `rheotaxis` (210), `fetch` (154), `server` (146), `ribosome_dispatch` (106), `endosomal` (63)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 9 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 10 errors)

@@ -207,6 +207,45 @@ class _MarkIndex:
 _index = _MarkIndex(MARKS_DIR)
 
 
+def _oghma_search(query: str, limit: int = 10, mode: str = "vector") -> list[dict]:
+    """Search oghma semantic store, return results in chromatin format."""
+    try:
+        from oghma.config import load_config
+        from oghma.embedder import EmbedConfig, create_embedder
+        from oghma.storage import Storage
+
+        config = load_config()
+
+        store = Storage(config=config)
+        done, _ = store.get_embedding_progress()
+        if done == 0:
+            return []
+        embed_config = config.get("embedding", {})
+        embedder = create_embedder(EmbedConfig.from_dict(embed_config))
+        query_vec = embedder.embed(query)
+        results = store.search_memories_hybrid(
+            query, query_embedding=query_vec, search_mode=mode, limit=limit
+        )
+        out = []
+        for r in results:
+            source_file = r.get("source_file", "")
+            filename = Path(source_file).name if source_file else ""
+            content = r.get("content", "")
+            meta = _parse_frontmatter(content)
+            out.append(
+                {
+                    "file": filename,
+                    "name": meta.get("name", filename),
+                    "content": content[:500],
+                    "path": source_file,
+                }
+            )
+        return out
+    except Exception as exc:
+        logger.warning("oghma search failed, falling back to regex: %s", exc)
+        return []
+
+
 def recall(
     query: str,
     category: str = "",
@@ -215,7 +254,11 @@ def recall(
     mode: str = "hybrid",
     chromatin: str = "open",
 ) -> list[dict]:
-    """Search marks by regex match on content, using in-memory index."""
+    """Search marks — vector via oghma, then regex fallback."""
+    if mode in ("vector", "hybrid"):
+        oghma_results = _oghma_search(query, limit=limit, mode="vector")
+        if oghma_results:
+            return oghma_results
     return _index.query(query, category=category, source_enzyme=source_enzyme, limit=limit)
 
 
