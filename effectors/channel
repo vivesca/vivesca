@@ -79,7 +79,33 @@ def _record(model: str, success: bool, duration_ms: int, task_type: str = "gener
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+    # Agent-facing: bare invocation returns JSON command tree
+    if len(sys.argv) == 1:
+        import json
+        print(json.dumps({
+            "ok": True,
+            "command": "channel",
+            "result": {
+                "description": "Gated transport to symbiont via Max subscription",
+                "commands": {
+                    "sonnet": "Route through Anthropic sonnet (Max OAuth)",
+                    "haiku": "Route through Anthropic haiku (Max OAuth)",
+                    "opus": "Route through Anthropic opus (Max OAuth)",
+                    "glm": "Route through ZhiPu GLM-5.1 (API key)",
+                },
+                "models": {"sonnet": "Anthropic sonnet", "haiku": "Anthropic haiku", "opus": "Anthropic opus", "glm": "ZhiPu GLM-5.1"},
+                "routing": "sonnet/haiku/opus use Max OAuth; glm uses ZhiPu API key",
+            },
+            "next_actions": [
+                {"command": "channel sonnet -p 'prompt'", "description": "Send prompt to sonnet via Max"},
+                {"command": "channel glm -p 'prompt'", "description": "Send prompt to GLM-5.1 via ZhiPu"},
+                {"command": "channel sonnet --organism -p 'prompt'", "description": "Full organism mode with MCP/skills/tools"},
+            ],
+            "version": "0.1.0",
+        }))
+        sys.exit(0)
+
+    if sys.argv[1] in ("-h", "--help"):
         print(__doc__.strip())
         sys.exit(0)
 

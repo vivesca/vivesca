@@ -16,12 +16,36 @@ import json
 import sys
 from pathlib import Path
 
+# Agent-facing: bare invocation returns JSON command tree (before heavy imports)
+if len(sys.argv) == 1:
+    print(json.dumps({
+        "ok": True,
+        "command": "demethylase",
+        "result": {
+            "description": "Active memory erasure — scan and remove stale marks",
+            "commands": {
+                "--execute": "Actually delete stale marks (default: dry-run)",
+                "--threshold N": "Custom staleness threshold in days (default: 90)",
+                "--json": "Output as JSON",
+                "--consolidate": "Run chromatin remodeling only (no erasure)",
+            },
+        },
+        "next_actions": [
+            {"command": "demethylase", "description": "Dry-run sweep of stale marks"},
+            {"command": "demethylase --execute", "description": "Actually delete stale marks"},
+            {"command": "demethylase --consolidate --json", "description": "Run consolidation with JSON output"},
+        ],
+        "version": "0.1.0",
+    }))
+    sys.exit(0)
+
 sys.path.insert(0, str(Path.home() / "germline"))
 
 from metabolon.organelles.demethylase import consolidate, format_report, sweep
 
 
 def main():
+
     parser = argparse.ArgumentParser(
         description="Active memory erasure — scan and remove stale marks"
     )
