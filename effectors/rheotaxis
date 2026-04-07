@@ -28,6 +28,123 @@ from metabolon.organelles.rheotaxis_engine import perplexity_deep
 
 ALL_BACKENDS = ["grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"]
 
+# --- Source weighting: higher = more trusted for factual queries ---
+
+BACKEND_WEIGHTS = {
+    "perplexity": 3,
+    "exa": 2,
+    "tavily": 1,
+    "serper": 1,
+    "grok": 1,
+    "jina": 1,
+    "zhipu": 1,
+}
+
+# --- Signal density: detect low-value LLM padding ---
+
+
+def signal_density(text: str) -> float:
+    """Return 0.0–1.0 ratio of substantive content vs generic LLM padding.
+
+    Uses a simple heuristic: count how many words are NOT in the known
+    padding phrase list, then divide by total words.  Empty text → 0.0.
+    """
+    if not text:
+        return 0.0
+    words = text.lower().split()
+    if not words:
+        return 0.0
+    padding_phrases = {
+        "it", "looks", "like", "your", "query", "message", "seems",
+        "i'll", "break", "this", "down", "for", "you", "feel",
+        "free", "to", "clarify", "please", "provide", "more",
+        "details", "i'm", "not", "sure", "what", "you're",
+        "referring", "ask", "about", "happy", "help", "let",
+        "me", "know", "if", "need", "be", "can", "could",
+        "would", "don't", "hesitate", "any", "other", "questions",
+        "i", "here", "assist",
+    }
+    substantive = sum(1 for w in words if w not in padding_phrases)
+    return substantive / len(words)
+
+
+def is_low_signal(text: str) -> bool:
+    """True when signal density is below 0.2 (>80% generic padding)."""
+    return signal_density(text) < 0.2
+
+
+def order_backends(backends: list[str]) -> list[str]:
+    """Sort backend names by BACKEND_WEIGHTS descending (highest first)."""
+    return sorted(backends, key=lambda b: BACKEND_WEIGHTS.get(b, 0), reverse=True)
+
+
+def _apply_quality_filter(results: list[ToolResult]) -> list[ToolResult]:
+    """Remove results whose answer is >80% generic LLM padding."""
+    filtered = []
+    for r in results:
+        if r.error:
+            filtered.append(r)
+            continue
+        if r.result and is_low_signal(r.result):
+            filtered.append(
+                ToolResult(
+                    tool=r.tool,
+                    query=r.query,
+                    result="",
+                    cost=r.cost,
+                    latency_s=r.latency_s,
+                    error="filtered: low signal density",
+                )
+            )
+        else:
+            filtered.append(r)
+    return filtered
+
+
+# --- Query-type routing ---
+
+import re as _re
+
+_FACTUAL_PATTERNS = [
+    _re.compile(r"\bhow\s+to\b", _re.IGNORECASE),
+    _re.compile(r"\bwhat\s+is\b", _re.IGNORECASE),
+    _re.compile(r"\bwhat\s+are\b", _re.IGNORECASE),
+    _re.compile(r"\d+\.\d+(?:\.\d+)?"),           # version numbers like 3.12, 2.1.0
+    _re.compile(r"\b(?:api|sdk|cli|http|grpc|rest)\b", _re.IGNORECASE),
+    _re.compile(r"\bget\b.*\b(?:method|function|request)\b", _re.IGNORECASE),
+]
+_URL_PATTERNS = [
+    _re.compile(r"https?://\S+", _re.IGNORECASE),
+    _re.compile(r"\bwww\.\S+\.\w+", _re.IGNORECASE),
+]
+
+
+def classify_query(query: str) -> str:
+    """Classify a query as 'factual', 'url', or 'opinion'.
+
+    Factual/technical queries (version numbers, 'how to', API names, 'what is')
+    are routed to Perplexity + Exa for cited structured answers.
+    URL extraction queries go to Exa only.
+    Everything else (opinion/exploratory) hits all backends.
+    """
+    for pat in _URL_PATTERNS:
+        if pat.search(query):
+            return "url"
+    for pat in _FACTUAL_PATTERNS:
+        if pat.search(query):
+            return "factual"
+    return "opinion"
+
+
+def route_backends(query_type: str) -> list[str]:
+    """Return the list of backends to invoke for a given query type."""
+    if query_type == "factual":
+        return ["perplexity", "exa"]
+    if query_type == "url":
+        return ["exa"]
+    return list(ALL_BACKENDS)
+
+
 BACKEND_META = {
     "grok": {"env": "XAI_API_KEY", "cost": 0.05},
     "exa": {"env": "EXA_API_KEY", "cost": 0.01},
@@ -156,6 +273,16 @@ def main() -> None:
         action="store_true",
         help="List all backends with health status",
     )
+    parser.add_argument(
+        "--quality",
+        action="store_true",
+        help="Filter out low-signal (padding-heavy) responses",
+    )
+    parser.add_argument(
+        "--route",
+        action="store_true",
+        help="Show query classification + routing without searching",
+    )
     args = parser.parse_args()
 
     # --backends mode: list and exit
@@ -172,6 +299,21 @@ def main() -> None:
     if not queries:
         tree = _build_tree()
         emit_ok("rheotaxis", tree.to_dict())
+        sys.exit(EXIT_OK)
+
+    # --route mode: classify query and show routing, no search
+    if args.route:
+        classifications = []
+        for q in queries:
+            qtype = classify_query(q)
+            backends = route_backends(qtype)
+            classifications.append(
+                {"query": q, "type": qtype, "backends": backends}
+            )
+        emit_ok(
+            "rheotaxis route",
+            {"classifications": classifications},
+        )
         sys.exit(EXIT_OK)
 
     # Mutual exclusivity: --exclude and -b
@@ -191,6 +333,11 @@ def main() -> None:
     elif args.b:
         selected = {b.strip() for b in args.b.split(",") if b.strip()}
         exclude = set(ALL_BACKENDS) - selected
+    else:
+        # Auto-route: classify first query to select backends
+        qtype = classify_query(queries[0])
+        routed = route_backends(qtype)
+        exclude = set(ALL_BACKENDS) - set(routed)
 
     # --- Research mode ---
     if args.research:
@@ -228,7 +375,13 @@ def main() -> None:
     if len(queries) == 1:
         results = asyncio.run(_run_all(queries[0], exclude=exclude_arg))
 
+        # Apply quality filter if requested
+        if args.quality:
+            results = _apply_quality_filter(results)
+
+        # For --text mode, order results by backend weight
         if args.text:
+            results = sorted(results, key=lambda r: BACKEND_WEIGHTS.get(r.tool, 0), reverse=True)
             try:
                 print(_report(queries[0], results))
             except RuntimeError as exc:
@@ -260,9 +413,14 @@ def main() -> None:
 
         per_query = asyncio.run(_run_multi())
 
+        # Apply quality filter if requested
+        if args.quality:
+            per_query = [_apply_quality_filter(rq) for rq in per_query]
+
         if args.text:
             any_ok = False
             for q, results in zip(queries, per_query):
+                results = sorted(results, key=lambda r: BACKEND_WEIGHTS.get(r.tool, 0), reverse=True)
                 print(f"\n## QUERY: {q}\n")
                 try:
                     print(_report(q, results))

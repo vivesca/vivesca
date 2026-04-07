@@ -170,8 +170,185 @@ class TestOutputFormat:
 
 
 # ---------------------------------------------------------------------------
+# Query-type routing
+# ---------------------------------------------------------------------------
+
+
+class TestQueryRouting:
+    """Unit tests for query-type classification and backend routing."""
+
+    @pytest.fixture
+    def mod(self):
+        """Load rheotaxis as a module (not __main__) for unit testing."""
+        ns = {"__name__": "rheotaxis_test", "__file__": RHEOTAXIS}
+        exec(open(RHEOTAXIS).read(), ns)
+        return ns
+
+    # --- classify_query ---
+
+    def test_factual_how_to(self, mod):
+        assert mod["classify_query"]("how to install python 3.12") == "factual"
+
+    def test_factual_version(self, mod):
+        assert mod["classify_query"]("numpy 2.1.0 release notes") == "factual"
+
+    def test_factual_what_is(self, mod):
+        assert mod["classify_query"]("what is rheotaxis in biology") == "factual"
+
+    def test_factual_api_name(self, mod):
+        assert mod["classify_query"]("boto3.client API reference") == "factual"
+
+    def test_factual_get_method(self, mod):
+        assert mod["classify_query"]("get request timeout in requests library") == "factual"
+
+    def test_url_extraction(self, mod):
+        assert mod["classify_query"]("https://example.com/docs") == "url"
+
+    def test_url_http(self, mod):
+        assert mod["classify_query"]("http://github.com/repo") == "url"
+
+    def test_url_www(self, mod):
+        assert mod["classify_query"]("www.example.com/page") == "url"
+
+    def test_opinion_generic(self, mod):
+        assert mod["classify_query"]("best restaurants in Tokyo") == "opinion"
+
+    def test_opinion_bare_word(self, mod):
+        assert mod["classify_query"]("JINS Hong Kong") == "opinion"
+
+    def test_opinion_compare(self, mod):
+        assert mod["classify_query"]("best laptop for coding 2025") == "opinion"
+
+    # --- route_backends ---
+
+    def test_factual_routes_perplexity_exa(self, mod):
+        backends = mod["route_backends"]("factual")
+        assert "perplexity" in backends
+        assert "exa" in backends
+        assert "grok" not in backends
+
+    def test_url_routes_exa_only(self, mod):
+        backends = mod["route_backends"]("url")
+        assert backends == ["exa"]
+
+    def test_opinion_routes_all(self, mod):
+        backends = mod["route_backends"]("opinion")
+        assert set(backends) == {
+            "grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"
+        }
+
+    # --- integration: --route flag is accepted ---
+
+    def test_route_flag_accepted(self):
+        result = run_cli("test query", "--route")
+        assert result.returncode != 2
+
+    def test_no_route_flag_still_works(self):
+        result = run_cli("--backends")
+        assert result.returncode == 0
+
+
+# ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Signal filtering and source weighting
+# ---------------------------------------------------------------------------
+
+
+class TestQualityFilter:
+    """Unit tests for --quality flag: signal density filtering."""
+
+    @pytest.fixture
+    def mod(self):
+        """Load rheotaxis as a module (not __main__) for unit testing."""
+        ns = {"__name__": "rheotaxis_test", "__file__": RHEOTAXIS}
+        exec(open(RHEOTAXIS).read(), ns)
+        return ns
+
+    # --- signal_density ---
+
+    def test_signal_density_high_for_factual(self, mod):
+        text = "Python 3.12 was released on October 2, 2023. It includes better error messages and f-string improvements."
+        assert mod["signal_density"](text) > 0.5
+
+    def test_signal_density_low_for_padding(self, mod):
+        text = "It looks like your query needs more context. I'll break this down for you. Feel free to clarify what you mean and I'll be happy to help."
+        assert mod["signal_density"](text) < 0.3
+
+    def test_signal_density_mixed(self, mod):
+        text = "It seems like you're asking about Python. Python is a high-level programming language. Let me know if you need more details."
+        density = mod["signal_density"](text)
+        assert 0.2 < density < 0.8
+
+    def test_signal_density_empty_string(self, mod):
+        assert mod["signal_density"]("") == 0.0
+
+    # --- is_low_signal ---
+
+    def test_is_low_signal_true_for_padding(self, mod):
+        text = "It looks like your message is just 'query', but I'm not sure what you're referring to. Could you please provide more details? Feel free to clarify!"
+        assert mod["is_low_signal"](text) is True
+
+    def test_is_low_signal_false_for_substantive(self, mod):
+        text = "The Python asyncio module provides infrastructure for writing concurrent code using the async/await syntax. It was added in Python 3.4."
+        assert mod["is_low_signal"](text) is False
+
+    # --- --quality flag accepted ---
+
+    def test_quality_flag_accepted(self):
+        result = run_cli("test query", "--quality")
+        assert result.returncode != 2
+
+    def test_quality_with_text_flag_accepted(self):
+        result = run_cli("test query", "--quality", "--text")
+        assert result.returncode != 2
+
+
+class TestSourceWeighting:
+    """Unit tests for BACKEND_WEIGHTS and order_backends."""
+
+    @pytest.fixture
+    def mod(self):
+        ns = {"__name__": "rheotaxis_test", "__file__": RHEOTAXIS}
+        exec(open(RHEOTAXIS).read(), ns)
+        return ns
+
+    def test_perplexity_weighted_highest(self, mod):
+        weights = mod["BACKEND_WEIGHTS"]
+        assert weights["perplexity"] >= weights["grok"]
+        assert weights["perplexity"] > weights["serper"]
+
+    def test_exa_weighted_above_grok(self, mod):
+        weights = mod["BACKEND_WEIGHTS"]
+        assert weights["exa"] > weights["grok"]
+
+    def test_all_backends_have_weights(self, mod):
+        weights = mod["BACKEND_WEIGHTS"]
+        for b in ("grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"):
+            assert b in weights
+
+    def test_order_backends_perplexity_first(self, mod):
+        ordered = mod["order_backends"](["grok", "serper", "perplexity", "exa", "tavily"])
+        assert ordered[0] == "perplexity"
+
+    def test_order_backends_exa_second_when_no_perplexity(self, mod):
+        ordered = mod["order_backends"](["grok", "serper", "exa", "tavily"])
+        assert ordered[0] == "exa"
+
+    def test_order_backends_preserves_all(self, mod):
+        backends = ["grok", "exa", "perplexity", "tavily", "serper", "jina"]
+        ordered = mod["order_backends"](backends)
+        assert set(ordered) == set(backends)
+
+    def test_order_backends_weight_sort(self, mod):
+        """Backends are sorted by weight descending."""
+        ordered = mod["order_backends"](["grok", "serper", "jina"])
+        weights = mod["BACKEND_WEIGHTS"]
+        for i in range(len(ordered) - 1):
+            assert weights[ordered[i]] >= weights[ordered[i + 1]]
 
 
 class TestErrors:
