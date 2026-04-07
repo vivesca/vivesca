@@ -91,6 +91,54 @@ def detect_task_type(prompt: str) -> str:
     return "build"
 
 
+# ---------------------------------------------------------------------------
+# Workflow ID generation
+# ---------------------------------------------------------------------------
+
+PROVIDER_TO_MODEL: dict[str, str] = {
+    "zhipu": "glm51",
+    "infini": "mm27",
+    "volcano": "doubao",
+    "gemini": "gem31",
+    "codex": "gpt54",
+    "goose": "glm51g",
+    "droid": "glm51d",
+}
+
+_SLUG_WORD_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(text: str) -> str:
+    """Lowercase, drop apostrophes, replace non-alphanumeric runs with single hyphen."""
+    return _SLUG_WORD_RE.sub("-", text.lower().replace("'", "")).strip("-")
+
+
+def _make_workflow_id(prompt: str, provider: str, harness: str = "ribosome") -> str:
+    """Build a deterministic workflow ID: {harness}-{model}-{slug}-{hash}.
+
+    - model: short name mapped from *provider*
+    - slug: first 3 words of *prompt*, slugified
+    - hash: 8-char hex from sha256 of *prompt*
+    - total length capped at 80 characters (slug truncated if needed)
+    """
+    model = PROVIDER_TO_MODEL.get(provider, provider)
+    prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:8]
+
+    words = prompt.split()
+    slug = _slugify(" ".join(words[:3]))
+
+    # Assemble and enforce 80-char limit
+    wid = f"{harness}-{model}-{slug}-{prompt_hash}"
+    if len(wid) > 80:
+        # Truncate slug to fit: harness-model--hash + safety margin
+        overhead = len(harness) + 1 + len(model) + 1 + 1 + len(prompt_hash)
+        max_slug = 80 - overhead
+        slug = slug[:max(0, max_slug)].rstrip("-")
+        wid = f"{harness}-{model}-{slug}-{prompt_hash}"
+
+    return wid
+
+
 def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bool = False, mode: str | None = None) -> None:
     """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
@@ -161,10 +209,8 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
     try:
         import asyncio
 
-        # Deterministic ID from prompt hash — Temporal rejects if already running (dedup)
-        import hashlib
-        prompt_hash = hashlib.sha256(full_prompt.encode()).hexdigest()[:8]
-        workflow_id = f"ribosome-{provider}-{prompt_hash}"
+        # Deterministic ID — Temporal rejects if already running (dedup)
+        workflow_id = _make_workflow_id(full_prompt, provider or "zhipu")
         spec = {
             "task": full_prompt,
             "provider": provider,
