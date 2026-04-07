@@ -579,6 +579,32 @@ def guard_read(data):
     if any(re.search(p, fp) for p in bins):
         deny("Reading binary/minified files wastes context.", "read-guard")
 
+    # Large file without offset/limit — nudge toward targeted reads
+    if not data.get("tool_input", {}).get("offset") and not data.get("tool_input", {}).get(
+        "limit"
+    ):
+        try:
+            lines = Path(fp).expanduser().read_text().count("\n")
+            if lines > 500:
+                allow_msg(
+                    f"LARGE FILE: {fp} is {lines} lines. Use offset/limit to read specific sections. "
+                    f'Or: mtor scout "explain the structure of {Path(fp).name}"'
+                )
+        except OSError:
+            pass
+
+    # uv.lock — same as other lockfiles
+    if fp.endswith("uv.lock"):
+        deny("Reading lockfiles wastes context. Use grep for specific versions.", "read-guard")
+
+
+def guard_webfetch(_data):
+    """Route WebFetch → fetch MCP tool (genome preference)."""
+    allow_msg(
+        "FETCH: Prefer the `fetch` MCP tool over WebFetch — "
+        "it has smarter routing and fallback chains."
+    )
+
 
 # ── guard_agent: from nociceptor-agent.js ──────────────────
 
@@ -956,6 +982,8 @@ def main():
             reset_pipeline_counter(data)
         elif tool == "WebSearch":
             guard_rheotaxis(data)
+        elif tool == "WebFetch":
+            guard_webfetch(data)
         elif "rheotaxis" in tool:
             guard_rheotaxis_depth(data)
     except SystemExit:
