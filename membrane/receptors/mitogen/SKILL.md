@@ -1,6 +1,6 @@
 ---
 name: mitogen
-description: Dispatch ribosome for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", "blitz", "batch"
+description: Dispatch ribosome for a specific build task — directed campaigns or single features. "build", "implement", "dispatch", "go build", "batch". For autonomous work discovery, use /blitz.
 effort: high
 model: opus
 user_invocable: true
@@ -23,11 +23,9 @@ Biology: a mitogen is a signal that triggers rapid cell proliferation. `/mitogen
 
 ## When to trigger
 
-User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "blitz", "keep going while I'm away", or invokes `/mitogen` directly.
+User says: "build", "implement", "dispatch", "spec this", "batch", "go build", or invokes `/mitogen` directly. User specifies WHAT to build.
 
-**Two modes:**
-- **Directed** — user specifies what to build -> skip to Phase 2
-- **Autonomous** — user says "blitz" / "work on everything" -> Phase 1 audit first
+For "what should I build?" / "find work" / "work on everything" → use `/blitz` instead.
 
 ## Architecture
 

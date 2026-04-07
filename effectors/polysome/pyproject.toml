@@ -23,3 +23,8 @@ scripts.polysome = "cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = [ "." ]
+
+[tool.pyright]
+executionEnvironments = [
+  { root = "assays", reportMissingImports = "none", reportAttributeAccessIssue = "none" },
+]

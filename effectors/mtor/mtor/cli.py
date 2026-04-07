@@ -53,7 +53,11 @@ def default_handler(
 ) -> None:
     """Bare invocation returns command tree; with a prompt, dispatches to Temporal."""
     if prompt is None:
-        _ok("mtor", tree.to_dict(), version=VERSION)
+        if sys.stdout.isatty():
+            app.help_print()
+        else:
+            _ok("mtor", tree.to_dict(), version=VERSION)
+        return
     else:
         _dispatch_prompt(prompt, provider=provider, experiment=experiment)
 
@@ -85,11 +89,18 @@ def list_cmd(
         # Build Temporal visibility query
         query_parts = []
         if status:
-            status_map = {"RUNNING": "Running", "COMPLETED": "Completed", "FAILED": "Failed", "CANCELED": "Canceled", "TERMINATED": "Terminated"}
+            status_map = {
+                "RUNNING": "Running",
+                "COMPLETED": "Completed",
+                "FAILED": "Failed",
+                "CANCELED": "Canceled",
+                "TERMINATED": "Terminated",
+            }
             query_parts.append(f"ExecutionStatus = '{status_map.get(status, status)}'")
         if since:
-            from datetime import datetime, timedelta, timezone
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=since)
+            from datetime import UTC, datetime, timedelta
+
+            cutoff = datetime.now(UTC) - timedelta(hours=since)
             query_parts.append(f"StartTime > '{cutoff.strftime('%Y-%m-%dT%H:%M:%SZ')}'")
         query_filter = " AND ".join(query_parts) if query_parts else ""
 

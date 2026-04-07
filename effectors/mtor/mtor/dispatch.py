@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 import sys
 from pathlib import Path
@@ -19,7 +18,7 @@ def decompose_spec(prompt: str) -> list[str] | None:
 
     Returns None if the prompt is a single task (no ## Task sections).
     """
-    task_pattern = re.compile(r'^## Task \d+', re.MULTILINE)
+    task_pattern = re.compile(r"^## Task \d+", re.MULTILINE)
     matches = list(task_pattern.finditer(prompt))
 
     if len(matches) < 2:
@@ -67,7 +66,16 @@ def classify_risk(prompt: str) -> str:
 # ---------------------------------------------------------------------------
 
 ROUTE_PATTERNS: dict[str, list[str]] = {
-    "explore": ["how does", "find ", "search ", "what is", "explain", "where is", "list all", "show me"],
+    "explore": [
+        "how does",
+        "find ",
+        "search ",
+        "what is",
+        "explain",
+        "where is",
+        "list all",
+        "show me",
+    ],
     "bugfix": ["fix ", "bug", "broken", "error ", "failing", "crash", "regression"],
     "test": ["write test", "add test", "test for", "coverage"],
 }
@@ -89,14 +97,15 @@ def detect_task_type(prompt: str) -> str:
     return "build"
 
 
-def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bool = False) -> None:
+def _dispatch_prompt(
+    prompt: str, *, provider: str | None = None, experiment: bool = False
+) -> None:
     """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
     prompt_path = Path(prompt).expanduser()
     if prompt_path.is_file():
         prompt = prompt_path.read_text(encoding="utf-8").strip()
         # Strip YAML frontmatter (--- ... ---) — confuses GLM into treating spec as document
-        import re
         prompt = re.sub(r"\A---\n.*?\n---\n*", "", prompt, count=1, flags=re.DOTALL).strip()
 
     cmd = f"mtor {prompt[:60]}{'...' if len(prompt) > 60 else ''}"
@@ -108,6 +117,21 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
                 "Prompt is required",
                 "MISSING_PROMPT",
                 'Provide a task description: mtor "Write tests for metabolon/foo.py"',
+                [_action("mtor", "Show command tree")],
+                exit_code=2,
+            )
+        )
+
+    # Build tasks require a CC-written test file reference in the prompt.
+    # Tests are judgment (CC writes), implementation is execution (ribosome).
+    mode = "experiment" if experiment else "build"
+    if mode == "build" and not re.search(r"test_\w+\.py|assays/", prompt):
+        sys.exit(
+            _err(
+                cmd,
+                "Build tasks require a test file. CC writes tests first, ribosome makes them pass.",
+                "NO_TEST_FILE",
+                'Write tests first: assays/test_<feature>.py, then mtor "Make ~/path/assays/test_feature.py pass."',
                 [_action("mtor", "Show command tree")],
                 exit_code=2,
             )
@@ -136,6 +160,7 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
 
         # Deterministic ID from prompt hash — Temporal rejects if already running (dedup)
         import hashlib
+
         prompt_hash = hashlib.sha256(full_prompt.encode()).hexdigest()[:8]
         workflow_id = f"ribosome-{provider}-{prompt_hash}"
         spec = {
@@ -177,7 +202,9 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
         ]
         if experiment:
             next_actions.append(
-                _action(f"mtor status {started_id}", "Experiment mode — will NOT auto-merge to main")
+                _action(
+                    f"mtor status {started_id}", "Experiment mode — will NOT auto-merge to main"
+                )
             )
 
         _ok(

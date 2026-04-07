@@ -8,23 +8,23 @@ name = "mtor"
 version = "0.4.0"
 description = "Agent-first translation controller — dispatch, inspect, and manage ribosome workflows via Temporal"
 readme = "README.md"
+keywords = [
+  "agent",
+  "cli",
+  "ribosome",
+  "temporal",
+  "translation",
+  "workflow",
+]
 license = "MIT"
 requires-python = ">=3.11"
 classifiers = [
+  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "License :: OSI Approved :: MIT License",
   "Topic :: Software Development :: Libraries :: Python Modules",
-]
-keywords = [
-  "temporal",
-  "agent",
-  "cli",
-  "workflow",
-  "ribosome",
-  "translation",
 ]
 dependencies = [
   "cyclopts",
@@ -32,12 +32,10 @@ dependencies = [
   "temporalio>=1.7",
 ]
 
+urls.Homepage = "https://github.com/user/mtor"
+urls.Issues = "https://github.com/user/mtor/issues"
+urls.Repository = "https://github.com/user/mtor"
 scripts.mtor = "mtor.cli:app"
-
-[project.urls]
-Homepage = "https://github.com/user/mtor"
-Repository = "https://github.com/user/mtor"
-Issues = "https://github.com/user/mtor/issues"
 
 [dependency-groups]
 dev = [
@@ -49,3 +47,9 @@ packages = [ "mtor" ]
 
 [tool.pytest.ini_options]
 testpaths = [ "assays" ]
+
+[tool.pyright]
+include = [ "mtor" ]
+executionEnvironments = [
+  { root = "assays", reportMissingImports = "none", reportAttributeAccessIssue = "none" },
+]

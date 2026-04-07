@@ -4,13 +4,18 @@
 
 ## Facts (established)
 - **Capco Day 1: Apr 8 (Tuesday). Tomorrow.**
-- **OpenCode added to ribosome:** 12-task × 4-harness benchmark complete. Correctness = model, not harness. `ribosome --harness opencode` now works.
-- **Harness routing:** CC default, OpenCode for features, Droid for exploration, Goose for bugfix. All on GLM-5.1.
+- **Test-first dispatch policy live.** mtor gate rejects build tasks without test file reference. CC writes tests, ribosome implements.
+- **mtor resilience spec written.** SHA gate, auto-heal, chaining — dispatched. v2+v3 stall detector tests written.
+- **Stall root cause found:** not stalls — fast failures (TypeError, CancelledError) with no log written. Log-write fix + workflow timeout approved and merged.
+- **`/blitz` skill created.** North-star-driven work discovery. Interactive (discuss) + autopilot (routine). Replaces mitogen's autonomous mode.
 
 ## Progress (active)
-- [done] OpenCode harness evaluation — finding updated, ribosome script updated, MEMORY.md updated
-- [done] 9 synthetic + 3 real-world tasks benchmarked across CC/Goose/Droid/OpenCode
-- [parked] germline dirty: ribosome edits, axon.py, translocase.py, task fixtures, prior session files
-- [parked] epigenome dirty: harness-test outputs/scripts, finding, MEMORY.md, plans from prior sessions
-- [parked] OpenCode not yet on ganglion — needs install for production dispatch
-<!-- last checkpoint: 07/04/2026 ~09:10 HKT (cytokinesis full) -->
+- [done] Overnight stall diagnosis + worker restart + ganglion sync (9 commits merged)
+- [done] Test-first gate in mtor dispatch.py + coaching update
+- [done] TTY detection for mtor bare invocation, pyright config for test files
+- [done] Zombie workflow killed (terminate vs cancel gap found)
+- [running] 7 mtor tasks: auto-heal, Langfuse deploy, terminate cmd, standalone config, chaperone test gate, rheotaxis routing, scan module
+- [running] 3 new dispatches: task ID (harness+model+slug), v2 stall detector, v3 stall trace
+- [parked] soma germline dirty: cli.py, dispatch.py, pyproject.toml, polysome/pyproject.toml, mitogen, blitz, 4 test files — needs commit
+- [parked] SHA gate + chaining rejected (stall detector killed them) — re-dispatch after v2 detector lands
+<!-- last checkpoint: 07/04/2026 ~13:20 HKT (cytokinesis full) -->
