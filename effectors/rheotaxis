@@ -62,7 +62,21 @@ def signal_density(text: str) -> float:
         "referring", "ask", "about", "happy", "help", "let",
         "me", "know", "if", "need", "be", "can", "could",
         "would", "don't", "hesitate", "any", "other", "questions",
-        "i", "here", "assist",
+        "i", "here", "assist", "just", "but", "or", "the",
+        "a", "an", "is", "are", "was", "were", "am", "my",
+        "we", "our", "they", "their", "them", "its", "his", "her",
+        "and", "of", "in", "on", "at", "with", "from", "that",
+        "which", "who", "whom", "how", "do", "does", "did",
+        "will", "shall", "may", "might", "must", "should",
+        "also", "very", "really", "much", "many", "some",
+        "all", "each", "every", "both", "few", "most", "no",
+        "into", "up", "out", "so", "than", "then", "there",
+        "these", "those", "such", "only", "own", "same", "when",
+        "where", "why", "again", "further", "once",
+        "above", "below", "under", "over", "between",
+        "through", "during", "before", "after",
+        "however", "therefore", "thus", "hence", "since",
+        "because", "although", "though", "even", "still",
     }
     substantive = sum(1 for w in words if w not in padding_phrases)
     return substantive / len(words)
@@ -118,12 +132,47 @@ _URL_PATTERNS = [
     _re.compile(r"\bwww\.\S+\.\w+", _re.IGNORECASE),
 ]
 
+# Keyword sets for word-level classification (supplements regex patterns)
+_FACTUAL_KEYWORDS = frozenset({
+    "install", "setup", "configure", "configuration",
+    "tutorial", "documentation", "reference", "guide", "example",
+    "error", "debug", "fix", "syntax", "compile", "compiler",
+    "build", "deploy", "deployment", "version", "release",
+    "endpoint", "function", "method", "class", "module", "library",
+    "package", "import", "parameter", "argument", "return", "type",
+    "exception", "traceback", "stacktrace", "runtime", "memory",
+    "algorithm", "protocol", "server", "client", "request", "response",
+    "database", "query", "sql", "migration", "schema",
+})
+
+_OPINION_KEYWORDS = frozenset({
+    "best", "recommend", "recommendation", "compare", "comparison",
+    "vs", "versus", "should", "opinion", "review", "favorite",
+    "top", "alternatives", "alternative", "pros", "cons",
+    "advantage", "disadvantage", "prefer", "better", "worse",
+})
+
+
+def classify_query_keywords(query: str) -> str:
+    """Classify a query using word-level keyword matching.
+
+    Returns 'factual', 'opinion', or 'unknown' based on keyword hits.
+    This supplements the regex-based classify_query for edge cases where
+    regex patterns miss factual queries that contain technical keywords.
+    """
+    words = set(query.lower().split())
+    if words & _FACTUAL_KEYWORDS:
+        return "factual"
+    if words & _OPINION_KEYWORDS:
+        return "opinion"
+    return "unknown"
+
 
 def classify_query(query: str) -> str:
     """Classify a query as 'factual', 'url', or 'opinion'.
 
-    Factual/technical queries (version numbers, 'how to', API names, 'what is')
-    are routed to Perplexity + Exa for cited structured answers.
+    Uses regex patterns first, then falls back to keyword matching.
+    Factual/technical queries are routed to Perplexity + Exa for cited answers.
     URL extraction queries go to Exa only.
     Everything else (opinion/exploratory) hits all backends.
     """
@@ -133,6 +182,9 @@ def classify_query(query: str) -> str:
     for pat in _FACTUAL_PATTERNS:
         if pat.search(query):
             return "factual"
+    # Keyword fallback: catch factual queries missed by regex
+    if classify_query_keywords(query) == "factual":
+        return "factual"
     return "opinion"
 
 
