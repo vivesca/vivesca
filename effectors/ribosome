@@ -250,6 +250,7 @@ _provider_to_harness() {
     droid) echo "droid" ;;
     gemini) echo "gemini" ;;
     codex) echo "codex" ;;
+    opencode) echo "opencode" ;;
   esac
 }
 
@@ -259,7 +260,7 @@ if [[ -n "$PROVIDER_COMPAT" ]]; then
     zhipu|infini|volcano)
       HARNESS="${HARNESS:-claude}"
       BACKEND="${BACKEND:-$PROVIDER_COMPAT}" ;;
-    goose|droid)
+    goose|droid|opencode)
       HARNESS="${HARNESS:-$PROVIDER_COMPAT}"
       BACKEND="${BACKEND:-zhipu}" ;;
     gemini|codex)
@@ -274,13 +275,13 @@ BACKEND="${BACKEND:-zhipu}"
 
 # Validate harness
 case "$HARNESS" in
-  claude|goose|droid|gemini|codex) ;;
+  claude|goose|droid|gemini|codex|opencode) ;;
   *) echo "Unknown harness: $HARNESS" >&2; exit 1 ;;
 esac
 
 # Validate backend for harnesses that use it
 case "$HARNESS" in
-  claude|goose|droid)
+  claude|goose|droid|opencode)
     case "$BACKEND" in
       zhipu|infini|volcano) ;;
       *) echo "Unknown backend: $BACKEND" >&2; exit 1 ;;
@@ -451,6 +452,15 @@ _run_harness_codex() {
     OPENAI_API_KEY="$_KEY" \
     timeout "$_timeout" \
     codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$prompt" 2>&1
+}
+
+_run_harness_opencode() {
+  local prompt="$1"
+  local _timeout="$2"
+  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
+    ZHIPU_API_KEY="$_KEY" \
+    timeout "$_timeout" \
+    opencode run -m "zhipu-coding/glm-5.1" "$prompt" 2>&1
 }
 
 _execute_manifest() {
