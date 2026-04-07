@@ -306,7 +306,7 @@ def _detect_prior_commits(
 
 
 @activity.defn
-async def translate(task: str, provider: str) -> dict:
+async def translate(task: str, provider: str, mode: str = "build") -> dict:
     """Execute a single ribosome task as a subprocess."""
     task_id_match = _re.search(r"\[t-([0-9a-fA-F]+)\]", task)
     tid_str = task_id_match.group(1) if task_id_match else ""
@@ -351,16 +351,22 @@ async def translate(task: str, provider: str) -> dict:
 
     branch_name = f"ribosome-{tid_str or _time.strftime('%H%M%S')}"
     worktree_path = None
-    try:
-        worktree_path = await asyncio.to_thread(_create_worktree, repo_root, branch_name)
-        work_dir = worktree_path
-    except Exception as exc:
-        print(
-            f"WARNING: worktree creation failed ({exc}), falling back to repo root",
-            file=sys.stderr,
-        )
-        work_dir = repo_root
+
+    # Scout mode: no worktree, run in main repo (read-only)
+    if mode == "scout":
         worktree_path = None
+        work_dir = repo_root
+    else:
+        try:
+            worktree_path = await asyncio.to_thread(_create_worktree, repo_root, branch_name)
+            work_dir = worktree_path
+        except Exception as exc:
+            print(
+                f"WARNING: worktree creation failed ({exc}), falling back to repo root",
+                file=sys.stderr,
+            )
+            work_dir = repo_root
+            worktree_path = None
 
     prior_commits = await asyncio.to_thread(
         _detect_prior_commits, work_dir, time_window_minutes=40, author="ribosome"
@@ -604,6 +610,7 @@ async def translate(task: str, provider: str) -> dict:
         "output_path": out_path,
         "branch_name": branch_name if worktree_path else "",
         "merged": merged,
+        "mode": mode,
     }
 
 
@@ -837,9 +844,16 @@ async def chaperone(result: dict) -> dict:
         verdict = "incomplete"
         approved = False
     else:
-        approved = exit_code == 0 and not any(
-            f.startswith("destruction") or f == "no_commit_on_success" for f in flags
-        )
+        result_mode = result.get("mode", "build")
+        if result_mode == "scout":
+            # Scout tasks don't produce commits — different approval criteria
+            approved = exit_code == 0 and not any(f.startswith("destruction") for f in flags)
+            # Don't flag no_commit_on_success or empty_stdout_on_success for scout
+            flags = [f for f in flags if f not in ("no_commit_on_success", "empty_stdout_on_success")]
+        else:
+            approved = exit_code == 0 and not any(
+                f.startswith("destruction") or f == "no_commit_on_success" for f in flags
+            )
         verdict = "approved" if approved else "rejected"
         if flags and approved:
             verdict = "approved_with_flags"

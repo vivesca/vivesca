@@ -61,6 +61,7 @@ class TranslationWorkflow:
         task = spec.get("task", "")
         provider = spec.get("provider", "zhipu")
         mode = spec.get("mode", "raw")
+        dispatch_mode = mode  # preserve original dispatch mode (build/experiment/scout)
 
         # #3: Version guard — new code paths gated behind patched()
         use_review_v2 = workflow.patched("review-v2-slim-payload")
@@ -89,7 +90,7 @@ class TranslationWorkflow:
                     mode = "raw_fallback"
                     result = await workflow.execute_activity(
                         translate,
-                        args=[task, provider],
+                        args=[task, provider, dispatch_mode],
                         start_to_close_timeout=timedelta(hours=2),
                         heartbeat_timeout=timedelta(minutes=5),
                         retry_policy=_RETRY_POLICY,
@@ -111,7 +112,7 @@ class TranslationWorkflow:
                 # Raw subprocess mode (default)
                 result = await workflow.execute_activity(
                     translate,
-                    args=[task, provider],
+                    args=[task, provider, dispatch_mode],
                     start_to_close_timeout=timedelta(hours=2),
                     heartbeat_timeout=timedelta(minutes=5),
                     retry_policy=_RETRY_POLICY,

@@ -245,3 +245,49 @@ class TestRequeuePrompt:
         # file_shrunk should generate a requeue prompt for rejected/incomplete
         if review["verdict"] in ("rejected", "incomplete"):
             assert "requeue_prompt" in review
+
+
+class TestScoutMode:
+    """Scout mode: read-only analysis tasks — no commit required."""
+
+    def _make_scout_result(self, **kwargs):
+        """Build a scout-mode result (no diff, no commit)."""
+        defaults = {
+            "post_diff": {"stat": "", "numstat": "", "commits": [], "commit_count": 0},
+            "stdout": "Found 3 issues:\n- foo.py: unused import\n- bar.py: dead code\n- baz.py: deprecated API",
+        }
+        defaults.update(kwargs)
+        r = _make_result(**defaults)
+        r["mode"] = "scout"
+        return r
+
+    def test_scout_no_commit_approved(self):
+        """Scout task with no commits should be approved (not rejected)."""
+        result = self._make_scout_result()
+        review = _run(chaperone(result))
+        assert review["approved"] is True
+        assert review["verdict"] == "approved"
+
+    def test_scout_no_commit_flag_removed(self):
+        """Scout mode removes no_commit_on_success from flags."""
+        result = self._make_scout_result()
+        review = _run(chaperone(result))
+        assert "no_commit_on_success" not in review["flags"]
+
+    def test_scout_empty_stdout_flag_removed(self):
+        """Scout mode removes empty_stdout_on_success from flags."""
+        result = self._make_scout_result(stdout="")
+        review = _run(chaperone(result))
+        assert "empty_stdout_on_success" not in review["flags"]
+
+    def test_scout_destruction_still_rejected(self):
+        """Scout mode still rejects destruction patterns."""
+        result = self._make_scout_result(stdout="rm -rf /tmp/old")
+        review = _run(chaperone(result))
+        assert review["approved"] is False
+
+    def test_scout_nonzero_exit_rejected(self):
+        """Scout task with non-zero exit is still rejected."""
+        result = self._make_scout_result(exit_code=1)
+        review = _run(chaperone(result))
+        assert review["approved"] is False

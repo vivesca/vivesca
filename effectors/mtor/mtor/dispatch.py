@@ -70,6 +70,7 @@ ROUTE_PATTERNS: dict[str, list[str]] = {
     "explore": ["how does", "find ", "search ", "what is", "explain", "where is", "list all", "show me"],
     "bugfix": ["fix ", "bug", "broken", "error ", "failing", "crash", "regression"],
     "test": ["write test", "add test", "test for", "coverage"],
+    "research": ["research ", "compare ", "evaluate ", "what is the latest", "how do others", "pricing", "benchmark"],
 }
 
 ROUTE_TO_PROVIDER: dict[str, str] = {
@@ -77,6 +78,7 @@ ROUTE_TO_PROVIDER: dict[str, str] = {
     "bugfix": "goose",
     "build": "zhipu",
     "test": "zhipu",
+    "research": "zhipu",
 }
 
 
@@ -89,7 +91,7 @@ def detect_task_type(prompt: str) -> str:
     return "build"
 
 
-def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bool = False) -> None:
+def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bool = False, mode: str | None = None) -> None:
     """Core dispatch logic."""
     # If prompt is a file path, read it as the spec
     prompt_path = Path(prompt).expanduser()
@@ -113,10 +115,35 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
             )
         )
 
-    # Coaching injection is handled by the ribosome executor per provider:
-    # CC: prepended to prompt; goose: MOIM file; droid: --append-system-prompt-file.
-    # Do NOT prepend here — it causes double injection.
-    full_prompt = prompt
+    # Determine spec mode: explicit mode > experiment flag > build default
+    if mode:
+        spec_mode = mode
+    elif experiment:
+        spec_mode = "experiment"
+    else:
+        spec_mode = "build"
+
+    # Mode-specific prompt suffixes
+    if spec_mode == "scout":
+        scout_suffix = (
+            "\n\nThis is a READ-ONLY analysis task. Do NOT modify any files. "
+            "Report your findings as structured output. Format: list each finding with: "
+            "file path, issue, recommendation."
+        )
+        full_prompt = prompt + scout_suffix
+    elif spec_mode == "research":
+        research_suffix = (
+            "\n\nThis is a RESEARCH task. Search external sources (web, docs, papers) "
+            "to answer the question. Use rheotaxis, curl, or any available search tools. "
+            "Do NOT modify any files in the repository. "
+            "Format findings as:\n"
+            "## Key Findings\n- finding 1 (source: URL)\n- finding 2 (source: URL)\n"
+            "## Synthesis\nOne paragraph summary.\n"
+            "## Recommendations\n- actionable item 1\n- actionable item 2"
+        )
+        full_prompt = prompt + research_suffix
+    else:
+        full_prompt = prompt
 
     client, err = _get_client()
     if err:
@@ -141,10 +168,10 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
         spec = {
             "task": full_prompt,
             "provider": provider,
-            "mode": "experiment" if experiment else "build",
+            "mode": spec_mode,
             "risk": classify_risk(full_prompt),
         }
-        if experiment:
+        if spec_mode == "experiment":
             spec["experiment"] = True
 
         async def _start():
@@ -167,17 +194,23 @@ def _dispatch_prompt(prompt: str, *, provider: str | None = None, experiment: bo
             "prompt_preview": prompt[:100],
             "risk": classify_risk(full_prompt),
         }
-        if experiment:
+        if spec_mode == "experiment":
             result_envelope["experiment"] = True
+        if spec_mode == "scout":
+            result_envelope["scout"] = True
 
         next_actions = [
             _action(f"mtor status {started_id}", "Poll workflow status"),
             _action(f"mtor logs {started_id}", "Fetch output when complete"),
             _action(f"mtor cancel {started_id}", "Cancel if needed"),
         ]
-        if experiment:
+        if spec_mode == "experiment":
             next_actions.append(
                 _action(f"mtor status {started_id}", "Experiment mode — will NOT auto-merge to main")
+            )
+        if spec_mode == "scout":
+            next_actions.append(
+                _action(f"mtor logs {started_id}", "Scout mode — read-only analysis, no merge")
             )
 
         _ok(

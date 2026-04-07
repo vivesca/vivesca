@@ -804,3 +804,78 @@ class TestCheckpoints:
         assert exit_code == 0
         assert data["result"]["checkpoints"] == []
         assert data["result"]["count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Scout mode tests
+# ---------------------------------------------------------------------------
+
+
+class TestScoutMode:
+    def test_scout_command_dispatches(self):
+        """Scout subcommand dispatches a workflow with mode=scout."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            exit_code, data = invoke(["scout", "Find all files importing argparse"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        assert data["result"]["status"] == "RUNNING"
+
+    def test_scout_sets_mode_in_spec(self):
+        """Verify the workflow spec has mode=scout."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            invoke(["scout", "List all Python files"])
+        call_kwargs = mock_client.start_workflow.call_args.kwargs
+        spec = call_kwargs["args"][0][0]
+        assert spec["mode"] == "scout"
+
+    def test_scout_appends_readonly_suffix(self):
+        """Scout mode appends READ-ONLY instructions to the prompt."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            invoke(["scout", "Audit dead code"])
+        call_kwargs = mock_client.start_workflow.call_args.kwargs
+        spec = call_kwargs["args"][0][0]
+        assert "READ-ONLY" in spec["task"]
+        assert "Do NOT modify any files" in spec["task"]
+
+    def test_scout_result_has_scout_flag(self):
+        """Scout mode result envelope has scout=True."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            _, data = invoke(["scout", "Find patterns"])
+        assert data["result"]["scout"] is True
+
+    def test_scout_has_scout_next_action(self):
+        """Scout mode next_actions includes read-only analysis note."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            _, data = invoke(["scout", "Check imports"])
+        action_descs = [na.get("description", "") for na in data["next_actions"]]
+        assert any("no merge" in desc.lower() for desc in action_descs)
+
+    def test_scout_with_provider(self):
+        """Scout command accepts --provider flag."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            exit_code, data = invoke(["scout", "-p", "droid", "Explore codebase"])
+        assert exit_code == 0
+        assert data["ok"] is True
+        call_kwargs = mock_client.start_workflow.call_args.kwargs
+        spec = call_kwargs["args"][0][0]
+        assert spec["provider"] == "droid"
+
+    def test_scout_no_experiment_flag(self):
+        """Scout result does NOT have experiment flag."""
+        mock_client, _ = make_mock_client()
+        with _patch_client(mock_client):
+            _, data = invoke(["scout", "Analyze architecture"])
+        assert data["result"].get("experiment") is not True
+
+    def test_scout_temporal_unreachable(self):
+        """Scout returns error when Temporal is unreachable."""
+        with _patch_client_error("Connection refused"):
+            exit_code, data = invoke(["scout", "Find issues"])
+        assert exit_code == 3
+        assert data["ok"] is False

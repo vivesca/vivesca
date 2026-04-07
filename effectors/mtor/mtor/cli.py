@@ -455,6 +455,26 @@ def history(
 
 
 @app.command
+def scout(
+    prompt: str,
+    *,
+    provider: Annotated[str | None, Parameter(name=["-p", "--provider"])] = None,
+) -> None:
+    """Dispatch a read-only analysis task. Returns findings, not code."""
+    _dispatch_prompt(prompt, provider=provider, mode="scout")
+
+
+@app.command
+def research(
+    prompt: str,
+    *,
+    provider: Annotated[str | None, Parameter(name=["-p", "--provider"])] = None,
+) -> None:
+    """Dispatch an external research task. Searches web, synthesizes findings."""
+    _dispatch_prompt(prompt, provider=provider, mode="research")
+
+
+@app.command
 def schema() -> None:
     """Emit full JSON schema of all commands."""
     _ok("mtor schema", tree.to_schema(), version=VERSION)
