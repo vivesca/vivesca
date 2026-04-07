@@ -590,12 +590,12 @@ def guard_agent(data):
     bg = ti.get("run_in_background", False)
 
     # Explore subagents burn Opus tokens on search/read work.
-    # ribosome explore uses GLM-4.5-air (free, separate rate-limit pool).
+    # mtor scout (codebase analysis) and mtor research (external search) use free GLM.
     if subtype == "Explore":
         deny(
-            "Explore subagents burn Max20 budget on search/read. "
-            'Use: ribosome --explore "query" (free GLM-4.5-air, structured output). '
-            "Direct Grep/Glob/Read for quick lookups.",
+            "Explore subagents waste Opus tokens on search/read. "
+            'Use: mtor scout "prompt" (codebase analysis, free GLM) '
+            'or mtor research "prompt" (external search, free GLM).',
             "metabolic-gate",
         )
 
@@ -619,11 +619,48 @@ def guard_agent(data):
         kw in prompt.lower() for kw in ["read file", "grep", "search code", "find file", "glob"]
     )
     if subtype == "general-purpose" and not tool_indicators:
-        print(
-            "[bud-nudge] This agent task may not need CC tools. "
-            "Consider: Bash(command='bud \"<prompt>\"') for free GLM-5.1 dispatch.",
-            file=sys.stderr,
+        # Route to mtor by task type
+        research_kw = any(
+            kw in prompt.lower()
+            for kw in [
+                "research",
+                "compare",
+                "evaluate",
+                "latest",
+                "how do others",
+                "pricing",
+                "benchmark",
+            ]
         )
+        scout_kw = any(
+            kw in prompt.lower()
+            for kw in [
+                "audit",
+                "find",
+                "scan",
+                "review",
+                "analyze",
+                "consolidat",
+                "dead code",
+                "architecture",
+            ]
+        )
+        if research_kw:
+            print(
+                '[bud-nudge] Research task detected. Use: mtor research "prompt" (free GLM, structured output).',
+                file=sys.stderr,
+            )
+        elif scout_kw:
+            print(
+                '[bud-nudge] Analysis task detected. Use: mtor scout "prompt" (free GLM, structured output).',
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "[bud-nudge] This agent task may not need CC tools. "
+                'Consider: mtor "prompt" (build), mtor scout "prompt" (analyze), or mtor research "prompt" (search).',
+                file=sys.stderr,
+            )
 
     # Genome inheritance: inject Core Rules into every bud's prompt
     genome = _load_genome()
