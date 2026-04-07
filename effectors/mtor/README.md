@@ -1,137 +1,128 @@
 # mtor
 
-**Agent-first translation controller** — dispatch, inspect, and manage ribosome workflows via Temporal.
-
-Every response is a JSON envelope designed for programmatic consumption by agents and tools:
-
-```json
-{"ok": true, "command": "mtor list", "result": {...}, "next_actions": [...]}
-{"ok": false, "command": "mtor status", "error": {"message": "...", "code": "..."}, "fix": "...", "next_actions": [...]}
-```
+Agent-first coding task dispatcher for Temporal workflows. Dispatches AI coding tasks to workers, reviews results automatically, and merges approved changes.
 
 ## Install
 
 ```bash
+uvx mtor
+# or
 pip install mtor
 ```
 
-Or with [uv](https://docs.astral.sh/uv/):
+## Quick start
 
 ```bash
-uv tool install mtor
-```
+# Dispatch a coding task
+mtor "Add logging to server.py"
 
-## Requirements
+# Check status
+mtor status ribosome-zhipu-abc123
 
-- Python ≥ 3.11
-- A Temporal server reachable at `TEMPORAL_HOST` (default: `ganglion:7233`)
-- A ribosome worker running on the Temporal task queue `translation-queue`
+# List recent runs
+mtor list --since 24
 
-## Usage
-
-### Show available commands
-
-```bash
-mtor
-```
-
-Returns a JSON command tree for agent self-discovery.
-
-### Dispatch a task
-
-```bash
-mtor "Write unit tests for the authentication module"
-mtor "Refactor the database layer" --provider zhipu
-mtor ./path/to/spec.md
-```
-
-If the prompt argument is a file path, mtor reads the file contents as the task spec.
-
-### List workflows
-
-```bash
-mtor list
-mtor list --status RUNNING --count 20
-```
-
-### Check workflow status
-
-```bash
-mtor status ribosome-zhipu-af3c43d1
-```
-
-### Fetch workflow logs
-
-```bash
-mtor logs ribosome-zhipu-af3c43d1
-```
-
-Retrieves the last 30 lines of output from ganglion.
-
-### Cancel a workflow
-
-```bash
-mtor cancel ribosome-zhipu-af3c43d1
-```
-
-Idempotent — cancelling an already-terminal workflow returns success.
-
-### Approve / Deny deferred tasks
-
-```bash
-mtor approve ribosome-zhipu-af3c43d1
-mtor deny ribosome-zhipu-af3c43d1
-```
-
-### Health check
-
-```bash
+# Health check
 mtor doctor
 ```
 
-Checks Temporal connectivity, worker liveness, coaching file presence, and provider availability on ganglion.
+## Configuration
 
-### Schema
+All config via environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `TEMPORAL_HOST` | `ganglion:7233` | Temporal server address |
+
+Other settings (task queue, output paths) are configured in `mtor/__init__.py`.
+
+## Features
+
+### Auto-routing
+
+Tasks are automatically routed to the best provider based on keywords:
+
+- Exploration queries → `droid`
+- Bug fixes → `goose`
+- Build tasks → `zhipu` (default)
+
+Override with `--provider`:
 
 ```bash
-mtor schema
+mtor "Fix the login bug" --provider goose
 ```
 
-Emits a full JSON schema of all commands with params, types, enums, and defaults.
+### Risk classification
+
+Tasks are classified as low / medium / high risk. High-risk tasks (deletions, config changes) are flagged in the dispatch response.
+
+### Spec file support
+
+Pass a markdown file as the prompt — mtor reads it and strips YAML frontmatter:
+
+```bash
+mtor path/to/spec.md
+```
+
+### Spec decomposition
+
+Multi-task specs (with `## Task 1`, `## Task 2` sections) are automatically split into individual workflows sharing the same preamble.
+
+### Dedup
+
+Same prompt → same workflow ID. Temporal prevents duplicate dispatches natively.
+
+### Experiment mode
+
+```bash
+mtor -x "Try a new approach to caching"
+```
+
+Experiment tasks don't auto-merge — they stay on branches for manual review.
+
+### Deferred approvals
+
+Gate high-risk tasks behind manual approval:
+
+```bash
+mtor approve ribosome-zhipu-abc123
+mtor deny ribosome-zhipu-abc123
+```
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `mtor "prompt"` | Dispatch a task |
+| `mtor list` | List recent workflows |
+| `mtor status <id>` | Get workflow details |
+| `mtor logs <id>` | Fetch last 30 lines of output |
+| `mtor cancel <id>` | Cancel a workflow |
+| `mtor approve <id>` | Approve a deferred task |
+| `mtor deny <id>` | Deny a deferred task |
+| `mtor doctor` | Health check |
+| `mtor deploy` | Sync + restart worker |
+| `mtor history` | Recent run history from JSONL log |
+| `mtor checkpoints` | List saved checkpoints from failed runs |
+| `mtor schema` | Emit JSON schema of all commands |
+
+Every response is a JSON envelope with `ok`, `command`, `result`/`error`, and `next_actions` — designed for programmatic consumption by agents and tools.
 
 ## Exit Codes
 
 | Code | Meaning |
-|------|---------|
+|---|---|
 | 0 | Success |
 | 1 | Generic error |
 | 2 | Usage error (missing required arguments) |
 | 3 | Temporal unreachable |
 | 4 | Workflow not found |
 
-## Architecture
+## Requirements
 
-```
-mtor/
-├── __init__.py     # VERSION, constants (TEMPORAL_HOST, TASK_QUEUE, etc.)
-├── cli.py          # Cyclopts app + command handlers (thin dispatch)
-├── client.py       # Temporal connection logic
-├── envelope.py     # JSON envelope helpers (_ok, _err, _extract_first_result)
-├── dispatch.py     # Core prompt dispatch logic
-├── doctor.py       # Health check logic
-└── tree.py         # CommandTree definition for agent self-discovery
-```
-
-Dependency direction: `cli → {dispatch, doctor} → {client, envelope} → {tree, __init__}`
-
-## Development
-
-```bash
-cd effectors/mtor
-uv sync --group dev
-uv run pytest assays/
-uv run mtor
-```
+- Python ≥ 3.11
+- A running [Temporal](https://temporal.io) server
+- A worker process executing coding tasks (e.g., ribosome + translocase)
 
 ## License
 
