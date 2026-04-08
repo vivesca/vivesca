@@ -8,6 +8,10 @@ The naming convention is cell biology. Every component has a biological identity
 Biology is the engineering manual — before building any mechanism, `lysin "<term>"` to check what cells actually do. Follow the biology.
 See `anatomy.md` for the structural map.
 
+## Capabilities
+
+Before building a new tool or doing manual exploration to find one, run `proteome search "keyword"` — scans all effectors and skills live. One call, always current.
+
 ## Memory
 
 Memory index: `~/epigenome/marks/MEMORY.md` (also `~/.claude/projects/-Users-terry/memory/MEMORY.md`). Read at session start. Each line links to a detailed mark file — read relevant ones when the task matches.

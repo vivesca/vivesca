@@ -24,14 +24,14 @@ Is the page public?
 
 **Known Tier 3 sites (Playwright login blocked):** LinkedIn, Schwab, most financial sites.
 **Unautomatable (reCAPTCHA v3 + popups):** PPS (ppshk.com) — call 2311 9876 instead.
-**Known Tier 2 sites:** Vercel (Google OAuth → porta), Substack, Taobao, Shopify checkout (3D Secure needs headed).
-**Known Tier 1 sites (form auth, no bot detection):** RVD e-billing (gov.hk SSO), BuyAndShip (email OTP).
+**Known Tier 2 sites:** Vercel (Google OAuth → porta), BuyAndShip (Google OAuth → porta, Vue SPA), Substack, Taobao, Shopify checkout (3D Secure needs headed).
+**Known Tier 1 sites (form auth, no bot detection):** RVD e-billing (gov.hk SSO), OpenRouter (GitHub OAuth → porta).
 **Always Tier 1:** Public pages, sites with valid session cookies.
 
 ### Auth Escalation (when Google OAuth is blocked headless)
 
 Google Sign-In SDK opens popups that headless Chrome blocks silently. Escalation:
-1. **porta cookie injection** — `porta_inject domain=accounts.google.com` before navigating. Works for redirect-based OAuth, fails for popup-based.
+1. **porta cookie injection** — `porta inject accounts.google.com` before navigating. Works for redirect-based OAuth (Google, GitHub), fails for popup-based. On soma: fetches from Mac cookie bridge over Tailscale, injects into local agent-browser. `__Host-` cookies handled automatically (no `--domain` flag).
 2. **Email OTP fallback** — many sites offer email OTP as alternative to Google login. Enter email → click "Log in with OTP" → grab code from Gmail via `gog gmail search` → fill OTP fields. Fully headless, no user intervention.
 3. **Headed mode** — `AGENT_BROWSER_HEADED=1 agent-browser open <url>`. User clicks Google login in visible window.
 4. **`--auto-connect`** — `agent-browser --auto-connect open <url>`. Connects to user's real Chrome (requires Chrome launched with `--remote-debugging-port=9222`).

@@ -1,4 +1,7 @@
 {
+  "permissions": {
+    "deny": ["Agent(Explore)"]
+  },
   "env": {
     "AGENT_BROWSER_PROFILE": "$HOME/.agent-browser-profile",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",

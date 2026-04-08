@@ -47,7 +47,7 @@ CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (gang
 - **infini (minimax-m2.7 via CC):** Coding plan, SWE-Pro 56.2% (near Opus 4.6). Use `--provider infini`.
 - **goose (GLM-5.1 via Goose):** Alternative harness. Streaming bug on long output — experimental.
 - **droid (GLM-5.1 via Factory Droid):** Alternative harness. Rich context (genome+skills+coaching). Tested 20/21 on hard tasks.
-- **volcano:** Cheap tier, quota-exhausted frequently. Fallback only.
+- **volcano (doubao):** Cheap tier, quota-exhausted frequently. Viable for builds — earlier "hallucination" diagnosis was wrong (model correctly identified pre-existing code).
 - **gemini/codex:** Available but less tested on ganglion.
 
 ## Process
@@ -172,6 +172,7 @@ Three timeout layers (must be nested correctly):
 - **zhipu + infini on ganglion.** Infini uses minimax-m2.7 (SWE-Pro 56.2%). Use `--provider infini` for alternative.
 - **Rate-limits are billing reality.** Tasks trickle through as capacity frees up.
 - **Ribosome may not commit.** Review gate now catches this — no_commit_on_success = rejected.
+- **"Already done" detection.** If a task is rejected with empty diff BUT stdout says "done/pass/complete", check ganglion first: `ssh ganglion 'cd ~/code/mtor && grep -l "feature_name" mtor/*.py'`. The feature may already exist from a prior task. Don't re-dispatch — pull instead.
 - **Mac-only tasks can't run on ganglion** (ARM Linux). Drop or tag for local.
 - **`--dangerously-skip-permissions` is in the ribosome script.** Never remove it.
 - **Don't pad queue with filler** — 10 high-value tasks beat 50 generic ones.

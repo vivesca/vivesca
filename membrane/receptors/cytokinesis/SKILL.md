@@ -168,7 +168,9 @@ Test: "Would I explain this to a peer over coffee?" If yes, it's a post.
 3. `publish new "<title>"` then write content to the file in `~/epigenome/chromatin/secretome/`
 4. `publish push` — syncs to Astro, commits, deploys
 
-Don't ask permission. Don't defer. If the insight is real, publish it.
+Don't ask permission. Don't defer. Don't say "no publishable insights" as a default — that's the avoidance pattern. If the session produced design decisions, architecture changes, or debugging stories, there IS a post. Write it. "Infrastructure session" is not an excuse — infrastructure decisions ARE the content.
+
+If genuinely nothing (pure ops, zero learning): state explicitly what was checked and why it's not publishable.
 
 ### 2. Housekeeping (full mode only)
 
