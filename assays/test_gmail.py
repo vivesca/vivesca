@@ -336,7 +336,7 @@ def test_search_batch_callback_logs_errors(mock_service):
     with patch.object(logging, "getLogger") as mock_get_logger:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
-        result = search("test")
+        search("test")
 
     # Verify the warning was logged with batch failure info.
     mock_logger.warning.assert_called_once()
