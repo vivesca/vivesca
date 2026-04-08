@@ -1,0 +1,1 @@
+{"workflow_id":"unknown","timestamp":"2026-04-07T12:43:18Z","task":"test task","provider":"codex","exit_code":1,"stash_ref":"0d1b2d940e8e08d77731b31a976269745a499732","diff_stat":" 25 files changed, 62 insertions(+), 143 deletions(-)"}

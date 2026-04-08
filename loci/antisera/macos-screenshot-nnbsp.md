@@ -3,8 +3,8 @@ name: macos-screenshot-nnbsp
 description: macOS screenshot filenames contain Unicode narrow no-break space (U+202F) before AM/PM
 type: solution
 tags: [screenshot, macos, unicode, filename, gog, attach]
-titer-hits: 5
-titer-last-seen: 2026-04-04
+titer-hits: 6
+titer-last-seen: 2026-04-08
 ---
 
 ## Problem
