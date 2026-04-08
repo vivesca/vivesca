@@ -50,7 +50,7 @@ class TestGetCredentialsFromEnvVars:
         with (
             patch.dict(os.environ, env, clear=False),
             patch("metabolon.organelles.google_auth.Credentials", return_value=mock_creds),
-            patch("metabolon.organelles.google_auth.Request") as MockReq,
+            patch("metabolon.organelles.google_auth.Request"),
         ):
             result = get_credentials(scopes=["https://www.googleapis.com/auth/test"])
             assert result is mock_creds
