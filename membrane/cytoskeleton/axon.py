@@ -620,72 +620,84 @@ def guard_agent(data):
     if subtype == "Explore":
         deny(
             "Explore subagents waste Opus tokens on search/read. "
-            'Use: mtor scout "prompt" (codebase analysis, free GLM) '
-            'or mtor research "prompt" (external search, free GLM).',
+            'Use: mtor scout "prompt" (codebase analysis, free GLM), '
+            'mtor research "prompt" (external search, free GLM), '
+            "or CC-direct Grep/Glob for <3 calls.",
             "metabolic-gate",
         )
 
     # Foreground block: buds run in background by default.
     # Foreground blocks conversation flow — the nucleus waits.
     if not bg:
-        print(
-            "FOREGROUND BUD: set run_in_background=true. "
-            "Buds run in background — the nucleus doesn't wait.",
-            file=sys.stderr,
+        deny(
+            "Foreground Agent blocked. Set run_in_background=true — "
+            "buds run in background, the nucleus doesn't wait.",
+            "metabolic-gate",
         )
-        sys.exit(2)
 
     if subtype in ("general-purpose", "Explore") and model not in ("haiku", ""):
-        print(f"HAIKU GUARD: Agent('{subtype}') must use model: \"haiku\".", file=sys.stderr)
-        sys.exit(2)
+        deny(
+            f"Agent('{subtype}') must use model: \"haiku\" to save Opus tokens.",
+            "metabolic-gate",
+        )
 
-    # Advisory: suggest droid for non-tool-dependent tasks
-    prompt = ti.get("prompt", "")
-    tool_indicators = any(
-        kw in prompt.lower() for kw in ["read file", "grep", "search code", "find file", "glob"]
+    # Block general-purpose agents for exploration — route to mtor (free GLM-5.1).
+    # CC judges; ribosome explores. Only judgment work (review, assess quality) stays on CC.
+    prompt = ti.get("prompt", "").lower()
+
+    judgment_indicators = any(
+        kw in prompt
+        for kw in [
+            "review",
+            "assess",
+            "evaluate quality",
+            "check correctness",
+            "security audit",
+            "code quality",
+            "judge",
+            "verdict",
+        ]
     )
-    if subtype == "general-purpose" and not tool_indicators:
-        # Route to mtor by task type
-        research_kw = any(
-            kw in prompt.lower()
-            for kw in [
-                "research",
-                "compare",
-                "evaluate",
-                "latest",
-                "how do others",
-                "pricing",
-                "benchmark",
-            ]
-        )
-        scout_kw = any(
-            kw in prompt.lower()
-            for kw in [
-                "audit",
-                "find",
-                "scan",
-                "review",
-                "analyze",
-                "consolidat",
-                "dead code",
-                "architecture",
-            ]
-        )
-        if research_kw:
-            print(
-                '[bud-nudge] Research task detected. Use: mtor research "prompt" (free GLM, structured output).',
-                file=sys.stderr,
+    exploration_indicators = any(
+        kw in prompt
+        for kw in [
+            "find",
+            "search",
+            "locate",
+            "scan",
+            "where is",
+            "look for",
+            "investigate",
+            "explore",
+            "what does",
+            "how does",
+            "understand",
+        ]
+    )
+    research_indicators = any(
+        kw in prompt
+        for kw in [
+            "research",
+            "compare",
+            "latest",
+            "how do others",
+            "pricing",
+            "benchmark",
+            "landscape",
+        ]
+    )
+
+    if subtype in ("general-purpose", "") and not judgment_indicators:
+        if research_indicators:
+            deny(
+                'Research via Agent burns Opus tokens. Use: mtor research "prompt" (free GLM).',
+                "metabolic-gate",
             )
-        elif scout_kw:
-            print(
-                '[bud-nudge] Analysis task detected. Use: mtor scout "prompt" (free GLM, structured output).',
-                file=sys.stderr,
-            )
-        else:
-            print(
-                "[bud-nudge] This agent task may not need CC tools. "
-                'Consider: mtor "prompt" (build), mtor scout "prompt" (analyze), or mtor research "prompt" (search).',
-                file=sys.stderr,
+        elif exploration_indicators:
+            deny(
+                'Exploration via Agent burns Opus tokens. Use: mtor scout "prompt" (free GLM), '
+                "or CC-direct Grep/Glob for ≤3 calls.",
+                "metabolic-gate",
             )
 
     # Genome inheritance: inject Core Rules into every bud's prompt
