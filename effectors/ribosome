@@ -562,6 +562,13 @@ _run_ribosome() {
     goose|droid) _coaching_source="" ;;
   esac
   if [[ -n "$_coaching_source" && -f "$_coaching_source" ]]; then
+    # Hard gate: coaching file must be under 10KB or GLM exits with 0 output
+    local _coaching_size_kb
+    _coaching_size_kb=$(( $(wc -c < "$_coaching_source") / 1024 ))
+    if (( _coaching_size_kb > 10 )); then
+      echo "FATAL: coaching file ${_coaching_source} is ${_coaching_size_kb}KB (>10KB cap). GLM will exit immediately. Trim first." >&2
+      return 1
+    fi
     local _coaching_tmp
     _coaching_tmp="$(mktemp)"
     printf '%s\n' "<coaching-notes>" > "$_coaching_tmp"
