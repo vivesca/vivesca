@@ -380,11 +380,24 @@ DEFAULT_HOST, DEFAULT_PORT = server_config()
 
 
 def _absorb_cofactors() -> None:
-    """Load API keys from macOS Keychain into process env at startup."""
+    """Load API keys from macOS Keychain into process env at startup.
+
+    Also injects ~/germline/effectors/ onto PATH so that subprocess
+    calls using bare binary names (e.g. shutil.which("cytokinesis"))
+    resolve correctly even when the server process lacks the directory
+    in its inherited PATH (common in systemd / launchd contexts).
+    """
     import importlib.machinery
     import importlib.util
+    import os
 
     from metabolon.cytosol import VIVESCA_ROOT
+
+    # Inject effectors/ onto PATH for binary resolution in subprocesses
+    effectors_dir = str(VIVESCA_ROOT / "effectors")
+    current_path = os.environ.get("PATH", "")
+    if effectors_dir not in current_path.split(os.pathsep):
+        os.environ["PATH"] = effectors_dir + os.pathsep + current_path
 
     path = str(VIVESCA_ROOT / "effectors" / "importin")
     try:

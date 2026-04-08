@@ -10,6 +10,7 @@ wrap: gather + verify, refuses to return success until all gates pass
 
 import json
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from fastmcp.tools.function_tool import tool
@@ -17,6 +18,8 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from metabolon.morphology import EffectorResult, Secretion
+
+BINARY = str(Path.home() / "germline" / "effectors" / "cytokinesis")
 
 
 class CytoResult(Secretion):
@@ -30,7 +33,7 @@ class CytoResult(Secretion):
 
 def _run_cli(subcommand: str, extra_args: list[str] | None = None) -> tuple[int, str]:
     """Run cytokinesis CLI and return (exit_code, stdout)."""
-    cmd = ["cytokinesis", subcommand] + (extra_args or [])
+    cmd = [BINARY, subcommand] + (extra_args or [])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
         return result.returncode, result.stdout
