@@ -4,6 +4,8 @@ Composes tools, resources, and prompts using FastMCP 3's
 FileSystemProvider. Each domain is a standalone .py file.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import time
