@@ -130,6 +130,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **"now" = execute, don't ask.** When Terry says "now", do it immediately. Don't offer to park, don't ask "want me to do X now or later?", don't present the option to defer. Execute.
 
+**Never defer publishing.** "It's late", "Capco tomorrow", "after X" are not reasons to park a draft. The insight is hottest NOW. Draft and publish in the same session — CC does the writing, it costs Terry nothing. External events don't block garden posts.
+
 **Anxiety → system → `/circadian`.** "Should I check X?" → confirm system covers it.
 
 ## Knowledge Architecture

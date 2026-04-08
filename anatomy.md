@@ -175,15 +175,15 @@ tonus tool — session state. Actions: mark|status
 _(no description)_
 
 ### mtor
-Agent-first translation controller — dispatch, inspect, and manage ribosome workflows via Temporal
-  Files: `assays`, `mtor`, `pyproject.toml`
+_(no description)_
+  Files: `mtor`
 
 ### polysome
 Temporal.io-based workflow orchestrator for translation task dispatch. Replaces the markdown queue-based ribosome-daemon polling loop with durable workflows.
-  Files: `CLAUDE.md`, `README.md`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
+  Files: `CLAUDE.md`, `README.md`, `assays`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
 
-### Standalone scripts (194 total, on PATH)
-  Recent: `oghma-import-marks`, `soma-watchdog`, `soma-scale`, `ribosome`, `willison-scrape`, `op-resolve-secrets`, `ribosome-tools`, `screenshot_receiver.py`, `soma-pull`, `pulse-review`
+### Standalone scripts (197 total, on PATH)
+  Recent: `pypi-reserve.py`, `soma-watchdog`, `soma-activate`, `rheotaxis`, `publish`, `vesicle`, `ribosome`, `ribosome-tools`, `efferens`, `cytokinesis`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -264,13 +264,13 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
   Exports: `CheckResult`, `PreflightResult`, `check_repo_reachable`, `check_repo_freshness`, `check_signal_bus`, `check_api_key`, `run_preflight`, `check_ribosome_binary`, `check_ribosome_api_key`, `check_provider_health`, `check_ribosome_log_freshness`, `check_ribosome_ready`
 - **repair**: Immune system — metaprompt-driven healing.
   Exports: `ImmuneRequest`, `ImmuneResult`, `immune_response`
-- **setpoint**: 
+- **setpoint**: Autonomic thresholds with calibration.
   Exports: `Threshold`, `SetpointStatus`
 - **signals**: Stimulus collection and JSONL persistence.
   Exports: `Outcome`, `Stimulus`, `SensorySystem`
 - **substrate**: Substrate protocol — the contract any metabolism target must satisfy.
   Exports: `Substrate`
-- **sweep**: 
+- **sweep**: Cold path — weekly differential evolution sweep.
   Exports: `SelectionParameters`, `select`, `recombine`, `mutate`
 - **variants**: Genome variant storage — tool descriptions as versioned markdown files.
   Exports: `Genome`
@@ -395,10 +395,10 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **876**
-- Most active: `rheotaxis` (210), `fetch` (154), `server` (146), `ribosome_dispatch` (106), `endosomal` (63)
+- Signals (last 7 days): **935**
+- Most active: `rheotaxis` (213), `fetch` (163), `server` (146), `ribosome_dispatch` (106), `endosomal` (75)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 10 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 2 errors)
