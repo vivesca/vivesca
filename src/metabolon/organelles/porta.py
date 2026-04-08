@@ -18,13 +18,13 @@ import subprocess
 
 
 def _ab(args: list[str], timeout: int = 15) -> tuple[bool, str]:
-    """Run agent-browser command, locally or via SSH to Mac."""
-    import platform
+    """Run agent-browser command, locally if available, else via SSH to Mac."""
+    import shutil
 
-    if platform.system() == "Darwin":
+    if shutil.which("agent-browser"):
         cmd = ["agent-browser", *args]
     else:
-        # agent-browser with Chrome lives on Mac — relay via SSH
+        # agent-browser not on PATH — relay via SSH to Mac
         cmd = ["ssh", "mac", "agent-browser", *args]
 
     try:
@@ -76,9 +76,9 @@ def inject(domain: str) -> dict:
     except Exception:
         # Fallback: direct pycookiecheat (if running on macOS)
         try:
-            from pycookiecheat import chrome_cookies  # type: ignore
+            from pycookiecheat import chrome_cookies
 
-            cookies = chrome_cookies(url)
+            cookies: dict[str, str] = dict(chrome_cookies(url))
         except Exception as exc:
             return {
                 "success": False,
@@ -115,6 +115,7 @@ def inject(domain: str) -> dict:
         # Use agent-browser cookies set with --httpOnly --secure --url
         # This uses Playwright's context.add_cookies() under the hood,
         # which can set HttpOnly cookies (document.cookie cannot).
+        # __Host- cookies must NOT have a domain attribute (RFC 6265bis)
         cmd = [
             "cookies",
             "set",
@@ -122,13 +123,13 @@ def inject(domain: str) -> dict:
             safe_value,
             "--url",
             url,
-            "--domain",
-            f".{domain}",
             "--path",
             "/",
             "--httpOnly",
             "--secure",
         ]
+        if not safe_name.startswith("__Host-"):
+            cmd.extend(["--domain", f".{domain}"])
         ok, _ = _ab(cmd, timeout=5)
         if ok:
             injected += 1
