@@ -641,8 +641,8 @@ EXPLORE_SYS
     # Wall-limit check: skip attempt if remaining time < per-attempt timeout
     local _elapsed=$(( $(date +%s) - _wall_start ))
     local _remaining=$(( _wall_limit - _elapsed ))
-    if [[ $_remaining -lt $_claude_timeout ]]; then
-      $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+    if [[ $_remaining -lt 300 ]]; then
+      $QUIET || echo "[wall-limit] ${_remaining}s remaining < 300s minimum, skipping retry" >&2
       break
     fi
 
@@ -687,8 +687,8 @@ EXPLORE_SYS
         # Wall-limit check: skip retry if remaining time < per-attempt timeout
         local _elapsed=$(( $(date +%s) - _wall_start ))
         local _remaining=$(( _wall_limit - _elapsed ))
-        if [[ $_remaining -lt $_claude_timeout ]]; then
-          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+        if [[ $_remaining -lt 300 ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < 300s minimum, skipping retry" >&2
           break
         fi
         $QUIET || echo "[preflight] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), waiting ${_wait_secs}s — $_preflight_result" >&2
@@ -705,8 +705,8 @@ EXPLORE_SYS
         # Wall-limit check: skip retry if remaining time < per-attempt timeout
         local _elapsed=$(( $(date +%s) - _wall_start ))
         local _remaining=$(( _wall_limit - _elapsed ))
-        if [[ $_remaining -lt $_claude_timeout ]]; then
-          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+        if [[ $_remaining -lt 300 ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < 300s minimum, skipping retry" >&2
           break
         fi
         $QUIET || echo "[preflight] $PROVIDER connection error (attempt $_attempt/$_max_retries), retrying in ${_backoff}s" >&2
@@ -755,8 +755,8 @@ EXPLORE_SYS
         # Wall-limit check: skip retry if remaining time < per-attempt timeout
         local _elapsed=$(( $(date +%s) - _wall_start ))
         local _remaining=$(( _wall_limit - _elapsed ))
-        if [[ $_remaining -lt $_claude_timeout ]]; then
-          $QUIET || echo "[wall-limit] ${_remaining}s remaining < ${_claude_timeout}s per-attempt, skipping retry" >&2
+        if [[ $_remaining -lt 300 ]]; then
+          $QUIET || echo "[wall-limit] ${_remaining}s remaining < 300s minimum, skipping retry" >&2
           break
         fi
         # Try to extract reset time from error message
