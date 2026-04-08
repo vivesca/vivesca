@@ -6,7 +6,15 @@ Use when: "overnight", "monitor mtor", "vigilia", "keep watching", "night watch"
 
 ## Mechanism
 
-Background `sleep N && mtor list` task fires a notification that wakes CC. CC triages, acts, sets the next timer. Loop continues as long as the session lives.
+Self-ping loop via CC background tasks:
+
+```
+Bash(command="sleep 900 && cd ~/code/mtor && mtor list --count 50", run_in_background=true)
+```
+
+When the task notification fires (~15 min), CC wakes up, reads the output, triages, acts, then sets the next timer. The loop continues as long as the session lives (Blink stays connected). No user interaction needed after initial `/vigilia` — CC operates autonomously.
+
+**Critical:** Always set the next timer BEFORE doing triage work. If triage takes long and the session dies mid-work, at least the timer is set.
 
 ## Cycle (every 15 min)
 
