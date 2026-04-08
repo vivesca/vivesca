@@ -88,6 +88,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Assays ship with code.** New organelles and tools ship with a corresponding `assays/test_*.py`. No test = not done.
 
+**Testable over convenient.** If a script has conditional logic that matters, it must be in a language that supports assays. Bash for glue (<100 lines, pipes, no branches), Python for logic. The threshold: if you'd want to test a function in it, it shouldn't be bash. Scripts that grow a third `if` branch are telling you to rewrite.
+
 **Insulate knowledge domains.** Directory structure = CTCF boundaries. Operations on one domain must not spread into adjacent domains. The boundary IS the protection.
 
 **Minimise human intervention.** Default to autonomous action. Human judgment is a gate only where taste genuinely requires it. Reversible + in scope → act and report. The system should need the human less each month.
@@ -177,3 +179,25 @@ When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equiva
 - Task/Subagent → sequential in main thread; multi_tool_use.parallel for tool calls
 - Skill → open the referenced SKILL.md and follow it
 <!-- END CODEX TOOL MAP -->
+
+<!-- BEGIN COMPOUND CODEX TOOL MAP -->
+## Compound Codex Tool Mapping (Claude Compatibility)
+
+This section maps Claude Code plugin tool references to Codex behavior.
+Only this block is managed automatically.
+
+Tool mapping:
+- Read: use shell reads (cat/sed) or rg
+- Write: create files via shell redirection or apply_patch
+- Edit/MultiEdit: use apply_patch
+- Bash: use shell_command
+- Grep: use rg (fallback: grep)
+- Glob: use rg --files or find
+- LS: use ls via shell_command
+- WebFetch/WebSearch: use curl or Context7 for library docs
+- AskUserQuestion/Question: present choices as a numbered list in chat and wait for a reply number. For multi-select (multiSelect: true), accept comma-separated numbers. Never skip or auto-configure — always wait for the user's response before proceeding.
+- Task/Subagent/Parallel: run sequentially in main thread; use multi_tool_use.parallel for tool calls
+- TodoWrite/TodoRead: use file-based todos in todos/ with todo-create skill
+- Skill: open the referenced SKILL.md and follow it
+- ExitPlanMode: ignore
+<!-- END COMPOUND CODEX TOOL MAP -->
