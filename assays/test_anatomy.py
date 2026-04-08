@@ -40,7 +40,7 @@ from some_lib import tool
 @tool("my_tool")
 def my_function(arg1: str, arg2: int) -> str:
     """A sample tool function.
-    
+
     More details here.
     """
     return arg1
@@ -95,23 +95,23 @@ class TestSubstrate:
 
     This handles cortical processing.
     """
-    
+
     def sense(self):
         """Sense the environment."""
         pass
-    
+
     def candidates(self):
         """Get candidates for action."""
         pass
-    
+
     def act(self):
         """Perform the action."""
         pass
-    
+
     def report(self):
         """Report results."""
         pass
-    
+
     def other_method(self):
         """Not part of protocol."""
         pass
@@ -440,7 +440,7 @@ class TestExtractToolDetails:
 @tool("my_tool")
 def my_func(arg1: str, arg2: int) -> str:
     """First line of docstring.
-    
+
     Additional details.
     """
     pass
@@ -589,7 +589,7 @@ class TestExtractSubstrateInfo:
 
 class AutoSubstrate:
     """Handles autonomic functions."""
-    
+
     def sense(self):
         """Sense autonomic signals."""
         pass
@@ -658,19 +658,19 @@ class TestSubstrateMap:
 
 class TestSubstrate:
     """Test substrate for cortical layer."""
-    
+
     def sense(self):
         """Sense environment."""
         pass
-    
+
     def candidates(self):
         """Get candidates."""
         pass
-    
+
     def act(self):
         """Act."""
         pass
-    
+
     def report(self):
         """Report."""
         pass
@@ -1219,7 +1219,7 @@ def func():
 class Outer:
     class InnerSubstrate:
         """Nested substrate."""
-        
+
         def sense(self):
             pass
 '''
