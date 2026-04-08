@@ -93,8 +93,11 @@ def test_explore_subagent_denied():
             raise AssertionError("Should have called sys.exit")
         except SystemExit:
             output = mock_out.getvalue()
-            assert "deny" in output, f"Expected deny, got: {output}"
-            assert "metabolic-gate" in output or "translocon" in output
+            assert "translocon" in output, f"Expected translocon suggestion, got: {output}"
+            assert "Opus tokens" in output, f"Expected Opus tokens mention, got: {output}"
+            assert "metabolic-gate" in output or '"deny"' in output, (
+                f"Expected deny decision, got: {output}"
+            )
 
 
 def test_general_purpose_agent_not_metabolic_denied():

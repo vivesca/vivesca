@@ -20,3 +20,4 @@ if [ -f "$HOME/.cache/env-secrets.sh" ]; then
 elif command -v refresh-env-secrets >/dev/null 2>&1; then
   refresh-env-secrets >/dev/null 2>&1 && . "$HOME/.cache/env-secrets.sh"
 fi
+export MTOR_WORKER_HOST="ganglion"

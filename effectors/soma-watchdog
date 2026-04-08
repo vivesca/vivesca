@@ -275,6 +275,22 @@ def check_tailscale() -> dict:
                 log(f"Tailscale: key expires in {days_left} days")
                 return {"status": "warn", "days_until_expiry": days_left}
 
+        # Enforce RunSSH=false — Tailscale SSH intercept causes periodic
+        # browser re-auth from Blink. sshd + authorized_keys is the auth path.
+        prefs = subprocess.run(
+            ["tailscale", "debug", "prefs"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if '"RunSSH": true' in (prefs.stdout or ""):
+            subprocess.run(
+                ["sudo", "tailscale", "set", "--ssh=false", "--accept-risk=lose-ssh"],
+                capture_output=True,
+                timeout=10,
+            )
+            log("Tailscale: disabled RunSSH (was true)")
+
         return {"status": "ok"}
     except Exception as e:
         log(f"check_tailscale error: {e}")

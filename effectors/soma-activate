@@ -187,6 +187,12 @@ log "Tailscale"
 
 if command -v tailscale &>/dev/null && tailscale status &>/dev/null 2>&1; then
   skip "tailscale connected ($(tailscale ip -4 2>/dev/null))"
+  # Enforce RunSSH=false on every activation — Fly loses state on restart,
+  # and the Tailscale control plane may remember RunSSH=true from a past session.
+  if tailscale debug prefs 2>/dev/null | grep -q '"RunSSH": true'; then
+    sudo tailscale set --ssh=false --accept-risk=lose-ssh 2>/dev/null
+    ok "disabled Tailscale SSH intercept (use sshd + keys instead)"
+  fi
 else
   echo "    Run: sudo tailscale up --hostname $(hostname)  # no --ssh: Tailscale SSH causes periodic browser re-auth; use plain sshd + keys"
 fi

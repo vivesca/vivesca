@@ -183,7 +183,7 @@ Temporal.io-based workflow orchestrator for translation task dispatch. Replaces 
   Files: `CLAUDE.md`, `README.md`, `assays`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
 
 ### Standalone scripts (197 total, on PATH)
-  Recent: `pypi-reserve.py`, `soma-watchdog`, `soma-activate`, `rheotaxis`, `publish`, `vesicle`, `ribosome`, `ribosome-tools`, `efferens`, `cytokinesis`
+  Recent: `soma-watchdog`, `soma-activate`, `ribosome`, `pypi-reserve.py`, `rheotaxis`, `publish`, `vesicle`, `ribosome-tools`, `efferens`, `cytokinesis`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -395,8 +395,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **935**
-- Most active: `rheotaxis` (213), `fetch` (163), `server` (146), `ribosome_dispatch` (106), `endosomal` (75)
+- Signals (last 7 days): **944**
+- Most active: `rheotaxis` (213), `fetch` (163), `server` (146), `ribosome_dispatch` (106), `endosomal` (82)
 
 ## Known Lesions
 
