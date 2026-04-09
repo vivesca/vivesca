@@ -34,6 +34,12 @@ When the task notification fires (~15 min), CC wakes up, reads the output, triag
 mtor list --count 50
 ```
 
+Also check active logs on ganglion — this is the real execution signal:
+```bash
+ssh ganglion 'ls -lt ~/code/mtor/logs/*.log 2>/dev/null | head -5'
+```
+Files modified within last 5 min = actively executing. No recent modification = queued or stuck in preflight. `mtor list` RUNNING status alone doesn't distinguish.
+
 ### 2. Triage completed tasks
 
 **NEVER archive without investigation.** Every completed task gets the full checklist — no exceptions, no shortcuts. Tasks may come from other CC sessions, cron dispatches, or manual queuing. Treat ALL tasks as intentional work worth reviewing.
@@ -63,10 +69,8 @@ For failed tasks with no commits:
 - If infra issue → fix infra, re-dispatch all affected
 - If prompt issue → re-dispatch with more explicit, smaller-scoped prompt
 
-### 4. Dispatch new work (optional)
-If queue has < 3 running tasks and there's pending work:
-- Check plans directory for `status: ready` specs
-- Break large tasks into smaller scoped pieces
+### 4. Dispatch new work
+Dispatch all ready specs — Temporal queues them and drains at 2 concurrent per provider. No need to batch or throttle from CC's side. Dispatch and forget.
 - Enforce: tests written before dispatch (or `--no-tests` explicit)
 
 ### 5. Set next timer
@@ -80,7 +84,8 @@ Run with `run_in_background: true`. The task notification is the ping.
 - All tasks completed and no new work to dispatch
 - 3 consecutive cycles with zero progress (same git log)
 - User says stop
-- Budget red
+
+**Do NOT stop for budget red or metabolic state.** The whole point of securin is autonomous overnight monitoring. Poll until morning or until all tasks resolve — whichever comes first. The session lives in tmux; Blink disconnects don't kill it.
 
 ## Pre-flight checks (first cycle)
 
@@ -96,6 +101,21 @@ When reviewing diffs, spot GLM mistakes and add entries to `~/epigenome/marks/fe
 
 ### 7. Review ALL completed tasks (trust-building phase)
 Until the system is proven, review every completed task's actual diff — not just failures. Successful verdicts could be false positives (wrong code landed), and rejected ones might have good code. `git log` + `git show` on ganglion is the truth, not mtor verdicts.
+
+**Quality review checklist per commit (mandatory):**
+- Did GLM delete existing logic it shouldn't have? (regression check — diff deletions > additions is a red flag)
+- Does the implementation match the spec's intent, or just the literal words? (cosmetic vs functional)
+- Are new functions actually wired into callers, or just dead code?
+- `test_test_*` double-prefix → GLM coaching issue, add to coaching file
+- Defensive type conversions (str→list, etc.) that mask upstream bugs → flag, don't merge blindly
+
+**Grade each commit A-F.** Anything below B: re-spec with explicit constraints on what NOT to delete/change. Don't let throughput pressure skip review — 3 quality commits > 6 mediocre ones.
+
+### 8. Re-spec failed quality
+When a commit is grade C or below:
+1. Revert if it deleted important logic (git revert on ganglion)
+2. Write a tighter spec with: exact function signatures to preserve, lines NOT to touch, expected test names
+3. Re-dispatch immediately — don't accumulate re-spec debt
 
 ## Daytime mode (autonomous)
 
@@ -122,10 +142,17 @@ On each ping: triage, salvage, re-dispatch, set next timer. Report a 2-line summ
 - No commit → will be fixed by auto-commit ribosome enhancement
 
 **Concurrency rules (2026-04-09 lessons):**
-- Max 2 concurrent tasks to ZhiPu
+- Max 2 concurrent tasks per provider (zhipu: 2, volcano: 2, infini: 2)
+- Dispatch across all 3 providers to maximize throughput (6 concurrent total)
+- When `mtor --harness` flag is available, use it to route: `mtor --harness goose --spec X` for variety
 - Never dispatch 2 tasks targeting the same file
 - `git stash` dirty work before another task touches the same file
 - Worker must restart (`kill + nohup`) after code changes land
+
+**Provider dispatch strategy:**
+- Spread specs evenly across zhipu, volcano, infini
+- If one provider is flaky (preflight failures), shift load to the others
+- ZhiPu most reliable 22:00-06:00 HKT; volcano/infini untested — learn their patterns overnight
 
 ## Anti-patterns
 

@@ -228,9 +228,8 @@ def _allow_effective(budget, phase, depth):
     if metabolic is None:
         return _BUDGET_TO_STATE.get("yellow", "homeostatic")
     idx = states.index(metabolic)
-    if phase == "night" or (phase == "evening" and depth > 35):
-        idx += 1
-    elif phase == "morning":
+    # Night penalty disabled — user prefers uninterrupted late sessions
+    if phase == "morning":
         idx -= 1
     if depth > 50:
         idx += 1

@@ -152,6 +152,10 @@ Scan directories where this session did 3+ file reads or edits. For each, check:
 
 **The test:** "If a fresh CC session `cd`'d here tomorrow, would it need an Explore agent or 5+ reads to understand this directory?" If yes, write the CLAUDE.md now — you already paid the context cost.
 
+**Update existing CLAUDE.md files** with session findings: new conventions discovered, gotchas hit, key rules learned. If you corrected a GLM mistake pattern, add it to the relevant CLAUDE.md's "Key rules" or "Gotchas" section — that's where dispatch tasks read it. Memory marks are for CC; CLAUDE.md is for GLM.
+
+**Enforce triple-symlink rule:** Every repo with a CLAUDE.md must also have `AGENTS.md → CLAUDE.md` and `GEMINI.md → CLAUDE.md` symlinks. Check during cytokinesis; create if missing. This ensures all 4 harnesses (CC, Codex, Gemini CLI, Goose/Droid) read the same instructions.
+
 ### 1d. Audit signal
 
 After consolidation, count findings routed in this pass. This is the "cytokinesis residual" — findings that should have been captured mid-session but were not.
