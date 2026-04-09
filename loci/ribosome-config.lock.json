@@ -1,39 +1,50 @@
 {
-  "_schema": 1,
-  "_description": "Known-good provider/model mappings for ribosome dispatch. Drift detection baseline.",
+  "_schema": 2,
+  "_description": "Single source of truth for all ribosome harness×provider config. Ribosome reads this at runtime — no hardcoded values in bash.",
   "_updated": "2026-04-09",
   "providers": {
     "zhipu": {
+      "key_env": "ZHIPU_API_KEY",
       "base_url": "https://open.bigmodel.cn/api/anthropic",
-      "models": {
-        "opus": "glm-5.1",
-        "sonnet": "glm-5.1",
-        "haiku": "glm-4.5-air"
-      }
+      "models": { "opus": "glm-5.1", "sonnet": "glm-5.1", "haiku": "glm-4.5-air" }
     },
     "volcano": {
+      "key_env": "VOLCANO_API_KEY",
       "base_url": "https://ark.cn-beijing.volces.com/api/coding",
-      "models": {
-        "opus": "doubao-seed-2-0-code",
-        "sonnet": "doubao-seed-2-0-code",
-        "haiku": "doubao-seed-2-0-code"
-      }
+      "models": { "opus": "doubao-seed-2-0-code", "sonnet": "doubao-seed-2-0-code", "haiku": "doubao-seed-2-0-code" }
     },
     "infini": {
+      "key_env": "INFINI_API_KEY",
       "base_url": "https://cloud.infini-ai.com/maas/coding",
-      "models": {
-        "opus": "minimax-m2.7",
-        "sonnet": "minimax-m2.7",
-        "haiku": "minimax-m2.5"
-      }
+      "models": { "opus": "minimax-m2.7", "sonnet": "minimax-m2.7", "haiku": "minimax-m2.5" }
     }
   },
-  "harness_auth": {
+  "harnesses": {
     "claude": {
-      "env_var": "ANTHROPIC_AUTH_TOKEN"
+      "auth_env": "ANTHROPIC_AUTH_TOKEN",
+      "base_url_env": "ANTHROPIC_BASE_URL",
+      "extra_env": {
+        "API_TIMEOUT_MS": "3000000",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+      },
+      "flags": ["--bare", "--print", "--no-session-persistence", "--dangerously-skip-permissions"]
     },
     "goose": {
-      "env_var": "ANTHROPIC_API_KEY"
+      "auth_env": "ANTHROPIC_API_KEY",
+      "base_url_env": "ANTHROPIC_HOST",
+      "flags": ["run", "-q", "--no-session"]
+    },
+    "droid": {
+      "auth_env": "ANTHROPIC_API_KEY",
+      "base_url_env": "ANTHROPIC_HOST",
+      "flags": ["exec", "--auto", "medium"]
+    },
+    "opencode": {
+      "auth_env": "ZHIPU_API_KEY",
+      "opencode_provider": "zhipu-coding",
+      "opencode_api": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "opencode_permissions": { "*": "allow", "external_directory": { "*": "allow" } },
+      "flags": ["run"]
     }
   }
 }
