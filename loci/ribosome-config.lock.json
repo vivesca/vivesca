@@ -1,0 +1,39 @@
+{
+  "_schema": 1,
+  "_description": "Known-good provider/model mappings for ribosome dispatch. Drift detection baseline.",
+  "_updated": "2026-04-09",
+  "providers": {
+    "zhipu": {
+      "base_url": "https://open.bigmodel.cn/api/anthropic",
+      "models": {
+        "opus": "glm-5.1",
+        "sonnet": "glm-5.1",
+        "haiku": "glm-4.5-air"
+      }
+    },
+    "volcano": {
+      "base_url": "https://ark.cn-beijing.volces.com/api/coding",
+      "models": {
+        "opus": "doubao-seed-2-0-code",
+        "sonnet": "doubao-seed-2-0-code",
+        "haiku": "doubao-seed-2-0-code"
+      }
+    },
+    "infini": {
+      "base_url": "https://cloud.infini-ai.com/maas/coding",
+      "models": {
+        "opus": "minimax-m2.7",
+        "sonnet": "minimax-m2.7",
+        "haiku": "minimax-m2.5"
+      }
+    }
+  },
+  "harness_auth": {
+    "claude": {
+      "env_var": "ANTHROPIC_AUTH_TOKEN"
+    },
+    "goose": {
+      "env_var": "ANTHROPIC_API_KEY"
+    }
+  }
+}
