@@ -437,7 +437,7 @@ _preflight_probe() {
   local output
   case "$harness" in
     claude)
-      output=$(_claude_env timeout 30 claude --print -p "echo ok" 2>&1)
+      output=$(_claude_env timeout 30 claude --bare --print -p "echo ok" 2>&1)
       ;;
     goose)
       output=$(env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
