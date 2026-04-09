@@ -489,8 +489,11 @@ _run_harness_codex() {
 _run_harness_opencode() {
   local prompt="$1"
   local _timeout="$2"
-  env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
-    ZHIPU_API_KEY="$_KEY" \
+  # Ensure auth.json exists — opencode reads creds from file, not env
+  local _auth_dir="$HOME/.local/share/opencode"
+  mkdir -p "$_auth_dir"
+  printf '{"zhipuai":{"apiKey":"%s"}}' "$_KEY" > "$_auth_dir/auth.json"
+  env -i HOME="$HOME" PATH="$HOME/.opencode/bin:$PATH" USER="${USER:-}" \
     timeout "$_timeout" \
     opencode run -m "zhipu-coding/glm-5.1" "$prompt" 2>&1
 }
