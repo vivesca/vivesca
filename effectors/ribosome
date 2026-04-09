@@ -226,7 +226,7 @@ _configure_backend() {
     volcano)
       _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
       _URL="https://ark.cn-beijing.volces.com/api/coding"
-      _OPUS="doubao-seed-2.0-code"; _SONNET="doubao-seed-2.0-code"; _HAIKU="doubao-seed-2.0-code" ;;
+      _OPUS="doubao-seed-2-0-code"; _SONNET="doubao-seed-2-0-code"; _HAIKU="doubao-seed-2-0-code" ;;
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
       _URL="https://cloud.infini-ai.com/maas/coding"
