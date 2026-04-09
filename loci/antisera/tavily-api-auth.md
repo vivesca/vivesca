@@ -2,8 +2,8 @@
 problem: Tavily API auth header format
 solution: Uses Authorization Bearer, not x-api-key
 tags: [tavily, search, http, auth, api-key]
-titer-hits: 86
-titer-last-seen: 2026-04-07
+titer-hits: 103
+titer-last-seen: 2026-04-09
 ---
 
 Tavily API (`api.tavily.com/search`) uses `"Authorization": f"Bearer {key}"` header, not `"x-api-key"` like Exa/Serper.

@@ -183,7 +183,7 @@ Temporal.io-based workflow orchestrator for translation task dispatch. Replaces 
   Files: `CLAUDE.md`, `README.md`, `assays`, `autopoiesis.py`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
 
 ### Standalone scripts (198 total, on PATH)
-  Recent: `pypi-reserve.py`, `soma-watchdog`, `soma-activate`, `proteome`, `rheotaxis`, `ribosome`, `publish`, `vesicle`, `ribosome-tools`, `efferens`
+  Recent: `proteome`, `vivesca-preflight`, `batch-scrape`, `willison-scrape`, `rheotaxis`, `smolnews-scrape`, `pypi-reserve.py`, `soma-watchdog`, `soma-activate`, `ribosome`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map

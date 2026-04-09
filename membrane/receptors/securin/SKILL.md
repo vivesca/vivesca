@@ -1,8 +1,19 @@
+---
+name: securin
+description: "Quality gate for mtor dispatch tasks — monitor, triage, salvage, re-dispatch"
+triggers:
+  - "monitor mtor"
+  - "check mtor"
+  - "securin"
+  - "keep watching"
+  - "review mtor runs"
+  - "what's running"
+  - "vigilia"
+---
+
 # Securin — mtor task checkpoint
 
 Quality gate for mtor dispatch tasks. Monitors execution, triages results, salvages partial work, fixes specs, re-dispatches. Named for the checkpoint protein that prevents chromosome separation until all attachments are verified — holds back progression until quality conditions are met.
-
-Use when: "monitor mtor", "check mtor", "securin", "keep watching", "review mtor runs", "what's running", "vigilia"
 
 ## Mechanism
 
@@ -24,12 +35,25 @@ mtor list --count 50
 ```
 
 ### 2. Triage completed tasks
+
+**NEVER archive without investigation.** Every completed task gets the full checklist — no exceptions, no shortcuts. Tasks may come from other CC sessions, cron dispatches, or manual queuing. Treat ALL tasks as intentional work worth reviewing.
+
+**Investigation checklist (mandatory before archive):**
+1. `mtor status <workflow_id>` — read failure_reason, exit_code, task_preview
+2. `ssh ganglion 'cat ~/code/mtor/logs/<workflow_id>.log | tail -30'` — read output
+3. `ssh ganglion 'cd ~/code/mtor && git log --oneline -5'` — check for commits
+4. `ssh ganglion 'cd ~/code/mtor && git diff --stat'` — check for uncommitted work
+5. If work exists (committed or uncommitted) → review the diff for correctness
+6. Only THEN decide: salvage, re-dispatch, or archive
+
+**Do NOT dismiss tasks targeting other repos/projects.** They were dispatched intentionally. If a task targets germline, epsin, or any other repo — investigate it in that repo's context, not just mtor.
+
 For each COMPLETED task:
 
 | Verdict | Action |
 |---------|--------|
 | `activity_failed` | Check `git log` on ganglion for commits by this task. If commits exist → false positive, archive. If no commits → investigate worker log, re-dispatch with more explicit prompt. Max 2 retries per original task. |
-| `rejected` (chaperone) | Check if code landed on main despite rejection (verdict false positive pattern). If landed → archive with override. If not → read failure reason, re-dispatch with fix if prompt issue, else archive. |
+| `rejected` (chaperone) | Check if code landed on main despite rejection (verdict false positive pattern). If landed → archive with override. If not → read failure reason. If task is worth retrying → write tighter spec and re-dispatch. Else archive with reason noted. |
 | `accepted` / `merged` | **Review the actual diff** (`git diff <pre>..<post>` or `git show <commit>`). Verify the change matches the prompt intent and is correct. Then archive. Don't trust verdicts — review everything until the system is proven. |
 
 ### 3. Investigate failures
@@ -105,6 +129,8 @@ On each ping: triage, salvage, re-dispatch, set next timer. Report a 2-line summ
 
 ## Anti-patterns
 
+- **Don't archive without investigating** — run the full checklist first. "No logs" is a finding, not an excuse to skip.
+- **Don't dismiss tasks from other sessions** — every task in the queue was dispatched intentionally. Different repo ≠ irrelevant.
 - Don't re-dispatch the same failing prompt 3+ times — investigate root cause
 - Don't dispatch without checking ganglion git log first (commits may have landed despite failed verdicts)
 - Don't dispatch complex multi-file tasks — break into single-function edits
