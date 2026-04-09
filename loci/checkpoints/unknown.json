@@ -1,1 +1,4 @@
-{"workflow_id":"unknown","timestamp":"2026-04-07T12:43:18Z","task":"test task","provider":"codex","exit_code":1,"stash_ref":"0d1b2d940e8e08d77731b31a976269745a499732","diff_stat":" 25 files changed, 62 insertions(+), 143 deletions(-)"}
+{"workflow_id":"unknown","timestamp":"2026-04-09T06:37:21Z","task":"<coaching-notes>
+---
+name: ribosome coaching notes
+description: Known failure patterns + correction ","provider":"zhipu","exit_code":1,"stash_ref":"f905a2719ab8faf0acb601181b4c51ac581d051c","diff_stat":" 3 files changed, 23 insertions(+), 166 deletions(-)"}
