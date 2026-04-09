@@ -389,11 +389,10 @@ _preflight_check() {
   esac
 }
 
-# Per-harness runners: each uses env -i to isolate from parent env.
-# This prevents ANTHROPIC_* leakage from a parent CC session (mtor/Temporal bug).
-_run_harness_claude() {
-  local prompt="$1"
-  local _timeout="$2"
+# Single source of truth for claude harness env. Preflight and run both use this.
+# LOCKED: if you add an env var here, both preflight and run get it automatically.
+_claude_env() {
+  # Usage: _claude_env [extra_var=val ...] command args...
   env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
     CLAUDECODE= \
     ANTHROPIC_AUTH_TOKEN="$_KEY" \
@@ -403,6 +402,15 @@ _run_harness_claude() {
     ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
     API_TIMEOUT_MS=3000000 \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    "$@"
+}
+
+# Per-harness runners: each uses env -i to isolate from parent env.
+# This prevents ANTHROPIC_* leakage from a parent CC session (mtor/Temporal bug).
+_run_harness_claude() {
+  local prompt="$1"
+  local _timeout="$2"
+  _claude_env \
     CLAUDE_CODE_MAX_RETRIES="${RIBOSOME_CLAUDE_RETRIES:-2}" \
     CLAUDE_CODE_TMPDIR="/tmp/ribosome-${PROVIDER}-${RIBOSOME_TASK_ID:-$$}" \
     MCP_CONNECTION_NONBLOCKING=true \
@@ -429,15 +437,7 @@ _preflight_probe() {
   local output
   case "$harness" in
     claude)
-      output=$(env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
-        ANTHROPIC_AUTH_TOKEN="$_KEY" \
-        ANTHROPIC_BASE_URL="$_URL" \
-        ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
-        ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
-        ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
-        API_TIMEOUT_MS=3000000 \
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-        timeout 30 claude --print -p "echo ok" 2>&1)
+      output=$(_claude_env timeout 30 claude --print -p "echo ok" 2>&1)
       ;;
     goose)
       output=$(env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
