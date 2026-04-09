@@ -222,7 +222,7 @@ _configure_backend() {
     zhipu)
       _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
       _URL="https://open.bigmodel.cn/api/anthropic"
-      _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
+      _OPUS="glm-5.1"; _SONNET="glm-5.1"; _HAIKU="glm-4.5-air" ;;
     volcano)
       _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
       _URL="https://ark.cn-beijing.volces.com/api/coding"
@@ -432,6 +432,11 @@ _preflight_probe() {
       output=$(env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
         ANTHROPIC_AUTH_TOKEN="$_KEY" \
         ANTHROPIC_BASE_URL="$_URL" \
+        ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
+        ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
+        ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
+        API_TIMEOUT_MS=3000000 \
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
         timeout 30 claude --print -p "echo ok" 2>&1)
       ;;
     goose)
