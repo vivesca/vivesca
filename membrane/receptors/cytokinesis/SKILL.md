@@ -35,6 +35,14 @@ Capture continuously — don't wait for `/cytokinesis`. The end-of-session pass 
 
 **Default: FILE.** Over-filter is the LLM failure mode. A separate process handles forgetting. Priority: prediction errors > novelty > emotional weight > pattern completion > routine.
 
+**Mark type ordering (forced checklist — work top-to-bottom, first match wins):**
+1. Terry corrected CC's approach or assumption? → `feedback` (protected if architectural)
+2. Discovered how a system/tool actually behaves? → `finding`
+3. Learned about an ongoing initiative, deadline, or team state? → `project`
+4. Found a pointer to external info (URL, portal, channel)? → `reference`
+5. Learned about the user's role, preferences, or context? → `user`
+6. ONLY if none above → generic note (should be rare — challenge yourself before accepting)
+
 **Full** (`/cytokinesis`) — consolidation + housekeeping.
 **Checkpoint** (`/cytokinesis checkpoint`, auto at gear shifts) — consolidation only.
 

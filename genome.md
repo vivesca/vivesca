@@ -158,7 +158,7 @@ Draft autonomously, pause before "send". Auto-push personal repos. Ask before sh
 
 Memory index: `~/epigenome/marks/MEMORY.md` (also `~/.claude/projects/-home-vivesca/memory/MEMORY.md`). Read at session start. Each line links to a detailed mark file — read relevant ones when the task matches.
 
-Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference/finding), `source` (cc/gemini/codex/goose/user), `durability` (methyl=durable, acetyl=volatile), `protected: true` for core corrections.
+Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference/finding), `source` (cc/gemini/codex/goose/user), `durability` (methyl=durable, acetyl=volatile), `protected: true` for core corrections, `supersedes: filename.md` when a mark replaces an older one (old mark becomes archive candidate), `action: command or script path` when a mark has an executable fix (CC runs it instead of re-deriving), `confirmed: N` incremented each time a mark proves accurate (higher = more trusted in lint).
 
 ## GLM Coaching
 
