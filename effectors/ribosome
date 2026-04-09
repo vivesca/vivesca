@@ -396,13 +396,15 @@ _run_harness_claude() {
   local _timeout="$2"
   env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
     CLAUDECODE= \
-    ANTHROPIC_API_KEY="$_KEY" \
+    ANTHROPIC_AUTH_TOKEN="$_KEY" \
     ANTHROPIC_BASE_URL="$_URL" \
     ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
     ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
     ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
     API_TIMEOUT_MS=3000000 \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    ENABLE_TOOL_SEARCH=0 \
+    CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 \
     CLAUDE_CODE_MAX_RETRIES="${RIBOSOME_CLAUDE_RETRIES:-2}" \
     CLAUDE_CODE_TMPDIR="/tmp/ribosome-${PROVIDER}" \
     MCP_CONNECTION_NONBLOCKING=true \
@@ -622,8 +624,8 @@ EXPLORE_SYS
   local start_ts=$(date +%s)
   local output
   local exit_code=0
-  # All providers use ANTHROPIC_API_KEY (x-api-key header). Volcano accepts it too.
-  unset ANTHROPIC_AUTH_TOKEN  # prevent inheritance from parent env
+  # ZhiPu coding plan uses ANTHROPIC_AUTH_TOKEN for CC harness.
+  # Do NOT unset it — CC needs it for authentication via /api/anthropic.
 
   # Per-attempt timeout: matches Temporal activity timeout (2hr).
   # No wall-limit — stall detection catches loops, Temporal is the outer bound.
