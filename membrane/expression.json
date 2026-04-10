@@ -1,12 +1,14 @@
 {
-  "permissions": {
-    "deny": ["Agent(Explore)"]
-  },
   "env": {
     "AGENT_BROWSER_PROFILE": "$HOME/.agent-browser-profile",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
     "CLAUDE_CODE_NO_FLICKER": "1"
+  },
+  "permissions": {
+    "deny": [
+      "Agent(Explore)"
+    ]
   },
   "hooks": {
     "UserPromptSubmit": [
@@ -125,5 +127,6 @@
   "thinkingDisplay": "none",
   "feedbackSurveyState": {
     "lastShownTime": 1753941965657
-  }
+  },
+  "autoUpdatesChannel": "stable"
 }
