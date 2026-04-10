@@ -269,8 +269,11 @@ def test_clean_temps_claude_glob(tmp_path):
 # ── kill_runaway_ribosomes ────────────────────────────────────────────────
 
 
-def _ps(procs):
-    return "\n".join(f"{p} {e} {r} claude" for p, e, r in procs)
+def _ps(procs, tty="?"):
+    # kill_runaway_ribosomes parses `ps -eo pid,etimes,rss,tty,comm` → 5 fields.
+    # Default tty="?" simulates a headless ribosome (no controlling terminal),
+    # which is the only kind the watchdog will kill. pts/N would be spared.
+    return "\n".join(f"{p} {e} {r} {tty} claude" for p, e, r in procs)
 
 
 def test_kill_none():
@@ -475,6 +478,19 @@ def test_cycle_root_warn(tmp_path):
 
 
 def test_cycle_rotate(tmp_path):
+    """Assert check_cycle rotates every entry in its rotate_log list.
+
+    Counts the list size dynamically from source so the test stays in sync
+    when new log files are added (the old version hardcoded 8 and silently
+    went stale when the list grew to 16).
+    """
+    import re
+
+    src = open(str(Path.home() / "germline/effectors/soma-watchdog")).read()
+    m = re.search(r"for logfile in \[(.*?)\]:", src, re.DOTALL)
+    assert m, "could not find rotate_log list in check_cycle"
+    expected = sum(1 for ln in m.group(1).splitlines() if ln.strip().rstrip(",").strip())
+
     lp = tmp_path / "w.log"
     mr = MagicMock()
     with (
@@ -486,7 +502,7 @@ def test_cycle_rotate(tmp_path):
         patch("subprocess.run"),
     ):
         check_cycle()
-    assert mr.call_count == 8
+    assert mr.call_count == expected
 
 
 def test_cycle_kill(tmp_path):
@@ -594,3 +610,32 @@ def test_main_multi_cycle(tmp_path):
         with patch.object(_mod["time"], "sleep", MagicMock()):
             main()
     assert n == 3
+
+
+# ── prune_caches regression guard ──────────────────────────────────────
+# 2026-04-10 incident: watchdog had .local/share/claude (400MB) and
+# .local/share/opencode (500MB) in its prune targets, mistakenly labeled
+# "session history". They are install directories. When the claude Node
+# bundle grew past 400MB the watchdog rmtree'd the whole install, leaving
+# ~/.local/bin/claude as a dangling symlink and breaking every new CC
+# session on soma until reinstall. Guard against any future re-addition.
+
+
+def test_prune_caches_never_touches_claude_install():
+    """~/.local/share/claude is the Claude Code install dir, not a cache."""
+    src = open(str(Path.home() / "germline/effectors/soma-watchdog")).read()
+    # Target list is only defined inside prune_caches(); inspect the source.
+    assert '".local/share/claude"' not in src, (
+        "~/.local/share/claude is the install directory for Claude Code "
+        "(versions/X.Y.Z ships the Node bundle). rmtree'ing it breaks the "
+        "binary. Session state lives at ~/.claude/."
+    )
+
+
+def test_prune_caches_never_touches_opencode_install():
+    """~/.local/share/opencode holds opencode state, not a regenerable cache."""
+    src = open(str(Path.home() / "germline/effectors/soma-watchdog")).read()
+    assert '".local/share/opencode"' not in src, (
+        "~/.local/share/opencode is not a cache — wholesale rmtree loses "
+        "state. Same bug pattern as the 2026-04-10 claude install wipe."
+    )
