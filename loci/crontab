@@ -1,5 +1,36 @@
-# Vivesca crontab (supercronic)
-# Times in UTC — soma runs UTC, HKT = UTC+8
+# Vivesca crontab (supercronic on soma)
+# TZ = Asia/Hong_Kong (set via supervisor.conf, matches soma-watchdog/vivesca MCP)
+# Format: m h dom mon dow  command
+#
+# All commands SHOULD go through soma-cron-wrap for env setup + logging.
+# soma-cron-wrap sources .zshenv secrets, sets PATH, captures exit codes
+# to ~/.local/share/vivesca/cron-runs.jsonl.
+#
+# Never migrate jobs that need macOS APIs (Chrome cookies, peekaboo, iPhone
+# mirroring, osascript, etc.) — those stay on Mac. See:
+#   ~/docs/solutions/soma-primary-migration-plan.md
 
-# evergreen: update Python + deps daily at 04:00 UTC (12:00 HKT)
-0 4 * * * /home/vivesca/germline/effectors/evergreen /home/vivesca/germline
+# ── Pre-existing ────────────────────────────────────────────────────
+# evergreen: update Python + deps daily at 12:00 HKT
+0 12 * * * soma-cron-wrap evergreen /home/vivesca/germline/effectors/evergreen /home/vivesca/germline
+
+# ── Phase 2 migrations (added one at a time after end-to-end test) ──
+# All added jobs were tested via `soma-cron-wrap <name> <cmd>` first.
+# Mac equivalents still run in parallel until Phase 3 (DR gating) lands.
+
+# Pilot: rotate-logs (Sunday 05:00 HKT) — low-stakes, idempotent
+# Note: rotates SOMA's own logs (not Mac's) — Mac plist still rotates Mac logs.
+# These are independent (different log dirs), no DR gate needed.
+0 5 * * 0 soma-cron-wrap rotate-logs /usr/bin/python3 /home/vivesca/germline/effectors/rotate-logs.py
+
+# pondus-monitor: daily model rankings check (read-only API call, idempotent)
+# Mac plist also runs at 09:00 — duplicate API call until Phase 3 gating
+0 9 * * * soma-cron-wrap pondus-monitor /home/vivesca/germline/.venv/bin/pondus monitor check
+
+# wewe-rss-health: every 6h, checks WeChat RSS scraper health endpoint
+0 */6 * * * soma-cron-wrap wewe-rss-health /home/vivesca/.local/bin/uv run --script --python 3.13 /home/vivesca/germline/effectors/wewe-rss-health.py
+
+# update-coding-tools: every 2h on soma (apt + pip + uv + cargo updates)
+# Mac runs hourly — soma runs less frequently (less code churn on server)
+# These are independent (Mac updates Mac brew, soma updates soma apt) — no DR gate needed
+0 */2 * * * soma-cron-wrap update-coding-tools /home/vivesca/germline/effectors/update-coding-tools.sh

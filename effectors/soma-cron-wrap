@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# soma-cron-wrap — execution wrapper for supercronic-scheduled jobs on soma.
+#
+# Responsibilities:
+#   1. Source .zshenv secrets cache so jobs see 1P-sourced env vars
+#   2. Set PATH/HOME so bare `uv`, `vivesca`, tool names work
+#   3. Run the command with a log prefix and exit code trapping
+#   4. On error: log to jobs.jsonl for later review (no alerts — watchdog owns that)
+#
+# Usage:
+#   soma-cron-wrap <job-name> <command> [args...]
+#   soma-cron-wrap speculor /home/vivesca/germline/effectors/speculor
+#   soma-cron-wrap endocytosis-daily vivesca endocytosis fetch --period daily
+
+set -u  # strict unset check but NOT -e (let command's exit code propagate)
+
+export HOME=/home/vivesca
+export TZ=Asia/Hong_Kong
+export PATH=/home/vivesca/germline/effectors:/home/vivesca/germline/.venv/bin:/home/vivesca/.local/bin:/home/vivesca/.cargo/bin:/home/vivesca/.bun/bin:/usr/local/bin:/usr/bin:/bin
+
+# Secrets: source the 1P-resolved cache (see ~/.zshenv docs)
+[ -f "$HOME/.zshenv.secrets" ] && . "$HOME/.zshenv.secrets"
+[ -f "$HOME/.cache/env-secrets.sh" ] && . "$HOME/.cache/env-secrets.sh"
+
+job_name="${1:-unknown}"
+shift || true
+
+logdir="$HOME/tmp/cron-jobs"
+mkdir -p "$logdir"
+logfile="$logdir/${job_name}.log"
+jsonl="$HOME/.local/share/vivesca/cron-runs.jsonl"
+mkdir -p "$(dirname "$jsonl")"
+
+started_at=$(date -Iseconds)
+start_epoch=$(date +%s)
+
+# Rotate log if >5MB
+if [ -f "$logfile" ]; then
+  size=$(stat -c%s "$logfile" 2>/dev/null || echo 0)
+  if [ "$size" -gt 5242880 ]; then
+    mv "$logfile" "${logfile}.1"
+  fi
+fi
+
+# Run the command, capturing both streams and exit code
+{
+  echo "=== $started_at :: $job_name :: $* ==="
+  "$@" 2>&1
+  rc=$?
+  echo "=== exit=$rc ==="
+  exit $rc
+} | tee -a "$logfile"
+rc=${PIPESTATUS[0]}
+
+ended_at=$(date -Iseconds)
+duration=$(( $(date +%s) - start_epoch ))
+
+# Append structured run record
+printf '{"job":"%s","started":"%s","ended":"%s","duration_s":%d,"exit":%d,"host":"soma"}\n' \
+  "$job_name" "$started_at" "$ended_at" "$duration" "$rc" >> "$jsonl"
+
+exit "$rc"

@@ -28,6 +28,22 @@ Is the page public?
 **Known Tier 1 sites (form auth, no bot detection):** RVD e-billing (gov.hk SSO), OpenRouter (GitHub OAuth → porta).
 **Always Tier 1:** Public pages, sites with valid session cookies.
 
+### Escalation smells — signs you started in the wrong tier
+
+- **Nested `'"'"'...` quoting in AppleScript JS** → you jumped to Tier 3 to reuse "Chrome is already logged in", but Tier 1 agent-browser + cookie bridge would have been cleaner. Cookie bridge serves any domain: `curl http://127.0.0.1:7743/cookies?domain=<site>` → inject via Playwright's `context.add_cookies()` → use agent-browser's `fill @ref` / `click @ref` API.
+- **Writing more than ~20 lines of AppleScript JS** to drive a form → stop and reconsider Tier 1 or Tier 2.
+- **Tier 3 is for** sites that actively block Playwright login (LinkedIn, Schwab), OR a single AppleScript call to read an existing authenticated tab. If you're *driving a multi-step flow* in Tier 3, you escalated too fast.
+
+### GitHub CLI auth via OAuth device flow
+
+When `gh auth login` is needed (token expired, fresh machine), use `gh-auth-renew` effector — wraps the full device flow:
+- client_id `178c6fc778ccc68e1d6a` (gh CLI's public OAuth app, stable)
+- POST to `github.com/login/device/code` to get user_code + device_code
+- Drive Chrome through `/login/device?user_code=...` → select_account → authorize
+- **GitHub enforces sudo-mode** at `/login/device/authorize` — requires passkey/2FA re-auth, cannot automate past this (by design). One Touch ID tap required.
+- Anti-clickjacking: the "Authorize github" button is disabled for ~5s; script force-enables via JS `btn.disabled = false`
+- Poll `github.com/login/oauth/access_token` until token returned, then `gh auth login --with-token` + update 1Password
+
 ### Auth Escalation (when Google OAuth is blocked headless)
 
 Google Sign-In SDK opens popups that headless Chrome blocks silently. Escalation:

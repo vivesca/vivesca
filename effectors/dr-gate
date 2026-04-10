@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# dr-gate — Mac DR-side wrapper.
+#
+# Wraps a Mac LaunchAgent command. Exits 0 immediately if soma is alive
+# (we're standby), exec's the command if soma is unreachable (we're failover).
+#
+# Usage in plist:
+#   <key>ProgramArguments</key>
+#   <array>
+#     <string>/Users/terry/germline/effectors/dr-gate</string>
+#     <string>/path/to/original/command</string>
+#     <string>arg1</string>
+#     ...
+#   </array>
+#
+# OR direct script invocation:
+#   dr-gate /usr/bin/python3 /Users/terry/germline/effectors/transduction --period daily
+#
+# Logging: writes a single-line marker to ~/tmp/dr-gate.log when standby/active.
+
+set -u
+
+LOG="$HOME/tmp/dr-gate.log"
+mkdir -p "$(dirname "$LOG")"
+
+job_label="${DR_JOB_LABEL:-$(basename "$1" 2>/dev/null || echo unknown)}"
+
+if /Users/terry/germline/effectors/soma-alive-check; then
+  printf '[%s] standby :: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$job_label" >> "$LOG"
+  exit 0
+fi
+
+# Soma is dead — take over
+printf '[%s] ACTIVE  :: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$job_label" >> "$LOG"
+exec "$@"
