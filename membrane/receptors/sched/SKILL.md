@@ -2,7 +2,7 @@
 name: sched
 effort: low
 description: >-
-  Schedule events and manage Due reminders via pacemaker CLI. Use for ANY Due or calendar
+  Schedule events and manage Due reminders via cyclin CLI. Use for ANY Due or calendar
   operation: "schedule", "remind me", "add to Due", "remind me in X", "book X",
   "list/edit/delete reminders". Covers both one-off and recurring. Entry point for all
   scheduling — replaces the separate 'due' skill.
@@ -21,29 +21,29 @@ Single entry point for all scheduling. Due = nag reminders. Google Calendar = so
 | Recurring meeting | ✅ 5 min before | ✅ (if not already there) |
 | Task / nudge / habit / follow-up | ✅ | ❌ |
 
-## pacemaker CLI Reference
+## cyclin CLI Reference
 
-`pacemaker add` always syncs to iPhone via CloudKit.
+`cyclin add` always syncs to iPhone via CloudKit.
 
 ```bash
-pacemaker ls                                                        # list all reminders with index
-pacemaker add "Call dentist" --in 30m                              # relative time
-pacemaker add "Standup" --at 09:30                                 # today at HH:MM
-pacemaker add "Pay rent" --date 2026-04-01 --at 10:00             # specific date + time
-pacemaker add "Team sync" --at 11:00 --recur weekly               # recurring weekly
-pacemaker add "Pay rent" --date 2026-04-01 --recur monthly        # recurring monthly
-pacemaker edit <index> --title "New title"                         # rename (Mac only)
-pacemaker edit <index> --at 16:00                                  # change time (Due opens to sync)
-pacemaker edit <index> --in 1h                                    # push forward (Due opens to sync)
-pacemaker add "Medicine" --at 09:00 --every 6h --until 2026-03-20  # interval expansion (skips overnight)
-pacemaker add "Standup" --at 09:30 --autosnooze 5                 # auto-snooze after 5 min
-pacemaker rm "pattern"                                             # delete all matching by title (case-insensitive)
-pacemaker search "medicine"                                        # launch Due and search
-pacemaker search "rent" --section Logbook                          # search in specific section
-pacemaker log                                                       # show last 20 completions (from Due's lb table)
-pacemaker log --n 50                                               # show more
-pacemaker log --filter "medicine"                                  # filter by title substring
-pacemaker snapshot                                                  # manual git snapshot of current DB state
+cyclin ls                                                        # list all reminders with index
+cyclin add "Call dentist" --in 30m                              # relative time
+cyclin add "Standup" --at 09:30                                 # today at HH:MM
+cyclin add "Pay rent" --date 2026-04-01 --at 10:00             # specific date + time
+cyclin add "Team sync" --at 11:00 --recur weekly               # recurring weekly
+cyclin add "Pay rent" --date 2026-04-01 --recur monthly        # recurring monthly
+cyclin edit <index> --title "New title"                         # rename (Mac only)
+cyclin edit <index> --at 16:00                                  # change time (Due opens to sync)
+cyclin edit <index> --in 1h                                    # push forward (Due opens to sync)
+cyclin add "Medicine" --at 09:00 --every 6h --until 2026-03-20  # interval expansion (skips overnight)
+cyclin add "Standup" --at 09:30 --autosnooze 5                 # auto-snooze after 5 min
+cyclin rm "pattern"                                             # delete all matching by title (case-insensitive)
+cyclin search "medicine"                                        # launch Due and search
+cyclin search "rent" --section Logbook                          # search in specific section
+cyclin log                                                       # show last 20 completions (from Due's lb table)
+cyclin log --n 50                                               # show more
+cyclin log --filter "medicine"                                  # filter by title substring
+cyclin snapshot                                                  # manual git snapshot of current DB state
 ```
 
 ### Time flags (mutually exclusive)
@@ -83,7 +83,7 @@ gog calendar add primary \
 ## Steps for Appointments
 
 1. Collect: title, date + time, end time (default +1h), location (optional)
-2. `pacemaker add` with reminder 30 min before (or 5 min before for recurring meetings)
+2. `cyclin add` with reminder 30 min before (or 5 min before for recurring meetings)
 3. `gog calendar add` for the event itself
 4. Confirm both to user
 
@@ -92,21 +92,21 @@ gog calendar add primary \
 > "Schedule AIA call tomorrow 10am, Tommy Lau +852 3727 6441"
 
 ```bash
-pacemaker add "AIA call - Tommy Lau" --date 2026-03-06 --at 09:30
+cyclin add "AIA call - Tommy Lau" --date 2026-03-06 --at 09:30
 gog calendar add primary --summary "AIA call - Tommy Lau" --from "2026-03-06T10:00:00+08:00" --to "2026-03-06T11:00:00+08:00" --description "Tommy Lau +852 3727 6441"
 ```
 
 ## Gotchas
 
-- **pacemaker is now a Python script** (`~/bin/pacemaker` → `~/code/pacemaker-py/pacemaker.py`, `uv run --script`, zero deps). Repo: `terry-li-hm/pacemaker` (private). Rust version archived at `~/code/pacemaker/`.
-- `pacemaker add` uses AppleScript to open Due editor via URL scheme and auto-click Save → CloudKit sync to iPhone. Works screen-free.
-- **LaunchAgent `com.terry.due-snapshot`** auto-runs `pacemaker snapshot` every 5 min — git-commits DB state to `~/officina/backups/due-reminders.json` only when changed. Requires Full Disk Access granted to `~/bin/pacemaker` in System Settings → Privacy & Security.
-- `pacemaker log` reads Due's `lb` table — includes both Mac and iPhone completions/dismissals. iPhone entries appear after CloudKit sync (typically <5 min). Note: `lb` records dismissals, not just true completions — no distinction available from DB.
-- **`pacemaker edit --at <time>` resets the date to today**, even if the reminder was set for a future date. To change only the time on a future reminder, always use `--date YYYY-MM-DD --at HH:MM` together.
-- `pacemaker rm` does not sync deletions to iPhone — delete in Due on iPhone directly
-- `pacemaker rm "<pattern>"` — batch delete by title pattern (case-insensitive). No `--title` flag — pattern is a positional arg.
+- **cyclin is now a Python script** (`~/bin/cyclin` → `~/code/cyclin-py/cyclin.py`, `uv run --script`, zero deps). Repo: `terry-li-hm/cyclin` (private). Rust version archived at `~/code/cyclin/`.
+- `cyclin add` uses AppleScript to open Due editor via URL scheme and auto-click Save → CloudKit sync to iPhone. Works screen-free.
+- **LaunchAgent `com.terry.due-snapshot`** auto-runs `cyclin snapshot` every 5 min — git-commits DB state to `~/officina/backups/due-reminders.json` only when changed. Requires Full Disk Access granted to `~/bin/cyclin` in System Settings → Privacy & Security.
+- `cyclin log` reads Due's `lb` table — includes both Mac and iPhone completions/dismissals. iPhone entries appear after CloudKit sync (typically <5 min). Note: `lb` records dismissals, not just true completions — no distinction available from DB.
+- **`cyclin edit --at <time>` resets the date to today**, even if the reminder was set for a future date. To change only the time on a future reminder, always use `--date YYYY-MM-DD --at HH:MM` together.
+- `cyclin rm` does not sync deletions to iPhone — delete in Due on iPhone directly
+- `cyclin rm "<pattern>"` — batch delete by title pattern (case-insensitive). No `--title` flag — pattern is a positional arg.
 - Same title at different times on the same day is allowed. Same title at the same time on the same day is rejected.
-- Due uses CloudKit (not iCloud Drive). Direct file edits bypass CloudKit — always use `pacemaker add`.
-- UUID gotcha: Due requires base64 UUIDs without `=` padding — pacemaker handles this automatically
-- Always use HKT. pacemaker handles timezone internally.
-- `pacemaker ls` shows ⚠ for overdue reminders
+- Due uses CloudKit (not iCloud Drive). Direct file edits bypass CloudKit — always use `cyclin add`.
+- UUID gotcha: Due requires base64 UUIDs without `=` padding — cyclin handles this automatically
+- Always use HKT. cyclin handles timezone internally.
+- `cyclin ls` shows ⚠ for overdue reminders
