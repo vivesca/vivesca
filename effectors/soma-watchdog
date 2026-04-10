@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 POLL = 60  # seconds
-HOME = Path.home()
+HOME = Path(os.environ.get("HOME", Path.home()))
 GERMLINE = HOME / "germline"
 LOG = HOME / "tmp" / "soma-watchdog.log"
 
@@ -35,6 +35,7 @@ ROOT_WARN_MB = 500
 LOG_MAX_MB = 10
 RIBOSOME_MAX_SECONDS = 2400  # 40 min
 RIBOSOME_MAX_RSS_MB = 2048  # 2GB
+CACHE_MAX_MB = 300  # per-cache budget
 
 
 def log(msg: str):
@@ -83,6 +84,63 @@ def clean_temps():
     )
 
     return cleaned
+
+
+def _dir_size_mb(path: Path) -> float:
+    """Get directory size in MB using du -sb (fast, with timeout)."""
+    try:
+        r = subprocess.run(
+            ["du", "-sb", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if r.returncode == 0:
+            return int(r.stdout.split()[0]) / (1024 * 1024)
+    except Exception:
+        pass
+    return 0.0
+
+
+def prune_caches():
+    """Proactive cache pruning — runs every cycle, not just on disk pressure.
+
+    Uses du with timeout instead of Python rglob (which hangs on stressed I/O).
+    Skips playwright (browser binaries needed at runtime) and .local/share/uv
+    (Python installs, needed at runtime).
+    """
+    pruned = 0
+
+    # (relative_path, budget_mb)
+    # path is relative to HOME. Budgets per-cache based on regeneration cost.
+    #
+    # DO NOT add ~/.local/share/claude or ~/.local/share/opencode here.
+    # Those are INSTALL directories (claude versions/X.Y.Z ships the Node
+    # bundle there; opencode state lives there too), NOT caches. On 2026-04-10
+    # the watchdog wholesale-rmtree'd ~/.local/share/claude when the Node
+    # bundle exceeded 400MB, leaving a dangling ~/.local/bin/claude symlink
+    # and breaking every new CC session on soma. Claude Code session state
+    # lives at ~/.claude/, which is never pruned.
+    targets = [
+        (".cache/uv", 300),
+        (".cache/pip", 200),
+        (".cache/go-build", 200),
+        (".cache/node-gyp", 200),
+        (".cache/pre-commit", 300),
+        (".npm", 500),  # npm global cache — regrows on install
+        (".cargo/registry", 400),  # cargo package cache — regrows from Cargo.toml
+    ]
+
+    for rel_path, budget_mb in targets:
+        cache_dir = HOME / rel_path
+        if not cache_dir.exists():
+            continue
+        size_mb = _dir_size_mb(cache_dir)
+        if size_mb > budget_mb:
+            shutil.rmtree(cache_dir, ignore_errors=True)
+            log(f"Pruned {rel_path} ({size_mb:.0f}MB > {budget_mb}MB)")
+            pruned += 1
+    return pruned
 
 
 def rotate_log(path: Path, max_mb: float = LOG_MAX_MB):
@@ -206,38 +264,47 @@ def log_resources():
         log(f"log_resources error: {e}")
 
 
-def alert_on_crit(health_json: dict):
-    """If any health check has status==crit, alert via deltos. Dedup 15 min."""
+def alert_on_unhealthy(health_json: dict):
+    """Alert via deltos on warn or crit. Dedup: warn 60min, crit 15min.
+
+    Apr 7-10 freeze had warn state for 3 days with no alert — only crit
+    triggered alerts, but disk never dropped below 1GB CRIT threshold.
+    """
     try:
         crit_names = [
             k for k, v in health_json.items() if isinstance(v, dict) and v.get("status") == "crit"
         ]
-        if not crit_names:
+        warn_names = [
+            k for k, v in health_json.items() if isinstance(v, dict) and v.get("status") == "warn"
+        ]
+        if not (crit_names or warn_names):
             return
 
-        # Dedup: skip if alert was sent less than 15 min ago (by mtime)
+        level = "CRIT" if crit_names else "WARN"
+        dedup_seconds = 900 if crit_names else 3600  # warn dedups at 1hr
+        names = crit_names or warn_names
+
         if ALERT_STAMP.exists():
             try:
                 elapsed = time.time() - ALERT_STAMP.stat().st_mtime
-                if elapsed < 900:
+                if elapsed < dedup_seconds:
                     return
             except OSError:
                 pass
 
         deltos = shutil.which("deltos")
         if not deltos:
-            log("alert_on_crit: deltos not found on PATH")
+            log(f"alert_on_unhealthy: deltos not found on PATH ({level}: {names})")
             return
 
-        message = f"[soma-watchdog] CRIT: {', '.join(crit_names)}"
+        message = f"[soma-watchdog] {level}: {', '.join(names)}"
         subprocess.run([deltos, message], timeout=30)
 
-        # Write stamp after sending
         ALERT_STAMP.parent.mkdir(parents=True, exist_ok=True)
         ALERT_STAMP.write_text(datetime.now().isoformat())
-        log(f"alert_on_crit sent: {message}")
+        log(f"alert sent: {message}")
     except Exception as e:
-        log(f"alert_on_crit error: {e}")
+        log(f"alert_on_unhealthy error: {e}")
 
 
 TS_KEY_WARN_DAYS = 30
@@ -274,22 +341,6 @@ def check_tailscale() -> dict:
             if days_left < TS_KEY_WARN_DAYS:
                 log(f"Tailscale: key expires in {days_left} days")
                 return {"status": "warn", "days_until_expiry": days_left}
-
-        # Enforce RunSSH=false — Tailscale SSH intercept causes periodic
-        # browser re-auth from Blink. sshd + authorized_keys is the auth path.
-        prefs = subprocess.run(
-            ["tailscale", "debug", "prefs"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if '"RunSSH": true' in (prefs.stdout or ""):
-            subprocess.run(
-                ["sudo", "tailscale", "set", "--ssh=false", "--accept-risk=lose-ssh"],
-                capture_output=True,
-                timeout=10,
-            )
-            log("Tailscale: disabled RunSSH (was true)")
 
         return {"status": "ok"}
     except Exception as e:
@@ -349,6 +400,9 @@ def check_cycle():
     ]:
         rotate_log(logfile)
 
+    # Proactive cache pruning (every cycle, not just on disk pressure)
+    prune_caches()
+
     # Runaway processes
     kill_runaway_ribosomes()
 
@@ -367,7 +421,7 @@ def main():
         while True:
             health = check_cycle()
             log_resources()
-            alert_on_crit(health)
+            alert_on_unhealthy(health)
             time.sleep(POLL)
     except KeyboardInterrupt:
         log("Watchdog stopped")
