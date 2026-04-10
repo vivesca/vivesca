@@ -87,20 +87,20 @@ def test_intake_whatsapp_both_fail():
         assert "msg failed" in result["content"]
 
 
-def test_intake_reminders_pacemaker_succeeds():
+def test_intake_reminders_cyclin_succeeds():
     with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
         mock_run.return_value = (True, "reminder 1\nreminder 2")
         result = intake_reminders()
-        assert result["label"] == "Reminders (pacemaker)"
+        assert result["label"] == "Reminders (cyclin)"
         assert result["ok"] is True
-        mock_run.assert_called_once_with(["pacemaker", "ls"], timeout=10)
+        mock_run.assert_called_once_with(["cyclin", "ls"], timeout=10)
 
 
-def test_intake_reminders_falls_back_to_due():
+def test_intake_reminders_falls_back_to_pacemaker():
     with patch("metabolon.pinocytosis.interphase.run_cmd") as mock_run:
-        mock_run.side_effect = [(False, "pacemaker failed"), (True, "due reminder 1")]
+        mock_run.side_effect = [(False, "cyclin failed"), (True, "reminder 1")]
         result = intake_reminders()
-        assert result["label"] == "Due Reminders"
+        assert result["label"] == "Reminders (pacemaker fallback)"
         assert result["ok"] is True
         assert mock_run.call_count == 2
 

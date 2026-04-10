@@ -1,6 +1,6 @@
 """emit — all outbound secretion (output) channels.
 
-Actions: spark|tweet|daily_note|praxis|publish|reminder|telemetry|telegram_text|telegram_image|linkedin|knowledge_signal|interphase_close
+Actions: spark|tweet|daily_note|praxis|publish|telemetry|telegram_text|telegram_image|linkedin|knowledge_signal|interphase_close
 Absorbs: secretory (emit_*), deltos (exocytosis_*), pseudopod endocytosis_extract helpers, polymerization, interphase_close.
 """
 
@@ -18,7 +18,6 @@ from metabolon.locus import chromatin
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 from metabolon.morphology import EffectorResult, Secretion
 from metabolon.organelles import golgi as _golgi
-from metabolon.organelles import pacemaker as _pacemaker
 from metabolon.organelles import praxis as _praxis
 from metabolon.organelles import secretory_vesicle as _sv
 
@@ -91,7 +90,6 @@ _ACTIONS = (
     "daily_note — append section to today's daily note. Requires: section, content. "
     "praxis — query Praxis.md. Optional: subcommand (today/upcoming/overdue/someday/all/stats/clean). "
     "publish — garden publish operations. Requires: subcommand (new/list/publish/push/index). Optional: slug. "
-    "reminder — set a Due app reminder. Requires: title. Optional: date. "
     "telemetry — log published content. Requires: channel, title, source_skill. Optional: slug, tags. "
     "telegram_text — send text to Telegram. Requires: text. Optional: format (html/plain). "
     "telegram_image — send image to Telegram. Requires: path. Optional: caption. "
@@ -127,10 +125,8 @@ def emit(
     json_output: bool = True,
     # publish
     slug: str = "",
-    # reminder
+    # telemetry (shared title param)
     title: str = "",
-    date: str = "",
-    # telemetry
     channel: str = "",
     source_skill: str = "",
     # telegram
@@ -227,16 +223,6 @@ def emit(
         elif subcommand == "index":
             return EffectorResult(success=True, message=f"Index updated -- {golgi.index()} posts")
         return EffectorResult(success=False, message=f"Unknown subcommand: {subcommand}")
-
-    # -- reminder --------------------------------------------------------
-    elif action == "reminder":
-        if not title:
-            return EffectorResult(success=False, message="reminder requires: title")
-        try:
-            result = _pacemaker.add(title, date=date or None)
-            return EffectorResult(success=True, message=result)
-        except Exception as exc:
-            return EffectorResult(success=False, message=str(exc))
 
     # -- telemetry -------------------------------------------------------
     elif action == "telemetry":

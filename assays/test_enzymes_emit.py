@@ -265,34 +265,6 @@ class TestPublish:
 
 
 # ===================================================================
-# reminder
-# ===================================================================
-
-
-class TestReminder:
-    @patch("metabolon.enzymes.emit._pacemaker")
-    def test_reminder_success(self, mock_pm):
-        mock_pm.add.return_value = "reminder set"
-        fn = _fn()
-        result = fn(action="reminder", title="Standup", date="2026-04-01")
-        assert result.success is True
-        mock_pm.add.assert_called_once_with("Standup", date="2026-04-01")
-
-    def test_reminder_missing_title(self):
-        fn = _fn()
-        result = fn(action="reminder", title="")
-        assert result.success is False
-
-    @patch("metabolon.enzymes.emit._pacemaker")
-    def test_reminder_exception(self, mock_pm):
-        mock_pm.add.side_effect = RuntimeError("no Due.app")
-        fn = _fn()
-        result = fn(action="reminder", title="Test")
-        assert result.success is False
-        assert "no Due.app" in result.message
-
-
-# ===================================================================
 # telemetry
 # ===================================================================
 

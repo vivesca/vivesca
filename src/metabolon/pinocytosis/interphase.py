@@ -63,12 +63,12 @@ def intake_whatsapp() -> dict:
 
 
 def intake_reminders() -> dict:
-    ok, out = run_cmd(["pacemaker", "ls"], timeout=10)
+    ok, out = run_cmd(["cyclin", "ls"], timeout=10)
     if not ok:
-        ok, out = run_cmd(["due", "list"], timeout=10)
-        label = "Due Reminders"
+        ok, out = run_cmd(["pacemaker", "ls"], timeout=10)
+        label = "Reminders (pacemaker fallback)"
     else:
-        label = "Reminders (pacemaker)"
+        label = "Reminders (cyclin)"
     return {"label": label, "ok": ok, "content": out or "(none)"}
 
 

@@ -62,7 +62,7 @@ electroreception — read iMessage/SMS from macOS chat.db.
 
 ### emit
 emit — all outbound secretion (output) channels.
-- `emit(action, label, content, tags, text, insight, topic, tweet, artifact, useful, context, section, subcommand, json_output, slug, title, date, channel, source_skill, path, caption, format, shipped, tomorrow, open_threads, nudges, day_score, note_date)` -- Unified outbound secretion tool.
+- `emit(action, label, content, tags, text, insight, topic, tweet, artifact, useful, context, section, subcommand, json_output, slug, title, channel, source_skill, path, caption, format, shipped, tomorrow, open_threads, nudges, day_score, note_date)` -- Unified outbound secretion tool.
 
 ### endocytosis
 endocytosis — RSS ingestion and status tools.
@@ -182,8 +182,8 @@ _(no description)_
 Temporal.io-based workflow orchestrator for translation task dispatch. Replaces the markdown queue-based ribosome-daemon polling loop with durable workflows.
   Files: `CLAUDE.md`, `README.md`, `assays`, `autopoiesis.py`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
 
-### Standalone scripts (198 total, on PATH)
-  Recent: `proteome`, `vivesca-preflight`, `batch-scrape`, `willison-scrape`, `rheotaxis`, `smolnews-scrape`, `pypi-reserve.py`, `soma-watchdog`, `soma-activate`, `ribosome`
+### Standalone scripts (199 total, on PATH)
+  Recent: `soma-bootstrap`, `soma-watchdog`, `soma-cron-wrap`, `ribosome`, `proteome`, `vivesca-preflight`, `batch-scrape`, `willison-scrape`, `rheotaxis`, `smolnews-scrape`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -395,10 +395,10 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **945**
-- Most active: `rheotaxis` (213), `fetch` (163), `server` (146), `ribosome_dispatch` (106), `endosomal` (83)
+- Signals (last 7 days): **735**
+- Most active: `rheotaxis` (179), `fetch` (164), `ribosome_dispatch` (106), `endosomal` (82), `lysin` (39)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 2 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 3 errors)

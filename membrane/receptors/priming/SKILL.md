@@ -46,5 +46,5 @@ Entries older than 30 days without firing should be reviewed in `/weekly` — ei
 ## Gotchas
 
 - This is NOT a TODO list. TODOs have deadlines. Priming entries have contexts.
-- Don't duplicate what Due/pacemaker handles (time-triggered reminders).
+- Don't duplicate what Due/cyclin handles (time-triggered reminders).
 - Keep entries short — one line per reminder. If it needs explanation, it's a TODO or a vault note.
