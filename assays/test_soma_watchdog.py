@@ -639,3 +639,18 @@ def test_prune_caches_never_touches_opencode_install():
         "~/.local/share/opencode is not a cache — wholesale rmtree loses "
         "state. Same bug pattern as the 2026-04-10 claude install wipe."
     )
+
+
+def test_prune_caches_never_touches_precommit_cache():
+    """~/.cache/pre-commit holds live hook environments mid-commit.
+
+    2026-04-10: watchdog pruned this cache 4x in 5 minutes under a 300MB
+    budget while commits were in flight, each rmtree nuking the in-progress
+    gitleaks/ruff/ty hook install and making commits fail in a loop. Use
+    `pre-commit gc` (tool-native) for cleanup instead.
+    """
+    src = open(str(Path.home() / "germline/effectors/soma-watchdog")).read()
+    assert '".cache/pre-commit"' not in src, (
+        "~/.cache/pre-commit holds live hook envs — pre-commit gc is the "
+        "correct cleanup tool, not shutil.rmtree."
+    )

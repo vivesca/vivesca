@@ -121,12 +121,19 @@ def prune_caches():
     # bundle exceeded 400MB, leaving a dangling ~/.local/bin/claude symlink
     # and breaking every new CC session on soma. Claude Code session state
     # lives at ~/.claude/, which is never pruned.
+    #
+    # DO NOT add ~/.cache/pre-commit here either. It holds live hook
+    # environments (Go builds for gitleaks, Python venvs for ruff/ty, etc.)
+    # that are actively used during every `git commit`. On 2026-04-10 the
+    # watchdog pruned it four times in five minutes under a 300MB budget
+    # while commits were in flight, each prune killing the in-progress
+    # hook install and making `git commit`/`git push` fail in a loop.
+    # Use `pre-commit gc` (tool-native) if cleanup is ever needed.
     targets = [
         (".cache/uv", 300),
         (".cache/pip", 200),
         (".cache/go-build", 200),
         (".cache/node-gyp", 200),
-        (".cache/pre-commit", 300),
         (".npm", 500),  # npm global cache — regrows on install
         (".cargo/registry", 400),  # cargo package cache — regrows from Cargo.toml
     ]
