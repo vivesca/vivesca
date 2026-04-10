@@ -102,22 +102,42 @@ Then prioritize:
 
 **Prose is not ribosome work.** Consulting cards, case studies, briefings — single-turn generation. Generate inline in CC.
 
-### Phase 2: Write tasks with test gates
+### Phase 2: Write specs + tests (primase)
 
-**CC writes tests first, ribosome implements to pass them.** This is the core loop.
+**CC writes specs and tests, ribosome implements to pass them.** This is the core loop.
 
-**Controller extracts, subagents don't read.** CC reads specs/plans once and injects exactly what the ribosome needs into its prompt. Never tell ribosome "read the plan file and do what it says" — that wastes turns and lets the ribosome misinterpret. State the action directly.
+**Spec file:** `~/epigenome/chromatin/loci/plans/spec-<slug>.md` with YAML frontmatter:
+```yaml
+---
+title: "One-line description"
+status: ready
+repo: ~/code/<repo>
+depends_on: []
+target_files:
+  - path/to/file.py
+tests:
+  run: "uv run pytest assays/test_foo.py -x"
+---
+```
 
-**Prompt quality matters more than prompt length.** Include:
-- Exact file path to create/modify
-- Pattern file to copy from (if applicable)
-- Test command to verify
-- Commit message
+**Spec body:** Problem (2-3 sentences) → Solution (concrete: name the function, the approach) → Location (exact file, line numbers, paste current code if >200 lines) → Constraints (only modify X, do NOT modify Y) → Tests (exact function names + assertions + STOP condition).
 
-1. CC writes `assays/test_<feature>.py` with concrete test cases
-2. CC dispatches via MCP tool with clear prompt
-3. Ribosome implements until tests pass
-4. Post-gate (ast + test suite + scope check + no_commit check) auto-approves or rejects
+**Spec rules:**
+1. **One function per spec.** Split broad changes into multiple specs with `depends_on`.
+2. **Paste current code.** GLM corrupts files >500 lines when working blind.
+3. **Explicit file constraint.** "Only modify `translocase.py` lines 200-250" — not "only modify mtor".
+4. **Name the insertion point.** "Add after `_merge_lock` helper" not "add near the top".
+5. **Tests with explicit stop conditions.** "Add test_foo, test_bar. Stop after these 2 — do not add more." Without this, GLM loops (22 commits in 2hr observed 2026-04-10).
+6. **Frontmatter matches rptor fields.** `depends_on` not `blocked_by`.
+
+**Pre-spec checklist:** Read target file → identify exact function/line → check naming patterns → check `git log` on ganglion for conflicts with running tasks.
+
+**Dispatch flow:**
+1. CC writes spec file with all above
+2. CC writes `assays/test_<name>.py` with test scaffolds
+3. CC pushes both to origin
+4. CC dispatches: `mtor --spec <spec.md> "Implement X per spec"`
+5. Post-gate auto-approves or rejects
 
 ### Phase 3: Dispatch via CLI
 
