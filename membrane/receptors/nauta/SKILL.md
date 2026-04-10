@@ -423,9 +423,9 @@ Libraries: **kleis** (cookie extraction), **larvo** (stealth context wrapper).
 
 ---
 
-## Tier 2.5 — agent-browser via SSH to Mac
+## Tier 2.5 — trogocytosis CLI via SSH to Mac
 
-**For sites like LinkedIn** where Playwright login is blocked on soma but works on Mac. Run agent-browser commands via `ssh mac` instead of locally. Same persistent profile, same API — just a different machine.
+**For sites like LinkedIn** where Playwright login is blocked on soma but works on Mac. Trogocytosis CLI (installed on Mac at `/Users/terry/.local/bin/trogocytosis`) wraps agent-browser with cookie injection, stealth, and 1Password auto-login.
 
 ### Why Mac Works When Soma Doesn't
 
@@ -436,25 +436,33 @@ Libraries: **kleis** (cookie extraction), **larvo** (stealth context wrapper).
 ### Login (one-time, when session expires)
 
 ```bash
-ssh mac "agent-browser close; sleep 2; agent-browser --headed open 'https://www.linkedin.com/login'"
-# Fill credentials:
-ssh mac "agent-browser click @e19 && agent-browser keyboard type 'terry.li.hm@gmail.com'"
-LI_PASS=$(op item get "tlahsscuctajs753gkddj6re4i" --vault Agents --fields password --reveal | tr -d '\n')
-ssh mac "agent-browser press Tab && agent-browser keyboard type '${LI_PASS}' && agent-browser click @e12"
-# Verify:
-sleep 8 && ssh mac "agent-browser get url"  # should be /feed, not /login
+# Preferred — auto-fills from 1Password:
+ssh mac "trogocytosis login linkedin.com"
+
+# Manual fallback if auto-fill picks wrong creds:
+ssh mac "trogocytosis fill '#username, [name=session_key]' 'terry.li.hm@gmail.com'"
+ssh mac "trogocytosis fill '#password, [name=session_password]' '<password>'"
+ssh mac "trogocytosis click '[type=submit]'"
+```
+
+### LinkedIn Experience/Education extraction
+
+LinkedIn hides Experience sections on the main profile for 2nd-degree connections. **Navigate to the details URL directly:**
+```bash
+ssh mac "trogocytosis navigate 'https://www.linkedin.com/in/<slug>/details/experience/'"
+ssh mac "trogocytosis eval 'document.body.innerText.substring(0, 8000)'"
 ```
 
 ### Daily Use
 
 ```bash
-ssh mac "agent-browser open 'https://www.linkedin.com/messaging/' && sleep 5 && agent-browser snapshot"
-ssh mac "agent-browser click @eXX"  # interact with refs
-ssh mac "agent-browser keyboard type 'message text'"
-ssh mac "agent-browser screenshot /tmp/li.png"  # verify before sending
+ssh mac "trogocytosis navigate 'https://www.linkedin.com/messaging/'"
+ssh mac "trogocytosis snapshot" | grep "person name"
+ssh mac "trogocytosis click @eXX"
+ssh mac "trogocytosis eval 'document.body.innerText'"
 ```
 
-All agent-browser commands, refs, snapshot, fill, click — everything works. Just prefix with `ssh mac`.
+All trogocytosis commands work via `ssh mac`. Raw `agent-browser` commands also still work.
 
 ### LinkedIn Messaging
 
