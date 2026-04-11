@@ -139,7 +139,7 @@ def mod_anamnesis(data):
 
 ALLOW_STATE = HOME / ".local/share/respirometry/budget-tier.json"
 ALLOW_GUIDANCE = {
-    "anabolic": "",
+    "anabolic": "Stay concise. Budget headroom is not a license for verbose answers — lead with the answer, one section, no anticipatory caveats.",
     "homeostatic": "Delegate implementation to ribosome (`mtor` CLI or Sonnet subagent). CC designs and reviews only.",
     "catabolic": "STOP CODING. CC is architect only — spec tasks for Goose, review results. No direct implementation. Minimize tool calls — verify critical facts only.",
     "autophagic": "WRAP UP. Deliver what you have now. /sporulation immediately. No new work — checkpoint and stop.",
@@ -273,9 +273,9 @@ def mod_allostasis(data):
         if hours_left >= 0:
             h = int(hours_left)
             m = int((hours_left - h) * 60)
-            msg = f"BURN MODE ({reason}) -- {h}h{m:02d}m until reset, {util:.0f}% used. Opus direct, skip delegation."
+            msg = f"BURN MODE ({reason}) -- {h}h{m:02d}m until reset, {util:.0f}% used. Opus direct, skip delegation. Stay concise — burn mode ≠ verbose."
         else:
-            msg = f"BURN MODE ({reason}) -- Opus direct, skip delegation."
+            msg = f"BURN MODE ({reason}) -- Opus direct, skip delegation. Stay concise — burn mode ≠ verbose."
 
         heb = get_hebbian()
         if heb:
