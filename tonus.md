@@ -3,15 +3,14 @@
 <!-- Dual-ledger: Facts = what we know. Progress = where we are. -->
 
 ## Facts (established)
-- **Capco Day 1 done (Apr 8).** Onboarded, connected with Marco/Serafim/Miks. GCB 3, ETIV Phase 1, Lead GenAI.
-- **Coach: Miks Deimantovics** (Managing Principal, UK-based, data specialist). Message him tomorrow.
-- **mtor v0.7.0 on ganglion.** Worker running. Concurrency 2/provider.
+- **Capco Day 3 done (Apr 10).** Grade: PC. Employee ID: 41156. Email: Terry.Li@capco.com. Coach: Miks.
+- **Jiahao positioning settled.** IWPB has functioning in-house AI org (CJI trophy, exec sponsorship, governance vocab). Capco lane = APAC operational delivery + governance-at-scale, NOT ideation/build. Details in `chromatin/loci/plans/jiahao-pack-prep.md`.
+- **Jiahao posting profile captured:** ~1/month, 200-700 reactions, artifact-only (no thought leadership), triad vocabulary — echo verbatim. In `contact_jiahao_teo_hsbc.md`.
 
 ## Progress (active)
-- [done] Capco Day 1: Monidipa email, DUO ticket, compliance trainings started, CV uploaded, Marco/Serafim/Miks contacted
-- [tomorrow] BYOD setup, finish trainings, message Miks, confirm DUO, bench list (Fri COB)
-- [running] mtor: lint fix + worker logging on ganglion
-- [stashed] germline stash@{0}: ruff --fix auto-fixes (69 files)
-- [parked] epigenome dirty: TODO.md, Daily, MEMORY.md, project marks, harness-test dirs, lint spec
-- [parked] garden post: "routing AI coding agents by task type"
-<!-- last checkpoint: 08/04/2026 ~20:30 HKT (cytokinesis full) -->
+- [next] **Goal-setting Excel — verify need** with Miks/Ramya (week 3 ~Apr 24).
+- [next] **Re-read Slide 4 intros** through the operational-governance lens before shipping pack.
+- [parked] Harness shootout re-dispatch — specs in `chromatin/loci/plans/`.
+- [parked] **Epigenome dirty** (18+ files from earlier sessions) — Capco/HSBC packs, Bertie refs.
+- [parked] **Germline dirty** — `loci/crontab`, `effectors/soma-cron-wrap` — unrelated migration.
+<!-- last checkpoint: 11/04/2026 ~00:30 HKT (cytokinesis after Jiahao LinkedIn analysis) -->
