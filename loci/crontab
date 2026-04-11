@@ -34,3 +34,8 @@
 # Mac runs hourly — soma runs less frequently (less code churn on server)
 # These are independent (Mac updates Mac brew, soma updates soma apt) — no DR gate needed
 0 */2 * * * soma-cron-wrap update-coding-tools /home/vivesca/germline/effectors/update-coding-tools.sh
+
+# transfection: mirror ~/code/ git repos from soma to ganglion (every 15 min)
+# Walks ~/code/*/.git, pipes owner/repo slugs to ganglion, clone-or-pulls each.
+# Keeps ganglion ready as an mtor worker target for any repo Terry builds on soma.
+*/15 * * * * soma-cron-wrap transfection /home/vivesca/germline/effectors/transfection

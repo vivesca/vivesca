@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# transfection — mirror ~/code/ git repos from soma to ganglion
+#
+# Walks every git repo in ~/code/ on soma, extracts its GitHub owner/repo
+# slug (stripping any embedded token), and pipes the safe list to ganglion.
+# On ganglion: clone missing repos via `gh repo clone`, pull existing ones
+# with --ff-only. Missing repos on ganglion become usable targets for mtor
+# workers without manual setup.
+#
+# Usage:
+#   transfection              # mirror once
+#   transfection --dry-run    # list what would be synced, don't ssh
+#
+# Biology: transfection = introducing nucleic acid (repos) into cells
+# (ganglion). Companion to mitosis-sync (germline), gemmule-sync (memory).
+set -euo pipefail
+
+CODE_DIR="${HOME}/code"
+DRY_RUN=0
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+
+cd "$CODE_DIR"
+
+# Collect "name owner/repo" pairs, stripping any embedded auth tokens
+manifest=""
+for repo_git in */.git; do
+    [[ -d "$repo_git" ]] || continue
+    name="${repo_git%/.git}"
+    remote="$(cd "$name" && git remote get-url origin 2>/dev/null || true)"
+    [[ -z "$remote" ]] && continue
+    # Extract owner/repo from any github URL shape (ssh, https, https+token)
+    slug="$(printf '%s' "$remote" | sed -nE 's#.*github\.com[:/]+([^/]+/[^/]+)#\1#p' | sed 's/\.git$//')"
+    [[ -z "$slug" ]] && continue
+    manifest+="${name} ${slug}"$'\n'
+done
+
+if (( DRY_RUN )); then
+    printf '%s' "$manifest"
+    exit 0
+fi
+
+# Send script + manifest to ganglion in one stream.
+# Outer heredoc expands $manifest locally; inner MANIFEST heredoc is the data.
+# $HOME and remote-side vars are escaped to defer expansion to ganglion.
+ssh ganglion bash -s <<REMOTE
+set -u
+export PATH="\$HOME/.local/share/fnm:\$HOME/.local/bin:\$PATH"
+mkdir -p "\$HOME/code"
+cd "\$HOME/code"
+pulled=0; cloned=0; failed=0
+while IFS=' ' read -r name slug; do
+    [[ -z "\$name" || -z "\$slug" ]] && continue
+    if [[ -d "\$HOME/code/\$name/.git" ]]; then
+        if (cd "\$HOME/code/\$name" && git fetch --quiet origin && git pull --ff-only --quiet) 2>/dev/null; then
+            pulled=\$((pulled+1))
+        else
+            failed=\$((failed+1))
+            echo "pull-fail: \$name" >&2
+        fi
+    else
+        if gh repo clone "\$slug" "\$name" 2>/dev/null; then
+            cloned=\$((cloned+1))
+            echo "cloned: \$name (\$slug)"
+        else
+            failed=\$((failed+1))
+            echo "clone-fail: \$name (\$slug)" >&2
+        fi
+    fi
+done <<'MANIFEST'
+${manifest}MANIFEST
+echo "transfection: pulled=\$pulled cloned=\$cloned failed=\$failed"
+REMOTE
