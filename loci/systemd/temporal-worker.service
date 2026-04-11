@@ -1,0 +1,21 @@
+[Unit]
+Description=Temporal Translocase (mtor)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=vivesca
+WorkingDirectory=/home/vivesca/code/mtor
+Environment=PATH=/home/vivesca/.local/bin:/usr/local/bin:/usr/bin:/bin:/home/vivesca/bin
+Environment=TEMPORAL_HOST=localhost:7233
+# Source the shell-style .env.bootstrap (systemd EnvironmentFile= cannot
+# parse `export VAR=X` lines — it silently drops them, leaving op with no
+# OP_SERVICE_ACCOUNT_TOKEN). Wrap ExecStart in bash -c instead so the
+# token reaches op run.
+ExecStart=/bin/bash -c 'source /home/vivesca/.env.bootstrap && exec /usr/bin/op run --env-file /home/vivesca/germline/loci/env.op -- /home/vivesca/code/mtor/.venv/bin/python3 -m mtor.worker'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
