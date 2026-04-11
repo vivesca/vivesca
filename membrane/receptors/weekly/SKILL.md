@@ -141,9 +141,14 @@ Keep it brief — the value is pattern recognition over weeks, not daily obsessi
 
 ## Next Week's Focus
 
+**Week's character** (one sentence): [e.g., "Closing out Capco Week 3 — protect Wed for client readout" or "Recovery week, rebuild sleep"]
+
+**Big rocks** (1-3 max — given calendar constraints + open loops):
 1. [Primary]
 2. [Secondary]
 3. [Explore]
+
+**What surprised me this week:** [the most valuable line — broken tool, new opportunity, pattern in data. Don't skip.]
 ```
 
 5. **Keep it honest** — this is for pattern recognition, not performance reporting. Short weeks with little output are fine to note as such.
