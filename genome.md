@@ -13,6 +13,7 @@
 - **Glob**: NEVER `**` on `/home/vivesca`.
 - **tccutil reset**: NEVER.
 - **WhatsApp**: NEVER send — draft for Terry.
+- **Gmail / Google Calendar invites**: NEVER send unless Terry explicitly says so. Draft only. Extra strict for Capco colleagues — no calendar events, no meeting invites, no emails without explicit per-message approval.
 - **Gists**: ALWAYS secret.
 - **Post-cutoff / fast-moving facts**: Web-search first. Training data decays in months.
 - **Calculations**: Python only.
