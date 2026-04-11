@@ -776,18 +776,31 @@ EXPLORE_SYS
     # Success — break immediately
     [[ $exit_code -eq 0 ]] && break
 
-    # Detect rate-limiting:
-    # 1. Explicit 429 strings in output
-    # 2. Empty/whitespace-only output with non-zero exit (claude swallows 429 errors silently)
+    # Detect rate-limiting. Gate every path on a POSITIVE signal — "empty
+    # output + failure" used to be classified as rate-limit on the theory
+    # that claude had swallowed a 429 internally, but that assumption also
+    # matches deterministic CLI errors (Unknown flag, missing binary, killed
+    # process, stdin deadlock) which are not retryable. The 2026-04-11
+    # incident that looked like a 59k rate-limit runaway was actually a
+    # literal `---` frontmatter token being interpreted as a CLI flag,
+    # retried forever because the classifier assumed it was transient.
+    #
+    # 1. Explicit 429 strings in stdout OR stderr
+    # 2. Exit=2 WITH a rate-limit signal in stderr (not every exit=2 is 429;
+    #    it also covers auth failure, model-not-found, config errors)
     local _is_ratelimit=false
-    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded|usage.limit|hit your.*limit|quota will reset'; then
+    local _rl_pattern='429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded|usage.limit|hit your.*limit|quota will reset|too many requests|throttled'
+    if echo "$output" | grep -qiE "$_rl_pattern"; then
       _is_ratelimit=true
-    elif [[ -z "${output// /}" ]]; then
-      # Empty output + failure = claude got 429 and retried internally until giving up
+    elif [[ $exit_code -eq 2 ]] && echo "$output" | grep -qiE "$_rl_pattern"; then
       _is_ratelimit=true
-    elif [[ $exit_code -eq 2 ]]; then
-      # Claude Code exit=2 = initialization error (API 429, auth failure, model not found)
-      _is_ratelimit=true
+    fi
+
+    # Deterministic CLI failures — never retry. Surface them loudly so the
+    # chaperone review gate rejects fast instead of masking the real error.
+    if echo "$output" | grep -qE 'Unknown flag|command not found|No such file or directory|ModuleNotFoundError|SyntaxError'; then
+      _is_ratelimit=false
+      $QUIET || echo "[ribosome] deterministic CLI error detected, not retryable" >&2
     fi
 
     if $_is_ratelimit; then
