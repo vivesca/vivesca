@@ -21,6 +21,12 @@ DRY_RUN=0
 
 cd "$CODE_DIR"
 
+# Repos the ganglion gh token cannot access (org membership gap, archived, etc.)
+# Add entries here rather than failing noisily every 15 minutes.
+SKIP_SLUGS=(
+    "hexis-framework/oghma"  # terry-li-hm not a member of hexis-framework org
+)
+
 # Collect "name owner/repo" pairs, stripping any embedded auth tokens
 manifest=""
 for repo_git in */.git; do
@@ -31,6 +37,12 @@ for repo_git in */.git; do
     # Extract owner/repo from any github URL shape (ssh, https, https+token)
     slug="$(printf '%s' "$remote" | sed -nE 's#.*github\.com[:/]+([^/]+/[^/]+)#\1#p' | sed 's/\.git$//')"
     [[ -z "$slug" ]] && continue
+    # Skip known-inaccessible slugs
+    skip=0
+    for skip_slug in "${SKIP_SLUGS[@]}"; do
+        [[ "$slug" == "$skip_slug" ]] && skip=1 && break
+    done
+    (( skip )) && continue
     manifest+="${name} ${slug}"$'\n'
 done
 
