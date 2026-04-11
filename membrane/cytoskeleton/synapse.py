@@ -147,7 +147,7 @@ ALLOW_GUIDANCE = {
 # Map respirometry budget tiers to metabolic states
 _BUDGET_TO_STATE = {"green": "anabolic", "yellow": "homeostatic", "red": "catabolic"}
 ALLOW_CIRCADIAN = {
-    "night": "Late night — consider wrapping up.",
+    "night": "",
     "evening": "",
     "morning": "",
     "day": "",
