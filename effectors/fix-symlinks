@@ -3,24 +3,110 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Fix symlinks broken by Mac→Linux rsync.
+"""Fix symlinks broken by Mac→Linux rsync or user-rename events.
 
-Replaces macOS home-directory symlink targets with the current Linux home path
-in key directories. Idempotent and safe to run multiple times.
+Handles both historical prefixes:
+
+  /Users/terry/...   — Mac layout before the Linux migration
+  /home/terry/...    — Linux layout before the vivesca user rename
+
+Two repair strategies are tried in order for each broken symlink:
+
+  1. Straight prefix translation to ``/home/vivesca/``. Works when the
+     directory tree under the old prefix exists unchanged at the new one.
+  2. Basename lookup in the skill mirrors
+     (``germline/membrane/receptors`` + ``germline/membrane/buds``).
+     Works for opencode/skills-style mirror directories where only the
+     leaf name matters.
+
+Symlinks whose target cannot be resolved either way are orphaned. They are
+left alone by default; pass ``--delete-orphans`` to remove them.
+
+Flags:
+
+  --check            Exit 1 if any broken terry/Terry symlinks remain.
+                     No repairs performed. For health probes.
+  --delete-orphans   Remove symlinks whose target cannot be resolved.
+  --full             Scan all of $HOME (default: scan_dirs list below).
+  --dry-run          Report actions without touching the filesystem.
+
+The ``scan_and_fix`` function is preserved for back-compat with
+``assays/test_fix_symlinks.py``. It returns ``(fixed, skipped)`` and
+honours the module-level ``SCAN_DIRS`` / ``MAC_PREFIX`` / ``LINUX_PREFIX``
+constants so existing tests continue to work.
 """
 
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
 MAC_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
+LINUX_OLD_PREFIX = f"{PurePosixPath('/', 'home', 'terry')}/"
 LINUX_PREFIX = f"{Path.home()}/"
+
+PREFIXES = (MAC_PREFIX, LINUX_OLD_PREFIX)
+
+# Default (narrow) scan dirs — preserves existing effector behaviour and
+# satisfies test_fix_symlinks.TestScanAndFix.load_with_tmpdir which patches
+# this list.
 SCAN_DIRS = ["~/.claude", "~/epigenome", "~/germline"]
+
+# Mirror fallbacks: leaf-name lookup for skill mirrors.
+_RECEPTORS = Path.home() / "germline" / "membrane" / "receptors"
+_BUDS = Path.home() / "germline" / "membrane" / "buds"
+
+
+def _load_mirror_names() -> tuple[set[str], set[str]]:
+    reps = set(os.listdir(_RECEPTORS)) if _RECEPTORS.is_dir() else set()
+    buds = set(os.listdir(_BUDS)) if _BUDS.is_dir() else set()
+    return reps, buds
+
+
+def _resolve(target: str, reps: set[str], buds: set[str]) -> str | None:
+    """Return a working target for a broken terry/Terry symlink, or None."""
+    for prefix in PREFIXES:
+        if target.startswith(prefix):
+            cand = LINUX_PREFIX + target[len(prefix):]
+            if os.path.exists(cand):
+                return cand
+            break
+    name = os.path.basename(target)
+    if name in reps:
+        return str(_RECEPTORS / name)
+    if name in buds:
+        return str(_BUDS / name)
+    return None
+
+
+def _iter_candidate_links(roots: list[str]):
+    """Yield absolute paths of symlinks whose target starts with a stale prefix."""
+    for root in roots:
+        expanded = Path(os.path.expanduser(root))
+        if not expanded.exists():
+            continue
+        for dirpath, _dirnames, filenames in os.walk(expanded):
+            for name in filenames:
+                full = Path(dirpath) / name
+                if not full.is_symlink():
+                    continue
+                try:
+                    target = os.readlink(full)
+                except OSError:
+                    continue
+                if any(target.startswith(p) for p in PREFIXES):
+                    yield full, target
 
 
 def scan_and_fix() -> tuple[int, int]:
+    """Legacy API — preserved for test_fix_symlinks.py.
+
+    Behaviour matches the original effector: Mac→Linux prefix translation
+    only, no orphan deletion, no mirror fallback. Uses module-level
+    ``SCAN_DIRS`` / ``MAC_PREFIX`` / ``LINUX_PREFIX`` so tests can patch.
+    """
     fixed = 0
     skipped = 0
     for d in SCAN_DIRS:
@@ -54,11 +140,100 @@ def scan_and_fix() -> tuple[int, int]:
     return fixed, skipped
 
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h"):
+def sweep(
+    roots: list[str],
+    *,
+    delete_orphans: bool = False,
+    dry_run: bool = False,
+) -> dict[str, int]:
+    """Full sweep: translate + basename-fallback + optional orphan delete."""
+    reps, buds = _load_mirror_names()
+    repointed = 0
+    deleted = 0
+    orphaned = 0
+
+    # Prefer a single find subprocess for speed when scanning $HOME.
+    if roots == ["~"]:
+        result = subprocess.run(
+            [
+                "/usr/bin/find", os.path.expanduser("~"), "-type", "l",
+                "(", "-lname", "/home/terry/*", "-o", "-lname", "/Users/terry/*", ")",
+            ],
+            capture_output=True, text=True,
+        )
+        candidates = []
+        for link in result.stdout.splitlines():
+            if not link:
+                continue
+            try:
+                target = os.readlink(link)
+            except OSError:
+                continue
+            candidates.append((Path(link), target))
+    else:
+        candidates = list(_iter_candidate_links(roots))
+
+    for link, target in candidates:
+        fixed_target = _resolve(target, reps, buds)
+        if fixed_target is not None:
+            if not dry_run:
+                link.unlink()
+                link.symlink_to(fixed_target)
+            repointed += 1
+            continue
+        orphaned += 1
+        if delete_orphans:
+            if not dry_run:
+                try:
+                    link.unlink()
+                    deleted += 1
+                except OSError as e:
+                    print(f"  ERROR: {link}: {e}", file=sys.stderr)
+            else:
+                deleted += 1
+
+    return {
+        "total": len(candidates),
+        "repointed": repointed,
+        "deleted": deleted,
+        "orphaned": orphaned - deleted,
+    }
+
+
+def _count_broken() -> int:
+    result = subprocess.run(
+        [
+            "/usr/bin/find", os.path.expanduser("~"), "-type", "l",
+            "(", "-lname", "/home/terry/*", "-o", "-lname", "/Users/terry/*", ")",
+        ],
+        capture_output=True, text=True,
+    )
+    return sum(1 for ln in result.stdout.splitlines() if ln.strip())
+
+
+def main(argv: list[str]) -> int:
+    if "--help" in argv or "-h" in argv:
         print(__doc__)
-        sys.exit(0)
-    print("Scanning for broken Mac symlinks...")
-    fixed, skipped = scan_and_fix()
-    print(f"\nDone. Fixed: {fixed}, skipped: {skipped}")
-    sys.exit(0 if skipped == 0 else 1)
+        return 0
+    if "--check" in argv:
+        n = _count_broken()
+        print(f"broken_terry_symlinks={n}")
+        return 1 if n > 0 else 0
+
+    full = "--full" in argv
+    delete = "--delete-orphans" in argv
+    dry = "--dry-run" in argv
+    roots = ["~"] if full else SCAN_DIRS
+
+    mode = "dry-run" if dry else "fix"
+    print(f"Scanning {roots} ({mode}, delete_orphans={delete})")
+    stats = sweep(roots, delete_orphans=delete, dry_run=dry)
+    print(
+        f"total={stats['total']}  repointed={stats['repointed']}  "
+        f"deleted={stats['deleted']}  orphaned={stats['orphaned']}"
+    )
+    return 1 if stats["orphaned"] > 0 else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
