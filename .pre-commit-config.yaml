@@ -89,13 +89,7 @@ repos:
         always_run: true
         stages: [pre-push]
 
-      - id: temporal-tests
-        name: temporal tests
-        entry: bash -c 'HYPOTHESIS_DATABASE_FILE=/tmp/.hypothesis uv run pytest assays/test_polysome_stages.py -x -q -p no:cacheprovider -p no:hypothesis'
-        language: system
-        pass_filenames: false
-        files: (polysome/|temporal)
-        stages: [pre-push]
+      # temporal-tests hook removed — polysome effector was culled 2026-04-12
 
       - id: ci-full-suite
         name: CI (full test suite on ganglion, async)
