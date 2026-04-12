@@ -1,5 +1,5 @@
 export PATH=/home/vivesca/germline/effectors:/home/vivesca/germline/.venv/bin:/home/vivesca/.local/bin:/home/vivesca/.cargo/bin:/home/vivesca/.bun/bin:$PATH
-export MTOR_TEMPORAL_HOST="ganglion:7233"
+export MTOR_TEMPORAL_HOST="localhost:7233"
 export FLYCTL_INSTALL="/home/vivesca/.fly"
 export PATH="$FLYCTL_INSTALL/bin:$PATH"
 
