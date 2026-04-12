@@ -6,12 +6,12 @@
 - **Capco Day 3 done (Apr 10).** Grade: PC. Employee ID: 41156. Email: Terry.Li@capco.com. Coach: Miks.
 - **Jiahao pack deadline:** EOD Tue 14 Apr.
 - **Gmail filter scope missing:** endosomal + gog both lack settings scope. Filters require manual Gmail UI.
-- **Inbox zero** achieved Apr 12. Surfaced: GARP RAI case #00882968, Buyandship unclaimed pkg, SmarTone payment, IRD tax notice, Theo ESF K1 waitlist, Tara Bolttech insurance.
 
 ## Progress (active)
-- [waiting / Terry] **Capco CV render verification** — v0.1.19 live, `uv tool upgrade recombinase` + `iterate.cmd`.
+- [done] **Roster TUI v2** — charts (plotext), sparkline trend, click-to-drill-down, config-driven bench with scoped filter, Windows deferred reinstall, WorkerState fix. 142 tests.
+- [done] **Setup gist** for Capco laptop: gist.github.com/terry-li-hm/264a655dd33d49fcc0c461e9d1252c00
+- [waiting / Terry] **Capco CV render verification** — v0.1.19 live.
 - [next / Mon AM] **Send Bertie + Miks brief** (Slide 4 Continuous Suitability Agent).
-- [next] **Goal-setting Excel — verify need** with Miks/Ramya (week 3 ~Apr 24).
+- [next / Mon] **Roster on Capco laptop** — add [bench] config, test TUI charts.
 - [parked] Harness shootout re-dispatch — specs in `chromatin/loci/plans/`.
-- [parked] **Epigenome dirty** (25+ files from earlier sessions) — plans, marks, coaching.
-<!-- last checkpoint: 12/04/2026 ~14:45 HKT (cytokinesis after email triage) -->
+<!-- last checkpoint: 12/04/2026 ~22:30 HKT (cytokinesis after TUI charts session) -->
