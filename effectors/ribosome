@@ -230,11 +230,11 @@ _configure_backend() {
     volcano)
       _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
       _URL="https://ark.cn-beijing.volces.com/api/coding"
-      _OPUS="doubao-seed-2-0-code"; _SONNET="doubao-seed-2-0-code"; _HAIKU="doubao-seed-2-0-code" ;;
+      _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
       _URL="https://cloud.infini-ai.com/maas/coding"
-      _OPUS="minimax-m2.7"; _SONNET="minimax-m2.7"; _HAIKU="minimax-m2.5" ;;
+      _OPUS="glm-5.1"; _SONNET="glm-5.1"; _HAIKU="glm-5.1" ;;
     gemini)
       _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
       _URL=""; _OPUS=""; _SONNET=""; _HAIKU="" ;;
@@ -400,6 +400,7 @@ _claude_env() {
   env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
     CLAUDECODE= \
     ANTHROPIC_AUTH_TOKEN="$_KEY" \
+    ANTHROPIC_API_KEY="" \
     ANTHROPIC_BASE_URL="$_URL" \
     ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
     ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
