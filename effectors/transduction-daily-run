@@ -15,7 +15,7 @@ echo "=== $(date) ==="
 
 # Fetch X personalized feed into endocytosis cache
 echo "Fetching X feed..."
-python3 "${HOME}/reticulum/bin/x-feed-to-endocytosis" 2>&1 || echo "X feed fetch failed (non-fatal)"
+"${HOME}/germline/effectors/x-feed-to-endocytosis" 2>&1 || echo "X feed fetch failed (non-fatal)"
 
 # Run transduction daily extraction
 echo "Running transduction daily..."

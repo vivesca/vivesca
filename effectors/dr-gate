@@ -4,6 +4,11 @@
 # Wraps a Mac LaunchAgent command. Exits 0 immediately if soma is alive
 # (we're standby), exec's the command if soma is unreachable (we're failover).
 #
+# Architecture:
+#   Soma (Fly Tokyo) = primary
+#   Ganglion (OCI ARM) = Temporal worker
+#   Mac = hot standby DR — runs jobs only when soma is unreachable
+#
 # Usage in plist:
 #   <key>ProgramArguments</key>
 #   <array>
@@ -14,7 +19,7 @@
 #   </array>
 #
 # OR direct script invocation:
-#   dr-gate /usr/bin/python3 /Users/terry/germline/effectors/transduction --period daily
+#   dr-gate python3 ~/germline/effectors/some-task --flag
 #
 # Logging: writes a single-line marker to ~/tmp/dr-gate.log when standby/active.
 
@@ -25,8 +30,15 @@ mkdir -p "$(dirname "$LOG")"
 
 job_label="${DR_JOB_LABEL:-$(basename "$1" 2>/dev/null || echo unknown)}"
 
-if /Users/terry/germline/effectors/soma-alive-check; then
+# Check soma via Tailscale — 2s timeout, no DNS dependency
+if ping -c1 -W2 soma >/dev/null 2>&1; then
   printf '[%s] standby :: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$job_label" >> "$LOG"
+  exit 0
+fi
+
+# Double-check via SSH (ping might be blocked)
+if ssh -o ConnectTimeout=3 -o BatchMode=yes soma true >/dev/null 2>&1; then
+  printf '[%s] standby :: %s (ssh fallback)\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$job_label" >> "$LOG"
   exit 0
 fi
 

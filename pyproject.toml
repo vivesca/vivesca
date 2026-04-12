@@ -112,8 +112,6 @@ extend-exclude = [
   "effectors/golem-dash",
   "effectors/hatchet-golem",
   "effectors/plan-exec",
-  "effectors/polysome/docker-compose.yml",
-  "effectors/polysome/uv.lock",
   "effectors/pre-commit-germline",
   "effectors/ribosome",
   "effectors/ribosome-daemon",
@@ -237,7 +235,7 @@ ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,
 [tool.deptry]
 # cryptography: used by telethon/playwright at runtime, not imported directly
 # google-auth-oauthlib: used by circadian_clock at runtime via google.oauth2
-# hatchet-sdk: effectors/polysome (not in src/)
+# hatchet-sdk: was effectors/polysome (removed)
 # hypothesis: used in tests, not src
 # oghma: editable install, used at runtime
 # pygments: used by rich at runtime
@@ -303,4 +301,4 @@ unused-type-ignore-comment = "ignore"
 
 [tool.ty.environment]
 python-version = "3.14"
-extra-paths = [ "effectors/polysome" ]
+extra-paths = [  ]

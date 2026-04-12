@@ -48,6 +48,29 @@ launchctl load ~/Library/LaunchAgents/com.terry.praeco.plist
 - **IA has RSS**: `http://www.ia.org.hk/en/rss/rss_news_en.xml` — "What's New" feed, covered. MPFA is email-only (subscribed to Circulars).
 - **Don't assume no feed**: checked IA in Mar 2026 — had RSS all along. Always verify before concluding "no feed available."
 
+## Fallback: Playwright CSS Selectors (when RSS unavailable)
+
+If a regulator page has no RSS and praeco can't reach it, fall back to Playwright scraping with these selectors:
+
+```python
+REGULATOR_CONFIGS = {
+    "hkma": {
+        "url": "https://www.hkma.gov.hk/eng/regulatory-resources/regulatory-guides/circulars/",
+        "list_selector": "table tbody tr",
+        "title_selector": "td:nth-child(1) a",
+        "date_selector": "td:nth-child(2)",
+    },
+    "sfc": {
+        "url": "https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/",
+        "list_selector": ".circulars-table tbody:nth-of-type(n+2) tr",
+        "title_selector": "td:nth-child(2) a div",
+        "date_selector": "td:nth-child(1)",
+    },
+}
+```
+
+Date formats seen: `%d %b %Y`, `%d/%m/%Y`, `%Y-%m-%d`. SFC is React SPA — needs `wait_for_load_state("networkidle")` + 10s buffer.
+
 ## Rebuild & Install
 ```bash
 cd ~/code/praeco && cargo build --release

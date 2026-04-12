@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "plan-exec is deprecated. Use: sortase exec <plan> -p <project>"
-    exit 0
-fi
-echo "plan-exec is deprecated. Use: sortase exec <plan> -p <project>" >&2
-exit 1

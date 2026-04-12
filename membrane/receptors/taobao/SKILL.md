@@ -81,6 +81,60 @@ When evaluating TCM-style health products:
 4. **Ingredient economics:** If wholesale cost of lead ingredient > retail price per dose, the product can't contain meaningful amounts
 5. **Search Chinese sources for criticism:** `"[product type] 智商税"`, `"[product type] 有用吗"`, `"[ingredient] 含量 不足"`
 
+## Element UI Interaction Patterns
+
+Taobao/Tmall uses Element UI extensively. Standard `click` often fails due to Vue event binding.
+
+### Select Dropdown (Element UI)
+
+```javascript
+// Select an option from an el-select dropdown by visible text
+(function() {
+    var text = "选项文字";
+    var items = document.querySelectorAll('.el-select-dropdown__item');
+    var found = false;
+    items.forEach(function(item) {
+        if (item.textContent.trim() === text && !found) {
+            item.classList.remove('is-disabled');
+            if (item._vei && item._vei.onClick) {
+                item._vei.onClick(new MouseEvent('click', {bubbles: true}));
+            } else {
+                item.dispatchEvent(new MouseEvent('mouseenter', {bubbles: true}));
+                item.click();
+            }
+            found = true;
+        }
+    });
+    found ? 'selected: ' + text : 'not found: ' + text;
+})()
+```
+
+### Add to Cart (CSS selector click)
+
+```javascript
+// Click add-to-cart or buy button by CSS selector
+(function() {
+    var btn = document.querySelector('.tb-btn-buy, .tb-btn-cart, [data-spm="addcart"]');
+    if (btn) { btn.click(); 'added'; }
+    else { 'button not found'; }
+})()
+```
+
+### Native Form Submit (bypass Vue validation)
+
+When Vue form validation blocks submission, submit natively:
+```javascript
+// Collect form data and submit as hidden form
+(function() {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = window.location.href;
+    // ... collect inputs and submit
+    document.body.appendChild(form);
+    form.submit();
+})()
+```
+
 ### CLAUDE.md Product Research Rules Apply
 
 - Never recommend purchase in the same session as research

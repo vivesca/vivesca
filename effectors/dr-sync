@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Disaster recovery sync — backs up local-only state to officina (git-backed)."""
+"""Disaster recovery sync — backs up local-only state to officina (git-backed).
+
+Runs on Mac (DR standby). Captures state that doesn't live in germline/epigenome
+but would be needed to bring Mac to full operational capacity if soma dies.
+
+Architecture:
+  Soma (Fly Tokyo) = primary workload
+  Ganglion (OCI ARM) = Temporal worker
+  Mac = hot standby DR, IDE, browser auth
+"""
 
 import argparse
 import platform
@@ -12,12 +21,14 @@ DEST = HOME / "officina" / "claude-backup"
 
 
 def sync():
+    """Sync local-only state to officina for DR purposes."""
+    DEST.mkdir(parents=True, exist_ok=True)
+
     # Claude Code settings
-    for f in ["settings.json", "settings.local.json"]:
-        src = HOME / ".claude" / f
+    for fname in ["settings.json", "settings.local.json"]:
+        src = HOME / ".claude" / fname
         if src.exists():
-            DEST.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, DEST / f)
+            shutil.copy2(src, DEST / fname)
 
     # Claude Code memory — discover project memory dirs dynamically
     projects_dir = HOME / ".claude" / "projects"
@@ -42,6 +53,13 @@ def sync():
     syn_dst.mkdir(parents=True, exist_ok=True)
     if syn_src.exists():
         shutil.copy2(syn_src, syn_dst / "config.toml")
+
+    # 1Password agent config (not secrets, just socket/config paths)
+    op_agent = HOME / ".config" / "1Password" / "ssh" / "agent.toml"
+    if op_agent.exists():
+        op_dst = DEST / "config" / "1Password" / "ssh"
+        op_dst.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(op_agent, op_dst / "agent.toml")
 
     # Brewfile refresh (macOS only)
     if platform.system() == "Darwin":
@@ -79,7 +97,7 @@ def sync():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Disaster recovery sync — backs up local-only state to officina (git-backed).",
+        description="Disaster recovery sync — backs up local-only state to officina.",
     )
     parser.parse_args()
     sync()
