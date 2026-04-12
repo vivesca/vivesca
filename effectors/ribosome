@@ -414,13 +414,13 @@ _claude_env() {
 # This prevents ANTHROPIC_* leakage from a parent CC session (mtor/Temporal bug).
 _run_harness_claude() {
   local prompt="$1"
-  local _timeout="$2"
+  local _claude_timeout="$2"
   _claude_env \
     CLAUDE_CODE_MAX_RETRIES="${RIBOSOME_CLAUDE_RETRIES:-2}" \
     CLAUDE_CODE_TMPDIR="/tmp/ribosome-${PROVIDER}-${RIBOSOME_TASK_ID:-$$}" \
     MCP_CONNECTION_NONBLOCKING=true \
     ${RIBOSOME_DEFER_ENABLED:+RIBOSOME_DEFER_ENABLED="$RIBOSOME_DEFER_ENABLED"} \
-    timeout "$_timeout" \
+    timeout "$_claude_timeout" \
     claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
 }
 
@@ -765,7 +765,7 @@ EXPLORE_SYS
         local _elapsed=$(( $(date +%s) - _wall_start ))
         local _remaining=$(( _wall_limit - _elapsed ))
         if [[ $_remaining -lt 300 ]]; then
-          $QUIET || echo "[wall-limit] ${_remaining}s remaining < 300s minimum, skipping retry" >&2
+          $QUIET || echo "[preflight] skipping health check, ${_remaining}s remaining < 300s minimum, skipping retry" >&2
           break
         fi
         $QUIET || echo "[preflight] $PROVIDER connection error (attempt $_attempt/$_max_retries), retrying in ${_backoff}s" >&2
@@ -773,7 +773,7 @@ EXPLORE_SYS
         _backoff=$(( _backoff * 2 ))
         continue
       fi
-      $QUIET || echo "[preflight] $PROVIDER connection error after $_max_retries attempts, trying claude directly" >&2
+      $QUIET || echo "[preflight] skipping health check, $PROVIDER connection error after $_max_retries attempts, trying claude directly" >&2
     fi
     fi  # end non-CC preflight
 

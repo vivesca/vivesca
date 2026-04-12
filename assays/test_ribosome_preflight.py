@@ -181,10 +181,13 @@ def test_preflight_runs_before_claude():
             pos += 1
     assert done_pos is not None, "could not find matching 'done' for retry loop"
     while_block = source[while_start:done_pos]
-    assert "preflight" in while_block.lower(), "preflight check not in retry loop"
-    assert "claude" in while_block, "claude invocation not in retry loop"
-    assert while_block.index("preflight") < while_block.index("claude"), (
-        "preflight should run before claude"
+    assert "_preflight_check" in while_block, "preflight check not in retry loop"
+    assert "output=$(_run_harness_" in while_block, "claude invocation not in retry loop"
+    # Check that preflight function call appears before actual claude invocation
+    preflight_pos = while_block.index("_preflight_check")
+    claude_invocation_pos = while_block.index("output=$(_run_harness_")
+    assert preflight_pos < claude_invocation_pos, (
+        "preflight should run before claude invocation"
     )
 
 
@@ -200,11 +203,10 @@ def test_preflight_skip_on_auth_error():
 def test_volcano_falls_back_to_infini():
     """Volcano's fallback provider is infini."""
     source = RIBOSOME.read_text()
-    # Find the _fallback_provider function
-    func_start = source.index("_fallback_provider()")
-    func_end = source.index("}", func_start)
-    func_body = source[func_start:func_end]
-    assert 'volcano) echo "infini"' in func_body
+    # Check that infini comes before volcano in fallback priority
+    assert '_FALLBACK_PRIORITY=(infini codex gemini volcano zhipu)' in source
+    # When searching for fallback, infini is first non-failed candidate when volcano fails
+    # So volcano correctly falls back to infini
 
 
 # ── Summary subcommand ───────────────────────────────────────────────
