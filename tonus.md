@@ -4,13 +4,14 @@
 
 ## Facts (established)
 - **Capco Day 3 done (Apr 10).** Grade: PC. Employee ID: 41156. Email: Terry.Li@capco.com. Coach: Miks.
-- **Jiahao positioning settled.** IWPB has functioning in-house AI org (CJI trophy, exec sponsorship, governance vocab). Capco lane = APAC operational delivery + governance-at-scale, NOT ideation/build. Details in `chromatin/loci/plans/jiahao-pack-prep.md`.
-- **Jiahao posting profile captured:** ~1/month, 200-700 reactions, artifact-only (no thought leadership), triad vocabulary — echo verbatim. In `contact_jiahao_teo_hsbc.md`.
+- **Jiahao pack deadline:** EOD Tue 14 Apr.
+- **Gmail filter scope missing:** endosomal + gog both lack settings scope. Filters require manual Gmail UI.
+- **Inbox zero** achieved Apr 12. Surfaced: GARP RAI case #00882968, Buyandship unclaimed pkg, SmarTone payment, IRD tax notice, Theo ESF K1 waitlist, Tara Bolttech insurance.
 
 ## Progress (active)
+- [waiting / Terry] **Capco CV render verification** — v0.1.19 live, `uv tool upgrade recombinase` + `iterate.cmd`.
+- [next / Mon AM] **Send Bertie + Miks brief** (Slide 4 Continuous Suitability Agent).
 - [next] **Goal-setting Excel — verify need** with Miks/Ramya (week 3 ~Apr 24).
-- [next] **Re-read Slide 4 intros** through the operational-governance lens before shipping pack.
 - [parked] Harness shootout re-dispatch — specs in `chromatin/loci/plans/`.
-- [parked] **Epigenome dirty** (18+ files from earlier sessions) — Capco/HSBC packs, Bertie refs.
-- [parked] **Germline dirty** — `loci/crontab`, `effectors/soma-cron-wrap` — unrelated migration.
-<!-- last checkpoint: 11/04/2026 ~00:30 HKT (cytokinesis after Jiahao LinkedIn analysis) -->
+- [parked] **Epigenome dirty** (25+ files from earlier sessions) — plans, marks, coaching.
+<!-- last checkpoint: 12/04/2026 ~14:45 HKT (cytokinesis after email triage) -->
