@@ -36,6 +36,10 @@ LOG_MAX_MB = 10
 RIBOSOME_MAX_SECONDS = 2400  # 40 min
 RIBOSOME_MAX_RSS_MB = 2048  # 2GB
 CACHE_MAX_MB = 300  # per-cache budget
+TS_PING_FAILURES = 0  # consecutive ping failures
+TS_PING_FAIL_THRESHOLD = 3  # restart after N consecutive failures
+TS_RESTART_COOLDOWN = 300  # seconds between restart attempts
+_ts_last_restart = 0.0
 
 
 def log(msg: str):
@@ -317,8 +321,42 @@ def alert_on_unhealthy(health_json: dict):
 TS_KEY_WARN_DAYS = 30
 
 
+def _restart_tailscale() -> bool:
+    """Restart tailscaled and re-up. Returns True on success."""
+    global _ts_last_restart
+    now = time.time()
+    if now - _ts_last_restart < TS_RESTART_COOLDOWN:
+        log("Tailscale: restart cooldown active, skipping")
+        return False
+    _ts_last_restart = now
+    log("Tailscale: CONNMARK wedge detected — restarting tailscaled")
+    # Kill tailscaled (supervisor or fly will not auto-restart it, so we do it manually)
+    subprocess.run(["sudo", "pkill", "-x", "tailscaled"], timeout=5)
+    time.sleep(2)
+    # Start tailscaled
+    subprocess.Popen(
+        ["sudo", "tailscaled", "--state=/home/vivesca/.tailscale/tailscaled.state"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(3)
+    # Bring up with correct flags (no --ssh, netfilter off for Fly)
+    r = subprocess.run(
+        ["sudo", "tailscale", "up", "--hostname=soma", "--ssh=false", "--netfilter-mode=off"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if r.returncode == 0:
+        log("Tailscale: restart succeeded")
+        return True
+    log(f"Tailscale: restart failed: {r.stderr.strip()}")
+    return False
+
+
 def check_tailscale() -> dict:
-    """Check Tailscale connectivity and key expiry."""
+    """Check Tailscale connectivity via real ping, restart on wedge."""
+    global TS_PING_FAILURES
     try:
         r = subprocess.run(
             ["tailscale", "status", "--json"],
@@ -333,11 +371,32 @@ def check_tailscale() -> dict:
         data = json.loads(r.stdout)
         self_node = data.get("Self", {})
 
-        # Check backend state (Running = healthy)
+        # Check backend state
         backend = data.get("BackendState", "")
         if backend != "Running":
             log(f"Tailscale: backend state {backend}")
             return {"status": "crit", "reason": f"backend_{backend}"}
+
+        # Real connectivity test: ping self via Tailscale IP
+        self_ip = self_node.get("TailscaleIPs", [""])[0]
+        if self_ip:
+            ping = subprocess.run(
+                ["tailscale", "ping", "--timeout=5s", "--c=1", self_ip],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if ping.returncode != 0:
+                TS_PING_FAILURES += 1
+                log(f"Tailscale: ping failed ({TS_PING_FAILURES}/{TS_PING_FAIL_THRESHOLD})")
+                if TS_PING_FAILURES >= TS_PING_FAIL_THRESHOLD:
+                    if _restart_tailscale():
+                        TS_PING_FAILURES = 0
+                        return {"status": "warn", "reason": "restarted_after_wedge"}
+                    return {"status": "crit", "reason": "restart_failed"}
+                return {"status": "warn", "reason": "ping_failed"}
+            else:
+                TS_PING_FAILURES = 0
 
         # Check key expiry
         expiry_str = self_node.get("KeyExpiry", "")
