@@ -230,11 +230,11 @@ _configure_backend() {
     volcano)
       _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
       _URL="https://ark.cn-beijing.volces.com/api/coding"
-      _OPUS="doubao-seed-2-0-code"; _SONNET="doubao-seed-2-0-code"; _HAIKU="doubao-seed-2-0-code" ;;
+      _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
       _URL="https://cloud.infini-ai.com/maas/coding"
-      _OPUS="minimax-m2.7"; _SONNET="minimax-m2.7"; _HAIKU="minimax-m2.5" ;;
+      _OPUS="glm-5.1"; _SONNET="glm-5.1"; _HAIKU="glm-5.1" ;;
     gemini)
       _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
       _URL=""; _OPUS=""; _SONNET=""; _HAIKU="" ;;
@@ -400,6 +400,7 @@ _claude_env() {
   env -i HOME="$HOME" PATH="$PATH" USER="${USER:-}" \
     CLAUDECODE= \
     ANTHROPIC_AUTH_TOKEN="$_KEY" \
+    ANTHROPIC_API_KEY="" \
     ANTHROPIC_BASE_URL="$_URL" \
     ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
     ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
@@ -456,7 +457,7 @@ _preflight_probe() {
   esac
   if [[ -z "${output// /}" ]]; then
     echo "FATAL: $harness preflight probe returned empty output" >&2
-    exit 1
+    return 1
   fi
 }
 
@@ -664,7 +665,24 @@ EXPLORE_SYS
   # ZhiPu coding plan uses ANTHROPIC_AUTH_TOKEN for CC harness.
   # Do NOT unset it — CC needs it for authentication via /api/anthropic.
 
-  _preflight_probe "$HARNESS"
+  if ! _preflight_probe "$HARNESS"; then
+    echo "[preflight] $PROVIDER failed, trying fallback..." >&2
+    local _fb
+    _fb="$(_find_fallback "$PROVIDER")"
+    if [[ -n "$_fb" ]]; then
+      echo "[preflight] falling back to $_fb" >&2
+      PROVIDER="$_fb"
+      _configure_backend "$PROVIDER"
+      HARNESS="$(_provider_to_harness "$PROVIDER")"
+      if ! _preflight_probe "$HARNESS"; then
+        echo "FATAL: fallback provider $_fb also failed preflight" >&2
+        exit 1
+      fi
+    else
+      echo "FATAL: no fallback provider available" >&2
+      exit 1
+    fi
+  fi
 
   # Per-attempt timeout: matches Temporal activity timeout (2hr).
   # No wall-limit — stall detection catches loops, Temporal is the outer bound.
