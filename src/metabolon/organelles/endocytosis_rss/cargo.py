@@ -9,6 +9,7 @@ Schema per line (one JSON object):
     timestamp, date, title, source, link, summary, score,
     banking_angle, talking_point, fate
 """
+from __future__ import annotations
 
 import json
 import os

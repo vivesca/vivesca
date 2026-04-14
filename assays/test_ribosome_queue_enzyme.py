@@ -1,5 +1,7 @@
 """Tests for metabolon/enzymes/ribosome_queue.py — MCP tool for ribosome queue management."""
 
+from __future__ import annotations
+
 import textwrap
 from typing import TYPE_CHECKING
 from unittest.mock import patch

@@ -3,6 +3,7 @@
 Resources:
   vivesca://techne — index of all active receptors (CC: skills) with metadata
 """
+from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING

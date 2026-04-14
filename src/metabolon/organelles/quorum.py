@@ -14,6 +14,7 @@ Usage:
     from metabolon.organelles.quorum import deliberate
     result = deliberate("Should we use Kafka or Redis Streams?", mode="quick")
 """
+from __future__ import annotations
 
 import json
 import textwrap

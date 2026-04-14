@@ -1,4 +1,5 @@
 """Payment tracking -- pending payments for non-autopay cards."""
+from __future__ import annotations
 
 import shutil
 import subprocess

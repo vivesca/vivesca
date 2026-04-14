@@ -6,6 +6,7 @@ Provides four public functions:
   - human_delay: random pause between actions (simulates human cadence)
   - stealth_context: create a Playwright context with all patches applied
 """
+from __future__ import annotations
 
 import asyncio
 import random

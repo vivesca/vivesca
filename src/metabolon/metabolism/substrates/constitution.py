@@ -4,6 +4,7 @@ Deliberative: senses rules and their signal evidence, identifies prune
 candidates (rules with no signal backing), proposes pruning actions,
 and monitors biological naming precision across the codebase.
 """
+from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta

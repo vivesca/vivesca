@@ -1,4 +1,5 @@
 """Cold path — weekly differential evolution sweep."""
+from __future__ import annotations
 
 import asyncio
 import configparser

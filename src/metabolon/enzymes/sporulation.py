@@ -4,6 +4,7 @@ A bacterium sporulates when conditions turn hostile: it compresses its essential
 DNA into a compact, resistant spore. Same here — compress live context into a
 checkpoint, germinate in a fresh session.
 """
+from __future__ import annotations
 
 import contextlib
 import random

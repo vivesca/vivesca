@@ -5,6 +5,7 @@ Runs monthly or on-demand. Checks:
 - Critical git repos are reachable and not corrupted
 - Sortase/dispatch infrastructure is functional
 """
+from __future__ import annotations
 
 import os
 import subprocess
