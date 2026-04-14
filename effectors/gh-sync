@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# gh-sync — copy local gh token to a remote host
+# Usage: gh-sync [hostname]  (default: ganglion)
+set -euo pipefail
+
+HOST="${1:-ganglion}"
+TOKEN=$(gh auth token)
+
+if [ -z "$TOKEN" ]; then
+    echo "error: no local gh token. Run 'gh auth login' first." >&2
+    exit 1
+fi
+
+echo "$TOKEN" | ssh "$HOST" "gh auth login --with-token" 2>&1
+STATUS=$(ssh "$HOST" "gh auth status 2>&1")
+
+if echo "$STATUS" | grep -q "Logged in"; then
+    echo "ok: $HOST gh auth synced"
+else
+    echo "error: token copied but auth check failed" >&2
+    echo "$STATUS" >&2
+    exit 1
+fi

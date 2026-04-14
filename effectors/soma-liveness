@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""soma-liveness — HTTP liveness probe for Fly health checks.
+
+Returns 200 if the system is responsive. Fly auto-restarts if this fails.
+Binds 0.0.0.0:8742 so Fly proxy can reach it.
+"""
+
+import http.server
+import subprocess
+
+PORT = 8742
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        # Real liveness: can we fork a process? If the VM is frozen, this hangs.
+        try:
+            subprocess.run(["true"], timeout=3)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+        except Exception:
+            self.send_response(503)
+            self.end_headers()
+            self.wfile.write(b"frozen")
+
+    def log_message(self, *args):
+        pass  # silent
+
+
+if __name__ == "__main__":
+    srv = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    print(f"Liveness probe on :{PORT}", flush=True)
+    srv.serve_forever()

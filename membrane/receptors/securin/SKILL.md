@@ -20,7 +20,7 @@ Quality gate for mtor dispatch tasks. Monitors execution, triages results, salva
 Self-ping loop via CC background tasks:
 
 ```
-Bash(command="sleep 900 && cd ~/code/mtor && mtor list --count 50", run_in_background=true)
+Bash(command="sleep 900 && cd ~/code/mtor && mtor riboseq --count 50", run_in_background=true)
 ```
 
 When the task notification fires (~15 min), CC wakes up, reads the output, triages, acts, then sets the next timer. The loop continues as long as the session lives (Blink stays connected). No user interaction needed after initial `/vigilia` — CC operates autonomously.
@@ -31,14 +31,14 @@ When the task notification fires (~15 min), CC wakes up, reads the output, triag
 
 ### 1. Poll
 ```bash
-mtor list --count 50
+mtor riboseq --count 50
 ```
 
 Also check active logs on ganglion — this is the real execution signal:
 ```bash
 ssh ganglion 'ls -lt ~/code/mtor/logs/*.log 2>/dev/null | head -5'
 ```
-Files modified within last 5 min = actively executing. No recent modification = queued or stuck in preflight. `mtor list` RUNNING status alone doesn't distinguish.
+Files modified within last 5 min = actively executing. No recent modification = queued or stuck in preflight. `mtor riboseq` RUNNING status alone doesn't distinguish.
 
 ### 2. Triage completed tasks
 
@@ -75,7 +75,7 @@ Dispatch all ready specs — Temporal queues them and drains at 2 concurrent per
 
 ### 5. Set next timer
 ```bash
-sleep 900 && cd ~/code/mtor && mtor list --count 50
+sleep 900 && cd ~/code/mtor && mtor riboseq --count 50
 ```
 Run with `run_in_background: true`. The task notification is the ping.
 
@@ -123,7 +123,7 @@ User is working on other things (Capco). CC runs fully autonomously — same sel
 
 **Entry:** Pre-flight checks (same as overnight §Pre-flight). Then start self-ping loop at 10-min intervals:
 ```bash
-sleep 600 && mtor list && ssh ganglion 'cd ~/code/mtor && git log --oneline -5 && git diff --stat && git status --short && ps aux | grep ribosome | grep -v grep | wc -l'
+sleep 600 && mtor riboseq && ssh ganglion 'cd ~/code/mtor && git log --oneline -5 && git diff --stat && git status --short && ps aux | grep ribosome | grep -v grep | wc -l'
 ```
 On each ping: triage, salvage, re-dispatch, set next timer. Report a 2-line summary after each cycle.
 

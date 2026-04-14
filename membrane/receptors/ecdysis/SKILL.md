@@ -54,9 +54,23 @@ ecdysis --dry-run                            # discover + plan, no mutation
 
 Ecdysis is the shedding of the cuticle (exuviae) in the Ecdysozoa clade — arthropods, nematodes, tardigrades. The new, larger cuticle is formed underneath BEFORE the old is shed, so the organism is never unprotected. Mirrors the token rotation invariant: the new grant is verified (`gh api user` returns the user) before the old is revoked.
 
+## Remote host sync (ganglion)
+
+When ganglion's gh token expires (detected by `mtor doctor` or ribosome tasks failing with `Permission denied (publickey)`), use the `gh-sync` effector — don't do the full ecdysis rotation:
+
+```bash
+gh-sync ganglion    # copies soma's token to ganglion
+```
+
+This is NOT rotation (no revoke + re-auth cycle). It's a simple token copy from soma → remote host. Soma always has a valid token because CC runs here. Use this for ganglion or any other remote host that needs gh access.
+
+Full ecdysis is for when the token itself is compromised (leaked, committed). gh-sync is for when a remote host's copy has expired.
+
 ## Related
 
+- `gh-sync` effector — copy soma gh token to remote hosts
 - `adytum` — 1Password rotation (for OP service account tokens)
 - `browser_stealth` organelle — anti-detection patches (webdriver, chrome runtime, plugins, permissions, UA rotation)
 - `gmail` organelle — OTP polling
 - `finding_cookie_bridge_cannot_satisfy_sudo_mode.md` — the correction history that led to this working pattern
+- `finding_gh_token_copy_soma_ganglion.md` — the 2026-04-14 incident that discovered this pattern
