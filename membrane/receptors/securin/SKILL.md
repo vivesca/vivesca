@@ -62,12 +62,41 @@ For each COMPLETED task:
 | `rejected` (chaperone) | Check if code landed on main despite rejection (verdict false positive pattern). If landed → archive with override. If not → read failure reason. If task is worth retrying → write tighter spec and re-dispatch. Else archive with reason noted. |
 | `accepted` / `merged` | **Review the actual diff** (`git diff <pre>..<post>` or `git show <commit>`). Verify the change matches the prompt intent and is correct. Then archive. Don't trust verdicts — review everything until the system is proven. |
 
-### 3. Investigate failures
-For failed tasks with no commits:
-- `ssh ganglion 'tail -20 /tmp/mtor-worker.log'` — check for errors
-- Common causes: coaching file bloat, wall-limit self-kill, OP bootstrap, stall detection
-- If infra issue → fix infra, re-dispatch all affected
-- If prompt issue → re-dispatch with more explicit, smaller-scoped prompt
+### 3. Investigate failures and auto-fix infra
+
+For failed tasks with no commits, classify the failure and act:
+
+**Step 1: Read the log to classify.**
+```bash
+ssh ganglion 'cat ~/code/mtor/logs/<workflow_id>.log | tail -40'
+```
+
+**Step 2: Match failure pattern → auto-fix.**
+
+| Log pattern | Diagnosis | Auto-fix |
+|-------------|-----------|----------|
+| `API key not valid` (Gemini) | Transient API rejection or stale key | Test: `ssh ganglion 'source ~/.env.bootstrap && op run --env-file ~/germline/loci/env.op -- bash -c "curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=\$GOOGLE_API_KEY\" \| head -c50"'`. If OK → transient, re-dispatch on zhipu/volcano instead. If fails → key expired, flag to user. |
+| `401 Unauthorized.*wss://api.openai.com` (Codex) | Codex CLI uses OAuth, not API key. No login session on ganglion. | **Not auto-fixable** (requires interactive `codex login`). Remove codex from fallback: re-dispatch on zhipu/volcano. Don't retry on codex. |
+| `FATAL: claude preflight probe returned empty output` | Provider API returned empty — transient rate limit or network. | Check if other tasks on same provider succeeded this cycle. If yes → transient, re-dispatch same provider. If all failed → provider is down, shift to other providers. |
+| `RIBOSOME_RATE_LIMIT` / `Service concurrency exceeded` | Provider rate limit hit. | Wait — don't re-dispatch immediately. The provider's backoff will resolve. Re-dispatch on next cycle, or shift to a different provider. |
+| `[wall-limit]` in log or `AccountQuotaExceeded` | Stale worker self-killed on time limit — often a false error. | Check `git log` for commits (work may have landed). If commits exist → false positive, archive. If no commits → re-dispatch. |
+| `activity_failed` with no output_path | Temporal activity crashed before harness started. | Check worker health: `ssh ganglion 'pgrep -af mtor.worker'`. If dead → restart worker. If alive → re-dispatch (transient Temporal issue). |
+| `exit_code=1` + `command failed with exit=1 at line NNNN` | Harness script crashed (not the LLM). | Read the line number in ribosome script to identify the stage (preflight, execution, commit). Fix the script bug if pattern repeats. |
+| `IndentationError` / `SyntaxError` in committed code | GLM produced invalid Python. | Revert on ganglion, add coaching note (syntax check mandatory), re-spec with tighter constraints. |
+| No log file at all | Task never started or log path is wrong. | Check `mtor status <id>` for output_path. Check worker log: `ssh ganglion 'tail -20 /tmp/mtor-worker.log'`. |
+
+**Step 3: Provider health check (when ≥2 tasks fail on same provider).**
+```bash
+# Test each provider's API directly
+ssh ganglion 'source ~/.env.bootstrap && op run --env-file ~/germline/loci/env.op -- bash -c "
+  curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=\$GOOGLE_API_KEY\" | head -c30  # Gemini
+  curl -s -H \"Authorization: Bearer \$OPENAI_API_KEY\" https://api.openai.com/v1/models | head -c30    # OpenAI
+  curl -s -H \"Authorization: Bearer \$ZHIPU_API_KEY\" https://open.bigmodel.cn/api/paas/v4/models | head -c30  # ZhiPu
+"'
+```
+If API responds but CLI fails → CLI config issue (version, auth flow change). If API fails → key expired or provider down.
+
+**Step 4: After fixing, re-dispatch all affected tasks** on working providers. Don't wait for next cycle.
 
 ### 4. Dispatch new work
 Dispatch all ready specs — Temporal queues them and drains at 2 concurrent per provider. No need to batch or throttle from CC's side. Dispatch and forget.
@@ -79,13 +108,35 @@ sleep 900 && cd ~/code/mtor && mtor riboseq --count 50
 ```
 Run with `run_in_background: true`. The task notification is the ping.
 
+## Closed-loop convergence
+
+Securin is not a single pass. Every task must reach one of two terminal states:
+1. **Landed** — committed, tested, pushed, grade B or above
+2. **Parked** — explicitly parked with a reason (too complex for GLM, needs human taste, blocked on external dep)
+
+**Re-dispatch rules (the loop):**
+- **Infra failure** (auth, preflight, rate limit) → troubleshoot per §3, re-dispatch on a working provider. Same prompt is fine.
+- **Grade D or below** (syntax errors, scope creep, regressions) → revert bad code, write a tighter spec (exact files, line constraints, "do NOT touch X"), re-dispatch. Max 2 re-specs per original task — after that, park it.
+- **No commit** (GLM forgot `git add + commit`) → check if uncommitted work exists on ganglion. If good code → salvage (commit manually, push). If no work → re-dispatch with coaching emphasis on commit discipline.
+- **Partial work** (some sub-tasks done, others not) → commit what's good, write a new spec for the remaining sub-tasks only, dispatch.
+
+**Escalation ladder (per original task):**
+1. First failure → re-dispatch same provider (might be transient)
+2. Second failure → re-dispatch different provider + tighter spec
+3. Third failure → **decompose** the task into smaller pieces and dispatch each separately
+4. Park ONLY if the task fundamentally requires judgment/taste that GLM can't provide (architectural decisions, multi-file coordination, design choices). Infra failures and spec failures are never reasons to park — keep fixing and retrying.
+
+**Track retry count mentally per original task intent.** After 2 failures with the same prompt, the problem is the spec — rewrite it, don't just retry.
+
 ## Stop conditions
 
-- All tasks completed and no new work to dispatch
-- 3 consecutive cycles with zero progress (same git log)
+- **All tasks landed or explicitly parked** — this is the primary stop condition
+- 3 consecutive cycles with zero progress (same git log, same task count)
 - User says stop
 
-**Do NOT stop for budget red or metabolic state.** The whole point of securin is autonomous overnight monitoring. Poll until morning or until all tasks resolve — whichever comes first. The session lives in tmux; Blink disconnects don't kill it.
+**Do NOT stop for budget red or metabolic state.** The whole point of securin is autonomous overnight monitoring. Poll until morning or until all tasks converge — whichever comes first. The session lives in tmux; Blink disconnects don't kill it.
+
+**Do NOT stop just because the queue is empty after one pass.** Check: are there failed tasks that should be re-dispatched? Parked tasks that infra fixes unblocked? Only stop when every original task intent has converged.
 
 ## Pre-flight checks (first cycle)
 
@@ -95,6 +146,15 @@ Run with `run_in_background: true`. The task notification is the ping.
 4. Germline sync: `ssh ganglion 'cd ~/germline && git log --oneline -1'` — matches origin?
 
 If any fail → fix before dispatching.
+
+5. Provider liveness (quick smoke test):
+```bash
+ssh ganglion 'source ~/.env.bootstrap && op run --env-file ~/germline/loci/env.op -- bash -c "
+  printf \"gemini: \"; curl -sf \"https://generativelanguage.googleapis.com/v1beta/models?key=\$GOOGLE_API_KEY\" | head -c5 && echo \" OK\" || echo \" FAIL\"
+  printf \"zhipu: \"; curl -sf -H \"Authorization: Bearer \$ZHIPU_API_KEY\" https://open.bigmodel.cn/api/paas/v4/models | head -c5 && echo \" OK\" || echo \" FAIL\"
+"'
+```
+If a provider fails → don't dispatch to it. Shift load to working providers. Codex needs interactive OAuth (`codex login` on ganglion) — if 401 errors appear, flag to user for re-login.
 
 ### 6. Update coaching notes
 When reviewing diffs, spot GLM mistakes and add entries to `~/epigenome/marks/feedback_ribosome_coaching.md`. This is the skill transfer loop: review → spot pattern → coaching entry → next dispatch avoids it. Keep file under 10KB (ribosome refuses to start above that).
@@ -111,11 +171,41 @@ Until the system is proven, review every completed task's actual diff — not ju
 
 **Grade each commit A-F.** Anything below B: re-spec with explicit constraints on what NOT to delete/change. Don't let throughput pressure skip review — 3 quality commits > 6 mediocre ones.
 
-### 8. Re-spec failed quality
-When a commit is grade C or below:
-1. Revert if it deleted important logic (git revert on ganglion)
-2. Write a tighter spec with: exact function signatures to preserve, lines NOT to touch, expected test names
-3. Re-dispatch immediately — don't accumulate re-spec debt
+### 8. Re-spec and re-dispatch (mandatory for all non-landed tasks)
+
+**Do not just note failures — fix the spec and re-dispatch in the same cycle.**
+
+**For grade C or below (bad code):**
+1. Revert if it deleted important logic (`git revert` on ganglion)
+2. Diagnose WHY GLM failed — too many files? Ambiguous scope? Large file corruption?
+3. Write a tighter spec:
+   - Constrain to ONE file per task
+   - Include exact function signatures to preserve
+   - Add "DO NOT touch lines X-Y" / "DO NOT delete any existing functions"
+   - Name expected test functions explicitly
+   - For files >500 lines: include the relevant code block in the spec so GLM doesn't misread it
+4. Re-dispatch immediately on a working provider
+
+**For infra failures (no work done):**
+1. Troubleshoot per §3 (provider health, auth, preflight)
+2. Re-dispatch the SAME prompt on a different working provider
+3. No spec change needed — the prompt was fine, the infra wasn't
+
+**For no-commit (GLM forgot to commit):**
+1. Check ganglion for uncommitted work (`git diff --stat`)
+2. If good code exists → salvage: run tests, commit, push
+3. If no work exists → re-dispatch with same prompt (coaching file already emphasizes commit discipline)
+
+**For scope creep / multi-file mess:**
+1. Decompose the original task into single-file tasks
+2. Dispatch each as a separate mtor task
+3. Example: "refactor _streamlit_app.py into modules" → 4 tasks: "extract search functions to _st_search.py", "extract chart functions to _st_charts.py", etc.
+
+**For complex tasks that failed 2x:**
+1. Read the original spec and the failure logs
+2. Identify the smallest subtask that would still be useful
+3. Dispatch that subtask alone — accumulate progress incrementally
+4. After it lands, dispatch the next piece
 
 ## Daytime mode (autonomous)
 
