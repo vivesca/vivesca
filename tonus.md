@@ -3,15 +3,15 @@
 <!-- Dual-ledger: Facts = what we know. Progress = where we are. -->
 
 ## Facts (established)
-- **Capco Day 3 done (Apr 10).** Grade: PC. Employee ID: 41156. Email: Terry.Li@capco.com. Coach: Miks.
-- **Jiahao pack deadline:** EOD Tue 14 Apr.
-- **Gmail filter scope missing:** endosomal + gog both lack settings scope. Filters require manual Gmail UI.
+- **Capco Day 6 (Apr 15).** ETIV onboarding done. Wed **5:30pm** WPB alignment meeting.
+- **HSBC reorg (Tobin Apr 15):** Rice (CAIO) → Jeff Valane (AIMS) → Doug (Resp AI) → Tobin/Simon. AI Platform under Shamtani (CTO). ETIV dissolved.
+- **Resp AI 4 pillars:** Gov Execution, Risk & Controls (Simon), Lifecycle & Inventory, Regulatory Mgmt (Tobin). 5 white-glove agentic use cases in pipeline.
+- **Tobin pain points:** silo completeness, decision authority, regulatory consistency, cross-lens coverage. Gen AI use case slide needs updating.
 
 ## Progress (active)
-- [done] **Roster TUI v2** — charts (plotext), sparkline trend, click-to-drill-down, config-driven bench with scoped filter, Windows deferred reinstall, WorkerState fix. 142 tests.
-- [done] **Setup gist** for Capco laptop: gist.github.com/terry-li-hm/264a655dd33d49fcc0c461e9d1252c00
-- [waiting / Terry] **Capco CV render verification** — v0.1.19 live.
-- [next / Mon AM] **Send Bertie + Miks brief** (Slide 4 Continuous Suitability Agent).
-- [next / Mon] **Roster on Capco laptop** — add [bench] config, test TUI charts.
-- [parked] Harness shootout re-dispatch — specs in `chromatin/loci/plans/`.
-<!-- last checkpoint: 12/04/2026 ~22:30 HKT (cytokinesis after TUI charts session) -->
+- [done] Tobin briefing captured → `project_hsbc_tobin_pain_points.md`, org chart updated.
+- [done] Marco org reshuffle message → gist shipped. Porterhouse lunch 12:30 booked + Tobin notified.
+- [done] Four-pillar slide: HTML mockup + pptx in jiahao-pack. 5/8 leads filled.
+- [blocked] 3 pillar leads need Miks (Arch global, Security global + APAC).
+- [parked] Polars, Pydantic, refactor — dispatched to ribosome.
+<!-- last checkpoint: 15/04/2026 ~23:45 HKT -->
