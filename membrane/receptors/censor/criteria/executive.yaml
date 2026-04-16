@@ -1,0 +1,59 @@
+name: Executive Paper
+description: Strategic papers, direction papers, board-level memos for senior stakeholders (C-suite, CAIO, Group heads)
+
+checks:
+  - name: clear_thesis
+    question: "Is there a clear main point or recommendation?"
+    weight: high
+    examples:
+      good: "Opens with the strategic gap, builds to a specific recommendation"
+      bad: "Meanders through background without a clear ask"
+
+  - name: factual_accuracy
+    question: "Are verifiable claims (regulations, dates, org structures, statistics) accurate per research notes?"
+    weight: high
+    examples:
+      good: "SS2/21 reference checked — correct title and scope"
+      bad: "Claims 'all G-SIBs have AI testing programs' — no evidence found"
+
+  - name: authority_alignment
+    question: "Are recommendations scoped to the reader's decision authority?"
+    weight: high
+    examples:
+      good: "Asks CAIO to endorse a Group-wide mandate — within their remit"
+      bad: "Asks CAIO to approve budget that requires CFO sign-off"
+
+  - name: structure
+    question: "Is the structure logical and easy to follow in under 5 minutes?"
+    weight: high
+    examples:
+      good: "Context → Gap → Recommendation → Next steps, fits one page"
+      bad: "Buried recommendation after three pages of background"
+
+  - name: regulatory_precision
+    question: "Are regulatory references exact — correct titles, scope, and applicability?"
+    weight: medium
+    examples:
+      good: "PRA SS2/21 'Outsourcing and third party risk management' — correctly scoped to UK PRA-regulated firms"
+      bad: "Paraphrased regulation name, wrong jurisdiction"
+
+  - name: action_clarity
+    question: "Are next steps concrete with owners and timelines?"
+    weight: medium
+    examples:
+      good: "Propose working group (Capco + CDAO) to deliver framework by Q3 2026"
+      bad: "Further discussion recommended"
+
+  - name: audience_fit
+    question: "Is the tone appropriate for the target reader — no jargon overload, no over-simplification?"
+    weight: medium
+    examples:
+      good: "Assumes reader knows the regulatory landscape, explains AI-specific gaps"
+      bad: "Explains what AI is to a Chief AI Officer"
+
+  - name: concise
+    question: "Is every paragraph load-bearing? Could it be shorter without losing substance?"
+    weight: low
+    examples:
+      good: "Every section earns its place, no filler"
+      bad: "Repetitive framing, could lose 30%"

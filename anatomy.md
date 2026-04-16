@@ -178,12 +178,8 @@ _(no description)_
 _(no description)_
   Files: `mtor`
 
-### polysome
-Temporal.io-based workflow orchestrator for translation task dispatch. Replaces the markdown queue-based ribosome-daemon polling loop with durable workflows.
-  Files: `CLAUDE.md`, `README.md`, `assays`, `autopoiesis.py`, `dispatch.py`, `docker-compose.yml`, `models.py`, `pyproject.toml`, `start.sh`, `translation_graph.py`, `translocase.py`, `workflow.py`
-
-### Standalone scripts (202 total, on PATH)
-  Recent: `soma-alive-check`, `dr-gate`, `gh-auth-renew`, `soma-bootstrap`, `soma-watchdog`, `soma-cron-wrap`, `ribosome`, `proteome`, `vivesca-preflight`, `batch-scrape`
+### Standalone scripts (174 total, on PATH)
+  Recent: `rheotaxis`, `soma-cc-resume`, `soma-cc-snapshot`, `soma-liveness`, `gh-sync`, `ribosome`, `proteome`, `vivesca-preflight`, `batch-scrape`, `willison-scrape`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -396,9 +392,9 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 - Variant store: **0** tool(s), **0** total variant(s)
 - Signals (last 7 days): **494**
-- Most active: `ribosome_dispatch` (106), `endosomal` (90), `rheotaxis` (89), `fetch` (70), `lysin` (35)
+- Most active: `rheotaxis` (147), `trogocytosis_browser_eval` (76), `endosomal` (57), `fetch` (53), `trogocytosis_browser_screenshot` (51)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 3 errors)
+- Tests: _(could not run)_

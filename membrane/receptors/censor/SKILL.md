@@ -21,10 +21,17 @@ Execute main task → Call /censor → Iterate if needed → Output
 
 - **output** — The content to censor (required)
 - **goal** — What the output was supposed to achieve (required)
-- **domain** — Which criteria to use: `outreach`, `job-eval`, `technical`, `article`, `default` (optional, auto-detect if not specified)
+- **domain** — Which criteria to use: `outreach`, `job-eval`, `technical`, `article`, `executive`, `default` (optional, auto-detect if not specified)
+- **research** — If true, extract verifiable claims and fact-check via elencho before evaluating (default: false). Use `deep` for full elencho mode.
 - **max_iterations** — How many revision cycles before giving up (default: 2)
 
 ## Workflow
+
+0. **Research pre-step** (only if `research` is set):
+   - Extract verifiable claims from the output: regulatory references, org names/titles, dates, statistics, framework citations.
+   - Run `rheotaxis "<claim>"` for each claim (CLI, 7 backends parallel). If research=`deep`, use `rheotaxis --research "<claim>"`.
+   - Compile results as `## Research Notes` appended to the evaluation context — confirmations, contradictions, and unknowns.
+   - This context is available to all subsequent checks, especially `factual_accuracy`.
 
 1. **Load criteria** from `criteria/{domain}.yaml` (or auto-detect domain from goal)
    - If domain file is missing, fall back to `criteria/default.yaml`.
@@ -67,6 +74,7 @@ If domain not specified, infer from goal keywords:
 | job, role, position, application, evaluate | job-eval |
 | code, technical, implementation, architecture | technical |
 | article, blog, essay, writing | article |
+| paper, strategic, executive, board, direction, memo, CAIO, C-suite | executive |
 | (none matched) | default |
 
 ## Integration Example

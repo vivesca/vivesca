@@ -520,15 +520,24 @@ async def _run_jina(query: str) -> ToolResult:
         proc = await asyncio.create_subprocess_exec(
             "curl",
             "-s",
+            "--max-time",
+            "10",
             f"https://s.jina.ai/{encoded}",
             "-H",
             f"Authorization: Bearer {api_key}",
             "-H",
             "Accept: application/json",
+            "-H",
+            "X-With-Content: false",  # snippets only — full content made it 30-240s
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20.0)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise
         data = json.loads(stdout.decode())
         results = []
         for item in data.get("data", []):
