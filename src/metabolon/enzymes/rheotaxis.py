@@ -15,6 +15,7 @@ async def rheotaxis(
     query: str,
     mode: str = "",
     exclude: str = "",
+    json_output: bool = False,
 ) -> str:
     """Web search.
 
@@ -24,6 +25,7 @@ async def rheotaxis(
               'research' = Perplexity deep research (~$0.40).
         exclude: Comma-separated backend names to skip (e.g. 'zhipu' for English-only queries).
                  Available: grok, exa, perplexity, tavily, serper, zhipu, jina.
+        json_output: Return structured JSON instead of markdown prose.
     """
     if mode == "research":
         return rheotaxis_engine.perplexity_deep(query)
@@ -34,4 +36,4 @@ async def rheotaxis(
         {name.strip().lower() for name in exclude.split(",") if name.strip()} if exclude else set()
     )
     results = await _run_all(query, exclude=exclude_set)
-    return _report(query, results)
+    return _report(query, results, json_output=json_output)

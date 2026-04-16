@@ -636,7 +636,28 @@ def _log_run(query: str, results: list[ToolResult]) -> None:
 # --- Report ---
 
 
-def _report(query: str, results: list[ToolResult]) -> str:
+def _report(query: str, results: list[ToolResult], json_output: bool = False) -> str:
+    if json_output:
+        backends = []
+        for r in results:
+            entry = {
+                "name": r.tool,
+                "latency_s": round(r.latency_s, 1),
+                "cost": r.cost,
+                "error": r.error,
+            }
+            if r.result and not r.error:
+                entry["content"] = r.result
+            backends.append(entry)
+        total_cost = sum(r.cost for r in results)
+        return json.dumps({
+            "query": query,
+            "backends": backends,
+            "total_cost": round(total_cost, 4),
+            "backend_count": len(results),
+            "ok_count": len([r for r in results if not r.error]),
+        })
+
     ok = [r for r in results if not r.error]
     errored = [r for r in results if r.error]
     total = len(results)

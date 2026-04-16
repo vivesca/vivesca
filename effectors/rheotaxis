@@ -22,6 +22,8 @@ from pathlib import Path
 # Add germline/src for metabolon imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+import json as _json
+
 from porin import CommandTree, emit_ok, emit_err, action, EXIT_OK, EXIT_ERROR
 from metabolon.enzymes._parallel_search import _run_all, _report, ToolResult
 from metabolon.organelles.rheotaxis_engine import perplexity_deep
@@ -452,7 +454,7 @@ def main() -> None:
                 sys.exit(EXIT_ERROR)
             emit_ok(
                 "rheotaxis search",
-                _format_results(queries[0], results),
+                _json.loads(_report(queries[0], results, json_output=True)),
                 next_actions=[
                     action("rheotaxis --backends", "Check backend health"),
                 ],
