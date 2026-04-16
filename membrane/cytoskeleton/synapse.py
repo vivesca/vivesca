@@ -867,6 +867,39 @@ def mod_overnight(data):
     return [f"{header}\n{body}"]
 
 
+# ── telomere: context aging nudge ────────────────────────
+
+_TELO_THRESHOLDS = {
+    15: "[telomere] Session depth 15 — consider rewind (esc-esc) or proactive /compact with direction before context rots.",
+    30: "[telomere] Session depth 30 — context aging. /clear with a brief, or /compact focus on <current goal>. New task = new session.",
+}
+
+
+def mod_telomere(data):
+    """Nudge about context hygiene at depth thresholds."""
+    session_id = data.get("session_id", "")
+    if not session_id:
+        return []
+
+    # Read depth from allostasis state (written by mod_allostasis earlier in pipeline)
+    try:
+        state = json.loads(ALLOW_STATE.read_text())
+        depth = state.get("depth", 0)
+    except Exception:
+        return []
+
+    msg = _TELO_THRESHOLDS.get(depth)
+    if not msg:
+        return []
+
+    heb = get_hebbian()
+    if heb:
+        with contextlib.suppress(Exception):
+            heb.log_nudge("telomere", f"depth:{depth}")
+
+    return [msg]
+
+
 # ── main ───────────────────────────────────────────────────
 
 
@@ -890,6 +923,7 @@ def main():
         mod_context,
         mod_entrainment,
         mod_overnight,
+        mod_telomere,
     ]
 
     output = []
