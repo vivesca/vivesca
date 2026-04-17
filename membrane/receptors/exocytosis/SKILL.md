@@ -18,7 +18,7 @@ Astro repo (`~/code/terryli-hm/`), commits, and pushes to deploy.
 
 ## Voice & Content Tiers
 
-- **Garden posts** (terryli.hm): AI can expand from sparks in real conversations. Zero-touch publishing OK — ideas are Terry's, prose is logistics.
+- **Garden posts** (terryli.hm): AI can expand from sparks in real conversations. Zero-touch publishing OK — ideas are Terry's, prose is logistics. **Pure prose only** — no headers, no bullets, no code blocks. Just paragraphs. See `feedback_garden_prose_only.md`.
 - **Front-stage** (LinkedIn, outreach, interviews): AI drafts from garden posts or live conversation, Terry reviews and edits for voice before shipping.
 - **Content pipeline:** Garden is the backlog. When ready for LinkedIn, scan `~/epigenome/chromatin/terryli.hm.md` index and pick what fits the moment.
 

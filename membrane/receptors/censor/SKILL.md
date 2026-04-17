@@ -25,6 +25,16 @@ Execute main task → Call /censor → Iterate if needed → Output
 - **research** — If true, extract verifiable claims and fact-check via elencho before evaluating (default: false). Use `deep` for full elencho mode.
 - **max_iterations** — How many revision cycles before giving up (default: 2)
 
+## Engagement Context (check first)
+
+Before evaluating, check for a persistent engagement context file:
+
+1. Look for `engagement-context.md` in `~/epigenome/chromatin/{client}/` where `{client}` matches the content's target (e.g., `Capco/engagement-context.md` for HSBC work)
+2. If found, load its anti-patterns as additional high-weight checks — these are match-and-refuse patterns specific to this client
+3. Load sensitivities as evaluation context — violations of these are automatic `needs_work`
+
+This replaces ad-hoc mark grepping for client-specific rules. The engagement context is the single source of truth for "what will get this rejected by the client."
+
 ## Workflow
 
 0. **Research pre-step** (only if `research` is set):
