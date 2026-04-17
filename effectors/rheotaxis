@@ -1,31 +1,38 @@
 #!/usr/bin/env python3
-"""rheotaxis — multi-backend web search CLI with porin output envelopes.
+"""rheotaxis — multi-backend web search CLI.
 
-Usage:
-    rheotaxis                              # show command tree
-    rheotaxis "query"                      # search all 7 backends
-    rheotaxis "query" --text               # markdown output
-    rheotaxis "query" --research           # deep research via Perplexity
-    rheotaxis "query" --exclude grok,zhipu # skip backends
-    rheotaxis "query" -b exa,serper        # whitelist backends
-    rheotaxis "q1" -q "q2" -q "q3"        # multi-query
-    rheotaxis --backends                   # list backends + health
+Subcommands:
+    rheotaxis "query"                     # search (JSON when piped, rich in TTY)
+    rheotaxis search "query" --text       # markdown output
+    rheotaxis search "query" --raw        # skip quality filter
+    rheotaxis search "q1" -q "q2"        # multi-query
+    rheotaxis search "query" -b exa,serper
+    rheotaxis research "query"            # deep research via Perplexity
+    rheotaxis backends                    # list backends + health
+    rheotaxis route "query"               # show classification only
 """
 
 from __future__ import annotations
 
-import argparse
 import asyncio
+import re as _re
 import sys
 from pathlib import Path
+from typing import Annotated
+
+import cyclopts
+from porin import (
+    EXIT_ERROR,
+    CommandTree,
+    action,
+    emit_err,
+    emit_ok,
+)
 
 # Add germline/src for metabolon imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-import json as _json
-
-from porin import CommandTree, emit_ok, emit_err, action, EXIT_OK, EXIT_ERROR
-from metabolon.enzymes._parallel_search import _run_all, _report, ToolResult
+from metabolon.enzymes._parallel_search import ToolResult, _log_run, _report
 from metabolon.organelles.rheotaxis_engine import perplexity_deep
 
 ALL_BACKENDS = ["grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"]
@@ -42,45 +49,177 @@ BACKEND_WEIGHTS = {
     "zhipu": 1,
 }
 
+BACKEND_META = {
+    "grok": {"env": "XAI_API_KEY", "cost": 0.05},
+    "exa": {"env": "EXA_API_KEY", "cost": 0.01},
+    "perplexity": {"env": "PERPLEXITY_API_KEY", "cost": 0.006},
+    "tavily": {"env": "TAVILY_API_KEY", "cost": 0.0},
+    "serper": {"env": "SERPER_API_KEY", "cost": 0.0},
+    "zhipu": {"env": "ZHIPU_API_KEY", "cost": 0.0},
+    "jina": {"env": "JINA_API_KEY", "cost": 0.0},
+}
+
+# --- TTY detection ---
+
+
+def _is_agent() -> bool:
+    """True when stdout is piped (agent consuming), not a TTY."""
+    return not sys.stdout.isatty()
+
+
 # --- Signal density: detect low-value LLM padding ---
 
 
 def signal_density(text: str) -> float:
-    """Return 0.0–1.0 ratio of substantive content vs generic LLM padding.
-
-    Uses a simple heuristic: count how many words are NOT in the known
-    padding phrase list, then divide by total words.  Empty text → 0.0.
-    """
+    """Return 0.0-1.0 ratio of substantive content vs generic LLM padding."""
     if not text:
         return 0.0
     words = text.lower().split()
     if not words:
         return 0.0
     padding_phrases = {
-        "it", "looks", "like", "your", "query", "message", "seems",
-        "i'll", "break", "this", "down", "for", "you", "feel",
-        "free", "to", "clarify", "please", "provide", "more",
-        "details", "i'm", "not", "sure", "what", "you're",
-        "referring", "ask", "about", "happy", "help", "let",
-        "me", "know", "if", "need", "be", "can", "could",
-        "would", "don't", "hesitate", "any", "other", "questions",
-        "i", "here", "assist", "just", "but", "or", "the",
-        "a", "an", "is", "are", "was", "were", "am", "my",
-        "we", "our", "they", "their", "them", "its", "his", "her",
-        "and", "of", "in", "on", "at", "with", "from", "that",
-        "which", "who", "whom", "how", "do", "does", "did",
-        "will", "shall", "may", "might", "must", "should",
-        "also", "very", "really", "much", "many", "some",
-        "all", "each", "every", "both", "few", "most", "no",
-        "into", "up", "out", "so", "than", "then", "there",
-        "these", "those", "such", "only", "own", "same", "when",
-        "where", "why", "again", "further", "once",
-        "above", "below", "under", "over", "between",
-        "through", "during", "before", "after",
-        "however", "therefore", "thus", "hence", "since",
-        "because", "although", "though", "even", "still",
+        "it",
+        "looks",
+        "like",
+        "your",
+        "query",
+        "message",
+        "seems",
+        "i'll",
+        "break",
+        "this",
+        "down",
+        "for",
+        "you",
+        "feel",
+        "free",
+        "to",
+        "clarify",
+        "please",
+        "provide",
+        "more",
+        "details",
+        "i'm",
+        "not",
+        "sure",
+        "what",
+        "you're",
+        "referring",
+        "ask",
+        "about",
+        "happy",
+        "help",
+        "let",
+        "me",
+        "know",
+        "if",
+        "need",
+        "be",
+        "can",
+        "could",
+        "would",
+        "don't",
+        "hesitate",
+        "any",
+        "other",
+        "questions",
+        "i",
+        "here",
+        "assist",
+        "just",
+        "but",
+        "or",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "am",
+        "my",
+        "we",
+        "our",
+        "they",
+        "their",
+        "them",
+        "its",
+        "his",
+        "her",
+        "and",
+        "of",
+        "in",
+        "on",
+        "at",
+        "with",
+        "from",
+        "that",
+        "which",
+        "who",
+        "whom",
+        "how",
+        "do",
+        "does",
+        "did",
+        "will",
+        "shall",
+        "may",
+        "might",
+        "must",
+        "should",
+        "also",
+        "very",
+        "really",
+        "much",
+        "many",
+        "some",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "most",
+        "no",
+        "into",
+        "up",
+        "out",
+        "so",
+        "than",
+        "then",
+        "there",
+        "these",
+        "those",
+        "such",
+        "only",
+        "own",
+        "same",
+        "when",
+        "where",
+        "why",
+        "again",
+        "further",
+        "once",
+        "above",
+        "below",
+        "under",
+        "over",
+        "between",
+        "through",
+        "during",
+        "before",
+        "after",
+        "however",
+        "therefore",
+        "thus",
+        "hence",
+        "since",
+        "because",
+        "although",
+        "though",
+        "even",
+        "still",
     }
-    substantive = sum(1 for w in words if w not in padding_phrases)
+    substantive = sum(1 for word in words if word not in padding_phrases)
     return substantive / len(words)
 
 
@@ -91,41 +230,39 @@ def is_low_signal(text: str) -> bool:
 
 def order_backends(backends: list[str]) -> list[str]:
     """Sort backend names by BACKEND_WEIGHTS descending (highest first)."""
-    return sorted(backends, key=lambda b: BACKEND_WEIGHTS.get(b, 0), reverse=True)
+    return sorted(backends, key=lambda name: BACKEND_WEIGHTS.get(name, 0), reverse=True)
 
 
 def _apply_quality_filter(results: list[ToolResult]) -> list[ToolResult]:
     """Remove results whose answer is >80% generic LLM padding."""
     filtered = []
-    for r in results:
-        if r.error:
-            filtered.append(r)
+    for result in results:
+        if result.error:
+            filtered.append(result)
             continue
-        if r.result and is_low_signal(r.result):
+        if result.result and is_low_signal(result.result):
             filtered.append(
                 ToolResult(
-                    tool=r.tool,
-                    query=r.query,
+                    tool=result.tool,
+                    query=result.query,
                     result="",
-                    cost=r.cost,
-                    latency_s=r.latency_s,
+                    cost=result.cost,
+                    latency_s=result.latency_s,
                     error="filtered: low signal density",
                 )
             )
         else:
-            filtered.append(r)
+            filtered.append(result)
     return filtered
 
 
 # --- Query-type routing ---
 
-import re as _re
-
 _FACTUAL_PATTERNS = [
     _re.compile(r"\bhow\s+to\b", _re.IGNORECASE),
     _re.compile(r"\bwhat\s+is\b", _re.IGNORECASE),
     _re.compile(r"\bwhat\s+are\b", _re.IGNORECASE),
-    _re.compile(r"\d+\.\d+(?:\.\d+)?"),           # version numbers like 3.12, 2.1.0
+    _re.compile(r"\d+\.\d+(?:\.\d+)?"),
     _re.compile(r"\b(?:api|sdk|cli|http|grpc|rest)\b", _re.IGNORECASE),
     _re.compile(r"\bget\b.*\b(?:method|function|request)\b", _re.IGNORECASE),
 ]
@@ -134,34 +271,88 @@ _URL_PATTERNS = [
     _re.compile(r"\bwww\.\S+\.\w+", _re.IGNORECASE),
 ]
 
-# Keyword sets for word-level classification (supplements regex patterns)
-_FACTUAL_KEYWORDS = frozenset({
-    "install", "setup", "configure", "configuration",
-    "tutorial", "documentation", "reference", "guide", "example",
-    "error", "debug", "fix", "syntax", "compile", "compiler",
-    "build", "deploy", "deployment", "version", "release",
-    "endpoint", "function", "method", "class", "module", "library",
-    "package", "import", "parameter", "argument", "return", "type",
-    "exception", "traceback", "stacktrace", "runtime", "memory",
-    "algorithm", "protocol", "server", "client", "request", "response",
-    "database", "query", "sql", "migration", "schema",
-})
+_FACTUAL_KEYWORDS = frozenset(
+    {
+        "install",
+        "setup",
+        "configure",
+        "configuration",
+        "tutorial",
+        "documentation",
+        "reference",
+        "guide",
+        "example",
+        "error",
+        "debug",
+        "fix",
+        "syntax",
+        "compile",
+        "compiler",
+        "build",
+        "deploy",
+        "deployment",
+        "version",
+        "release",
+        "endpoint",
+        "function",
+        "method",
+        "class",
+        "module",
+        "library",
+        "package",
+        "import",
+        "parameter",
+        "argument",
+        "return",
+        "type",
+        "exception",
+        "traceback",
+        "stacktrace",
+        "runtime",
+        "memory",
+        "algorithm",
+        "protocol",
+        "server",
+        "client",
+        "request",
+        "response",
+        "database",
+        "query",
+        "sql",
+        "migration",
+        "schema",
+    }
+)
 
-_OPINION_KEYWORDS = frozenset({
-    "best", "recommend", "recommendation", "compare", "comparison",
-    "vs", "versus", "should", "opinion", "review", "favorite",
-    "top", "alternatives", "alternative", "pros", "cons",
-    "advantage", "disadvantage", "prefer", "better", "worse",
-})
+_OPINION_KEYWORDS = frozenset(
+    {
+        "best",
+        "recommend",
+        "recommendation",
+        "compare",
+        "comparison",
+        "vs",
+        "versus",
+        "should",
+        "opinion",
+        "review",
+        "favorite",
+        "top",
+        "alternatives",
+        "alternative",
+        "pros",
+        "cons",
+        "advantage",
+        "disadvantage",
+        "prefer",
+        "better",
+        "worse",
+    }
+)
 
 
 def classify_query_keywords(query: str) -> str:
-    """Classify a query using word-level keyword matching.
-
-    Returns 'factual', 'opinion', or 'unknown' based on keyword hits.
-    This supplements the regex-based classify_query for edge cases where
-    regex patterns miss factual queries that contain technical keywords.
-    """
+    """Classify using word-level keyword matching. Returns factual/opinion/unknown."""
     words = set(query.lower().split())
     if words & _FACTUAL_KEYWORDS:
         return "factual"
@@ -171,20 +362,13 @@ def classify_query_keywords(query: str) -> str:
 
 
 def classify_query(query: str) -> str:
-    """Classify a query as 'factual', 'url', or 'opinion'.
-
-    Uses regex patterns first, then falls back to keyword matching.
-    Factual/technical queries are routed to Perplexity + Exa for cited answers.
-    URL extraction queries go to Exa only.
-    Everything else (opinion/exploratory) hits all backends.
-    """
+    """Classify a query as factual/url/opinion for backend routing."""
     for pat in _URL_PATTERNS:
         if pat.search(query):
             return "url"
     for pat in _FACTUAL_PATTERNS:
         if pat.search(query):
             return "factual"
-    # Keyword fallback: catch factual queries missed by regex
     if classify_query_keywords(query) == "factual":
         return "factual"
     return "opinion"
@@ -199,332 +383,420 @@ def route_backends(query_type: str) -> list[str]:
     return list(ALL_BACKENDS)
 
 
-BACKEND_META = {
-    "grok": {"env": "XAI_API_KEY", "cost": 0.05},
-    "exa": {"env": "EXA_API_KEY", "cost": 0.01},
-    "perplexity": {"env": "PERPLEXITY_API_KEY", "cost": 0.006},
-    "tavily": {"env": "TAVILY_API_KEY", "cost": 0.0},
-    "serper": {"env": "SERPER_API_KEY", "cost": 0.0},
-    "zhipu": {"env": "ZHIPU_API_KEY", "cost": 0.0},
-    "jina": {"env": "JINA_API_KEY", "cost": 0.0},
-}
+# --- Streaming search engine ---
 
 
-def _build_tree() -> CommandTree:
-    tree = CommandTree("rheotaxis")
-    tree.add_command(
-        "search",
-        "Search all backends in parallel",
-        params=[
-            {"name": "query", "type": "positional", "required": False},
-            {"name": "--text", "type": "flag", "description": "Markdown output"},
-            {
-                "name": "--exclude",
-                "type": "string",
-                "description": "Comma-separated backends to skip",
-            },
-            {"name": "-b", "type": "string", "description": "Comma-separated backend whitelist"},
-            {"name": "-q", "type": "multi", "description": "Additional queries"},
-        ],
-    )
-    tree.add_command(
-        "research",
-        "Deep research via Perplexity sonar-deep-research",
-        params=[
-            {"name": "query", "type": "positional", "required": True},
-            {"name": "--text", "type": "flag", "description": "Raw answer to stdout"},
-        ],
-    )
-    tree.add_command(
-        "backends",
-        "List all backends with health status",
-        params=[],
-    )
-    return tree
-
-
-def _read_health() -> str:
-    health_file = Path.home() / ".cache" / "vivesca" / "rheotaxis-health"
-    try:
-        return health_file.read_text().strip()
-    except FileNotFoundError:
-        return "unknown"
-
-
-def _list_backends() -> None:
-    health_status = _read_health()
-    backends = []
-    for name in ALL_BACKENDS:
-        meta = BACKEND_META[name]
-        backends.append(
-            {
-                "name": name,
-                "env_var": meta["env"],
-                "cost_usd": meta["cost"],
-            }
-        )
-    emit_ok(
-        "rheotaxis backends",
-        {"backends": backends, "health": health_status},
-        next_actions=[action("rheotaxis query", "Run a search")],
-    )
-
-
-def _format_results(q: str, results: list[ToolResult]) -> dict:
-    ok_count = sum(1 for r in results if not r.error)
-    total = len(results)
-    backends = []
-    for r in results:
-        backends.append(
-            {
-                "name": r.tool,
-                "latency_s": r.latency_s,
-                "answer": r.result if not r.error else None,
-                "results": r.result if not r.error else None,
-                "error": r.error,
-            }
-        )
+def _result_to_dict(result: ToolResult) -> dict:
+    """Convert ToolResult to envelope-ready dict."""
     return {
-        "query": q,
-        "backends": backends,
-        "health": f"{ok_count}/{total}",
-        "cost_usd": sum(r.cost for r in results),
+        "name": result.tool,
+        "latency_s": round(result.latency_s, 1),
+        "cost": result.cost,
+        "error": result.error,
+        "content": result.result if result.result and not result.error else None,
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Multi-backend web search CLI")
-    parser.add_argument("query", nargs="?", help="Search query")
-    parser.add_argument(
-        "-q",
-        "--queries",
-        action="append",
-        default=[],
-        help="Additional query framings (repeat -q for each)",
+async def _run_all_filtered(
+    query: str,
+    exclude: set[str] | None = None,
+    *,
+    raw: bool = False,
+) -> list[ToolResult]:
+    """Run all backends with quality filtering (always-on unless --raw)."""
+    from metabolon.enzymes._parallel_search import (
+        _run_exa,
+        _run_grok,
+        _run_jina,
+        _run_perplexity,
+        _run_serper,
+        _run_tavily,
+        _run_zhipu,
     )
-    parser.add_argument(
-        "--research",
-        action="store_true",
-        help="Deep research via Perplexity sonar-deep-research",
-    )
-    parser.add_argument(
-        "--text",
-        action="store_true",
-        help="Human-readable markdown output instead of JSON",
-    )
-    parser.add_argument(
-        "--exclude",
-        default=None,
-        help="Comma-separated backends to exclude",
-    )
-    parser.add_argument(
-        "-b",
-        default=None,
-        help="Comma-separated backend whitelist",
-    )
-    parser.add_argument(
-        "--backends",
-        action="store_true",
-        help="List all backends with health status",
-    )
-    parser.add_argument(
-        "--quality",
-        action="store_true",
-        help="Filter out low-signal (padding-heavy) responses",
-    )
-    parser.add_argument(
-        "--route",
-        action="store_true",
-        help="Show query classification + routing without searching",
-    )
-    args = parser.parse_args()
 
-    # --backends mode: list and exit
-    if args.backends:
-        _list_backends()
-        sys.exit(EXIT_OK)
+    backend_map = {
+        "grok": _run_grok,
+        "exa": _run_exa,
+        "perplexity": _run_perplexity,
+        "tavily": _run_tavily,
+        "serper": _run_serper,
+        "zhipu": _run_zhipu,
+        "jina": _run_jina,
+    }
+    skip = exclude or set()
+    active = {name: func for name, func in backend_map.items() if name not in skip}
 
-    # Collect queries: positional + -q flags
-    queries = list(args.queries)
-    if args.query:
-        queries.insert(0, args.query)
+    results: list[ToolResult] = []
 
-    # Bare invocation (no query) -> command tree
-    if not queries:
-        tree = _build_tree()
-        emit_ok("rheotaxis", tree.to_dict())
-        sys.exit(EXIT_OK)
-
-    # --route mode: classify query and show routing, no search
-    if args.route:
-        classifications = []
-        for q in queries:
-            qtype = classify_query(q)
-            backends = route_backends(qtype)
-            classifications.append(
-                {"query": q, "type": qtype, "backends": backends}
+    async def _wrap(name: str, coro):
+        try:
+            result = await coro
+        except Exception as exc:
+            result = ToolResult(tool=name, query=query, result="", error=str(exc))
+        if not raw and not result.error and result.result and is_low_signal(result.result):
+            result = ToolResult(
+                tool=result.tool,
+                query=result.query,
+                result="",
+                cost=result.cost,
+                latency_s=result.latency_s,
+                error="filtered: low signal density",
             )
-        emit_ok(
-            "rheotaxis route",
-            {"classifications": classifications},
-        )
-        sys.exit(EXIT_OK)
+        results.append(result)
+        return result
 
-    # Mutual exclusivity: --exclude and -b
-    if args.exclude and args.b:
+    tasks = [_wrap(name, func(query)) for name, func in active.items()]
+    await asyncio.gather(*tasks)
+
+    _log_run(query, results)
+    return results
+
+
+# --- Command tree for agent discovery ---
+
+_tree = CommandTree("rheotaxis")
+_tree.add_command(
+    "search",
+    "Search all backends in parallel",
+    params=[
+        {"name": "query", "type": "positional", "required": True},
+        {"name": "--text", "type": "flag", "description": "Markdown output"},
+        {"name": "--json", "type": "flag", "description": "Force JSON in TTY"},
+        {"name": "--exclude", "type": "string", "description": "Comma-separated backends to skip"},
+        {"name": "-b", "type": "string", "description": "Comma-separated backend whitelist"},
+        {"name": "-q", "type": "multi", "description": "Additional queries"},
+        {"name": "--raw", "type": "flag", "description": "Skip quality filter"},
+    ],
+)
+_tree.add_command(
+    "research",
+    "Deep research via Perplexity sonar-deep-research",
+    params=[
+        {"name": "query", "type": "positional", "required": True},
+        {"name": "--text", "type": "flag", "description": "Raw answer to stdout"},
+    ],
+)
+_tree.add_command("backends", "List all backends with health status", params=[])
+_tree.add_command(
+    "route",
+    "Show query classification + routing without searching",
+    params=[{"name": "query", "type": "positional", "required": True}],
+)
+
+# --- cyclopts app ---
+
+app = cyclopts.App(
+    name="rheotaxis",
+    help="Multi-backend web search CLI.",
+)
+
+
+def _resolve_exclude(
+    exclude: str | None,
+    backends: str | None,
+    query: str | None,
+) -> set[str]:
+    """Compute exclude set from --exclude, -b, or auto-route."""
+    if exclude and backends:
         emit_err(
             "rheotaxis search",
             "--exclude and -b are mutually exclusive",
             "MUTUAL_EXCLUSION",
             fix="Use --exclude OR -b, not both",
         )
-        sys.exit(EXIT_ERROR)
-
-    # Compute exclude set
-    exclude: set[str] = set()
-    if args.exclude:
-        exclude = {b.strip() for b in args.exclude.split(",") if b.strip()}
-    elif args.b:
-        selected = {b.strip() for b in args.b.split(",") if b.strip()}
-        exclude = set(ALL_BACKENDS) - selected
-    else:
-        # Auto-route: classify first query to select backends
-        qtype = classify_query(queries[0])
+        raise SystemExit(EXIT_ERROR)
+    if exclude:
+        return {name.strip() for name in exclude.split(",") if name.strip()}
+    if backends:
+        selected = {name.strip() for name in backends.split(",") if name.strip()}
+        return set(ALL_BACKENDS) - selected
+    if query:
+        qtype = classify_query(query)
         routed = route_backends(qtype)
-        exclude = set(ALL_BACKENDS) - set(routed)
+        return set(ALL_BACKENDS) - set(routed)
+    return set()
 
-    # --- Research mode ---
-    if args.research:
-        for q in queries:
+
+def _use_json(json_flag: bool, text_flag: bool) -> bool:
+    """Determine output mode: JSON when piped, when --json, unless --text."""
+    if text_flag:
+        return False
+    if json_flag:
+        return True
+    return _is_agent()
+
+
+@app.command
+@app.default
+def search(
+    query: str | None = None,
+    *,
+    queries: Annotated[tuple[str, ...], cyclopts.Parameter(name=["-q", "--queries"])] = (),
+    text: bool = False,
+    json: Annotated[bool, cyclopts.Parameter(name="--json")] = False,
+    exclude: str | None = None,
+    backends: Annotated[str | None, cyclopts.Parameter(name=["-b"])] = None,
+    raw: bool = False,
+) -> None:
+    """Search all backends in parallel. Quality filter always-on (--raw to bypass)."""
+    if query is None:
+        if _is_agent():
+            emit_ok("rheotaxis", _tree.to_dict())
+        else:
+            from rich.console import Console
+
+            console = Console()
+            console.print("[bold]rheotaxis[/bold] — multi-backend web search\n")
+            console.print('  [cyan]rheotaxis search[/cyan] "query"     Search all backends')
+            console.print('  [cyan]rheotaxis research[/cyan] "query"   Deep Perplexity research')
+            console.print("  [cyan]rheotaxis backends[/cyan]            List backends + health")
+            console.print('  [cyan]rheotaxis route[/cyan] "query"      Show classification only')
+            console.print(
+                "\nFlags: --text (markdown), --json (force JSON), --raw (skip quality filter)"
+            )
+        return
+    all_queries = [query, *queries]
+    use_json = _use_json(json, text)
+    exclude_set = _resolve_exclude(exclude, backends, query)
+
+    if len(all_queries) == 1:
+        results = asyncio.run(_run_all_filtered(query, exclude=exclude_set or None, raw=raw))
+
+        if text:
+            results = sorted(
+                results,
+                key=lambda result: BACKEND_WEIGHTS.get(result.tool, 0),
+                reverse=True,
+            )
             try:
-                answer = perplexity_deep(q)
-            except Exception as exc:
-                emit_err(
-                    "rheotaxis research",
-                    str(exc),
-                    "RESEARCH_FAILED",
-                    fix="Check PERPLEXITY_API_KEY and network connectivity",
-                )
-                sys.exit(EXIT_ERROR)
-            if args.text:
-                print(answer)
-            else:
-                emit_ok(
-                    "rheotaxis research",
-                    {
-                        "query": q,
-                        "answer": answer,
-                        "citations": [],
-                        "cost_usd": 0.40,
-                    },
-                    next_actions=[
-                        action("rheotaxis --backends", "Check backend health"),
-                    ],
-                )
-        sys.exit(EXIT_OK)
-
-    # --- Default search mode ---
-    exclude_arg = exclude or None
-
-    if len(queries) == 1:
-        results = asyncio.run(_run_all(queries[0], exclude=exclude_arg))
-
-        # Apply quality filter if requested
-        if args.quality:
-            results = _apply_quality_filter(results)
-
-        # For --text mode, order results by backend weight
-        if args.text:
-            results = sorted(results, key=lambda r: BACKEND_WEIGHTS.get(r.tool, 0), reverse=True)
-            try:
-                print(_report(queries[0], results))
+                print(_report(query, results))
             except RuntimeError as exc:
                 print(f"Error: {exc}", file=sys.stderr)
-                sys.exit(EXIT_ERROR)
-        else:
-            ok_count = sum(1 for r in results if not r.error)
+                raise SystemExit(EXIT_ERROR) from exc
+        elif use_json:
+            ok_count = sum(1 for result in results if not result.error)
             total = len(results)
             if ok_count == 0:
                 emit_err(
                     "rheotaxis search",
                     f"all {total} backends failed",
                     "ALL_BACKENDS_FAILED",
-                    fix="Check API keys: eval $(importin). Run: rheotaxis --backends",
+                    fix="Check API keys: eval $(importin). Run: rheotaxis backends",
                 )
-                sys.exit(EXIT_ERROR)
-            emit_ok(
-                "rheotaxis search",
-                _json.loads(_report(queries[0], results, json_output=True)),
-                next_actions=[
-                    action("rheotaxis --backends", "Check backend health"),
-                ],
-            )
-    else:
-        # Multi-query: run _run_all for each via asyncio.gather
-        async def _run_multi() -> list[list[ToolResult]]:
-            tasks = [_run_all(q, exclude=exclude_arg) for q in queries]
-            return await asyncio.gather(*tasks)
-
-        per_query = asyncio.run(_run_multi())
-
-        # Apply quality filter if requested
-        if args.quality:
-            per_query = [_apply_quality_filter(rq) for rq in per_query]
-
-        if args.text:
-            any_ok = False
-            for q, results in zip(queries, per_query):
-                results = sorted(results, key=lambda r: BACKEND_WEIGHTS.get(r.tool, 0), reverse=True)
-                print(f"\n## QUERY: {q}\n")
-                try:
-                    print(_report(q, results))
-                    any_ok = True
-                except RuntimeError:
-                    print(f"  All backends failed for: {q}\n")
-            if not any_ok:
-                sys.exit(EXIT_ERROR)
-        else:
-            combined_backends = []
-            total_ok = 0
-            total_count = 0
-            total_cost = 0.0
-            for q, results in zip(queries, per_query):
-                ok_count = sum(1 for r in results if not r.error)
-                total_ok += ok_count
-                total_count += len(results)
-                total_cost += sum(r.cost for r in results)
-                for r in results:
-                    combined_backends.append(
-                        {
-                            "name": r.tool,
-                            "latency_s": r.latency_s,
-                            "answer": r.result if not r.error else None,
-                            "results": r.result if not r.error else None,
-                            "error": r.error,
-                            "query": q,
-                        }
-                    )
-            if total_ok == 0:
-                emit_err(
-                    "rheotaxis search",
-                    f"all {total_count} backends failed across {len(queries)} queries",
-                    "ALL_BACKENDS_FAILED",
-                    fix="Check API keys: eval $(importin). Run: rheotaxis --backends",
-                )
-                sys.exit(EXIT_ERROR)
+                raise SystemExit(EXIT_ERROR)
             emit_ok(
                 "rheotaxis search",
                 {
-                    "queries": queries,
-                    "backends": combined_backends,
-                    "health": f"{total_ok}/{total_count}",
-                    "cost_usd": total_cost,
+                    "query": query,
+                    "backends": [_result_to_dict(result) for result in results],
+                    "backend_count": total,
+                    "ok_count": ok_count,
+                    "total_cost": round(sum(result.cost for result in results), 4),
                 },
-                next_actions=[
-                    action("rheotaxis --backends", "Check backend health"),
-                ],
+                next_actions=[action("rheotaxis backends", "Check backend health")],
             )
+        else:
+            _print_rich(query, results)
+    else:
+        _search_multi(all_queries, exclude_set, text, use_json, raw)
+
+
+def _search_multi(
+    queries: list[str],
+    exclude_set: set[str],
+    text: bool,
+    use_json: bool,
+    raw: bool,
+) -> None:
+    """Handle multi-query search."""
+
+    async def _run_multi() -> list[list[ToolResult]]:
+        tasks = [
+            _run_all_filtered(query, exclude=exclude_set or None, raw=raw) for query in queries
+        ]
+        return await asyncio.gather(*tasks)
+
+    per_query = asyncio.run(_run_multi())
+
+    if text:
+        any_ok = False
+        for query, results in zip(queries, per_query, strict=True):
+            results = sorted(
+                results,
+                key=lambda result: BACKEND_WEIGHTS.get(result.tool, 0),
+                reverse=True,
+            )
+            print(f"\n## QUERY: {query}\n")
+            try:
+                print(_report(query, results))
+                any_ok = True
+            except RuntimeError:
+                print(f"  All backends failed for: {query}\n")
+        if not any_ok:
+            raise SystemExit(EXIT_ERROR)
+    elif use_json:
+        combined_backends = []
+        total_ok = 0
+        total_count = 0
+        total_cost = 0.0
+        for query, results in zip(queries, per_query, strict=True):
+            ok_count = sum(1 for result in results if not result.error)
+            total_ok += ok_count
+            total_count += len(results)
+            total_cost += sum(result.cost for result in results)
+            for result in results:
+                entry = _result_to_dict(result)
+                entry["query"] = query
+                combined_backends.append(entry)
+        if total_ok == 0:
+            emit_err(
+                "rheotaxis search",
+                f"all {total_count} backends failed across {len(queries)} queries",
+                "ALL_BACKENDS_FAILED",
+                fix="Check API keys: eval $(importin). Run: rheotaxis backends",
+            )
+            raise SystemExit(EXIT_ERROR)
+        emit_ok(
+            "rheotaxis search",
+            {
+                "queries": queries,
+                "backends": combined_backends,
+                "backend_count": total_count,
+                "ok_count": total_ok,
+                "total_cost": round(total_cost, 4),
+            },
+            next_actions=[action("rheotaxis backends", "Check backend health")],
+        )
+    else:
+        for query, results in zip(queries, per_query, strict=True):
+            _print_rich(query, results)
+
+
+def _print_rich(query: str, results: list[ToolResult]) -> None:
+    """Pretty-print results in TTY mode using rich."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    ok_results = [result for result in results if not result.error]
+    errored = [result for result in results if result.error]
+
+    console.print(f"\n[bold]Query:[/bold] {query}")
+    console.print(f"[dim]{len(ok_results)}/{len(results)} backends OK[/dim]\n")
+
+    for result in sorted(ok_results, key=lambda r: BACKEND_WEIGHTS.get(r.tool, 0), reverse=True):
+        console.print(
+            Panel(
+                result.result[:2000] if result.result else "(empty)",
+                title=f"[bold cyan]{result.tool}[/bold cyan] ({result.latency_s:.1f}s)",
+                border_style="dim",
+            )
+        )
+
+    if errored:
+        err_summary = ", ".join(
+            f"{result.tool}: {(result.error or '')[:60]}" for result in errored
+        )
+        console.print(f"\n[dim red]Failed: {err_summary}[/dim red]")
+
+
+@app.command
+def research(
+    query: str,
+    *,
+    text: bool = False,
+    json: Annotated[bool, cyclopts.Parameter(name="--json")] = False,
+) -> None:
+    """Deep research via Perplexity sonar-deep-research."""
+    try:
+        answer = perplexity_deep(query)
+    except Exception as exc:
+        emit_err(
+            "rheotaxis research",
+            str(exc),
+            "RESEARCH_FAILED",
+            fix="Check PERPLEXITY_API_KEY and network connectivity",
+        )
+        raise SystemExit(EXIT_ERROR) from exc
+
+    if text:
+        print(answer)
+    elif _use_json(json, False):
+        emit_ok(
+            "rheotaxis research",
+            {"query": query, "answer": answer, "citations": [], "cost_usd": 0.40},
+            next_actions=[action("rheotaxis backends", "Check backend health")],
+        )
+    else:
+        from rich.console import Console
+        from rich.markdown import Markdown
+
+        console = Console()
+        console.print(Markdown(answer))
+
+
+@app.command(name="backends")
+def list_backends() -> None:
+    """List all backends with health status."""
+    health_file = Path.home() / ".cache" / "vivesca" / "rheotaxis-health"
+    try:
+        health_status = health_file.read_text().strip()
+    except FileNotFoundError:
+        health_status = "unknown"
+
+    backend_list = [
+        {"name": name, "env_var": meta["env"], "cost_usd": meta["cost"]}
+        for name, meta in BACKEND_META.items()
+    ]
+
+    if _is_agent():
+        emit_ok(
+            "rheotaxis backends",
+            {"backends": backend_list, "health": health_status},
+            next_actions=[action('rheotaxis search "query"', "Run a search")],
+        )
+    else:
+        import os
+
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+        table = Table(title="rheotaxis backends")
+        table.add_column("Backend", style="cyan")
+        table.add_column("Env Var")
+        table.add_column("Cost/call")
+        table.add_column("Key Set?")
+        for entry in backend_list:
+            has_key = "yes" if os.environ.get(entry["env_var"]) else "no"
+            style = "green" if has_key == "yes" else "red"
+            table.add_row(
+                entry["name"],
+                entry["env_var"],
+                f"${entry['cost_usd']:.3f}",
+                f"[{style}]{has_key}[/{style}]",
+            )
+        console.print(table)
+        console.print(f"\nHealth: {health_status}")
+
+
+@app.command
+def route(query: str) -> None:
+    """Show query classification + routing without searching."""
+    qtype = classify_query(query)
+    routed = route_backends(qtype)
+    result = {"query": query, "type": qtype, "backends": routed}
+
+    if _is_agent():
+        emit_ok("rheotaxis route", result)
+    else:
+        from rich.console import Console
+
+        console = Console()
+        console.print(f"[bold]Query:[/bold] {query}")
+        console.print(f"[bold]Type:[/bold] {qtype}")
+        console.print(f"[bold]Backends:[/bold] {', '.join(routed)}")
 
 
 if __name__ == "__main__":
-    main()
+    app()
