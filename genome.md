@@ -149,7 +149,7 @@ Draft autonomously, pause before "send". Auto-push personal repos. Ask before sh
 
 ## User Preferences
 
-- **Naming:** Latin/Greek. `consilium --quick` + crates.io check.
+- **Naming:** Latin/Greek. `quorate quick` + crates.io check.
 - **Package manager**: pnpm
 - **CLI framework**: `cyclopts>=4.0` (type-driven, async) + `porin>=0.3` (JSON envelope). All new CLIs. `--json` flag on every command. Migrate Click CLIs opportunistically.
 - **Front-stage** (client-facing): Terry's voice, not mine.

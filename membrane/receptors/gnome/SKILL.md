@@ -9,7 +9,7 @@ user_invocable: true
 
 Capture decisions to `~/epigenome/chromatin/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal. When logging, tag which `topica` models applied — builds the feedback loop.
 
-*Gnōmē (γνώμη): in Aristotle, the crystallised residue of having judged — recalled to govern new situations. Sits upstream of both epistēmē (measurable → judex) and boulē (uncertain → consilium).*
+*Gnōmē (γνώμη): in Aristotle, the crystallised residue of having judged — recalled to govern new situations. Sits upstream of both epistēmē (measurable → judex) and boulē (uncertain → quorate).*
 
 ## Commands
 
@@ -25,9 +25,9 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
 **Logic:**
 
 0. **ROUTE FIRST:**
-   > consilium = outcome is uncertain, needs perspectives. judex = outcome is measurable, needs evidence.
+   > quorate = outcome is uncertain, needs perspectives. judex = outcome is measurable, needs evidence.
    - Can you run both options and compare with a measurable criterion? → `judex` (see `~/skills/judex/SKILL.md`)
-   - Does it involve genuine trade-offs, values, or domain judgment? → `consilium`
+   - Does it involve genuine trade-offs, values, or domain judgment? → `quorate`
    - Is it a committed choice that just needs capturing? → proceed below
 
 1. Run `date +%Y-%m-%d` to get today in HKT
@@ -59,7 +59,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
 7. Generate slug from topic: lowercase, kebab-case, max 5 words
 8. Write to `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` using the template below
 9. Confirm: "Decision logged: `decisions/YYYY-MM-DD-<slug>.md`"
-10. If the decision involved complex trade-offs, offer: "Want to stress-test this with `/consilium --redteam`?"
+10. If the decision involved complex trade-offs, offer: "Want to stress-test this with `/quorate --redteam`?"
 
 **Template:**
 
@@ -131,10 +131,10 @@ Surface decisions with a review date that has passed.
 - **Storage:** `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, QMD auto-indexes every 2h
 - **Indexing lag:** New decisions won't appear in bouncer searches for up to 2h. This is fine — the bouncer matters for decisions spaced days/weeks apart, not minutes.
 - **No manual outcome tracking.** The bouncer IS the outcome tracker: if you come back to the same topic, the previous decision either held (you never return) or failed (you're back). Recurrence = implicit failure signal.
-- **Consilium integration:** For complex decisions, use `/consilium` first to deliberate, then `/gnome` to log the outcome. Council outputs in `~/epigenome/chromatin/Councils/` complement but don't replace decision notes.
+- **Quorate integration:** For complex decisions, use `/quorate` first to deliberate, then `/gnome` to log the outcome. Council outputs in `~/epigenome/chromatin/Councils/` complement but don't replace decision notes.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.
 
 ## Calls
 - `qmd` — bouncer search and decision lookup
 - `judex` — when outcome is measurable
-- `consilium` — when trade-offs need deliberation
+- `quorate` — when trade-offs need deliberation

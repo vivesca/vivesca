@@ -142,11 +142,11 @@ Lesson: delegate the implementation, review the integration points.
 Audited via `pondus check <model> --show-matches`. Findings:
 - **TOML keys with dots** (`[kimi-k2.5]`) are parsed as nested keys by TOML. Must quote: `["kimi-k2.5"]`.
 - **`cargo build --release` ≠ `cargo install --path .`** — build updates `target/release/` but not the installed binary in `~/.cargo/bin/`. Always install after build to avoid stale binary confusion.
-- **Kimi K2.5** only has 1 reasoning source (AA). Mainly a coding model (swebench, swe-rebench). Using it in a reasoning-focused council (consilium) is thinly validated — preference over DeepSeek R1 is on lab diversity grounds, not reasoning benchmark depth.
+- **Kimi K2.5** only has 1 reasoning source (AA). Mainly a coding model (swebench, swe-rebench). Using it in a reasoning-focused council (quorate) is thinly validated — preference over DeepSeek R1 is on lab diversity grounds, not reasoning benchmark depth.
 - **GLM-5** has 2 reasoning sources (AA + Arena) and 4 total — best-validated Chinese model in the aggregate as of Mar 2026.
 - **`--tag reasoning` sources**: AA, Arena, LiveBench, Seal. LiveBench frozen since Apr 2025 — effectively stale.
 
-## Council Composition Rationale (consilium, Mar 2026)
+## Council Composition Rationale (quorate, Mar 2026)
 
 Swapped DeepSeek R1 → Kimi K2.5 based on:
 - R1 (Jan 2025) unranked on AA, weakest on Aider vs Kimi

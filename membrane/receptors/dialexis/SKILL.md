@@ -21,7 +21,7 @@ Synthesize AI developments into opinionated, client-ready talking points. Not a 
 Every item passes through: **"Would this change how I advise a bank CTO this week?"**
 
 Filter categories:
-1. **Model & infrastructure shifts** — new capabilities that unlock use cases (not benchmarks for their own sake). If a major new model lands, check whether consilium's council config needs updating.
+1. **Model & infrastructure shifts** — new capabilities that unlock use cases (not benchmarks for their own sake). If a major new model lands, check whether quorate's council config needs updating.
 2. **Regulatory & governance** — HKMA, MAS, EU AI Act, OCC guidance
 3. **Banking-specific AI** — fraud, credit, ops, customer service, document processing
 4. **Agentic / coding AI** — what Capco's delivery teams should know

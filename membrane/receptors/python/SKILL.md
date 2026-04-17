@@ -67,7 +67,7 @@ cd <name>
 uv add httpx rich       # add deps
 ```
 
-**Name via consilium (mandatory):**
+**Name via quorate (mandatory):**
 
 ```bash
 consilium "Name a new Python CLI tool that does X. Latin or Greek preferred. Check PyPI availability." --quick

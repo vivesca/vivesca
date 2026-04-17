@@ -38,7 +38,7 @@ grep -rL 'disable-model-invocation: true' /Users/terry/skills/*/SKILL.md | wc -l
 
 ### 2. Usage Scan
 
-Search recent chat history for skill invocations. **Important:** Count BOTH explicit `/name` invocations AND keyword triggers — most skills are triggered by natural language, not slash commands. Counting only slash invocations drastically undercounts usage (e.g. consilium showed 0 slash but ~300 keyword triggers).
+Search recent chat history for skill invocations. **Important:** Count BOTH explicit `/name` invocations AND keyword triggers — most skills are triggered by natural language, not slash commands. Counting only slash invocations drastically undercounts usage (e.g. quorate showed 0 slash but ~300 keyword triggers).
 
 ```python
 # Slash invocations
@@ -53,7 +53,7 @@ with open('/Users/terry/.claude/anam.jsonl') as f:
 
 # Keyword triggers (add patterns for high-value skills)
 keywords = {
-    'consilium': r'ask.llms|consilium|multi.llm|council',
+    'quorate': r'ask.llms|quorate|consilium|multi.llm|council',
     'gmail': r'check.*email|inbox|gmail',
     'whatsapp': r'whatsapp|check.*messages',
     'todo': r'todo|add.*todo|check.*todo',

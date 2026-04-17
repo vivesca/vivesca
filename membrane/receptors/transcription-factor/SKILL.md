@@ -140,4 +140,4 @@ Surface decisions with a review date that has passed.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.
 
 ## Calls
-- `consilium` — when trade-offs need deliberation
+- `quorate` — when trade-offs need deliberation

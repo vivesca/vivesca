@@ -158,7 +158,7 @@ Link from the skill with a one-liner: `(rationale: [[Note Name]])`. The skill st
 
 Signal that a skill needs splitting: you find yourself reading the rationale section to remember the rule, rather than reading it to understand why the rule exists.
 
-**Hard cap: operational core ≤150 lines.** If the skill file exceeds ~150 lines, split: keep the operational core (steps, commands, decision rules) in `SKILL.md`; move extended reference (flag compatibility, prompting tips, model tendencies, changelog, research foundations) to `REFERENCE.md` in the same directory. Link from the skill: `(extended reference: [REFERENCE.md](./REFERENCE.md))`. Applied to consilium Mar 2026 — 571L → 180L SKILL.md + REFERENCE.md.
+**Hard cap: operational core ≤150 lines.** If the skill file exceeds ~150 lines, split: keep the operational core (steps, commands, decision rules) in `SKILL.md`; move extended reference (flag compatibility, prompting tips, model tendencies, changelog, research foundations) to `REFERENCE.md` in the same directory. Link from the skill: `(extended reference: [REFERENCE.md](./REFERENCE.md))`. Applied to quorate Mar 2026 — 571L → 180L SKILL.md + REFERENCE.md.
 
 ### 9. Naming
 
@@ -320,7 +320,7 @@ Add to skills that are commonly called by other skills. Not needed for pure user
 
 1. What's worth crystallizing (the repeatable patterns, not the one-off fixes)
 2. The CLI/skill split (what's deterministic vs judgment)
-3. A skill name (run consilium)
+3. A skill name (run quorate)
 
 **Trigger conditions:**
 - Session involved >3 retries with different approaches for the same class of problem

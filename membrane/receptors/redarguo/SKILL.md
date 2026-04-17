@@ -13,7 +13,7 @@ One-line strongest counterargument from a different LLM. Designed to add minimal
 Invoke `/redarguo` without being asked when:
 - Terry is about to **commit** to a decision (job, strategy, investment)
 - Drafting **client-facing** or **LinkedIn** content
-- A consilium returned unanimous agreement (suspiciously easy)
+- A quorate returned unanimous agreement (suspiciously easy)
 - Terry says "I'm sure" or "obviously" about something non-factual
 
 Do NOT invoke for:

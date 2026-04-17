@@ -23,7 +23,7 @@ Plans fail not because the logic is wrong, but because a premise was wrong. The 
 - Before committing to an architecture or technical approach
 - Before a high-stakes decision where you're reasoning from "I think X is true"
 - When a plan feels right but you haven't explicitly listed what it depends on
-- When a previous judex/consilium result is being acted on — verify the premises haven't changed
+- When a previous judex/quorate result is being acted on — verify the premises haven't changed
 
 **Not needed for:**
 - Routine, reversible decisions
@@ -49,7 +49,7 @@ Focus only on load-bearing ones. Incidental assumptions don't need verification.
 For each load-bearing assumption, in order:
 1. `cerno "<assumption topic>"` — do we already know the answer?
 2. Web search if cerno returns nothing
-3. `consilium` if still uncertain and stakes are high
+3. `quorate` if still uncertain and stakes are high
 
 **4. Gate check**
 
@@ -74,7 +74,7 @@ One unverified premise is a risk. Two is a pattern. Three is a plan built on air
 
 ## Relationship to Other Skills
 
-- **examen** runs *before* judex or consilium — checks the premises that those skills would reason from
+- **examen** runs *before* judex or quorate — checks the premises that those skills would reason from
 - **trutina** is for when you have conflicting evidence about a premise — examen surfaces the question, trutina resolves it
 - **judex** is for when the outcome is measurable — but judex still assumes its own premises (e.g., "my verification criterion is correct")
 

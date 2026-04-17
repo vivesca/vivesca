@@ -111,6 +111,6 @@ Full data: [[Persona vs Procedure Experiment Results]], [[Multi-Agent Mixed-LLM 
 
 - **peira** — the execution engine for running experiments. Peirasmos provides the theory; peira provides the loop.
 - **judex** — "can this be measured?" gate. Peirasmos assumes yes; judex decides whether to measure at all.
-- **consilium** — for judgment calls where experiments aren't feasible. Peirasmos is for when they are.
+- **quorate** — for judgment calls where experiments aren't feasible. Peirasmos is for when they are.
 - **topica** — mental models catalog. Experimental thinking is a meta-model that applies across domains.
 - **examen** — premise audit. Run before experiments to surface load-bearing assumptions.

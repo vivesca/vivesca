@@ -1,6 +1,6 @@
 ---
 name: stips
-description: Check OpenRouter credits and usage. Use when user says "stips", "openrouter credits", "or credits", or consilium returns 402.
+description: Check OpenRouter credits and usage. Use when user says "stips", "openrouter credits", "or credits", or quorate returns 402.
 effort: low
 user_invocable: true
 ---

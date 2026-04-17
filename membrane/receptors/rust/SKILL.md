@@ -23,7 +23,7 @@ Three modes: **new** (scaffold), **dev** (daily workflow), **publish** (checklis
 
 ## Mode: New CLI
 
-### 1. Name it via consilium (mandatory)
+### 1. Name it via quorate (mandatory)
 
 ```bash
 consilium "Name a new Rust CLI tool that does X. Latin or Greek preferred. Check crates.io availability." --quick

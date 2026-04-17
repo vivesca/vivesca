@@ -122,7 +122,7 @@ If any answer is no, say so and suggest skipping or just reacting.
 - What does *Terry's specific lane* (AI/data science) see that they didn't name?
 - What external signal (regulatory, industry) confirms their thesis?
 
-When stuck on angle, run `consilium` with the post + Terry's constraints explicitly — ask for 3-4 distinct angles with one-line drafts. Don't iterate on a bad angle; find the right angle first.
+When stuck on angle, run `quorate` with the post + Terry's constraints explicitly — ask for 3-4 distinct angles with one-line drafts. Don't iterate on a bad angle; find the right angle first.
 
 Terry's strongest angles (in order of preference):
 
@@ -173,15 +173,15 @@ Draw from real experience (CNCBI governance, HKMA sandbox, AML model, agent arch
 
 **Complement check.** Before presenting the draft, ask: would a reader skimming both the post and this comment see the thread clearly? The comment should visibly connect — echo a specific word, phrase, or idea from the post before adding from Terry's lane. If the comment could have been written without reading the post, it's not complementing — it's broadcasting.
 
-**Iteration note.** Consilium is better at catching what's wrong than finding the right voice. After the council review, expect to iterate on tone, structure, and connection to the post through back-and-forth — that loop does more work than the upfront council. Don't treat the council draft as final.
+**Iteration note.** Quorate is better at catching what's wrong than finding the right voice. After the council review, expect to iterate on tone, structure, and connection to the post through back-and-forth — that loop does more work than the upfront council. Don't treat the council draft as final.
 
 **Time budget.** A LinkedIn comment should take 20-30 minutes total. One council run, then direct iteration with Terry. Stop when it passes the stress-tests — not when it feels perfect. LinkedIn comments have a 24h relevance window; perfect is the enemy of posted. If iteration has gone past 3 rounds after the council, call it and post. Remind Terry of this explicitly if the loop is running long.
 
 Present the draft in chat with a one-line rationale for the angle chosen. **Stop here and wait for input.**
 
-### 6. Consilium Review (mandatory for all comments)
+### 6. Quorate Review (mandatory for all comments)
 
-All comments get `--deep` consilium before finalising — comments are public and reputation-building.
+All comments get `--deep` quorate before finalising — comments are public and reputation-building.
 
 Run automatically (no need to ask): provide full post context (verbatim text, all comments, author background) — never summarise the post for the council.
 
@@ -303,13 +303,13 @@ Read the playbook: `~/epigenome/chromatin/LinkedIn Posting Playbook.md`
 
 ### 3. Censor Review (first pass)
 
-Run censor with `linkedin-post` criteria before spending on consilium:
+Run censor with `linkedin-post` criteria before spending on quorate:
 - If `needs_work`: revise and re-censor (max 1 iteration)
-- If `pass`: proceed to consilium
+- If `pass`: proceed to quorate
 
-### 4. Consilium Review
+### 4. Quorate Review
 
-All posts get consilium `--council` (~$0.50) — posts are public and reputation-building, `--quick` doesn't catch tone/positioning risks. High-stakes posts (first Capco-era, controversial angle) get `--deep` (~$0.90) or `--redteam` (~$0.20) to stress-test the angle.
+All posts get quorate `--council` (~$0.50) — posts are public and reputation-building, `--quick` doesn't catch tone/positioning risks. High-stakes posts (first Capco-era, controversial angle) get `--deep` (~$0.90) or `--redteam` (~$0.20) to stress-test the angle.
 
 ### 5. Deliver
 

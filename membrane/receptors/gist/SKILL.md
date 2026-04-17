@@ -82,7 +82,7 @@ echo "text" | tg-clip "label"
 
 ## LinkedIn Posts
 
-Gist is the right format for LinkedIn (markdown preserved, mobile copy-paste). But **only create the gist when the post is finalized and ready to publish** — not during drafting or consilium review. The vault note is the draft home; the gist is the send buffer.
+Gist is the right format for LinkedIn (markdown preserved, mobile copy-paste). But **only create the gist when the post is finalized and ready to publish** — not during drafting or quorate review. The vault note is the draft home; the gist is the send buffer.
 
 ## When NOT to use either
 

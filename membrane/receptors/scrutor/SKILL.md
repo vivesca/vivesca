@@ -1,6 +1,6 @@
 ---
 name: scrutor
-description: Code audit using Codex, OpenCode, or consilium. Use when reviewing code for bugs, security issues, or logic errors.
+description: Code audit using Codex, OpenCode, or quorate. Use when reviewing code for bugs, security issues, or logic errors.
 effort: high
 user_invocable: true
 triggers:
@@ -20,7 +20,7 @@ Code review via delegated LLMs. Routes by scope and severity.
 |---------|------|
 | Single file, general bugs | Codex (GPT-5.2) — primary, 92% signal |
 | Secondary pass / edge cases | OpenCode (GLM-4.7) — two-phase prompt, 25% signal |
-| Security / compound vulns | Consilium red team — catches attack chains |
+| Security / compound vulns | Quorate red team — catches attack chains |
 | Important code | All three in parallel, triage by consensus |
 
 ## Codex — primary auditor
@@ -52,7 +52,7 @@ Phase 2: For EACH potential finding, re-read the specific lines to verify:
 Only report findings that survive verification. For each: severity, exact line numbers, the actual buggy code (quote it), why it's real, suggested fix. Drop anything that doesn't survive Phase 2."
 ```
 
-## Consilium red team
+## Quorate red team
 
 Best for **security audits and compound vulnerability discovery**. 5 frontier models attack the code simultaneously, then a judge triages. Catches attack chains that single-model review misses (e.g., SSRF → log injection → prompt injection → LLM exfiltration). ~$1.50/run.
 
@@ -73,7 +73,7 @@ Launch one OpenCode per fix in parallel. Keep prompts to "read this range, chang
 
 ## Calls
 - `mitogen` — for dispatching parallel fixes
-- `consilium` — for red team reviews
+- `quorate` — for red team reviews
 
 ## Motifs
 - [audit-first](../motifs/audit-first.md)

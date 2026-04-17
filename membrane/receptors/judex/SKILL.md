@@ -17,7 +17,7 @@ Not user-invocable. Internal guidance consulted when facing a choice between two
 
 ## The Core Rule
 
-> **consilium** = outcome is uncertain, needs perspectives.
+> **quorate** = outcome is uncertain, needs perspectives.
 > **judex** = outcome is measurable, needs evidence.
 > **kritike** = consult for what to measure and how (Goodhart traps, vanity vs diagnostic, evaluation theory).
 
@@ -30,7 +30,7 @@ Before spinning up a deliberation or asking the user to decide: can you just run
 - You've been burned by the routing before on a similar task
 
 **When judex doesn't apply:**
-- The outcome isn't measurable (strategic choices, value trade-offs, personal preferences) → consilium
+- The outcome isn't measurable (strategic choices, value trade-offs, personal preferences) → quorate
 - One option is clearly dominant → just pick it
 - The experiment would take longer than the task itself → just pick, note the uncertainty
 
@@ -50,7 +50,7 @@ The experiment must have **a measurable pass/fail criterion set before launch** 
 
 ## Case 1 — AI Tool Routing: Codex vs Gemini on Rust Feature (2026-03-04)
 
-**Decision:** Which tool for consilium Feature A (Rust, 4 files, model swap + new API branch)?
+**Decision:** Which tool for quorate Feature A (Rust, 4 files, model swap + new API branch)?
 
 **Hypothesis to test:** Gemini (LiveCodeBench #1) vs Codex (Terminal-Bench #1) on a task requiring `cargo build` validation.
 
@@ -76,7 +76,7 @@ The experiment must have **a measurable pass/fail criterion set before launch** 
 
 **Prompt fix discovered:** "search all call sites in `src/modes/*.rs`" misses the entry point. Template: "search ALL callers including `src/main.rs` and `src/modes/*.rs`."
 
-**Permanent fix shipped:** Added `[workspace]` to consilium `Cargo.toml` — prevents all future lucus worktree build conflicts.
+**Permanent fix shipped:** Added `[workspace]` to quorate `Cargo.toml` — prevents all future lucus worktree build conflicts.
 
 ## Routing Heuristics (from real cases)
 
@@ -127,4 +127,4 @@ lucus remove <task>-gemini
 
 ## Naming
 
-*Judex* — Latin, "judge/arbiter" (*just* + *dicare*). Named by consilium quick (2026-03-04). Crux (Claude's pick) was taken on crates.io; Judex was free and semantically equivalent.
+*Judex* — Latin, "judge/arbiter" (*just* + *dicare*). Named by quorate quick (2026-03-04). Crux (Claude's pick) was taken on crates.io; Judex was free and semantically equivalent.

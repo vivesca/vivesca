@@ -40,8 +40,8 @@ Is one claim empirically testable right now? If yes, run the test — this conve
 
 > If the claim is testable → stop trutina, switch to `judex`.
 
-**5. Consilium tiebreaker**
-If still unclear after steps 1-4 and the stakes are meaningful: `consilium --quick` with both claims stated explicitly. "Source A says X, Source B says Y. Which is more likely correct and why?"
+**5. Quorate tiebreaker**
+If still unclear after steps 1-4 and the stakes are meaningful: `quorate quick` with both claims stated explicitly. "Source A says X, Source B says Y. Which is more likely correct and why?"
 
 ## Example
 

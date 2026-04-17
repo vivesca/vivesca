@@ -1,6 +1,6 @@
 ---
 name: topica
-description: Mental models catalog — situational thinking lenses for decisions, evaluation, systems, and people. Consult from consilium, examen, gnome, or any judgment-heavy task. Not user-invocable.
+description: Mental models catalog — situational thinking lenses for decisions, evaluation, systems, and people. Consult from quorate, examen, gnome, or any judgment-heavy task. Not user-invocable.
 user_invocable: false
 ---
 
@@ -8,7 +8,7 @@ user_invocable: false
 
 From Aristotle's *Τοπικά* — the "places" you go to find patterns of reasoning. A catalog of thinking lenses mapped to situational triggers.
 
-**Not user-invocable.** Consult when doing judgment-heavy work: consilium deliberations, examen premise audits, gnome decisions, strategy, stakeholder analysis, or when a cognitive bias might be distorting the framing.
+**Not user-invocable.** Consult when doing judgment-heavy work: quorate deliberations, examen premise audits, gnome decisions, strategy, stakeholder analysis, or when a cognitive bias might be distorting the framing.
 
 > For **action defaults** (simple rules that replace reasoning): consult `praecepta` skill. Topica = how to think. Praecepta = when to stop thinking.
 

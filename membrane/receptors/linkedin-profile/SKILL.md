@@ -27,7 +27,7 @@ agent-browser snapshot
 
 ### Featured (most visible — custom links with description)
 - Add links to tools, posts, projects with title + description
-- Current: terryli.hm, consilium.sh
+- Current: terryli.hm, quorate.sh
 - Edit: Profile → Featured → Add → Link
 
 ### About
