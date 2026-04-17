@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""soma-cc-snapshot — save tmux pane → CC session mapping.
+
+Runs periodically via cron. For each tmux pane with a running CC process,
+records the session ID so soma-cc-resume can restart it after a reboot.
+
+State file: ~/.local/state/soma-cc-panes.json
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+STATE_FILE = Path.home() / ".local" / "state" / "soma-cc-panes.json"
+CC_SESSIONS_DIR = Path.home() / ".claude" / "sessions"
+
+
+def get_tmux_panes() -> list[dict]:
+    """Get tmux panes with their PIDs."""
+    try:
+        r = subprocess.run(
+            [
+                "tmux",
+                "list-panes",
+                "-a",
+                "-F",
+                "#{session_name}:#{window_index}.#{pane_index} #{pane_pid} #{window_name}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if r.returncode != 0:
+            return []
+        panes = []
+        for line in r.stdout.strip().splitlines():
+            parts = line.split(None, 2)
+            if len(parts) >= 2:
+                panes.append(
+                    {
+                        "pane": parts[0],
+                        "shell_pid": int(parts[1]),
+                        "name": parts[2] if len(parts) > 2 else "",
+                    }
+                )
+        return panes
+    except Exception:
+        return []
+
+
+def find_cc_pid_for_shell(shell_pid: int) -> int | None:
+    """Find a CC process that is a descendant of the given shell PID."""
+    try:
+        # Get all claude processes with their PPIDs
+        r = subprocess.run(
+            ["pgrep", "-a", "-P", str(shell_pid)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        for line in r.stdout.strip().splitlines():
+            parts = line.split(None, 1)
+            if len(parts) >= 2 and "claude" in parts[1]:
+                return int(parts[0])
+
+        # Check grandchildren (shell → bash → claude)
+        r2 = subprocess.run(
+            ["pgrep", "-P", str(shell_pid)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        for child_line in r2.stdout.strip().splitlines():
+            child_pid = int(child_line.strip())
+            r3 = subprocess.run(
+                ["pgrep", "-a", "-P", str(child_pid)],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for line in r3.stdout.strip().splitlines():
+                parts = line.split(None, 1)
+                if len(parts) >= 2 and "claude" in parts[1]:
+                    return int(parts[0])
+    except Exception:
+        pass
+    return None
+
+
+def get_session_id(cc_pid: int) -> str | None:
+    """Read CC session ID from ~/.claude/sessions/{pid}.json."""
+    session_file = CC_SESSIONS_DIR / f"{cc_pid}.json"
+    if not session_file.exists():
+        return None
+    try:
+        data = json.loads(session_file.read_text())
+        return data.get("sessionId")
+    except Exception:
+        return None
+
+
+def main():
+    panes = get_tmux_panes()
+    if not panes:
+        return 0
+
+    mapping = {}
+    for pane in panes:
+        cc_pid = find_cc_pid_for_shell(pane["shell_pid"])
+        if cc_pid is None:
+            continue
+        session_id = get_session_id(cc_pid)
+        if session_id:
+            mapping[pane["pane"]] = {
+                "session_id": session_id,
+                "name": pane["name"],
+                "cc_pid": cc_pid,
+            }
+
+    if mapping:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        STATE_FILE.write_text(json.dumps(mapping, indent=2) + "\n")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

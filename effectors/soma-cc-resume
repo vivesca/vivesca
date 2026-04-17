@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""soma-cc-resume — restore CC sessions in tmux after soma restart.
+
+Reads the snapshot from soma-cc-snapshot and sends `claude --resume <id>`
+to each tmux pane. Runs once at boot via supervisor (startretries=0).
+
+Waits for tmux server to be available before proceeding.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+STATE_FILE = Path.home() / ".local" / "state" / "soma-cc-panes.json"
+CC_FLAGS = "--dangerously-skip-permissions"
+MAX_WAIT = 120  # seconds to wait for tmux
+
+
+def wait_for_tmux() -> bool:
+    """Wait until tmux server is running."""
+    deadline = time.time() + MAX_WAIT
+    while time.time() < deadline:
+        r = subprocess.run(
+            ["tmux", "list-sessions"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if r.returncode == 0:
+            return True
+        time.sleep(5)
+    return False
+
+
+def pane_exists(pane_target: str) -> bool:
+    """Check if a tmux pane exists."""
+    r = subprocess.run(
+        ["tmux", "has-session", "-t", pane_target.split(".")[0].split(":")[0]],
+        capture_output=True,
+        timeout=5,
+    )
+    return r.returncode == 0
+
+
+def pane_is_idle(pane_target: str) -> bool:
+    """Check if pane has a shell prompt (no running foreground process)."""
+    r = subprocess.run(
+        ["tmux", "list-panes", "-t", pane_target, "-F", "#{pane_current_command}"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    if r.returncode != 0:
+        return False
+    cmd = r.stdout.strip()
+    # Idle shells show bash/zsh/sh
+    return cmd in ("bash", "zsh", "sh", "fish", "")
+
+
+def send_resume(pane_target: str, session_id: str) -> bool:
+    """Send claude --resume <id> to a tmux pane."""
+    command = f"claude {CC_FLAGS} --resume {session_id}"
+    r = subprocess.run(
+        ["tmux", "send-keys", "-t", pane_target, command, "Enter"],
+        capture_output=True,
+        timeout=5,
+    )
+    return r.returncode == 0
+
+
+def main():
+    if not STATE_FILE.exists():
+        print("No snapshot file found, nothing to resume", flush=True)
+        return 0
+
+    try:
+        mapping = json.loads(STATE_FILE.read_text())
+    except Exception as e:
+        print(f"Failed to read snapshot: {e}", flush=True)
+        return 1
+
+    if not mapping:
+        print("Snapshot empty, nothing to resume", flush=True)
+        return 0
+
+    print(f"Found {len(mapping)} sessions to resume, waiting for tmux...", flush=True)
+
+    if not wait_for_tmux():
+        print("tmux not available after waiting, aborting", flush=True)
+        return 1
+
+    # Small delay for tmux panes to initialize shells
+    time.sleep(3)
+
+    resumed = 0
+    for pane_target, info in mapping.items():
+        session_id = info["session_id"]
+        name = info.get("name", "")
+
+        if not pane_exists(pane_target):
+            print(f"Pane {pane_target} doesn't exist, skipping {name}", flush=True)
+            continue
+
+        if not pane_is_idle(pane_target):
+            print(f"Pane {pane_target} has a running process, skipping {name}", flush=True)
+            continue
+
+        if send_resume(pane_target, session_id):
+            print(f"Resumed {name} ({session_id[:8]}...) in {pane_target}", flush=True)
+            resumed += 1
+            time.sleep(2)  # stagger launches
+        else:
+            print(f"Failed to send resume to {pane_target}", flush=True)
+
+    print(f"Done: {resumed}/{len(mapping)} sessions resumed", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

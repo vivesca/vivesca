@@ -39,3 +39,7 @@
 # Walks ~/code/*/.git, pipes owner/repo slugs to ganglion, clone-or-pulls each.
 # Keeps ganglion ready as an mtor worker target for any repo Terry builds on soma.
 */15 * * * * soma-cron-wrap transfection /home/vivesca/germline/effectors/transfection
+
+# cc-snapshot: save tmux pane → CC session ID mapping (every 2 min)
+# Used by soma-cc-resume to restore sessions after restart.
+*/2 * * * * python3 /home/vivesca/germline/effectors/soma-cc-snapshot
