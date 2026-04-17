@@ -1,13 +1,15 @@
 ---
 name: transcription-factor
-description: Log structured decisions with bouncer pattern — surfaces past similar ones. "I need to decide", "log decision", "gnome"
+description: Capture structured decisions with past-decision surfacing (bouncer pattern). Use when user says "gnome", "/gnome", "I need to decide", or is weighing options with trade-offs.
+aliases: [gnome]
+effort: high
 user_invocable: true
 epistemics: [decide]
 ---
 
-# Gnome
+# Transcription Factor
 
-Capture decisions to `~/epigenome/chromatin/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal.
+Capture decisions to `~/epigenome/chromatin/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal. When logging, tag which `topica` models applied — builds the feedback loop.
 
 When logging, tag which lens shaped the decision:
 - **Reversibility** — reversible → move fast, irreversible → slow down
@@ -16,33 +18,34 @@ When logging, tag which lens shaped the decision:
 - **Premortem** — if this fails, why?
 - **Chesterton's fence** — if changing something, do you know why it existed?
 
-*Gnōmē (γνώμη): in Aristotle, the crystallised residue of having judged — recalled to govern new situations. Sits upstream of both epistēmē (measurable → evaluation-theory) and boulē (uncertain → quorum).*
+*Transcription factors regulate which genes get expressed — decisions regulate which actions get expressed. Gnōmē (γνώμη): in Aristotle, the crystallised residue of having judged. Sits upstream of both epistēmē (measurable → judex) and boulē (uncertain → quorate).*
 
 ## Commands
 
-### `/transcription-factor <topic and rationale>` (default — bouncer + capture)
+### `/gnome <topic and rationale>` (default — bouncer + capture)
 
 Free-text capture. User provides topic and reasoning in natural language; Claude structures it into a decision note.
 
 **Examples:**
-- `/transcription-factor Accept Capco offer — better comp, AI-focused role, consulting career path`
-- `/transcription-factor Use QMD over Oghma for decision search — static docs, auto-indexed, no extra infra`
-- `/transcription-factor` (bare — Claude asks "What are you deciding?")
+- `/gnome Accept Capco offer — better comp, AI-focused role, consulting career path`
+- `/gnome Use QMD over Oghma for decision search — static docs, auto-indexed, no extra infra`
+- `/gnome` (bare — Claude asks "What are you deciding?")
 
 **Logic:**
 
 0. **ROUTE FIRST:**
-   > quorum = outcome is uncertain, needs perspectives.
-   - Can you run both options and compare with a measurable criterion? → `[[evaluation-theory]]` (see `~/epigenome/chromatin/euchromatin/epistemics/evaluation-theory.md`)
-   - Does it involve genuine trade-offs, values, or domain judgment? → `quorum`
+   > quorate = outcome is uncertain, needs perspectives. judex = outcome is measurable, needs evidence.
+   - Can you run both options and compare with a measurable criterion? → `judex` (see `~/skills/judex/SKILL.md`)
+   - Does it involve genuine trade-offs, values, or domain judgment? → `quorate`
    - Is it a committed choice that just needs capturing? → proceed below
 
 1. Run `date +%Y-%m-%d` to get today in HKT
-2. If bare `/transcription-factor` with no arguments, ask: "What are you deciding?"
+2. If bare `/gnome` with no arguments, ask: "What are you deciding?"
 3. Extract the core topic from user's input (first clause before em-dash or period)
 
 4. **BOUNCER CHECK:**
-   - Use the Grep tool: search for `<topic keywords>` scoped to `path: ~/epigenome/chromatin/decisions/`, `output_mode: content`, `head_limit: 20`. Also check frontmatter `decision:` lines with a second Grep if the first yields too many hits.
+   - Run `qmd query "<topic>" -n 3` in Bash
+   - Scan results for paths containing `decisions/`
    - If a past decision matches:
      - Read the matching decision note
      - Present: "You decided **[decision]** on **[date]**. Confidence: **[level]**. Context: [brief summary]. New situation, or are we re-litigating?"
@@ -65,7 +68,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
 7. Generate slug from topic: lowercase, kebab-case, max 5 words
 8. Write to `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` using the template below
 9. Confirm: "Decision logged: `decisions/YYYY-MM-DD-<slug>.md`"
-10. If the decision involved complex trade-offs, offer: "Want to stress-test this with `/quorum --redteam`?"
+10. If the decision involved complex trade-offs, offer: "Want to stress-test this with `/quorate --redteam`?"
 
 **Template:**
 
@@ -104,18 +107,18 @@ tags:
 **Related:** [[relevant note]] | [[other note]]
 ```
 
-### `/transcription-factor search <query>`
+### `/gnome search <query>`
 
 Search past decisions semantically.
 
 **Logic:**
-1. Use the Grep tool: search for `<query keywords>` scoped to `path: ~/epigenome/chromatin/decisions/`, `output_mode: files_with_matches`, `head_limit: 10`. For richer matching, also Grep the frontmatter `decision:` field.
-2. Read frontmatter from each matched file to extract date, decision, confidence, domain.
+1. Run `qmd query "<query>" -n 5` in Bash
+2. Filter results to paths containing `decisions/`
 3. If no decision results found, also check `~/epigenome/chromatin/Councils/` for council outputs that may contain decisions
 4. Present results with: date, decision summary (from frontmatter `decision:` field), confidence, domain
 5. Offer to read any full decision note
 
-### `/transcription-factor review`
+### `/gnome review`
 
 Surface decisions with a review date that has passed.
 
@@ -130,14 +133,17 @@ Surface decisions with a review date that has passed.
    - Present: original decision, confidence, date decided, context summary
    - Ask: "Looking back — confirmed, revised, or regretted?"
    - Update the note's `status:` field accordingly
-   - If revised or regretted, offer to create a new `/transcription-factor` entry
+   - If revised or regretted, offer to create a new `/gnome` entry
 
 ## Notes
 
-- **Storage:** `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` — chromatin, searched via Grep tool at query time.
+- **Storage:** `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, QMD auto-indexes every 2h
+- **Indexing lag:** New decisions won't appear in bouncer searches for up to 2h. This is fine — the bouncer matters for decisions spaced days/weeks apart, not minutes.
 - **No manual outcome tracking.** The bouncer IS the outcome tracker: if you come back to the same topic, the previous decision either held (you never return) or failed (you're back). Recurrence = implicit failure signal.
-- **Consilium integration:** For complex decisions, use `/quorum` first to deliberate, then `/transcription-factor` to log the outcome. Council outputs in `~/epigenome/chromatin/Councils/` complement but don't replace decision notes.
+- **Quorate integration:** For complex decisions, use `/quorate` first to deliberate, then `/gnome` to log the outcome. Council outputs in `~/epigenome/chromatin/Councils/` complement but don't replace decision notes.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.
 
 ## Calls
+- `qmd` — bouncer search and decision lookup
+- `judex` — when outcome is measurable
 - `quorate` — when trade-offs need deliberation
