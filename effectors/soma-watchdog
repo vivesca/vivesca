@@ -414,6 +414,44 @@ def check_tailscale() -> dict:
         return {"status": "warn", "reason": str(e)}
 
 
+def kill_orphan_build_processes():
+    """Kill esbuild/astro processes that outlived their parent ribosome.
+
+    These are child processes spawned by ribosome builds (terryli-hm, etc.)
+    that survive after the parent claude process is killed or wall-limited.
+    Legitimate builds finish in <10min; anything >15min is orphaned.
+    """
+    killed = 0
+    max_seconds = 900  # 15 minutes
+    try:
+        result = subprocess.run(
+            "ps -eo pid,etimes,tty,args --no-headers"
+            " | grep -E 'esbuild --service|astro.*\\.(check|build)'"
+            " | grep -v grep",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        for line in result.stdout.strip().splitlines():
+            parts = line.split(None, 3)
+            if len(parts) < 4:
+                continue
+            pid, elapsed_s, tty = int(parts[0]), int(parts[1]), parts[2]
+            # Only kill detached (no TTY) processes — interactive runs are safe
+            if tty != "?" or elapsed_s <= max_seconds:
+                continue
+            os.kill(pid, signal.SIGKILL)
+            log(
+                f"KILLED orphan build PID {pid}: {elapsed_s}s elapsed"
+                f" (max {max_seconds}), cmd={parts[3][:80]}"
+            )
+            killed += 1
+    except Exception as exc:
+        log(f"kill_orphan_build error: {exc}")
+    return killed
+
+
 def check_cycle():
     """One watchdog cycle. Returns health dict."""
     health: dict = {}
@@ -471,6 +509,7 @@ def check_cycle():
 
     # Runaway processes
     kill_runaway_ribosomes()
+    kill_orphan_build_processes()
 
     # Tailscale
     health["tailscale"] = check_tailscale()
