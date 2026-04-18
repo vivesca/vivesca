@@ -1,0 +1,122 @@
+name: Consulting Paper
+description: Executive decision papers for HSBC/banking senior stakeholders — CAIO, ExCo, Group functions
+
+anti_patterns:
+  - name: bullet_lists_in_body
+    pattern: "Body text uses bullet points or numbered lists (stakeholder sections exempt)"
+    reject: true
+    fix: "Rewrite as continuous prose. Bullets are friction for busy executives."
+
+  - name: bold_formatting
+    pattern: "Uses **bold** in body text for emphasis"
+    reject: true
+    fix: "Remove bold. If the point needs emphasis, the sentence structure should carry it."
+
+  - name: brackets_parentheses
+    pattern: "Uses brackets or parentheses to add context"
+    reject: true
+    fix: "Weave the context into the sentence. Brackets interrupt the reading flow."
+
+  - name: footnote_numbers
+    pattern: "Uses [1] [2] style footnote references"
+    reject: true
+    fix: "Embed links naturally. The prose should stand alone without footnotes."
+
+  - name: enterprise_language
+    pattern: "Uses 'enterprise' instead of 'Group-wide' (HSBC-native language)"
+    reject: true
+    fix: "Replace 'enterprise' with 'Group-wide' throughout."
+
+  - name: naming_individuals
+    pattern: "Names individuals in the body text (names belong in stakeholder alignment section only)"
+    reject: false
+    flag: "Name functions and teams in the body. Names go in the stakeholder section."
+
+  - name: capco_mention
+    pattern: "Mentions 'Capco' in body text of a paper ghost-written as HSBC"
+    reject: true
+    fix: "Remove Capco references. These papers are written in HSBC's voice."
+
+  - name: standard_rm_as_novel
+    pattern: "Presents standard risk management concepts as if they're new insights"
+    reject: true
+    fix: "Risk professionals know RM. Lead with what's genuinely different about AI risk."
+
+  - name: tables_in_body
+    pattern: "Uses tables in the body text"
+    reject: true
+    fix: "Convert to prose or move to an appendix."
+
+  - name: mixed_scope
+    pattern: "Combines strategic direction with budget approval in one paper"
+    reject: false
+    flag: "Separate strategic direction from budget. Two papers, lower barrier to yes."
+
+  - name: consultant_hedging
+    pattern: "Uses 'we recommend', 'it is suggested', 'consideration should be given to'"
+    reject: false
+    flag: "Assert don't ask. State the position, not the recommendation."
+
+checks:
+  - name: prose_only
+    question: "Is the body entirely continuous prose (no bullets, tables, bold, or brackets)?"
+    weight: high
+    examples:
+      good: "Every point flows as a sentence within a paragraph"
+      bad: "Key findings:\n- Point 1\n- Point 2\n**Recommendation:** ..."
+
+  - name: clear_ask
+    question: "Is there a clear, specific ask within the first page?"
+    weight: high
+    examples:
+      good: "This paper proposes a three-tier risk classification for AI use cases across Group Technology."
+      bad: "This paper explores various aspects of AI governance."
+
+  - name: group_language
+    question: "Does it use HSBC-native vocabulary (Group-wide, Group Technology, CDAO, etc.)?"
+    weight: high
+    examples:
+      good: "Group-wide adoption of the tiering framework"
+      bad: "Enterprise-wide deployment of the classification system"
+
+  - name: ai_novelty
+    question: "Does it lead with what's genuinely different about AI risk, not standard RM?"
+    weight: high
+    examples:
+      good: "Three properties distinguish AI from conventional technology risk: non-deterministic output, probabilistic controls, and natural-language attack surface."
+      bad: "AI systems require robust risk management frameworks including identification, assessment, and mitigation."
+
+  - name: audience_calibration
+    question: "Is it calibrated for the reader's seniority — no over-explanation of what they already know?"
+    weight: high
+    examples:
+      good: "Assumes the reader understands model risk management; focuses on what AI changes"
+      bad: "Risk management is the process of identifying, assessing, and controlling threats..."
+
+  - name: strategic_framing
+    question: "Does it frame recommendations as strategic positioning, not gap remediation?"
+    weight: medium
+    examples:
+      good: "Positions HSBC ahead of expected regulatory guidance on AI risk tiering"
+      bad: "Addresses gaps in the current AI governance framework"
+
+  - name: evidence_grounding
+    question: "Are claims grounded in regulatory precedent, peer practice, or internal data?"
+    weight: medium
+    examples:
+      good: "Aligns with the HKMA's March 2026 circular on AI model governance"
+      bad: "Industry best practices suggest..."
+
+  - name: actionable_next_steps
+    question: "Does it end with concrete, time-bound next steps (not vague 'further exploration')?"
+    weight: medium
+    examples:
+      good: "Phase 1: Pilot tiering across CDAO use cases by Q3 2026"
+      bad: "Further work is needed to refine the approach"
+
+  - name: length_discipline
+    question: "Is it as short as the argument requires? (2-4 pages for direction papers, 6-8 for detailed proposals)"
+    weight: low
+    examples:
+      good: "3 pages, every paragraph advances the argument"
+      bad: "12 pages with repetitive context-setting"

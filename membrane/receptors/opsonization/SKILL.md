@@ -9,6 +9,10 @@ triggers:
   - prep for interview
   - opsonization
 epistemics: [negotiate, communicate]
+# TODO: redesign — wire into circadian/calendar-context for proactive triggering
+# instead of passive invocation. Zero usage in 3+ months. Bio name may also
+# need revisit (opsonization = marking for destruction, not self-preparation;
+# sensitization maps better). 2026-04-18 skill review.
 ---
 
 # Meeting Prep

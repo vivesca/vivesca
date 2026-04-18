@@ -1,8 +1,9 @@
 ---
 name: censor
-description: "Review client-facing deliverables (SOWs, proposals, decks, reports) against quality criteria before sending. NOT for code review."
+description: "Quality gate for writing — garden posts, consulting papers, client deliverables. Anti-slop reject list + structured scoring. NOT for code review."
 effort: high
-user_invocable: false
+user_invocable: true
+argument-hint: "[post|paper|article|outreach|executive]"
 ---
 
 # Censor Skill
@@ -80,11 +81,13 @@ If domain not specified, infer from goal keywords:
 
 | Keywords in Goal | Domain |
 |------------------|--------|
-| outreach, message, linkedin, email, networking | outreach |
+| post, garden, terryli, publish, secretome | post |
+| paper, strategic, executive, board, direction, memo, CAIO, C-suite, HSBC | paper |
+| outreach, message, linkedin dm, email, networking | outreach |
+| linkedin post, linkedin comment, linkedin announcement | linkedin-post |
 | job, role, position, application, evaluate | job-eval |
 | code, technical, implementation, architecture | technical |
 | article, blog, essay, writing | article |
-| paper, strategic, executive, board, direction, memo, CAIO, C-suite | executive |
 | (none matched) | default |
 
 ## Integration Example

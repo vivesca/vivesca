@@ -55,7 +55,7 @@ publish index
 **New post from session insight:**
 1. `publish new "Title"` — scaffolds with correct frontmatter
 2. Write the post
-3. **Censor gate — skip for standard garden posts.** Censor (article criteria) has never failed a garden post (always scores 88-94). Only run censor when: factual claims need verification, sensitive topic, or front-stage content. For normal opinion/reflection posts → publish directly.
+3. **Censor gate** — run `/censor post` on the draft. Uses the garden anti-slop reject list (news-reporting, structural markdown, hedge words, no-position, tutorial-voice). If any reject-pattern fires, fix before publishing. If all checks pass, proceed.
 4. **Publish immediately** (`publish publish <slug> --push`), live instantly
 5. Or omit `--push` to let the LaunchAgent pick it up within 5 min
 

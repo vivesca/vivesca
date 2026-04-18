@@ -1,0 +1,117 @@
+name: Garden Post
+description: terryli.hm garden posts — short takes, one idea, pure prose, views not news
+
+anti_patterns:
+  - name: news_reporting
+    pattern: "Leads with what someone else released/announced/shipped rather than an insight"
+    reject: true
+    fix: "Lead with the take. The announcement is evidence, not the story."
+
+  - name: structural_markdown
+    pattern: "Uses headers (##), bullet lists (- ), numbered lists (1.), or code blocks"
+    reject: true
+    fix: "Rewrite as continuous prose. Let the argument carry itself."
+
+  - name: throat_clearing
+    pattern: "Opens with 'In this post', 'I want to talk about', 'Let me explain', or similar preamble"
+    reject: true
+    fix: "Start with the insight. First sentence should be the sharpest."
+
+  - name: hedge_words
+    pattern: "Contains 'I think', 'it seems', 'arguably', 'it could be said', 'in my opinion', 'perhaps'"
+    reject: false
+    flag: "Garden voice is direct. State the position, don't hedge it."
+
+  - name: filler_sentences
+    pattern: "Sentences that restate what was just said, or could be deleted without losing meaning"
+    reject: false
+    flag: "Every sentence should earn its place. 600 words, one idea."
+
+  - name: em_dash_overuse
+    pattern: "More than 3 em dashes in a single post"
+    reject: false
+    flag: "Em dashes are fine but they become a tic. Vary the punctuation."
+
+  - name: passive_voice
+    pattern: "Excessive passive constructions ('was built', 'is achieved', 'can be seen')"
+    reject: false
+    flag: "Active voice matches the direct garden tone."
+
+  - name: no_position
+    pattern: "Describes a situation without taking a stance on it"
+    reject: true
+    fix: "The garden is views, not news. What do you think about this? Say it."
+
+  - name: tutorial_voice
+    pattern: "Reads like instructions ('First, do X. Then, do Y. Finally...')"
+    reject: true
+    fix: "This is a garden, not a how-to. Describe what you learned, not what to do."
+
+  - name: list_as_argument
+    pattern: "Argument is structured as a list of points rather than a flowing argument"
+    reject: true
+    fix: "Weave the points into prose. Each paragraph should build on the previous."
+
+checks:
+  - name: one_idea
+    question: "Does this post have exactly one central idea?"
+    weight: high
+    examples:
+      good: "The entire post explores why naming conventions reveal architecture gaps"
+      bad: "Covers naming, then deployment, then testing patterns in one post"
+
+  - name: clear_take
+    question: "Is there a clear, opinionated position stated within the first two paragraphs?"
+    weight: high
+    examples:
+      good: "CLI wraps into MCP cheaply. MCP does not unwrap. Pick the reversible direction."
+      bad: "There are many ways to think about the CLI vs MCP decision."
+
+  - name: pure_prose
+    question: "Is the post entirely continuous prose (no headers, bullets, code blocks, numbered lists)?"
+    weight: high
+    examples:
+      good: "Paragraphs flowing into each other, argument building sentence by sentence"
+      bad: "## The Problem\n- Point one\n- Point two\n## The Solution"
+
+  - name: evidence
+    question: "Does the post support its position with a concrete example, experience, or observation?"
+    weight: high
+    examples:
+      good: "I dispatched the spec through mtor itself. GLM-5.1 read the spec and produced seven modules."
+      bad: "Agent dispatch systems should be self-improving."
+
+  - name: length
+    question: "Is it roughly 400-800 words? (Short enough to be one idea, long enough to support it.)"
+    weight: medium
+    examples:
+      good: "~600 words, tight and complete"
+      bad: "1500 words covering three related ideas that should be three posts"
+
+  - name: opening_strength
+    question: "Does the first sentence grab attention or state something surprising?"
+    weight: medium
+    examples:
+      good: "The most expensive thing your AI coding agent does is think about what to build."
+      bad: "Recently I've been thinking about agent architecture."
+
+  - name: closing_strength
+    question: "Does the last paragraph leave a lasting impression — a sharp restatement, a question, or an unexpected turn?"
+    weight: medium
+    examples:
+      good: "The test isn't whether the name sounds biological. It's whether the name generates a design question."
+      bad: "In conclusion, naming is important for agent systems."
+
+  - name: consulting_lens
+    question: "Does this add something a reader couldn't get from the source material alone?"
+    weight: medium
+    examples:
+      good: "Shopify got 300x speedups, but the real insight isn't performance — it's that the pattern works on anything with a number."
+      bad: "Shopify released pi-autoresearch and got 300x faster test results."
+
+  - name: voice_consistency
+    question: "Does it sound like Terry — direct, first-person, short declarative sentences, no corporate filler?"
+    weight: low
+    examples:
+      good: "I built this. It broke. Here's why."
+      bad: "Leveraging best practices to optimize agent workflows through systematic approaches."

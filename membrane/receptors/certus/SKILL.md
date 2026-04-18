@@ -37,7 +37,7 @@ Before any high-stakes deliverable is submitted to the user or sent externally, 
 
 ## Escalation
 
-If the deliverable is high-stakes enough (interview, client pitch, board presentation), recommend `consilium --deep` before the gate. The gate catches what consilium misses (jargon, audience mismatch) and consilium catches what the gate misses (structural flaws, strategic positioning).
+If the deliverable is high-stakes enough (interview, client pitch, board presentation), recommend `quorate --deep` before the gate. The gate catches what quorate misses (jargon, audience mismatch) and quorate catches what the gate misses (structural flaws, strategic positioning).
 
 ## After the Gate
 
