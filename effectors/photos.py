@@ -279,8 +279,14 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
                 timeout=60,
             )
             if result.returncode == 0:
+                # Apply EXIF orientation so rotated photos render correctly
+                subprocess.run(
+                    ["sips", "-r", "0", str(out_path)],
+                    capture_output=True,
+                    timeout=30,
+                )
                 size_kb = out_path.stat().st_size / 1024
-                print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [converted from HEIC]")
+                print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [converted from HEIC, auto-rotated]")
                 continue
             else:
                 print(
@@ -288,11 +294,16 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
                 )
                 # Fall through to derivative
 
-        # Tier 2: Original JPEG -> copy
+        # Tier 2: Original JPEG -> copy + auto-rotate
         if original and "jpeg" in uti.lower():
             shutil.copy2(original, out_path)
+            subprocess.run(
+                ["sips", "-r", "0", str(out_path)],
+                capture_output=True,
+                timeout=30,
+            )
             size_kb = out_path.stat().st_size / 1024
-            print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [copied original]")
+            print(f"  {out_stem}.jpeg  ({size_kb:.0f}KB)  [copied original, auto-rotated]")
             continue
 
         # Tier 3: Derivative exists -> copy with note
