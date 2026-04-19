@@ -654,6 +654,18 @@ def gather(
     else:
         gates["repos_flushed"] = "DONE — all repos clean"
 
+    # Gate 6: Daily note — check if today's note has a completed session entry
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    daily_file = DAILY_DIR / f"{today_str}.md"
+    if daily_file.exists():
+        daily_content = daily_file.read_text(encoding="utf-8")
+        if "[LLM:" in daily_content:
+            gates["daily_note"] = "PENDING — daily note has unfilled template. Run `cytokinesis daily` and fill sections."
+        else:
+            gates["daily_note"] = "DONE — daily note written"
+    else:
+        gates["daily_note"] = "PENDING — no daily note for today. Run `cytokinesis daily`."
+
     results["gates"] = gates
 
     # Output: wrap in porin envelope
@@ -1304,6 +1316,18 @@ def verify() -> None:
 
     # Process audit — can't verify deterministically, trust CC
     gates["process_audit"] = "TRUST — requires LLM judgment"
+
+    # Daily note
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    daily_file = DAILY_DIR / f"{today_str}.md"
+    if daily_file.exists():
+        daily_content = daily_file.read_text(encoding="utf-8")
+        if "[LLM:" in daily_content:
+            gates["daily_note"] = "PENDING — unfilled template"
+        else:
+            gates["daily_note"] = "DONE"
+    else:
+        gates["daily_note"] = "PENDING — no daily note"
 
     all_done = all("DONE" in v or "TRUST" in v for v in gates.values())
     _ok("cytokinesis verify", {"gates": gates, "all_passed": all_done})
