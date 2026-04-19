@@ -343,15 +343,18 @@ def assemble_organism(
         assert non_init, f"No tool modules in {provider_dir} — check FileSystemProvider paths"
     # Configure domain skill injection for browser navigation (chemotaxis).
     # trogocytosis MCP server removed (1c803f4); browser tools live in chemotaxis enzyme.
-    from trogocytosis.browser import configure_domain_skills
+    try:
+        from trogocytosis.browser import configure_domain_skills
 
-    configure_domain_skills(
-        [
-            Path.home() / "germline" / "membrane" / "receptors",
-            Path.home() / "epigenome" / "chromatin",
-            Path.home() / "epigenome" / "marks",
-        ]
-    )
+        configure_domain_skills(
+            [
+                Path.home() / "germline" / "membrane" / "receptors",
+                Path.home() / "epigenome" / "chromatin",
+                Path.home() / "epigenome" / "marks",
+            ]
+        )
+    except ImportError:
+        logger.warning("trogocytosis.browser.configure_domain_skills not available — skipping")
 
     logger.info("vivesca assembled from %s (%d tools in manifest)", _src, manifest.count("\n"))
 

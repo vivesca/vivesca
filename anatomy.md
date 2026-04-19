@@ -137,10 +137,6 @@ Proprioception — sensing the organism's structural state and gradients.
 spending -- catabolic metabolism of credit card statements.
 - `proteasome(action, days, bank)` -- Financial tracking — spending summaries and payment confirmation.
 
-### rheotaxis
-rheotaxis — web search. Default: all cheap backends + synthesis. Named modes for expensive ones.
-- `rheotaxis(query, mode, exclude, json_output)` -- Web search.
-
 ### ribosome_queue
 ribosome_queue — MCP tool for managing the ribosome task queue.
 - `ribosome_queue(action, task_id, tags, provider, prompt)` -- Manage the ribosome task queue.
@@ -304,7 +300,6 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **polarization.py**: `polarization`
 - **proprioception.py**: `proprioception`
 - **proteasome.py**: `proteasome`
-- **rheotaxis.py**: `rheotaxis`
 - **ribosome_queue.py**: `ribosome_queue`
 - **sporulation.py**: `sporulation`
 - **synthase.py**: `synthase`
@@ -341,7 +336,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **vesicle** [authored]: Spore shipped in Terry's voice
   Enzymes: `publish`
 - **scan** [authored]: Transferable patterns surfaced from landscape and peers
-  Enzymes: `dialexis`, `rheotaxis`
+  Enzymes: `dialexis`
 - **evaluate** [authored]: Opportunity assessed against constraints and goals
   Enzymes: `evaluate-job`
 - **network** [authored]: Right signal delivered to right receptor in right context
@@ -359,7 +354,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **exocytosis** [crystallised]: Insight compressed to 280 chars and secreted to X
   Enzymes: `bird`, `exocytosis_text`
 - **research** [crystallised]: Topic thoroughly researched and synthesised across sources
-  Enzymes: `rheotaxis`, `endocytosis_extract`
+  Enzymes: `endocytosis_extract`
 - **decide** [dormant]: Decision made with trade-offs weighed against constraints
   Enzymes: `transcription-factor`
 - **reflect** [authored]: Learnings extracted and compounded into durable knowledge
@@ -367,17 +362,18 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **plan** [dormant]: Family activity organised considering everyone's needs
   Enzymes: `circadian`, `cibus`, `histone`
 - **gift** [dormant]: Gift chosen that delights this specific person
-  Enzymes: `histone`, `circadian`, `rheotaxis`
+  Enzymes: `histone`, `circadian`
 
 Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Operon Heartbeat
 
-**2** healthy, **12** stale (of 14 expressed)
+**0** healthy, **14** stale (of 14 expressed)
 
 - prepare: never fired (cadence: 14d)
 - ribosome: never fired (cadence: 35d)
 - vesicle: never fired (cadence: 14d)
+- scan: never fired (cadence: 35d)
 - evaluate: never fired (cadence: 14d)
 - network: never fired (cadence: 14d)
 - homeostasis: never fired (cadence: 35d)
@@ -386,6 +382,7 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 - move: never fired (cadence: 14d)
 - log: never fired (cadence: 14d)
 - exocytosis: never fired (cadence: 14d)
+- research: never fired (cadence: 14d)
 - reflect: never fired (cadence: 35d)
 
 ## Metabolism State
@@ -397,4 +394,4 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 22 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 23 errors)

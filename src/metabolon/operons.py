@@ -51,7 +51,7 @@ OPERONS: list[Operon] = [
         reaction="scan",
         product="Transferable patterns surfaced from landscape and peers",
         substrates=["infradian/monthly cycle", "entering new domain", "feeling behind"],
-        enzymes=["dialexis", "rheotaxis"],
+        enzymes=["dialexis"],
     ),
     Operon(
         reaction="evaluate",
@@ -110,7 +110,6 @@ OPERONS: list[Operon] = [
         precipitation="crystallised",
         substrates=["question requiring external knowledge", "unfamiliar domain"],
         enzymes=[
-            "rheotaxis",
             "endocytosis_extract",
         ],
     ),
@@ -140,7 +139,7 @@ OPERONS: list[Operon] = [
         reaction="gift",
         product="Gift chosen that delights this specific person",
         substrates=["birthday approaching", "holiday", "milestone"],
-        enzymes=["histone", "circadian", "rheotaxis"],
+        enzymes=["histone", "circadian"],
         expressed=False,
     ),
 ]

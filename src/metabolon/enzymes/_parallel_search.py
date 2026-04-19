@@ -695,7 +695,9 @@ def _report(query: str, results: list[ToolResult], json_output: bool = False) ->
 # --- Orchestrator ---
 
 
-async def _run_all(query: str, exclude: set[str] | None = None) -> list[ToolResult]:
+async def _run_all(
+    query: str, exclude: set[str] | None = None, per_backend_timeout: float = 90.0
+) -> list[ToolResult]:
     backend_map = {
         "grok": _run_grok,
         "exa": _run_exa,
@@ -706,8 +708,22 @@ async def _run_all(query: str, exclude: set[str] | None = None) -> list[ToolResu
         "jina": _run_jina,
     }
     skip = exclude or set()
-    tasks = [func(query) for name, func in backend_map.items() if name not in skip]
+    active = {name: func for name, func in backend_map.items() if name not in skip}
 
+    async def _timeout_wrap(name: str, coro):
+        try:
+            return await asyncio.wait_for(coro, timeout=per_backend_timeout)
+        except TimeoutError:
+            return ToolResult(
+                tool=name,
+                query=query,
+                result="",
+                cost=0.0,
+                latency_s=per_backend_timeout,
+                error=f"Timed out after {per_backend_timeout}s",
+            )
+
+    tasks = [_timeout_wrap(name, func(query)) for name, func in active.items()]
     raw = await asyncio.gather(*tasks, return_exceptions=True)
     results = []
     for r in raw:
