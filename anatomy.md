@@ -174,19 +174,12 @@ tonus tool — session state. Actions: mark|status
 ### __pycache__
 _(no description)_
 
-### epistasis
-_(no description)_
-
 ### mtor
 _(no description)_
-  Files: `assays`, `mtor`
+  Files: `mtor`
 
-### polysome
-_(no description)_
-  Files: `assays`, `translocase.py.bak`
-
-### Standalone scripts (173 total, on PATH)
-  Recent: `soma-scale`, `soma-snapshot`, `soma-wake`, `cookie-sync`, `disk-audit`, `soma-clean`, `smolnews-scrape`, `publish`, `proteome`, `fix-symlinks`
+### Standalone scripts (175 total, on PATH)
+  Recent: `polymerase`, `mark-lint`, `rhodopsin.py`, `vivesca-preflight`, `willison-scrape`, `x-feed-to-endocytosis`, `efferens`, `publish`, `burn`, `soma-scale`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -380,12 +373,11 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Operon Heartbeat
 
-**0** healthy, **14** stale (of 14 expressed)
+**2** healthy, **12** stale (of 14 expressed)
 
 - prepare: never fired (cadence: 14d)
 - ribosome: never fired (cadence: 35d)
 - vesicle: never fired (cadence: 14d)
-- scan: never fired (cadence: 35d)
 - evaluate: never fired (cadence: 14d)
 - network: never fired (cadence: 14d)
 - homeostasis: never fired (cadence: 35d)
@@ -394,16 +386,15 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 - move: never fired (cadence: 14d)
 - log: never fired (cadence: 14d)
 - exocytosis: never fired (cadence: 14d)
-- research: never fired (cadence: 14d)
 - reflect: never fired (cadence: 35d)
 
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **1**
-- Most active: `server` (1)
+- Signals (last 7 days): **503**
+- Most active: `rheotaxis` (182), `fetch` (84), `trogocytosis_browser_eval` (58), `trogocytosis_browser_screenshot` (48), `pinocytosis` (34)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 21 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 22 errors)

@@ -13,6 +13,7 @@ from typing import Any
 
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
+from trogocytosis.browser import _resolve_domain_skills
 
 from metabolon.morphology import Secretion
 
@@ -94,14 +95,18 @@ def _handle_navigate(
     ok_text, text = _run_ab(["get", "text"])
     ok_url, current_url = _run_ab(["get", "url"])
 
-    return ChemotaxisResult(
-        success=True,
-        data={
-            "url": current_url if ok_url else url,
-            "title": title if ok_title else "",
-            "text": text if ok_text else "",
-        },
-    )
+    data: dict[str, Any] = {
+        "url": current_url if ok_url else url,
+        "title": title if ok_title else "",
+        "text": text if ok_text else "",
+    }
+
+    # Side-channel: inject domain-specific skill/note paths
+    domain_skills = _resolve_domain_skills(current_url if ok_url else url)
+    if domain_skills:
+        data["domain_skills"] = domain_skills
+
+    return ChemotaxisResult(success=True, data=data)
 
 
 @tool(

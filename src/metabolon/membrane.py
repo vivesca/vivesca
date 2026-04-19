@@ -341,10 +341,17 @@ def assemble_organism(
         py_files = list(provider_dir.glob("*.py"))
         non_init = [f for f in py_files if f.name != "__init__.py"]
         assert non_init, f"No tool modules in {provider_dir} — check FileSystemProvider paths"
-    # Mount trogocytosis (persistent browser MCP)
-    from trogocytosis.server import app as trogocytosis_app
+    # Configure domain skill injection for browser navigation (chemotaxis).
+    # trogocytosis MCP server removed (1c803f4); browser tools live in chemotaxis enzyme.
+    from trogocytosis.browser import configure_domain_skills
 
-    mcp.mount(trogocytosis_app, namespace="trogocytosis")
+    configure_domain_skills(
+        [
+            Path.home() / "germline" / "membrane" / "receptors",
+            Path.home() / "epigenome" / "chromatin",
+            Path.home() / "epigenome" / "marks",
+        ]
+    )
 
     logger.info("vivesca assembled from %s (%d tools in manifest)", _src, manifest.count("\n"))
 
