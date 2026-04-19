@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Pre-commit hook to validate frontmatter in epigenome/marks/*.md files."""
+
+import argparse
+import re
+import sys
+from pathlib import Path
+import yaml
+
+# Validation rules from spec
+REQUIRED_FIELDS = ["name", "description", "type"]
+ALLOWED_TYPE_VALUES = {"user", "feedback", "project", "reference", "finding"}
+ALLOWED_DURABILITY_VALUES = {"methyl", "acetyl", None}
+ALLOWED_SOURCE_VALUES = {"cc", "gemini", "codex", "goose", "user", None}
+ALLOWED_PROTECTED_TYPES = {bool, type(None)}
+
+def parse_frontmatter(content: str) -> tuple[dict | None, str]:
+    """Parse YAML frontmatter between --- delimiters."""
+    frontmatter_pattern = re.compile(r'^---\s*\n(.*?)\n---\s*\n', re.DOTALL)
+    match = frontmatter_pattern.search(content)
+    if not match:
+        return None, "No YAML frontmatter found between --- delimiters"
+    try:
+        frontmatter = yaml.safe_load(match.group(1))
+        if not isinstance(frontmatter, dict):
+            return None, "Frontmatter is not a valid YAML dictionary"
+        return frontmatter, ""
+    except yaml.YAMLError as e:
+        return None, f"Invalid YAML in frontmatter: {e}"
+
+def validate_frontmatter(frontmatter: dict, repo_root: Path) -> list[str]:
+    """Validate frontmatter against rules and return list of errors."""
+    errors = []
+
+    # Check required fields
+    for field in REQUIRED_FIELDS:
+        if field not in frontmatter:
+            errors.append(f"Missing required field: '{field}'")
+        elif not frontmatter[field]:
+            errors.append(f"Field '{field}' is empty")
+
+    # Check type is allowed
+    if "type" in frontmatter:
+        type_val = frontmatter["type"]
+        if type_val not in ALLOWED_TYPE_VALUES:
+            errors.append(
+                f"Invalid 'type': '{type_val}'. Must be one of: {sorted(ALLOWED_TYPE_VALUES)}"
+            )
+
+    # Check durability if present
+    if "durability" in frontmatter:
+        durability_val = frontmatter["durability"]
+        if durability_val not in ALLOWED_DURABILITY_VALUES:
+            errors.append(
+                f"Invalid 'durability': '{durability_val}'. Must be one of: {sorted(ALLOWED_DURABILITY_VALUES - {None})}"
+            )
+
+    # Check source if present
+    if "source" in frontmatter:
+        source_val = frontmatter["source"]
+        if source_val not in ALLOWED_SOURCE_VALUES:
+            errors.append(
+                f"Invalid 'source': '{source_val}'. Must be one of: {sorted(ALLOWED_SOURCE_VALUES - {None})}"
+            )
+
+    # Check protected is boolean if present
+    if "protected" in frontmatter:
+        protected_val = frontmatter["protected"]
+        if not isinstance(protected_val, bool):
+            errors.append(
+                f"Invalid 'protected': '{protected_val}'. Must be a boolean (true/false)"
+            )
+
+    # Check supersedes targets exist
+    if "supersedes" in frontmatter and frontmatter["supersedes"]:
+        supersedes = frontmatter["supersedes"]
+        # Handle single file or list
+        if isinstance(supersedes, str):
+            supersedes = [supersedes]
+        for target in supersedes:
+            target_path = repo_root / "epigenome" / "marks" / target
+            target_archive = repo_root / "epigenome" / "marks" / "archive" / target
+            if not target_path.exists() and not target_archive.exists():
+                errors.append(
+                    f"supersedes target '{target}' not found in epigenome/marks/ or epigenome/marks/archive/"
+                )
+
+    return errors
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "filenames", nargs="*", help="Filenames to check (from pre-commit)"
+    )
+    args = parser.parse_args()
+
+    # Find repo root (germline)
+    script_path = Path(__file__).resolve()
+    repo_root = script_path.parent.parent  # effectors/.. = germline
+
+    errors_found = False
+
+    for filename in args.filenames:
+        path = Path(filename)
+        # Skip MEMORY.md
+        if path.name == "MEMORY.md":
+            continue
+        # Skip archive files
+        if "archive" in path.parts:
+            continue
+        # Only check epigenome/marks/*.md
+        if not (str(path).startswith("epigenome/marks/") and path.suffix == ".md"):
+            continue
+
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+
+        frontmatter, error = parse_frontmatter(content)
+        if error:
+            print(f"ERROR: {filename}: {error}")
+            errors_found = True
+            continue
+
+        errors = validate_frontmatter(frontmatter, repo_root)
+        if errors:
+            for err in errors:
+                print(f"ERROR: {filename}: {err}")
+            errors_found = True
+
+    if errors_found:
+        sys.exit(1)
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
