@@ -449,6 +449,26 @@ def mod_bash_post(data):
     cmd = data.get("tool_input", {}).get("command", "")
     result = data.get("tool_output", data.get("tool_result", ""))
 
+    # Cytokinesis gate enforcement — after `cytokinesis daily`, run verify
+    if re.search(r"\bcytokinesis\s+daily\b", cmd):
+        try:
+            verify = subprocess.run(
+                ["cytokinesis", "verify"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if verify.returncode != 0:
+                # Extract pending gates from JSON output
+                for line in verify.stdout.splitlines():
+                    if "PENDING" in line:
+                        print(
+                            f"Cytokinesis gate still PENDING — fill daily note template and check: {line.strip()}",
+                            file=sys.stderr,
+                        )
+        except Exception:
+            pass
+
     # Push reminder after git commit
     if re.search(r"\bgit\s+commit\b", cmd):
         try:
