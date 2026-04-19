@@ -321,6 +321,87 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
     print(f"\nExported to {EXPORT_DIR}/")
 
 
+def _export_single(full_uuid: str, photo: dict, out_path: Path) -> bool:
+    """Export a single photo to out_path. Returns True on success."""
+    directory = photo.get("ZDIRECTORY") or full_uuid[0]
+    filename = photo.get("ZFILENAME") or f"{full_uuid}.heic"
+    uti = photo.get("uti") or ""
+
+    original = _find_original(full_uuid, directory, filename)
+    if original and "heic" in uti.lower():
+        result = subprocess.run(
+            ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "92",
+             str(original), "--out", str(out_path)],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode == 0:
+            subprocess.run(["sips", "-r", "0", str(out_path)],
+                           capture_output=True, timeout=30)
+            return True
+        print(f"  [!] sips failed for {filename}: {result.stderr.strip()}",
+              file=sys.stderr)
+
+    if original and "jpeg" in uti.lower():
+        shutil.copy2(original, out_path)
+        subprocess.run(["sips", "-r", "0", str(out_path)],
+                       capture_output=True, timeout=30)
+        return True
+
+    derivative = _find_derivative(full_uuid)
+    if derivative:
+        shutil.copy2(derivative, out_path)
+        return True
+
+    return False
+
+
+def batch_export(db: PhotosDB, date_str: str,
+                 time_start: str | None = None,
+                 time_end: str | None = None) -> None:
+    """Export all photos from a date (or time window), numbered sequentially."""
+    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=_HKT)
+    start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+
+    if time_start and time_end:
+        h_s, m_s = time_start.split(":")
+        h_e, m_e = time_end.split(":")
+        start = start.replace(hour=int(h_s), minute=int(m_s))
+        end = dt.replace(hour=int(h_e), minute=int(m_e), second=59)
+
+    photos = db.query_date_range(start, end)
+    # Reverse to chronological order for sequential numbering
+    photos.reverse()
+
+    if not photos:
+        print(f"No photos found for {date_str}"
+              + (f" {time_start}-{time_end}" if time_start else ""))
+        return
+
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+    exported = 0
+    for idx, photo in enumerate(photos, 1):
+        full_uuid = photo.get("ZUUID")
+        if not full_uuid:
+            continue
+        resolved = db.get_by_uuid(full_uuid)
+        if not resolved:
+            continue
+
+        out_path = EXPORT_DIR / f"{idx:03d}.jpeg"
+        orig_fname = resolved.get("ZORIGINALFILENAME") or resolved.get("ZFILENAME") or full_uuid
+
+        if _export_single(full_uuid, resolved, out_path):
+            size_kb = out_path.stat().st_size / 1024
+            print(f"  {out_path.name}  ({size_kb:.0f}KB)  {orig_fname}")
+            exported += 1
+        else:
+            print(f"  [!] {orig_fname}: not available locally (iCloud only?)")
+
+    print(f"\nExported {exported}/{len(photos)} to {EXPORT_DIR}/")
+
+
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(__doc__)
@@ -329,7 +410,7 @@ def main() -> None:
     cmd = sys.argv[1]
 
     # Validate command before touching the DB
-    valid_cmds = {"today", "recent", "date", "range", "export", "search"}
+    valid_cmds = {"today", "recent", "date", "range", "export", "search", "batch"}
     if cmd not in valid_cmds:
         print(f"Unknown command: {cmd}")
         print(__doc__)
@@ -385,6 +466,15 @@ def main() -> None:
             keyword = " ".join(sys.argv[2:])
             photos = db.search(keyword)
             print_photos(photos)
+
+        elif cmd == "batch":
+            if len(sys.argv) < 3:
+                print("Usage: rhodopsin.py batch DATE [HH:MM HH:MM]")
+                return
+            date_arg = sys.argv[2]
+            t_start = sys.argv[3] if len(sys.argv) > 3 else None
+            t_end = sys.argv[4] if len(sys.argv) > 4 else None
+            batch_export(db, date_arg, t_start, t_end)
 
     finally:
         db.close()
