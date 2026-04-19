@@ -322,6 +322,27 @@ def main():
     sections = parse_sections()
     rules = load_rules()
 
+    # Parse --sections flag (supports --sections=csv and --sections csv)
+    sections_filter: set[str] | None = None
+    i = 0
+    while i < len(sys.argv[1:]):
+        arg = sys.argv[1:][i]
+        if arg.startswith("--sections="):
+            csv = arg.split("=", 1)[1]
+            sections_filter = {s.strip() for s in csv.split(",") if s.strip()}
+            break
+        elif arg == "--sections":
+            if i + 1 < len(sys.argv[1:]):
+                next_arg = sys.argv[1:][i + 1]
+                if not next_arg.startswith("--"):
+                    sections_filter = {s.strip() for s in next_arg.split(",") if s.strip()}
+                    break
+        i += 1
+
+    # Apply sections filtering if requested
+    if sections_filter is not None:
+        rules = [r for r in rules if r["prefix"] in sections_filter]
+
     if "--validate" in args:
         errors = validate(rules, sections)
         if errors:
@@ -360,8 +381,20 @@ def main():
     if "--dry-run" in args:
         print(output)
     else:
-        OUTPUT_FILE.write_text(output + "\n", encoding="utf-8")
-        print(f"Compiled {len(rules)} rules to {OUTPUT_FILE}", file=sys.stderr)
+        # If --sections is provided without --dry-run, write to tmp to avoid clobbering
+        if sections_filter is not None:
+            output_path = Path("/tmp/polymerase-filtered.md")
+            output_path.write_text(output + "\n", encoding="utf-8")
+            print(
+                "polymerase: --sections without --dry-run, writing to /tmp/polymerase-filtered.md to avoid clobbering the full coaching blob",
+                file=sys.stderr
+            )
+            print(f"Compiled {len(rules)} filtered rules to {output_path}", file=sys.stderr)
+        else:
+            output_path = OUTPUT_FILE
+            output_path.write_text(output + "\n", encoding="utf-8")
+            print(f"Compiled {len(rules)} rules to {output_path}", file=sys.stderr)
+
         if "--critical" in args:
             filtered = [r for r in rules if r["impact"] in ("CRITICAL", "HIGH")]
             print(f"  (filtered to {len(filtered)} CRITICAL+HIGH rules)", file=sys.stderr)
