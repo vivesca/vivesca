@@ -280,6 +280,16 @@ def guard_bash(data):
     if re.search(r"\bgit\s+restore\s+\.", cmd) and "--staged" not in cmd:
         deny("git restore . discards unstaged changes. Use git stash.", "bash-guard")
 
+    # 21. git merge from remote without prior diff check
+    if re.search(r"\bgit\s+merge\s+(ganglion|origin)/", cmd) and not re.search(
+        r"\bgit\s+(log|diff)\b.*\.\.", cmd
+    ):
+        deny(
+            "Review incoming commits before merging from remote. "
+            "Use: git log HEAD..ganglion/main --oneline && git merge ...",
+            "bash-guard",
+        )
+
     # 22. gog calendar today
     if re.search(r"\bgog\s+calendar\s+today\b", cmd):
         deny("`gog calendar today` doesn't exist. Use `gog calendar list`.", "bash-guard")
