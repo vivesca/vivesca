@@ -175,7 +175,7 @@ _(no description)_
   Files: `mtor`
 
 ### Standalone scripts (175 total, on PATH)
-  Recent: `polymerase`, `mark-lint`, `rhodopsin.py`, `vivesca-preflight`, `willison-scrape`, `x-feed-to-endocytosis`, `efferens`, `publish`, `burn`, `soma-scale`
+  Recent: `cytokinesis`, `polymerase`, `mark-lint`, `rhodopsin.py`, `vivesca-preflight`, `willison-scrape`, `x-feed-to-endocytosis`, `efferens`, `publish`, `burn`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -388,8 +388,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **493**
-- Most active: `rheotaxis` (171), `fetch` (75), `trogocytosis_browser_eval` (59), `trogocytosis_browser_screenshot` (48), `pinocytosis` (29)
+- Signals (last 7 days): **489**
+- Most active: `rheotaxis` (164), `fetch` (74), `trogocytosis_browser_eval` (59), `trogocytosis_browser_screenshot` (48), `pinocytosis` (29)
 
 ## Known Lesions
 

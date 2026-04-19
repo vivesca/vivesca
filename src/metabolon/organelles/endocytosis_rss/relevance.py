@@ -84,7 +84,7 @@ def assess_cargo_batch(
     prompt = BATCH_SCORING_PROMPT.format(items="\n".join(lines))
 
     try:
-        text = _symbiont_transduce("opus", prompt, timeout=180)
+        text = _symbiont_transduce("gemini", prompt, timeout=180)
         # Extract JSON array from response
         start = text.find("[")
         end = text.rfind("]") + 1
