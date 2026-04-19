@@ -90,6 +90,8 @@ end tell
 - **`about` not `profile`:** auceps uses the correct bird subcommand internally — callers never need to know
 - **focus field:** `--endocytosis` leaves focus blank; bio isn't available from bird. Fill it manually or from context.
 - **Thread depth:** `auceps thread` follows quoted tweet URLs via regex. Stops early if no quoted tweet found.
+- **Soma (Fly):** `bird` binary is Mac-only. On soma, auceps fails with `FileNotFoundError`. Use `pinocytosis "<tweet-url>"` as fallback for reading tweets.
+- **Auto-routing not implemented:** CLI only accepts subcommands (`thread`, `bird`, `post`). `auceps <url>` fails — use `auceps bird read <url>` explicitly.
 
 ## Binary
 
