@@ -666,6 +666,16 @@ def gather(
     else:
         gates["daily_note"] = "PENDING — no daily note for today. Run `cytokinesis daily`."
 
+    # Gate 7: Memory budget — MEMORY.md must stay under limit
+    mem_lines = results.get("memory", {}).get("lines", 0)
+    mem_limit = results.get("memory", {}).get("limit", 150)
+    if mem_lines >= mem_limit:
+        gates["memory_budget"] = (
+            f"PENDING — MEMORY.md at {mem_lines}/{mem_limit} lines. Downregulate stale entries."
+        )
+    else:
+        gates["memory_budget"] = f"DONE — {mem_lines}/{mem_limit} lines"
+
     results["gates"] = gates
 
     # Output: wrap in porin envelope
@@ -1328,6 +1338,15 @@ def verify() -> None:
             gates["daily_note"] = "DONE"
     else:
         gates["daily_note"] = "PENDING — no daily note"
+
+    # Memory budget
+    memory_md = Path.home() / "epigenome" / "marks" / "MEMORY.md"
+    mem_lines = len(memory_md.read_text().splitlines()) if memory_md.exists() else 0
+    mem_limit = 150
+    if mem_lines >= mem_limit:
+        gates["memory_budget"] = f"PENDING — {mem_lines}/{mem_limit} lines"
+    else:
+        gates["memory_budget"] = f"DONE — {mem_lines}/{mem_limit}"
 
     all_done = all("DONE" in v or "TRUST" in v for v in gates.values())
     _ok("cytokinesis verify", {"gates": gates, "all_passed": all_done})
