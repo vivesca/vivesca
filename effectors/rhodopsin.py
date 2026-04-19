@@ -3,12 +3,13 @@
 Quick photo access for Claude Code sessions.
 
 Usage:
-    photos.py today                   # Today's photos
-    photos.py recent [N]              # Last N photos (default 10, from last 7 days)
-    photos.py date YYYY-MM-DD        # Photos from specific date
-    photos.py range FROM TO           # Date range
-    photos.py export UUID [UUID...]   # Export to ~/tmp/photos/ as JPEG
-    photos.py search KEYWORD          # Search by keyword (descriptions, titles, people)
+    rhodopsin.py today                   # Today's photos
+    rhodopsin.py recent [N]              # Last N photos (default 10, from last 7 days)
+    rhodopsin.py date YYYY-MM-DD        # Photos from specific date
+    rhodopsin.py range FROM TO           # Date range
+    rhodopsin.py export UUID [UUID...]   # Export to ~/tmp/photos/ as JPEG
+    rhodopsin.py search KEYWORD          # Search by keyword (descriptions, titles, people)
+    rhodopsin.py batch DATE [HH:MM HH:MM]  # Export photos from DATE, auto-rotate, numbered sequentially
 
 All queries print: uuid (first 8), timestamp, filename, labels.
 Export converts HEIC to JPEG for Claude Code's Read tool.
@@ -351,7 +352,7 @@ def main() -> None:
 
         elif cmd == "date":
             if len(sys.argv) < 3:
-                print("Usage: photos.py date YYYY-MM-DD")
+                print("Usage: rhodopsin.py date YYYY-MM-DD")
                 return
             date_str = sys.argv[2]
             dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=_HKT)
@@ -362,7 +363,7 @@ def main() -> None:
 
         elif cmd == "range":
             if len(sys.argv) < 4:
-                print("Usage: photos.py range FROM TO")
+                print("Usage: rhodopsin.py range FROM TO")
                 return
             start = datetime.strptime(sys.argv[2], "%Y-%m-%d").replace(tzinfo=_HKT)
             end = datetime.strptime(sys.argv[3], "%Y-%m-%d").replace(tzinfo=_HKT)
@@ -372,14 +373,14 @@ def main() -> None:
 
         elif cmd == "export":
             if len(sys.argv) < 3:
-                print("Usage: photos.py export UUID [UUID...]")
+                print("Usage: rhodopsin.py export UUID [UUID...]")
                 return
             print(f"Exporting to {EXPORT_DIR}/\n")
             export_photos(db, sys.argv[2:])
 
         elif cmd == "search":
             if len(sys.argv) < 3:
-                print("Usage: photos.py search KEYWORD")
+                print("Usage: rhodopsin.py search KEYWORD")
                 return
             keyword = " ".join(sys.argv[2:])
             photos = db.search(keyword)

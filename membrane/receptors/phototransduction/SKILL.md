@@ -8,7 +8,7 @@ triggers:
   - transcribe slides
   - photo to markdown
   - document from camera
-tools: [photos.py, Read, Write, Bash, Edit]
+tools: [rhodopsin.py, Read, Write, Bash, Edit]
 epistemics: []
 ---
 
@@ -30,17 +30,17 @@ Biology: phototransduction converts absorbed photons into molecular signals. Her
 
 ```bash
 # From macOS Photos by date
-photos.py today
-photos.py date 2026-04-18
-photos.py recent 30
+rhodopsin.py today
+rhodopsin.py date 2026-04-18
+rhodopsin.py recent 30
 
 # Export as JPEG (handles HEIC conversion)
-photos.py export UUID1 UUID2 UUID3...
+rhodopsin.py export UUID1 UUID2 UUID3...
 ```
 
 If photos are on the local machine already (e.g., `/tmp/`), skip to step 2.
 
-If accessing via SSH to Mac, use `photos.py` on the Mac side or AppleScript export.
+If accessing via SSH to Mac, use `rhodopsin.py` on the Mac side or AppleScript export.
 
 ### 2. Auto-rotate (CRITICAL)
 
@@ -144,4 +144,4 @@ For any page where confidence is low (rotated text, dense paragraphs, small font
 
 ## CLI enhancement needed
 
-`photos.py export` should auto-rotate based on EXIF orientation. Currently it converts HEIC→JPEG but doesn't fix rotation. Add `sips --rotate 0` (which applies EXIF metadata) after conversion.
+`rhodopsin.py export` should auto-rotate based on EXIF orientation. Currently it converts HEIC→JPEG but doesn't fix rotation. Add `sips --rotate 0` (which applies EXIF metadata) after conversion.
