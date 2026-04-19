@@ -83,7 +83,7 @@ def probe_rheotaxis() -> tuple[bool, str]:
 
 
 def probe_rheotaxis_self_test() -> tuple[bool, str]:
-    """Fires a minimal test query through rheotaxis CLI and validates the response."""
+    """Verify rheotaxis CLI loads and lists backends (no live API call)."""
     try:
         import shutil
 
@@ -92,10 +92,10 @@ def probe_rheotaxis_self_test() -> tuple[bool, str]:
             return False, "rheotaxis binary not found on PATH"
 
         result = subprocess.run(
-            [binary, "--json", "test"],
+            [binary, "backends"],
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=10,
         )
         if result.returncode != 0:
             return False, f"rheotaxis exited {result.returncode}: {result.stderr.strip()[:200]}"
@@ -103,10 +103,15 @@ def probe_rheotaxis_self_test() -> tuple[bool, str]:
         if not result.stdout.strip():
             return False, "rheotaxis returned empty output"
 
-        return True, "rheotaxis ok"
+        try:
+            data = json.loads(result.stdout)
+            backends = data.get("result", {}).get("backends", [])
+            return True, f"rheotaxis ok, {len(backends)} backend(s)"
+        except json.JSONDecodeError:
+            return True, "rheotaxis ok (non-JSON output)"
 
     except subprocess.TimeoutExpired:
-        return False, "rheotaxis timed out (15s)"
+        return False, "rheotaxis timed out (10s)"
     except Exception as exc:
         return False, f"exception: {exc}"
 

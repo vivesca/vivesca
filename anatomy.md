@@ -391,8 +391,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **503**
-- Most active: `rheotaxis` (182), `fetch` (84), `trogocytosis_browser_eval` (58), `trogocytosis_browser_screenshot` (48), `pinocytosis` (34)
+- Signals (last 7 days): **493**
+- Most active: `rheotaxis` (171), `fetch` (75), `trogocytosis_browser_eval` (59), `trogocytosis_browser_screenshot` (48), `pinocytosis` (29)
 
 ## Known Lesions
 
