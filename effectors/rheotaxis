@@ -571,7 +571,7 @@ def search(
             try:
                 print(_report(query, results))
             except RuntimeError as exc:
-                print(f"Error: {exc}", file=sys.stderr)
+                print(f"Error: {exc} Run: rheotaxis --help", file=sys.stderr)
                 raise SystemExit(EXIT_ERROR) from exc
         elif use_json:
             ok_count = sum(1 for result in results if not result.error)
