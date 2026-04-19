@@ -37,11 +37,11 @@ async def main():
             code = input("Enter the code you received: ")
         await client.sign_in(phone, code)
 
-    me = await client.get_me()  # type: ignore[misc]
+    me = await client.get_me()
     first = getattr(me, "first_name", None) or "unknown"
     phone = getattr(me, "phone", None) or "unknown"
     print(f"Authenticated as: {first} ({phone})")
-    await client.disconnect()  # type: ignore[misc]
+    await client.disconnect()
 
 
 if __name__ == "__main__":

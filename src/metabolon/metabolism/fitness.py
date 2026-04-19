@@ -1,4 +1,5 @@
 """Per-enzyme emotion computation from sensory aggregates."""
+
 from __future__ import annotations
 
 import math

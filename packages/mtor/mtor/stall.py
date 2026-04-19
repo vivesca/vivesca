@@ -8,6 +8,7 @@ from dataclasses import dataclass
 @dataclass
 class StallSignal:
     """A detected stall event."""
+
     stall_type: str
     detail: str
 
@@ -30,8 +31,13 @@ def detect_stall(
         return StallSignal(stall_type="none", detail="success")
     if files_created == 0 and duration_seconds > 60:
         if output_length > 5000 and duration_seconds > 300:
-            return StallSignal(stall_type="monologue", detail=f"ran {duration_seconds}s, {output_length} chars output, 0 files")
-        return StallSignal(stall_type="built-nothing", detail=f"ran {duration_seconds}s, 0 files created")
+            return StallSignal(
+                stall_type="monologue",
+                detail=f"ran {duration_seconds}s, {output_length} chars output, 0 files",
+            )
+        return StallSignal(
+            stall_type="built-nothing", detail=f"ran {duration_seconds}s, 0 files created"
+        )
     return StallSignal(stall_type="none", detail=f"exit={exit_code}")
 
 

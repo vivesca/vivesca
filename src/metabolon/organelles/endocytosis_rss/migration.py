@@ -1,4 +1,5 @@
 """One-time migration: markdown news log -> JSONL cargo store."""
+
 from __future__ import annotations
 
 import re

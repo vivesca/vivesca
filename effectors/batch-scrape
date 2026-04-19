@@ -11,7 +11,7 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -49,9 +49,7 @@ def is_batch_edition(url: str) -> bool:
     path = url.replace("https://www.deeplearning.ai", "").rstrip("/")
     if path in SKIP_PATHS:
         return False
-    if "/the-batch/tag/" in url:
-        return False
-    return True
+    return "/the-batch/tag/" not in url
 
 
 async def fetch_sitemap_urls(session: aiohttp.ClientSession) -> list[str]:
@@ -107,7 +105,7 @@ def extract_content(html: str) -> tuple[str, str]:
     for h1 in soup.find_all("h1"):
         text = h1.get_text(strip=True)
         # Skip generic headings used in issue pages
-        if text.lower() not in ("news",) and len(text) > 3:
+        if text.lower() != "news" and len(text) > 3:
             title = text
             break
     if not title:
@@ -148,7 +146,7 @@ async def fetch_edition(
 
     title, body = extract_content(html)
     date = extract_date(html)
-    fetched_at = datetime.now(timezone.utc).isoformat()
+    fetched_at = datetime.now(UTC).isoformat()
 
     return {
         "body": body,
@@ -164,12 +162,8 @@ async def main() -> None:
         description="Scrape Andrew Ng's 'The Batch' newsletter from deeplearning.ai"
     )
     parser.add_argument("--output", default="batch.jsonl", help="JSONL output path")
-    parser.add_argument(
-        "--concurrency", type=int, default=3, help="Max concurrent requests"
-    )
-    parser.add_argument(
-        "--limit", type=int, default=0, help="Limit editions to fetch (0=all)"
-    )
+    parser.add_argument("--concurrency", type=int, default=3, help="Max concurrent requests")
+    parser.add_argument("--limit", type=int, default=0, help="Limit editions to fetch (0=all)")
     args = parser.parse_args()
 
     already_fetched = load_existing_urls(args.output)
@@ -186,9 +180,7 @@ async def main() -> None:
             to_fetch = to_fetch[: args.limit]
 
         if not to_fetch:
-            print(
-                f"Nothing to do — {len(already_fetched)} editions already in file."
-            )
+            print(f"Nothing to do — {len(already_fetched)} editions already in file.")
             return
 
         print(
@@ -202,9 +194,7 @@ async def main() -> None:
         with tqdm(total=len(to_fetch), desc="Scraping") as progress_bar:
             for batch_start in range(0, len(to_fetch), batch_size):
                 batch = to_fetch[batch_start : batch_start + batch_size]
-                tasks = [
-                    fetch_edition(session, url, semaphore) for url in batch
-                ]
+                tasks = [fetch_edition(session, url, semaphore) for url in batch]
                 results = await asyncio.gather(*tasks)
 
                 records = [r for r in results if r is not None]
@@ -212,8 +202,9 @@ async def main() -> None:
                 if records:
                     async with write_lock:
                         with open(args.output, "a") as f:
-                            for record in records:
-                                f.write(json.dumps(record, sort_keys=True) + "\n")
+                            f.writelines(
+                                json.dumps(record, sort_keys=True) + "\n" for record in records
+                            )
                     fetched_count += len(records)
 
                 progress_bar.update(len(batch))

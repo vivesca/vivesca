@@ -21,28 +21,43 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 
 try:
     from porin import emit_err, emit_ok
 except ImportError:
 
     def emit_ok(command, result, next_actions=None):
-        print(json.dumps({"ok": True, "command": command, "result": result, "next_actions": next_actions or []}))
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "command": command,
+                    "result": result,
+                    "next_actions": next_actions or [],
+                }
+            )
+        )
 
     def emit_err(command, message, code, fix, next_actions=None):
-        print(json.dumps({"ok": False, "command": command, "error": {"message": message, "code": code}, "fix": fix, "next_actions": next_actions or []}))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "command": command,
+                    "error": {"message": message, "code": code},
+                    "fix": fix,
+                    "next_actions": next_actions or [],
+                }
+            )
+        )
 
 
 def _build_index(force_refresh: bool = False) -> list[dict]:
     """Build full capability index, using cache unless forced to refresh."""
     from metabolon.resources.proteome import (
         _BIN_DIR,
-        _VIVESCA_TOOLS,
         _RECEPTORS_DIR,
-        _scan_effector_dir,
-        _scan_organelle_tools,
-        _scan_skills,
+        _VIVESCA_TOOLS,
         full_index,
         invalidate_cache,
     )
@@ -79,11 +94,14 @@ def cmd_index(args) -> None:
         entries = _filter_by_type(entries, args.type_filter)
 
     if args.json:
-        emit_ok("proteome index", {
-            "total": len(entries),
-            "tools": entries,
-            "markdown": express_effector_index(),
-        })
+        emit_ok(
+            "proteome index",
+            {
+                "total": len(entries),
+                "tools": entries,
+                "markdown": express_effector_index(),
+            },
+        )
     else:
         print(express_effector_index())
 
@@ -99,11 +117,14 @@ def cmd_search(args) -> None:
         matches = _filter_by_type(matches, args.type_filter)
 
     if args.json:
-        emit_ok("proteome search", {
-            "query": args.query,
-            "total": len(matches),
-            "tools": matches,
-        })
+        emit_ok(
+            "proteome search",
+            {
+                "query": args.query,
+                "total": len(matches),
+                "tools": matches,
+            },
+        )
     else:
         if not matches:
             print(f"No tools matching '{args.query}'.")
@@ -142,10 +163,13 @@ def cmd_untested(args) -> None:
     uncovered = scan_untested()
 
     if args.json:
-        emit_ok("proteome untested", {
-            "count": len(uncovered),
-            "tools": uncovered,
-        })
+        emit_ok(
+            "proteome untested",
+            {
+                "count": len(uncovered),
+                "tools": uncovered,
+            },
+        )
     else:
         if not uncovered:
             print("All effectors have tests. \u2713")
@@ -164,11 +188,14 @@ def cmd_stale(args) -> None:
     stale = scan_stale(days=args.days)
 
     if args.json:
-        emit_ok("proteome stale", {
-            "days_threshold": args.days,
-            "count": len(stale),
-            "tools": stale,
-        })
+        emit_ok(
+            "proteome stale",
+            {
+                "days_threshold": args.days,
+                "count": len(stale),
+                "tools": stale,
+            },
+        )
     else:
         if not stale:
             print(f"All capabilities touched within {args.days} days. \u2713")
@@ -222,10 +249,13 @@ def cmd_hooks(args) -> None:
     hooks = scan_hooks()
 
     if args.json:
-        emit_ok("proteome hooks", {
-            "count": sum(len(h["functions"]) for h in hooks),
-            "files": hooks,
-        })
+        emit_ok(
+            "proteome hooks",
+            {
+                "count": sum(len(h["functions"]) for h in hooks),
+                "files": hooks,
+            },
+        )
     else:
         if not hooks:
             print("No hook files found.")

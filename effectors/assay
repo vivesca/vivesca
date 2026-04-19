@@ -503,25 +503,36 @@ def main() -> None:
     # Agent-facing: bare invocation returns JSON command tree
     if len(sys.argv) == 1:
         import json
-        print(json.dumps({
-            "ok": True,
-            "command": "assay",
-            "result": {
-                "description": "Life experiment tracker with Oura Ring integration",
-                "commands": {
-                    "new": "Start a new N=1 experiment with baseline pull",
-                    "check": "Pull latest Oura data and append check-in",
-                    "close": "Close experiment with final comparison",
-                    "list": "List all experiments with status",
-                },
-            },
-            "next_actions": [
-                {"command": "assay new 'caffeine cut' --hypothesis 'better sleep' --days 14", "description": "Start a new experiment"},
-                {"command": "assay list", "description": "List all experiments"},
-                {"command": "assay check", "description": "Check in on the active experiment"},
-            ],
-            "version": "0.1.0",
-        }))
+
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "command": "assay",
+                    "result": {
+                        "description": "Life experiment tracker with Oura Ring integration",
+                        "commands": {
+                            "new": "Start a new N=1 experiment with baseline pull",
+                            "check": "Pull latest Oura data and append check-in",
+                            "close": "Close experiment with final comparison",
+                            "list": "List all experiments with status",
+                        },
+                    },
+                    "next_actions": [
+                        {
+                            "command": "assay new 'caffeine cut' --hypothesis 'better sleep' --days 14",
+                            "description": "Start a new experiment",
+                        },
+                        {"command": "assay list", "description": "List all experiments"},
+                        {
+                            "command": "assay check",
+                            "description": "Check in on the active experiment",
+                        },
+                    ],
+                    "version": "0.1.0",
+                }
+            )
+        )
         sys.exit(0)
 
     parser = argparse.ArgumentParser(description="assay — life experiment tracker")

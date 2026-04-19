@@ -53,7 +53,7 @@ def get_git_blame_source(filepath: Path) -> str:
         if emails:
             email = emails[0]
             return EMAIL_TO_SOURCE.get(email, "cc")
-    except subprocess.SubprocessError, FileNotFoundError:
+    except (subprocess.SubprocessError, FileNotFoundError):
         pass
     return "cc"
 

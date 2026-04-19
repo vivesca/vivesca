@@ -343,7 +343,7 @@ def _create_async_client():
         from openai import AsyncOpenAI
     except ImportError:
         try:
-            import openai as _openai  # noqa: F401
+            import openai as _openai
         except ImportError:
             _die(
                 f"openai SDK not installed in the active environment. {_dependency_hint('openai')}"

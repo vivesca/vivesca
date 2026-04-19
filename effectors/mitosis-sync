@@ -46,7 +46,7 @@ def _check_divergence(host: str) -> int:
     r = _ssh(host, "cd ~/germline && git fetch origin && git rev-list origin/main..HEAD")
     if r.returncode != 0:
         return -1
-    lines = [l for l in r.stdout.strip().splitlines() if l]
+    lines = [line for line in r.stdout.strip().splitlines() if line]
     return len(lines)
 
 

@@ -20,7 +20,7 @@ import shutil
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 STORAGE_DIR = Path("/tmp/screenshots")
@@ -46,7 +46,7 @@ def _update_symlink(target: Path) -> None:
 
 
 @app.post("/screenshot")
-async def upload_screenshot(file: UploadFile = File(...)):
+async def upload_screenshot(file: UploadFile):
     timestamp = int(time.time() * 1000)
     filename = f"screenshot_{timestamp}.png"
     filepath = STORAGE_DIR / filename

@@ -61,7 +61,7 @@ def main():
         try:
             dt = datetime.strptime(date_str, "%a %b %d %H:%M:%S %z %Y")
             article_date = dt.strftime("%Y-%m-%d")
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             article_date = datetime.now(UTC).strftime("%Y-%m-%d")
 
         title_hash = hashlib.sha256(text[:200].encode()).hexdigest()[:8]

@@ -1,4 +1,5 @@
 """Score news items for consulting relevance."""
+
 from __future__ import annotations
 
 import json

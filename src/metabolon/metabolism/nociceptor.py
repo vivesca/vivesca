@@ -10,6 +10,7 @@ Pain taxonomy:
   logic     — repeated same error (investigate)
   chronic   — any type seen >CHRONIC_THRESHOLD times (escalate)
 """
+
 from __future__ import annotations
 
 import json

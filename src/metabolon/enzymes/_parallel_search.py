@@ -650,13 +650,15 @@ def _report(query: str, results: list[ToolResult], json_output: bool = False) ->
                 entry["content"] = r.result
             backends.append(entry)
         total_cost = sum(r.cost for r in results)
-        return json.dumps({
-            "query": query,
-            "backends": backends,
-            "total_cost": round(total_cost, 4),
-            "backend_count": len(results),
-            "ok_count": len([r for r in results if not r.error]),
-        })
+        return json.dumps(
+            {
+                "query": query,
+                "backends": backends,
+                "total_cost": round(total_cost, 4),
+                "backend_count": len(results),
+                "ok_count": len([r for r in results if not r.error]),
+            }
+        )
 
     ok = [r for r in results if not r.error]
     errored = [r for r in results if r.error]

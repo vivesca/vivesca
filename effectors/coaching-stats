@@ -155,7 +155,7 @@ def load_ribosome_jsonl(path: Path) -> list[RibosomeEntry]:
                         pytest_exit=d.get("pytest_exit", 0),
                     )
                 )
-            except json.JSONDecodeError, KeyError:
+            except (json.JSONDecodeError, KeyError):
                 continue
     return entries
 

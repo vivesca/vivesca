@@ -1,12 +1,9 @@
 """Tests for metabolon.organelles.oauth2 — centralized OAuth2 authentication."""
 
-import json
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # TokenStore
@@ -153,8 +150,10 @@ class TestOAuth2Client:
         assert "expires_at" in token
         mock_post.assert_called_once()
         call_body = mock_post.call_args
-        assert call_body.kwargs.get("data", {}).get("code") == "auth_code_123" or \
-               call_body[1].get("data", {}).get("code") == "auth_code_123"
+        assert (
+            call_body.kwargs.get("data", {}).get("code") == "auth_code_123"
+            or call_body[1].get("data", {}).get("code") == "auth_code_123"
+        )
 
     def test_exchange_code_saves_token(self, tmp_path):
         client = self._make_client(tmp_path)
@@ -174,11 +173,14 @@ class TestOAuth2Client:
     def test_refresh_token(self, tmp_path):
         client = self._make_client(tmp_path)
         # Seed a token
-        client.store.save("default", {
-            "access_token": "old_at",
-            "refresh_token": "rt_abc",
-            "expires_at": time.time() - 100,
-        })
+        client.store.save(
+            "default",
+            {
+                "access_token": "old_at",
+                "refresh_token": "rt_abc",
+                "expires_at": time.time() - 100,
+            },
+        )
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -201,22 +203,28 @@ class TestOAuth2Client:
 
     def test_get_valid_token_still_valid(self, tmp_path):
         client = self._make_client(tmp_path)
-        client.store.save("default", {
-            "access_token": "at_good",
-            "refresh_token": "rt",
-            "expires_at": time.time() + 3600,
-        })
+        client.store.save(
+            "default",
+            {
+                "access_token": "at_good",
+                "refresh_token": "rt",
+                "expires_at": time.time() + 3600,
+            },
+        )
 
         token = client.get_valid_token()
         assert token["access_token"] == "at_good"
 
     def test_get_valid_token_auto_refreshes(self, tmp_path):
         client = self._make_client(tmp_path)
-        client.store.save("default", {
-            "access_token": "expired",
-            "refresh_token": "rt",
-            "expires_at": time.time() - 100,
-        })
+        client.store.save(
+            "default",
+            {
+                "access_token": "expired",
+                "refresh_token": "rt",
+                "expires_at": time.time() - 100,
+            },
+        )
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -262,11 +270,14 @@ class TestOAuth2Client:
 
     def test_revoke_token(self, tmp_path):
         client = self._make_client(tmp_path)
-        client.store.save("default", {
-            "access_token": "at_revoke",
-            "refresh_token": "rt_revoke",
-            "expires_at": time.time() + 3600,
-        })
+        client.store.save(
+            "default",
+            {
+                "access_token": "at_revoke",
+                "refresh_token": "rt_revoke",
+                "expires_at": time.time() + 3600,
+            },
+        )
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -279,11 +290,14 @@ class TestOAuth2Client:
 
     def test_get_auth_header(self, tmp_path):
         client = self._make_client(tmp_path)
-        client.store.save("default", {
-            "access_token": "bearer_tok",
-            "refresh_token": "rt",
-            "expires_at": time.time() + 3600,
-        })
+        client.store.save(
+            "default",
+            {
+                "access_token": "bearer_tok",
+                "refresh_token": "rt",
+                "expires_at": time.time() + 3600,
+            },
+        )
         header = client.get_auth_header()
         assert header == {"Authorization": "Bearer bearer_tok"}
 

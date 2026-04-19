@@ -7,6 +7,7 @@ increasing? Is shape changing? — not just static state.
 Gradient sensing: each reading logs key metrics. On query, current
 reading is compared to recent history to surface trends.
 """
+
 from __future__ import annotations
 
 import filecmp

@@ -1,23 +1,47 @@
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from mtor.config import MtorConfig, ProviderConfig
-from mtor.worker import TaskResult, run_task, log_result
+from mtor.worker import TaskResult, log_result, run_task
+
 
 def _test_provider():
-    return ProviderConfig(name="test", url="https://example.com/v1", model="test-model", key_env="TEST_MTOR_KEY", harness="claude")
+    return ProviderConfig(
+        name="test",
+        url="https://example.com/v1",
+        model="test-model",
+        key_env="TEST_MTOR_KEY",
+        harness="claude",
+    )
+
 
 def test_task_result_log_entry():
-    result = TaskResult(provider="zhipu", exit_code=0, duration_seconds=120, output="done", files_created=3, timestamp="2026-04-06T00:00:00Z")
+    result = TaskResult(
+        provider="zhipu",
+        exit_code=0,
+        duration_seconds=120,
+        output="done",
+        files_created=3,
+        timestamp="2026-04-06T00:00:00Z",
+    )
     entry = result.to_log_entry()
     assert entry["provider"] == "zhipu"
     assert entry["exit"] == 0
 
+
 def test_log_result_appends(tmp_path: Path):
     log_file = tmp_path / "test.jsonl"
-    result = TaskResult(provider="test", exit_code=0, duration_seconds=10, output="ok", timestamp="2026-04-06T00:00:00Z")
+    result = TaskResult(
+        provider="test",
+        exit_code=0,
+        duration_seconds=10,
+        output="ok",
+        timestamp="2026-04-06T00:00:00Z",
+    )
     log_result(result, log_file)
     log_result(result, log_file)
     assert len(log_file.read_text().strip().split("\n")) == 2
+
 
 @patch("mtor.worker.subprocess.run")
 @patch("mtor.worker.capture_reflection", return_value=None)

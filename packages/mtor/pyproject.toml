@@ -1,28 +1,31 @@
 [build-system]
 build-backend = "hatchling.build"
-requires = ["hatchling"]
+requires = [ "hatchling" ]
 
 [project]
 name = "mtor"
 version = "0.1.0"
 description = "Architect-implementer dispatch for AI coding agents. Smart model plans, cheap model builds."
-requires-python = ">=3.11"
+keywords = [ "agents", "ai", "coding", "dispatch", "llm", "orchestration" ]
 license = "MIT"
-authors = [{ name = "Terry Li" }]
-keywords = ["ai", "agents", "coding", "dispatch", "llm", "orchestration"]
-dependencies = ["cyclopts>=3"]
+authors = [ { name = "Terry Li" } ]
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [ "cyclopts>=3" ]
 
-[project.optional-dependencies]
-temporal = ["temporalio>=1.7"]
-
-[project.scripts]
-mtor-pkg = "mtor.cli:app"
+optional-dependencies.temporal = [ "temporalio>=1.7" ]
+scripts.mtor-pkg = "mtor.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=9"]
+dev = [ "pytest>=9" ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["mtor"]
+packages = [ "mtor" ]
 
 [tool.pytest.ini_options]
-testpaths = ["assays"]
+testpaths = [ "assays" ]

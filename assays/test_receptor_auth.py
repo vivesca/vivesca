@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.receptor_auth import OAuth2Config, get_credential_status, get_google_credentials
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -95,8 +93,9 @@ class TestGetGoogleCredentialsFromEnv:
     def test_builds_credentials_from_env(self, gmail_config, env_credentials):
         mock_creds = MagicMock()
         mock_creds.valid = True
-        with patch("metabolon.receptor_auth.Credentials") as MockCreds, patch(
-            "metabolon.receptor_auth.Request"
+        with (
+            patch("metabolon.receptor_auth.Credentials") as MockCreds,
+            patch("metabolon.receptor_auth.Request"),
         ):
             MockCreds.return_value = mock_creds
             result = get_google_credentials(gmail_config)
@@ -112,17 +111,19 @@ class TestGetGoogleCredentialsFromEnv:
 
     def test_refreshes_on_creation(self, gmail_config, env_credentials):
         mock_creds = MagicMock()
-        with patch("metabolon.receptor_auth.Credentials") as MockCreds, patch(
-            "metabolon.receptor_auth.Request"
-        ) as MockRequest:
+        with (
+            patch("metabolon.receptor_auth.Credentials") as MockCreds,
+            patch("metabolon.receptor_auth.Request") as MockRequest,
+        ):
             MockCreds.return_value = mock_creds
             get_google_credentials(gmail_config)
         mock_creds.refresh.assert_called_once_with(MockRequest.return_value)
 
     def test_different_prefix(self, gcal_config, gcal_env_credentials):
         mock_creds = MagicMock()
-        with patch("metabolon.receptor_auth.Credentials") as MockCreds, patch(
-            "metabolon.receptor_auth.Request"
+        with (
+            patch("metabolon.receptor_auth.Credentials") as MockCreds,
+            patch("metabolon.receptor_auth.Request"),
         ):
             MockCreds.return_value = mock_creds
             result = get_google_credentials(gcal_config)
@@ -148,9 +149,7 @@ class TestGetGoogleCredentialsFromTokenFile:
             mock_from_file.return_value = mock_creds
             result = get_google_credentials(cfg)
         assert result is mock_creds
-        mock_from_file.assert_called_once_with(
-            str(token_file), ["https://mail.google.com/"]
-        )
+        mock_from_file.assert_called_once_with(str(token_file), ["https://mail.google.com/"])
 
     def test_refreshes_expired_token_from_file(self, gmail_config, token_file):
         cfg = replace(gmail_config, token_file=token_file)
@@ -158,9 +157,12 @@ class TestGetGoogleCredentialsFromTokenFile:
         mock_creds.expired = True
         mock_creds.refresh_token = "some-refresh"
         mock_creds.valid = False
-        with patch(
-            "metabolon.receptor_auth.Credentials.from_authorized_user_file"
-        ) as mock_from_file, patch("metabolon.receptor_auth.Request"):
+        with (
+            patch(
+                "metabolon.receptor_auth.Credentials.from_authorized_user_file"
+            ) as mock_from_file,
+            patch("metabolon.receptor_auth.Request"),
+        ):
             mock_from_file.return_value = mock_creds
             result = get_google_credentials(cfg)
         assert result is mock_creds
@@ -192,13 +194,12 @@ class TestGetGoogleCredentialsFromTokenFile:
 
 
 class TestCredentialPriority:
-    def test_env_takes_priority_over_file(
-        self, gmail_config, env_credentials, token_file
-    ):
+    def test_env_takes_priority_over_file(self, gmail_config, env_credentials, token_file):
         cfg = replace(gmail_config, token_file=token_file)
         mock_creds = MagicMock()
-        with patch("metabolon.receptor_auth.Credentials") as MockCreds, patch(
-            "metabolon.receptor_auth.Request"
+        with (
+            patch("metabolon.receptor_auth.Credentials") as MockCreds,
+            patch("metabolon.receptor_auth.Request"),
         ):
             MockCreds.return_value = mock_creds
             get_google_credentials(cfg)

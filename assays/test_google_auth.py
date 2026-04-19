@@ -15,7 +15,6 @@ from metabolon.organelles.google_auth import (
     get_credentials,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -55,7 +54,7 @@ class TestGetCredentialsFromEnvVars:
             result = get_credentials(scopes=["https://www.googleapis.com/auth/test"])
             assert result is mock_creds
             # Credentials constructor called with env var values
-            _, kwargs = mock_creds.call_args if mock_creds.call_args else ((), {})
+            _, _kwargs = mock_creds.call_args if mock_creds.call_args else ((), {})
             # The constructor was called (Credentials is mocked)
             assert mock_creds.refresh.called
 
@@ -225,7 +224,9 @@ class TestScopePropagation:
         mock_creds = _make_creds()
         with (
             patch.dict(os.environ, env, clear=False),
-            patch("metabolon.organelles.google_auth.Credentials", return_value=mock_creds) as MockCreds,
+            patch(
+                "metabolon.organelles.google_auth.Credentials", return_value=mock_creds
+            ) as MockCreds,
             patch("metabolon.organelles.google_auth.Request"),
         ):
             scopes = [
@@ -249,10 +250,10 @@ class TestBuildService:
         mock_creds = _make_creds()
         mock_service = MagicMock()
         with (
+            patch("metabolon.organelles.google_auth.get_credentials", return_value=mock_creds),
             patch(
-                "metabolon.organelles.google_auth.get_credentials", return_value=mock_creds
-            ),
-            patch("metabolon.organelles.google_auth.build", return_value=mock_service) as mock_build,
+                "metabolon.organelles.google_auth.build", return_value=mock_service
+            ) as mock_build,
         ):
             result = build_service(
                 api="calendar",
@@ -273,7 +274,7 @@ class TestConstants:
 
     def test_default_token_file_path(self):
         expected = Path.home() / ".config" / "gog" / "token.json"
-        assert DEFAULT_TOKEN_FILE == expected
+        assert expected == DEFAULT_TOKEN_FILE
 
     def test_well_known_scopes(self):
         assert "https://www.googleapis.com/auth/calendar" in CALENDAR_SCOPES

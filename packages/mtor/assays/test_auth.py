@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from mtor.auth import (
     OAuth2Config,
     TokenInfo,
@@ -14,10 +13,10 @@ from mtor.auth import (
     refresh_token,
 )
 
-
 # ---------------------------------------------------------------------------
 # TokenInfo
 # ---------------------------------------------------------------------------
+
 
 class TestTokenInfo:
     def test_is_expired_false_when_no_expiry(self):
@@ -71,6 +70,7 @@ class TestTokenInfo:
 # ---------------------------------------------------------------------------
 # TokenStore
 # ---------------------------------------------------------------------------
+
 
 class TestTokenStore:
     def test_save_and_load(self, tmp_path: Path):
@@ -134,6 +134,7 @@ class TestTokenStore:
 # OAuth2Config
 # ---------------------------------------------------------------------------
 
+
 class TestOAuth2Config:
     def test_defaults(self):
         cfg = OAuth2Config(
@@ -168,6 +169,7 @@ class TestOAuth2Config:
 # ---------------------------------------------------------------------------
 # Client Credentials Flow
 # ---------------------------------------------------------------------------
+
 
 class TestClientCredentialsFlow:
     def test_success(self, monkeypatch, tmp_path):
@@ -233,9 +235,7 @@ class TestClientCredentialsFlow:
             urllib.request,
             "urlopen",
             lambda req, **kw: (_ for _ in ()).throw(
-                urllib.error.HTTPError(
-                    "https://x", 401, "Unauthorized", {}, None
-                )
+                urllib.error.HTTPError("https://x", 401, "Unauthorized", {}, None)
             ),
         )
         import urllib.error
@@ -252,6 +252,7 @@ class TestClientCredentialsFlow:
 # ---------------------------------------------------------------------------
 # Refresh Token
 # ---------------------------------------------------------------------------
+
 
 class TestRefreshToken:
     def test_success(self, monkeypatch):
@@ -277,9 +278,7 @@ class TestRefreshToken:
 
         import urllib.request
 
-        monkeypatch.setattr(
-            urllib.request, "urlopen", lambda req, **kw: FakeResponse()
-        )
+        monkeypatch.setattr(urllib.request, "urlopen", lambda req, **kw: FakeResponse())
 
         cfg = OAuth2Config(
             client_id="test_client",
@@ -299,15 +298,11 @@ class TestRefreshToken:
             urllib.request,
             "urlopen",
             lambda req, **kw: (_ for _ in ()).throw(
-                urllib.error.HTTPError(
-                    "https://x", 400, "Bad Request", {}, None
-                )
+                urllib.error.HTTPError("https://x", 400, "Bad Request", {}, None)
             ),
         )
 
-        cfg = OAuth2Config(
-            client_id="c", authorize_url="https://a", token_url="https://t"
-        )
+        cfg = OAuth2Config(client_id="c", authorize_url="https://a", token_url="https://t")
         with pytest.raises(OSError, match="400"):
             refresh_token(cfg, "bad_token")
 
@@ -315,6 +310,7 @@ class TestRefreshToken:
 # ---------------------------------------------------------------------------
 # PKCE helpers
 # ---------------------------------------------------------------------------
+
 
 class TestPKCEHelpers:
     def test_generate_code_verifier(self):
@@ -355,6 +351,7 @@ class TestPKCEHelpers:
 # ---------------------------------------------------------------------------
 # get_token — integration-style test
 # ---------------------------------------------------------------------------
+
 
 class TestGetToken:
     def test_valid_token_returned_directly(self, tmp_path):
@@ -403,9 +400,7 @@ class TestGetToken:
 
         import urllib.request
 
-        monkeypatch.setattr(
-            urllib.request, "urlopen", lambda req, **kw: FakeResponse()
-        )
+        monkeypatch.setattr(urllib.request, "urlopen", lambda req, **kw: FakeResponse())
 
         cfg = OAuth2Config(
             client_id="c",
@@ -435,6 +430,7 @@ class TestGetToken:
 # ---------------------------------------------------------------------------
 # CLI auth commands (integration-level)
 # ---------------------------------------------------------------------------
+
 
 class TestAuthLoginCommand:
     def test_client_credentials_login(self, monkeypatch, tmp_path):
@@ -469,7 +465,20 @@ class TestAuthLoginCommand:
         from mtor.cli import app
 
         with pytest.raises(SystemExit) as exc_info:
-            app(["auth", "login", "-p", "my_prov", "--client-id", "cid", "--token-url", "https://tok", "--client-secret", "sec"])
+            app(
+                [
+                    "auth",
+                    "login",
+                    "-p",
+                    "my_prov",
+                    "--client-id",
+                    "cid",
+                    "--token-url",
+                    "https://tok",
+                    "--client-secret",
+                    "sec",
+                ]
+            )
         assert exc_info.value.code == 0
 
         store = TokenStore(token_path)
@@ -508,11 +517,14 @@ class TestAuthStatusCommand:
         assert data["authenticated_providers"] == []
 
     def test_status_with_provider(self, monkeypatch, tmp_path, capsys):
-        from mtor.auth import TokenStore, TokenInfo
+        from mtor.auth import TokenInfo, TokenStore
 
         token_path = tmp_path / "tokens.json"
         store = TokenStore(token_path)
-        store.save("demo", TokenInfo(access_token="tok", expires_at=time.time() + 3600, refresh_token="rt"))
+        store.save(
+            "demo",
+            TokenInfo(access_token="tok", expires_at=time.time() + 3600, refresh_token="rt"),
+        )
         monkeypatch.setattr("mtor.cli.TokenStore", lambda: TokenStore(token_path))
 
         from mtor.cli import app
@@ -526,7 +538,7 @@ class TestAuthStatusCommand:
         assert data["expired"] is False
 
     def test_status_all_providers(self, monkeypatch, tmp_path, capsys):
-        from mtor.auth import TokenStore, TokenInfo
+        from mtor.auth import TokenInfo, TokenStore
 
         token_path = tmp_path / "tokens.json"
         store = TokenStore(token_path)
@@ -546,7 +558,7 @@ class TestAuthStatusCommand:
 
 class TestAuthLogoutCommand:
     def test_logout_existing(self, monkeypatch, tmp_path, capsys):
-        from mtor.auth import TokenStore, TokenInfo
+        from mtor.auth import TokenInfo, TokenStore
 
         token_path = tmp_path / "tokens.json"
         store = TokenStore(token_path)

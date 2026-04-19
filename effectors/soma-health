@@ -494,7 +494,7 @@ def fix_daemon(report: HealthReport) -> None:
         try:
             pid = int(PIDFILE.read_text().strip())
             os.kill(pid, 0)
-        except ProcessLookupError, ValueError:
+        except (ProcessLookupError, ValueError):
             PIDFILE.unlink(missing_ok=True)
             report.fixes_applied.append("removed stale daemon pidfile")
         except PermissionError:

@@ -8,6 +8,7 @@ Deterministic pre-flight for the expression/forge skill:
 Orchestration (Opus planning + Sonnet workers) stays in the skill.
 These tools give the skill grounded facts before dispatch.
 """
+
 from __future__ import annotations
 
 import datetime

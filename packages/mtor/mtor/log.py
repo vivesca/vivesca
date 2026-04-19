@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -20,7 +23,16 @@ class LogEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> LogEntry:
-        return cls(timestamp=data.get("ts", ""), provider=data.get("provider", ""), duration=data.get("duration", 0), exit_code=data.get("exit", 0), files_created=data.get("files_created", 0), reflection=data.get("reflection", ""), stall=data.get("stall", ""), tail=data.get("tail", ""))
+        return cls(
+            timestamp=data.get("ts", ""),
+            provider=data.get("provider", ""),
+            duration=data.get("duration", 0),
+            exit_code=data.get("exit", 0),
+            files_created=data.get("files_created", 0),
+            reflection=data.get("reflection", ""),
+            stall=data.get("stall", ""),
+            tail=data.get("tail", ""),
+        )
 
     @property
     def succeeded(self) -> bool:
@@ -60,4 +72,11 @@ def summary_stats(entries: list[LogEntry]) -> dict:
     succeeded = sum(1 for e in entries if e.succeeded)
     stalled = sum(1 for e in entries if e.is_stalled)
     avg_duration = sum(e.duration for e in entries) // len(entries)
-    return {"total": len(entries), "success": succeeded, "failed": len(entries) - succeeded, "stalled": stalled, "avg_duration": avg_duration, "success_rate": f"{succeeded / len(entries) * 100:.0f}%"}
+    return {
+        "total": len(entries),
+        "success": succeeded,
+        "failed": len(entries) - succeeded,
+        "stalled": stalled,
+        "avg_duration": avg_duration,
+        "success_rate": f"{succeeded / len(entries) * 100:.0f}%",
+    }

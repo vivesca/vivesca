@@ -88,27 +88,38 @@ def main():
     # Agent-facing: bare invocation returns JSON command tree
     if len(sys.argv) == 1:
         import json
-        print(json.dumps({
-            "ok": True,
-            "command": "efferens",
-            "result": {
-                "description": "Shared notice board for skills and humans",
-                "commands": {
-                    "list": "List all messages (default when no command given)",
-                    "post": "Post a message to the board",
-                    "clear": "Delete one message or clear all",
-                    "archive": "Archive one message or all messages",
-                    "count": "Print the number of messages",
-                },
-                "channels": ["all", "terry", "skill-name (custom)"],
-            },
-            "next_actions": [
-                {"command": "efferens list", "description": "List all messages on the board"},
-                {"command": "efferens post 'Hello' --from cli --to all", "description": "Post a message"},
-                {"command": "efferens count", "description": "Count unread messages"},
-            ],
-            "version": "0.1.0",
-        }))
+
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "command": "efferens",
+                    "result": {
+                        "description": "Shared notice board for skills and humans",
+                        "commands": {
+                            "list": "List all messages (default when no command given)",
+                            "post": "Post a message to the board",
+                            "clear": "Delete one message or clear all",
+                            "archive": "Archive one message or all messages",
+                            "count": "Print the number of messages",
+                        },
+                        "channels": ["all", "terry", "skill-name (custom)"],
+                    },
+                    "next_actions": [
+                        {
+                            "command": "efferens list",
+                            "description": "List all messages on the board",
+                        },
+                        {
+                            "command": "efferens post 'Hello' --from cli --to all",
+                            "description": "Post a message",
+                        },
+                        {"command": "efferens count", "description": "Count unread messages"},
+                    ],
+                    "version": "0.1.0",
+                }
+            )
+        )
         sys.exit(0)
 
     parser = argparse.ArgumentParser(description="efferens — shared notice board")

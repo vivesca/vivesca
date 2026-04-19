@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import os
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # type: ignore[no-redef]
 
 
 @dataclass
 class ProviderConfig:
     """A single LLM provider endpoint."""
+
     name: str
     url: str
     model: str
@@ -31,6 +27,7 @@ class ProviderConfig:
 @dataclass
 class MtorConfig:
     """Top-level mtor configuration."""
+
     coaching_file: Path | None = None
     workdir: Path = field(default_factory=Path.cwd)
     log_file: Path = field(default_factory=lambda: Path("mtor.jsonl"))
@@ -57,7 +54,9 @@ class MtorConfig:
         providers = {}
         for name, prov in providers_raw.items():
             providers[name] = ProviderConfig(
-                name=name, url=prov["url"], model=prov["model"],
+                name=name,
+                url=prov["url"],
+                model=prov["model"],
                 key_env=prov.get("key_env", f"{name.upper()}_API_KEY"),
                 concurrency=prov.get("concurrency", 4),
                 harness=prov.get("harness", "claude"),

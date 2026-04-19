@@ -3,6 +3,7 @@
 Primarily a reporter: reads statement markdown files and surfaces insights about
 spending trends, category drift, and subscription cost creep.
 """
+
 from __future__ import annotations
 
 import re

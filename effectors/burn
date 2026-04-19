@@ -51,7 +51,7 @@ def _manual_active():
             if datetime.now(UTC) > expires:
                 FLAG.unlink(missing_ok=True)
                 return False
-    except ValueError, OSError:
+    except (ValueError, OSError):
         pass
     return True
 

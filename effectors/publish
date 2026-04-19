@@ -306,28 +306,39 @@ def main():
     # Agent-facing: bare invocation returns JSON command tree
     if len(sys.argv) == 1:
         import json
-        print(json.dumps({
-            "ok": True,
-            "command": "publish",
-            "result": {
-                "description": "Garden CLI for terryli.hm — manage blog posts",
-                "commands": {
-                    "new": "Create a new draft post with title",
-                    "list": "List all posts with status and word count",
-                    "publish": "Publish a draft post (set draft: false)",
-                    "push": "Sync secretome to Astro repo, commit, and push",
-                    "revise": "Revise a published post with a revision note",
-                    "open": "Open a post in your editor",
-                    "index": "Regenerate the garden index markdown",
-                },
-            },
-            "next_actions": [
-                {"command": "publish new 'My Post Title'", "description": "Create a new draft post"},
-                {"command": "publish list", "description": "List all posts"},
-                {"command": "publish publish my-post --push", "description": "Publish and push a draft"},
-            ],
-            "version": "0.1.0",
-        }))
+
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "command": "publish",
+                    "result": {
+                        "description": "Garden CLI for terryli.hm — manage blog posts",
+                        "commands": {
+                            "new": "Create a new draft post with title",
+                            "list": "List all posts with status and word count",
+                            "publish": "Publish a draft post (set draft: false)",
+                            "push": "Sync secretome to Astro repo, commit, and push",
+                            "revise": "Revise a published post with a revision note",
+                            "open": "Open a post in your editor",
+                            "index": "Regenerate the garden index markdown",
+                        },
+                    },
+                    "next_actions": [
+                        {
+                            "command": "publish new 'My Post Title'",
+                            "description": "Create a new draft post",
+                        },
+                        {"command": "publish list", "description": "List all posts"},
+                        {
+                            "command": "publish publish my-post --push",
+                            "description": "Publish and push a draft",
+                        },
+                    ],
+                    "version": "0.1.0",
+                }
+            )
+        )
         sys.exit(0)
 
     parser = argparse.ArgumentParser(prog="publish", description="Garden CLI for terryli.hm")

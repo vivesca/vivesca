@@ -11,7 +11,7 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -64,7 +64,11 @@ def extract_content(html: str) -> tuple[str, str]:
     soup = BeautifulSoup(html, "lxml")
     title_tag = soup.select_one(".entry h2") or soup.select_one("h2") or soup.find("title")
     title = title_tag.get_text(strip=True) if title_tag else ""
-    body_tag = soup.select_one(".entry") or soup.select_one("article") or soup.select_one(".entry-content")
+    body_tag = (
+        soup.select_one(".entry")
+        or soup.select_one("article")
+        or soup.select_one(".entry-content")
+    )
     body = body_tag.get_text(separator="\n", strip=True) if body_tag else ""
     return title, body
 
@@ -84,7 +88,6 @@ async def fetch_post(
             return None
     title, body = extract_content(html)
     date = parse_date_from_url(url)
-    fetched_at = datetime.now(timezone.utc).isoformat()
     return url, title, date, body
 
 
@@ -92,7 +95,9 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Scrape Simon Willison blog posts")
     parser.add_argument("--output", default="willison.jsonl", help="JSONL output path")
     parser.add_argument("--concurrency", type=int, default=5, help="Max concurrent requests")
-    parser.add_argument("--limit", type=int, default=0, help="Limit number of posts to fetch (0=all)")
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Limit number of posts to fetch (0=all)"
+    )
     args = parser.parse_args()
 
     already_fetched = load_existing_urls(args.output)
@@ -112,7 +117,9 @@ async def main() -> None:
             print(f"Nothing to do — {len(already_fetched)} posts already in file.")
             return
 
-        print(f"Found {len(all_urls)} posts, {len(already_fetched)} already fetched, {len(to_fetch)} to scrape.")
+        print(
+            f"Found {len(all_urls)} posts, {len(already_fetched)} already fetched, {len(to_fetch)} to scrape."
+        )
         semaphore = asyncio.Semaphore(args.concurrency)
         batch_size = 50
         fetched_count = 0
@@ -127,19 +134,22 @@ async def main() -> None:
                 for result in results:
                     if result is not None:
                         url, title, date, body = result
-                        records.append({
-                            "url": url,
-                            "title": title,
-                            "date": date,
-                            "body": body,
-                            "fetched_at": datetime.now(timezone.utc).isoformat(),
-                        })
+                        records.append(
+                            {
+                                "url": url,
+                                "title": title,
+                                "date": date,
+                                "body": body,
+                                "fetched_at": datetime.now(UTC).isoformat(),
+                            }
+                        )
 
                 if records:
                     async with write_lock:
                         with open(args.output, "a") as f:
-                            for record in records:
-                                f.write(json.dumps(record, sort_keys=True) + "\n")
+                            f.writelines(
+                                json.dumps(record, sort_keys=True) + "\n" for record in records
+                            )
                     fetched_count += len(records)
 
                 progress_bar.update(len(batch))

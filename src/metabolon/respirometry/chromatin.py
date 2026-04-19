@@ -1,4 +1,5 @@
 """Write parsed statements to chromatin as markdown."""
+
 from __future__ import annotations
 
 import hashlib

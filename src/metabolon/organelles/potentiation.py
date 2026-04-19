@@ -1,9 +1,9 @@
 """potentiation — spaced repetition engine (potentiation = LTP, learning via timed stimulation)."""
+
 from __future__ import annotations
 
 # GARP RAI spaced repetition: FSRS scheduling, tracker markdown, session planning.
 # Translated from Rust (~/code/melete/src/main.rs).
-
 import itertools
 import json
 import math

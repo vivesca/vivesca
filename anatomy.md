@@ -139,7 +139,7 @@ spending -- catabolic metabolism of credit card statements.
 
 ### rheotaxis
 rheotaxis — web search. Default: all cheap backends + synthesis. Named modes for expensive ones.
-- `rheotaxis(query, mode, exclude)` -- Web search.
+- `rheotaxis(query, mode, exclude, json_output)` -- Web search.
 
 ### ribosome_queue
 ribosome_queue — MCP tool for managing the ribosome task queue.
@@ -174,12 +174,19 @@ tonus tool — session state. Actions: mark|status
 ### __pycache__
 _(no description)_
 
+### epistasis
+_(no description)_
+
 ### mtor
 _(no description)_
-  Files: `mtor`
+  Files: `assays`, `mtor`
 
-### Standalone scripts (174 total, on PATH)
-  Recent: `rheotaxis`, `soma-cc-resume`, `soma-cc-snapshot`, `soma-liveness`, `gh-sync`, `ribosome`, `proteome`, `vivesca-preflight`, `batch-scrape`, `willison-scrape`
+### polysome
+_(no description)_
+  Files: `assays`, `translocase.py.bak`
+
+### Standalone scripts (173 total, on PATH)
+  Recent: `soma-scale`, `soma-snapshot`, `soma-wake`, `cookie-sync`, `disk-audit`, `soma-clean`, `smolnews-scrape`, `publish`, `proteome`, `fix-symlinks`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -373,11 +380,12 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 
 ## Operon Heartbeat
 
-**2** healthy, **12** stale (of 14 expressed)
+**0** healthy, **14** stale (of 14 expressed)
 
 - prepare: never fired (cadence: 14d)
 - ribosome: never fired (cadence: 35d)
 - vesicle: never fired (cadence: 14d)
+- scan: never fired (cadence: 35d)
 - evaluate: never fired (cadence: 14d)
 - network: never fired (cadence: 14d)
 - homeostasis: never fired (cadence: 35d)
@@ -386,15 +394,16 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 - move: never fired (cadence: 14d)
 - log: never fired (cadence: 14d)
 - exocytosis: never fired (cadence: 14d)
+- research: never fired (cadence: 14d)
 - reflect: never fired (cadence: 35d)
 
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **494**
-- Most active: `rheotaxis` (147), `trogocytosis_browser_eval` (76), `endosomal` (57), `fetch` (53), `trogocytosis_browser_screenshot` (51)
+- Signals (last 7 days): **1**
+- Most active: `server` (1)
 
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: _(could not run)_
+- Tests: UNHEALTHY (0 passed, 0 failed, 21 errors)

@@ -186,9 +186,7 @@ def test_preflight_runs_before_claude():
     # Check that preflight function call appears before actual claude invocation
     preflight_pos = while_block.index("_preflight_check")
     claude_invocation_pos = while_block.index("output=$(_run_harness_")
-    assert preflight_pos < claude_invocation_pos, (
-        "preflight should run before claude invocation"
-    )
+    assert preflight_pos < claude_invocation_pos, "preflight should run before claude invocation"
 
 
 def test_preflight_skip_on_auth_error():
@@ -204,7 +202,7 @@ def test_volcano_falls_back_to_infini():
     """Volcano's fallback provider is infini."""
     source = RIBOSOME.read_text()
     # Check that infini comes before volcano in fallback priority
-    assert '_FALLBACK_PRIORITY=(infini codex gemini volcano zhipu)' in source
+    assert "_FALLBACK_PRIORITY=(infini codex gemini volcano zhipu)" in source
     # When searching for fallback, infini is first non-failed candidate when volcano fails
     # So volcano correctly falls back to infini
 

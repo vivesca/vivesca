@@ -22,6 +22,7 @@ Usage:
     header = client.get_auth_header()  # {"Authorization": "Bearer <at>"}
 """
 
+import contextlib
 import hashlib
 import json
 import os
@@ -119,8 +120,7 @@ class OAuth2Config:
         client_secret = source.get(f"{upper}_CLIENT_SECRET", "")
         if not client_id:
             raise ValueError(
-                f"{upper}_CLIENT_ID is required for OAuth2 config "
-                f"(prefix={prefix!r})"
+                f"{upper}_CLIENT_ID is required for OAuth2 config (prefix={prefix!r})"
             )
 
         scopes_raw = source.get(f"{upper}_SCOPES", "")
@@ -148,12 +148,7 @@ def _generate_pkce() -> tuple[str, str]:
     """
     verifier = secrets.token_urlsafe(64)[:128]
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
-    challenge = (
-        __import__("base64")
-        .urlsafe_b64encode(digest)
-        .rstrip(b"=")
-        .decode("ascii")
-    )
+    challenge = __import__("base64").urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
     return verifier, challenge
 
 
@@ -240,9 +235,7 @@ class OAuth2Client:
         )
 
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Token exchange failed (HTTP {resp.status_code}): {resp.text}"
-            )
+            raise RuntimeError(f"Token exchange failed (HTTP {resp.status_code}): {resp.text}")
 
         token_data = resp.json()
         token = _normalise_token(token_data)
@@ -276,9 +269,7 @@ class OAuth2Client:
         )
 
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Token refresh failed (HTTP {resp.status_code}): {resp.text}"
-            )
+            raise RuntimeError(f"Token refresh failed (HTTP {resp.status_code}): {resp.text}")
 
         new_data = resp.json()
         # Preserve refresh_token if the server doesn't return one
@@ -321,10 +312,8 @@ class OAuth2Client:
             return
 
         revoke_uri = _DEFAULT_REVOKE_URI
-        try:
+        with contextlib.suppress(Exception):
             httpx.post(revoke_uri, data={"token": token.get("access_token", "")})
-        except Exception:
-            pass  # best-effort revocation
 
         self.store.delete(self._service)
 

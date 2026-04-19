@@ -218,7 +218,7 @@ def import_cookies(cookies_path: Path, browser_type: str = "chromium") -> None:
     """Load cookies from JSON and add them to a Playwright browser context."""
     import asyncio
 
-    from playwright.async_api import async_playwright  # type: ignore[import-untyped]
+    from playwright.async_api import async_playwright
 
     cookies = json.loads(cookies_path.read_text(encoding="utf-8"))
     if not cookies:

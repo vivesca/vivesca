@@ -5,6 +5,7 @@ Resources:
 """
 
 import ast
+import contextlib
 import json
 import os
 import re
@@ -47,13 +48,15 @@ def _scan_effector_dir(bin_dir: Path) -> list[dict]:
         if not os.access(f, os.X_OK):
             continue
         desc = _extract_effector_description(f)
-        entries.append({
-            "name": f.name,
-            "type": "cli",
-            "source": "vivesca/effectors/",
-            "description": desc,
-            "path": str(f),
-        })
+        entries.append(
+            {
+                "name": f.name,
+                "type": "cli",
+                "source": "vivesca/effectors/",
+                "description": desc,
+                "path": str(f),
+            }
+        )
     return entries
 
 
@@ -195,6 +198,7 @@ def _parse_frontmatter(text: str) -> dict:
     yaml_text = parts[1].strip()
     try:
         import yaml
+
         return yaml.safe_load(yaml_text) or {}
     except Exception:
         # Fallback: parse key: value lines manually
@@ -227,11 +231,7 @@ def full_index(
     td = tools_dir or _VIVESCA_TOOLS
     rd = receptors_dir or _RECEPTORS_DIR
 
-    entries = (
-        _scan_effector_dir(bd)
-        + _scan_skills(rd)
-        + _scan_organelle_tools(td)
-    )
+    entries = _scan_effector_dir(bd) + _scan_skills(rd) + _scan_organelle_tools(td)
 
     if use_cache:
         _save_cache(entries)
@@ -316,10 +316,8 @@ def _save_cache(entries: list[dict]) -> None:
 
 def invalidate_cache() -> None:
     """Remove the cache file (used by --refresh)."""
-    try:
+    with contextlib.suppress(OSError):
         _CACHE_PATH.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 # ---------------------------------------------------------------------------
@@ -388,23 +386,24 @@ def scan_untested(
     ad = assays_dir or _ASSAYS_DIR
 
     effectors = _scan_effector_dir(bd)
-    effector_names = {e["name"] for e in effectors}
 
     # Collect covered names from test files
     covered: set[str] = set()
     if ad.exists():
         for tf in ad.glob("test_*.py"):
-            name = tf.stem[len("test_"):]
+            name = tf.stem[len("test_") :]
             covered.add(name)
 
     uncovered: list[dict] = []
     for e in effectors:
         if e["name"] not in covered:
-            uncovered.append({
-                "name": e["name"],
-                "path": e.get("path", ""),
-                "has_test": False,
-            })
+            uncovered.append(
+                {
+                    "name": e["name"],
+                    "path": e.get("path", ""),
+                    "has_test": False,
+                }
+            )
     return uncovered
 
 
@@ -434,12 +433,14 @@ def scan_stale(
                 continue
             days_since = (datetime.now(UTC) - last_date).days
             if days_since > days:
-                entries.append({
-                    "name": f.name,
-                    "type": "effector",
-                    "last_modified": last_date.isoformat(),
-                    "days_since": days_since,
-                })
+                entries.append(
+                    {
+                        "name": f.name,
+                        "type": "effector",
+                        "last_modified": last_date.isoformat(),
+                        "days_since": days_since,
+                    }
+                )
 
     # Check skills
     if rd.exists():
@@ -454,12 +455,14 @@ def scan_stale(
                 continue
             days_since = (datetime.now(UTC) - last_date).days
             if days_since > days:
-                entries.append({
-                    "name": skill_dir.name,
-                    "type": "skill",
-                    "last_modified": last_date.isoformat(),
-                    "days_since": days_since,
-                })
+                entries.append(
+                    {
+                        "name": skill_dir.name,
+                        "type": "skill",
+                        "last_modified": last_date.isoformat(),
+                        "days_since": days_since,
+                    }
+                )
 
     # Sort by stalest first
     entries.sort(key=lambda e: e["days_since"], reverse=True)
@@ -515,10 +518,8 @@ def scan_deps(
         return {"name": name, "imports": [], "calls": [], "error": "unreadable"}
 
     # Determine type
-    is_python = (
-        target.suffix == ".py"
-        or text.startswith("#!")
-        and "python" in text.split("\n")[0]
+    is_python = target.suffix == ".py" or (
+        text.startswith("#!") and "python" in text.split("\n")[0]
     )
 
     if is_python:
@@ -582,7 +583,7 @@ def _parse_shell_deps(name: str, text: str, bin_dir: Path) -> dict:
             if eff_name == name:
                 continue
             # Look for effector name as a command
-            pattern = re.compile(r'\b' + re.escape(eff_name) + r'\b')
+            pattern = re.compile(r"\b" + re.escape(eff_name) + r"\b")
             if pattern.search(stripped):
                 calls.append(eff_name)
 
@@ -614,10 +615,12 @@ def scan_hooks(
             continue
         functions = _extract_hook_functions(path)
         if functions:
-            results.append({
-                "hook_file": hf,
-                "functions": functions,
-            })
+            results.append(
+                {
+                    "hook_file": hf,
+                    "functions": functions,
+                }
+            )
 
     return results
 
@@ -639,11 +642,13 @@ def _extract_hook_functions(path: Path) -> list[dict]:
         first_line = doc.split("\n")[0].strip() if doc else ""
         # Determine trigger type from the file
         trigger_type = _classify_hook_function(node.name, path.name)
-        functions.append({
-            "name": node.name,
-            "description": first_line,
-            "trigger_type": trigger_type,
-        })
+        functions.append(
+            {
+                "name": node.name,
+                "description": first_line,
+                "trigger_type": trigger_type,
+            }
+        )
     return functions
 
 

@@ -233,9 +233,7 @@ class TestQueryRouting:
 
     def test_opinion_routes_all(self, mod):
         backends = mod["route_backends"]("opinion")
-        assert set(backends) == {
-            "grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"
-        }
+        assert set(backends) == {"grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"}
 
     # --- integration: --route flag is accepted ---
 

@@ -5,6 +5,7 @@ Uses AST analysis to check:
 - Prompts: description in @prompt() decorator
 - Resources: URI in @resource() decorator
 """
+
 from __future__ import annotations
 
 import ast

@@ -61,12 +61,12 @@ class TmpCandidate:
     reason: str  # "old", "large", or "old+large"
 
 
-def _fmt_bytes(n: int) -> str:
+def _fmt_bytes(n: int | float) -> str:
     """Human-readable byte count."""
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if abs(n) < 1024:
             return f"{n:.1f} {unit}"
-        n /= 1024  # type: ignore[assignment]
+        n /= 1024
     return f"{n:.1f} PB"
 
 
@@ -100,9 +100,9 @@ def _dir_size(path: Path) -> int:
                         total += _dir_size(Path(entry.path))
                     elif entry.is_file(follow_symlinks=False):
                         total += entry.stat(follow_symlinks=False).st_size
-                except PermissionError, FileNotFoundError, OSError:
+                except (PermissionError, FileNotFoundError, OSError):
                     pass
-    except PermissionError, FileNotFoundError, OSError:
+    except (PermissionError, FileNotFoundError, OSError):
         pass
     return total
 
@@ -122,9 +122,9 @@ def get_largest_dirs(root: Path, top_n: int = TOP_N_DIRS) -> list[DirInfo]:
                         continue
                     size = _dir_size(Path(entry.path))
                     dirs.append(DirInfo(path=Path(entry.path), size=size))
-                except PermissionError, FileNotFoundError, OSError:
+                except (PermissionError, FileNotFoundError, OSError):
                     pass
-    except PermissionError, FileNotFoundError, OSError:
+    except (PermissionError, FileNotFoundError, OSError):
         pass
 
     dirs.sort(reverse=True)
@@ -172,9 +172,9 @@ def get_tmp_candidates(
                             reason=reason,
                         )
                     )
-            except PermissionError, FileNotFoundError, OSError:
+            except (PermissionError, FileNotFoundError, OSError):
                 pass
-    except PermissionError, FileNotFoundError, OSError:
+    except (PermissionError, FileNotFoundError, OSError):
         pass
 
     candidates.sort(key=lambda c: c.size, reverse=True)

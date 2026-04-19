@@ -56,7 +56,7 @@ def _api(method: str, path: str, body: dict | None = None) -> dict | list:
 
 
 def _get_machine() -> dict:
-    machines: list[dict] = _api("GET", f"/v1/apps/{APP_NAME}/machines")  # type: ignore[assignment]
+    machines = _api("GET", f"/v1/apps/{APP_NAME}/machines")
     if not machines:
         print(f"no machines found for app '{APP_NAME}'")
         sys.exit(1)
@@ -64,7 +64,7 @@ def _get_machine() -> dict:
 
 
 def _get_volumes() -> list[dict]:
-    return _api("GET", f"/v1/apps/{APP_NAME}/volumes")  # type: ignore[return-value]
+    return _api("GET", f"/v1/apps/{APP_NAME}/volumes")
 
 
 def cmd_volume() -> None:
@@ -85,7 +85,7 @@ def cmd_list() -> None:
         print("no volumes — no snapshots")
         return
     for v in vols:
-        snaps: list[dict] = _api("GET", f"/v1/apps/{APP_NAME}/volumes/{v['id']}/snapshots")  # type: ignore[assignment]
+        snaps = _api("GET", f"/v1/apps/{APP_NAME}/volumes/{v['id']}/snapshots")
         if not snaps:
             print(f"vol {v['id']}: no snapshots")
             continue

@@ -1214,7 +1214,10 @@ def extract(
                     "Check channel glm availability",
                 )
             )
-        _ok("cytokinesis extract", {"candidates": len(candidates), "recommendations": r.stdout.strip()})
+        _ok(
+            "cytokinesis extract",
+            {"candidates": len(candidates), "recommendations": r.stdout.strip()},
+        )
     except subprocess.TimeoutExpired:
         sys.exit(
             _err(
@@ -1309,6 +1312,7 @@ def verify() -> None:
 
 
 # ── Default Handler ─────────────────────────────────────────────────────────
+
 
 @app.default
 def default_handler() -> None:

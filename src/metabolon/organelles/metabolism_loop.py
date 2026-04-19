@@ -509,7 +509,7 @@ def run_metabolism(
     interrupt = ["repair"] if interactive else None
     app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
-    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}  # type: ignore[typed-dict]  # pyright: ignore[reportArgumentType]
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
     initial_state: MetabolismState = {
         "health_score": 0.5,

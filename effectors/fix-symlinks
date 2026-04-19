@@ -69,7 +69,7 @@ def _resolve(target: str, reps: set[str], buds: set[str]) -> str | None:
     """Return a working target for a broken terry/Terry symlink, or None."""
     for prefix in PREFIXES:
         if target.startswith(prefix):
-            cand = LINUX_PREFIX + target[len(prefix):]
+            cand = LINUX_PREFIX + target[len(prefix) :]
             if os.path.exists(cand):
                 return cand
             break
@@ -156,10 +156,20 @@ def sweep(
     if roots == ["~"]:
         result = subprocess.run(
             [
-                "/usr/bin/find", os.path.expanduser("~"), "-type", "l",
-                "(", "-lname", "/home/terry/*", "-o", "-lname", "/Users/terry/*", ")",
+                "/usr/bin/find",
+                os.path.expanduser("~"),
+                "-type",
+                "l",
+                "(",
+                "-lname",
+                "/home/terry/*",
+                "-o",
+                "-lname",
+                "/Users/terry/*",
+                ")",
             ],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         candidates = []
         for link in result.stdout.splitlines():
@@ -203,10 +213,20 @@ def sweep(
 def _count_broken() -> int:
     result = subprocess.run(
         [
-            "/usr/bin/find", os.path.expanduser("~"), "-type", "l",
-            "(", "-lname", "/home/terry/*", "-o", "-lname", "/Users/terry/*", ")",
+            "/usr/bin/find",
+            os.path.expanduser("~"),
+            "-type",
+            "l",
+            "(",
+            "-lname",
+            "/home/terry/*",
+            "-o",
+            "-lname",
+            "/Users/terry/*",
+            ")",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return sum(1 for ln in result.stdout.splitlines() if ln.strip())
 

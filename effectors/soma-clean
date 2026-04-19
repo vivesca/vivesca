@@ -35,7 +35,7 @@ def _dir_size(path: Path) -> int:
                 total += _dir_size(Path(entry.path))
             elif entry.is_file(follow_symlinks=False):
                 total += entry.stat(follow_symlinks=False).st_size
-    except PermissionError, FileNotFoundError, OSError:
+    except (PermissionError, FileNotFoundError, OSError):
         pass
     return total
 
@@ -48,7 +48,7 @@ def _safe_path(path: Path, germline: Path = GERMLINE, epigenome: Path = EPIGENOM
             return False
         if resolved.is_relative_to(epigenome):
             return False
-    except OSError, ValueError:
+    except (OSError, ValueError):
         return False
     return True
 
@@ -59,7 +59,7 @@ def clean_tmp_claude(now: float, dry_run: bool = False, tmp_root: Path = Path("/
     for entry in tmp_root.glob("claude-*"):
         try:
             mtime = entry.stat(follow_symlinks=False).st_mtime
-        except FileNotFoundError, PermissionError, OSError:
+        except (FileNotFoundError, PermissionError, OSError):
             continue
         if now - mtime < TMP_CUTOFF:
             continue
@@ -90,7 +90,7 @@ def clean_uv_archive(now: float, dry_run: bool = False, home: Path = HOME) -> in
     for entry in uv_dir.iterdir():
         try:
             mtime = entry.stat(follow_symlinks=False).st_mtime
-        except FileNotFoundError, PermissionError, OSError:
+        except (FileNotFoundError, PermissionError, OSError):
             continue
         if now - mtime < UV_CACHE_CUTOFF:
             continue
@@ -125,7 +125,7 @@ def clean_pycache(
         try:
             if pycache.resolve().is_relative_to(epigenome.resolve()):
                 continue
-        except OSError, ValueError:
+        except (OSError, ValueError):
             continue
         size = _dir_size(pycache)
         if dry_run:
@@ -140,12 +140,12 @@ def clean_pycache(
     return freed
 
 
-def _fmt_bytes(n: int) -> str:
+def _fmt_bytes(n: int | float) -> str:
     """Human-readable byte count."""
     for unit in ("B", "KB", "MB", "GB"):
         if abs(n) < 1024:
             return f"{n:.1f} {unit}"
-        n /= 1024  # type: ignore[assignment]
+        n /= 1024
     return f"{n:.1f} TB"
 
 

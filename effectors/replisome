@@ -238,7 +238,7 @@ def node_human(state: ReplisomeState) -> dict:
     print(f"\n  ? {question}")
     try:
         answer = input("  > ").strip()
-    except EOFError, KeyboardInterrupt:
+    except (EOFError, KeyboardInterrupt):
         answer = "[skipped]"
     if not answer:
         answer = "[skipped]"

@@ -69,7 +69,7 @@ def collect_ribosome_stats() -> str:
             timeout=30,
         )
         return result.stdout.strip()
-    except FileNotFoundError, subprocess.TimeoutExpired:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return "(ribosome-daemon stats unavailable)"
 
 

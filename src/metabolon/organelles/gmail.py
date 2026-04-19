@@ -22,7 +22,6 @@ from functools import lru_cache
 from pathlib import Path
 
 from googleapiclient.discovery import build
-from googleapiclient.http import BatchHttpRequest
 
 from metabolon.receptor_auth import OAuth2Config, get_google_credentials
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -116,7 +115,9 @@ def _make_svc(
     thread_mock.list.return_value = thread_list_req
 
     # threads().get().execute()
-    thread_get_req = _FakeRequest(result=thread_get_result or {"id": "t1", "messages": [_make_msg()]})
+    thread_get_req = _FakeRequest(
+        result=thread_get_result or {"id": "t1", "messages": [_make_msg()]}
+    )
     thread_mock.get.return_value = thread_get_req
 
     svc.users.return_value.threads.return_value = thread_mock
@@ -249,12 +250,8 @@ def test_archive_removes_inbox_label(mock_service):
     assert "Archived 2 message(s)" in result
     modify_mock = svc.users.return_value.messages.return_value.modify
     assert modify_mock.call_count == 2
-    modify_mock.assert_any_call(
-        userId="me", id="m1", body={"removeLabelIds": ["INBOX"]}
-    )
-    modify_mock.assert_any_call(
-        userId="me", id="m2", body={"removeLabelIds": ["INBOX"]}
-    )
+    modify_mock.assert_any_call(userId="me", id="m1", body={"removeLabelIds": ["INBOX"]})
+    modify_mock.assert_any_call(userId="me", id="m2", body={"removeLabelIds": ["INBOX"]})
 
 
 # ---------------------------------------------------------------------------
@@ -272,9 +269,7 @@ def test_mark_read_removes_unread_label(mock_service):
     result = mark_read(["m10"])
     assert "Marked 1 message(s) as read" in result
     modify_mock = svc.users.return_value.messages.return_value.modify
-    modify_mock.assert_called_once_with(
-        userId="me", id="m10", body={"removeLabelIds": ["UNREAD"]}
-    )
+    modify_mock.assert_called_once_with(userId="me", id="m10", body={"removeLabelIds": ["UNREAD"]})
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +309,7 @@ def test_search_batch_callback_logs_errors(mock_service):
 
     class _ErrorBatch:
         """Batch that simulates a failure in one request."""
+
         def __init__(self, callback=None):
             self._callback = callback
 

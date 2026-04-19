@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import secrets
 import time
 import urllib.error
@@ -197,9 +196,7 @@ def _post_token_request(url: str, body: dict) -> TokenInfo:
         with urllib.request.urlopen(req) as resp:
             data = json.loads(resp.read())
     except urllib.error.HTTPError as exc:
-        raise OSError(
-            f"Token request failed: HTTP {exc.code} — {exc.reason}"
-        ) from exc
+        raise OSError(f"Token request failed: HTTP {exc.code} — {exc.reason}") from exc
     return _parse_token_response(data)
 
 

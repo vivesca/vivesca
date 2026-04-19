@@ -1,5 +1,7 @@
 from pathlib import Path
+
 from mtor.reflection import capture_reflection, capture_stall_report
+
 
 def test_capture_reflection(tmp_path: Path):
     refl = tmp_path / "reflection.md"
@@ -8,8 +10,10 @@ def test_capture_reflection(tmp_path: Path):
     assert result == "harder than expected: config parsing edge cases"
     assert not refl.exists()
 
+
 def test_capture_reflection_missing(tmp_path: Path):
     assert capture_reflection(tmp_path / "nonexistent.md") is None
+
 
 def test_capture_stall_report(tmp_path: Path):
     stall = tmp_path / "stall.txt"

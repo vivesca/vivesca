@@ -131,7 +131,7 @@ def try_launch(config: dict) -> dict | None:
         try:
             data = json.loads(result.stdout)["data"]
             return data
-        except json.JSONDecodeError, KeyError:
+        except (json.JSONDecodeError, KeyError):
             log(f"SUCCESS but couldn't parse output: {result.stdout[:200]}")
             return {"raw": result.stdout[:500]}
 
@@ -142,7 +142,7 @@ def try_launch(config: dict) -> dict | None:
         code = err.get("code", "unknown")
         msg = err.get("message", "unknown")[:200]
         log(f"FAIL [{code}]: {msg}")
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         log(f"FAIL: {raw[:200]}")
 
     return None
