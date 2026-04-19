@@ -931,6 +931,9 @@ def daily(
 ### Published
 {pub_str}
 
+### Publishable?
+[LLM: did this session produce a publishable insight? If yes, draft and publish now. If no, state what was checked and why nothing qualifies.]
+
 ### Mechanised
 {mech_str}
 
