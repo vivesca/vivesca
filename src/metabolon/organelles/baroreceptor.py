@@ -159,6 +159,30 @@ def sense() -> str:
 
 
 def _cli() -> None:
+    if len(sys.argv) == 1:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "command": "hygroreception",
+                    "result": {
+                        "description": "Fetch current Hong Kong weather from the Observatory",
+                        "commands": {
+                            "hygroreception": "Print one-line current HK weather summary"
+                        },
+                    },
+                    "next_actions": [
+                        {
+                            "command": "hygroreception",
+                            "description": "Get the current Hong Kong weather summary",
+                        }
+                    ],
+                    "version": "0.1.0",
+                }
+            )
+        )
+        sys.exit(0)
+
     try:
         print(sense())
     except Exception as exc:

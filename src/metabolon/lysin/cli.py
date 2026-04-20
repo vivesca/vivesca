@@ -1,9 +1,36 @@
+import json
 import sys
 
 import click
 
 from metabolon.lysin.fetch import fetch_sections, fetch_summary
 from metabolon.lysin.format import format_json, format_text
+
+if len(sys.argv) == 1:
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "command": "lysin",
+                "result": {
+                    "description": "Fetch source-grounded biology mechanisms for a term",
+                    "commands": {
+                        "lysin <term>": "Fetch summary biology for a term",
+                        "lysin <term> --full": "Include all article sections",
+                        "lysin <term> --json": "Return article data as JSON",
+                    },
+                },
+                "next_actions": [
+                    {
+                        "command": "lysin ribosome",
+                        "description": "Fetch biology grounding for ribosome",
+                    }
+                ],
+                "version": "0.2.0",
+            }
+        )
+    )
+    sys.exit(0)
 
 
 @click.command()
