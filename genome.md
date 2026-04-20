@@ -149,6 +149,7 @@ Route these signals the moment they appear — don't wait for `/cytokinesis`.
 | Workflow improvement idea | Skill edit (now, not deferred) | Always file |
 | Taste / preference confirmed | Memory (feedback) | Non-obvious preference? File it |
 | State change | Tonus.md | Always update |
+| Session substance (concept defined, deliverable shaped, positioning decided, thesis reached) | Memory (project or finding) | "Could Terry reference this tomorrow?" If yes, file now — don't wait for wrap |
 
 Default: FILE. Over-filter is the LLM failure mode. Mark type: first match of feedback → finding → project → reference → user.
 

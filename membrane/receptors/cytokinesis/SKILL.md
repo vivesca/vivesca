@@ -32,8 +32,13 @@ This table lives in genome.md (always-loaded) so CC can act on signals mid-sessi
 | Taste / preference confirmed | Memory (feedback) | Non-obvious preference? File it |
 | State change | Tonus.md | Always update |
 | Commitment / action | Praxis.md (with context) | Always file |
+| Named concept / deliverable definition | Memory (project or finding) | "Could Terry reference this tomorrow?" |
+| Strategic positioning decision | Memory (project) | Non-obvious framing? File it |
+| Thesis / conclusion arrived at through discussion | Memory (project or finding) | Would next session re-derive it? |
 
 **Default: FILE.** Over-filter is the LLM failure mode. Priority: prediction errors > novelty > emotional weight > pattern completion > routine.
+
+**Substance capture (the missing category).** Progress = what got done. State = what's true. Substance = what was concluded. When a session produces named concepts, deliverable definitions, positioning decisions, or thesis statements through discussion — these are intellectual outputs that must survive to the next session. Test: "if Terry references this tomorrow, can CC answer without engram reconstruction?" If no, file it now.
 
 **Mark type ordering (first match wins):**
 1. Terry corrected CC? → `feedback`
