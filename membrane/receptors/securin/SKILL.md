@@ -98,9 +98,23 @@ If API responds but CLI fails → CLI config issue (version, auth flow change). 
 
 **Step 4: After fixing, re-dispatch all affected tasks** on working providers. Don't wait for next cycle.
 
-### 4. Dispatch new work
-Dispatch all ready specs — Temporal queues them and drains at 2 concurrent per provider. No need to batch or throttle from CC's side. Dispatch and forget.
-- Enforce: tests written before dispatch (or `--no-tests` explicit)
+### 4. Dispatch new work (MANDATORY when queue is empty)
+**If the queue is empty and `mtor plan --pending` shows ready specs, dispatch them.** An empty queue with ready specs is wasted capacity, not a stop condition. Securin's job is to keep the pipeline full, not just watch it drain.
+
+Dispatch up to 6 specs per cycle. Pick highest-value first:
+1. Specs with `repo: ~/code/mtor` (infra improvements, most likely to succeed)
+2. Specs targeting `~/germline` (skill/tool work)
+3. Garden posts (content generation — write-only, always valuable)
+4. Other repos
+
+Before dispatching, verify each spec has:
+- `status: ready` (not dispatched/done/stale)
+- `tests:` field with at least `run: "echo ok"` for write-only tasks
+- `repo:` field with a full path (not bare names)
+
+Fix frontmatter inline if needed — don't skip a spec just because it's missing a field.
+
+Dispatch and forget — Temporal queues them and drains at 2 concurrent per provider.
 
 ### 5. Set next timer
 ```bash
@@ -130,13 +144,15 @@ Securin is not a single pass. Every task must reach one of two terminal states:
 
 ## Stop conditions
 
-- **All tasks landed or explicitly parked** — this is the primary stop condition
-- 3 consecutive cycles with zero progress (same git log, same task count)
+- **All tasks landed or explicitly parked AND no ready specs remain** — this is the primary stop condition
+- 3 consecutive cycles with zero progress AND zero dispatchable specs (same git log, same task count, `mtor plan --pending` empty)
 - User says stop
 
 **Do NOT stop for budget red or metabolic state.** The whole point of securin is autonomous overnight monitoring. Poll until morning or until all tasks converge — whichever comes first. The session lives in tmux; Blink disconnects don't kill it.
 
-**Do NOT stop just because the queue is empty after one pass.** Check: are there failed tasks that should be re-dispatched? Parked tasks that infra fixes unblocked? Only stop when every original task intent has converged.
+**Do NOT stop just because the queue is empty after one pass.** Check: are there failed tasks that should be re-dispatched? Parked tasks that infra fixes unblocked? Ready specs that should be dispatched? Only stop when every original task intent has converged AND the spec backlog is intentionally deferred.
+
+**CRITICAL: An empty queue with ready specs is a dispatch failure, not convergence.** The 2026-04-20 incident: 26 cycles of polling an empty queue while 79 specs sat ready. The fix: step 4 (dispatch) runs EVERY cycle, not just the first.
 
 ## Pre-flight checks (first cycle)
 
@@ -246,6 +262,7 @@ On each ping: triage, salvage, re-dispatch, set next timer. Report a 2-line summ
 
 ## Anti-patterns
 
+- **Don't poll an empty queue without dispatching** — 2026-04-20: 26 cycles (4+ hours) watching "0 pending, worker alive" while 79 specs sat ready. Securin's job is to keep the pipeline full. If the queue is empty, step 4 (dispatch) is the action, not step 5 (set timer).
 - **Don't archive without investigating** — run the full checklist first. "No logs" is a finding, not an excuse to skip.
 - **Don't dismiss tasks from other sessions** — every task in the queue was dispatched intentionally. Different repo ≠ irrelevant.
 - Don't re-dispatch the same failing prompt 3+ times — investigate root cause

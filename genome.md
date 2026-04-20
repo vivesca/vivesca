@@ -135,6 +135,23 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Anxiety → system → `/circadian`.** "Should I check X?" → confirm system covers it.
 
+## Session Capture
+
+Route these signals the moment they appear — don't wait for `/cytokinesis`.
+
+| Signal | Route to | Gate |
+|---|---|---|
+| Correction from Terry | Memory (feedback, protected if architectural) | Always file |
+| Surprise / unexpected behavior | Memory (finding) | Always file |
+| Technical discovery (debugging, workarounds) | Memory (finding) | Would a fresh session hit the same wall? |
+| Resolution ("that worked") | Memory (finding) if non-trivial | Would a fresh session benefit? |
+| Repeated manual step (2+) | Hook candidate (methylation) | Always file |
+| Workflow improvement idea | Skill edit (now, not deferred) | Always file |
+| Taste / preference confirmed | Memory (feedback) | Non-obvious preference? File it |
+| State change | Tonus.md | Always update |
+
+Default: FILE. Over-filter is the LLM failure mode. Mark type: first match of feedback → finding → project → reference → user.
+
 ## Knowledge Architecture
 
 Three layers. Promotion test: "does every future session need this, regardless of task?"
