@@ -27,17 +27,14 @@ anam 2026-01-23
 anam --full                   # All prompts (not just last 50)
 anam --tool Claude
 
-# Search (prompts only — fast)
+# Search (full transcripts by default — user + assistant)
 anam search "keyword"                    # Last 7 days
 anam search "keyword" --days=30
 anam search "keyword" --tool Claude
-
-# Deep search (full transcripts — user + assistant)
-anam search "keyword" --deep
-anam search "keyword" --deep --days=30
-anam search "keyword" --deep --role claude    # AI responses only
-anam search "keyword" --deep --role you       # User messages only
-anam search "keyword" --deep --session b1b94317  # Specific session (prefix)
+anam search "keyword" --prompts-only     # User prompts only (faster)
+anam search "keyword" --role claude      # AI responses only
+anam search "keyword" --role you         # User messages only
+anam search "keyword" --session b1b94317 # Specific session (prefix)
 ```
 
 ### Role aliases
