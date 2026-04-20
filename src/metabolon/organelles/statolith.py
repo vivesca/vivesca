@@ -1888,6 +1888,40 @@ def cmd_sources(
 
 
 def _cli() -> None:
+    if len(sys.argv) == 1:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "command": "pondus",
+                    "result": {
+                        "description": "Opinionated AI model benchmark aggregator",
+                        "commands": {
+                            "rank": "Rank models across benchmark sources",
+                            "check": "Check one model across sources",
+                            "compare": "Compare two models head-to-head",
+                            "monitor": "Watch models for new benchmark data",
+                            "sources": "List all sources and status",
+                            "refresh": "Clear cache and re-fetch",
+                            "recommend": "Recommend models for a task type",
+                        },
+                    },
+                    "next_actions": [
+                        {
+                            "command": "pondus rank --top 10",
+                            "description": "Show the top ranked models",
+                        },
+                        {
+                            "command": "pondus check gpt-5.4",
+                            "description": "Check one model across benchmark sources",
+                        },
+                    ],
+                    "version": "0.1.0",
+                }
+            )
+        )
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(
         prog="pondus",
         description="Opinionated AI model benchmark aggregator",

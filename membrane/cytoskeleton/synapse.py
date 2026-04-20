@@ -204,23 +204,22 @@ def mod_anamnesis(data):
     except Exception:
         pass
 
-    # Dirty-state detection — warn if previous session left uncommitted work
     try:
-        dirty = {}
-        for label, repo in [("germline", HOME / "germline"), ("epigenome", EPIGENOME_DIR)]:
-            r = subprocess.run(
+        dirty_counts = {}
+        for label, repo in (("germline", HOME / "germline"), ("epigenome", EPIGENOME_DIR)):
+            result = subprocess.run(
                 ["git", "-C", str(repo), "status", "--short"],
                 capture_output=True,
                 text=True,
                 timeout=5,
             )
-            n = len([line for line in r.stdout.splitlines() if line.strip()])
-            if n:
-                dirty[label] = n
-        if dirty:
-            summary = ", ".join(f"{n} in {k}" for k, n in dirty.items())
+            dirty_counts[label] = sum(1 for line in result.stdout.splitlines() if line.strip())
+        if dirty_counts["germline"] or dirty_counts["epigenome"]:
             lines.append(
-                f"Previous session left {summary} dirty files. Commit or review before new work."
+                "Previous session left "
+                f"{dirty_counts['germline']} dirty files in germline, "
+                f"{dirty_counts['epigenome']} in epigenome. "
+                "Commit or review before new work."
             )
     except Exception:
         pass
