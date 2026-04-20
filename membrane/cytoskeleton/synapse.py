@@ -108,6 +108,99 @@ def mod_anamnesis(data):
         c = ANAM_NOW.read_text(encoding="utf-8").strip()
         if c:
             lines.append(f"\nTonus.md (active session state):\n{c}")
+            # Staleness check: warn if tonus checkpoint is old
+            checkpoint_match = re.search(
+                r"last checkpoint:\s*(\d{1,2}/\d{1,2}/\d{4})\s*~?\s*(\d{1,2}:\d{2})",
+                c,
+            )
+            if checkpoint_match:
+                try:
+                    checkpoint_str = f"{checkpoint_match.group(1)} {checkpoint_match.group(2)}"
+                    checkpoint_time = datetime.strptime(checkpoint_str, "%d/%m/%Y %H:%M")
+                    checkpoint_time = checkpoint_time.replace(tzinfo=HKT)
+                    hours_stale = (now - checkpoint_time).total_seconds() / 3600
+                    if hours_stale > 4:
+                        lines.append(
+                            f"Tonus is {int(hours_stale)}h stale (last checkpoint: {checkpoint_match.group(0)}). "
+                            "Ask user for updates before giving prioritisation advice — "
+                            "calls, schedule changes, and decisions may have happened since."
+                        )
+                except (ValueError, OverflowError):
+                    pass
+    except Exception:
+        pass
+
+    # Session trace — what earlier sessions did today
+    trace_file = CHROMATIN_DIR / "immunity" / "session-trace.md"
+    try:
+        if trace_file.exists():
+            trace_content = trace_file.read_text(encoding="utf-8")
+            today_key = now.strftime("%Y-%m-%d")
+            if f"## {today_key}" in trace_content:
+                start = trace_content.index(f"## {today_key}")
+                section = trace_content[start:]
+                next_section = section.find("\n## ", 1)
+                if next_section != -1:
+                    section = section[:next_section]
+                entries = [
+                    line.strip()
+                    for line in section.splitlines()[1:]
+                    if line.strip().startswith("- ")
+                ]
+                if entries:
+                    lines.append(f"\nEarlier today ({len(entries)} events):")
+                    for entry in entries[-10:]:
+                        lines.append(f"  {entry}")
+    except Exception:
+        pass
+
+    # Recent interactions — meetings + emails from last 5 days
+    meetings_dir = CHROMATIN_DIR / "meetings"
+    try:
+        if meetings_dir.exists():
+            cutoff = (now - timedelta(days=5)).timestamp()
+            recent_notes = sorted(
+                (f for f in meetings_dir.glob("*.md") if f.stat().st_mtime > cutoff),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True,
+            )
+            if recent_notes:
+                interaction_lines = []
+                for note in recent_notes[:5]:
+                    content = note.read_text(encoding="utf-8")
+                    # Extract next: items from frontmatter
+                    nexts = []
+                    if content.startswith("---"):
+                        end = content.find("---", 3)
+                        if end != -1:
+                            fm = content[3:end]
+                            in_next = False
+                            for fm_line in fm.splitlines():
+                                if fm_line.strip().startswith("next:"):
+                                    in_next = True
+                                    continue
+                                if in_next:
+                                    if fm_line.strip().startswith("- "):
+                                        nexts.append(fm_line.strip()[2:].strip()[:100])
+                                    elif fm_line.strip() and not fm_line.startswith(" "):
+                                        break
+                    # Extract type
+                    note_type = "interaction"
+                    if content.startswith("---"):
+                        end = content.find("---", 3)
+                        if end != -1:
+                            fm = content[3:end]
+                            for fm_line in fm.splitlines():
+                                if fm_line.strip().startswith("type:"):
+                                    note_type = fm_line.split(":", 1)[1].strip()
+                    stem = note.stem
+                    summary = f"  - [{note_type}] {stem}"
+                    if nexts:
+                        summary += f" | next: {'; '.join(nexts[:3])}"
+                    interaction_lines.append(summary)
+                if interaction_lines:
+                    lines.append(f"\nRecent interactions ({len(interaction_lines)}):")
+                    lines.extend(interaction_lines)
     except Exception:
         pass
 

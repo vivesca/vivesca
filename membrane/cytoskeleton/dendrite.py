@@ -1267,6 +1267,74 @@ def mod_receptome_sync(data):
         print(f"[receptome-sync] skipped: {exc}", file=sys.stderr)
 
 
+# ── session_trace: auto-log mark writes and tonus updates ────────────
+
+TRACE_FILE = HOME / "epigenome" / "chromatin" / "immunity" / "session-trace.md"
+
+
+def _trace_extract_description(filepath):
+    """Extract description from mark frontmatter."""
+    try:
+        content = Path(filepath).read_text(encoding="utf-8")
+        if not content.startswith("---"):
+            return ""
+        end = content.find("---", 3)
+        if end == -1:
+            return ""
+        fm = content[3:end]
+        for line in fm.splitlines():
+            if line.strip().startswith("description:"):
+                return line.split(":", 1)[1].strip()[:120]
+    except Exception:
+        pass
+    return ""
+
+
+def _trace_append(entry):
+    """Append timestamped entry to today's session trace. Prunes old days."""
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    timestamp = now.strftime("%H:%M")
+
+    TRACE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    has_today = False
+    if TRACE_FILE.exists():
+        with contextlib.suppress(Exception):
+            content = TRACE_FILE.read_text(encoding="utf-8")
+            has_today = f"## {today}" in content
+
+    try:
+        if has_today:
+            with TRACE_FILE.open("a") as f:
+                f.write(f"- {timestamp} {entry}\n")
+        else:
+            TRACE_FILE.write_text(
+                f"# Session Trace\n<!-- Auto: dendrite.py. Today only. -->\n\n## {today}\n- {timestamp} {entry}\n"
+            )
+    except Exception:
+        pass
+
+
+def mod_session_trace(data):
+    """Auto-append to session trace when marks are filed or tonus updated."""
+    fp = data.get("tool_input", {}).get("file_path", "")
+    if not fp:
+        return
+
+    p = Path(fp)
+
+    if "/epigenome/marks/" in fp and fp.endswith(".md") and p.name != "MEMORY.md":
+        desc = _trace_extract_description(fp)
+        entry = f"[mark] {p.name} -- {desc}" if desc else f"[mark] {p.name}"
+    elif "Tonus.md" in fp:
+        entry = "[tonus] checkpoint updated"
+    else:
+        return
+
+    _trace_append(entry)
+
+
 # ── antisera: progressive discovery of known gotcha/fix pairs ──────────
 #
 # Two triggers (both deterministic, no LLM):
@@ -1579,6 +1647,10 @@ def main():
     # Retrograde signal logging (Edit/Write on memory files)
     if tool in ("Edit", "Write") and "memory/" in fp:
         modules.append(mod_retrograde)
+
+    # Session trace (Edit/Write on marks or Tonus.md)
+    if tool in ("Edit", "Write") and ("/epigenome/marks/" in fp or "Tonus.md" in fp):
+        modules.append(mod_session_trace)
 
     # Antisera discovery (Bash + any tool that can return errors)
     modules.append(mod_antisera_discovery)
