@@ -20,13 +20,14 @@ def classify(error: dict) -> str:
     """Classify the error into a category."""
     code = str(error.get("code", "")).lower()
     message = str(error.get("message", "")).lower()
-    combined = code + " " + message
+    combined = f"{code} {message}"
 
     if "rate_limit" in combined or "rate limit" in combined or "429" in combined:
         return "rate_limit"
-    if "auth" in combined or "permission" in combined or "401" in combined or "403" in combined:
+    if any(x in combined for x in ("auth", "permission", "401", "403")):
         return "auth_failure"
-    if "server" in combined or "500" in combined or "502" in combined or "503" in combined:
+    # Matches "server" or any 5xx (500, 501, 502, 503, 504, etc.)
+    if "server" in combined or any(f"50{i}" in combined for i in range(10)):
         return "server_error"
     return "unknown"
 
