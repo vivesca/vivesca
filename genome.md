@@ -151,6 +151,7 @@ Route these signals the moment they appear — don't wait for `/cytokinesis`.
 | State change | Tonus.md | Always update |
 | Session substance (concept defined, deliverable shaped, positioning decided, thesis reached) | Memory (project or finding) | "Could Terry reference this tomorrow?" If yes, file now — don't wait for wrap |
 | Working method / approach that emerged from the session | Epistemics (with `skills:` link) | "Would a fresh session default to a worse approach without this?" |
+| Pattern of judgment revealed (not a single preference) | User mark (rolling — update existing `user_judgment_patterns.md`) | "Would this change how CC approaches work for Terry?" |
 
 Default: FILE. Over-filter is the LLM failure mode. Mark type: first match of feedback → finding → project → reference → user.
 
