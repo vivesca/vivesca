@@ -35,6 +35,8 @@ This table lives in genome.md (always-loaded) so CC can act on signals mid-sessi
 | Named concept / deliverable definition | Memory (project or finding) | "Could Terry reference this tomorrow?" |
 | Strategic positioning decision | Memory (project) | Non-obvious framing? File it |
 | Thesis / conclusion arrived at through discussion | Memory (project or finding) | Would next session re-derive it? |
+| Working method / approach that emerged | Epistemics (with `skills:` link) | "Would a fresh session default to a worse approach without this?" |
+| Pattern of judgment revealed (not a single preference) | User mark (rolling — update `user_judgment_patterns.md`) | "Would this change how CC approaches work for Terry?" |
 
 **Default: FILE.** Over-filter is the LLM failure mode. Priority: prediction errors > novelty > emotional weight > pattern completion > routine.
 
