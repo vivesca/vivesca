@@ -29,7 +29,7 @@
 
 ## How to Think
 
-Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` and `skills:` frontmatter. `situations:` = grep activation tags. `skills:` = 1-3 skills that should consult this epistemics (bidirectional bridge — epistemics without a skill link is orphaned). **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
+Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` and `skills:` frontmatter. `situations:` = grep activation tags. `skills:` = 1-3 skills that should consult this epistemics (bidirectional bridge — epistemics without a skill link is orphaned). **Structure:** each file must have: (1) The approach (what to do), (2) CC's failure mode (the trained reflex in this situation), (3) Absolute bans (match-and-refuse — "if you're doing X, STOP"), (4) DO/DO NOT pairs. Inspired by impeccable's anti-pattern architecture. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
 **Marks library:** `~/epigenome/marks/`. Each file has `description:` frontmatter. **When starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding.** Example: before working on ribosome, `grep -l "ribosome" ~/epigenome/marks/*.md`. Same pattern as epistemics — not by remembering, but by looking.
 
