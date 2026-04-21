@@ -61,7 +61,7 @@ This table lives in genome.md (always-loaded) so CC can act on signals mid-sessi
 
 **Correction backstop first:** scan the session for corrections you acknowledged but didn't route to a mark file. This is your dominant failure mode — you recognize corrections ("noted", "good point", "updated") but don't file them. Find those moments and file now. If any are found, set `late_correction=true`.
 
-Then: run `cytokinesis gather --fast`. Scan session against the routing table for any other missed signals. Also scan for emergent patterns — cross-session insights that only crystallize at session end (these are legitimately wrap-only catches, not mid-session failures).
+Then: run `cytokinesis gather`. Scan session against the routing table for any other missed signals. Also scan for emergent patterns — cross-session insights that only crystallize at session end (these are legitimately wrap-only catches, not mid-session failures).
 
 Present candidates with routing decisions. Act-and-report, don't block on input.
 
@@ -108,8 +108,7 @@ The daily note edit IS the completion signal.
 
 | Subcommand | Purpose |
 |---|---|
-| `gather --fast` | Deterministic checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age (~1s) |
-| `gather` | Full checks including LLM reflection + methylation audit (~60s) |
+| `gather` | Deterministic checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age, gate status |
 | `flush` | Warn about dirty repos |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |

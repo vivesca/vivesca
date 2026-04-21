@@ -449,6 +449,15 @@ def mod_bash_post(data):
     cmd = data.get("tool_input", {}).get("command", "")
     result = data.get("tool_output", data.get("tool_result", ""))
 
+    # Cytokinesis step 4 nudge — after `cytokinesis gather`, remind CC to write daily note
+    if re.search(r"\bcytokinesis\s+gather\b", cmd):
+        print(
+            "[cytokinesis] gather complete. Now complete step 4: "
+            '`cytokinesis daily "<session title>"` then fill the template. '
+            "The daily note is the completion signal — do not skip it.",
+            file=sys.stderr,
+        )
+
     # Cytokinesis gate enforcement — after `cytokinesis daily`, run verify
     if re.search(r"\bcytokinesis\s+daily\b", cmd):
         try:
