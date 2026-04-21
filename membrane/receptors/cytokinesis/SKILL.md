@@ -88,6 +88,8 @@ Test: "Would I explain this to a peer over coffee?"
 
 If yes: CC drafts directly → `publish new "<title>"` → write to `~/epigenome/chromatin/secretome/` → `publish push`.
 
+**"Client-adjacent" is NOT a reason to defer.** If the insight generalises (strip names, strip org-specific details), write the generalised version NOW. The universalised insight is often stronger than the specific one. "Never defer publishing" (genome) overrides caution about engagement sensitivity.
+
 If no: state what was checked. Most infrastructure sessions genuinely don't yield posts — that's fine.
 
 ### 4. Housekeeping (full mode only)

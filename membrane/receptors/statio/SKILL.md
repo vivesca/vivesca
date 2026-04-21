@@ -7,55 +7,72 @@ user_invocable: true
 
 # Start-of-Work Brief
 
-Run when you sit down and are ready to work. Loads your priority context, clears the overnight inbox, and sets the work agenda. Assumes `/auspex` already covered weather and Oura.
+Run when you sit down and are ready to work. Loads your priority context, clears the overnight inbox, and sets the work agenda. Assumes `/auspex` already covered weather.
 
 ## Triggers
 
 - `/statio` (user-invocable only)
 
+## Compute routing
+
+Soma is the primary compute node. Local iMac is the fallback.
+
+**Step 0 — Probe soma:**
+```bash
+ssh -o ConnectTimeout=3 -o BatchMode=yes vivesca@soma echo ok 2>/dev/null
+```
+If this succeeds, set `SOMA=true`. Use `ssh vivesca@soma '<cmd>'` for data commands.
+If it fails, set `SOMA=false` and run everything locally where possible.
+
+**Routing rules:**
+| Command | Soma | Local fallback |
+|---------|------|----------------|
+| `sopor scores` | `ssh vivesca@soma 'sopor scores'` | `sopor scores` (if available locally) |
+| `amicus dossier` | `ssh vivesca@soma 'amicus dossier --today'` | Skip (no local DB) |
+| `gog gmail search` | `ssh vivesca@soma 'gog gmail search ...'` | `gog gmail search ...` |
+
 ## Steps
 
 1. **Get today's date and day of week**
 
-2. **Health scores** (from Oura Ring):
-   - Run: `oura scores`
+2. **Health scores** (from Oura Ring via sopor):
+   - Run: `sopor scores` (route per compute table)
    - Note sleep + readiness. If readiness <65, flag it — may affect how hard to push today.
    - If fails or returns all `--`, skip silently.
 
 3. **Staleness check**:
-   - Run `stat -f '%Sm' -t '%Y-%m-%d' ~/epigenome/chromatin/NOW.md ~/epigenome/chromatin/Capco/Capco\ Transition.md ~/epigenome/TODO.md`
-   - If any file's last-modified date is >24h old, flag it: "NOW.md last updated X — treat as stale"
+   - Use python3 to check mtime of: `~/epigenome/TODO.md`, `~/epigenome/chromatin/Capco/Capco Transition.md`
+   - If any file's last-modified date is >3d old, flag it as stale
 
-3. **Yesterday's daily note** — carryover only:
+4. **Yesterday's daily note** — carryover only:
    - Read `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` (yesterday), pull `## Tomorrow` and `## Follow-ups` sections only
-   - Cross-reference against NOW.md `[decided]` entries — skip anything already resolved
    - If yesterday's note is missing, skip silently
 
-4. **NOW.md open gates** — the core of this brief:
-   - Read `~/epigenome/chromatin/NOW.md`
-   - Surface all `[open]` items with their context. This is the work queue.
+5. **Work queue** — the core of this brief:
+   - Primary: read tonus.md (`~/epigenome/chromatin/tonus.md` or from session state) for `## Progress (active)` items marked `[next]`
+   - Secondary: check `~/epigenome/TODO.md` for items tagged with today's date
+   - Surface all open items with their context. This is the work queue.
 
-5. **Check cron logs** (overnight output):
-   - Check `~/logs/` for any cron job failures (oghma, vault-backup, legatus-*, etc.)
-   - Note failures only; skip silently if all clean
+6. **Check cron logs** (overnight output):
+   - Check `~/logs/` for any cron job failures from last 24h only (ignore older entries)
+   - Note failures only; skip silently if all clean or all stale
 
-6. **Check overnight OpenCode results**:
-   - Check `~/cache/legatus-runs/` for last night's run — read most recent `summary.md`
+7. **Check overnight legatus results**:
+   - Check `~/.cache/legatus-runs/` for last night's run — read most recent `summary.md`
    - Flag NEEDS_ATTENTION or CRITICAL items; skip silently if none or missing
 
-7. **Pre-meeting dossiers**:
-   - Run: `amicus dossier --today 2>/dev/null`
-   - If output is non-empty, surface attendee context (name, last contact, recent subjects) for any meeting today
+8. **Pre-meeting dossiers**:
+   - Run: `amicus dossier --today 2>/dev/null` (route per compute table)
+   - If output is non-empty, surface attendee context for any meeting today
    - Fail silently if amicus unavailable or DB empty
 
-8. **Inbox check**:
-   - Run: `gog gmail search "in:inbox" --limit 5`
-   - If results: surface count and nudge `/epistula` — don't triage here, just flag it
+9. **Inbox check**:
+   - Run: `gog gmail search "in:inbox" --limit 5 --json 2>/dev/null` or `gog gmail search "in:inbox" --limit 5`
+   - If results: surface count and actionable items only (billing, replies, deadlines). Nudge `/epistula` for full triage.
    - If empty: note "Inbox clear" and move on
 
-10. **Capco countdown + daily prep item** (until start date):
-    - Calculate days remaining: `python3 -c "from datetime import date; print((date(2026,4,8)-date.today()).days)"`
-    - Check `~/epigenome/chromatin/Capco/Capco Transition.md` for confirmed start date if different
+10. **Capco day count + daily prep item**:
+    - Calculate days since start: `python3 -c "from datetime import date; print((date.today()-date(2026,4,8)).days)"`
     - **Pick today's prep item** — rotate by day-of-week:
       - Mon: Capco methodology
       - Tue: client knowledge
@@ -64,33 +81,24 @@ Run when you sit down and are ready to work. Loads your priority context, clears
       - Fri: personal brand / intro pitch
     - One specific, 15-minute-doable item. No intel sweep unless there's a clear reason.
 
-11. **GARP quiz check** (until Apr 4, 2026):
-    - Check if already done today: `python3 -c "import json; d=json.load(open('$HOME/notes/.garp-fsrs-state.json')); today='$(date +%Y-%m-%d)'; print(sum(1 for e in d.get('review_log',[]) if e.get('date','').startswith(today)))"`
-    - If already done, do NOT mention GARP at all
-    - If not done and today is Mon/Wed/Fri: nudge "GARP quiz due today"
-    - If state file missing/corrupt, skip silently
-
-12. **Friday nudges** — if today is Friday:
+11. **Friday nudges** — if today is Friday:
     - Append: "It's Friday — run `/weekly` this afternoon."
-    - Token budget: run `ccusage daily -s $(date -v-6d +%Y%m%d)` — if >20% of ~$1,050 weekly cap remains, nudge to burn it before Saturday 8pm reset
 
-13. **Deliver the brief**:
+12. **Deliver the brief**:
 
 ## Output
 
-Start with the open gates from NOW.md — that's the work agenda. Weave in any inbox action items, meeting prep, and the Capco prep item. GARP nudge if due. Friday reminders last.
+Start with the work queue — that's the work agenda. Weave in any inbox action items, meeting prep, and the Capco prep item. Friday reminders last.
 
 Keep it focused: what do I need to do today, in what order? Not a report — a work queue with context.
 
 **Example:**
 
-> **Thursday, 5 March 2026** — 34 days to Capco
+> **Thursday, 17 April 2026** — Capco Day 10
 >
-> **On the plate:** AML hibernation email is the main gate — needs CDSW run (Steps 1+2, 3b, 5) before it can go. Nicole usage report due at noon, alarm set. China Mobile and Eight Sleep both overdue — clear those first if they're quick.
+> **On the plate:** ServiceNow data export is the main gate — follow up with Frankie. Simon email draft needs review and send. Thinh's MRM pain points email validates the framework — read it.
 >
-> Cora handled the inbox cleanly, nothing flagged. No overnight action emails.
->
-> Lunch with Tara at 12:15 — no prep needed. Physio at 16:00.
+> 3 actionable emails in inbox — `/epistula` to triage.
 >
 > Today's Capco prep: HK regulatory landscape — read the Jan 2026 HKMA/SFC joint fintech statement (15 min).
 
