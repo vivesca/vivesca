@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# quorate — multi-model deliberation CLI with 1Password key injection.
+# Shadows uv tool binary; handles auth so Python stays pure env-var reads.
+exec op run --env-file ~/code/quorate/quorate.env.op -- ~/.local/bin/quorate "$@"
