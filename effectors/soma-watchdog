@@ -271,6 +271,22 @@ def log_resources():
         }
         with open(METRICS_PATH, "a") as f:
             f.write(json.dumps(record) + "\n")
+
+        # Capture process snapshot when load is dangerously high
+        if cpu_1m > 5.0:
+            try:
+                ps = subprocess.run(
+                    ["ps", "aux", "--sort=-pcpu"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                dump_path = HOME / "tmp" / "high-load-dump.log"
+                with open(dump_path, "a") as df:
+                    df.write(f"\n=== {ts} load={cpu_1m} ===\n")
+                    df.write(ps.stdout[:4000])
+            except Exception:
+                pass
     except Exception as e:
         log(f"log_resources error: {e}")
 
