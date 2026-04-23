@@ -72,13 +72,13 @@ Shows revised date + note on the post automatically.
 publish list | grep <keyword>
 ```
 
-## Auto-Publish Protocol
+## Auto-Publish Protocol (silent-pass verifier)
 
 When a publishable insight surfaces in a session:
 1. Draft the post (session context as material)
-2. Run censor (`article` criteria)
-3. **Pass** → `publish publish <slug>`
-4. **Needs work** → one revision pass → censor again
+2. Run censor (`article` criteria) — **silent on pass.** Only surface censor output to Terry if it fails. Pass = publish immediately, no commentary.
+3. **Pass** → `publish publish <slug>` (no "censor passed" message — just ship)
+4. **Needs work** → one revision pass → censor again (show the issues this time)
 5. **Still failing** → `echo "Garden post failed censor: <title>" | deltos "garden"` — do NOT publish silently
 
 **Insight detection — draft autonomously when ALL of:**

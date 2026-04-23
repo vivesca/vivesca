@@ -24,6 +24,17 @@ Note: `secretion` exists as an MCP tool (raw file output). This skill is the jud
 
 ## Method
 
+### Step 0 — State the system
+
+Before writing or packaging, vocalize the structural system in 4 lines:
+
+- **Section pattern:** what shape does each section take? (e.g., "observation → implication → recommendation")
+- **Evidence density:** how much backing per claim? (e.g., "one example per recommendation" or "regulatory citation per control")
+- **Audience voice:** who is reading and what register? (e.g., "HSBC AIRCo — formal, Group-wide language, no Capco branding")
+- **What this is NOT:** one common template you are deliberately avoiding (e.g., "not a gap analysis, not a status update")
+
+Write this as a comment block at the top of your draft. Delete before export. The point: commit to the system before building, not halfway through.
+
 ### Step 1 — Verify synthesis completeness
 
 Before packaging, confirm the content is done:
