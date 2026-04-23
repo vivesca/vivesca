@@ -57,7 +57,7 @@ CC (soma) --mtor CLI--> Temporal server (ganglion:7233) --> translocase.py (gang
 Check dispatch health:
 ```bash
 # CLI — list recent workflows
-mtor list --count 5
+mtor riboseq --count 5
 
 # Health check (Temporal reachable, worker alive)
 mtor doctor
@@ -113,7 +113,7 @@ title: "One-line description"
 status: ready
 repo: ~/code/<repo>
 depends_on: []
-target_files:
+scope:
   - path/to/file.py
 tests:
   run: "uv run pytest assays/test_foo.py -x"
