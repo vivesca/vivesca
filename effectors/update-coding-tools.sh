@@ -49,7 +49,11 @@ fi
 # ── npm globals ──
 if command -v npm &>/dev/null; then
     echo "Updating npm globals..." | tee -a "$LOG_FILE"
-    npm update -g 2>&1 | tee -a "$LOG_FILE" || true
+    if [[ "$OS" == "Linux" ]]; then
+        sudo npm update -g 2>&1 | tee -a "$LOG_FILE" || true
+    else
+        npm update -g 2>&1 | tee -a "$LOG_FILE" || true
+    fi
 fi
 
 # ── pnpm globals ──
@@ -87,8 +91,8 @@ if [[ "$OS" == "Darwin" ]]; then
     )
 else
     REPAIR=(
-      [claude]="npm install -g @anthropic-ai/claude-code"
-      [gemini]="npm install -g @anthropic-ai/gemini-cli"
+      [claude]="sudo npm install -g @anthropic-ai/claude-code"
+      [gemini]="sudo npm install -g @anthropic-ai/gemini-cli"
     )
 fi
 
