@@ -325,7 +325,7 @@ fi
 #   GPT-5.4 ~80%, GLM-5 77.8%, Doubao Seed 2.0 ~Kilo#4.
 # Tier 1 (~80%): infini (free) > codex (paid) > gemini (paid)
 # Tier 2 (~78%): volcano (free) > zhipu (free)
-_FALLBACK_PRIORITY=(infini codex gemini volcano zhipu)
+_FALLBACK_PRIORITY=(volcano infini codex gemini zhipu)
 
 _find_fallback() {
   local failed="$1"
