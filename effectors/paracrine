@@ -293,7 +293,7 @@ Format: TYPE: explanation"""
     env_clean = {k: v for k, v in __import__("os").environ.items() if k != "CLAUDECODE"}
     try:
         result = subprocess.run(
-            ["channel", "glm", "-p", prompt],
+            ["synthase", "--model", "glm", prompt],
             capture_output=True,
             text=True,
             timeout=60,

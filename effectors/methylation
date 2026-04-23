@@ -7,7 +7,7 @@ Reads the three signal sources from the past 7 days:
   - ~/logs/inflammasome.log                             (probe results)
 
 Groups failures and repairs by pattern (probe name, repair label).
-If any pattern appears >= 2 times, dispatches channel sonnet -p for one
+If any pattern appears >= 2 times, dispatches synthase --model sonnet for one
 synthesis call that proposes either:
   a. A new probe function for inflammasome.py
   b. A new _REPAIR_PATTERNS entry
@@ -36,7 +36,7 @@ METHYLATION_CANDIDATES = Path.home() / ".cache" / "inflammasome" / "methylation-
 INFECTION_LOG = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
 INFLAMMASOME_LOG = Path.home() / "logs" / "inflammasome.log"
 INFLAMMASOME_PY = Path.home() / "germline" / "metabolon" / "organelles" / "inflammasome.py"
-CHANNEL = Path.home() / "germline" / "effectors" / "channel"
+SYNTHASE = Path.home() / "germline" / "effectors" / "synthase"
 LOG_FILE = Path.home() / "logs" / "methylation.log"
 PROPOSAL_DIR = Path.home() / "epigenome" / "chromatin" / "immunity" / "methylation"
 
@@ -368,15 +368,15 @@ def _record_mitophagy(model: str, task_type: str, success: bool, duration_ms: in
 
 
 def dispatch_sonnet(prompt: str, task_type: str = "methylation") -> str | None:
-    """Call channel with tissue-routed model and the prompt. Return output or None on failure."""
-    if not CHANNEL.exists():
-        log(f"ERROR: channel effector not found at {CHANNEL}")
+    """Call synthase with tissue-routed model and the prompt. Return output or None on failure."""
+    if not SYNTHASE.exists():
+        log(f"ERROR: synthase effector not found at {SYNTHASE}")
         return None
     model = _tissue_route(task_type)
     t0 = time.monotonic()
     try:
         result = subprocess.run(
-            [str(CHANNEL), model, "-p", prompt],
+            [str(SYNTHASE), "--model", model, prompt],
             capture_output=True,
             text=True,
             timeout=120,
@@ -386,18 +386,20 @@ def dispatch_sonnet(prompt: str, task_type: str = "methylation") -> str | None:
         success = result.returncode == 0 and bool(output)
         _record_mitophagy(model, task_type, success, duration_ms)
         if result.returncode != 0:
-            log(f"WARN: channel {model} exited {result.returncode}: {result.stderr.strip()[:200]}")
+            log(
+                f"WARN: synthase {model} exited {result.returncode}: {result.stderr.strip()[:200]}"
+            )
             return None
         return output or None
     except subprocess.TimeoutExpired:
         duration_ms = int((time.monotonic() - t0) * 1000)
         _record_mitophagy(model, task_type, False, duration_ms)
-        log(f"WARN: channel {model} timed out (120s)")
+        log(f"WARN: synthase {model} timed out (120s)")
         return None
     except Exception as exc:
         duration_ms = int((time.monotonic() - t0) * 1000)
         _record_mitophagy(model, task_type, False, duration_ms)
-        log(f"ERROR: channel dispatch failed: {exc}")
+        log(f"ERROR: synthase dispatch failed: {exc}")
         return None
 
 
@@ -682,7 +684,7 @@ def main() -> None:
         repair_labels=repair_labels_str,
     )
 
-    log("dispatching channel sonnet for synthesis...")
+    log("dispatching synthase for synthesis...")
     response = dispatch_sonnet(prompt)
 
     if not response:
