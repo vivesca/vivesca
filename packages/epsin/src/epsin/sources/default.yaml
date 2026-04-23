@@ -1,0 +1,91 @@
+sources:
+  - name: Simon Willison
+    url: https://simonwillison.net/
+    rss: https://simonwillison.net/atom/everything/
+    tags: [ai]
+
+  - name: Anthropic Blog
+    url: https://www.anthropic.com/news
+    tags: [ai]
+
+  - name: OpenAI Blog
+    url: https://openai.com/news/
+    rss: https://openai.com/news/rss.xml
+    tags: [ai]
+
+  - name: OpenAI Developer Blog
+    url: https://developers.openai.com/blog
+    tags: [ai]
+
+  - name: Google DeepMind Blog
+    url: https://deepmind.google/discover/blog/
+    rss: https://deepmind.google/discover/blog/rss.xml
+    tags: [ai]
+
+  - name: Hacker News Front Page
+    url: https://news.ycombinator.com/
+    rss: https://hnrss.org/frontpage
+    tags: [ai, tech]
+
+  - name: The Batch
+    url: https://www.deeplearning.ai/the-batch/
+    tags: [ai]
+
+  - name: Import AI
+    url: https://jack-clark.net/
+    rss: https://jack-clark.net/feed/
+    tags: [ai]
+
+  - name: Interconnects
+    url: https://www.interconnects.ai/
+    rss: https://www.interconnects.ai/feed
+    tags: [ai]
+
+  - name: Ahead of AI
+    url: https://magazine.sebastianraschka.com/
+    rss: https://magazine.sebastianraschka.com/feed
+    tags: [ai]
+
+  - name: Hugging Face Blog
+    url: https://huggingface.co/blog
+    rss: https://huggingface.co/blog/feed.xml
+    tags: [ai]
+
+  - name: MIT Technology Review AI
+    url: https://www.technologyreview.com/topic/artificial-intelligence/
+    rss: https://www.technologyreview.com/feed/
+    tags: [ai, tech]
+
+  - name: Latent Space
+    url: https://www.latent.space/
+    rss: https://www.latent.space/feed
+    tags: [ai]
+
+  - name: AI Snake Oil
+    url: https://aisnakeoil.substack.com/
+    rss: https://aisnakeoil.substack.com/feed
+    tags: [ai]
+
+  - name: The Gradient
+    url: https://thegradient.pub/
+    rss: https://thegradient.pub/rss/
+    tags: [ai]
+
+  - name: Cloudflare Blog
+    url: https://blog.cloudflare.com/
+    rss: https://blog.cloudflare.com/rss/
+    tags: [ai, infra]
+
+  - name: The New Stack (AI)
+    url: https://thenewstack.io/ai/
+    rss: https://thenewstack.io/category/ai/feed/
+    tags: [ai, infra]
+
+  - name: Block Goose Blog
+    url: https://block.github.io/goose/blog/
+    rss: https://block.github.io/goose/blog/rss.xml
+    tags: [ai]
+
+  - name: Evident AI
+    url: https://www.evidentinsights.com/research/
+    tags: [ai, finserv]

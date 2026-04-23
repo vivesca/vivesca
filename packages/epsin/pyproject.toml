@@ -1,0 +1,36 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling" ]
+
+[project]
+name = "epsin"
+version = "0.1.0"
+description = "AI newsletter/blog scraper CLI — structured output from YAML-configured sources"
+keywords = [ "ai", "cli", "newsletter", "rss", "scraper" ]
+license = "MIT"
+authors = [ { name = "Terry Li" } ]
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "click>=8",
+  "feedparser>=6",
+  "trafilatura>=2",
+  "httpx>=0.27",
+  "pyyaml>=6",
+  "beautifulsoup4>=4",
+]
+
+scripts.epsin = "epsin.cli:main"
+
+[dependency-groups]
+dev = [ "pytest>=9", "pytest-cov" ]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "src/epsin" ]
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
