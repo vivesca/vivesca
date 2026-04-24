@@ -56,7 +56,7 @@ def intake_sleep() -> dict:
 
 def intake_weather() -> dict:
     """Gather HK weather from hygroreception CLI."""
-    ok, out = run_cmd(["hygroreception"], timeout=10)
+    ok, out = run_cmd(["hygroreception", "now"], timeout=10)
     return {"label": "Weather (HKO)", "ok": bool(ok), "content": ok or out or "(unavailable)"}
 
 

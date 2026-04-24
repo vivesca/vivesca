@@ -170,12 +170,16 @@ tonus tool — session state. Actions: mark|status
 ### __pycache__
 _(no description)_
 
+### epistasis
+_(no description)_
+  Files: `epistasis.py`
+
 ### mtor
 _(no description)_
   Files: `mtor`
 
-### Standalone scripts (175 total, on PATH)
-  Recent: `cytokinesis`, `polymerase`, `mark-lint`, `rhodopsin.py`, `vivesca-preflight`, `willison-scrape`, `x-feed-to-endocytosis`, `efferens`, `publish`, `burn`
+### Standalone scripts (176 total, on PATH)
+  Recent: `refresh-env-secrets`, `respirometry`, `ribosome`, `methylation`, `cytokinesis`, `paracrine`, `soma-watchdog`, `update-coding-tools.sh`, `quorate`, `polymerase`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -388,8 +392,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **489**
-- Most active: `rheotaxis` (164), `fetch` (74), `trogocytosis_browser_eval` (59), `trogocytosis_browser_screenshot` (48), `pinocytosis` (29)
+- Signals (last 7 days): **198**
+- Most active: `rheotaxis` (46), `fetch` (39), `chemotaxis` (28), `tonus` (25), `pinocytosis` (9)
 
 ## Known Lesions
 
