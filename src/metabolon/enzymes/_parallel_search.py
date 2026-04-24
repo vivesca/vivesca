@@ -501,7 +501,7 @@ async def _run_firecrawl(query: str) -> ToolResult:
 
 
 async def _run_jina(query: str) -> ToolResult:
-    """Jina search — free tier, uses curl (urllib returns 403 with Bearer auth)."""
+    """Jina search — free tier via httpx (curl subprocess was fragile)."""
     start = time.time()
     api_key = os.environ.get("JINA_API_KEY", "")
     if not api_key:
@@ -516,29 +516,21 @@ async def _run_jina(query: str) -> ToolResult:
     try:
         import urllib.parse
 
+        import httpx
+
         encoded = urllib.parse.quote(query)
-        proc = await asyncio.create_subprocess_exec(
-            "curl",
-            "-s",
-            "--max-time",
-            "10",
-            f"https://s.jina.ai/{encoded}",
-            "-H",
-            f"Authorization: Bearer {api_key}",
-            "-H",
-            "Accept: application/json",
-            "-H",
-            "X-With-Content: false",  # snippets only — full content made it 30-240s
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20.0)
-        except TimeoutError:
-            proc.kill()
-            await proc.wait()
-            raise
-        data = json.loads(stdout.decode())
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"https://s.jina.ai/{encoded}",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Accept": "application/json",
+                    "X-With-Content": "false",
+                },
+                timeout=20.0,
+            )
+            resp.raise_for_status()
+        data = resp.json()
         results = []
         for item in data.get("data", []):
             results.append(

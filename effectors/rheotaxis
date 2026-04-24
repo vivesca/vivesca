@@ -15,6 +15,7 @@ Subcommands:
 from __future__ import annotations
 
 import asyncio
+import os
 import re as _re
 import sys
 from pathlib import Path
@@ -34,6 +35,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from metabolon.enzymes._parallel_search import ToolResult, _log_run, _report
 from metabolon.organelles.rheotaxis_engine import perplexity_deep
+
+# --- Resolve secrets that may be op:// references ---
+
+_zhipu_key = os.environ.get("ZHIPU_API_KEY", "")
+if not _zhipu_key or _zhipu_key.startswith("op://"):
+    import subprocess as _sp
+
+    try:
+        _resolved = _sp.run(
+            ["op", "read", "op://Agents/zhipu-api-key/credential"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if _resolved.returncode == 0 and _resolved.stdout.strip():
+            os.environ["ZHIPU_API_KEY"] = _resolved.stdout.strip()
+    except Exception:
+        pass
 
 ALL_BACKENDS = ["grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"]
 
