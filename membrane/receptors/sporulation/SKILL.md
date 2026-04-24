@@ -60,7 +60,7 @@ find ~/.claude/projects/-home-terry-germline/memory/ -name "checkpoint_*.md" -mt
 Before saving the spore, run **full cytokinesis** (consolidation + housekeeping + daily note):
 1. Scan session for unfiled corrections, findings, user facts — file them
 2. Commit dirty repos
-3. Update Tonus.md
+3. Update Tonus.md (`~/epigenome/chromatin/Tonus.md` — canonical path)
 4. Write daily note arc
 5. Then sporulate
 

@@ -100,7 +100,7 @@ If no: state what was checked. Most infrastructure sessions genuinely don't yiel
 2. **Anatomy refresh:** `cd ~/germline && python3 -c "from metabolon.resources.anatomy import express_anatomy; open('anatomy.md','w').write(express_anatomy())"`
 3. **TODO sweep:** `cytokinesis archive`
 4. **Session log:** `cytokinesis daily "title"` — then edit to fill Outcomes, Parked, Arc
-5. **Tonus.md** — update deltas (max 15 lines, dual-ledger)
+5. **Tonus.md** (`~/epigenome/chromatin/Tonus.md` — canonical, synapse reads this path) — update deltas (max 15 lines, dual-ledger)
 
 The daily note edit IS the completion signal.
 
