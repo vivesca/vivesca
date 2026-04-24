@@ -1,7 +1,7 @@
 ---
 name: induction
-description: Committee-paper tradecraft — writing artifacts that move boards, OpCo, AIRCo, RMM, steering committees, board sub-committees, and partner panels to decide. Owns pre-conditions, recommendation-first sequence, dissent absorption, pre-circulation. Reference skill consulted by expression, censor, secretion when audience is a deciding body. Not user-invocable.
-user_invocable: false
+description: Committee-paper tradecraft — writing artifacts that move boards, OpCo, AIRCo, RMM, steering committees, board sub-committees, and partner panels to decide. Owns pre-conditions, recommendation-first sequence, dissent absorption, pre-circulation. Use directly when drafting a paper for a deciding committee, or as a reference consulted by expression, censor, secretion.
+user_invocable: true
 epistemics: [communicate, persuade, evaluate]
 triggers:
   - induction
@@ -18,7 +18,7 @@ triggers:
 
 In embryology, induction is the process where a signaling tissue secretes a diffusible factor that instructs the fate of a receiving tissue. A board paper is the same: a single artifact diffuses into a committee and patterns the decision that emerges. The paper does not argue in real time. It must arrive pre-loaded with everything required to convert pre-existing intent into a vote.
 
-**Not user-invocable.** Consult when drafting any artifact for a committee that *decides* — OpCo, AIRCo, RMM, steering committees, board sub-committees, partner reviews. The `expression` skill owns weekly forging. The `censor` skill owns post-hoc quality gating. The `secretion` skill owns packaging and release. This skill owns the principles that make the artifact land.
+**Two entry points.** (1) Direct invocation when sitting down to draft an artifact for a committee that *decides* — OpCo, AIRCo, RMM, steering committees, board sub-committees, partner reviews. (2) Reference consultation from `expression` (forging committee-targeted assets), `censor` (high-weight criteria spine for executive papers), and `secretion` (before packaging committee deliverables). The `expression` skill owns weekly forging. The `censor` skill owns post-hoc quality gating. The `secretion` skill owns packaging and release. This skill owns the principles that make the artifact land.
 
 The wording layer lives in marks (`feedback_executive_paper_style`, `feedback_partner_message_density`, `feedback_assert_dont_ask_in_senior_comms`, `feedback_echo_sponsor_language`, `feedback_naming_is_strategy`). This skill owns the upstream tradecraft.
 
