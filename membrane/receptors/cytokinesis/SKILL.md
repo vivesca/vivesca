@@ -75,6 +75,10 @@ If yes: draft → `~/epigenome/chromatin/secretome/` → publish. "Client-adjace
 
 ### 5. Tonus = wrap summary (last step)
 
+**HARD GATE first.** Before writing Tonus, run `cytokinesis verify`. If `all_passed != true`, stop and complete the PENDING gates — do NOT write Tonus. Recurring failure mode: CC sees PENDING in `gather` output, notes it, then writes Tonus anyway. The gate is deterministic — use it. No "I'll skip this one", no "gate is advisory", no writing Tonus with open PENDING gates.
+
+**If you genuinely must skip a gate** (rare — e.g., `daily_note` when the session was <3 minutes of reversible chat), state the gate name and the reason explicitly in the wrap output, so Terry can see what was bypassed.
+
 **Tonus IS the summary.** Write `~/epigenome/chromatin/Tonus.md` first, then display it as the wrap output. Single source — no separate summary that could diverge from what the next session reads.
 
 Tonus format: Facts (established) + Progress (active). Progress leads with open items (`[next]`, `[waiting]`, `[parked]`), then completed (`[done]`). Synapse injects this at session start — what you write here is the handoff.
