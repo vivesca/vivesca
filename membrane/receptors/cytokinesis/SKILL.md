@@ -53,9 +53,11 @@ This table lives in genome.md (always-loaded) so CC can act on signals mid-sessi
 
 ### 0. Unfinished work gate (mandatory)
 
-**Do not consolidate over live work.** Before any memory capture:
+**Finish outstanding work first.** "Wrap up" means complete, then close — not stop and summarize.
 - Scan for open threads, half-done fixes, deferred items
-- If unfinished work exists: **finish it or park it with context.** Context is hottest now. Consolidation is for what's done.
+- **Default: finish them now.** Context is hottest now — the next session starts cold. Quick fixes (<5 min), uncommitted changes, pending dispatches with known specs → do them.
+- Park only if the work genuinely needs Terry's input or would take >15 min.
+- Then consolidate what's done.
 
 ### 1. Verification pass
 
