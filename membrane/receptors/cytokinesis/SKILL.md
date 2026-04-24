@@ -104,6 +104,13 @@ If no: state what was checked. Most infrastructure sessions genuinely don't yiel
 
 The daily note edit IS the completion signal.
 
+### 5. Wrap summary
+
+Lead with **Open** (what the next session picks up), then **Done** (what this session completed).
+
+- **Open:** running dispatches (with workflow IDs), next actions, parked items with context. This is the handoff — the next session reads this first.
+- **Done:** completed work, marks filed, commits pushed. Keep brief — the git log has the detail.
+
 ## CLI: `cytokinesis` (on PATH)
 
 | Subcommand | Purpose |
