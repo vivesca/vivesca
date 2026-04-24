@@ -22,7 +22,11 @@ Is the page public?
       YES → Tier 3 (AppleScript via SSH to Mac Chrome)
 ```
 
-**Known Tier 3 sites (Playwright login blocked):** LinkedIn, Schwab, most financial sites.
+**LinkedIn routing (confirmed 2026-04-25):**
+- **Public profile reads (About, Experience, recent public posts, connection counts):** Tier 1. Use pinocytosis or agent-browser — both work, no auth needed.
+- **Authenticated single-shot (check logged-in state, one profile lookup, one message):** Tier 2 via trogocytosis (`trogocytosis inject-cookies <domain>` + `trogocytosis stealth` + `trogocytosis navigate`). Works but LinkedIn rate-limits aggressively (HTTP 429 after ~2-3 requests).
+- **Authenticated multi-step or bulk research:** Tier 3 (Mac Chrome via AppleScript). Slower per request but LinkedIn treats it as a real browser session and throttles less.
+- **Schwab, most other financial sites:** Tier 3 only — trogocytosis stealth not sufficient.
 **Unautomatable (reCAPTCHA v3 + popups):** PPS (ppshk.com) — call 2311 9876 instead.
 **Known Tier 2 sites:** Vercel (Google OAuth → porta), BuyAndShip (Google OAuth → porta, Vue SPA), Substack, Taobao, Shopify checkout (3D Secure needs headed).
 **Known Tier 1 sites (form auth, no bot detection):** RVD e-billing (gov.hk SSO), OpenRouter (GitHub OAuth → porta).
@@ -32,7 +36,7 @@ Is the page public?
 
 - **Nested `'"'"'...` quoting in AppleScript JS** → you jumped to Tier 3 to reuse "Chrome is already logged in", but Tier 1 agent-browser + cookie bridge would have been cleaner. Cookie bridge serves any domain: `curl http://127.0.0.1:7743/cookies?domain=<site>` → inject via Playwright's `context.add_cookies()` → use agent-browser's `fill @ref` / `click @ref` API.
 - **Writing more than ~20 lines of AppleScript JS** to drive a form → stop and reconsider Tier 1 or Tier 2.
-- **Tier 3 is for** sites that actively block Playwright login (LinkedIn, Schwab), OR a single AppleScript call to read an existing authenticated tab. If you're *driving a multi-step flow* in Tier 3, you escalated too fast.
+- **Tier 3 is for** sites that actively block Playwright *login or authenticated actions* (LinkedIn, Schwab), OR a single AppleScript call to read an existing authenticated tab. If you're *driving a multi-step flow* in Tier 3, you escalated too fast. **LinkedIn public-read does NOT need Tier 3** — see public-read exception above.
 
 ### GitHub CLI auth via OAuth device flow
 
