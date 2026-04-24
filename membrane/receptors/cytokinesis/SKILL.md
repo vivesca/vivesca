@@ -106,6 +106,8 @@ The daily note edit IS the completion signal.
 
 ### 5. Wrap summary
 
+**Complete all housekeeping before the summary.** Every commit pushed, every skill edit saved, every mark filed. The summary is the last output — not a checkpoint with loose ends.
+
 Lead with **Open** (what the next session picks up), then **Done** (what this session completed).
 
 - **Open:** running dispatches (with workflow IDs), next actions, parked items with context. This is the handoff — the next session reads this first.
