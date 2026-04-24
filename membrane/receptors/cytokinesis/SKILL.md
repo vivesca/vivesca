@@ -108,12 +108,11 @@ The daily note edit IS the completion signal.
 
 ### 5. Wrap summary
 
-**Complete all housekeeping before the summary.** Every commit pushed, every skill edit saved, every mark filed. The summary is the last output — not a checkpoint with loose ends.
+**Complete all housekeeping before the summary.** Every commit pushed, every skill edit saved, every mark filed.
 
-Lead with **Open** (what the next session picks up), then **Done** (what this session completed).
+**Tonus IS the summary.** Write Tonus first (`~/epigenome/chromatin/Tonus.md`), then display it as the wrap output. Single source — no separate summary that could diverge from what the next session reads.
 
-- **Open:** running dispatches (with workflow IDs), next actions, parked items with context. This is the handoff — the next session reads this first.
-- **Done:** completed work, marks filed, commits pushed. Keep brief — the git log has the detail.
+Tonus format (already established): Facts (established) + Progress (active). Progress should lead with open items (`[next]`, `[waiting]`, `[parked]`), then completed (`[done]`). The next session's synapse hook injects this at start — what you write here is the handoff.
 
 ## CLI: `cytokinesis` (on PATH)
 
