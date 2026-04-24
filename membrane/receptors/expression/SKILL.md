@@ -22,6 +22,7 @@ Produces consulting intellectual capital from the week's accumulated sparks, AI 
 - **Client-identifiable information: NEVER in the library.** Generalize before storing.
 - **Quality bar: draft-grade.** All assets created with `maturity: draft`.
 - **Autonomous flywheel:** See [[autonomous-flywheel]]. Agents create freely. Terry promotes on demand.
+- **Committee-targeted assets consult `induction`.** When a spark forges into a board paper, OpCo paper, AIRCo submission, or any artifact whose audience is a deciding committee, load `induction` before drafting — it owns the pre-conditions, sequence, and anti-patterns that determine whether the paper lands.
 
 ## Prerequisites
 

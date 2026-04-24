@@ -151,5 +151,9 @@ summary: "Direction is solid, but one high-weight gap blocks pass."
 - Don't over-iterate — diminishing returns after 2 passes
 - Trust the criteria files; don't invent new checks on the fly
 
+## Related
+
+- **`induction`** — when domain auto-detects to `paper` / `executive` (board, OpCo, AIRCo, committee), load the `induction` principles as the high-weight criteria spine: decision asked, sponsor pre-aligned, dissent absorbed, recommendation-first sequence, no buried ask, no options-without-recommendation, no unsourced top-line claim. A paper that fails any of these is `needs_work` regardless of prose quality.
+
 ## Motifs
 - [verify-gate](../motifs/verify-gate.md)

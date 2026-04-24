@@ -15,6 +15,8 @@ This skill governs the final stage of consulting output: the artifact has been s
 
 Note: `secretion` exists as an MCP tool (raw file output). This skill is the judgment layer — quality gate, format verification, and delivery decision — that wraps the tool.
 
+**For deliverables aimed at a deciding committee** (board, OpCo, AIRCo, RMM, partner panels), consult `induction` *before* packaging — it owns the upstream tradecraft (decision asked, sponsor pre-aligned, dissent absorbed, sequence inverted around the recommendation). Secretion handles the vesicle; induction shapes what's inside it.
+
 ## When to Use
 
 - A consulting deliverable (report, deck, memo, model) is ready for client release
