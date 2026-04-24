@@ -22,7 +22,7 @@ agents (CC, Codex, Gemini, Goose).
 ## Usage
 
 ```bash
-# Default: all 7 backends, porin JSON when piped
+# Default and only mode: all 7 backends, porin JSON when piped
 rheotaxis "JINS glasses store Hong Kong Island"
 
 # Human-readable markdown
@@ -30,12 +30,6 @@ rheotaxis "nearest gym Quarry Bay" --text
 
 # Perplexity deep research (~$0.40) — use for complex questions
 rheotaxis research "HKMA policy on generative AI in banking"
-
-# Skip specific backends (English-only query, skip Chinese search)
-rheotaxis "rust async patterns" --exclude zhipu
-
-# Whitelist specific backends (rare — only when you know what you want)
-rheotaxis "weather Hong Kong" -b serper,tavily
 
 # Multi-query framing (triangulate)
 rheotaxis "JINS Wan Chai" -q "JINS Hong Kong Island" -q "JINS store locator HK"
@@ -49,10 +43,10 @@ rheotaxis backends
 - **Default search**: any "search for X", "look up X", "find X online"
 - **Research mode** (`rheotaxis research`): complex questions needing synthesis, deep analysis
 - **Multi-query** (`-q`): when a single framing might miss results (locations, products, niche topics)
-- **Exclude** (`--exclude zhipu`): English-only queries where Chinese results add noise
 
-There is no auto-routing or query-classifier. Every search hits all 7 backends unless you
-explicitly narrow with `-b` or `--exclude`.
+There is no backend-selection knob. No `-b`, no `--exclude`, no auto-routing. Every search
+hits all 7 backends. A slow or broken backend fails locally (per-backend timeout) without
+stalling the others, and its error appears in the JSON envelope so callers can see it.
 
 ## When NOT to Use
 

@@ -82,10 +82,14 @@ class TestBackendsList:
 
 
 class TestArguments:
-    def test_exclude_and_b_mutual_exclusion(self):
-        """--exclude and -b cannot be used together."""
-        result = run_cli("test", "--exclude", "grok", "-b", "exa,serper")
-        # Should fail with usage error or porin error envelope
+    def test_exclude_flag_rejected(self):
+        """--exclude was removed; cyclopts must reject it as an unknown option."""
+        result = run_cli("test", "--exclude", "grok")
+        assert result.returncode != 0
+
+    def test_b_flag_rejected(self):
+        """-b was removed; cyclopts must reject it as an unknown option."""
+        result = run_cli("test", "-b", "exa")
         assert result.returncode != 0
 
     def test_research_flag_accepted(self):
@@ -102,14 +106,6 @@ class TestArguments:
         # Multi-query with default fan-out = 7 backends * 3 queries = 21 parallel calls.
         # Slow backends (perplexity ~5s) dominate; bump timeout vs the 30s default.
         result = run_cli("primary", "-q", "alt1", "-q", "alt2", timeout=120)
-        assert result.returncode != 2
-
-    def test_exclude_flag_accepted(self):
-        result = run_cli("test query", "--exclude", "grok,zhipu")
-        assert result.returncode != 2
-
-    def test_b_flag_accepted(self):
-        result = run_cli("test query", "-b", "exa,serper")
         assert result.returncode != 2
 
 
@@ -177,7 +173,7 @@ class TestOutputFormat:
 
 
 class TestDefaultBackends:
-    """Default behaviour: no auto-routing; every search runs all 7 backends."""
+    """Default and only behaviour: every search runs all 7 backends."""
 
     @pytest.fixture
     def mod(self):
@@ -186,21 +182,28 @@ class TestDefaultBackends:
         exec(open(RHEOTAXIS).read(), ns)
         return ns
 
-    def test_no_classifier_remains(self, mod):
-        """The query-classifier was removed — defaults must fan out."""
+    def test_classifier_and_resolver_removed(self, mod):
+        """The classifier and exclude/whitelist resolver were removed — engine is the policy."""
         assert "classify_query" not in mod
         assert "route_backends" not in mod
+        assert "_resolve_exclude" not in mod
 
-    def test_resolve_exclude_default_empty(self, mod):
-        """Default (no flags) returns empty exclude set => all backends run."""
-        assert mod["_resolve_exclude"](None, None) == set()
+    def test_all_backends_constant(self, mod):
+        assert set(mod["ALL_BACKENDS"]) == {
+            "grok",
+            "exa",
+            "perplexity",
+            "tavily",
+            "serper",
+            "zhipu",
+            "jina",
+        }
 
-    def test_resolve_exclude_with_exclude_flag(self, mod):
-        assert mod["_resolve_exclude"]("grok,zhipu", None) == {"grok", "zhipu"}
-
-    def test_resolve_exclude_with_b_flag(self, mod):
-        excluded = mod["_resolve_exclude"](None, "exa,perplexity")
-        assert excluded == set(mod["ALL_BACKENDS"]) - {"exa", "perplexity"}
+    def test_per_backend_timeout_defined(self, mod):
+        """Per-backend timeout is the deterministic substitute for --exclude on slow backends."""
+        assert "BACKEND_TIMEOUT_S" in mod
+        assert isinstance(mod["BACKEND_TIMEOUT_S"], (int, float))
+        assert mod["BACKEND_TIMEOUT_S"] > 0
 
 
 # ---------------------------------------------------------------------------
@@ -307,16 +310,10 @@ class TestSourceWeighting:
 
 
 class TestErrors:
-    def test_all_backends_fail_returns_error_envelope(self):
-        """If all backends fail, output is a porin error envelope with fix suggestion."""
-        # Exclude all backends to force failure
-        result = run_cli("test", "--exclude", "grok,exa,perplexity,tavily,serper,zhipu,jina")
-        # Should return error (either exit 1 or porin error envelope)
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            assert data.get("ok") is False or len(data.get("result", {}).get("backends", [])) == 0
-        else:
-            # Error envelope
-            data = json.loads(result.stdout)
-            assert data["ok"] is False
-            assert "fix" in data
+    def test_all_backends_failed_envelope_shape(self):
+        """When every backend errors, the search emits a porin error envelope with a fix.
+        Cannot be forced externally now that --exclude is gone; the contract is exercised
+        in unit tests against the engine, so this CLI-level smoke test is skipped."""
+        import pytest
+
+        pytest.skip("--exclude removed; contract covered by engine-level unit tests.")

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """rheotaxis — multi-backend web search CLI.
 
-Default: fans out to all 7 backends in parallel. Convergence = confidence,
-divergence = signal. Override only when you know what you want.
+Always fans out to all 7 backends in parallel. Convergence = confidence,
+divergence = signal. No backend selection knobs — the engine is the policy.
+Slow backends are bounded per-call by BACKEND_TIMEOUT_S so one laggard
+cannot stall the rest.
 
 Subcommands:
     rheotaxis "query"                     # search all 7 (JSON when piped, rich in TTY)
     rheotaxis search "query" --text       # markdown output
     rheotaxis search "query" --raw        # skip quality filter
     rheotaxis search "q1" -q "q2"        # multi-query
-    rheotaxis search "query" -b exa,serper           # whitelist subset
-    rheotaxis search "query" --exclude grok,zhipu    # skip subset
     rheotaxis research "query"            # deep research via Perplexity
     rheotaxis backends                    # list backends + health
 """
@@ -57,6 +57,9 @@ if not _zhipu_key or _zhipu_key.startswith("op://"):
         pass
 
 ALL_BACKENDS = ["grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"]
+# Per-backend timeout. asyncio.gather waits for the slowest, so a single hung backend
+# can stall the whole search. wait_for trips the laggard at this bound so the others ship.
+BACKEND_TIMEOUT_S = 30.0
 
 # --- Source weighting: higher = more trusted for factual queries ---
 
@@ -293,11 +296,11 @@ def _result_to_dict(result: ToolResult) -> dict:
 
 async def _run_all_filtered(
     query: str,
-    exclude: set[str] | None = None,
     *,
     raw: bool = False,
 ) -> list[ToolResult]:
-    """Run all backends with quality filtering (always-on unless --raw)."""
+    """Fan out to all 7 backends in parallel with quality filtering (always-on unless --raw).
+    Each backend gets BACKEND_TIMEOUT_S; a slow one fails locally, the others still ship."""
     from metabolon.enzymes._parallel_search import (
         _run_exa,
         _run_grok,
@@ -317,14 +320,19 @@ async def _run_all_filtered(
         "zhipu": _run_zhipu,
         "jina": _run_jina,
     }
-    skip = exclude or set()
-    active = {name: func for name, func in backend_map.items() if name not in skip}
 
     results: list[ToolResult] = []
 
     async def _wrap(name: str, coro):
         try:
-            result = await coro
+            result = await asyncio.wait_for(coro, timeout=BACKEND_TIMEOUT_S)
+        except TimeoutError:
+            result = ToolResult(
+                tool=name,
+                query=query,
+                result="",
+                error=f"timeout: backend exceeded {BACKEND_TIMEOUT_S:.0f}s",
+            )
         except Exception as exc:
             result = ToolResult(tool=name, query=query, result="", error=str(exc))
         if not raw and not result.error and result.result and is_low_signal(result.result):
@@ -339,7 +347,7 @@ async def _run_all_filtered(
         results.append(result)
         return result
 
-    tasks = [_wrap(name, func(query)) for name, func in active.items()]
+    tasks = [_wrap(name, func(query)) for name, func in backend_map.items()]
     await asyncio.gather(*tasks)
 
     _log_run(query, results)
@@ -351,13 +359,11 @@ async def _run_all_filtered(
 _tree = CommandTree("rheotaxis")
 _tree.add_command(
     "search",
-    "Search all backends in parallel",
+    "Search all 7 backends in parallel",
     params=[
         {"name": "query", "type": "positional", "required": True},
         {"name": "--text", "type": "flag", "description": "Markdown output"},
         {"name": "--json", "type": "flag", "description": "Force JSON in TTY"},
-        {"name": "--exclude", "type": "string", "description": "Comma-separated backends to skip"},
-        {"name": "-b", "type": "string", "description": "Comma-separated backend whitelist"},
         {"name": "-q", "type": "multi", "description": "Additional queries"},
         {"name": "--raw", "type": "flag", "description": "Skip quality filter"},
     ],
@@ -380,27 +386,6 @@ app = cyclopts.App(
 )
 
 
-def _resolve_exclude(
-    exclude: str | None,
-    backends: str | None,
-) -> set[str]:
-    """Compute exclude set from --exclude or -b. Default = empty (run all backends)."""
-    if exclude and backends:
-        emit_err(
-            "rheotaxis search",
-            "--exclude and -b are mutually exclusive",
-            "MUTUAL_EXCLUSION",
-            fix="Use --exclude OR -b, not both",
-        )
-        raise SystemExit(EXIT_ERROR)
-    if exclude:
-        return {name.strip() for name in exclude.split(",") if name.strip()}
-    if backends:
-        selected = {name.strip() for name in backends.split(",") if name.strip()}
-        return set(ALL_BACKENDS) - selected
-    return set()
-
-
 def _use_json(json_flag: bool, text_flag: bool) -> bool:
     """Determine output mode: JSON when piped, when --json, unless --text."""
     if text_flag:
@@ -418,11 +403,9 @@ def search(
     queries: Annotated[tuple[str, ...], cyclopts.Parameter(name=["-q", "--queries"])] = (),
     text: bool = False,
     json: Annotated[bool, cyclopts.Parameter(name="--json")] = False,
-    exclude: str | None = None,
-    backends: Annotated[str | None, cyclopts.Parameter(name=["-b"])] = None,
     raw: bool = False,
 ) -> None:
-    """Search all backends in parallel. Quality filter always-on (--raw to bypass)."""
+    """Search all 7 backends in parallel. Quality filter always-on (--raw to bypass)."""
     if query is None:
         if _is_agent():
             emit_ok("rheotaxis", _tree.to_dict())
@@ -435,16 +418,14 @@ def search(
             console.print('  [cyan]rheotaxis research[/cyan] "query"   Deep Perplexity research')
             console.print("  [cyan]rheotaxis backends[/cyan]            List backends + health")
             console.print(
-                "\nFlags: --text (markdown), --json (force JSON), --raw (skip quality filter),"
-                "\n       -b name1,name2 (whitelist), --exclude name1,name2 (skip)"
+                "\nFlags: --text (markdown), --json (force JSON), --raw (skip quality filter)"
             )
         return
     all_queries = [query, *queries]
     use_json = _use_json(json, text)
-    exclude_set = _resolve_exclude(exclude, backends)
 
     if len(all_queries) == 1:
-        results = asyncio.run(_run_all_filtered(query, exclude=exclude_set or None, raw=raw))
+        results = asyncio.run(_run_all_filtered(query, raw=raw))
 
         if text:
             results = sorted(
@@ -482,12 +463,11 @@ def search(
         else:
             _print_rich(query, results)
     else:
-        _search_multi(all_queries, exclude_set, text, use_json, raw)
+        _search_multi(all_queries, text, use_json, raw)
 
 
 def _search_multi(
     queries: list[str],
-    exclude_set: set[str],
     text: bool,
     use_json: bool,
     raw: bool,
@@ -495,9 +475,7 @@ def _search_multi(
     """Handle multi-query search."""
 
     async def _run_multi() -> list[list[ToolResult]]:
-        tasks = [
-            _run_all_filtered(query, exclude=exclude_set or None, raw=raw) for query in queries
-        ]
+        tasks = [_run_all_filtered(query, raw=raw) for query in queries]
         return await asyncio.gather(*tasks)
 
     per_query = asyncio.run(_run_multi())
