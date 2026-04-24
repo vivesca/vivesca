@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """rheotaxis — multi-backend web search CLI.
 
+Default: fans out to all 7 backends in parallel. Convergence = confidence,
+divergence = signal. Override only when you know what you want.
+
 Subcommands:
-    rheotaxis "query"                     # search (JSON when piped, rich in TTY)
+    rheotaxis "query"                     # search all 7 (JSON when piped, rich in TTY)
     rheotaxis search "query" --text       # markdown output
     rheotaxis search "query" --raw        # skip quality filter
     rheotaxis search "q1" -q "q2"        # multi-query
-    rheotaxis search "query" -b exa,serper
+    rheotaxis search "query" -b exa,serper           # whitelist subset
+    rheotaxis search "query" --exclude grok,zhipu    # skip subset
     rheotaxis research "query"            # deep research via Perplexity
     rheotaxis backends                    # list backends + health
-    rheotaxis route "query"               # show classification only
 """
 
 from __future__ import annotations
 
 import asyncio
 import os
-import re as _re
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -275,133 +277,6 @@ def _apply_quality_filter(results: list[ToolResult]) -> list[ToolResult]:
     return filtered
 
 
-# --- Query-type routing ---
-
-_FACTUAL_PATTERNS = [
-    _re.compile(r"\bhow\s+to\b", _re.IGNORECASE),
-    _re.compile(r"\bwhat\s+is\b", _re.IGNORECASE),
-    _re.compile(r"\bwhat\s+are\b", _re.IGNORECASE),
-    _re.compile(r"\d+\.\d+(?:\.\d+)?"),
-    _re.compile(r"\b(?:api|sdk|cli|http|grpc|rest)\b", _re.IGNORECASE),
-    _re.compile(r"\bget\b.*\b(?:method|function|request)\b", _re.IGNORECASE),
-]
-_URL_PATTERNS = [
-    _re.compile(r"https?://\S+", _re.IGNORECASE),
-    _re.compile(r"\bwww\.\S+\.\w+", _re.IGNORECASE),
-]
-
-_FACTUAL_KEYWORDS = frozenset(
-    {
-        "install",
-        "setup",
-        "configure",
-        "configuration",
-        "tutorial",
-        "documentation",
-        "reference",
-        "guide",
-        "example",
-        "error",
-        "debug",
-        "fix",
-        "syntax",
-        "compile",
-        "compiler",
-        "build",
-        "deploy",
-        "deployment",
-        "version",
-        "release",
-        "endpoint",
-        "function",
-        "method",
-        "class",
-        "module",
-        "library",
-        "package",
-        "import",
-        "parameter",
-        "argument",
-        "return",
-        "type",
-        "exception",
-        "traceback",
-        "stacktrace",
-        "runtime",
-        "memory",
-        "algorithm",
-        "protocol",
-        "server",
-        "client",
-        "request",
-        "response",
-        "database",
-        "query",
-        "sql",
-        "migration",
-        "schema",
-    }
-)
-
-_OPINION_KEYWORDS = frozenset(
-    {
-        "best",
-        "recommend",
-        "recommendation",
-        "compare",
-        "comparison",
-        "vs",
-        "versus",
-        "should",
-        "opinion",
-        "review",
-        "favorite",
-        "top",
-        "alternatives",
-        "alternative",
-        "pros",
-        "cons",
-        "advantage",
-        "disadvantage",
-        "prefer",
-        "better",
-        "worse",
-    }
-)
-
-
-def classify_query_keywords(query: str) -> str:
-    """Classify using word-level keyword matching. Returns factual/opinion/unknown."""
-    words = set(query.lower().split())
-    if words & _FACTUAL_KEYWORDS:
-        return "factual"
-    if words & _OPINION_KEYWORDS:
-        return "opinion"
-    return "unknown"
-
-
-def classify_query(query: str) -> str:
-    """Classify a query as factual/url/opinion for backend routing."""
-    for pat in _URL_PATTERNS:
-        if pat.search(query):
-            return "url"
-    for pat in _FACTUAL_PATTERNS:
-        if pat.search(query):
-            return "factual"
-    if classify_query_keywords(query) == "factual":
-        return "factual"
-    return "opinion"
-
-
-def route_backends(query_type: str) -> list[str]:
-    """Return the list of backends to invoke for a given query type."""
-    if query_type == "factual":
-        return ["perplexity", "exa"]
-    if query_type == "url":
-        return ["exa"]
-    return list(ALL_BACKENDS)
-
-
 # --- Streaming search engine ---
 
 
@@ -496,11 +371,6 @@ _tree.add_command(
     ],
 )
 _tree.add_command("backends", "List all backends with health status", params=[])
-_tree.add_command(
-    "route",
-    "Show query classification + routing without searching",
-    params=[{"name": "query", "type": "positional", "required": True}],
-)
 
 # --- cyclopts app ---
 
@@ -513,9 +383,8 @@ app = cyclopts.App(
 def _resolve_exclude(
     exclude: str | None,
     backends: str | None,
-    query: str | None,
 ) -> set[str]:
-    """Compute exclude set from --exclude, -b, or auto-route."""
+    """Compute exclude set from --exclude or -b. Default = empty (run all backends)."""
     if exclude and backends:
         emit_err(
             "rheotaxis search",
@@ -529,10 +398,6 @@ def _resolve_exclude(
     if backends:
         selected = {name.strip() for name in backends.split(",") if name.strip()}
         return set(ALL_BACKENDS) - selected
-    if query:
-        qtype = classify_query(query)
-        routed = route_backends(qtype)
-        return set(ALL_BACKENDS) - set(routed)
     return set()
 
 
@@ -566,17 +431,17 @@ def search(
 
             console = Console()
             console.print("[bold]rheotaxis[/bold] — multi-backend web search\n")
-            console.print('  [cyan]rheotaxis search[/cyan] "query"     Search all backends')
+            console.print('  [cyan]rheotaxis search[/cyan] "query"     Search all 7 backends')
             console.print('  [cyan]rheotaxis research[/cyan] "query"   Deep Perplexity research')
             console.print("  [cyan]rheotaxis backends[/cyan]            List backends + health")
-            console.print('  [cyan]rheotaxis route[/cyan] "query"      Show classification only')
             console.print(
-                "\nFlags: --text (markdown), --json (force JSON), --raw (skip quality filter)"
+                "\nFlags: --text (markdown), --json (force JSON), --raw (skip quality filter),"
+                "\n       -b name1,name2 (whitelist), --exclude name1,name2 (skip)"
             )
         return
     all_queries = [query, *queries]
     use_json = _use_json(json, text)
-    exclude_set = _resolve_exclude(exclude, backends, query)
+    exclude_set = _resolve_exclude(exclude, backends)
 
     if len(all_queries) == 1:
         results = asyncio.run(_run_all_filtered(query, exclude=exclude_set or None, raw=raw))
@@ -797,24 +662,6 @@ def list_backends() -> None:
             )
         console.print(table)
         console.print(f"\nHealth: {health_status}")
-
-
-@app.command
-def route(query: str) -> None:
-    """Show query classification + routing without searching."""
-    qtype = classify_query(query)
-    routed = route_backends(qtype)
-    result = {"query": query, "type": qtype, "backends": routed}
-
-    if _is_agent():
-        emit_ok("rheotaxis route", result)
-    else:
-        from rich.console import Console
-
-        console = Console()
-        console.print(f"[bold]Query:[/bold] {query}")
-        console.print(f"[bold]Type:[/bold] {qtype}")
-        console.print(f"[bold]Backends:[/bold] {', '.join(routed)}")
 
 
 if __name__ == "__main__":

@@ -15,40 +15,44 @@ triggers:
 
 # rheotaxis — Web Search
 
-Multi-backend web search CLI. Runs 7 backends in parallel (~$0.03), returns structured results.
-Primary search tool for all agents (CC, Codex, Gemini, Goose).
+Multi-backend web search CLI. Always fans out to all 7 backends in parallel (~$0.066/call).
+Convergence across backends = confidence; divergence = signal. Primary search tool for all
+agents (CC, Codex, Gemini, Goose).
 
 ## Usage
 
 ```bash
-# Default: 7 backends, porin JSON
+# Default: all 7 backends, porin JSON when piped
 rheotaxis "JINS glasses store Hong Kong Island"
 
 # Human-readable markdown
 rheotaxis "nearest gym Quarry Bay" --text
 
 # Perplexity deep research (~$0.40) — use for complex questions
-rheotaxis "HKMA policy on generative AI in banking" --research
+rheotaxis research "HKMA policy on generative AI in banking"
 
-# Skip backends (English-only query, skip Chinese search)
+# Skip specific backends (English-only query, skip Chinese search)
 rheotaxis "rust async patterns" --exclude zhipu
 
-# Only specific backends (fast, targeted)
+# Whitelist specific backends (rare — only when you know what you want)
 rheotaxis "weather Hong Kong" -b serper,tavily
 
 # Multi-query framing (triangulate)
 rheotaxis "JINS Wan Chai" -q "JINS Hong Kong Island" -q "JINS store locator HK"
 
 # Check backend health
-rheotaxis --backends
+rheotaxis backends
 ```
 
 ## When to Use
 
 - **Default search**: any "search for X", "look up X", "find X online"
-- **Research mode** (`--research`): complex questions needing synthesis, deep analysis
+- **Research mode** (`rheotaxis research`): complex questions needing synthesis, deep analysis
 - **Multi-query** (`-q`): when a single framing might miss results (locations, products, niche topics)
 - **Exclude** (`--exclude zhipu`): English-only queries where Chinese results add noise
+
+There is no auto-routing or query-classifier. Every search hits all 7 backends unless you
+explicitly narrow with `-b` or `--exclude`.
 
 ## When NOT to Use
 

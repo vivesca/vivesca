@@ -99,7 +99,9 @@ class TestArguments:
         assert result.returncode != 2
 
     def test_multi_query_flag_accepted(self):
-        result = run_cli("primary", "-q", "alt1", "-q", "alt2")
+        # Multi-query with default fan-out = 7 backends * 3 queries = 21 parallel calls.
+        # Slow backends (perplexity ~5s) dominate; bump timeout vs the 30s default.
+        result = run_cli("primary", "-q", "alt1", "-q", "alt2", timeout=120)
         assert result.returncode != 2
 
     def test_exclude_flag_accepted(self):
@@ -170,12 +172,12 @@ class TestOutputFormat:
 
 
 # ---------------------------------------------------------------------------
-# Query-type routing
+# Default backend selection — fan out to all 7
 # ---------------------------------------------------------------------------
 
 
-class TestQueryRouting:
-    """Unit tests for query-type classification and backend routing."""
+class TestDefaultBackends:
+    """Default behaviour: no auto-routing; every search runs all 7 backends."""
 
     @pytest.fixture
     def mod(self):
@@ -184,66 +186,21 @@ class TestQueryRouting:
         exec(open(RHEOTAXIS).read(), ns)
         return ns
 
-    # --- classify_query ---
+    def test_no_classifier_remains(self, mod):
+        """The query-classifier was removed — defaults must fan out."""
+        assert "classify_query" not in mod
+        assert "route_backends" not in mod
 
-    def test_factual_how_to(self, mod):
-        assert mod["classify_query"]("how to install python 3.12") == "factual"
+    def test_resolve_exclude_default_empty(self, mod):
+        """Default (no flags) returns empty exclude set => all backends run."""
+        assert mod["_resolve_exclude"](None, None) == set()
 
-    def test_factual_version(self, mod):
-        assert mod["classify_query"]("numpy 2.1.0 release notes") == "factual"
+    def test_resolve_exclude_with_exclude_flag(self, mod):
+        assert mod["_resolve_exclude"]("grok,zhipu", None) == {"grok", "zhipu"}
 
-    def test_factual_what_is(self, mod):
-        assert mod["classify_query"]("what is rheotaxis in biology") == "factual"
-
-    def test_factual_api_name(self, mod):
-        assert mod["classify_query"]("boto3.client API reference") == "factual"
-
-    def test_factual_get_method(self, mod):
-        assert mod["classify_query"]("get request timeout in requests library") == "factual"
-
-    def test_url_extraction(self, mod):
-        assert mod["classify_query"]("https://example.com/docs") == "url"
-
-    def test_url_http(self, mod):
-        assert mod["classify_query"]("http://github.com/repo") == "url"
-
-    def test_url_www(self, mod):
-        assert mod["classify_query"]("www.example.com/page") == "url"
-
-    def test_opinion_generic(self, mod):
-        assert mod["classify_query"]("best restaurants in Tokyo") == "opinion"
-
-    def test_opinion_bare_word(self, mod):
-        assert mod["classify_query"]("JINS Hong Kong") == "opinion"
-
-    def test_opinion_compare(self, mod):
-        assert mod["classify_query"]("best laptop for coding 2025") == "opinion"
-
-    # --- route_backends ---
-
-    def test_factual_routes_perplexity_exa(self, mod):
-        backends = mod["route_backends"]("factual")
-        assert "perplexity" in backends
-        assert "exa" in backends
-        assert "grok" not in backends
-
-    def test_url_routes_exa_only(self, mod):
-        backends = mod["route_backends"]("url")
-        assert backends == ["exa"]
-
-    def test_opinion_routes_all(self, mod):
-        backends = mod["route_backends"]("opinion")
-        assert set(backends) == {"grok", "exa", "perplexity", "tavily", "serper", "zhipu", "jina"}
-
-    # --- integration: --route flag is accepted ---
-
-    def test_route_flag_accepted(self):
-        result = run_cli("test query", "--route")
-        assert result.returncode != 2
-
-    def test_no_route_flag_still_works(self):
-        result = run_cli("--backends")
-        assert result.returncode == 0
+    def test_resolve_exclude_with_b_flag(self, mod):
+        excluded = mod["_resolve_exclude"](None, "exa,perplexity")
+        assert excluded == set(mod["ALL_BACKENDS"]) - {"exa", "perplexity"}
 
 
 # ---------------------------------------------------------------------------
