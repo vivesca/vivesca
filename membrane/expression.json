@@ -6,9 +6,7 @@
     "CLAUDE_CODE_NO_FLICKER": "1"
   },
   "permissions": {
-    "deny": [
-      "Agent(Explore)"
-    ]
+    "deny": []
   },
   "hooks": {
     "UserPromptSubmit": [
@@ -117,15 +115,12 @@
     }
   },
   "outputStyle": "Concise",
-  "alwaysThinkingEnabled": true,
+  "alwaysThinkingEnabled": false,
   "effortLevel": "high",
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
   "voiceEnabled": true,
   "teammateMode": "in-process",
-  "allowedTools": [
-    "Bash"
-  ],
   "thinkingDisplay": "none",
   "feedbackSurveyState": {
     "lastShownTime": 1753941965657
