@@ -1,6 +1,8 @@
 ---
 name: cytokinesis
-description: Capture session learnings before context is lost. "wrap up", "end of session"
+description: >
+  Use when ending a session or wrapping up work. "wrap up", "end of session", "cytokinesis".
+  Finishes outstanding work before consolidating — "wrap up" means complete then close.
 cli: cytokinesis
 user_invocable: true
 context: inline
@@ -13,47 +15,21 @@ allowed-tools:
   - Glob
 ---
 
-# Cytokinesis — Session Memory Consolidation
+# Cytokinesis — Session Consolidation
 
 > The ideal cytokinesis has nothing left to do. Capture continuously using the routing table in genome — this skill is the verification pass, not the main event.
 
 ## Routing Table
 
-This table lives in genome.md (always-loaded) so CC can act on signals mid-session. The copy here is reference.
+**Lives in genome.md (always-loaded).** Don't duplicate here — `grep "Session Capture" ~/germline/genome.md` if you need it mid-skill. The table routes corrections, findings, state changes, and substance to the right persistence layer as they happen during the session.
 
-| Signal | Route to | Gate |
-|---|---|---|
-| Correction from Terry | Memory (feedback, protected if architectural) | Always file |
-| Surprise / unexpected behavior | Memory (finding) | Always file |
-| Technical discovery (debugging, workarounds) | Memory (finding) | Would a fresh session hit the same wall? |
-| Resolution ("that worked") | Memory (finding) if non-trivial | Would a fresh session benefit? |
-| Repeated manual step (2+) | Hook candidate (methylation) | Always file |
-| Workflow improvement idea | Skill edit (now, not deferred) | Always file |
-| Taste / preference confirmed | Memory (feedback) | Non-obvious preference? File it |
-| State change | Tonus.md | Always update |
-| Commitment / action | Praxis.md (with context) | Always file |
-| Named concept / deliverable definition | Memory (project or finding) | "Could Terry reference this tomorrow?" |
-| Strategic positioning decision | Memory (project) | Non-obvious framing? File it |
-| Thesis / conclusion arrived at through discussion | Memory (project or finding) | Would next session re-derive it? |
-| Working method / approach that emerged | Epistemics (with `skills:` link) | "Would a fresh session default to a worse approach without this?" |
-| Pattern of judgment revealed (not a single preference) | User mark (rolling — update `user_judgment_patterns.md`) | "Would this change how CC approaches work for Terry?" |
-
-**Default: FILE.** Over-filter is the LLM failure mode. Priority: prediction errors > novelty > emotional weight > pattern completion > routine.
-
-**Substance capture (the missing category).** Progress = what got done. State = what's true. Substance = what was concluded. When a session produces named concepts, deliverable definitions, positioning decisions, or thesis statements through discussion — these are intellectual outputs that must survive to the next session. Test: "if Terry references this tomorrow, can CC answer without engram reconstruction?" If no, file it now.
-
-**Mark type ordering (first match wins):**
-1. Terry corrected CC? → `feedback`
-2. Discovered how a system works? → `finding`
-3. Learned about an initiative/deadline/team? → `project`
-4. Found a pointer to external info? → `reference`
-5. Learned about the user? → `user`
+**Key defaults:** FILE over skip. Mark type ordering: feedback → finding → project → reference → user (first match wins). Substance (conclusions, framings, positioning decisions) = intellectual output that must survive — test: "could Terry reference this tomorrow without re-deriving it?"
 
 ## Workflow
 
-### 0. Unfinished work gate (mandatory)
+### 0. Finish outstanding work (mandatory)
 
-**Finish outstanding work first.** "Wrap up" means complete, then close — not stop and summarize.
+**"Wrap up" means complete, then close — not stop and summarize.**
 - Scan for open threads, half-done fixes, deferred items
 - **Default: finish them now.** Context is hottest now — the next session starts cold. Quick fixes (<5 min), uncommitted changes, pending dispatches with known specs → do them.
 - Park only if the work genuinely needs Terry's input or would take >15 min.
@@ -63,13 +39,13 @@ This table lives in genome.md (always-loaded) so CC can act on signals mid-sessi
 
 **Correction backstop first:** scan the session for corrections you acknowledged but didn't route to a mark file. This is your dominant failure mode — you recognize corrections ("noted", "good point", "updated") but don't file them. Find those moments and file now. If any are found, set `late_correction=true`.
 
-Then: run `cytokinesis gather`. Scan session against the routing table for any other missed signals. Also scan for emergent patterns — cross-session insights that only crystallize at session end (these are legitimately wrap-only catches, not mid-session failures).
+Then: run `cytokinesis gather`. Scan session against the routing table for any other missed signals. Also scan for emergent patterns — cross-session insights that only crystallize at session end.
 
 Present candidates with routing decisions. Act-and-report, don't block on input.
 
-If a filed correction or learning invalidates a skill's instructions, edit the skill now — don't defer.
+If a filed correction or learning invalidates a skill's instructions, edit the skill now — don't defer. Skills over marks for durable instructions.
 
-**MEMORY.md ≥145 lines →** downregulate by recurrence signal. Check `hits:` and `last-seen:` in mark frontmatter. Lowest hits + oldest last-seen → `~/epigenome/chromatin/immunity/memory-overflow.md`.
+**MEMORY.md ≥145 lines →** downregulate by recurrence signal. Lowest hits + oldest last-seen → `~/epigenome/chromatin/immunity/memory-overflow.md`.
 
 ### 2. Audit signal (proprioception)
 
@@ -82,19 +58,11 @@ Count findings routed in this pass:
 
 This trends toward zero. `filed=0` is the ideal session.
 
-**Sunset test:** when `late_correction=true` stays below 15% of sessions for 14 consecutive days, delete the correction backstop from Step 1 and rely on ambient routing.
-
 ### 3. Publish check
 
-If the session produced a non-obvious insight that took >30 minutes to reach, draft and publish now. The insight is hottest in the session that produced it.
+If the session produced a non-obvious insight that took >30 minutes to reach, draft and publish now. Test: "Would I explain this to a peer over coffee?"
 
-Test: "Would I explain this to a peer over coffee?"
-
-If yes: CC drafts directly → `publish new "<title>"` → write to `~/epigenome/chromatin/secretome/` → `publish push`.
-
-**"Client-adjacent" is NOT a reason to defer.** If the insight generalises (strip names, strip org-specific details), write the generalised version NOW. The universalised insight is often stronger than the specific one. "Never defer publishing" (genome) overrides caution about engagement sensitivity.
-
-If no: state what was checked. Most infrastructure sessions genuinely don't yield posts — that's fine.
+If yes: draft → `~/epigenome/chromatin/secretome/` → publish. "Client-adjacent" is NOT a reason to defer — generalise and ship. If no: state what was checked.
 
 ### 4. Housekeeping (full mode only)
 
@@ -102,17 +70,14 @@ If no: state what was checked. Most infrastructure sessions genuinely don't yiel
 2. **Anatomy refresh:** `cd ~/germline && python3 -c "from metabolon.resources.anatomy import express_anatomy; open('anatomy.md','w').write(express_anatomy())"`
 3. **TODO sweep:** `cytokinesis archive`
 4. **Session log:** `cytokinesis daily "title"` — then edit to fill Outcomes, Parked, Arc
-5. **Tonus.md** (`~/epigenome/chromatin/Tonus.md` — canonical, synapse reads this path) — update deltas (max 15 lines, dual-ledger)
 
-The daily note edit IS the completion signal.
+**Complete all housekeeping — every commit pushed, every skill edit saved — before step 5.**
 
-### 5. Wrap summary
+### 5. Tonus = wrap summary (last step)
 
-**Complete all housekeeping before the summary.** Every commit pushed, every skill edit saved, every mark filed.
+**Tonus IS the summary.** Write `~/epigenome/chromatin/Tonus.md` first, then display it as the wrap output. Single source — no separate summary that could diverge from what the next session reads.
 
-**Tonus IS the summary.** Write Tonus first (`~/epigenome/chromatin/Tonus.md`), then display it as the wrap output. Single source — no separate summary that could diverge from what the next session reads.
-
-Tonus format (already established): Facts (established) + Progress (active). Progress should lead with open items (`[next]`, `[waiting]`, `[parked]`), then completed (`[done]`). The next session's synapse hook injects this at start — what you write here is the handoff.
+Tonus format: Facts (established) + Progress (active). Progress leads with open items (`[next]`, `[waiting]`, `[parked]`), then completed (`[done]`). Synapse injects this at session start — what you write here is the handoff.
 
 ## CLI: `cytokinesis` (on PATH)
 
@@ -122,17 +87,18 @@ Tonus format (already established): Facts (established) + Progress (active). Pro
 | `flush` | Warn about dirty repos |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |
+| `reflect --session <id>` | Scan transcript for reflection candidates |
+| `extract --input <json>` | Review candidates, recommend FILE/SKIP |
 
 ## Modes
 
-- **Full** (`/cytokinesis`) — verification + housekeeping + daily note. Stop after writes.
+- **Full** (`/cytokinesis`) — finish work + verification + housekeeping + Tonus. Stop after Tonus.
 - **Checkpoint** (`/cytokinesis checkpoint`) — verification only. Continue after output.
 
 ## Boundaries
 
 - No deep audits or research — consolidation, not workstream.
-- Process audits → `integrin`. Skill drift scans → `splicing`. Directory crystallization → do inline when you notice it.
-- Stale marks >50? Pick 3 with most stale path references, update or delete.
+- Process audits → `integrin`. Skill drift → `splicing`.
 
 ## Motifs
 - [audit-first](../motifs/audit-first.md)
