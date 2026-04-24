@@ -143,13 +143,14 @@ tests:
 
 **Single task:**
 ```bash
-mtor dispatch "prompt"
-mtor dispatch --provider infini "prompt"   # use minimax-m2.7
+mtor "prompt"
+mtor --provider infini "prompt"              # use minimax-m2.7
+mtor --spec ~/path/to/spec.md "prompt"       # attach spec (auto-updates status)
 ```
 
 **Check status:**
 ```bash
-mtor list --count 10
+mtor riboseq --count 10
 mtor status <workflow_id>
 ```
 
