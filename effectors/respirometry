@@ -363,8 +363,8 @@ def _normalise_pct(value: Any) -> float:
         percentage = float(value)
     except (TypeError, ValueError):
         return -1.0
-    if 0.0 <= percentage <= 1.0:
-        return percentage * 100.0
+    # API returns percentages (0-100), not fractions (0-1).
+    # No multiplication needed.
     return percentage
 
 
