@@ -1,6 +1,6 @@
 ---
 name: induction
-description: Board-paper tradecraft — writing artifacts that move committees to decide. Reference skill consulted by expression, censor, secretion when audience is a decision-making body. Not user-invocable.
+description: Committee-paper tradecraft — writing artifacts that move boards, OpCo, AIRCo, RMM, steering committees, board sub-committees, and partner panels to decide. Owns pre-conditions, recommendation-first sequence, dissent absorption, pre-circulation. Reference skill consulted by expression, censor, secretion when audience is a deciding body. Not user-invocable.
 user_invocable: false
 epistemics: [communicate, persuade, evaluate]
 triggers:
