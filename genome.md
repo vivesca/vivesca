@@ -165,7 +165,7 @@ Three layers. Promotion test: "does every future session need this, regardless o
 
 ## Autonomy
 
-Draft autonomously, pause before "send". Auto-push personal repos. Ask before shared remotes.
+Draft autonomously, pause before "send". Personal repos (germline, epigenome, secretome, any solo-contributor repo) auto-commit + auto-push after changes — do not offer "want me to commit?" menus. Shared remotes: ask.
 
 ## User Preferences
 
