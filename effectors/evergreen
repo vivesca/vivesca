@@ -107,10 +107,13 @@ else
 fi
 
 # ── A. Claude Code ────────────────────────────────────────────────────────
+# `claude update` drops new binaries in ~/.local/share/claude/versions/ but does
+# not flip ~/.local/bin/claude. claude-reconcile repoints and prunes.
 update_cc() {
     claude update 2>>"$LOG" && log "CC updated" || log "WARN: CC update failed"
+    ~/germline/effectors/claude-reconcile >>"$LOG" 2>&1 && log "CC reconciled" || log "WARN: CC reconcile failed"
     if ssh -o ConnectTimeout=5 "$GANGLION" true 2>/dev/null; then
-        ssh "$GANGLION" '~/.local/bin/claude update' 2>>"$LOG" && log "Ganglion CC updated" || true
+        ssh "$GANGLION" '~/.local/bin/claude update && ~/germline/effectors/claude-reconcile' 2>>"$LOG" && log "Ganglion CC updated+reconciled" || true
     fi
 }
 

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Reconcile ~/.local/bin/claude → highest version in ~/.local/share/claude/versions/
+# via a `current` symlink indirection. Also prunes all but the latest 2 versions.
+# Safe to run on soma or mac. Idempotent.
+set -euo pipefail
+
+DIR="$HOME/.local/share/claude/versions"
+[ -d "$DIR" ] || { echo "no versions dir: $DIR" >&2; exit 1; }
+
+LATEST=$(ls "$DIR" | sort -V | tail -1)
+[ -n "$LATEST" ] || { echo "no versions found in $DIR" >&2; exit 1; }
+
+ln -sfn "$DIR/$LATEST" "$HOME/.local/share/claude/current"
+ln -sfn "$HOME/.local/share/claude/current" "$HOME/.local/bin/claude"
+
+# Prune: keep last 2 versions (portable — BSD head has no negative -n)
+KEEP=2
+COUNT=$(ls "$DIR" | wc -l | tr -d ' ')
+DROP=$((COUNT - KEEP))
+if [ "$DROP" -gt 0 ]; then
+    ls "$DIR" | sort -V | head -n "$DROP" | while read -r old; do
+        rm -f "$DIR/$old"
+        echo "pruned $old"
+    done
+fi
+
+echo "claude → $LATEST"
