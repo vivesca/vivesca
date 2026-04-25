@@ -52,7 +52,7 @@ Run the deliverable through multiple models WITH the persona prompt. Minimum via
 quorate council --deep --context <file> "<persona prompt + specific challenges>"
 
 # Cold readers for stakeholder simulation
-codex exec -c model=gpt-5.4 "<persona + review prompt>"
+codex exec -c model=gpt-5.5 "<persona + review prompt>"
 gemini -m gemini-3.1-pro-preview -p "<persona + review prompt>"
 
 # Opus for same-model blind spot detection (optional)
