@@ -29,14 +29,14 @@ Run `vivesca autopoiesis probe` or call `inflammasome_probe` MCP tool.
 ### Step 3: Fix
 
 - Mechanical fixes (wrong path, missing import) -> fix directly
-- Architectural issues -> propose in ~/tmp/autopoiesis-proposal-YYYY-MM-DD.md
+- Architectural issues -> propose in ~/epigenome/chromatin/immunity/autopoiesis-proposal-YYYY-MM-DD.md
 - After each fix -> re-run probe to verify (resolution)
 
 ### Step 4: Crystallize (methylation -- learning)
 
 - If fixes were applied -> run `vivesca autopoiesis methylate`
 - Check ~/epigenome/chromatin/immunity/methylation/methylation-proposal-*.md for pending crystallizations
-- Check ~/tmp/titration-proposals-*.md for new subsystem designs
+- Check ~/epigenome/chromatin/immunity/titration-proposals-*.md for new subsystem designs
 
 ### Step 5: Grow (angiogenesis + entrainment)
 
