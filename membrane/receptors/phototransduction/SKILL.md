@@ -42,25 +42,33 @@ If photos are on the local machine already (e.g., `/tmp/`), skip to step 2.
 
 If accessing via SSH to Mac, use `rhodopsin.py` on the Mac side or AppleScript export.
 
-### 2. Auto-rotate (CRITICAL)
+### 2. Auto-rotate (CRITICAL — EXIF is not enough)
 
 **Always rotate images to correct orientation before reading.** This was the single biggest source of transcription errors — reading rotated text produces garbled output that looks plausible but is substantially wrong.
 
+**EXIF rotation is necessary but NOT sufficient.** When the source document was *displayed sideways on screen* (e.g., Word/PDF page rotated within the viewer) and then photographed in landscape, the EXIF says "normal" but the **content** is sideways. `sips --rotate 0` will not fix this — it only applies EXIF metadata.
+
+**Mandatory workflow for doc photos:**
+
 ```bash
-# On macOS: sips auto-rotates based on EXIF
-sips --rotate 0 image.jpg  # applies EXIF rotation metadata
+# Step 1 — apply EXIF first
+sips -r 0 image.jpg
 
-# Or detect and rotate explicitly
-sips -g pixelWidth -g pixelHeight -g orientation image.jpg
-# If orientation != 1, rotate:
-sips --rotate 90 image.jpg   # or 180, 270 as needed
+# Step 2 — verify content orientation by reading ONE image
+# If the doc text appears sideways (90° or 270°), rotate 90° clockwise OR counter-clockwise
+sips -r 90 image.jpg --out image_cw.jpg
+sips -r -90 image.jpg --out image_ccw.jpg
 
-# On Linux (ImageMagick):
-convert image.jpg -auto-orient image_rotated.jpg
+# Step 3 — Read both rotations, pick the one with upright text
+# Don't transcribe from a rotated photo. Stop and rotate first.
 
-# Batch rotate all:
+# Batch fallback (Linux):
 for f in *.jpg; do convert "$f" -auto-orient "$f"; done
 ```
+
+**Stop rule:** if you cannot read the document text upright after EXIF rotation, do NOT transcribe. Rotate +90° and -90°, save both, pick the readable version. This is mandatory, not optional.
+
+**Lesson from 2026-04-25:** A 12-photo OpCo paper transcription produced material errors on multiple bullets (Sponsor comments, Value Streams, RMG&R) because the photos were of a sideways-displayed Word doc. EXIF said "normal", content was 90° off. Single-pass model vision produced fluent reconstructions that read like the source but weren't. Rotation to upright fixed all of them.
 
 ### 3. Identify document boundaries
 
