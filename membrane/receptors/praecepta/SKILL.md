@@ -19,7 +19,7 @@ From Latin *praecepta* — "precepts, practical rules." The collection of simple
 - **topica** — analytical lenses ("think about X this way"). Praecepta = action defaults ("just do X").
 - **bouleusis** — planning theory. Praecepta fires *before* planning — it's the rule that says "don't plan, just act."
 - **mandatum** — delegation theory. Delegation heuristics live here; mandatum has the deeper framework.
-- **gnome** — decision capture. Praecepta provides the defaults that gnome overrides when stakes warrant deliberation.
+- **transcription-factor** (trigger: gnome) — decision capture. Praecepta provides the defaults that gnome overrides when stakes warrant deliberation.
 
 ---
 
