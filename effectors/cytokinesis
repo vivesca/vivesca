@@ -654,13 +654,19 @@ def gather(
     else:
         gates["repos_flushed"] = "DONE — all repos clean"
 
-    # Gate 6: Daily note — check if today's note has a completed session entry
+    # Gate 6: Daily note — must have (a) today's file, (b) no unfilled [LLM:]
+    # template, AND (c) a session block appended since Tonus was last touched
+    # (otherwise a cross-session stale file passes the gate).
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_file = DAILY_DIR / f"{today_str}.md"
     if daily_file.exists():
         daily_content = daily_file.read_text(encoding="utf-8")
         if "[LLM:" in daily_content:
             gates["daily_note"] = "PENDING — daily note has unfilled template. Run `cytokinesis daily` and fill sections."
+        elif NOW_MD.exists() and daily_file.stat().st_mtime + 300 < NOW_MD.stat().st_mtime:
+            # Tonus was written >5min after daily note — session likely ended
+            # without appending a block. Tolerance covers same-wrap writes.
+            gates["daily_note"] = "PENDING — daily note not updated this session (Tonus newer). Run `cytokinesis daily` and fill sections."
         else:
             gates["daily_note"] = "DONE — daily note written"
     else:
@@ -1330,13 +1336,15 @@ def verify() -> None:
     # Process audit — can't verify deterministically, trust CC
     gates["process_audit"] = "TRUST — requires LLM judgment"
 
-    # Daily note
+    # Daily note — existence + no unfilled template + updated after Tonus
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_file = DAILY_DIR / f"{today_str}.md"
     if daily_file.exists():
         daily_content = daily_file.read_text(encoding="utf-8")
         if "[LLM:" in daily_content:
             gates["daily_note"] = "PENDING — unfilled template"
+        elif NOW_MD.exists() and daily_file.stat().st_mtime + 300 < NOW_MD.stat().st_mtime:
+            gates["daily_note"] = "PENDING — Tonus newer than daily note (stale from earlier session)"
         else:
             gates["daily_note"] = "DONE"
     else:
