@@ -619,6 +619,51 @@ def mod_ideal_code(data):
     flag.touch()
 
 
+# ── excisor: nudge to log paper deletions in cutting-room file ──
+
+
+def mod_excisor(data):
+    """After substantive deletion from a deliverable paper, nudge to log in cutting room.
+
+    Excision = enzymatic removal of material. The cell biology equivalent of editing
+    out a paragraph: the material is cut out cleanly and may need to go somewhere
+    rather than be discarded. Cutting-room files preserve revisit conditions for
+    rejected content.
+    """
+    tool = data.get("tool", "")
+    if tool != "Edit":  # Write is new content, not deletion
+        return
+    ti = data.get("tool_input", {})
+    fp = ti.get("file_path", "")
+    if "/chromatin/immunity/" not in fp:
+        return
+    if "cutting-room" in Path(fp).name:
+        return  # editing the cutting-room file itself
+
+    old_str = ti.get("old_string", "")
+    new_str = ti.get("new_string", "")
+    deleted_chars = len(old_str) - len(new_str)
+    if deleted_chars < 80:
+        return
+
+    # Skip frontmatter-only or whitespace-only deltas
+    delta = old_str.replace(new_str, "").strip() if new_str in old_str else old_str
+    if not delta or delta.startswith("---") or len(delta.strip()) < 40:
+        return
+
+    paper_stem = Path(fp).stem
+    # Strip date suffix (e.g. -2026-04-27) and version (e.g. -v1.1) for cutting-room match
+    cutting_stem = re.sub(r"-v\d+(\.\d+)?(-\d{4}-\d{2}-\d{2})?$", "", paper_stem)
+    cutting_stem = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", cutting_stem)
+    cutting_room = Path(fp).parent / f"cutting-room-{cutting_stem}.md"
+
+    if cutting_room.exists():
+        msg = f"EXCISOR: ~{deleted_chars} chars removed from {Path(fp).name}. Log in {cutting_room.name}?"
+    else:
+        msg = f"EXCISOR: ~{deleted_chars} chars removed from {Path(fp).name}. Create cutting-room-{cutting_stem}.md?"
+    print(msg, file=sys.stderr)
+
+
 # ── glycolytic commit message (deterministic, no symbiont) ──
 
 
@@ -1597,6 +1642,10 @@ def main():
     # Ligation (Edit/Write general)
     if tool in ("Edit", "Write"):
         modules.append(mod_ligation)
+
+    # Excisor (Edit on chromatin/immunity papers — nudge to cutting room)
+    if tool == "Edit" and "/chromatin/immunity/" in fp:
+        modules.append(mod_excisor)
 
     # Skill post-processing
     if tool == "Skill":
