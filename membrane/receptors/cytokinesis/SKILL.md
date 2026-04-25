@@ -69,7 +69,7 @@ If yes: draft → `~/epigenome/chromatin/secretome/` → publish. "Client-adjace
 1. **Uncommitted?** `cytokinesis flush` — commit atomically, don't bulk-flush
 2. **Anatomy refresh:** `cd ~/germline && python3 -c "from metabolon.resources.anatomy import express_anatomy; open('anatomy.md','w').write(express_anatomy())"`
 3. **TODO sweep:** `cytokinesis archive`
-4. **Session log:** `cytokinesis daily "title"` — then edit to fill Outcomes, Parked, Arc
+4. **Session log:** append a `## Session N — title` block to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` covering this session's What / How / Mechanised / Parked / Residual / Arc. Use `cytokinesis daily "title"` to insert a template, then edit. Compact-marker mtime bumps don't count — gate enforces daily mtime > Tonus mtime, so the session block must be appended IMMEDIATELY before Tonus is written. If a daily file already has today's session 17 captured at compact, post-compact session 18+ MUST get its own appended block.
 
 **Complete all housekeeping — every commit pushed, every skill edit saved — before step 5.**
 
