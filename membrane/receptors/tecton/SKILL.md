@@ -1,14 +1,19 @@
 ---
 name: tecton
-description: Reference for vault note structure — atomicity, interlinking, hub vs. detail, when to split, where notes live. Not user-invocable — consult when creating or refactoring vault notes.
+description: Vault note structure reference — when to split a note, how to interlink, frontmatter conventions, hub vs. detail. Consult BEFORE writing any new chromatin note, and when deciding to split, merge, rename, or cross-link existing notes. Includes the three-question interlinking checklist (primary sources, stakeholders, adjacent context) applied on every note write. Also covers the atomicity lifecycle test (independent updates, reuse of parts, open-by-itself value).
 user_invocable: false
 triggers:
   - tecton
   - vault note
   - note structure
   - split note
+  - merge note
   - interlink
   - atomic note
+  - new note
+  - chromatin note
+  - related frontmatter
+  - wikilink
 ---
 
 # Vault Note Structure
