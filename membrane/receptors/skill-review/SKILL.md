@@ -20,8 +20,8 @@ Periodic audit to catch skill drift, identify gaps, and prune unused skills.
 ### 1. Inventory Check
 
 ```bash
-ls -la /Users/terry/skills/*/SKILL.md | wc -l
-ls -la /Users/terry/.claude/skills/*/SKILL.md | wc -l
+ls -la /home/vivesca/skills/*/SKILL.md | wc -l
+ls -la /home/vivesca/.claude/skills/*/SKILL.md | wc -l
 ```
 
 Count skills in both locations. Flag any missing symlinks.
@@ -29,7 +29,7 @@ Count skills in both locations. Flag any missing symlinks.
 **Budget check** — estimate character usage vs the configured limit:
 ```bash
 # Skills in budget (excludes disable-model-invocation: true)
-grep -rL 'disable-model-invocation: true' /Users/terry/skills/*/SKILL.md | wc -l
+grep -rL 'disable-model-invocation: true' /home/vivesca/skills/*/SKILL.md | wc -l
 # Rough estimate: in-budget count × 309 chars (200 avg desc + 109 overhead)
 # Note: SLASH_COMMAND_TOOL_CHAR_BUDGET is a no-op since v2.1.32 — auto-scales at 2% of context window
 # Sonnet 4.6 Max (200k) = ~4k token budget. Aim to reduce via consolidation.
@@ -44,7 +44,7 @@ Search recent chat history for skill invocations. **Important:** Count BOTH expl
 # Slash invocations
 import json, re, collections
 counts = collections.Counter()
-with open('/Users/terry/.claude/anam.jsonl') as f:
+with open('/home/vivesca/.claude/anam.jsonl') as f:
     for line in f:
         data = json.loads(line)
         msg = data.get('display', '').lower()
@@ -165,7 +165,7 @@ Quick skim of releases/READMEs for new patterns worth cherry-picking. Don't adop
 
 ### 9. Save to Vault
 
-Save review to `/Users/terry/notes/Skill Review - YYYY-MM.md`
+Save review to `/home/vivesca/notes/Skill Review - YYYY-MM.md`
 
 ## Quick Checks (Weekly)
 
