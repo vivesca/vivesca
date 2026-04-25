@@ -116,7 +116,7 @@
   },
   "outputStyle": "Concise",
   "alwaysThinkingEnabled": false,
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
   "voiceEnabled": true,
