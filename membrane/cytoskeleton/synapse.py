@@ -962,8 +962,8 @@ def mod_overnight(data):
 # ── telomere: context aging nudge ────────────────────────
 
 _TELO_THRESHOLDS = {
-    15: "[telomere] Session depth 15 — consider rewind (esc-esc) or proactive /compact with direction before context rots.",
-    30: "[telomere] Session depth 30 — context aging. /clear with a brief, or /compact focus on <current goal>. New task = new session.",
+    75: "[telomere] Session depth 75 — consider rewind (esc-esc) or proactive /compact with direction before context rots.",
+    150: "[telomere] Session depth 150 — context aging. /clear with a brief, or /compact focus on <current goal>. New task = new session.",
 }
 
 
