@@ -98,6 +98,16 @@ When one note supersedes another's facts, add a pointer at the stale location ra
 
 Conversation Cards and positioning notes → link to the Reference note for facts. Never repeat numbers inline without linking to the source.
 
+### Three-question checklist before saving any new note
+
+Systematic gap: CC tends to link the *most obvious neighbour* (the file the note is directly about) but under-link primary sources and adjacent context. Before finalising any new note, answer all three:
+
+1. **Primary sources?** Which verbatim artefacts (emails, Teams messages, meeting notes, deck transcriptions) does this note reason from? Link them.
+2. **Stakeholders?** Which people does this note touch? Link their profile notes.
+3. **Adjacent context?** Which other notes would a fresh session want to land on from this one? Link them.
+
+If any of the three is empty, the note is likely under-linked. Pause and fill before committing. This applies to every new note: draft correspondence, project analyses, findings, profiles, even feedback marks.
+
 ## Anti-Patterns
 
 - **God note:** One 1000+ line note covering multiple concerns (e.g. `Capco - Principal Consultant, AI Solution Lead.md`). Tolerate when actively iterating; split after stabilising.
