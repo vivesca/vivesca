@@ -102,7 +102,7 @@ def mod_anamnesis(data):
 
     lines = []
     now = datetime.now(HKT)
-    lines.append(f"Current date/time: {now.strftime('%A, %d %B %Y (HKT)')}")
+    lines.append(f"Current date/time: {now.strftime('%A, %d %B %Y, %H:%M HKT')}")
 
     try:
         c = ANAM_NOW.read_text(encoding="utf-8").strip()
