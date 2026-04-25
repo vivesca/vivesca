@@ -106,3 +106,6 @@ loci/pulse
 # Plans moved to ~/epigenome/chromatin/loci/plans/ (private repo) — 2026-04-06
 # HSBC/Capco leak audit retired this path; see genome.md "Specs go to" rule.
 loci/plans/
+
+# OpenAI Codex auto-managed system skills — regenerated each session, not source-of-truth
+membrane/receptors/.system/
