@@ -1,6 +1,6 @@
 ---
 name: mappa
-description: "Life areas diagnostic — maps Terry's key domains, healthy indicators, and neglect signals. Consulted by kairos, daily, eow, wrap. Not user-invocable — internal reference only."
+description: "Life areas diagnostic — maps Terry's key domains, healthy indicators, and neglect signals. Reference skill — consult when surfacing neglected areas during reviews or when Terry says 'I feel stuck'. Not user-invocable."
 triggers:
   - life areas
   - life balance
@@ -16,7 +16,7 @@ disable-model-invocation: true
 
 *Mappa* (Latin: map/chart) — a personal diagnostic for life balance. Not self-help, not aspirational — a systems check. When something feels off but you can't name it, scan this.
 
-**Purpose:** Reference skill consulted by other skills (kairos, daily, eow, wrap) to surface neglected areas. Also useful when Terry says "I feel stuck" or "something's off" but can't pinpoint it.
+**Purpose:** Reference skill — consult when surfacing neglected areas during reviews (kairos, daily, eow), or when Terry says "I feel stuck" / "something's off" but can't pinpoint it. Not currently auto-loaded by any caller; pull manually as needed.
 
 ## The Areas
 
