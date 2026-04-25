@@ -179,7 +179,7 @@ _(no description)_
   Files: `mtor`
 
 ### Standalone scripts (179 total, on PATH)
-  Recent: `claude-reconcile`, `evergreen`, `correction_trend.py`, `deadline_scan.py`, `rheotaxis`, `refresh-env-secrets`, `respirometry`, `ribosome`, `methylation`, `cytokinesis`
+  Recent: `cytokinesis`, `rheotaxis`, `claude-reconcile`, `evergreen`, `correction_trend.py`, `deadline_scan.py`, `refresh-env-secrets`, `respirometry`, `ribosome`, `methylation`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -392,8 +392,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **140**
-- Most active: `rheotaxis` (34), `tonus` (27), `chemotaxis` (10), `pinocytosis` (9), `endocytosis` (9)
+- Signals (last 7 days): **130**
+- Most active: `rheotaxis` (34), `tonus` (27), `pinocytosis` (9), `endocytosis` (9), `endosomal` (9)
 
 ## Known Lesions
 
