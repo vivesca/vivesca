@@ -27,41 +27,41 @@ Use when:
 ### Run full digest (all sources, last 30 days)
 
 ```bash
-uv run ~/skills/digest/digest.py
+uv run ~/germline/membrane/receptors/digest/digest.py
 ```
 
 ### Digest a specific source
 
 ```bash
-uv run ~/skills/digest/digest.py huberman
-uv run ~/skills/digest/digest.py rhonda
+uv run ~/germline/membrane/receptors/digest/digest.py huberman
+uv run ~/germline/membrane/receptors/digest/digest.py rhonda
 ```
 
 ### Custom lookback period
 
 ```bash
-uv run ~/skills/digest/digest.py --days 60
+uv run ~/germline/membrane/receptors/digest/digest.py --days 60
 ```
 
 ### Dry run (list episodes without processing)
 
 ```bash
-uv run ~/skills/digest/digest.py --dry-run
+uv run ~/germline/membrane/receptors/digest/digest.py --dry-run
 ```
 
 ### Choose model
 
 ```bash
 # Default: Gemini Flash (cheap, 1M context)
-uv run ~/skills/digest/digest.py --model google/gemini-2.0-flash-001
+uv run ~/germline/membrane/receptors/digest/digest.py --model google/gemini-2.0-flash-001
 
 # Higher quality
-uv run ~/skills/digest/digest.py --model anthropic/claude-sonnet-4
+uv run ~/germline/membrane/receptors/digest/digest.py --model anthropic/claude-sonnet-4
 ```
 
 ## Sources
 
-Configured in `~/skills/digest/sources.yaml`. Currently:
+Configured in `~/germline/membrane/receptors/digest/sources.yaml`. Currently:
 - **Huberman Lab** (@hubermanlab) — neuroscience, health protocols
 - **FoundMyFitness** (@FoundMyFitness) — Dr. Rhonda Patrick, longevity, nutrition
 
