@@ -111,7 +111,7 @@ Mining abstract topics ("what is judgment?") works but plateaus. **Specimens** a
 1. **Probe** — ask an open question about the domain ("what is planning?")
 2. **Push past first answer** — the second and third layers are where structure lives. Ask "what distinguishes this from X?" or "where does this break down?"
 3. **Find the bones** — look for: taxonomy (types/categories), failure modes, axes of improvement, key distinctions
-4. **Cross-model probe** — run the same prompt on Gemini CLI + Codex (+ OpenCode if available). Each model's weights are a different lossy compression — the delta reveals what each noticed that the others didn't. This is NOT optional. Validated: Einstein — Gemini found 3 moves Claude missed; Musashi — Gemini found 3 additional moves. Prompt template: `~/epigenome/chromatin/Derepression Mining Prompt.md`.
+4. **Cross-model probe** — run the same prompt on Gemini CLI + Codex (+ OpenCode if available). Each model's weights are a different lossy compression — the delta reveals what each noticed that the others didn't. This is NOT optional. Validated: Einstein — Gemini found 3 moves Claude missed; Musashi — Gemini found 3 additional moves. Prompt template: `~/epigenome/chromatin/Fodina Mining Prompt.md`.
 5. **Synthesize delta** — merge cross-model extractions. Flag what only one model surfaced (highest novelty signal).
 6. **Distill** — capture as a reference skill with `disable-model-invocation: true`
 7. **Wire** — add cross-references to skills that would benefit (this is not optional — unwired skills get forgotten)
