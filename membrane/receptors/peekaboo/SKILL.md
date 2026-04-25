@@ -1,3 +1,8 @@
+---
+name: peekaboo
+description: Peekaboo — Mac Screen Access. See and control both Macs remotely via Peekaboo + SSH. Use when needing to see screen state, screenshot, or click/type on Mac.
+---
+
 # Peekaboo — Mac Screen Access
 
 See and control both Macs remotely via Peekaboo + SSH.
