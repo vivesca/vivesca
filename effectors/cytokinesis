@@ -655,18 +655,20 @@ def gather(
         gates["repos_flushed"] = "DONE — all repos clean"
 
     # Gate 6: Daily note — must have (a) today's file, (b) no unfilled [LLM:]
-    # template, AND (c) a session block appended since Tonus was last touched
-    # (otherwise a cross-session stale file passes the gate).
+    # template, AND (c) be touched AFTER Tonus (i.e. session block was the LAST
+    # thing written this wrap). Inverted from prior 5-min tolerance: that allowed
+    # a daily auto-mtime-bump (compact marker at 21:44) to mask a missing
+    # session block when Tonus was written at 21:50. Now: daily mtime must be
+    # >= Tonus mtime, enforcing append-then-Tonus order.
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_file = DAILY_DIR / f"{today_str}.md"
     if daily_file.exists():
         daily_content = daily_file.read_text(encoding="utf-8")
         if "[LLM:" in daily_content:
             gates["daily_note"] = "PENDING — daily note has unfilled template. Run `cytokinesis daily` and fill sections."
-        elif NOW_MD.exists() and daily_file.stat().st_mtime + 300 < NOW_MD.stat().st_mtime:
-            # Tonus was written >5min after daily note — session likely ended
-            # without appending a block. Tolerance covers same-wrap writes.
-            gates["daily_note"] = "PENDING — daily note not updated this session (Tonus newer). Run `cytokinesis daily` and fill sections."
+        elif NOW_MD.exists() and daily_file.stat().st_mtime < NOW_MD.stat().st_mtime:
+            # Tonus newer than daily — session block not appended this wrap.
+            gates["daily_note"] = "PENDING — daily note older than Tonus. Append session block (## Session N — title) before writing Tonus."
         else:
             gates["daily_note"] = "DONE — daily note written"
     else:
@@ -1336,15 +1338,15 @@ def verify() -> None:
     # Process audit — can't verify deterministically, trust CC
     gates["process_audit"] = "TRUST — requires LLM judgment"
 
-    # Daily note — existence + no unfilled template + updated after Tonus
+    # Daily note — existence + no unfilled template + appended AFTER Tonus
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_file = DAILY_DIR / f"{today_str}.md"
     if daily_file.exists():
         daily_content = daily_file.read_text(encoding="utf-8")
         if "[LLM:" in daily_content:
             gates["daily_note"] = "PENDING — unfilled template"
-        elif NOW_MD.exists() and daily_file.stat().st_mtime + 300 < NOW_MD.stat().st_mtime:
-            gates["daily_note"] = "PENDING — Tonus newer than daily note (stale from earlier session)"
+        elif NOW_MD.exists() and daily_file.stat().st_mtime < NOW_MD.stat().st_mtime:
+            gates["daily_note"] = "PENDING — Tonus newer than daily note (session block not appended this wrap)"
         else:
             gates["daily_note"] = "DONE"
     else:
