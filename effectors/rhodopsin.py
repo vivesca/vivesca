@@ -10,6 +10,7 @@ Usage:
     rhodopsin.py export UUID [UUID...]   # Export to ~/tmp/photos/ as JPEG
     rhodopsin.py search KEYWORD          # Search by keyword (descriptions, titles, people)
     rhodopsin.py batch DATE [HH:MM HH:MM]  # Export photos from DATE, auto-rotate, numbered sequentially
+    rhodopsin.py batch DATE --no-content-rotate  # Skip content-based rotation detection
 
 All queries print: uuid (first 8), timestamp, filename, labels.
 Export converts HEIC to JPEG for Claude Code's Read tool.
@@ -23,6 +24,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -209,6 +211,87 @@ def print_photos(photos: list[dict]) -> None:
         print(f"  {uuid}  {date_str}  {fname}  [{label_str}]{desc_str}{avail_str}")
 
 
+def _measure_text_confidence(image_path: Path) -> float:
+    """Mean text recognition confidence for an image via macOS Vision framework."""
+    import Quartz
+    import Vision
+
+    image_url = Quartz.CFURLCreateFromFileSystemRepresentation(
+        None,
+        str(image_path).encode("utf-8"),
+        len(str(image_path).encode("utf-8")),
+        False,
+    )
+    request = Vision.VNRecognizeTextRequest.alloc().init()
+    request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
+    handler = Vision.VNImageRequestHandler.alloc().initWithURL_options_(
+        image_url, None
+    )
+    handler.performRequests_error_([request], None)
+
+    observations = request.results()
+    if not observations:
+        return 0.0
+    return sum(obs.confidence() for obs in observations) / len(observations)
+
+
+def _detect_content_orientation(image_path: Path) -> int:
+    """Detect correct upright orientation via text recognition confidence.
+
+    Creates rotated copies at 0°, 90°, 180°, 270°, measures OCR confidence
+    on each, and applies the winning rotation in-place when the best
+    orientation is a clear winner (≥1.5× second-best, ≥0.3 mean confidence).
+
+    Returns the rotation angle applied (0, 90, 180, 270).
+    """
+    scores: dict[int, float] = {}
+    tmp_paths: list[Path] = []
+
+    for angle in (0, 90, 180, 270):
+        tmp_path = Path(tempfile.mktemp(suffix=".jpeg"))
+        tmp_paths.append(tmp_path)
+        subprocess.run(
+            ["sips", "-r", str(angle), str(image_path), "--out", str(tmp_path)],
+            capture_output=True,
+            timeout=30,
+        )
+        scores[angle] = _measure_text_confidence(tmp_path)
+
+    for p in tmp_paths:
+        p.unlink(missing_ok=True)
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    best_angle, best_conf = ranked[0]
+    second_conf = ranked[1][1]
+
+    if best_conf < 0.3:
+        print(
+            f"  {image_path.name}  [content-rotation skipped: "
+            f"low confidence {best_conf:.2f}]"
+        )
+        return 0
+
+    if second_conf > 0 and best_conf < 1.5 * second_conf:
+        print(
+            f"  {image_path.name}  [content-rotation skipped: "
+            f"ambiguous {best_conf:.2f} vs {second_conf:.2f}]"
+        )
+        return 0
+
+    if best_angle != 0:
+        subprocess.run(
+            ["sips", "-r", str(best_angle), str(image_path)],
+            capture_output=True,
+            timeout=30,
+        )
+
+    print(
+        f"  {image_path.name}  [content-rotated +{best_angle}°, "
+        f"confidence {best_conf:.2f} vs {second_conf:.2f} baseline]"
+    )
+    return best_angle
+
+
 def _find_original(uuid: str, directory: str, filename: str) -> Path | None:
     """Find the original file for a photo."""
     path = ORIGINALS_DIR / directory / filename
@@ -321,7 +404,8 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
     print(f"\nExported to {EXPORT_DIR}/")
 
 
-def _export_single(full_uuid: str, photo: dict, out_path: Path) -> bool:
+def _export_single(full_uuid: str, photo: dict, out_path: Path,
+                   *, content_rotate: bool = True) -> bool:
     """Export a single photo to out_path. Returns True on success."""
     directory = photo.get("ZDIRECTORY") or full_uuid[0]
     filename = photo.get("ZFILENAME") or f"{full_uuid}.heic"
@@ -337,6 +421,8 @@ def _export_single(full_uuid: str, photo: dict, out_path: Path) -> bool:
         if result.returncode == 0:
             subprocess.run(["sips", "-r", "0", str(out_path)],
                            capture_output=True, timeout=30)
+            if content_rotate:
+                _detect_content_orientation(out_path)
             return True
         print(f"  [!] sips failed for {filename}: {result.stderr.strip()}",
               file=sys.stderr)
@@ -345,6 +431,8 @@ def _export_single(full_uuid: str, photo: dict, out_path: Path) -> bool:
         shutil.copy2(original, out_path)
         subprocess.run(["sips", "-r", "0", str(out_path)],
                        capture_output=True, timeout=30)
+        if content_rotate:
+            _detect_content_orientation(out_path)
         return True
 
     derivative = _find_derivative(full_uuid)
@@ -357,7 +445,8 @@ def _export_single(full_uuid: str, photo: dict, out_path: Path) -> bool:
 
 def batch_export(db: PhotosDB, date_str: str,
                  time_start: str | None = None,
-                 time_end: str | None = None) -> None:
+                 time_end: str | None = None,
+                 *, content_rotate: bool = True) -> None:
     """Export all photos from a date (or time window), numbered sequentially."""
     dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=_HKT)
     start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -392,7 +481,8 @@ def batch_export(db: PhotosDB, date_str: str,
         out_path = EXPORT_DIR / f"{idx:03d}.jpeg"
         orig_fname = resolved.get("ZORIGINALFILENAME") or resolved.get("ZFILENAME") or full_uuid
 
-        if _export_single(full_uuid, resolved, out_path):
+        if _export_single(full_uuid, resolved, out_path,
+                          content_rotate=content_rotate):
             size_kb = out_path.stat().st_size / 1024
             print(f"  {out_path.name}  ({size_kb:.0f}KB)  {orig_fname}")
             exported += 1
@@ -469,12 +559,19 @@ def main() -> None:
 
         elif cmd == "batch":
             if len(sys.argv) < 3:
-                print("Usage: rhodopsin.py batch DATE [HH:MM HH:MM]")
+                print("Usage: rhodopsin.py batch DATE [HH:MM HH:MM] [--no-content-rotate]")
                 return
-            date_arg = sys.argv[2]
-            t_start = sys.argv[3] if len(sys.argv) > 3 else None
-            t_end = sys.argv[4] if len(sys.argv) > 4 else None
-            batch_export(db, date_arg, t_start, t_end)
+            batch_args = sys.argv[2:]
+            content_rotate = "--no-content-rotate" not in batch_args
+            batch_args = [a for a in batch_args if a != "--no-content-rotate"]
+            if not batch_args:
+                print("Usage: rhodopsin.py batch DATE [HH:MM HH:MM] [--no-content-rotate]")
+                return
+            date_arg = batch_args[0]
+            t_start = batch_args[1] if len(batch_args) > 1 else None
+            t_end = batch_args[2] if len(batch_args) > 2 else None
+            batch_export(db, date_arg, t_start, t_end,
+                         content_rotate=content_rotate)
 
     finally:
         db.close()
