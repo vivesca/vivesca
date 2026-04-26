@@ -161,7 +161,23 @@ When dispatching: pass `profile=<absolute path>`, `paper=<absolute path>`, optio
 
 **Profile-as-discriminator-training-data.** A principal-lens is only as good as the profile. Findings that surface a "PROFILE GAP" return value (the lens cannot determine whether the principal would defend a position) flow back into the profile as the next maintenance step. The profile improves monotonically over engagements; the discriminator improves with it.
 
-**Adding a new principal.** Before drafting any paper for a new audience, ensure each named reader has a profile in `chromatin/immunity/`. No profile = no principal-lens = the discriminator pass cannot model that reader. This is a precondition to the iteration loop in §10.
+**Adding a new principal.** Before drafting any paper for a new audience, ensure each named reader has a profile in `chromatin/immunity/`. No profile = no principal-lens = the discriminator pass cannot model that reader. This is a precondition to the iteration loop in §9.
+
+### 8a. Delivery-Vector Knockout — Principals Who Read the Send Sequence, Not the Content
+
+Some principals will never read the paper but will be politically affected by *how* it lands — who gets it when, in what order, whether they were briefed in advance. Bertie (Capco UK Partner with HSBC alignment ownership) is the canonical example: the paper itself is fine, but the send sequence violates a UK-clearance rule and that's a relationship breach independent of any body content.
+
+For every paper, identify each delivery-vector principal in addition to read-chain principals. Their `principal-lens` dispatch focuses on:
+
+- The send order (who first, who simultaneously, who told only after)
+- Pre-circulation of the send plan to anyone with a standing rule about being informed
+- Acknowledgement language for any rule the send sequence overrides ("we judged X for reason Y; ratify or override")
+- Cross-territorial sensitivities (UK office vs HK office, headquarter vs regional)
+- Visibility-map gaps (who isn't in the send list but should know it exists)
+
+**Findings format differs.** Body-readers return paper-edit findings. Delivery-vector readers return send-sequence findings: re-time, acknowledge, override, hold, add-to-list. These do NOT consolidate into v0.N+1 paper patches — they consolidate into pre-send decisions that the human must make before any send executes.
+
+**Trigger for adding a delivery-vector lens.** Any principal whose written rules govern the *channel* the paper travels through (UK-office clearance protocols, HRBP notification thresholds, regulator pre-notification expectations, Group Communications signoff for external-facing material). Memory file `feedback_*` of the form "always tell X before Y" = candidate.
 
 ---
 
@@ -192,17 +208,66 @@ The drafting → review → patch cycle is GAN-shaped: the author (generator) pr
 
 **Failure mode: same lens, different prompts.** Dispatching the same principal-lens twice with subtle prompt differences and treating the variance as signal is noise-mining. Keep the dispatch deterministic — same profile, same paper, same round number visible to the lens.
 
+**Convergence-as-confidence across principals.** When N principal-lenses independently surface the same finding, the finding is structurally true — single-principal findings are weaker than multi-principal ones. Triage in this order:
+
+1. **Convergent BLOCKINGGs** (≥3 principals agree) — patch immediately, no further deliberation. The paper has a structural failure.
+2. **Convergent NITs** (≥3 principals agree) — patch unless the cost is high; structural friction even if not blocking.
+3. **Single-principal BLOCKINGGs** — load-bearing only if that principal is in the decision chain; otherwise weight by political distance.
+4. **Conflicting findings** (two principals disagree on direction) — decision goes up to the author. A real disagreement between principals usually maps to a real political tension that the paper has to navigate, not paper-fix.
+
+The principal-lens output should annotate "overlaps with [other principal]" when detectable from prior knockout files in the same directory, to make convergence detection automatic at triage time.
+
 **Failure mode: GAN mode collapse / parallel-writer drift.** The author over-fits to the dominant lens (usually the sponsor) and the paper drifts away from the other principals. Counter: dictator pattern — sponsor has FINAL say, other lenses ADVISE. Weight findings by political distance from the author, not by frequency. Doug's one objection outweighs Simon's three when Doug is the route-decider. (AutoGen long-doc community observation: parallel writers drift on tone and re-litigate trivia; dictator + tree-of-files + hard round caps is the working pattern.)
 
 **Stopping early.** If ALL principal-lenses return Board-ask-grade findings on round 1 (no challenges, only clarifications), the paper is over-cooked — strip it to a shorter sibling. Convergence in one round is a sign of insufficient ambition, not of paper quality.
 
-**See also.** `affinity` skill (multi-round multi-model stress-test mechanics — induction inherits the loop shape from affinity, replaces generic personas with named principals). `senior-paper-writing.md` (the three principles + corollaries the generator follows). `finding_paper_variants_as_sponsor_routing_optionality.md` (when one paper splits into siblings rather than converges to one artefact).
+**See also.** `affinity` skill (multi-round multi-model stress-test mechanics — induction inherits the loop shape from affinity, replaces generic personas with named principals). `avidity.md` (stakeholder-binding rules — the multi-principal generator side: gap-statement-not-pain-build, LOAD-restoration, fresh-reader corollary, cover-note-carries-extras, board-diction-is-constitutional). `tolerance.md` (regulator-defensibility rules — the supervisor selection pressure: cadence-coupling-is-red-flag, capability-without-RACI-is-unfinished, "extends not above" structural patch pattern, body-strips-Recommendation-carries-for-date-binding). `finding_paper_variants_as_sponsor_routing_optionality.md` (when one paper splits into siblings rather than converges to one artefact).
 
 **Prior art.** STORM (Shao et al. 2402.14207) — front-load personas at outline. Co-STORM (2408.15232) — dynamic mind map + user-as-steerer for longer loops. PerFine (2510.24469) — knockout-survival critique-refine, +7-13% over RAG baselines, 3-5 iter plateau. Claude Forge (freecodecamp Mar 2026) — rhetorical-question reviewers, architecturally separated review process, hard 3-iter cap. AutoGen long-doc thread (microsoft/autogen#67) — dictator pattern beats consensus.
 
 ---
 
-## 10. When to Reach for This Skill
+## 10. Rejection-Rule Capture — How the Discriminator Improves
+
+The `principal-lens` agents are only as good as the profile they load and the rules they apply. The most valuable training data the system produces is **what Terry rejects** — when the author judges a knockout-proposed patch is wrong, the *reason* for that rejection encodes taste that the lens did not yet have.
+
+Without capture, every paper's rejection knowledge dies with the session and the next paper's knockouts re-propose the same wrong patches. With capture, the discriminator gets sharper monotonically per paper cycle.
+
+**The protocol — applies at every triage point, not just at session end.**
+
+For every patch proposed by a principal-lens that Terry rejects (or directs CC to reject):
+
+1. **Capture the rejection text inline at triage time.** Don't defer to wrap. The reason is freshest in Terry's voice the moment the rejection is spoken: "no, that would have made Doug look like he's coopting Rice's commitment" or "that's a Capco-shape failure mode, Doug wouldn't write it that way."
+
+2. **Route the rejection to the right destination by content:**
+
+   | Rejection content | Destination file | Mark type |
+   |---|---|---|
+   | About a specific principal's preference, voice, or unstated rule | The principal's profile note in `chromatin/immunity/<name>-profile.md` | append to "Voice & Preferences" or "Unstated rules" section |
+   | About a generalisable craft rule (avoid X in any senior paper) | `avidity.md` (stakeholder-binding) or `tolerance.md` (regulator-defensibility) by content | new DO/DO NOT pair |
+   | About a regulatory-defensibility pattern | `tolerance.md` | new pattern entry |
+   | About a project-specific constraint (this engagement, not all engagements) | `~/epigenome/marks/project_<engagement>.md` | new fact entry |
+   | About a personal preference / judgment pattern | `~/epigenome/marks/feedback_*.md` (existing or new) | new feedback rule |
+
+3. **Format every captured rejection as a discriminator rule, not a description:**
+   - Bad: "Terry rejected the AISI mention because it would commit Rice to AISI methodology endorsement."
+   - Good: "DO NOT cite AISI evaluation methodology under Rice's voice without first verifying Rice has read the underlying AISI document. Cite via the Annual Report's own treatment instead. Reason: regulatory-defensibility — PRA reads CAIO endorsing external methodology as benchmark commitment."
+
+4. **The lens consumes this on the next dispatch.** When `principal-lens` is dispatched for the next paper, the agent reads the principal profile (now richer) and the relevant epistemics (now richer). The discriminator is sharper without any model retraining.
+
+**Test the loop is working.** After 3-5 paper cycles, the same class of finding should stop appearing in knockout outputs because the rules have been captured. If knockout #5 returns the same blocking finding as knockout #1, the rejection-rule capture failed somewhere — either the capture wasn't done, the capture went to the wrong destination, or the lens isn't reading the destination.
+
+**The taste-scaling thesis.** Terry is the bottleneck only as long as the rules live in his head. Every captured rejection is one rule that no longer needs his head to fire. The skill scales when rejection capture is treated as the most important output of the triage session — more important than the patches that survive, because those land once. The captured rules land forever.
+
+**Anti-pattern: capturing without routing.** Stockpiling rejections in a single learnings.md file fails — the next dispatch doesn't know to read that file. Capture must route to the file the lens already loads (profile note, avidity, tolerance, marks). If a rejection doesn't have an obvious destination, that's signal that a new file is needed, not that the capture should be deferred.
+
+**Anti-pattern: capturing only in Terry's voice, not as a rule.** "Terry didn't like X" is a description, not a rule. The lens cannot fire on description. Re-write as: "DO X / DO NOT X / DO X when Y / Reason Z." Discriminator rules are imperatives, not narrations.
+
+**See also.** `affinity` skill (similar capture pattern for generic-deliverable iteration). The `feedback_*.md` mark family is the existing exemplar of rejection-rule capture done right (each entry is an imperative with a Reason and How-to-apply).
+
+---
+
+## 11. When to Reach for This Skill
 
 Trigger when drafting:
 
