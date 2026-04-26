@@ -112,7 +112,36 @@ Pre-circulation is the work. The meeting is the receipt.
 
 ---
 
-## 7. When to Reach for This Skill
+## 7. Multi-Persona Review — Paper-as-Code
+
+Before the three pre-circulation steps in §6, run two structured review passes in parallel. Single-pass review by the author misses different failure modes than what each pass surfaces; running them as named lenses with separate context exposes the artefact to the same scrutiny it will face in committee.
+
+**Pass A — Adversarial multi-persona (CE pipeline applied to paper).** Treat the paper as code. Dispatch four parallel review personas, each scoped to one lens:
+
+| Persona | Looks for | Ships findings as |
+|---|---|---|
+| Correctness | Every factual claim, citation, number, date, verbatim quote — does the source say what the paper claims? Internal consistency between Recommendation, body, and Ask. | Punch list, severity-tagged. URL verifications dispatched in parallel for any external citation; vendor-spec rule applies (never quote a fact without verifying the source). |
+| Coherence | Terminology drift between sections; Recommendation↔body alignment; register breaks; ambiguity where multiple readers would diverge on meaning; cross-section reference integrity. | Punch list, with the divergent readings spelled out. |
+| Maintainability | Cuttable paragraphs, redundant evidence, hedge accumulation, parenthetical asides, transitional fluff that announces what the next sentence proves. The "force the floor" principle applied externally. | Cuts only — never additions; the paper is at version N for a reason. |
+| Adversarial | Premise audit: what load-bearing assumption could a hostile reader challenge? Unstated assumptions; implementability hand-waves; territorial reads; weakest citation; the strongest argument against the Ask itself. **Drop overlap with existing verbal-coaching prep.** | Each finding as: ATTACK NAME / who would mount it / the move / paper's current defence / proposed reinforcement. |
+
+Each persona gets the paper plus the project's tailored alignment checklists as constraints — so they don't propose changes that violate already-decided commitments. Outputs merge into a single deduped punch list.
+
+**Pass B — Tailored alignment checklists.** Run in parallel with Pass A. The checklists are project-specific (HSBC: P1-P8 public-commitments, A-F master-alignment, audience-fit). Each checklist is a static gate against authority alignment. Each item: PASS / FIX / BLOCKER, with paper location and proposed insert.
+
+**Why both passes.** They catch different failure classes. Adversarial multi-persona catches premise + factual issues a static checklist cannot — overclaim modifiers, underclaim modifiers, political-structural risk in a single sentence, citation hand-waves. Tailored checklists catch authority-alignment gaps multi-persona reviewers cannot — verbatim language the principal expects, named bodies, function placements, diction the audience uses. **Neither replaces the other.** Single-pass review ships papers with one of the two failure classes intact.
+
+**Convergence is the win.** When the two passes name the same finding (e.g., third-party scope appears in both adversarial premise audit and Principle-6 alignment), one insert satisfies both. Treat overlap as confirmation, not redundancy.
+
+**Pass C — Verbal coaching capture.** Findings that don't survive paper edits flow into per-stakeholder verbal-coaching notes. Adversarial findings about hostile-reader attacks become anticipated questions; uncomfortable nuances surfaced by URL verification (success rates, base-rate caveats, scope qualifiers) become Q&A lines. The paper carries the assertion; the coaching carries the defence.
+
+**Sequencing.** Pass A and Pass B run before §6's sponsor read. Pass C output goes to the sponsor alongside the paper. By the time the sponsor reads, every reviewer-detectable failure mode has been merged or routed — sponsor-read is for alignment, not error-catching.
+
+**See also:** `senior-paper-writing.md` (epistemics — three principles + corollaries), `finding_ce_pipeline_complements_alignment_checklists.md` (the empirical evidence behind the both-passes rule).
+
+---
+
+## 8. When to Reach for This Skill
 
 Trigger when drafting:
 
