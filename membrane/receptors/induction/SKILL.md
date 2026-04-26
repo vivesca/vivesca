@@ -137,7 +137,7 @@ Each persona gets the paper plus the project's tailored alignment checklists as 
 
 **Sequencing.** Pass A and Pass B run before §6's sponsor read. Pass C output goes to the sponsor alongside the paper. By the time the sponsor reads, every reviewer-detectable failure mode has been merged or routed — sponsor-read is for alignment, not error-catching.
 
-**See also:** `senior-paper-writing.md` (epistemics — three principles + corollaries), `finding_ce_pipeline_complements_alignment_checklists.md` (the empirical evidence behind the both-passes rule).
+**See also:** `avidity.md` (stakeholder-binding rules — three principles + corollaries), `tolerance.md` (regulator-defensibility rules), `finding_ce_pipeline_complements_alignment_checklists.md` (the empirical evidence behind the both-passes rule).
 
 ---
 
