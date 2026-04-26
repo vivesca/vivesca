@@ -167,31 +167,38 @@ When dispatching: pass `profile=<absolute path>`, `paper=<absolute path>`, optio
 
 ## 9. The Iteration Loop — Generator / Discriminator Convergence
 
-The drafting → review → patch cycle is GAN-shaped: the author (generator) produces a draft, the principal-lenses (discriminator) attack it, the author patches, the lenses attack again. Convergence = no lens returns a NEW objection across two consecutive rounds. Until then, keep iterating.
+The drafting → review → patch cycle is GAN-shaped: the author (generator) produces a draft, the principal-lenses (discriminator) attack it, the author patches, the lenses attack again. Hard cap: three iterations. Knockout strategy across rounds: each round's draft must beat the prior round's draft *on each principal-lens's own terms*; the stronger draft survives. Inherits the loop shape from `affinity`; named-principal discriminators and knockout-survival are the induction-specific specialisations.
 
-**Round 0 — first draft.** Force the floor (300 words for a Board ask). Cite back what the principal already approved. Run nothing yet.
+**Round 0 — outline interrogation, not draft.** Front-load the personas at outline stage, not review stage. Lifted from STORM (arxiv 2402.14207): turn each principal-lens into an interrogator that grills a retrieval-grounded "topic expert" agent (the author with chromatin/epistemics access) about the paper's premise, scope, and ask. Build the outline from the Q&A logs, not from the author's first instinct. The principals' questions front-load what the paper must defend; the outline is the structure that lets it. Only THEN draft. Force the floor (300 words for a Board ask) on the actual prose pass.
 
-**Round N — review-and-patch.**
+**Round 1, 2, 3 — review-and-patch.**
 
 1. Dispatch all principal-lenses in parallel (`principal-lens` agent, one call per profile).
 2. Dispatch §7 Pass A (adversarial multi-persona — generic lenses) and Pass B (alignment checklists) in parallel WITH the principal-lenses, not after. They catch different failure classes.
 3. Merge findings into one deduped punch list. Tag each finding: NEW (this round), REPEAT (raised in a prior round, still unfixed), CONVERGED (raised previously, fix lands this round).
 4. Author patches the paper. Each NEW finding becomes a paper edit OR routes to verbal-coaching capture (Pass C) OR is explicitly accepted as residual gap.
-5. Re-dispatch all lenses with the patched paper and the prior round's finding list as context.
+5. **Knockout test.** Re-dispatch each principal-lens with BOTH the new draft AND the prior round's draft as context. The lens picks which is stronger *for its principal*. If the new draft loses on any lens, revert that section to the prior round's wording — patches are not monotonically additive. Only knockout-winning patches carry forward. (PerFine, arxiv 2510.24469: knockout-survival across iterations beats last-edit-wins by 7-13% on profile-grounded GEval; plateaus at 3-5 iterations — empirical justification for the hard cap.)
+6. Carry the surviving draft to the next round.
 
-**Convergence criterion.** Exit when, across all lenses, NEW count = 0 for two consecutive rounds. REPEATs that survive convergence are structurally unfixable in the paper — they ALL flow to verbal-coaching notes. The lens flags them; the author does not re-attempt to patch.
+**Hard cap: three rounds.** Iter 1 catches major, iter 2 catches subtle, iter 3 catches edges. Iter 4+ catches nothing but burns tokens. If round 3 still leaves blocking findings, escalate to human (Terry) — do not run round 4. Cap is from Claude Forge's empirical observation; PerFine's plateau confirms.
 
-**Failure mode: chasing every NEW finding to zero in one round.** If you patch every NEW finding immediately and dispatch again, you destroy round-to-round signal. Findings need to PERSIST across rounds for the lens to learn what is structurally fixable vs structurally residual. Run two passes minimum before deciding which findings are residual.
+**Failure mode: source-bias-transfer.** When the generator quotes one source heavily (typically the principal's own approved corpus — the DQM-precedent move), the paper drifts into voicing that source even where the claim is the author's. Lens check at every round: which sources got cited >2x? Do their cadences leak into uncited paragraphs? If yes, rewrite in the author's voice or attribute. (Named in STORM as an outline-stage failure; persists at draft stage too.)
+
+**Failure mode: over-association.** Retrieval glues facts that sit near each other in source material but aren't actually causally or evidentially linked. The paper reads coherent and turns out to be claiming a relationship the sources don't support. Lens check: for every "X, therefore Y" or "X and Y" sentence, can both halves be sourced to the same evidence chain? If not, sever the conjunction. (STORM's second named failure.)
+
+**Failure mode: chasing every NEW finding to zero in one round.** If you patch every NEW finding immediately and dispatch again, you destroy round-to-round signal. Findings need to PERSIST across rounds for the lens to learn what is structurally fixable vs structurally residual. Run two rounds minimum before deciding which findings are residual.
 
 **Failure mode: convergence theatre.** A lens returning zero NEW findings on round 2 may mean the paper landed OR may mean the lens has nothing left to say from the profile. Cross-check: did the patches actually address the round 1 findings, or did the lens just exhaust its profile-grounded objections? If the latter, the profile needs more depth before the next paper.
 
 **Failure mode: same lens, different prompts.** Dispatching the same principal-lens twice with subtle prompt differences and treating the variance as signal is noise-mining. Keep the dispatch deterministic — same profile, same paper, same round number visible to the lens.
 
-**Failure mode: GAN mode collapse.** The author over-fits to the dominant lens (usually the sponsor) and the paper drifts away from the other principals. Counter: weight findings by political distance from the author, not by frequency. Doug's one objection outweighs Simon's three when Doug is the route-decider.
+**Failure mode: GAN mode collapse / parallel-writer drift.** The author over-fits to the dominant lens (usually the sponsor) and the paper drifts away from the other principals. Counter: dictator pattern — sponsor has FINAL say, other lenses ADVISE. Weight findings by political distance from the author, not by frequency. Doug's one objection outweighs Simon's three when Doug is the route-decider. (AutoGen long-doc community observation: parallel writers drift on tone and re-litigate trivia; dictator + tree-of-files + hard round caps is the working pattern.)
 
 **Stopping early.** If ALL principal-lenses return Board-ask-grade findings on round 1 (no challenges, only clarifications), the paper is over-cooked — strip it to a shorter sibling. Convergence in one round is a sign of insufficient ambition, not of paper quality.
 
 **See also.** `affinity` skill (multi-round multi-model stress-test mechanics — induction inherits the loop shape from affinity, replaces generic personas with named principals). `senior-paper-writing.md` (the three principles + corollaries the generator follows). `finding_paper_variants_as_sponsor_routing_optionality.md` (when one paper splits into siblings rather than converges to one artefact).
+
+**Prior art.** STORM (Shao et al. 2402.14207) — front-load personas at outline. Co-STORM (2408.15232) — dynamic mind map + user-as-steerer for longer loops. PerFine (2510.24469) — knockout-survival critique-refine, +7-13% over RAG baselines, 3-5 iter plateau. Claude Forge (freecodecamp Mar 2026) — rhetorical-question reviewers, architecturally separated review process, hard 3-iter cap. AutoGen long-doc thread (microsoft/autogen#67) — dictator pattern beats consensus.
 
 ---
 
