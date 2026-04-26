@@ -141,7 +141,61 @@ Each persona gets the paper plus the project's tailored alignment checklists as 
 
 ---
 
-## 8. When to Reach for This Skill
+## 8. Named Principal Personas — The Discriminator Half
+
+§7's adversarial multi-persona pass uses generic lenses (Correctness / Coherence / Maintainability / Adversarial). Those catch craft failures. They do NOT catch "Simon would never sign this" or "Doug would route this to OpCo not AIRCo." That requires named principal-lenses.
+
+For every paper, identify each principal in the read chain (sponsor, decision-maker, copy-list, downstream router) and dispatch the `principal-lens` agent once per principal in parallel. Each lens loads the principal's stakeholder profile from `~/epigenome/chromatin/immunity/<name>-profile.md` and returns the top-5 questions/objections that principal would raise on first read.
+
+Current HSBC AI Safety profile coverage (April 2026):
+
+| Principal | Profile path | Read-chain role |
+|---|---|---|
+| Simon Eltringham | `simon-eltringham-hsbc-profile.md` | Sponsor — Capco channel into HSBC RAI |
+| Doug Robertson | `doug-robertson-hsbc-profile.md` | Decision-router — owns Simon's agenda, routes upward |
+| David Rice | `david-rice-hsbc-profile.md` | First HSBC CAIO (eff. 1 Apr 2026), top of paper chain |
+| Jeff Valane | `jeff-valane-hsbc-profile.md` | Cross-functional reader (Risk) |
+| David Newby | `david-newby-hsbc-profile.md` | Cross-functional reader |
+
+When dispatching: pass `profile=<absolute path>`, `paper=<absolute path>`, optionally `ask=<one-line ask interpretation>`. Run all principals in parallel — each lens has its own context.
+
+**Profile-as-discriminator-training-data.** A principal-lens is only as good as the profile. Findings that surface a "PROFILE GAP" return value (the lens cannot determine whether the principal would defend a position) flow back into the profile as the next maintenance step. The profile improves monotonically over engagements; the discriminator improves with it.
+
+**Adding a new principal.** Before drafting any paper for a new audience, ensure each named reader has a profile in `chromatin/immunity/`. No profile = no principal-lens = the discriminator pass cannot model that reader. This is a precondition to the iteration loop in §10.
+
+---
+
+## 9. The Iteration Loop — Generator / Discriminator Convergence
+
+The drafting → review → patch cycle is GAN-shaped: the author (generator) produces a draft, the principal-lenses (discriminator) attack it, the author patches, the lenses attack again. Convergence = no lens returns a NEW objection across two consecutive rounds. Until then, keep iterating.
+
+**Round 0 — first draft.** Force the floor (300 words for a Board ask). Cite back what the principal already approved. Run nothing yet.
+
+**Round N — review-and-patch.**
+
+1. Dispatch all principal-lenses in parallel (`principal-lens` agent, one call per profile).
+2. Dispatch §7 Pass A (adversarial multi-persona — generic lenses) and Pass B (alignment checklists) in parallel WITH the principal-lenses, not after. They catch different failure classes.
+3. Merge findings into one deduped punch list. Tag each finding: NEW (this round), REPEAT (raised in a prior round, still unfixed), CONVERGED (raised previously, fix lands this round).
+4. Author patches the paper. Each NEW finding becomes a paper edit OR routes to verbal-coaching capture (Pass C) OR is explicitly accepted as residual gap.
+5. Re-dispatch all lenses with the patched paper and the prior round's finding list as context.
+
+**Convergence criterion.** Exit when, across all lenses, NEW count = 0 for two consecutive rounds. REPEATs that survive convergence are structurally unfixable in the paper — they ALL flow to verbal-coaching notes. The lens flags them; the author does not re-attempt to patch.
+
+**Failure mode: chasing every NEW finding to zero in one round.** If you patch every NEW finding immediately and dispatch again, you destroy round-to-round signal. Findings need to PERSIST across rounds for the lens to learn what is structurally fixable vs structurally residual. Run two passes minimum before deciding which findings are residual.
+
+**Failure mode: convergence theatre.** A lens returning zero NEW findings on round 2 may mean the paper landed OR may mean the lens has nothing left to say from the profile. Cross-check: did the patches actually address the round 1 findings, or did the lens just exhaust its profile-grounded objections? If the latter, the profile needs more depth before the next paper.
+
+**Failure mode: same lens, different prompts.** Dispatching the same principal-lens twice with subtle prompt differences and treating the variance as signal is noise-mining. Keep the dispatch deterministic — same profile, same paper, same round number visible to the lens.
+
+**Failure mode: GAN mode collapse.** The author over-fits to the dominant lens (usually the sponsor) and the paper drifts away from the other principals. Counter: weight findings by political distance from the author, not by frequency. Doug's one objection outweighs Simon's three when Doug is the route-decider.
+
+**Stopping early.** If ALL principal-lenses return Board-ask-grade findings on round 1 (no challenges, only clarifications), the paper is over-cooked — strip it to a shorter sibling. Convergence in one round is a sign of insufficient ambition, not of paper quality.
+
+**See also.** `affinity` skill (multi-round multi-model stress-test mechanics — induction inherits the loop shape from affinity, replaces generic personas with named principals). `senior-paper-writing.md` (the three principles + corollaries the generator follows). `finding_paper_variants_as_sponsor_routing_optionality.md` (when one paper splits into siblings rather than converges to one artefact).
+
+---
+
+## 10. When to Reach for This Skill
 
 Trigger when drafting:
 
