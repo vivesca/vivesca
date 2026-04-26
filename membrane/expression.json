@@ -115,7 +115,7 @@
     }
   },
   "outputStyle": "Concise",
-  "alwaysThinkingEnabled": false,
+  "alwaysThinkingEnabled": true,
   "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
