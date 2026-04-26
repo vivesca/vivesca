@@ -47,6 +47,24 @@ If a filed correction or learning invalidates a skill's instructions, edit the s
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal. Lowest hits + oldest last-seen → `~/epigenome/chromatin/immunity/memory-overflow.md`.
 
+### 1a. Substance-capture verification (six structured questions)
+
+The routing table catches obvious signals (corrections, surprises, state changes). It misses *substance that emerged from the session's working method*. Run these six questions explicitly — each maps to a destination already in the genome architecture:
+
+1. **Skill edits surfaced?** Did this session reveal a recurring pattern that should methylate back to a SKILL.md (new section, new anti-pattern, new sub-step)? Test: "Would a fresh session approach this worse without the change?" If yes — edit now, don't defer.
+
+2. **Epistemics edits surfaced?** Did the session reveal a working method or rule that crosses multiple skills? Test: "Does this rule apply to induction *and* secretion *and* censor — or just one?" If multi-skill — promote to `~/epigenome/chromatin/euchromatin/epistemics/` with `situations:` tags + `skills:` bridge. If single-skill — embed in that skill's SKILL.md instead.
+
+3. **Profile gaps surfaced?** Did any stakeholder, principal, organisation, or system reveal that we don't have enough recorded about it? Subagents (especially principal-lens, opsonization) explicitly return PROFILE GAP findings — those flow back to the relevant `chromatin/immunity/<name>-profile.md` as the next maintenance step.
+
+4. **Profile interlinks needed?** Did a new profile reference relate to existing notes that should now cross-link? Three-direction check: profile↔profile, profile↔project notes, profile↔chromatin reference notes. Add `**Related:**` lines per chromatin convention.
+
+5. **Rejection-rule entries to capture?** Did Terry reject a CC-proposed patch / approach / framing with a *reason* that the lens (principal-lens, multi-persona reviewer, etc.) didn't yet have? Reject reasons are the discriminator's training data — capture as imperative DO/DO NOT rules on the relevant principal profile or epistemics file. See `induction/SKILL.md` §10 for the full protocol.
+
+6. **Trigger collisions detected?** Did two skills fire on the same trigger this session? Same-trigger-one-skill is genome-protected (`feedback_same_trigger_one_skill.md`). Candidates for merge or trigger sharpening — file as a finding for next skill-review cycle.
+
+**These run AFTER §1's correction backstop and BEFORE §2's audit signal.** They catch substance that the routing table doesn't have a column for. If any return non-empty, do the routing now (skill edit, epistemics file, profile update, marks entry) before proceeding to §2.
+
 ### 2. Audit signal (proprioception)
 
 Count findings routed in this pass:
@@ -69,19 +87,24 @@ If yes: draft → `~/epigenome/chromatin/secretome/` → publish. "Client-adjace
 1. **Uncommitted?** `cytokinesis flush` — commit atomically, don't bulk-flush
 2. **Anatomy refresh:** `cd ~/germline && python3 -c "from metabolon.resources.anatomy import express_anatomy; open('anatomy.md','w').write(express_anatomy())"`
 3. **TODO sweep:** `cytokinesis archive`
-4. **Session log:** append a `## Session N — title` block to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` covering this session's What / How / Mechanised / Parked / Residual / Arc. Use `cytokinesis daily "title"` to insert a template, then edit. Compact-marker mtime bumps don't count — gate enforces daily mtime > Tonus mtime, so the session block must be appended IMMEDIATELY before Tonus is written. If a daily file already has today's session 17 captured at compact, post-compact session 18+ MUST get its own appended block.
 
 **Complete all housekeeping — every commit pushed, every skill edit saved — before step 5.**
 
-### 5. Tonus = wrap summary (last step)
+### 5. Tonus first, then daily note as the visible wrap artefact
 
-**HARD GATE first.** Before writing Tonus, run `cytokinesis verify`. If `all_passed != true`, stop and complete the PENDING gates — do NOT write Tonus. Recurring failure mode: CC sees PENDING in `gather` output, notes it, then writes Tonus anyway. The gate is deterministic — use it. No "I'll skip this one", no "gate is advisory", no writing Tonus with open PENDING gates.
+Two writes, in this order:
 
-**If you genuinely must skip a gate** (rare — e.g., `daily_note` when the session was <3 minutes of reversible chat), state the gate name and the reason explicitly in the wrap output, so Terry can see what was bypassed.
+**5a. Write Tonus.** `~/epigenome/chromatin/Tonus.md` is the next session's handoff (synapse injects it at session start). Facts (established) + Progress (active), open items first (`[next]`, `[waiting]`, `[parked]`).
 
-**Tonus IS the summary.** Write `~/epigenome/chromatin/Tonus.md` first, then display it as the wrap output. Single source — no separate summary that could diverge from what the next session reads.
+**5b. Write the daily-note session block LAST.** Append a `## Session N — title` block to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` covering Outcomes / Filed / Published / Publishable? / Mechanised / Parked / Residual / Arc. Use `cytokinesis daily "title"` to insert a template, then Edit/Write to fill it. **The daily note is the visible terminal artefact** — Terry sees it as the diff in the UI when the wrap finishes, so writing it last preserves the session arc as the closing image. Gate enforces daily mtime > Tonus mtime; this ordering also satisfies the gate naturally without needing a separate `touch` to bump mtime.
 
-Tonus format: Facts (established) + Progress (active). Progress leads with open items (`[next]`, `[waiting]`, `[parked]`), then completed (`[done]`). Synapse injects this at session start — what you write here is the handoff.
+If a daily file already has earlier session blocks captured at compact, this session gets its own appended block — never overwrite.
+
+**HARD GATE before 5a.** Run `cytokinesis verify`. If `all_passed != true` (after housekeeping but before Tonus), stop and complete the PENDING gates — do NOT write Tonus. Recurring failure mode: CC sees PENDING in `gather`, notes it, then writes Tonus anyway. The gate is deterministic — use it.
+
+**If you genuinely must skip a gate** (rare — e.g., `daily_note` when the session was <3 minutes of reversible chat), state the gate name and the reason explicitly in the wrap output so Terry can see what was bypassed.
+
+**Display order in wrap output:** state skipped gates with rationale, then the daily-note Arc paragraph (or a one-line pointer to the daily note path). Tonus is the next-session handoff, not the wrap display — the daily Arc is what Terry reads as the close.
 
 ## CLI: `cytokinesis` (on PATH)
 
