@@ -3,6 +3,7 @@ name: ectodomain
 description: Design a CLI interface. Use when building a new CLI, reviewing an existing one, or deciding CLI vs MCP as a tool surface. Covers human-facing and agent-facing design, with principles verified against clig.dev, Dickey's 12 Factor CLI Apps, Heroku style guide, and joelclaw's agent-CLI writeup. Triggers "design a CLI", "new CLI", "CLI best practices", "CLI vs MCP", "review this CLI".
 user_invocable: false
 verified_against_primary_sources: 2026-04-05
+epistemics: [agent-facing-cli-design, depth-and-seams]
 ---
 
 # ectodomain
