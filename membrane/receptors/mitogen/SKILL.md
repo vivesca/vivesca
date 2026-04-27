@@ -111,14 +111,18 @@ Then prioritize:
 ---
 title: "One-line description"
 status: ready
+pipeline_stage: plan      # context | research | plan | execute | summary | verify (borrowed from GSD gsd-build/get-shit-done /gsd-* phase artifacts)
 repo: ~/code/<repo>
 depends_on: []
+wave: 1                   # parallel-safe group; same wave = parallel, next wave waits
 scope:
   - path/to/file.py
 tests:
   run: "uv run pytest assays/test_foo.py -x"
 ---
 ```
+
+`pipeline_stage` lets cytokinesis detect mid-pipeline state and refuse wrap if a plan is stranded between stages.
 
 **Spec body:** Problem (2-3 sentences) → Solution (concrete: name the function, the approach) → Location (exact file, line numbers, paste current code if >200 lines) → Constraints (only modify X, do NOT modify Y) → Tests (exact function names + assertions + STOP condition).
 
@@ -138,6 +142,18 @@ tests:
 3. CC pushes both to origin
 4. CC dispatches: `mtor --spec <spec.md> "Implement X per spec"`
 5. Post-gate auto-approves or rejects
+
+### Phase 2.5: Wave grouping (borrowed from GSD `gsd-build/get-shit-done` /gsd-execute-phase)
+
+Before dispatching a multi-task batch, group specs into **waves** by dependency:
+
+- **Same wave** = independent specs (no shared `depends_on` chain, no overlapping `scope:` paths). Fire in parallel.
+- **Next wave** = waits for previous wave's review verdicts (approved/rejected via reviews.jsonl) before starting.
+- **Sequential within wave** when two specs touch the same file — file conflicts force serialisation.
+
+Compute waves from spec frontmatter `depends_on` + `scope` overlap. Don't free-form dispatch a 5-spec campaign — vertical slices (one feature end-to-end per spec) parallelise; horizontal layers (all models, then all APIs) serialise unnecessarily.
+
+Single-spec campaigns: skip this phase.
 
 ### Phase 3: Dispatch via CLI
 

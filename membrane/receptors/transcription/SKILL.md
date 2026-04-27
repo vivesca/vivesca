@@ -76,6 +76,15 @@ State your view. If the answer is "don't build this," say so.
 
 **One question per message.** No batching. Prefer multiple choice when natural options exist. Start broad (problem, users, value), narrow to specifics (constraints, edge cases, non-goals).
 
+**Gray-area categories (borrowed from GSD `gsd-build/get-shit-done` /gsd-discuss-phase).** Before asking, classify the build by category and pull questions from the matching pool — don't ask generic "what about errors?" prompts:
+
+- **Visual feature** → layout, density, interactions, empty states, loading states
+- **API / CLI** → response shape, flag set, error verbosity, idempotency, `--json` envelope
+- **Content system** → structure, tone, depth, flow, metadata
+- **Organization / sweep task** → grouping criteria, naming, duplicate handling, exception cases
+
+Pick the 2-3 categories that fit. Surface each as locked decisions that downstream researcher and planner read directly — no "ask again later."
+
 Each answer reshapes the next question. This is the point — divergent exploration, not a pre-planned interview.
 
 Exit when the shape is clear OR the user says "enough, let's go."
