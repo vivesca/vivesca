@@ -204,6 +204,23 @@ URL pattern: `https://cora.computer/14910/briefs?date=YYYY-MM-DD&time=morning` (
 
 Writing emails: send, reply with quote, drafts with attachments.
 
+## Standalone-correspondence precondition (mandatory before send)
+
+**Before any compose-and-send action** (email, Teams reply, WhatsApp draft handed to Terry, partner-comms): create a standalone chromatin file with the verbatim draft FIRST, then send. The standalone file is the precondition, not a post-hoc artefact.
+
+File path: `~/epigenome/chromatin/immunity/YYYY-MM-DD-terry-<recipient>-<subject>.md` (or `terry-reply-<recipient>-<subject>.md` for replies).
+
+Required frontmatter:
+- `title`, `date`, `sent_at`, `type` (correspondence-sent / correspondence-draft), `channel`, `from`, `to`, `in_reply_to:` (wikilink to incoming if reply), `commits_to:` (any explicit promise/deadline), `related:` (interlinks to relevant chromatin notes — paper version, project notes, profiles).
+
+Body sections: verbatim sent text under `## Sent text (verbatim)`, drafting context if applicable, commitment vs delivery state.
+
+**Why mandatory:** `feedback_standalone_correspondence_notes.md` (PROTECTED, confirmed=2). The recurring failure mode is outbound captured only as a daily-note summary; commitments / verbatim / interlinks get lost. Three days later when traceability is needed, the verbatim has to be recovered via anam search of the session JSONL — slow, brittle, sometimes impossible if the session was on a different harness.
+
+**Skip ONLY for:** pure logistics ("sure, 3pm works"), one-line acknowledgements, or messages with no commitment / decision / directional content. Bar is low: when in doubt, file it.
+
+**Backstop if missed at send time:** `cytokinesis` §1a question 7 catches this at wrap. Backfill via anam search of session JSONL for verbatim; mark with `backfilled:` + `backfill_source:` frontmatter for transparency.
+
 ## Send (plain)
 
 Default path is `endosomal` MCP. Covers `to`, `cc`, `subject`, `body`, `reply_to_message_id`, `attach`.
