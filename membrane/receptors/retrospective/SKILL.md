@@ -47,6 +47,29 @@ Don't try to re-derive everything from chat memory. Read:
 
 These are the ground-truth record. Retrospective judges *against* these, not against memory.
 
+### 1.5 Cross-session pattern check (mandatory)
+
+Single-session retrospectives can't see drift. Each session captures "this happened again" and routes a confirmed-count bump; none of them sees the pattern across retrospectives. **Read the last 3-5 retrospective files before drafting §2.**
+
+```bash
+ls -t ~/epigenome/chromatin/retrospectives/2026-*.md | head -5
+tail -20 ~/epigenome/chromatin/retrospectives/_grades.md
+```
+
+Scan their §2b ("What Didn't Go Well") and §2d ("What to Do Differently") sections. Apply two checks:
+
+**Check A — Recurring failure mode.** If the same root cause appears in §2b across 2+ recent sessions, escalate. Per-session marks aren't deterring it. Escalation paths (pick the strongest that fits):
+- (a) Edit the relevant skill's SKILL.md to add a pre-emptive check at the trigger.
+- (b) Add a deterministic gate in cytokinesis or a hook (synapse/axon/dendrite).
+- (c) Sharpen the existing feedback mark with a more concrete trigger ("paste the verbatim sentence" beats "verify the source") and bump `protected: true`.
+- (d) If (a)-(c) all fail, file a finding tagging it as "mark not deterring; needs deterministic enforcement" — the next mitosis cycle picks it up.
+
+**Check B — Grade trend.** Read the last ~5 grades from `_grades.md`. If the trend is descending (A → B → B → B-), name the drift in §2b and identify the underlying cause. Drift across sessions on the same day usually indicates fatigue, scope creep, or a working-mode issue that single-session retrospectives won't surface.
+
+State Check A and Check B findings inline in §2b ("What Didn't Go Well") with the cross-session evidence ("this is the 3rd retrospective today flagging X"). Don't quietly absorb them into §2d — make the recurrence visible.
+
+**Failure mode this prevents:** retrospective protocol is self-blind. Each session's retrospective files cleanly, but the same recurring issue surfaces session after session because no retrospective compares itself to the previous ones. The 2026-04-27 verify-source pattern hit exactly this — fired reactively in 3+ sessions, captured each time, never escalated to deterministic gate. §1.5 closes the loop.
+
 ### 2. Five-section structured output
 
 Produce a markdown file at `~/epigenome/chromatin/retrospectives/YYYY-MM-DD-HHMM.md` with five sections in this order:
