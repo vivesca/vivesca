@@ -92,6 +92,17 @@ If yes: draft → `~/epigenome/chromatin/secretome/` → publish. "Client-adjace
 
 **Complete all housekeeping — every commit pushed, every skill edit saved — before step 5.**
 
+### 4a. Anomaly parking rule (wrap-mode reflex)
+
+If `git status`, `cytokinesis gather`, or any tooling check surfaces weird state that **does not block the commit** — file showing untracked then tracked, stale lockfile, half-applied diff that resolves itself, ghost entries — **park as a one-line note. Do NOT investigate live during wrap.**
+
+- Anomaly blocks the wrap (won't commit, hook fails, real conflict) → resolve, since wrap can't complete otherwise.
+- Anomaly is just weird-looking state that the commit succeeds despite → one-line park in daily Residual or Tonus parked list. Move on.
+- Park format: `Parked: <observed weirdness> at <timestamp> — investigate next session if it recurs.`
+- If the same anomaly appears across 2+ sessions → THEN investigate, file finding. First occurrence = park.
+
+Why: wrap mode has a different cost function than working mode. Every minute spent investigating non-blocking weirdness during wrap is a minute *not* spent on the next-session priority. CC's reflex to "understand the anomaly before moving on" fights against wrap's "ship the commit and close" mode. Different mode, different reflex.
+
 ### 5. Tonus first, then daily note as the visible wrap artefact
 
 Two writes, in this order:
