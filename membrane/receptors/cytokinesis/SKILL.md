@@ -108,6 +108,18 @@ If a daily file already has earlier session blocks captured at compact, this ses
 
 **Display order in wrap output:** state skipped gates with rationale, then the daily-note Arc paragraph (or a one-line pointer to the daily note path). Tonus is the next-session handoff, not the wrap display — the daily Arc is what Terry reads as the close.
 
+### 6. Prompt retrospective (final step)
+
+Cytokinesis consolidates state. **Retrospective consolidates judgment about state** — what went well, what failed, Terry-pattern observations, what to do differently, session quality grade. They are two separate passes for a reason.
+
+**If invoked via `/telophase`:** retrospective runs automatically next — skip this step.
+
+**If invoked via bare `/cytokinesis`:** at the end of the wrap output, append exactly one line: `Run /retrospective next? (or use /telophase to run both as one cycle).` This is the gentle nudge — don't auto-run, don't pad. Let Terry decide.
+
+**Skip the prompt only when** the session was <3 substantial exchanges (truly trivial). State that as the rationale in the skipped-gates line.
+
+Recurring failure mode this prevents: Terry types `/cytokinesis` directly (muscle memory), state gets consolidated, judgment-about-state gets lost. The retrospective grade trend is the autopoiesis feedback signal — losing it silently is worse than a verbose wrap.
+
 ## CLI: `cytokinesis` (on PATH)
 
 | Subcommand | Purpose |
