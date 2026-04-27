@@ -13,6 +13,15 @@ epistemics: [monitor, learn]
 2. Find the latest gym log: `~/epigenome/chromatin/Health/Gym Log - *.md`. Read it for working weights, notes for next session, and any form fixes flagged.
 3. Prescribe today's exercises with target weights and rep ranges based on the log. Don't hardcode a programme — read from chromatin each time.
 
+### First-session-back protocol (>2 weeks since last log)
+
+Don't anchor on a uniform deload (e.g., "5 weeks off = drop 15-20% across all lifts"). Detraining is non-uniform across movements — for Terry, shoulders and lats often hold baseline while bench detrains noticeably. Anchoring on a uniform drop forces 2-3 mid-session recalibrations.
+
+Instead:
+- Prescribe a **feel-out set 1** at the prior working weight (not a deloaded weight).
+- Read the RPE feedback. RPE 9+ at expected reps → drop 15-20% for sets 2-3. RPE 7 with 2-3 RIR → hold weight. RPE <6 with 4+ RIR → bump or add tempo/pause for time-under-tension.
+- Capture per-movement detraining in the log's "Notes for Next Session" — bench-sensitive vs shoulder-resistant becomes a known prior for the next break.
+
 ## During the session
 
 4. **Every set**: run `date '+%H:%M:%S'` to timestamp it. Record weight, reps achieved.
