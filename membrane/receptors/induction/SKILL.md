@@ -233,13 +233,22 @@ The `principal-lens` agents are only as good as the profile they load and the ru
 
 Without capture, every paper's rejection knowledge dies with the session and the next paper's knockouts re-propose the same wrong patches. With capture, the discriminator gets sharper monotonically per paper cycle.
 
+**Critical caveat: Terry is not always right.** A rejection can be a one-off context-specific judgement, a tired pattern-match to the wrong situation, or correct-for-this-paper-but-wrong-as-a-general-rule. If the protocol methylates every rejection as a rule without a check, the discriminator profiles fill with frozen Terry-states that don't generalise. The fix: rejection capture is **two-step**, not one — the rejection generates a *candidate* rule; CC challenges; agreement methylates.
+
 **The protocol — applies at every triage point, not just at session end.**
 
 For every patch proposed by a principal-lens that Terry rejects (or directs CC to reject):
 
 1. **Capture the rejection text inline at triage time.** Don't defer to wrap. The reason is freshest in Terry's voice the moment the rejection is spoken: "no, that would have made Doug look like he's coopting Rice's commitment" or "that's a Capco-shape failure mode, Doug wouldn't write it that way."
 
-2. **Route the rejection to the right destination by content:**
+2. **CHALLENGE before filing.** Before routing the rejection to a destination file, ask one sharp question: "Is this reason load-bearing as a rule, or is it pattern-matching to this situation?" Construct one specific example of where the rule would over-fire — a future paper, principal, or context where applying this rule mechanically would produce a worse outcome. Present the candidate rule + the over-fire example. Three branches:
+   - **Terry agrees the rule is sharp** → file as written.
+   - **Terry refines** ("yes, but only when X / except when Y") → file the refined version with the conditions explicit.
+   - **Terry retracts** ("actually that was just this paper, not a rule") → don't file. The discussion itself was the calibration.
+
+   The challenge is not adversarial — it's calibration. Both halves apply: Terry's instinct is the source signal; CC's challenge tests whether it generalises. The rule lands only after agreement. Skipping the challenge means filing rules that will misfire on the next paper, which is worse than not capturing — over-fitting beats under-fitting only when there's no reset mechanism.
+
+3. **Route the agreed rule to the right destination by content:**
 
    | Rejection content | Destination file | Mark type |
    |---|---|---|
@@ -262,6 +271,8 @@ For every patch proposed by a principal-lens that Terry rejects (or directs CC t
 **Anti-pattern: capturing without routing.** Stockpiling rejections in a single learnings.md file fails — the next dispatch doesn't know to read that file. Capture must route to the file the lens already loads (profile note, avidity, tolerance, marks). If a rejection doesn't have an obvious destination, that's signal that a new file is needed, not that the capture should be deferred.
 
 **Anti-pattern: capturing only in Terry's voice, not as a rule.** "Terry didn't like X" is a description, not a rule. The lens cannot fire on description. Re-write as: "DO X / DO NOT X / DO X when Y / Reason Z." Discriminator rules are imperatives, not narrations.
+
+**Anti-pattern: skipping the challenge step.** If CC files every rejection without challenging, the rule library accumulates frozen Terry-states that misfire on the next paper. The challenge step is not optional — it's the calibration mechanism. Better to file fewer rules that survive the challenge than many rules that look like signal but aren't.
 
 **See also.** `affinity` skill (similar capture pattern for generic-deliverable iteration). The `feedback_*.md` mark family is the existing exemplar of rejection-rule capture done right (each entry is an imperative with a Reason and How-to-apply).
 
