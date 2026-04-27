@@ -33,6 +33,20 @@ Naming note: `mitosis` is taken (the monthly-review skill, parallel audits acros
 - When Terry says "wrap up", "/wrap", "/telophase", "end of session", "full wrap" without specifying just one half.
 - NOT for trivial sessions (<3 substantial exchanges) — neither cytokinesis nor retrospective adds value at that scale.
 
+### Thin-session branch — prefer checkpoint
+
+If the session was a **thin ops session** — pure routing work (file inbound message, log a contact, capture a single artefact, append to an existing thread) with no substantive decisions, no new abstractions, no working-mode discoveries — **prefer `/cytokinesis checkpoint`** to full telophase. Heuristics for "thin":
+
+- Total session duration <30 min
+- Output: <5 files, all routine (meeting notes, profile interlinks, daily-note appends)
+- No skill edits, no epistemics edits, no mark edits beyond mechanical filing
+- No challenges, debates, or convergence work — Terry guided, CC executed
+- Retrospective grade trend would be B at best (no compounding strategic gain available)
+
+Why: the retrospective's value is judgment about *substantive* state — what worked in deciding, what failed in convergence, what Terry-pattern emerged. Pure routing sessions don't generate enough signal to fill the five sections meaningfully; the result is padded retrospectives that dilute the grade trend.
+
+When in doubt, ask Terry: "Thin session — checkpoint mode (skip retrospective) or full telophase?"
+
 ## Workflow
 
 Two skills, run sequentially. Each is a complete skill in its own right; telophase just chains them.
