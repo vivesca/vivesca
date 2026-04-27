@@ -101,7 +101,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - endosomal
 - endosymbiosis
 - eow
-- epistula
+- endocrine
 - etiology
 - evaluate-ai-repo
 - evaluate-job
@@ -215,7 +215,7 @@ Anoikis candidates logged to /home/terry/epigenome/chromatin/receptor-retirement
 - docima: `docima`
 - elencho: `elencho`
 - endosymbiosis: `currently`
-- epistula: `cora`
+- endocrine: `cora`
 - evolvo: `evolvo`
 - exauro: `exauro`
 - fingo: `fingo`

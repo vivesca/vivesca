@@ -110,7 +110,7 @@ The paper is not done when written; it is done when it has been walked through. 
 
 Pre-circulation is the work. The meeting is the receipt.
 
-**Cover note + Bertie heads-up + Doug coaching are correspondence-class artefacts.** They follow `epistula` Compose-mode standalone-correspondence precondition: each gets its own `chromatin/immunity/YYYY-MM-DD-terry-<recipient>-<subject>.md` file with verbatim text + interlinks BEFORE send. Per `feedback_standalone_correspondence_notes.md` (PROTECTED), this catches the recurring asymmetry where outbound gets summarised in daily notes only and verbatim is later unrecoverable.
+**Cover note + Bertie heads-up + Doug coaching are correspondence-class artefacts.** They follow `endocrine` Compose-mode standalone-correspondence precondition: each gets its own `chromatin/immunity/YYYY-MM-DD-terry-<recipient>-<subject>.md` file with verbatim text + interlinks BEFORE send. Per `feedback_standalone_correspondence_notes.md` (PROTECTED), this catches the recurring asymmetry where outbound gets summarised in daily notes only and verbatim is later unrecoverable.
 
 ---
 

@@ -73,7 +73,7 @@ If it fails, set `SOMA=false` and run everything locally where possible.
 
 10. **Inbox check**:
    - Run: `gog gmail search "in:inbox" --limit 5 --json 2>/dev/null` or `gog gmail search "in:inbox" --limit 5`
-   - If results: surface count and actionable items only (billing, replies, deadlines). Nudge `/epistula` for full triage.
+   - If results: surface count and actionable items only (billing, replies, deadlines). Nudge `/endocrine` for full triage.
    - If empty: note "Inbox clear" and move on
 
 11. **Capco day count + daily prep item**:
@@ -103,7 +103,7 @@ Keep it focused: what do I need to do today, in what order? Not a report — a w
 >
 > **On the plate:** ServiceNow data export is the main gate — follow up with Frankie. Simon email draft needs review and send. Thinh's MRM pain points email validates the framework — read it.
 >
-> 3 actionable emails in inbox — `/epistula` to triage.
+> 3 actionable emails in inbox — `/endocrine` to triage.
 >
 > Today's Capco prep: HK regulatory landscape — read the Jan 2026 HKMA/SFC joint fintech statement (15 min).
 

@@ -1,10 +1,10 @@
 ---
-name: epistula
-description: "Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triage\", \"send email\", \"reply\", \"draft\", \"cora\", \"brief\", \"email todos\", \"epistula\""
+name: endocrine
+description: "Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triage\", \"send email\", \"reply\", \"draft\", \"cora\", \"brief\", \"email todos\", \"endocrine\""
 effort: high
 user_invocable: true
 triggers:
-  - epistula
+  - endocrine
   - email
   - inbox
   - email triage
@@ -18,7 +18,7 @@ triggers:
   - email todos
 ---
 
-# Epistula — Email (one skill, three modes)
+# Endocrine — Email (one skill, three modes)
 
 All email operations live here: triage, compose, Cora assistant. Internal routing by intent.
 

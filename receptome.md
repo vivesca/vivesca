@@ -13,7 +13,7 @@ Trigger phrases indexed: 244
 | maintenance | 30 | adytum, amicus, assay, auscultation, circadian, cron, cytometry, debridement +22 more |
 | meta | 22 | bouleusis, censor, derepression, fasti, gist, grapho, kritike, limen +14 more |
 | dispatch | 16 | agent-cli, centrosome, heuretes, involution, kindle, legatus, mitogen, motifs +8 more |
-| content | 11 | adhesion, agoras, analyze, epistula, evaluate-job, exocytosis, message, python +3 more |
+| content | 11 | adhesion, agoras, analyze, endocrine, evaluate-job, exocytosis, message, python +3 more |
 | workflow | 7 | auspex, dialexis, digest, expression, infradian, melete, weekly |
 | dev | 7 | etiology, fingo, friction, hypha, lucus, mandatum, remote-llm |
 | health | 6 | biomorphe, daily, differentiation, mappa, salus, sopor |
@@ -67,7 +67,7 @@ Trigger phrases indexed: 244
 - **adhesion**: Evaluate LinkedIn job postings for fit — job URL or "evaluate this role".
 - **agoras**: Draft LinkedIn comments and posts. Use when user shares a LinkedIn URL to comment on, says "linkedin comment", "linkedin
 - **analyze**: Classify content, extract insights, and save a structured vault note. Use when user shares content (article, job posting
-- **epistula**: Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triag
+- **endocrine**: Email — inbox triage, compose (send/reply/draft), and Cora AI assistant. Routes by intent. \"email\", \"inbox\", \"triag
 - **evaluate-job**: Evaluate LinkedIn job postings for fit. Triggers on job URLs or "evaluate this role".
 - **exocytosis**: Publish to terryli.hm garden. Secretome -> Astro -> deploy. "garden post", "new post", "publish post", "blog post"
 - **message**: Draft responses to recruiter and networking messages (LinkedIn DMs, WhatsApp intros, cold outreach). "reply to recruiter

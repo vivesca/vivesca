@@ -58,7 +58,7 @@ If current time is after 12:00 HKT, check `~/epigenome/chromatin/Job Hunting/Job
 If current time is after 15:00 HKT, check inbox count from Step 1. If Gmail shows any unread/inbox items, include in the menu:
 
 ```
-📧 Inbox triage: X in inbox — `/epistula` (10 min, wind-down)
+📧 Inbox triage: X in inbox — `/endocrine` (10 min, wind-down)
 ```
 
 This is the daily acta slot. Email is a low-energy end-of-day task, not a morning one.
@@ -69,7 +69,7 @@ Show results as a short, scannable list grouped by type:
 
 ```
 📬 Inbox: 3 Gmail, 1 WhatsApp
-📧 Inbox triage: 3 in inbox — /epistula (10 min, wind-down)
+📧 Inbox triage: 3 in inbox — /endocrine (10 min, wind-down)
 💼 Job alerts: 4 roles flagged
 🏠 Quick wins: [2-5 items from TODO.md]
 ```
@@ -80,8 +80,8 @@ End with: "Want to tackle any of these, or just check messages?"
 
 ## Notes
 
-- This skill does NOT do Gmail triage itself. It surfaces the count so Terry can decide to run `/epistula`.
+- This skill does NOT do Gmail triage itself. It surfaces the count so Terry can decide to run `/endocrine`.
 - Don't add low-energy items to TODO.md from this skill — it's read-only on TODO.md.
-- If Terry picks "check Gmail" or "acta", hand off to `/epistula` skill.
+- If Terry picks "check Gmail" or "acta", hand off to `/endocrine` skill.
 - If Terry picks a TODO item, help with it directly.
 - The `low-energy` tag is compatible with the existing `/todo` system — items tagged this way still show in `/todo` normally.
