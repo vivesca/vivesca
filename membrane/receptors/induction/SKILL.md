@@ -248,7 +248,16 @@ For every patch proposed by a principal-lens that Terry rejects (or directs CC t
 
    The challenge is not adversarial — it's calibration. Both halves apply: Terry's instinct is the source signal; CC's challenge tests whether it generalises. The rule lands only after agreement. Skipping the challenge means filing rules that will misfire on the next paper, which is worse than not capturing — over-fitting beats under-fitting only when there's no reset mechanism.
 
-3. **Route the agreed rule to the right destination by content:**
+3. **Capture three layers, not just the imperative.** Rules age better when their calibration boundaries travel with them. Future-CC reading the rule needs the *imperative* to act, AND the *source signal + discussion arc* to judge edge cases. Lossy capture (imperative-only) means future sessions re-discover the calibration; rich capture (three layers) lets calibration transfer.
+
+   Three layers per rule entry:
+   - **Layer 1 — Imperative.** "DO X / DO NOT Y / DO X when Z." This is what the lens fires on.
+   - **Layer 2 — Source signal.** What triggered the discussion: the rejected patch, the over-fire example, Terry's instinct phrased in his words. ("Terry rejected the AISI cite under Rice's voice because Rice publicly committed to no pre-formed plan; signing a six-capability proposal preempts that listening commitment.")
+   - **Layer 3 — Discussion arc + agreed framing.** What pressure-testing produced the final scope. Captures the calibration boundary — the rule's *limits* are encoded here. ("Considered: literal rule = 'cite all external methodology under principal voice = bad'. Refined to: 'don't cite under principal voice WITHOUT verifying principal has read it'. Reason: AR-routing is fine; direct citation under voice without principal-read is the actual hazard. Edge case: if principal HAS read the source, direct citation is acceptable.")
+
+   The three-layer capture is the **co-organism principle** applied to rule formation: two intelligences with different bases (CC's model + training; Terry's organism context + taste) converge on a position with higher confidence than either input alone. The discussion arc IS the asset — it's how the convergence path stays available for future application. Imperative-only capture loses the path; three-layer capture preserves it.
+
+4. **Route the three-layer rule to the right destination by content:**
 
    | Rejection content | Destination file | Mark type |
    |---|---|---|
