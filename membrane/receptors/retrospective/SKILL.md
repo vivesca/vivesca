@@ -92,13 +92,33 @@ Single letter + 1-sentence justification. Rubric:
 
 Track grades in `~/epigenome/chromatin/retrospectives/_grades.md` (one line per session: date, grade, link to file). Trend matters more than any single grade.
 
-### 3. Display Final Output to Terry
+### 3. Route §2d findings to durable form (mandatory, BEFORE display)
 
-Display sections 2a–2e inline (don't make Terry open the file). Be honest, specific, brief. Each section <150 words. Total output ≤800 words.
+**§2d "What to Do Differently" items must be routed to durable artefacts the same turn — not left as text in the retrospective file requiring Terry to prompt.** A retrospective that surfaces "[CC] do X" and stops there is a retrospective that did 50% of its job. The other 50% is making "do X" something a future session will actually encounter.
 
-### 4. File the retrospective + commit
+For each `[CC]` and `[Both]` item in §2d, route per the genome routing table:
 
-`~/epigenome/chromatin/retrospectives/YYYY-MM-DD-HHMM.md` + append grade line to `_grades.md`. Auto-commit to epigenome.
+- **Recurring CC reflex miss** (verbosity, anomaly investigation, etc.) → `marks/feedback_*.md` immediately. Skill edit if it belongs in a specific skill's workflow (e.g., wrap-mode rules → `cytokinesis/SKILL.md`).
+- **Cross-skill working method** → epistemics file in `~/epigenome/chromatin/euchromatin/epistemics/` with `situations:` tags + `skills:` bridge. Marks alone don't fire on grep across skills; epistemics do.
+- **Specific skill behavior change** → edit that skill's SKILL.md directly. Skills > marks for instructions that should fire by trigger.
+- **Workflow / hook candidate** → add to Tonus parked or file as a finding for the next maintenance cycle.
+- **Ops / tooling discovery** → `marks/finding_*.md`.
+
+`[Terry]` items go in the retrospective display only — Terry decides if they become anything more.
+
+**Failure mode this prevents:** CC produces §2d, displays it, files the retrospective, ends the wrap. Findings sit in a single file no future session reads. Next session repeats the same mistake; Terry has to point out the gap before CC routes the lessons. The 2026-04-27-1122 retrospective hit exactly this — three actionable findings sat as text until Terry asked "nothing we identified for improving future sessions?" The retrospective protocol must close this loop autonomously.
+
+**Cap:** route the top 3 `[CC]`/`[Both]` items. Routing every minor observation creates noise; the top three are the ones that change behavior. Park the rest in the retrospective text only.
+
+State the routing inline in §2d as you display it: each item ends with `→ filed: <path>` or `→ skill edit: <path>` or `→ epistemics: <path>`. Terry sees the action with the finding, not the finding alone.
+
+### 4. Display Final Output to Terry
+
+Display sections 2a–2e inline (don't make Terry open the file). Be honest, specific, brief. Each section <150 words. Total output ≤800 words. §2d items must show their routing destination per §3.
+
+### 5. File the retrospective + commit
+
+`~/epigenome/chromatin/retrospectives/YYYY-MM-DD-HHMM.md` + append grade line to `_grades.md`. Auto-commit to epigenome. The §3 routing artefacts (marks, skill edits, epistemics) get their own commits per "atomic commits" genome rule — don't bundle.
 
 ## Anti-Patterns
 
