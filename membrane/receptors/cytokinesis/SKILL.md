@@ -63,6 +63,8 @@ The routing table catches obvious signals (corrections, surprises, state changes
 
 6. **Trigger collisions detected?** Did two skills fire on the same trigger this session? Same-trigger-one-skill is genome-protected (`feedback_same_trigger_one_skill.md`). Candidates for merge or trigger sharpening — file as a finding for next skill-review cycle.
 
+7. **Outbound senior comms captured as standalone notes?** `feedback_standalone_correspondence_notes.md` (PROTECTED) requires every sent email / Teams / WhatsApp / partner-comms message to land as its own file with frontmatter + interlinks — NOT just a summary line in the daily note. Inbound is usually transcribed correctly; outbound is the recurring violation point. Check this session's outbound: each sent message has a standalone `chromatin/immunity/YYYY-MM-DD-<recipient>-<subject>.md` file? If summarised-only, backfill now via anam search of session JSONL for verbatim text. The asymmetry (inbound captured, outbound summarised) is the failure mode that bit on 2026-04-27 (Terry's Friday reply to Simon committing to Mon AM BST draft was only in daily note, surfaced 3 days later when traceability was needed).
+
 **These run AFTER §1's correction backstop and BEFORE §2's audit signal.** They catch substance that the routing table doesn't have a column for. If any return non-empty, do the routing now (skill edit, epistemics file, profile update, marks entry) before proceeding to §2.
 
 ### 2. Audit signal (proprioception)
