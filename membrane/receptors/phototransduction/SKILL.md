@@ -1,13 +1,23 @@
 ---
 name: phototransduction
-description: Reconstruct documents from photos as structured markdown. Use when user shares photos of slides, papers, or screens and wants them captured as text. "OCR this", "reconstruct from photos", "transcribe these slides", "photo to markdown".
+description: Reconstruct documents from photos/screenshots as structured markdown. Use when user shares photos, screenshots, or images of slides/papers/emails/screens and wants them captured as text. Common triggers — "OCR this", "reconstruct from photos", "transcribe slides", "photo to markdown", "took photos", "took a photo", "synced to iCloud", "photos on my phone", "screenshot of an email", "took screenshots", "photos in iCloud Photos", "captured an email/slide/page", "process the photos I just took".
 triggers:
   - photos of documents
+  - photos of email
+  - screenshots of email
   - OCR
   - reconstruct from photos
   - transcribe slides
   - photo to markdown
   - document from camera
+  - took photos
+  - took a photo
+  - synced to iCloud
+  - iCloud Photos
+  - photos on my phone
+  - screenshots
+  - captured an email
+  - capture verbatim from photo
 tools: [rhodopsin.py, Read, Write, Bash, Edit]
 epistemics: []
 ---

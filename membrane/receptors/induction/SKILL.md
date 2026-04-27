@@ -83,6 +83,67 @@ If the draft contains any of these, stop and rewrite — they are paper-killers 
 
 ---
 
+## 4a. Sentence-Level Discipline — Shorter, Simpler, Punchier
+
+Paragraph density and sentence brevity are independent. A dense paragraph (lots of information per word) can be composed of short sentences. Aim for both.
+
+The principle: **each sentence punches once.** Compound sentences with three nested qualifiers dilute the punch. Cut to two sentences when a thought has two beats. Cut to one when you can.
+
+**DO:**
+- Lead with the subject + active verb. "Group AI extends MRM's artefacts." Not "An extension of MRM's artefacts is what Group AI provides."
+- Split when conjunctions stack. "X, and Y, with Z" → "X. Y, with Z."
+- Use plain words. "The capability concentrates at Group level..." beats "The capability instantiates a Group-level concentration of..."
+- Bare assertions in Recommendation and Ask. "The Board is invited to endorse." Not "The Board may wish to consider whether endorsement..."
+
+**DO NOT:**
+- Stack three clauses joined by "—" or "with" or "and" in a single sentence. Split.
+- Use compound modifiers when one will do. "build-once-govern-once-reuse-many" earns its hyphen-string by being institutional vocabulary; "comprehensive-yet-flexible-and-scalable" doesn't.
+- Mistake long-sentence sophistication for senior register. Senior register prefers short and load-bearing.
+- Write what you'd say in a meeting. Spoken hedges ("I think", "perhaps") become weakness markers in writing.
+
+**Test:** read each sentence aloud. If you run out of breath before the period, split. If you can't say what the sentence claims in 10 words or less, the sentence is doing too much.
+
+**The asymmetry:** punchy sentences cost the writer (more thinking, more revision); long sentences cost the reader (slower comprehension, weaker punch). Pay the writer's cost.
+
+Related marks: `feedback_executive_paper_style`, `feedback_partner_message_density`, `feedback_assert_dont_ask_in_senior_comms`.
+
+---
+
+## 4b. Technical-Backing Satellite Notes — Body Layman, Defense Hidden
+
+Board papers should read accessibly for the audience that will endorse them. Most board readers are not domain specialists — they will not parse field jargon, internal acronyms, or unexplained technical terms. The body must use plain English, named institutions, and concrete examples that any senior reader can follow without a glossary.
+
+But the paper still needs to survive technical challenge from cross-functional readers (MRM, Cyber, Legal, regulators). Bury the technical depth in **satellite notes** linked from the paper's `related:` frontmatter, not in the body.
+
+**Pattern:**
+
+| Layer | Audience | Content |
+|---|---|---|
+| Body | Board / endorsement audience | Plain English, named institutions, concrete examples |
+| Defense satellite | Cross-functional reviewers (MRM, Cyber, Legal, PRA) | Technical claims, methodology, anticipated challenges with responses, source lineage |
+| Reference satellite | Anyone challenging a specific external claim | Verbatim source captures, primary URLs, secondary coverage |
+| Long-form parent | Regulators, follow-on paper authors | Full architectural depth, all framings, all caveats |
+
+**When a body claim could be challenged technically, write the defense in a satellite note before the challenge arrives.** The paper links to the satellite via `related:`. The body stays clean. If the challenge arrives, the defender pulls the satellite note and answers from prepared depth.
+
+**Example pattern from v0.19 AI Safety Board paper:**
+- Body: "Model capability — what a model can do — is the assessment unit reusable across use cases."
+- Defense satellite: full risk = f(capability, reach) equation, six anticipated challenges (MRM territory, Design Authority territory, capability stability under finetuning, etc.), source lineage (Szpruch, Sudjianto, Bhatti, Ang; Gary Ang; pattern-based-governance paper).
+- Reference satellite: Roose NYT article on METR validating institutional weight.
+- Long-form parent paper: full architectural depth.
+
+**Why the split works:**
+- Body register stays Board-grade — accessible, punchy, no jargon
+- Technical depth is preserved for any reviewer who needs it
+- Defender enters challenge meetings with prepared answers, not improvised depth
+- Future paper authors inherit the technical lineage via the satellite chain
+
+**When to write the satellite:** as soon as you write a body claim that is layman-translated from a technical reality. The translation cost is not trivial. The defense satellite captures what was simplified and what the unsimplified version says.
+
+**Anti-pattern:** writing the body in technical register because "the audience needs to understand the depth." The audience is the audience for the body. Defense audience is different. Layer them.
+
+---
+
 ## 5. The 200-Word Test
 
 Before circulating any draft, write the 200-word version. If the 200-word version cannot stand alone as the paper, the longer version is hiding weakness behind length. The 200-word version contains:
