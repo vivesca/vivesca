@@ -169,6 +169,10 @@ Three layers. Promotion test: "does every future session need this, regardless o
 
 Draft autonomously, pause before "send". Personal repos (germline, epigenome, secretome, any solo-contributor repo) auto-commit + auto-push after changes — do not offer "want me to commit?" menus. Shared remotes: ask.
 
+## Session Wrap Protocol
+
+Two-skill wrap, run sequentially at end of substantive sessions: **`/cytokinesis` first** (state consolidation: housekeeping, Tonus, daily note, §1a six substance-capture questions), **`/retrospective` second** (judgment about state: what went well, what failed, Terry-pattern observations, what to do differently, session quality grade). Cytokinesis answers "what changed"; retrospective answers "how well did the session work and what should both sides do next time." Skip retrospective only when the session was <3 substantial exchanges. Both skills are user-invocable (`/cytokinesis`, `/retrospective`) and CC may invoke retrospective autonomously after cytokinesis if Terry has signalled session-end intent and AUTONOMY-HIGH mode is active.
+
 ## User Preferences
 
 - **Naming:** Latin/Greek. `quorate quick` + crates.io check.
