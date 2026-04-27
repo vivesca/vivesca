@@ -135,6 +135,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Anxiety → system → `/circadian`.** "Should I check X?" → confirm system covers it.
 
+**AFK signal → autonomy mode shift.** When Terry's message contains AFK signals — "AFK", "with Theo", "with Tara", "school run", "going to [event]", "back in [time]", "continue while I [do X]" — enter AUTONOMY-HIGH mode for the rest of the session: (a) act on all reversible / in-scope work without per-step confirmation, (b) batch updates rather than narrating progress between tool calls, (c) ask only for blocking decisions that genuinely need taste, (d) commit and push personal-repo work as it lands. Returning to interactive = any normal message that doesn't carry an AFK signal. Inverse: when Terry IS interactive (no AFK signal in recent messages), default to per-step confirmation on anything not explicitly authorised. The autonomy gradient is dynamic per session, not per task. **High-risk autonomous work even in AUTONOMY-HIGH:** edits to load-bearing hooks (`synapse.py` / `axon.py` / `dendrite.py`) or `genome.md` require Terry's eyes regardless — never autonomous on those. Skill files, epistemics, profiles, marks, chromatin → autonomous-eligible.
+
 ## Session Capture
 
 Route these signals the moment they appear — don't wait for `/cytokinesis`.
