@@ -162,6 +162,7 @@ Quick skim of releases/READMEs for new patterns worth cherry-picking. Don't adop
 | [trailofbits/skills](https://github.com/trailofbits/skills) | Domain-specialized skill design |
 | [OthmanAdi/planning-with-files](https://github.com/OthmanAdi/planning-with-files) | Planning workflows |
 | [parcadei/Continuous-Claude-v3](https://github.com/parcadei/Continuous-Claude-v3) | Context management, state persistence |
+| [mattpocock/skills](https://github.com/mattpocock/skills) | Interface/module design vocabulary, DDD, Ousterhout-grounded patterns |
 
 ### 9. Save to Vault
 
