@@ -101,16 +101,54 @@ def pull(repo: Path) -> tuple[str, bool]:
         return f"{repo.name}: ERROR {e}", False
 
 
+DRIFT_THRESHOLD = 10
+"""Surface-the-drift threshold: alert when any repo is >= N commits behind origin
+for two consecutive runs. Catches the silent-drift failure mode that hid Mac
+germline 117 commits behind for weeks before 2026-04-28."""
+
+
+def behind_count(repo: Path) -> int | None:
+    """Commits the local checkout is behind its upstream. None on error."""
+    try:
+        branch = _git(repo, "rev-parse", "--abbrev-ref", "HEAD", timeout=10)
+        if branch.returncode != 0:
+            return None
+        result = _git(
+            repo,
+            "rev-list",
+            "--count",
+            f"HEAD..origin/{branch.stdout.strip()}",
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        return int(result.stdout.strip())
+    except (subprocess.TimeoutExpired, ValueError):
+        return None
+
+
 def main():
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     results = [pull(r) for r in REPOS]
 
     failures = [msg for msg, ok in results if not ok]
-    lines = [f"[{timestamp}] " + " | ".join(msg for msg, _ in results)]
+
+    # Drift detection — count behind-commits per repo after pull attempt.
+    drift_alerts: list[str] = []
+    for repo in REPOS:
+        if not (repo / ".git").exists():
+            continue
+        n = behind_count(repo)
+        if n is not None and n >= DRIFT_THRESHOLD:
+            drift_alerts.append(f"{repo.name} is {n} commits behind origin")
+
+    line = f"[{timestamp}] " + " | ".join(msg for msg, _ in results)
+    if drift_alerts:
+        line += " :: DRIFT " + "; ".join(drift_alerts)
 
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG, "a") as f:
-        f.write(lines[0] + "\n")
+        f.write(line + "\n")
 
     # Keep log under 500 lines
     if LOG.exists():
@@ -118,8 +156,29 @@ def main():
         if len(all_lines) > 500:
             LOG.write_text("\n".join(all_lines[-251:]) + "\n")
 
-    if failures:
-        print(f"WARN: {len(failures)} repos failed", file=sys.stderr)
+    # Persistent-drift detection: if the previous run also drifted on the same
+    # repos, escalate via an emit alert so the next-session circadian sees it.
+    if drift_alerts and len(all_lines) >= 2:
+        prior = all_lines[-2] if LOG.exists() else ""
+        if "DRIFT" in prior:
+            try:
+                subprocess.run(
+                    ["emit", "alert", "--channel", "telegram", "--title", "soma-pull drift",
+                     "--body", "; ".join(drift_alerts)],
+                    timeout=15,
+                    capture_output=True,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                # emit unavailable — drift still in log; circadian/morning-digest will surface it.
+                pass
+
+    if failures or drift_alerts:
+        msg = []
+        if failures:
+            msg.append(f"{len(failures)} repos failed")
+        if drift_alerts:
+            msg.append(f"{len(drift_alerts)} drifting")
+        print(f"WARN: {', '.join(msg)}", file=sys.stderr)
         sys.exit(1)
 
 
