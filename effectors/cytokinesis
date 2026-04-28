@@ -704,16 +704,58 @@ def gather(
         if most_recent_today:
             recent_retro_path = most_recent_today[0].name
             recent_retro_age_hours = round((time.time() - most_recent_today[0].stat().st_mtime) / 3600, 2)
+    # Substance signal: count commits + new marks since the recent retro was filed.
+    # The time gate alone is shape-based; substance signal catches "thin window
+    # but heavy work" cases where checkpoint default would under-fire on an arc
+    # that did warrant retrospective. Codifies retrospective 2026-04-28-1620 §2d [Both] item 2.
+    commits_since_retro = 0
+    new_marks_since_retro = 0
+    if recent_retro_age_hours is not None and most_recent_today:
+        retro_mtime = most_recent_today[0].stat().st_mtime
+        retro_iso = datetime.fromtimestamp(retro_mtime).isoformat()
+        germline_dir = Path.home() / "germline"
+        for repo in (EPIGENOME_DIR, germline_dir):
+            if (repo / ".git").exists():
+                try:
+                    r = subprocess.run(
+                        ["git", "log", f"--since={retro_iso}", "--oneline"],
+                        cwd=repo,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if r.returncode == 0 and r.stdout.strip():
+                        commits_since_retro += len(
+                            [l for l in r.stdout.splitlines() if l.strip()]
+                        )
+                except (subprocess.TimeoutExpired, OSError):
+                    pass
+        marks_dir = EPIGENOME_DIR / "marks"
+        if marks_dir.is_dir():
+            new_marks_since_retro = sum(
+                1 for p in marks_dir.glob("*.md") if p.stat().st_mtime > retro_mtime
+            )
+    substantive_arc = commits_since_retro >= 2 or new_marks_since_retro >= 1
     if recent_retro_age_hours is not None:
-        gates["recent_retrospective"] = (
-            f"PENDING — retrospective {recent_retro_path} filed {recent_retro_age_hours}h ago. "
-            f"Likely a post-wrap continuation. Default to thin /cytokinesis checkpoint, "
-            f"NOT full /telophase, unless Terry explicitly confirms substantive new arc."
-        )
+        if substantive_arc:
+            gates["recent_retrospective"] = (
+                f"PENDING — retrospective {recent_retro_path} filed {recent_retro_age_hours}h ago, "
+                f"BUT substantive arc since ({commits_since_retro} commits, {new_marks_since_retro} new marks). "
+                f"Full /telophase recommended — checkpoint default overridden by substance signal."
+            )
+        else:
+            gates["recent_retrospective"] = (
+                f"PENDING — retrospective {recent_retro_path} filed {recent_retro_age_hours}h ago. "
+                f"Likely a post-wrap continuation ({commits_since_retro} commits, {new_marks_since_retro} new marks since). "
+                f"Default to thin /cytokinesis checkpoint, NOT full /telophase, unless Terry explicitly confirms substantive new arc."
+            )
     else:
         gates["recent_retrospective"] = "DONE — no recent retrospective from today"
     results["recent_retrospective_age_hours"] = recent_retro_age_hours
     results["recent_retrospective_path"] = recent_retro_path
+    results["commits_since_retro"] = commits_since_retro
+    results["new_marks_since_retro"] = new_marks_since_retro
+    results["substantive_arc"] = substantive_arc
 
     results["gates"] = gates
 

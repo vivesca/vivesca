@@ -45,11 +45,20 @@ If the session was a **thin ops session** — pure routing work (file inbound me
 
 Why: the retrospective's value is judgment about *substantive* state — what worked in deciding, what failed in convergence, what Terry-pattern emerged. Pure routing sessions don't generate enough signal to fill the five sections meaningfully; the result is padded retrospectives that dilute the grade trend.
 
-**Deterministic pre-flight check (mandatory, replaces "when in doubt, ask"):** before invoking `/cytokinesis`, run `cytokinesis gather` and inspect the `recent_retrospective` gate. If it returns `PENDING — retrospective ... filed Xh ago`, the current invocation is a post-wrap continuation by definition — most of this session's substance was already retrospected. **Default to `/cytokinesis checkpoint` (skip retrospective) and confirm with Terry before running full telophase:**
+**Deterministic pre-flight check (mandatory, replaces "when in doubt, ask"):** before invoking `/cytokinesis`, run `cytokinesis gather` and inspect the `recent_retrospective` gate **plus** the `substantive_arc` signal:
 
-> "Recent retrospective filed `<X>h` ago. Defaulting to thin checkpoint mode (skip retrospective). Confirm: `checkpoint` or `full telophase`?"
+- **`substantive_arc: true`** (commits ≥2 OR new marks ≥1 since prior retrospective) → **run full `/telophase`**. Substance signal overrides the time gate; the slot's work is non-trivial regardless of how recently the prior retrospective filed.
+- **`substantive_arc: false` AND recent retrospective <4h ago** → **default to `/cytokinesis checkpoint`** (skip retrospective) and confirm with Terry:
 
-Only run full telophase if Terry explicitly confirms substantive new arc since the prior retrospective. This codifies the failure mode caught in retrospective 2026-04-28-1450 §2d: "the right call would have been thin-session checkpoint, not full telophase" — the deterministic gate now fires automatically rather than relying on CC noticing the post-wrap signal.
+  > "Recent retrospective filed `<X>h` ago, no substantive arc since (`<C>` commits, `<M>` new marks). Defaulting to thin checkpoint mode (skip retrospective). Confirm: `checkpoint` or `full telophase`?"
+
+- **Otherwise** (no recent retrospective today) → **full `/telophase`** is the default.
+
+Codifies two failure modes:
+1. Retrospective 2026-04-28-1450 §2d — over-fire on thin continuation (original gate fixed this).
+2. Retrospective 2026-04-28-1620 §2d — under-fire on substantive continuation (shape-only gate over-applied; now resolved via substance signal — `cytokinesis gather` computes commits-since-retro + new-marks-since-retro and exposes `substantive_arc`).
+
+The deterministic gate fires automatically rather than relying on CC noticing post-wrap or substantive-arc signals.
 
 ## Workflow
 
