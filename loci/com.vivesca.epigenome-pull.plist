@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.vivesca.epigenome-pull</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/git</string>
+        <string>-C</string>
+        <string>/Users/terry/epigenome</string>
+        <string>pull</string>
+        <string>--ff-only</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/terry/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>StartInterval</key>
+    <integer>60</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/epigenome-pull.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/epigenome-pull.log</string>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
