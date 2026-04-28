@@ -93,7 +93,7 @@ Full table in `~/epigenome/marks/finding_leaderboard_weighting_for_panel_selecti
 | **Grok 4.20** | M3 (xAI) | Contrarian, challenges consensus | Stress-testing ideas |
 | **Kimi K2.6** | M4 (Moonshot) | Top open-source on AA Index; reasoning-heavy MoE | Technical + Chinese-lineage perspective |
 | **GLM-5.1** | M5 (Zhipu) | Strategic, pragmatic (best-validated CN model) | Business decisions |
-| **Mimo v2.5 Pro** | M6 (Xiaomi) | Underweight slot — swap candidate | (weak signal — review) |
+| **Mimo v2.5 Pro** | M6 (Xiaomi) | AA Index 54 — tied with Kimi K2.6 as top open-source | Distinct lineage, frontier tier |
 | **Gemini 3.1 Pro** | Judge (Google) | Technical synthesis, systems thinking | Final judgment |
 | **Claude Opus 4.7** | Critique (Anthropic) | Independent review of judge synthesis | Catching judge gaps |
 
