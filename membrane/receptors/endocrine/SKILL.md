@@ -143,6 +143,8 @@ After Terry gives calls on the batch:
 
 **Prefer Gmail filters over unsubscribing.** When a sender is consistently noise, create a filter via `endosomal action=filter from_sender="<sender>" archive=true dry_run=true` (flip `dry_run=false` to apply). Filters are reversible, don't require waiting for unsub propagation, and emails remain in archive for Cora briefs.
 
+**Filter-creation scope preflight (run once per session before any filter attempt).** Both `endosomal action=filter` and `gog gmail filters create` require the `gmail.settings.basic` OAuth scope. If that scope is missing, every filter call 403s with `insufficientPermissions` — and the failure mode is identical across both tools, so there's no second-tool fallback. Before the first filter attempt of a session, either (a) `gog gmail filters list --plain` returns existing filters cleanly → scope is present, proceed, or (b) any 403 with "insufficient authentication scopes" → STOP, do NOT retry on the second tool. Queue the proposed filter spec for after the re-auth (Praxis Quick item) instead. See `marks/finding_gog_endosomal_missing_gmail_settings_scope.md`. Codified after 2026-04-28 triage where two tools hit the same 403 on the same scope gap before the pattern surfaced.
+
 ## Step 4 — Archive the noise
 
 After working through all action items, batch-archive using the right tool per source:
