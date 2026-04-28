@@ -109,45 +109,66 @@ Related marks: `feedback_executive_paper_style`, `feedback_partner_message_densi
 
 ---
 
-## 4c. UK House Style — The Reader's Eye Lands Here
+## 4c. House Style Follows the Audience's Headquarter
 
-Default for all HSBC, UK-headquartered, and UK-clearance papers (Group OpCo, AIRCo, RMM, Board sub-committees, Doug/Beth/Rice/Bertie chains). The obvious -ize/-or spellings are not the tell — Capco's house drafts already get those right. The high-signal markers are subtler, and they're what a UK Group reader's eye lands on first.
+Default rule: **the paper's English house style follows the headquarter of the institution it serves, not the writer's location, not Capco's location, not the regulator's location.** HSBC Group → UK English. JPMorgan / Citi / Goldman / a US-domiciled fintech → US English. DBS / OCBC → UK English (Singapore inherits Commonwealth conventions). HSBC HK or StanChart HK → UK English (the Group HQ governs, not the local entity). Mixed audience → default to the most-senior reader's HQ.
+
+The obvious spelling switches (-ize/-or vs -ise/-our) are not the discriminator — drafts of any provenance usually get those right. The high-signal markers are subtler, and they are what a native house-style reader's eye lands on first.
+
+**Step 0 — identify the HQ before drafting.** Group HQ of the institution that owns the decision the paper is asking for. If unsure, check the audience's company filings or domicile of the most-senior named reader. Lock the variant before §1 of this skill, not after.
+
+### UK English (HSBC, UK-domiciled, Commonwealth, Singapore)
 
 **DO:**
-- **Punctuation outside quotation marks** unless the punctuation is part of the quoted material. `the Board endorsed "capability spine".` — not `the Board endorsed "capability spine."`
-- **Single quotes** for first-level quotation; double for nested. UK convention is the inverse of US.
-- **Plural verb on collective nouns** when treating them as a body of people: "the team are", "the Board are inclined", "Group AI are sponsoring". Singular when treating as a single entity: "the Board is the decision-maker".
-- **Date format** `27 April 2026`. No comma, no `April 27, 2026`.
-- **Double-L on inflected verbs:** modelled, labelled, cancelled, travelling, signalling, levelled, totalled, channelled.
-- **Lexical pairs:** programme (process/scheme; software stays "program"), licence (noun) / license (verb), practice (noun) / practise (verb), enrol, fulfil, instil, judgement (legal/considered), organisation, recognise, prioritise, utilise, optimise, behaviour, defence, offence, centre, metre.
+- **Punctuation outside quotation marks** unless part of the quoted material. `the Board endorsed "capability spine".`
+- **Single quotes first level**, double nested. Inverse of US.
+- **Plural verb on collective nouns** as bodies of people: "the team are", "the Board are inclined", "Group AI are sponsoring". Singular when treating as single entity.
+- **Date format** `27 April 2026`. No comma.
+- **Double-L on inflected verbs:** modelled, labelled, cancelled, travelling, signalling, levelled.
+- **Lexical:** programme (scheme; software → program), licence (n) / license (v), practice (n) / practise (v), enrol, fulfil, instil, judgement, organisation, recognise, prioritise, utilise, optimise, behaviour, defence, centre.
 - **"Different from"** not "different than".
 
 **DO NOT:**
-- Use "while/whilst" interchangeably as a UK signal — "whilst" reads as archaism in modern Group prose. Plain "while" is correct.
-- Over-correct into period-piece UK ("amongst", "amidst", "endeavour to") thinking it lifts register. It lowers it.
-- Use Oxford comma reflexively. UK house style is Oxford-comma-optional; consistency within the paper matters more than the choice.
-- Use US date format anywhere — including footnotes, references, version stamps, and metadata.
-- Mix `-ize` and `-ise` within the same paper. Pick `-ise` and sweep.
+- Default to "whilst/amongst/amidst" as UK signal — they read as archaism in modern Group prose. Plain "while/among" is correct.
+- Mix `-ize` and `-ise` within the same paper.
+- Use Oxford comma reflexively — UK is Oxford-optional, but consistency within the paper matters.
 
-**Pre-send sweep (run this against every UK-chain paper before circulation):**
+### US English (US-domiciled banks, US fintech, US regulators)
+
+**DO:**
+- **Punctuation inside quotation marks** for commas and periods. `the Board endorsed "capability spine."`
+- **Double quotes first level**, single nested.
+- **Singular verb on collective nouns:** "the Board is", "the team is".
+- **Date format** `April 27, 2026`. Comma after day.
+- **Single-L on inflected verbs:** modeled, labeled, canceled, traveling, signaling.
+- **Lexical:** program, license (both n+v), practice (both n+v), enroll, fulfill, instill, judgment, organization, recognize, prioritize, utilize, optimize, behavior, defense, center.
+- **Oxford comma is house default** for executive prose at most US institutions.
+
+### Pre-send sweep
+
+After locking the variant, grep for the wrong-variant tells:
 
 ```bash
-# US spellings
-grep -nE '\b(behavior|organize|optimi[sz]e|recogni[sz]e|analy[sz]e|defen[sc]e|labor|color|favor|center|program(?!me)|license|practice|utilize|leverage|gotten|modeling|labeling|canceling|traveling|signaling|judgment)\b' <paper>
-
-# US date format
+# Drafting in UK — sweep for US leakage
+grep -nE '\b(behavior|organize|optimize|recognize|analyze|defense|labor|color|favor|center|program(?!me)|practice as a verb|utilize|gotten|modeling|labeling|canceling|traveling|signaling|judgment)\b' <paper>
 grep -nE '\b(January|February|March|April|May|June|July|August|September|October|November|December) [0-9]{1,2},' <paper>
+grep -nE '[",]"|\."' <paper>   # punctuation inside quotes
 
-# Punctuation inside quotes (US convention)
-grep -nE '[",]"|\."' <paper>
-
-# Period-piece UK over-correction
-grep -nE '\b(whilst|amongst|amidst|endeavour to)\b' <paper>
+# Drafting in US — sweep for UK leakage
+grep -nE '\b(behaviour|organise|optimise|recognise|analyse|defence|labour|colour|favour|centre|programme|licence|practise|utilise|modelling|labelling|cancelled|travelling|signalling|judgement|whilst|amongst)\b' <paper>
+grep -nE '\b[0-9]{1,2} (January|February|March|April|May|June|July|August|September|October|November|December) [0-9]{4}\b' <paper>
 ```
 
-**Trigger.** Any paper destined for HSBC Group, UK-headquartered, UK-clearance, or partner-routed-via-UK (Bertie chain). Also any external regulator submission to PRA/FCA. Skip for HK-domiciled, Singapore-domiciled, or US-domiciled audiences only.
+**Trigger.** Any paper, deck, memo, or cover note destined for an institutional reader. Identify HQ → lock variant → sweep before circulation. The rule applies to body, footnotes, references, version stamps, metadata, and email cover.
 
-Related marks: `feedback_executive_paper_style`, `feedback_hsbc_is_the_buyer`.
+**Active routing for current chains.**
+- HSBC Group / Doug / Beth / Rice / AIRCo / RMM / Board sub-committees / Bertie UK clearance → **UK**.
+- PRA / FCA → **UK**.
+- HKMA / SFC / MAS → **UK** (Commonwealth).
+- Federal Reserve / OCC / SEC / CFTC → **US**.
+- Capco internal (US-headquartered, FIS-owned) → **US** for internal-only artefacts; defer to client HQ when client-facing.
+
+Related marks: `feedback_executive_paper_style`, `feedback_hsbc_is_the_buyer`, `feedback_uk_house_style_for_uk_chain_papers`.
 
 ---
 
