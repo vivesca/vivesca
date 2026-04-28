@@ -63,8 +63,47 @@ These are the references when a paper feels limp:
 - **Buffett's Berkshire shareholder letters** — masterclass in writing to a board of one (himself, retroactively). Plain prose, declarative voice, hard numbers, no jargon. Read for tonal calibration in HSBC executive papers.
 - **OpCo / RMM minutes (HSBC)** — the closest live reference for the audience Terry writes to. Mimic the cadence and the attribution patterns. Group-wide language. No bold. No tables in body. Citations as footnote-style references, not URLs.
 - **Andy Grove, *Output Management*** — meeting design. Useful upstream of the paper: what kind of meeting is this, and what therefore must the paper do?
+- **The audience institution's Annual Report + earnings call transcript** — primary source for house-style conventions, vocabulary anchors, risk taxonomy capitalisation, acronym patterns, and Group voice. For HSBC: `chromatin/immunity/hsbc-ar2025-full-markdown-agentic.md` (citable agentic-tier extraction) + `chromatin/immunity/hsbc-fy25-earnings-call-ai-qa-2026-04-25.md`. **Read selectively, not wholesale** — see §3b for the copy/don't-copy distinction.
 
 Ghost-write *as* the institution, not as the consultant. The paper should read as if it could have been drafted by an internal director.
+
+---
+
+## 3b. Annual Report — What to Copy, What Not to Copy
+
+The audience's Annual Report is the institution's **most public statement of how it talks about itself**. It looks like the canonical source — and for some things it is. For other things it actively misleads. Distinguish two axes:
+
+**Copy (house style, vocabulary, anchors):**
+- House style conventions: UK English, "the Group" capitalisation, "Group-wide" hyphenation, acronym first-mention with single-quoted parens (`'GenAI'`, `'MRM'`, `'PRA'`), spaced em-dashes, possessive forms.
+- Vocabulary anchors: identify 3–5 phrases the AR uses repeatedly for the relevant risk domain. Adopt verbatim where a sentence in the paper benefits from institutional voice. For HSBC AI papers: `agentic AI (autonomous systems powered by AI agents)`, `oversight and challenge`, `Three Lines of Defence`, `heightened scrutiny`, `capabilities, methodologies and tools`, `colleagues` (not `employees`), `Risk and Control Solutions function`.
+- Strategic verbatim quotes when grounding a claim in Group voice — bare attribution, no page numbers. The verbatim quote IS the citation. See `feedback_no_parenthetical_page_citations_in_committee_papers`.
+- Risk taxonomy capitalisation: `Model risk`, `Financial crime risk`, `Data risk`.
+
+**Do NOT copy (register mismatch — AR is shareholder-defensive, paper is decision-instructing):**
+- "We continue to..." verb pattern → committee paper uses present declarative.
+- "to help [verb]" hedge → committee paper asserts directly.
+- Long compound sentences with three nested qualifiers → punch once per sentence (§4a).
+- Modal hedges ("may", "could", "expect to", "aim to") → bare assertion in Recommendation/Ask (`feedback_assert_dont_ask_in_senior_comms`).
+- Filler qualifiers ("appropriate", "robust", "ongoing", "comprehensive") → genome `executive_paper_style` anti-pattern.
+- First-person plural voice → committee paper is third-party institutional ("the Board is invited", "the Group adopts").
+- Defensive framing ("we seek to ensure", "we work to balance") → committee paper is decisive.
+
+**Activation gate (run before any committee-paper send):**
+
+Pass 1 — house-style alignment: paper matches AR conventions per §4c.
+
+Pass 2 — register check, grep paper body for:
+- `\bwe \w+` (first-person plural)
+- `to help \w+` (hedge)
+- `\b(may|could|expect to|aim to)\b` (modal hedge)
+- `\b(appropriate|robust|ongoing|comprehensive)\b` (filler qualifier)
+- `\(p\. ?[0-9]+\)` (academic-register page citation)
+
+Each hit is a candidate register-mismatch — review and convert unless the hedging is structurally required (rare in committee papers).
+
+**Generalises beyond HSBC.** For any client with an AR + earnings call corpus, treat them as the audience-specific reference set. Identify the equivalent vocabulary anchors in the first 10 minutes of paper drafting; bake them into the body at strategic points; reject the AR's hedging register in the paper's own voice.
+
+**Source files for this finding:** `finding_ar_house_style_vs_ar_register.md` (Protected) and `finding_llamaparse_default_vs_agentic_tier_delta.md` (use agentic-tier extractions for verbatim citation, not default-tier).
 
 ---
 
