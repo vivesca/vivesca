@@ -111,10 +111,10 @@ Then prioritize:
 ---
 title: "One-line description"
 status: ready
-pipeline_stage: plan      # context | research | plan | execute | summary | verify (borrowed from GSD gsd-build/get-shit-done /gsd-* phase artifacts)
+pipeline_stage: plan      # context | research | plan | execute | summary | verify — vivesca-original field for cytokinesis to detect stranded specs; phase enum loosely inspired by GSD/ce-work multi-phase pipelines
 repo: ~/code/<repo>
 depends_on: []
-wave: 1                   # parallel-safe group; same wave = parallel, next wave waits
+wave: 1                   # parallel-safe group adapted from ce-work parallel-safety check; same wave = parallel, next wave waits
 scope:
   - path/to/file.py
 tests:
@@ -143,7 +143,7 @@ tests:
 4. CC dispatches: `mtor --spec <spec.md> "Implement X per spec"`
 5. Post-gate auto-approves or rejects
 
-### Phase 2.5: Wave grouping (borrowed from GSD `gsd-build/get-shit-done` /gsd-execute-phase)
+### Phase 2.5: Wave grouping (wave concept adapted from `compound-engineering/ce-work` Phase 1 Step 4 parallel-safety check; `wave:` frontmatter field is vivesca-original)
 
 Before dispatching a multi-task batch, group specs into **waves** by dependency:
 
@@ -151,7 +151,14 @@ Before dispatching a multi-task batch, group specs into **waves** by dependency:
 - **Next wave** = waits for previous wave's review verdicts (approved/rejected via reviews.jsonl) before starting.
 - **Sequential within wave** when two specs touch the same file — file conflicts force serialisation.
 
-Compute waves from spec frontmatter `depends_on` + `scope` overlap. Don't free-form dispatch a 5-spec campaign — vertical slices (one feature end-to-end per spec) parallelise; horizontal layers (all models, then all APIs) serialise unnecessarily.
+**Wave-assignment procedure (3 steps):**
+1. **Map `scope:` paths per spec.** Build `{spec_id → set(scope_paths)}` from frontmatter.
+2. **Check pairwise intersection.** For every pair in the candidate wave, if `scope_a ∩ scope_b ≠ ∅` → conflict. Either move one to a later wave, or serialise within the wave.
+3. **Honour `depends_on` chains.** Spec B with `depends_on: [A]` must be in a later wave than A regardless of scope.
+
+Vertical slices (one feature end-to-end per spec) parallelise; horizontal layers (all models, then all APIs) serialise unnecessarily.
+
+**Wave-boundary simplification checkpoint** (adapted from `compound-engineering/ce-work` Phase 2.5 "Simplify as you go"). After a wave's reviews.jsonl verdicts land and BEFORE dispatching the next wave, scan cross-spec diff for: (a) duplicated helpers extractable to shared module, (b) inconsistent naming/conventions across specs, (c) accumulating coupling that should be refactored before more specs land on it. For 3+ wave campaigns, the cluster review catches drift the per-spec post-gate cannot. Skip for ≤2 specs.
 
 Single-spec campaigns: skip this phase.
 

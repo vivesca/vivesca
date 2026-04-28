@@ -76,7 +76,7 @@ State your view. If the answer is "don't build this," say so.
 
 **One question per message.** No batching. Prefer multiple choice when natural options exist. Start broad (problem, users, value), narrow to specifics (constraints, edge cases, non-goals).
 
-**Gray-area categories (borrowed from GSD `gsd-build/get-shit-done` /gsd-discuss-phase).** Before asking, classify the build by category and pull questions from the matching pool — don't ask generic "what about errors?" prompts:
+**Gray-area categories (vivesca synthesis — inspired by `compound-engineering/ce-brainstorm` scope-classification approach, extended into a question-generation taxonomy).** Before asking, classify the build by category and pull questions from the matching pool — don't ask generic "what about errors?" prompts:
 
 - **Visual feature** → layout, density, interactions, empty states, loading states
 - **API / CLI** → response shape, flag set, error verbosity, idempotency, `--json` envelope
