@@ -119,9 +119,15 @@ Track grades in `~/epigenome/chromatin/retrospectives/_grades.md` (one line per 
 
 **§2d "What to Do Differently" items must be routed to durable artefacts the same turn — not left as text in the retrospective file requiring Terry to prompt.** A retrospective that surfaces "[Claude Code] do X" and stops there is a retrospective that did 50% of its job. The other 50% is making "do X" something a future session will actually encounter.
 
-#### 3a. Walk the layer hierarchy BEFORE defaulting to a mark (mandatory)
+#### 3a. Ask Terry's question, then walk the layer hierarchy as the answer (mandatory)
 
-Per genome **"Hooks > programs > skills > prompts"**, mark filing is the *lowest-leverage* enforcement layer — it's a prompt to remember. Marks alone do not deter; this is documented (`finding_assert_before_verifying_pattern_needs_gate_28apr.md` confirmed=3). For each `[Claude Code]` and `[Both]` item in §2d, ask **explicitly and in order** before routing:
+For each `[Claude Code]` and `[Both]` item in §2d, the **orienting question** is Terry's, asked verbatim multiple times across the 28 Apr 2026 retrospective batch:
+
+> **"Can we do something to make us more likely to do differently next time?"**
+
+This is not rhetorical and not optional. It is the meta-question that sharpens routing. State it explicitly to yourself before routing each item, then answer it by walking the layer hierarchy below — most-likely-to-deter to least-likely-to-deter, in order.
+
+Per genome **"Hooks > programs > skills > prompts"**, mark filing is the *lowest-leverage* answer to Terry's question — it's a prompt to remember, which is what failed previously. Marks alone do not deter; this is documented (`finding_assert_before_verifying_pattern_needs_gate_28apr.md` confirmed=5, 11+ retrospectives in 24h with mark-only routing not deterring recurrence). The layer hierarchy is the answer **most likely** to make next time different:
 
 1. **Could a hook (synapse/axon/dendrite) intercept this?** If the failure happens at a deterministic trigger point (specific tool call, specific user-message shape, specific session event), a hook can prevent it without LLM judgment. Highest leverage. Note: load-bearing hook edits need Terry's eyes per genome.
 2. **Could a CLI gate fire this deterministically?** If the failure is "CC didn't notice X at decision time", extend an existing CLI (`cytokinesis gather`, `proteome search`, etc.) to compute X and surface it as a PENDING gate. Cytokinesis Gate 8 (`recent_retrospective`, added 2026-04-28) is the canonical example — judgment moved to deterministic check.
@@ -130,7 +136,7 @@ Per genome **"Hooks > programs > skills > prompts"**, mark filing is the *lowest
 
 State the chosen layer inline in §2d as you display it: each item ends with `→ hook: <path>` / `→ CLI gate: <effector>:<gate>` / `→ skill edit: <path>` / `→ mark: <path>`. The hierarchy itself is the discriminator — Terry sees which layer absorbed the lesson, not just where it landed.
 
-**Failure mode this prevents (NEW, 2026-04-28-1450):** CC defaults to mark routing because marks are the cheapest write. The hierarchy walk is the meta-question Terry's "can we do something to make us more likely do differently?" forces; codifying it here means CC asks the question without Terry's prompt. The 11+ retrospectives in 24h flagging assert-before-verifying — all routed to marks first, then escalated to gate later — would have routed straight to gate had this hierarchy walk been mandatory at first capture.
+**Failure mode this prevents (NEW, 2026-04-28-1450; sharpened 2026-04-28-1530):** CC defaults to mark routing because marks are the cheapest write. The hierarchy walk is Terry's meta-question — "can we do something to make us more likely to do differently next time?" — codified as a mandatory pre-routing step so CC asks it without Terry's prompt. **The question is now the section's orienting prompt**, not a parenthetical: when entering §3a, the first thing CC does is state Terry's question, then answer it by walking the hierarchy. The 11+ retrospectives in 24h flagging assert-before-verifying — all routed to marks first, then escalated to gate later — would have routed straight to gate had this question been the discriminator at first capture.
 
 #### 3b. Concrete routing table (after hierarchy walk picks a layer)
 
