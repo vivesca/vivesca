@@ -47,3 +47,13 @@
 # chromatin-reader: rebuild Quartz static site from vault (every 30 min)
 # Serves on port 6080 via supervisor. 9-min build time on soma — 30m interval is safe.
 */30 * * * * cd /home/vivesca/quartz && npx quartz build >> /home/vivesca/tmp/chromatin-rebuild.log 2>&1
+
+# qmd-reindex: embed new/changed vault notes for semantic search (every 30 min)
+# Self-skips via pgrep guard if a qmd embed is already running. CPU-only on soma.
+*/30 * * * * /home/vivesca/germline/effectors/qmd-reindex.sh >> /home/vivesca/tmp/qmd-reindex.log 2>&1
+
+# m3-plist-retry: deploy hardened epigenome-pull LaunchAgent to m3 when next reachable.
+# Self-disables on success (~/.local/share/vivesca/m3-plist-deployed flag).
+# Hard deadline 2026-05-12 — after which exit 2 surfaces via cron-runs.jsonl.
+# See finding_obsidian_headless_official_cli.md and reference_terry_two_macs_imac_and_macbook.md.
+0 */6 * * * soma-cron-wrap m3-plist-retry /home/vivesca/germline/effectors/m3-plist-retry

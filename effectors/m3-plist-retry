@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# m3-plist-retry — Deploy hardened epigenome-pull LaunchAgent to m3 if reachable.
+#
+# Background: m3 (MacBook) was offline during 2026-04-28 setup, so it has the
+# simpler plist without ~/.local/bin or /opt/homebrew/bin in PATH. Once new LFS
+# files (.zip / .pptx / .xlsx) land on origin/main, the cron pull would fail
+# silently because git can't find git-lfs. This script retries deployment when
+# m3 next reachable, then self-disables.
+#
+# Stop condition: ~/.local/share/vivesca/m3-plist-deployed flag file present
+# (touched on success). When present, the cron job exits without action.
+# Hard cap: 14 days from 2026-04-28. After that, cron exits noisily so it
+# surfaces in /cytokinesis or supervisor logs.
+
+set -uo pipefail
+
+DEPLOY_FLAG="${HOME}/.local/share/vivesca/m3-plist-deployed"
+HARD_DEADLINE_EPOCH=$(date -d '2026-05-12 00:00:00 HKT' +%s 2>/dev/null || echo 1778832000)
+NOW_EPOCH=$(date +%s)
+PLIST_SRC="${HOME}/germline/loci/com.vivesca.epigenome-pull.plist"
+PLIST_DST_REL="Library/LaunchAgents/com.vivesca.epigenome-pull.plist"
+
+# Already deployed → noop
+if [[ -f "${DEPLOY_FLAG}" ]]; then
+    echo "[m3-plist-retry] flag present at ${DEPLOY_FLAG} — already deployed, exiting"
+    exit 0
+fi
+
+# Past deadline → exit with surface signal
+if (( NOW_EPOCH > HARD_DEADLINE_EPOCH )); then
+    echo "[m3-plist-retry] HARD DEADLINE PASSED (2026-05-12). Manual intervention needed." >&2
+    exit 2
+fi
+
+# Reachability check — short timeout so cron doesn't hang
+if ! ssh -o ConnectTimeout=8 -o BatchMode=yes m3 "true" 2>/dev/null; then
+    echo "[m3-plist-retry] m3 unreachable, will retry in 6h"
+    exit 0
+fi
+
+echo "[m3-plist-retry] m3 reachable — deploying hardened plist"
+
+# scp + reload
+if ! scp -o ConnectTimeout=15 -o BatchMode=yes "${PLIST_SRC}" "m3:~/${PLIST_DST_REL}" 2>&1; then
+    echo "[m3-plist-retry] scp failed — will retry in 6h" >&2
+    exit 1
+fi
+
+ssh m3 "launchctl unload ~/${PLIST_DST_REL} 2>&1; launchctl load ~/${PLIST_DST_REL} 2>&1; launchctl list | grep epigenome 2>&1" 2>&1
+
+# Verify by checking the loaded plist actually has the EnvironmentVariables block
+if ssh m3 "grep -q EnvironmentVariables ~/${PLIST_DST_REL}" 2>/dev/null; then
+    mkdir -p "$(dirname "${DEPLOY_FLAG}")"
+    date -Iseconds > "${DEPLOY_FLAG}"
+    echo "[m3-plist-retry] DEPLOYED + verified — flag written to ${DEPLOY_FLAG}"
+    exit 0
+else
+    echo "[m3-plist-retry] plist on m3 lacks EnvironmentVariables — verification failed" >&2
+    exit 1
+fi
