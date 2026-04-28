@@ -68,7 +68,9 @@ qmd embed  # Generate vectors (one-time, slow)
 - **Local models** — Uses node-llama-cpp with GGUF models, no API calls
 - **Never run `qmd embed` concurrent with `qmd query`/`vsearch`** — both load llama.cpp onto Metal GPU; concurrent jobs OOM the Mac and tank SSH. Serialise: finish embed first, then query. The `qmd-reindex.sh` cron already pgrep-guards against double-embed; the constraint above is for interactive use.
 - **Chunking is fixed-size** — 800 tokens / 15% overlap, NOT heading-aware. Markdown structure is not preserved at chunk boundaries.
-- **qmd lives on Mac only** — soma sessions invoke via `ssh mac 'export PATH=$HOME/.bun/bin:$PATH; qmd ...'`. Auto-updated daily via evergreen `update_qmd`.
+- **qmd lives on BOTH Mac and soma (as of 28 Apr 2026).** Soma has its own index at `~/.cache/qmd/index.sqlite` with Qwen3-Embedding-0.6B (frontier open-weight, MTEB-competitive). Mac retains its index with the older default embedding. Soma is canonical for CC plugin (stdio MCP "✓ Connected"); Mac auto-updates daily via evergreen `update_qmd`. Use soma's `qmd` directly via `~/.bun/bin/qmd` (symlinked from `~/.local/npm/bin/qmd` after npm-with-prefix install — bun postinstall workaround per `finding_qmd_install_gotchas.md`).
+- **Verify embedding completion before relying on vsearch.** `qmd status` shows `Pending: N`. If non-zero, vector search returns partial results — fall back to `qmd search` (BM25) or grep until embed catches up. `qmd embed` runs in background; soma cron triggers reindex `*/30 *`.
+- **grep is still the default for literal lookups.** qmd `complements` grep, doesn't replace it. Use grep for known strings / exhaustive lookups / sub-100ms speed; use qmd `search` for BM25, `vsearch` for vectors, `query` for hybrid+rerank when grep fails.
 
 ## Related
 
