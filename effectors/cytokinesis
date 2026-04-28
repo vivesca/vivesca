@@ -684,6 +684,37 @@ def gather(
     else:
         gates["memory_budget"] = f"DONE — {mem_lines}/{mem_limit} lines"
 
+    # Gate 8: Recent retrospective — thin-session signal
+    # If a retrospective exists from this calendar day AND was filed <4h ago,
+    # the current /telophase invocation is likely a post-wrap continuation
+    # (housekeeping-grade work after the previous arc was already retrospected).
+    # Route to thin checkpoint mode unless Terry explicitly confirms full mode.
+    # Codifies retrospective 2026-04-28-1450 §2d [CC] item.
+    retro_dir = CHROMATIN_DIR / "retrospectives"
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    recent_retro_age_hours: float | None = None
+    recent_retro_path: str | None = None
+    if retro_dir.is_dir():
+        cutoff_4h = time.time() - 4 * 3600
+        most_recent_today = sorted(
+            (p for p in retro_dir.glob(f"{today_str}-*.md") if p.stat().st_mtime > cutoff_4h),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if most_recent_today:
+            recent_retro_path = most_recent_today[0].name
+            recent_retro_age_hours = round((time.time() - most_recent_today[0].stat().st_mtime) / 3600, 2)
+    if recent_retro_age_hours is not None:
+        gates["recent_retrospective"] = (
+            f"PENDING — retrospective {recent_retro_path} filed {recent_retro_age_hours}h ago. "
+            f"Likely a post-wrap continuation. Default to thin /cytokinesis checkpoint, "
+            f"NOT full /telophase, unless Terry explicitly confirms substantive new arc."
+        )
+    else:
+        gates["recent_retrospective"] = "DONE — no recent retrospective from today"
+    results["recent_retrospective_age_hours"] = recent_retro_age_hours
+    results["recent_retrospective_path"] = recent_retro_path
+
     results["gates"] = gates
 
     # Output: wrap in porin envelope

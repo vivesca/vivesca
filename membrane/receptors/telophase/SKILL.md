@@ -45,7 +45,11 @@ If the session was a **thin ops session** — pure routing work (file inbound me
 
 Why: the retrospective's value is judgment about *substantive* state — what worked in deciding, what failed in convergence, what Terry-pattern emerged. Pure routing sessions don't generate enough signal to fill the five sections meaningfully; the result is padded retrospectives that dilute the grade trend.
 
-When in doubt, ask Terry: "Thin session — checkpoint mode (skip retrospective) or full telophase?"
+**Deterministic pre-flight check (mandatory, replaces "when in doubt, ask"):** before invoking `/cytokinesis`, run `cytokinesis gather` and inspect the `recent_retrospective` gate. If it returns `PENDING — retrospective ... filed Xh ago`, the current invocation is a post-wrap continuation by definition — most of this session's substance was already retrospected. **Default to `/cytokinesis checkpoint` (skip retrospective) and confirm with Terry before running full telophase:**
+
+> "Recent retrospective filed `<X>h` ago. Defaulting to thin checkpoint mode (skip retrospective). Confirm: `checkpoint` or `full telophase`?"
+
+Only run full telophase if Terry explicitly confirms substantive new arc since the prior retrospective. This codifies the failure mode caught in retrospective 2026-04-28-1450 §2d: "the right call would have been thin-session checkpoint, not full telophase" — the deterministic gate now fires automatically rather than relying on CC noticing the post-wrap signal.
 
 ## Workflow
 
