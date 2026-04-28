@@ -199,6 +199,51 @@ Weekly /skill-review checks for staleness
 - **Demote stale MEMORY.md entries:** Weekly review in `/weekly`. Two weeks uncited → demote to overflow. Overflow cited 2+ weeks → promote back.
 - **Hook as MEMORY.md pressure relief:** Every rule that graduates to a hook is one fewer line competing for attention in MEMORY.md.
 
+## Skill Trigger System
+
+How skills get auto-suggested when prompts match. The full pipeline:
+
+```
+SKILL.md (~/germline/membrane/receptors/<name>/SKILL.md)
+     │   sources for triggers (priority order):
+     │   1. YAML frontmatter `triggers:` list (canonical)
+     │   2. Description quoted phrases ("foo", "bar")
+     │   3. ## Triggers markdown section
+     │   anti-triggers from `## Anti-Triggers` or YAML `anti_triggers`
+     ▼
+~/germline/membrane/cytoskeleton/skill-trigger-gen.py
+     │   (hardlinked at ~/.claude/hooks/skill-trigger-gen.py — same inode)
+     │   yaml.safe_load on frontmatter, regex for markdown sections
+     │   filters parser artifacts, deduplicates, warns on collisions
+     ▼
+~/.claude/skill-triggers.json
+     │   schema: {skill: {triggers: [...], anti_triggers: [...]}}
+     ▼
+synapse.py mod_priming (UserPromptSubmit hook, line ~493)
+     │   substring match (≥4 chars) of trigger phrase against prompt
+     │   skip if any anti-trigger matches first
+     │   matches → skill suggestions
+     ▼
+~/.claude/skill-suggest-log.tsv
+     │   one row per fired suggestion
+     ▼
+~/germline/effectors/skill-trigger-stats
+     │   monthly review: top firers, dead triggers, duplicate collisions
+     ▼
+skill-review §1a Trigger-system Health
+     │   prune dead, add anti-triggers for over-firing collisions
+```
+
+**Auto-regen:** `dendrite.py` (PostToolUse hook) detects edits under `SKILLS_DIR`, runs `skill-trigger-gen.py`, pipes stdout+stderr to `~/.claude/skill-trigger-gen.log`. Fail-loud per `feedback_no_stderr_suppression`.
+
+**Failure mode that bit before** (`finding_skill_trigger_system_silent_failure.md`): stale path in gen script + `capture_output=True` in caller = silent rot for 25 days. JSON looked healthy by stat. mod_priming matched on a frozen snapshot. Fix shipped 28 Apr 2026.
+
+**Regression coverage:** `~/germline/assays/test_skill_trigger_freshness.py` — JSON exists, modtime ≤ 7 days, schema shape, generator clean exit, every `user_invocable: true` skill (excluding `disable-model-invocation: true`) registers triggers. Baseline 0 missing.
+
+**Health check:** integrin §Trigger-system freshness check, or run the assay.
+
+**When designing a new skill:** add a `triggers:` YAML list in frontmatter. Description-quoted phrases work but YAML is canonical. The `## Triggers` markdown section is supported for skills needing rich phrase context. The auto-fire is description-match (Claude Code native) **plus** `mod_priming` substring match (this system) — both run.
+
 ## See Also
 
 - `~/docs/solutions/enforcement-ladder.md` — full ladder with examples
