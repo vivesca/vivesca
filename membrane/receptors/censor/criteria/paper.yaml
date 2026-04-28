@@ -58,6 +58,30 @@ anti_patterns:
     flag: "Assert don't ask. State the position, not the recommendation."
 
 checks:
+  - name: sponsor_co_signal
+    question: "Does this version have explicit sponsor co-signal documented (not just on a prior version, not just on the topic)? Cover note / back-channel / verbal-coaching record present?"
+    weight: high
+    examples:
+      good: "v0.19 cover note from sponsor sent 27 Apr; standalone correspondence note filed; sponsor pre-read confirmed"
+      bad: "Sending v0.19 cold; sponsor saw v0.17 last month and assumed alignment carries forward"
+    rationale: "MHC-II Signal-1 without B7/CD28 Signal-2 produces anergy, not deliberation. Unsponsored = topic burned for future versions, not just this one."
+
+  - name: anergy_check
+    question: "If this topic was previously presented to this audience without action, does the current version carry MORE co-stimulation than baseline (additional sponsor signal, additional dissent absorption)?"
+    weight: high
+    examples:
+      good: "v0.19 ships with sponsor cover note + Bertie heads-up + Doug verbal-coaching session; prior v0.17 only had sponsor cover note"
+      bad: "v0.19 ships with same comms layer as v0.17 which didn't land"
+    rationale: "Each unsponsored repeat compounds the audience's discount. Equal co-stim on round N+1 produces deeper anergy, not equal landing."
+
+  - name: receptor_class_fidelity
+    question: "Read as a hostile reader in attribution / blame / budget-contraction mode — does the paper still route to the intended decision class (deliberation), or does it cross-present onto a kill-pathway (accountability, budget cut, team replacement)?"
+    weight: high
+    examples:
+      good: "Gap framed at capability level, no individuals named adjacent to gap, owner stated upfront, passive-voice failure descriptions absent"
+      bad: "Body names team-X as owning the gap, then describes the gap in passive voice — under hostile read this routes to 'replace team-X', not 'invest in capability'"
+    rationale: "DCs can cross-present exogenous antigen onto MHC-I → CD8 kill instead of MHC-II → CD4 deliberation. Same content, opposite receptor class, opposite decision. Mechanistic backing for the carve-out language rule."
+
   - name: prose_only
     question: "Is the body entirely continuous prose (no bullets, tables, bold, or brackets)?"
     weight: high

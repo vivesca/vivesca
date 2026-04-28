@@ -151,6 +151,16 @@ summary: "Direction is solid, but one high-weight gap blocks pass."
 - Don't over-iterate — diminishing returns after 2 passes
 - Trust the criteria files; don't invent new checks on the fly
 
+## From Cell Biology — Senior-Comms as MHC-II Antigen Presentation
+
+When the domain is `paper` / `executive`, three additional gates derive from the antigen-presentation mechanism. Cell biology is load-bearing here, not decorative — the mechanism predicts costs the prior rubric does not price. Sources: `~/epigenome/marks/finding_anergy_risk_unsponsored_board_paper.md` and `finding_cross_presentation_wrong_receptor_routing.md`.
+
+**Sponsor co-stimulation gate (HARD REJECT, not deduct).** A board paper without explicit sponsor co-signal on *this version* is not a neutral miss — it induces anergy. The audience trains a discount on future versions of this topic. Biology: MHC-II Signal 1 (peptide presentation) without B7→CD28 Signal 2 (co-stimulation) produces tolerance, not immunity. Translation: paper without comms-layer = anergy. Confirm `sponsor_co_signal:` evidence is present before any senior send. Cover note + back-channel ARE the co-stimulation, not a soft layer.
+
+**Anergy check.** If this topic was previously presented to this audience without action, the current version requires *more* co-stimulation than baseline, not equal. Each unsponsored repeat compounds the discount. Two-strike rule: v_n unsponsored and didn't land → v_n+1 needs additional sponsor signal beyond what would have sufficed cold.
+
+**Receptor-class fidelity (cross-presentation guard).** Read the paper as a hostile reader operating in attribution / blame / budget-contraction mode. Which decision class does it route to under that read — deliberation (intended) or kill-pathway (cross-presented)? Biology: DCs can route exogenous antigen onto MHC-I → CD8 kill instead of MHC-II → CD4 deliberate; same content, opposite receptor, opposite decision. Triggers for cross-presentation: paragraphs naming individuals/teams adjacent to the gap, passive-voice failure descriptions, gap-without-owner framings, accountability-shaped sentences in a deliberation paper. Mechanistic backing for `feedback_carve_out_language_in_stakeholder_papers.md`.
+
 ## Related
 
 - **`induction`** — when domain auto-detects to `paper` / `executive` (board, OpCo, AIRCo, committee), load the `induction` principles as the high-weight criteria spine: decision asked, sponsor pre-aligned, dissent absorbed, recommendation-first sequence, no buried ask, no options-without-recommendation, no unsourced top-line claim. A paper that fails any of these is `needs_work` regardless of prose quality.
