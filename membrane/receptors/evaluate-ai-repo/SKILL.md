@@ -170,6 +170,26 @@ After evaluation, create:
 - SessionStart hook (conflicts with WORKING.md)
 - Generic rules (already have better in CLAUDE.md)
 
+## Output Discipline (mandatory at conclusion)
+
+When the eval has produced a clear verdict (REJECT / ADOPT / PARTIAL-ADOPT) — meaning the empirical probes have run and the data discriminates — **lead the recommendation paragraph with the verdict**. State it in the first sentence. Do not offer a multi-option menu before the verdict, do not soft-land via optionality, do not preempt Terry's next question with "(a) X / (b) Y / (c) walk away."
+
+**Absolute ban — match and refuse:** if you find yourself drafting "Want me to (a) ... / (b) ... / (c) walk away?" at the end of an eval, **STOP**. The eval already discriminated. Pick the verdict. Offer at most one concrete next-step.
+
+**DO:**
+- "Walk away. Don't adopt. Uninstall." (verdict-first, then reasoning beneath.)
+- "Adopt component X only. Skip the rest." (single concrete action.)
+- "Partial-adopt: ship the per-site memoization pattern, skip the runtime." (verdict + scope in one sentence.)
+
+**DO NOT:**
+- "Want me to (a) install + try 2 adapters, (b) port the eastmoney signal, or (c) walk away entirely?" — fake menu when the data already chose (c).
+- "Recommendation is ambiguous; let me know which direction you want to go." — abdication when CC has the data to call it.
+- "There's value here, but also concerns; what do you think?" — soft-land via reflected question.
+
+**Failure mode this prevents:** end-of-eval reflex to soft-land via optionality instead of leading with the verdict. 2026-04-28 OpenCLI eval session: CC offered 3-option menu (PATH-fix wrapper / eastmoney / walk away) when walk-away was clearly correct from the empirical probes just collected. Terry's "what do you recommend?" was the catch. The verdict-first discipline is genome (`No fake menus` + `feedback_stop_asking_obvious.md` confirmed=2) — this section operationalises it at eval-conclusion time, where the reflex repeatedly fires.
+
+**Why eval-conclusion specifically:** other points in the workflow (intermediate findings, mid-probe pivots) genuinely benefit from optionality because the data is incomplete. End-of-eval is different — the probes have run, the comparison table is filled, the verdict exists in the data. The temptation to add a menu at that point is a softness reflex, not a calibration response.
+
 ## Meta-Lesson
 
 A repo optimized for everyone may be less valuable than a setup optimized for you. Adopt surgically, not wholesale.

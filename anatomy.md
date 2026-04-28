@@ -174,6 +174,10 @@ _(no description)_
 _(no description)_
   Files: `epistasis.py`
 
+### huashu-extracts
+_(no description)_
+  Files: `PROVENANCE.md`, `assets`, `references`, `scripts`
+
 ### mtor
 _(no description)_
   Files: `mtor`
