@@ -102,6 +102,7 @@ If `git status`, `cytokinesis gather`, or any tooling check surfaces weird state
 - Anomaly is just weird-looking state that the commit succeeds despite → one-line park in daily Residual or Tonus parked list. Move on.
 - Park format: `Parked: <observed weirdness> at <timestamp> — investigate next session if it recurs.`
 - If the same anomaly appears across 2+ sessions → THEN investigate, file finding. First occurrence = park.
+- **Hook-failure attempt-cap (≥3):** if the same hook fails ≥3 times in a row on the same anomaly during a single wrap, fall back to `SKIP=<hookname> git commit ...` + park the underlying issue. Single-hook skip is a calibrated workaround, not a bypass-all (`--no-verify` remains genome-forbidden without explicit user instruction). Codifies the failure mode caught in retrospective 2026-04-28-1620 §2d item 3 (wrap mode investigated codespell-on-embedded-repo across 4 commit attempts; right move was SKIP=codespell + park in one step).
 
 Why: wrap mode has a different cost function than working mode. Every minute spent investigating non-blocking weirdness during wrap is a minute *not* spent on the next-session priority. CC's reflex to "understand the anomaly before moving on" fights against wrap's "ship the commit and close" mode. Different mode, different reflex.
 

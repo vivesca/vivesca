@@ -148,3 +148,32 @@ This is not optional. The LLM's default is "add, commit, move on." This step cat
 | 10+ rules in one file | Knowledge-base pattern: individual rule files + compiler (organogenesis #20) |
 | Abstract trigger description | Enumerate exact user phrases (organogenesis #21) |
 | Nested if/else paths | State-gather-then-branch with ### per path (organogenesis #22) |
+
+## Effect Test (high-fire skills only)
+
+Structural review tells you the skill *reads* well. Effect test tells you it *runs* well. Apply only to the top-fire skills (where structure is already tight and the question is whether the skill produces better output than no skill).
+
+1. **Author 2-3 test prompts** — typical use, not edge cases. Save to `<skill-dir>/test-prompts.json`:
+   ```json
+   [{"id": 1, "prompt": "what user would type", "expected": "1-line description of good output"}]
+   ```
+2. **Spawn an independent sub-agent for scoring** — never self-grade. The agent that wrote the edit cannot judge it. Use `Agent` with a fresh subagent_type (`general-purpose` is fine) and pass it: the prompt, the skill body, and the rubric. It runs the prompt with-skill vs without-skill and returns a comparison.
+3. **Decide:** if with-skill output is no better than baseline, the skill is over-constraining or off-target — fix the body, don't ship the edit.
+
+Skip this for low-fire skills, name/description fixes, and structural cleanups. The cost (sub-agent spawn) only pays off where output quality is the real question.
+
+## Exploratory Rewrite (when hill-climbing stalls)
+
+If two consecutive edits to the same skill produce no measurable improvement, the skill is at a local optimum. Don't keep tweaking — propose a rewrite from scratch:
+
+1. Save current SKILL.md as `.bak`.
+2. Rewrite the body without looking at the original — start from scratch from the skill's purpose.
+3. Compare: keep whichever is sharper. Discard the other.
+
+Tweaks compound noise; rewrites compound signal. Use sparingly — most edits don't need this.
+
+## Size Cap
+
+A maturation edit must not bloat the SKILL.md beyond **150% of original size**. If the proposed edit pushes past that ceiling, reject and resimplify before committing. "Improvements add words" is the default LLM failure mode for skill review.
+
+> Effect-test, exploratory rewrite, and 150% size cap absorbed from `alchaincyf/darwin-skill` (autoresearch-inspired skill optimiser, 2026-04). Skipped: ratchet ceremony, results.tsv, weighted rubric, result cards.
