@@ -97,9 +97,9 @@ What did Terry do this session that's worth noting as a *pattern*, not a one-off
 
 #### 2d. What to Do Differently Next Time
 
-Specific actionable suggestions for both Terry and CC. Tag each with audience: `[CC]` or `[Terry]` or `[Both]`.
+Specific actionable suggestions for both Terry and CC. Tag each with audience: `[Claude Code]` or `[Terry]` or `[Both]`.
 
-- `[CC]` "Auto-challenge any GREEN-LIGHT / READY / DONE designation I produce, per §10 v2 protocol. Don't wait for Terry to challenge."
+- `[Claude Code]` "Auto-challenge any GREEN-LIGHT / READY / DONE designation I produce, per §10 v2 protocol. Don't wait for Terry to challenge."
 - `[Both]` "When meta-design density is high in a session, consider running quorate on the design itself — multiple model perspectives on the working-mode design beats single-CC + single-Terry."
 - `[Terry]` "Mobile Obsidian setup is parked but would have saved 15 min of GitHub-URL friction this morning. Consider one-time investment."
 
@@ -117,11 +117,11 @@ Track grades in `~/epigenome/chromatin/retrospectives/_grades.md` (one line per 
 
 ### 3. Route §2d findings to durable form (mandatory, BEFORE display)
 
-**§2d "What to Do Differently" items must be routed to durable artefacts the same turn — not left as text in the retrospective file requiring Terry to prompt.** A retrospective that surfaces "[CC] do X" and stops there is a retrospective that did 50% of its job. The other 50% is making "do X" something a future session will actually encounter.
+**§2d "What to Do Differently" items must be routed to durable artefacts the same turn — not left as text in the retrospective file requiring Terry to prompt.** A retrospective that surfaces "[Claude Code] do X" and stops there is a retrospective that did 50% of its job. The other 50% is making "do X" something a future session will actually encounter.
 
 #### 3a. Walk the layer hierarchy BEFORE defaulting to a mark (mandatory)
 
-Per genome **"Hooks > programs > skills > prompts"**, mark filing is the *lowest-leverage* enforcement layer — it's a prompt to remember. Marks alone do not deter; this is documented (`finding_assert_before_verifying_pattern_needs_gate_28apr.md` confirmed=3). For each `[CC]` and `[Both]` item in §2d, ask **explicitly and in order** before routing:
+Per genome **"Hooks > programs > skills > prompts"**, mark filing is the *lowest-leverage* enforcement layer — it's a prompt to remember. Marks alone do not deter; this is documented (`finding_assert_before_verifying_pattern_needs_gate_28apr.md` confirmed=3). For each `[Claude Code]` and `[Both]` item in §2d, ask **explicitly and in order** before routing:
 
 1. **Could a hook (synapse/axon/dendrite) intercept this?** If the failure happens at a deterministic trigger point (specific tool call, specific user-message shape, specific session event), a hook can prevent it without LLM judgment. Highest leverage. Note: load-bearing hook edits need Terry's eyes per genome.
 2. **Could a CLI gate fire this deterministically?** If the failure is "CC didn't notice X at decision time", extend an existing CLI (`cytokinesis gather`, `proteome search`, etc.) to compute X and surface it as a PENDING gate. Cytokinesis Gate 8 (`recent_retrospective`, added 2026-04-28) is the canonical example — judgment moved to deterministic check.
@@ -144,7 +144,7 @@ State the chosen layer inline in §2d as you display it: each item ends with `�
 
 **Original failure mode this prevents:** CC produces §2d, displays it, files the retrospective, ends the wrap. Findings sit in a single file no future session reads. Next session repeats the same mistake; Terry has to point out the gap before CC routes the lessons. The 2026-04-27-1122 retrospective hit exactly this — three actionable findings sat as text until Terry asked "nothing we identified for improving future sessions?" The retrospective protocol must close this loop autonomously.
 
-**Cap:** route the top 3 `[CC]`/`[Both]` items. Routing every minor observation creates noise; the top three are the ones that change behavior. Park the rest in the retrospective text only.
+**Cap:** route the top 3 `[Claude Code]`/`[Both]` items. Routing every minor observation creates noise; the top three are the ones that change behavior. Park the rest in the retrospective text only.
 
 State the routing inline in §2d as you display it: each item ends with `→ filed: <path>` or `→ skill edit: <path>` or `→ epistemics: <path>`. Terry sees the action with the finding, not the finding alone.
 
