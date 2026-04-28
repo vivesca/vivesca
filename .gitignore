@@ -99,7 +99,8 @@ loci/ribosome-outputs/
 .worktrees/
 .env.vivesca
 .hypothesis/
-$HOME/.agent-browser-profile/
+$HOME/
+**/$HOME/
 loci/poiesis
 loci/copia
 loci/pulse
