@@ -27,6 +27,32 @@ Systematic evaluation of AI tooling repos for adoption into a mature, personaliz
 
 ## Workflow
 
+### -1. Source-Grounded Claims Gate (HARD, runs before every gap or capability claim)
+
+**Before listing ANY weakness, gap, or limitation of the tool, you must be able to cite the specific source line that grounds it.** Format every gap as:
+
+> Per `<file>:<line>` (or README §<heading>, or CHANGELOG entry), the tool does/doesn't do X.
+
+If you can't cite, don't list. Speculation about what tools "typically lack" populated from training-era category priors is not a gap claim — it's a hypothesis that needs grounding before it leaves your output.
+
+**Absolute ban — match and refuse:**
+
+If you find yourself producing a numbered or bulleted list of gaps without source citations, **STOP**. Read the README + CHANGELOG + relevant source file first. Re-list only what you can cite.
+
+**Why this gate exists.** Failure mode confirmed across 9+ retrospectives in 24 hours (28 Apr 2026): CC produces gap lists from category priors ("RAG tools generally chunk by fixed size", "small embedding models lack X", "MCP servers usually don't support HTTP"), then has to retract when actual source is read. Marks alone (`feedback_verify_tool_existence_before_denying.md`, `finding_claim_gaps_without_source_reading.md`) have not deterred recurrence. This gate fires at the trigger — when the skill is entered for tool evaluation — instead of relying on Terry's challenge to catch it.
+
+Same rule applies in reverse to capability claims ("the tool supports X") — verify before asserting. The genome's "Tool behavior: NEVER state how tools/flags/infra work without verifying docs/source first" already covers this; the bidirectional gate here is its skill-level operationalisation.
+
+**DO:**
+- Open README, CHANGELOG, key source files BEFORE drafting the eval.
+- Quote the line that grounds each claim. Inline if short, by reference (`store.js:54-67`) if not.
+- When a claim cannot be sourced, mark it as "speculation" and verify before promoting.
+
+**DO NOT:**
+- Produce category-prior gap lists. "Tools in this category usually X" is not "this tool does X."
+- Treat absence-of-mention as evidence-of-absence. README silence ≠ feature absence — grep the source.
+- Defer source-reading to "when the user asks for proof." Read first, list second.
+
 ### 0. Maintainer-Health Gate (run first, fail fast)
 
 For tools that surfaced from viral content (Twitter/HN/LinkedIn frenzy), gate before cloning:
