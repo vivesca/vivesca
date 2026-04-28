@@ -134,8 +134,15 @@ update_npm() {
     done
 }
 
+update_qmd() {
+    # qmd lives on Mac (Tailscale-reachable). Reinstall from GitHub HEAD.
+    ssh -o ConnectTimeout=10 mac \
+        'export PATH=$HOME/.bun/bin:$PATH; bun install -g https://github.com/tobi/qmd' \
+        2>>"$LOG" && log "Updated qmd on mac" || log "WARN: qmd update failed"
+}
+
 # ── Tool updates (fault-isolated) ────────────────────────────────────────
-for fn in update_cc update_uv update_rust update_npm; do
+for fn in update_cc update_uv update_rust update_npm update_qmd; do
     $fn || log "WARN: $fn failed, continuing"
 done
 

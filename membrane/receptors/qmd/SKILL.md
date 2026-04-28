@@ -66,6 +66,9 @@ qmd embed  # Generate vectors (one-time, slow)
 - **Archive excluded** — Old Eden notes not indexed (intentional)
 - **Embeddings required for vsearch** — Keyword search works without them
 - **Local models** — Uses node-llama-cpp with GGUF models, no API calls
+- **Never run `qmd embed` concurrent with `qmd query`/`vsearch`** — both load llama.cpp onto Metal GPU; concurrent jobs OOM the Mac and tank SSH. Serialise: finish embed first, then query. The `qmd-reindex.sh` cron already pgrep-guards against double-embed; the constraint above is for interactive use.
+- **Chunking is fixed-size** — 800 tokens / 15% overlap, NOT heading-aware. Markdown structure is not preserved at chunk boundaries.
+- **qmd lives on Mac only** — soma sessions invoke via `ssh mac 'export PATH=$HOME/.bun/bin:$PATH; qmd ...'`. Auto-updated daily via evergreen `update_qmd`.
 
 ## Related
 

@@ -297,3 +297,11 @@ This skill replaces `/evaluate-article`. Use `/analyze` for all content — URLs
 > Saved to `~/epigenome/chromatin/...` with existing tags only.  
 > Key signal: active commits in last 30 days, docs + tests present.  
 > Skip reason (if any): none.
+
+## Triggers
+
+- analyze this
+- catalog this
+- classify content
+- save to vault
+- vault note

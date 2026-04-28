@@ -67,3 +67,10 @@ rm ~/.claude/contracts/<task-name>_CONTRACT.md
 - Tests are the gold standard: deterministic, unforgeable
 - Screenshots for UI work: let the agent iterate until visual output matches intent
 - One contract per session — mixing contracts causes context drift
+
+## Triggers
+
+- contract
+- session contract
+- acceptance criteria
+- contract terms

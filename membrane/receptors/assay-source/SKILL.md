@@ -112,3 +112,10 @@ The recommendation plus a decision: "Use [tool] for [domain]. Added to DOMAIN_HI
 ## Motifs
 - [audit-first](../motifs/audit-first.md)
 - [escalation-chain](../motifs/escalation-chain.md)
+
+## Triggers
+
+- assay source
+- scrape comparison
+- evaluate source
+- jina vs firecrawl

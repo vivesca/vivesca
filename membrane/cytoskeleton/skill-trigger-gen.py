@@ -33,38 +33,50 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 SKILLS_DIR = Path.home() / "germline" / "membrane" / "receptors"
 OUTPUT = Path.home() / ".claude" / "skill-triggers.json"
 
 
-def _frontmatter(text: str) -> str:
+def _frontmatter_yaml(text: str) -> dict:
+    """Parse YAML frontmatter into a dict. Returns {} on missing or parse error."""
     match = re.match(r"---\n(.*?)\n---", text, re.DOTALL)
-    return match.group(1) if match else ""
-
-
-def _parse_yaml_list(frontmatter: str, key: str) -> list[str]:
-    pattern = rf"^{re.escape(key)}:\s*\n((?:\s+-\s+.+\n?)+)"
-    match = re.search(pattern, frontmatter, re.MULTILINE)
     if not match:
+        return {}
+    try:
+        data = yaml.safe_load(match.group(1))
+        return data if isinstance(data, dict) else {}
+    except yaml.YAMLError:
+        return {}
+
+
+def _yaml_list(frontmatter: dict, key: str) -> list[str]:
+    """Read a YAML list (block or flow style) from the frontmatter dict."""
+    value = frontmatter.get(key)
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if item]
+    return []
+
+
+def _description_quoted_phrases(frontmatter: dict) -> list[str]:
+    """Extract quoted phrases from the description value (now unescaped by YAML)."""
+    desc = frontmatter.get("description", "")
+    if not isinstance(desc, str):
         return []
-    items = []
-    for line in match.group(1).strip().split("\n"):
-        item = re.sub(r"^\s*-\s*", "", line).strip().strip("\"'`")
-        if item:
-            items.append(item)
-    return items
+    return re.findall(r'"([^"]+)"', desc)
 
 
 def _parse_md_bullets(text: str, heading: str) -> list[str]:
-    pattern = rf"## {re.escape(heading)}\s*\n((?:\s*-\s*.+\n?)+)"
-    match = re.search(pattern, text)
-    if not match:
-        return []
+    """Parse bullets under each occurrence of `## {heading}` (skill files
+    can have multiple sections with the same heading; aggregate all)."""
+    pattern = rf"## {re.escape(heading)}\b[^\n]*\n\s*\n?((?:[ \t]*-[ \t]+.+\n?)+)"
     phrases = []
-    for line in match.group(1).strip().split("\n"):
-        phrase = re.sub(r"^\s*-\s*", "", line).strip().strip("\"'`/")
-        if phrase and len(phrase) > 1:
-            phrases.append(phrase)
+    for match in re.finditer(pattern, text):
+        for line in match.group(1).strip().split("\n"):
+            phrase = re.sub(r"^[ \t]*-[ \t]*", "", line).strip().strip("\"'`/")
+            if phrase and len(phrase) > 1:
+                phrases.append(phrase)
     return phrases
 
 
@@ -91,29 +103,28 @@ def _clean(phrases: list[str]) -> list[str]:
 
 def extract_triggers(skill_path: Path) -> list[str]:
     text = skill_path.read_text()
-    frontmatter = _frontmatter(text)
+    frontmatter = _frontmatter_yaml(text)
     triggers = []
-
-    triggers.extend(_parse_yaml_list(frontmatter, "triggers"))
-
-    desc_match = re.search(r"^description:\s*(.+?)$", frontmatter, re.MULTILINE)
-    if desc_match:
-        for phrase in re.findall(r'"([^"]+)"', desc_match.group(1)):
-            if len(phrase) < 40 and not phrase.startswith("Use "):
-                triggers.append(phrase)
-
+    triggers.extend(_yaml_list(frontmatter, "triggers"))
+    triggers.extend(_description_quoted_phrases(frontmatter))
     triggers.extend(_parse_md_bullets(text, "Triggers"))
-
     return _clean(triggers)
 
 
 def extract_anti_triggers(skill_path: Path) -> list[str]:
     text = skill_path.read_text()
-    frontmatter = _frontmatter(text)
+    frontmatter = _frontmatter_yaml(text)
     anti = []
-    anti.extend(_parse_yaml_list(frontmatter, "anti_triggers"))
+    anti.extend(_yaml_list(frontmatter, "anti_triggers"))
     anti.extend(_parse_md_bullets(text, "Anti-Triggers"))
     return _clean(anti)
+
+
+def _is_user_invocable(skill_path: Path) -> bool:
+    fm = _frontmatter_yaml(skill_path.read_text())
+    if fm.get("disable-model-invocation") is True:
+        return False
+    return fm.get("user_invocable") is True
 
 
 def main() -> int:
@@ -138,8 +149,7 @@ def main() -> int:
             continue
 
         try:
-            text = skill_file.read_text()
-            if "user_invocable: true" not in text:
+            if not _is_user_invocable(skill_file):
                 continue
 
             name = skill_dir.name

@@ -82,3 +82,12 @@ cd ~/code/MediaCrawler && .venv/bin/python main.py \
 - CLI: `~/code/qianli/src/qianli/cli.py`
 - MC backend: `~/code/qianli/src/qianli/mc.py`
 - MediaCrawler: `~/code/MediaCrawler/`
+
+## Triggers
+
+- qianli
+- search wechat
+- chinese content
+- 36kr
+- zhihu
+- xhs

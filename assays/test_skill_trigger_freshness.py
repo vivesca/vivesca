@@ -43,10 +43,12 @@ def test_triggers_json_fresh() -> None:
     )
 
 
-BASELINE_MISSING_TRIGGERS = 20
+BASELINE_MISSING_TRIGGERS = 0
 
 
 def test_user_invocable_trigger_coverage_does_not_regress() -> None:
+    """Skills with `user_invocable: true` AND no `disable-model-invocation: true`
+    must register triggers. Baseline 0 as of 28 Apr 2026 after parser fixes."""
     user_invocable = []
     for skill_dir in SKILLS_DIR.iterdir():
         if not skill_dir.is_dir():
@@ -54,15 +56,19 @@ def test_user_invocable_trigger_coverage_does_not_regress() -> None:
         skill_file = skill_dir / "SKILL.md"
         if not skill_file.exists():
             continue
-        if "user_invocable: true" in skill_file.read_text():
-            user_invocable.append(skill_dir.name)
+        text = skill_file.read_text()
+        if "user_invocable: true" not in text:
+            continue
+        if "disable-model-invocation: true" in text:
+            continue
+        user_invocable.append(skill_dir.name)
 
     registered = json.loads(TRIGGERS_JSON.read_text())
     missing = sorted(s for s in user_invocable if s not in registered)
 
     assert len(missing) <= BASELINE_MISSING_TRIGGERS, (
         f"REGRESSION: {len(missing)} user_invocable skills lack triggers "
-        f"(baseline {BASELINE_MISSING_TRIGGERS} as of 28 Apr 2026). "
+        f"(baseline {BASELINE_MISSING_TRIGGERS} as of 28 Apr 2026 post-parser-fix). "
         f"Missing: {', '.join(missing[:15])}"
         f"{'...' if len(missing) > 15 else ''}. "
         "Add `## Triggers` markdown section or `triggers:` YAML list. "

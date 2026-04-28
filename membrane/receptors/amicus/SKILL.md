@@ -80,3 +80,12 @@ cargo install --path .
 - `chrono` — timestamp parsing + UTC→HKT display
 - `comfy-table` — rich terminal tables
 - `sha2` + `hex` — thread ID deduplication hashes
+
+## Triggers
+
+- amicus
+- who is
+- last contact
+- stale contacts
+- crm
+- relationship intelligence

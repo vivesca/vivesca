@@ -62,3 +62,11 @@ Use when:
 ```bash
 ~/scripts/imessage.sh "Check this out: https://gist.github.com/..."
 ```
+
+## Triggers
+
+- imessage
+- text wife
+- send sms
+- send imessage
+- message tara

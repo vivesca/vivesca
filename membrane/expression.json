@@ -98,7 +98,8 @@
     "superpowers@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": true,
     "compound-engineering@compound-engineering-plugin": true,
-    "evals-skills@hamelsmu-evals-skills": false
+    "evals-skills@hamelsmu-evals-skills": false,
+    "qmd@qmd": true
   },
   "extraKnownMarketplaces": {
     "compound-engineering-plugin": {
@@ -112,6 +113,12 @@
         "source": "git",
         "url": "https://github.com/hamelsmu/evals-skills.git"
       }
+    },
+    "qmd": {
+      "source": {
+        "source": "github",
+        "repo": "tobi/qmd"
+      }
     }
   },
   "outputStyle": "Concise",
@@ -119,8 +126,8 @@
   "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
-  "voiceEnabled": true,
   "teammateMode": "in-process",
+  "voiceEnabled": true,
   "thinkingDisplay": "none",
   "feedbackSurveyState": {
     "lastShownTime": 1753941965657

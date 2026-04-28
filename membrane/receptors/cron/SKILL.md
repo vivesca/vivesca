@@ -67,3 +67,11 @@ launchctl unload ~/Library/LaunchAgents/com.terry.AGENT.plist
 # 2. ln -s ~/officina/launchd/com.terry.NAME.plist ~/Library/LaunchAgents/
 # 3. launchctl load ~/Library/LaunchAgents/com.terry.NAME.plist
 ```
+
+## Triggers
+
+- cron
+- scheduled tasks
+- launchagents
+- automation list
+- recurring jobs

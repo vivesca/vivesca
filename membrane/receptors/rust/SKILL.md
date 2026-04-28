@@ -282,3 +282,12 @@ Full reference: `~/docs/solutions/rust-toolchain-setup.md`
 
 ## Motifs
 - [verify-gate](../motifs/verify-gate.md)
+
+## Triggers
+
+- rust
+- rust new
+- rust crate
+- rust cli
+- cargo new
+- rust scaffold

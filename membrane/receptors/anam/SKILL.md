@@ -92,3 +92,11 @@ oghma status
 - **Session storage gotcha:** Claude Code stores entries from session A inside session B's JSONL file. `--session` filter checks entry-level `sessionId`, not filename — this is correct.
 - `chat_history.py` (`~/scripts/chat_history.py`) still works as fallback for anam
 - `/daily` calls this skill for chat scanning
+
+## Triggers
+
+- anam
+- search history
+- past sessions
+- what did we discuss
+- recall conversation

@@ -167,3 +167,11 @@ When the domain is `paper` / `executive`, three additional gates derive from the
 
 ## Motifs
 - [verify-gate](../motifs/verify-gate.md)
+
+## Triggers
+
+- censor
+- quality gate
+- review writing
+- slop check
+- proofread
