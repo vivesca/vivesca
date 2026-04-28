@@ -40,7 +40,9 @@ This skill closes that loop.
 ### 1. Read the canonical session artefacts
 
 Don't try to re-derive everything from chat memory. Read:
-- `~/Tonus.md` — what's the post-session state?
+- `~/epigenome/chromatin/Tonus.md` — what's the post-session state?
+  - **PRE-FLIGHT (mandatory):** scan Tonus `<!-- light append YYYY-MM-DD ~HH:MM -->` blocks from the past 12 hours BEFORE forming any claim about workspace state. Synapse injection ≠ comprehension — appends are the freshest substance signal and live near the bottom of a long file; CC's failure mode is to skim past them. Run `grep -A3 "light append" ~/epigenome/chromatin/Tonus.md | tail -60` if needed. Codifies the failure caught in retrospective 2026-04-28-2145 §2b: v0.21 light-append at 22:30 was loaded, in context, unread — produced 18th-instance assert-before-verifying with NEW shape (self-context blindness, not external-source negligence).
+  - **Recent commits in active project domain:** before claiming what an in-flight artefact contains, run `git log --oneline -10 --since="12 hours ago"` in the relevant repo. Tonus loads substance; commits load *current state*. Both signals required at retrospective entry.
 - Today's daily note (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`) — what cytokinesis already captured?
 - Recent commits in epigenome + germline (`git log --since=N hours`) — what landed?
 - Any new marks filed today (`ls -t ~/epigenome/marks/ | head`)

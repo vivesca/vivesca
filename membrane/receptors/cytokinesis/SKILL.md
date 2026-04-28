@@ -37,7 +37,14 @@ allowed-tools:
 
 ### 1. Verification pass
 
-**Correction backstop first:** scan the session for corrections you acknowledged but didn't route to a mark file. This is your dominant failure mode — you recognize corrections ("noted", "good point", "updated") but don't file them. Find those moments and file now. If any are found, set `late_correction=true`.
+**Pre-flight (mandatory) — read recent state signals BEFORE forming wrap claims:**
+
+1. **Tonus light-appends from past 12 hours.** Synapse injects Tonus at session start, but light-appends sit at the bottom of a long file and CC's failure mode is to skim past them. Run `grep -B0 -A3 "light append" ~/epigenome/chromatin/Tonus.md | tail -60` to surface them explicitly. These are the freshest substance signals and often contain in-flight artefact state (paper versions, decisions pending, open questions).
+2. **Recent commits in active project domain.** Before claiming what an in-flight artefact contains or whether work has shipped, run `cd ~/<repo> && git log --oneline -10 --since="12 hours ago"` in the relevant repo. Tonus loads substance; commits load *current state*. Both signals required at wrap entry.
+
+Codifies the failure caught in retrospective 2026-04-28-2145 §2b: NEW shape of assert-before-verifying — self-context blindness on own working repo's recent commits and Tonus light-appends, distinct from instances 1-17 which were external-source negligence. Tonus 22:30 v0.21 light-append was loaded into context at session start, unread, and CC produced incorrect claims about workspace state for three Terry push-backs before `git log` recovered the surface during housekeeping.
+
+**Correction backstop next:** scan the session for corrections you acknowledged but didn't route to a mark file. This is your dominant failure mode — you recognize corrections ("noted", "good point", "updated") but don't file them. Find those moments and file now. If any are found, set `late_correction=true`.
 
 Then: run `cytokinesis gather`. Scan session against the routing table for any other missed signals. Also scan for emergent patterns — cross-session insights that only crystallize at session end.
 
