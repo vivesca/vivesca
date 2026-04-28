@@ -109,3 +109,4 @@ loci/plans/
 
 # OpenAI Codex auto-managed system skills — regenerated each session, not source-of-truth
 membrane/receptors/.system/
+membrane/receptors/huashu-nuwa/

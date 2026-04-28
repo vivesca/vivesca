@@ -28,7 +28,7 @@ The wording layer lives in marks (`feedback_executive_paper_style`, `feedback_pa
 
 **Before applying any edit to a committee-paper body — Board paper, satellite, cover note — you must pass five tests against the diff.** Same shape as `evaluate-ai-repo` §-1: deterministic gate at the trigger, not after-the-fact correction.
 
-If any test fails, **do not apply** — revise or revert before write. If applying despite a flag, name the flag and the override reason in the staging log entry.
+If any test fails, **do not apply or recommend** — revise or revert before write. The gate fires when *proposing* an option to Terry as well as when writing the diff. Recommending option (c) to apply an edit, then walking the tests after Terry pushes back, is the same failure mode as applying-without-gate. If applying despite a flag, name the flag and the override reason in the staging log entry.
 
 | # | Test | Failure looks like | Cite |
 |---|---|---|---|
