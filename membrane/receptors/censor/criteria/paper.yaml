@@ -75,12 +75,12 @@ checks:
     rationale: "Each unsponsored repeat compounds the audience's discount. Equal co-stim on round N+1 produces deeper anergy, not equal landing."
 
   - name: receptor_class_fidelity
-    question: "Read as a hostile reader in attribution / blame / budget-contraction mode — does the paper still route to the intended decision class (deliberation), or does it cross-present onto a kill-pathway (accountability, budget cut, team replacement)?"
+    question: "Read as a hostile reader in attribution / blame / budget-contraction mode — does the paper still route to the intended decision class (deliberation), or does it cross-present onto a kill-pathway (accountability, budget cut, team replacement)? In continuous-link mode (O365 / live link), this fires on EVERY save, not just before send."
     weight: high
     examples:
-      good: "Gap framed at capability level, no individuals named adjacent to gap, owner stated upfront, passive-voice failure descriptions absent"
-      bad: "Body names team-X as owning the gap, then describes the gap in passive voice — under hostile read this routes to 'replace team-X', not 'invest in capability'"
-    rationale: "DCs can cross-present exogenous antigen onto MHC-I → CD8 kill instead of MHC-II → CD4 deliberation. Same content, opposite receptor class, opposite decision. Mechanistic backing for the carve-out language rule."
+      good: "Gap framed at capability level, no individuals named adjacent to gap, owner stated upfront, passive-voice failure descriptions absent. Build-on language ('extends', 'completes', 'builds on') replaces remediation language."
+      bad: "Body names team-X as owning the gap, then describes the gap in passive voice — under hostile read this routes to 'replace team-X', not 'invest in capability'. Or: framing a sponsor-flagship programme as needing 'remediation' — routes to budget-kill of that programme."
+    rationale: "DCs can cross-present exogenous antigen onto MHC-I → CD8 kill instead of MHC-II → CD4 deliberation. Same content, opposite receptor class, opposite decision. Mechanistic backing for the carve-out language rule. In continuous-link mode every save is a fresh presentation — no quiet draft state."
 
   - name: prose_only
     question: "Is the body entirely continuous prose (no bullets, tables, bold, or brackets)?"
