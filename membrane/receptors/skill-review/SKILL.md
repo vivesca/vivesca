@@ -36,6 +36,23 @@ grep -rL 'disable-model-invocation: true' /home/vivesca/skills/*/SKILL.md | wc -
 # Full reference: ~/docs/solutions/ai-agent-skill-tool-count-research.md
 ```
 
+### 1a. Trigger-system Health
+
+Verify the skill-trigger matcher is alive (rotted silently for 25 days April 2026 — see `~/epigenome/marks/finding_skill_trigger_system_silent_failure.md`):
+
+```bash
+~/germline/effectors/skill-trigger-stats 30           # last 30 days fire stats
+~/germline/effectors/skill-trigger-stats 30 --dead    # list dead triggers
+test "$(find ~/.claude/skill-triggers.json -mtime +7)" && echo "STALE — run skill-trigger-gen.py"
+cd ~/germline && python3 -m pytest assays/test_skill_trigger_freshness.py
+```
+
+Triage:
+- **Dead triggers** (zero fires in 30d) — candidate for pruning. Drop from skill if the phrase has zero observed value.
+- **Over-firing triggers** (top of fire-count list) — verify they're firing on the right intent, not on coincidental substrings. Add anti-triggers if needed.
+- **Duplicate triggers** (multiple skills claim same phrase) — collisions create routing ambiguity. Resolve by tightening one skill's trigger or adding anti-triggers.
+- **User-invocable skills missing triggers** — `skill-trigger-gen.py` reports the gap; baseline at 28 Apr 2026 was 20 such skills. Add triggers (YAML `triggers:` list or `## Triggers` markdown section) when reviewing each.
+
 ### 2. Usage Scan
 
 Search recent chat history for skill invocations. **Important:** Count BOTH explicit `/name` invocations AND keyword triggers — most skills are triggered by natural language, not slash commands. Counting only slash invocations drastically undercounts usage (e.g. quorate showed 0 slash but ~300 keyword triggers).

@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Compute fire-rate stats from skill-suggest-log.tsv.
+
+Reads ~/.claude/skill-suggest-log.tsv and reports:
+- Most-suggested triggers (signal of which fire often)
+- Dead triggers (never suggested in the log window)
+- Per-skill fire counts
+
+Use during monthly skill-review to prune dead triggers and audit firing
+patterns. Surfaces the telemetry that already exists but is never read.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from collections import Counter
+from datetime import datetime, timedelta
+from pathlib import Path
+
+LOG = Path.home() / ".claude" / "skill-suggest-log.tsv"
+TRIGGERS_JSON = Path.home() / ".claude" / "skill-triggers.json"
+
+
+def _load_log(window_days: int) -> list[tuple[datetime, str, str]]:
+    if not LOG.exists():
+        return []
+    cutoff = datetime.now() - timedelta(days=window_days)
+    entries = []
+    for line in LOG.read_text().splitlines():
+        parts = line.split("\t")
+        if len(parts) < 4:
+            continue
+        try:
+            ts = datetime.fromisoformat(parts[0])
+        except ValueError:
+            continue
+        if ts < cutoff:
+            continue
+        entries.append((ts, parts[2], parts[3]))
+    return entries
+
+
+def main() -> int:
+    window = int(sys.argv[1]) if len(sys.argv) > 1 else 30
+
+    if not TRIGGERS_JSON.exists():
+        print("ERROR: skill-triggers.json missing", file=sys.stderr)
+        return 1
+
+    triggers_data = json.loads(TRIGGERS_JSON.read_text())
+    all_phrases = {
+        (skill, phrase)
+        for skill, data in triggers_data.items()
+        for phrase in (data.get("triggers", []) if isinstance(data, dict) else data)
+    }
+
+    entries = _load_log(window)
+    if not entries:
+        print(
+            f"No log entries in last {window} days. Either matcher is broken or no triggers fired."
+        )
+        return 0
+
+    fired = Counter((skill, phrase) for _, skill, phrase in entries)
+    skill_counts = Counter(skill for _, skill, _ in entries)
+
+    print(f"=== Skill trigger stats — last {window} days ===")
+    print(f"Total suggestions: {len(entries)}")
+    print(f"Unique (skill, phrase) pairs fired: {len(fired)}")
+    print(f"Registered (skill, phrase) pairs: {len(all_phrases)}")
+    print()
+    print("Top 10 by fire count:")
+    for (skill, phrase), count in fired.most_common(10):
+        print(f"  {count:4d}  {skill}: '{phrase}'")
+    print()
+    print("Top 10 skills by total fires:")
+    for skill, count in skill_counts.most_common(10):
+        print(f"  {count:4d}  {skill}")
+    print()
+    dead = sorted(all_phrases - set(fired))
+    print(f"Dead triggers (never fired in {window}d): {len(dead)} of {len(all_phrases)}")
+    if "--dead" in sys.argv:
+        for skill, phrase in dead[:50]:
+            print(f"  {skill}: '{phrase}'")
+        if len(dead) > 50:
+            print(f"  ... and {len(dead) - 50} more")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -68,6 +68,25 @@ Ghost-write *as* the institution, not as the consultant. The paper should read a
 
 ---
 
+## 3a. Mine First-Party Prior Thinking — Garden Before Drafting
+
+Before drafting any paper whose topic overlaps with active garden themes (`~/epigenome/chromatin/secretome/` + `~/epigenome/secretome/`), mine the garden as a first-party source. The garden contains the principal author's already-articulated framings, distinctions, and one-liners — material the paper's audience has not seen, written without committee filter, often sharper on premises and definitions than fresh draft prose.
+
+**When to trigger.** Topic alignment, not paper-cycle recurrence. AI-governance paper × AI-governance garden = high yield. Cyber paper × AI-governance garden = low yield. Skip when topic-mismatched.
+
+**How to mine (two-pass).**
+
+1. **Title + frontmatter description grep.** Catches direct hits. `awk '/^description:/{print}'` across the secretome dir surfaces the description-tagged subset in seconds.
+2. **Semantic search (qmd).** Catches concept-adjacent posts whose titles use different vocabulary than the paper's frame. Pure grep misses these.
+
+**What to lift.** Premises, conceptual cuts, single-phrase formulations. Never wholesale paragraphs — register mismatch (garden is essayistic, board is constitutional). For each candidate borrow, run `feedback_carve_out_language_in_stakeholder_papers.md` and `finding_board_paper_ask_scope_only_unique_decisions.md` before pasting.
+
+**Two routings if a strong idea doesn't fit the current paper.** (a) Cover note or backchannel with extra airtime (Bertie heads-up class). (b) Follow-up paper with broader scope (CAIO follow-up class). Strong ideas without a current home park with named routing, not "later."
+
+See `finding_garden_as_paper_input_source.md` for the methodology origin.
+
+---
+
 ## 4. Anti-Patterns — Match and Refuse
 
 If the draft contains any of these, stop and rewrite — they are paper-killers in a senior committee:

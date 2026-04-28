@@ -505,7 +505,17 @@ def mod_priming(data):
 
     on = _prim_norm(prompt)
     matches = []
-    for skill, phrases in triggers.items():
+    for skill, data in triggers.items():
+        if isinstance(data, list):
+            phrases = data
+            anti = []
+        else:
+            phrases = data.get("triggers", [])
+            anti = data.get("anti_triggers", [])
+
+        if any(len(_prim_norm(a)) >= 4 and _prim_norm(a) in on for a in anti):
+            continue
+
         for phrase in phrases:
             phn = _prim_norm(phrase)
             if len(phn) >= 4 and phn in on:

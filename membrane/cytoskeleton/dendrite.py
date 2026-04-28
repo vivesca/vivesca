@@ -596,7 +596,17 @@ def mod_ligation_skill(data):
 
     gen = HOOKS_DIR / "skill-trigger-gen.py"
     if gen.exists():
-        subprocess.run(["python3", str(gen)], capture_output=True)
+        log = Path.home() / ".claude" / "skill-trigger-gen.log"
+        with log.open("a") as f:
+            f.write(f"--- {datetime.now().isoformat()} {rel} ---\n")
+            f.flush()
+            result = subprocess.run(
+                ["python3", str(gen)],
+                stdout=f,
+                stderr=subprocess.STDOUT,
+            )
+            if result.returncode != 0:
+                f.write(f"FAILED: exit {result.returncode}\n")
 
     # Debounce: one nudge per session, not per file
     flag = Path("/tmp/.cytokinesis-ideal-skill")
