@@ -106,6 +106,74 @@ This prevents re-scanning the same changelog entries next time.
 
 If a version bump introduces a new FEATURE worth adopting, evergreen installs the version but competence decides whether to use the feature.
 
+## 7. External skill drift detection (endosymbionts)
+
+Skills imported from external repos (`endosymbiont: true` in frontmatter) need monitored drift. Manual "clone from time to time" is the failure mode — fragile, forgettable, doesn't scale to N vendored skills.
+
+### Skill frontmatter contract
+
+Every endosymbiont skill must declare:
+
+```yaml
+endosymbiont: true
+upstream: <org>/<repo>             # e.g. run-llama/llamaparse-agent-skills
+upstream_path: <path/in/repo>      # e.g. skills/llamaparse
+upstream_commit: <12-char SHA>     # SHA at time of last sync
+upstream_check: YYYY-MM-DD         # date of last drift check
+upstream_license: <SPDX>           # for license compliance
+```
+
+The active `SKILL.md` body is upstream content verbatim, followed by a `<!-- VIVESCA OVERLAY -->` HTML comment marker, followed by our additions. Drift detection diffs only the upstream-managed lines (above the marker).
+
+A pristine `SKILL.md.upstream` sibling file holds the last-synced upstream content for byte-level diff.
+
+### Drift sweep procedure
+
+Run as part of monthly `/competence` cycle, or ad-hoc when an upstream is known to have changed:
+
+```bash
+# Walk all endosymbiont skills
+for skill in ~/germline/membrane/receptors/*/SKILL.md; do
+  awk '/^endosymbiont: true/{print FILENAME; exit}' "$skill"
+done | while read skill; do
+  dir=$(dirname "$skill")
+  upstream=$(awk -F': ' '/^upstream:/{print $2; exit}' "$skill")
+  upstream_path=$(awk -F': ' '/^upstream_path:/{print $2; exit}' "$skill")
+  current_commit=$(awk -F': ' '/^upstream_commit:/{print $2; exit}' "$skill")
+  latest_commit=$(curl -s "https://api.github.com/repos/$upstream/commits?path=$upstream_path&per_page=1" | python3 -c "import json,sys; c=json.load(sys.stdin); print(c[0]['sha'][:12] if c else 'none')")
+  if [ "$current_commit" != "$latest_commit" ]; then
+    echo "DRIFT: $skill — $current_commit → $latest_commit"
+  fi
+done
+```
+
+### Adoption decision per drift
+
+For each detected drift:
+
+1. **Fetch new upstream content.** Save as `SKILL.md.upstream.new`.
+2. **Diff `.upstream` vs `.upstream.new`.** Read the changes — what did upstream actually change?
+3. **Classify the delta:**
+   - **Auto-apply candidate:** description/trigger updates, dep version bumps, additional examples, license clarifications. Low risk.
+   - **Review-required:** logic changes, new tool args, breaking API changes, removed sections, license changes. High risk.
+4. **Apply.** Replace upstream-managed body in active SKILL.md with new upstream content. Preserve frontmatter additions and the post-`<!-- VIVESCA OVERLAY -->` section verbatim. Update `upstream_commit:` and `upstream_check:` frontmatter fields.
+5. **Replace `.upstream`** with `.upstream.new` so next drift check has clean baseline.
+6. **Commit** with message `<skill> drift sync: <old-sha> → <new-sha> (<changeset summary>)`.
+
+### When NOT to sync
+
+- **Major version bump** that breaks our overlay or downstream callers — pin to last-known-good SHA, log as deferred, plan migration explicitly.
+- **License change** away from permissive — stop. Consult Terry. Possibly fork pre-change SHA permanently.
+- **Upstream archived / deleted** — fork the last good commit into our repo, mark `endosymbiont: vendored` (no further drift checks).
+
+### What this section is NOT for
+
+- First-party MCP servers (those live in `vivesca` and have their own version pinning).
+- Skills we wrote from scratch — those are organism-native, not endosymbionts.
+- Coaching files / marks / epistemics — those follow the marks-decay pattern, not upstream-tracking.
+
+---
+
 ## Related skills
 
 - `integrin` — scans for breakage (health), not growth (competence)
