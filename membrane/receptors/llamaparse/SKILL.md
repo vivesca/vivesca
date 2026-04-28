@@ -265,3 +265,9 @@ op run --env-file=/tmp/llamaparse.env -- <command>
 - **Top-level `await` fails under `npx tsx`** because tsx defaults to CJS output. Always wrap script body in async IIFE: `(async () => { ... })();`. Upstream skill examples don't show this wrapper; the failure mode is a transform-time error, not runtime. Easy to miss.
 - **Module resolution from `/tmp`** doesn't pick up globally-installed npm packages by default. Either install local (cd to a project dir with package.json), or set `NODE_PATH=$(npm root -g)` before invoking. Global install at `~/.local/npm/lib/node_modules` is NOT auto-discovered.
 - **Combined invocation pattern** that works on soma: `NODE_PATH=$(npm root -g) op run --env-file=/tmp/llamaparse.env -- npx tsx /path/to/script.ts`.
+
+**Config exploration findings (filed 2026-04-28, see `finding_llamaparse_config_exploration_2026-04-28.md`).**
+- **Custom prompts are the highest-leverage feature.** Use `agentic_options.custom_prompt` for table-heavy docs, multilingual extraction, or structured-data passes. Empirically the clearest win in the three tested configs.
+- **`agentic_plus` shows no clear delta over `agentic`** on prose + simple chart-box pages. Only worth the quota cost on dense financial tables; test before defaulting to it.
+- **Presigned-URL auth is broken in upstream skill examples.** The pattern `headers: { Authorization: Bearer ... }` on `image.presigned_url` returns HTTP 400. Presigned URLs auth via signature in the URL itself; adding headers breaks signature validation. Drop the Bearer header for presigned-URL fetches.
+- **Verification screenshots from `pdftoppm` must be ≥200dpi.** CC's own visual reading at 150dpi can introduce OCR-equivalent errors on small-font figures (e.g., misreading 9 as 6). Use `pdftoppm -r 200` minimum, 300dpi when ambiguous.
