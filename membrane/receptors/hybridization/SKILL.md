@@ -91,6 +91,7 @@ Run `lysin` for every biological name in the hybridization. Read the mechanism. 
 - **One abstraction level.** Cell only. Don't mix in organ-level (liver) or ecosystem-level (rainforest). Mixing levels produces decorative metaphors, not design gaps.
 - **Cosplay test.** If renaming a component doesn't generate a new design question, revert. The name must do work.
 - **Boundary rule.** Cell concept = bio name. Runtime mechanic = platform name. `nucleus` is a bio name; `sqlite` is a platform name. Both can coexist in the same component.
+- **Contrastive mechanism > structural metaphor.** A bio-naming candidate generates real design value when the biology has a *contrastive* mechanism — two or more states with opposite outcomes that depend on a discriminator. Antigen presentation has Signal-1-only → anergy vs Signal-1+2 → immunity, and MHC-II → CD4 deliberation vs MHC-I → CD8 kill cross-presentation. These contrasts forced three production rules in censor and a new persona in induction. Pure structural analogies ("tree = hierarchy", "molecule on a surface") generate names but no rules. **The test:** before committing a bio name, name two contrastive states the biology supports. If you can't, the analogy is decorative — find a different bio entity or accept that the rename produces a label not a discriminator. Validated 28 Apr 2026 on `finding_anergy_risk_unsponsored_board_paper.md` and `finding_cross_presentation_wrong_receptor_routing.md`.
 
 ## Anti-patterns
 

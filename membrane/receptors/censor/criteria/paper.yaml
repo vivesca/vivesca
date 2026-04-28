@@ -57,6 +57,11 @@ anti_patterns:
     reject: false
     flag: "Assert don't ask. State the position, not the recommendation."
 
+  - name: consulting_idiom_in_flight
+    pattern: "Uses 'in flight' to describe work in progress"
+    reject: false
+    flag: "Replace 'in flight' with 'underway' or 'in progress'. Board register prefers institutional verbs over consulting idiom. Surfaced 28 Apr 2026 v0.20 diction-polish pass."
+
 checks:
   - name: sponsor_co_signal
     question: "Does this version have explicit sponsor co-signal documented (not just on a prior version, not just on the topic)? Cover note / back-channel / verbal-coaching record present?"
