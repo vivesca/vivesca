@@ -64,19 +64,40 @@ consilium "question" --domain eu        # GDPR/AI Act considerations
 
 ---
 
+## Picking Models — How to Read Leaderboards
+
+Two leaderboards, different signals. **Never average them.**
+
+- **LMArena** (`arena.ai/leaderboard/text`) — blind human pairwise preference (Elo). Measures *vibes*: chat fluency, tone, register match. Gameable via verbose hedging.
+- **Artificial Analysis** (`artificialanalysis.ai`) — composite of GDPval-AA, τ²-Bench, Terminal-Bench, SciCode, AA-LCR, AA-Omniscience + measured price/latency. Measures *capability and economics*. Composite can mask uneven profiles.
+
+**For quorate panel selection: weight AA ~70%, LMArena ~30%.** Council's job is distinct judgments, not pleasant prose. Reverse for garden/writing.
+
+**Pre-swap checklist:**
+1. Check the *sub-benchmark* matching the use case (LiveCodeBench for coding, GPQA for reasoning, GDPval-AA for economic value), not the rollup.
+2. Read AA's verbosity stat — `tokens_generated >> 2x avg` = council token cost inflates. (V4 Pro example: 190M vs 45M avg.)
+3. Cross-check capability/preference split. AA-high + Arena-low = capable but unloved (good for council). AA-low + Arena-high = pleasant but shallow.
+4. **Family diversity over peak score** — adding a model from a family already in panel is a wasted slot regardless of rank. Per `finding_deliberation_panel_monoculture.md`.
+5. Speedtest before commit: `quorate quick "name a color"` with candidate pinned. >60s/model = doesn't belong.
+
+Full table in `~/epigenome/marks/finding_leaderboard_weighting_for_panel_selection.md`.
+
+---
+
 ## Model Tendencies
 
 | Model | Role | Tendency | Useful For |
 |-------|------|----------|------------|
-| **GPT-5.2 Pro** | M1 (OpenAI) | Practical, implementation-focused | Actionable steps |
-| **Claude Opus 4.6** | M2 (Anthropic) | Balanced, expert judgment | Strategic depth |
-| **Grok 4** | M3 (xAI) | Contrarian, challenges consensus | Stress-testing ideas |
-| **DeepSeek-V3.2** | M4 (DeepSeek) | Coding-strong, cross-lab diversity | Technical depth |
-| **GLM-5** | M5 (Zhipu) | Strategic, pragmatic (best-validated CN model) | Business decisions |
+| **GPT-5.5** | M1 (OpenAI) | Practical, implementation-focused; AA Index leader (60) | Actionable steps |
+| **Claude Opus 4.7** | M2 (Anthropic) | Balanced, expert judgment | Strategic depth |
+| **Grok 4.20** | M3 (xAI) | Contrarian, challenges consensus | Stress-testing ideas |
+| **Kimi K2.6** | M4 (Moonshot) | Top open-source on AA Index; reasoning-heavy MoE | Technical + Chinese-lineage perspective |
+| **GLM-5.1** | M5 (Zhipu) | Strategic, pragmatic (best-validated CN model) | Business decisions |
+| **Mimo v2.5 Pro** | M6 (Xiaomi) | Underweight slot — swap candidate | (weak signal — review) |
 | **Gemini 3.1 Pro** | Judge (Google) | Technical synthesis, systems thinking | Final judgment |
-| **Claude Opus 4.6** | Critique (Anthropic) | Independent review of judge synthesis | Catching judge gaps |
+| **Claude Opus 4.7** | Critique (Anthropic) | Independent review of judge synthesis | Catching judge gaps |
 
-*All 6 frontier labs represented. Gemini became judge Mar 2026 (was Claude); Claude moved to M2 panelist + critique.*
+*Config source of truth: `~/code/quorate/src/quorate/config.py:94-99`. Update this table after any swap.*
 
 **Default challenger:** GPT (rotates each round). Grok is naturally contrarian regardless, so GPT as explicit challenger gives two sources of pushback.
 
