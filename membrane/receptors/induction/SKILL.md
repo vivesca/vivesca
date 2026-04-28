@@ -24,6 +24,41 @@ The wording layer lives in marks (`feedback_executive_paper_style`, `feedback_pa
 
 ---
 
+## 0. Body-Edit Gate (HARD, runs before applying ANY committee-paper body edit)
+
+**Before applying any edit to a committee-paper body — Board paper, satellite, cover note — you must pass five tests against the diff.** Same shape as `evaluate-ai-repo` §-1: deterministic gate at the trigger, not after-the-fact correction.
+
+If any test fails, **do not apply** — revise or revert before write. If applying despite a flag, name the flag and the override reason in the staging log entry.
+
+| # | Test | Failure looks like | Cite |
+|---|---|---|---|
+| 1 | **Register fit** — committee-paper voice (declarative, third-party, bare assertion) | hedges (`we continue to`, `may`, `could`, `expect to`, `aim to`); modal qualifiers; first-person plural; consultancy markers (`as-is/to-be`, `framework`, `lever`); AR-style filler (`appropriate`, `robust`, `ongoing`, `comprehensive`) | `finding_ar_house_style_vs_ar_register.md` (PROTECTED), `feedback_senior_register_observes_doesnt_argue.md` (PROTECTED) |
+| 2 | **Vocabulary fit** — Board reader vocabulary, not internal jargon | `Data Fabric`, `as-is/to-be`, internal product names, business-unit acronyms not yet defined; consulting-shop terminology that doesn't appear in the audience's AR or earnings call | `feedback_dont_pollute_board_body_with_relational_asks.md` (PROTECTED) |
+| 3 | **Dilution** — does the edit weaken the paragraph's load-bearing claim? | adds a second story alongside the existing one; introduces an enrichment dimension that competes with the load-bearing claim; weakens a precise verb to a softer one | `feedback_dont_pollute_board_body_with_relational_asks.md`, `feedback_paper_vs_comms_layer_split.md` |
+| 4 | **Density ceiling** — is the paragraph already at body-length ceiling? | adding net words to a paragraph already at or above target length; Cap 1 already densest, edit pushes density further | `feedback_board_cut_as_compression_test_for_long_papers.md` (PROTECTED) |
+| 5 | **Citation register** — verbatim quote + bare attribution; never `(p.X)` | `(Annual Report, p.106)`, `(p. 58)`, footnote-style page references, academic-citation parentheticals | `feedback_no_parenthetical_page_citations_in_committee_papers.md` (PROTECTED) |
+
+**Absolute ban — match and refuse:**
+
+If you find yourself about to write the diff to a committee-paper body file (`hsbc-*-paper-*.md`, `hsbc-*-spine-*.md`, `*-board-paper-*.md`, satellite or cover note) without having walked these five tests, **STOP**. Walk the tests, log the result inline as a one-liner before the staging log entry. If any test fails, do not apply.
+
+**Why this gate exists.** Failure mode confirmed across **10 retrospectives in 24 hours** (28 Apr 2026): CC produces a body edit that fails one of the five tests, the regression is caught only on Terry's bare-question challenge ("does it make the paper better?", "should the paper cite the AR elegantly?"). Marks alone (`feedback_dont_pollute_board_body_with_relational_asks.md`, `feedback_no_parenthetical_page_citations_in_committee_papers.md`, `finding_ar_house_style_vs_ar_register.md`) have not deterred recurrence; multiple confirmed-count bumps have not deterred either. Per the cross-session pattern check protocol, this requires deterministic enforcement at the skill level, not another mark. The escalation finding `finding_assert_before_verifying_pattern_needs_gate_28apr.md` (`status: escalate-this-week`, `confirmed: 3`) routes here.
+
+**The bare-question challenge as self-test.** Terry's high-leverage move is "does it make the paper better?" Five words, neutral, on artefact-utility terms. Run it on yourself before applying — the diff has to survive your own version of that question. If you can't articulate why the diff makes the paper better against the five tests above, the diff is not ready.
+
+**DO:**
+- Walk the five tests in order before writing the staging log entry, not after.
+- Log the result inline: `Gate: 1✓ register; 2✓ vocab; 3✓ dilution; 4✓ density; 5✓ citation` (or `1✗ register: hedge "may"`, etc.).
+- When a test fails, revise the diff or skip the edit. Do not apply with a flag pending.
+- For relational asks (sponsor-forwarded operating-layer input), default to satellite + follow-up paper, not body. Apply test 2 + test 3 explicitly.
+
+**DO NOT:**
+- Apply the edit then run the gate retroactively. After-the-fact gating is what the marks layer already failed at.
+- Treat "iteration license earned by responding to a sponsor's named ask" as override authority. Sponsor asks land in correspondence notes, satellites, follow-up papers — not Board body unless the body is the only place the answer fits.
+- Skip the gate on satellite or cover note. Same five tests, scaled to register; satellites tolerate more density and more vocabulary, but `(p.X)` citations and dilution still fail.
+
+---
+
 ## 1. Decide Before You Draft: Five Pre-Conditions
 
 A paper that influences was already going to win before it was circulated. The drafting effort confirms a decision the room was already reaching. If any of these five are missing, do not draft yet — fix the precondition first.
