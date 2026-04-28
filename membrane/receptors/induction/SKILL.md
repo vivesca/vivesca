@@ -109,6 +109,48 @@ Related marks: `feedback_executive_paper_style`, `feedback_partner_message_densi
 
 ---
 
+## 4c. UK House Style — The Reader's Eye Lands Here
+
+Default for all HSBC, UK-headquartered, and UK-clearance papers (Group OpCo, AIRCo, RMM, Board sub-committees, Doug/Beth/Rice/Bertie chains). The obvious -ize/-or spellings are not the tell — Capco's house drafts already get those right. The high-signal markers are subtler, and they're what a UK Group reader's eye lands on first.
+
+**DO:**
+- **Punctuation outside quotation marks** unless the punctuation is part of the quoted material. `the Board endorsed "capability spine".` — not `the Board endorsed "capability spine."`
+- **Single quotes** for first-level quotation; double for nested. UK convention is the inverse of US.
+- **Plural verb on collective nouns** when treating them as a body of people: "the team are", "the Board are inclined", "Group AI are sponsoring". Singular when treating as a single entity: "the Board is the decision-maker".
+- **Date format** `27 April 2026`. No comma, no `April 27, 2026`.
+- **Double-L on inflected verbs:** modelled, labelled, cancelled, travelling, signalling, levelled, totalled, channelled.
+- **Lexical pairs:** programme (process/scheme; software stays "program"), licence (noun) / license (verb), practice (noun) / practise (verb), enrol, fulfil, instil, judgement (legal/considered), organisation, recognise, prioritise, utilise, optimise, behaviour, defence, offence, centre, metre.
+- **"Different from"** not "different than".
+
+**DO NOT:**
+- Use "while/whilst" interchangeably as a UK signal — "whilst" reads as archaism in modern Group prose. Plain "while" is correct.
+- Over-correct into period-piece UK ("amongst", "amidst", "endeavour to") thinking it lifts register. It lowers it.
+- Use Oxford comma reflexively. UK house style is Oxford-comma-optional; consistency within the paper matters more than the choice.
+- Use US date format anywhere — including footnotes, references, version stamps, and metadata.
+- Mix `-ize` and `-ise` within the same paper. Pick `-ise` and sweep.
+
+**Pre-send sweep (run this against every UK-chain paper before circulation):**
+
+```bash
+# US spellings
+grep -nE '\b(behavior|organize|optimi[sz]e|recogni[sz]e|analy[sz]e|defen[sc]e|labor|color|favor|center|program(?!me)|license|practice|utilize|leverage|gotten|modeling|labeling|canceling|traveling|signaling|judgment)\b' <paper>
+
+# US date format
+grep -nE '\b(January|February|March|April|May|June|July|August|September|October|November|December) [0-9]{1,2},' <paper>
+
+# Punctuation inside quotes (US convention)
+grep -nE '[",]"|\."' <paper>
+
+# Period-piece UK over-correction
+grep -nE '\b(whilst|amongst|amidst|endeavour to)\b' <paper>
+```
+
+**Trigger.** Any paper destined for HSBC Group, UK-headquartered, UK-clearance, or partner-routed-via-UK (Bertie chain). Also any external regulator submission to PRA/FCA. Skip for HK-domiciled, Singapore-domiciled, or US-domiciled audiences only.
+
+Related marks: `feedback_executive_paper_style`, `feedback_hsbc_is_the_buyer`.
+
+---
+
 ## 4b. Technical-Backing Satellite Notes — Body Layman, Defense Hidden
 
 Board papers should read accessibly for the audience that will endorse them. Most board readers are not domain specialists — they will not parse field jargon, internal acronyms, or unexplained technical terms. The body must use plain English, named institutions, and concrete examples that any senior reader can follow without a glossary.
