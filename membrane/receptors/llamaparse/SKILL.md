@@ -260,3 +260,8 @@ op run --env-file=/tmp/llamaparse.env -- <command>
 **Verbatim retention.** When parsing a document we'll later quote verbatim in a paper (per `feedback_preserve_verbatim_from_primary_sources`), preserve the LlamaParse output as the source-of-truth file in chromatin. Do not re-parse for stylistic improvements — the parsed file IS the citable source.
 
 **Used by.** `induction` skill (HSBC AR house-style reference at `chromatin/immunity/hsbc-ar2025-full-markdown.md`); future committee papers; controls paper series; regulator submissions; any client AR for new pitch context.
+
+**TS dispatch gotchas (filed 2026-04-28).**
+- **Top-level `await` fails under `npx tsx`** because tsx defaults to CJS output. Always wrap script body in async IIFE: `(async () => { ... })();`. Upstream skill examples don't show this wrapper; the failure mode is a transform-time error, not runtime. Easy to miss.
+- **Module resolution from `/tmp`** doesn't pick up globally-installed npm packages by default. Either install local (cd to a project dir with package.json), or set `NODE_PATH=$(npm root -g)` before invoking. Global install at `~/.local/npm/lib/node_modules` is NOT auto-discovered.
+- **Combined invocation pattern** that works on soma: `NODE_PATH=$(npm root -g) op run --env-file=/tmp/llamaparse.env -- npx tsx /path/to/script.ts`.
