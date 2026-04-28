@@ -115,6 +115,8 @@ Single letter + 1-sentence justification. Rubric:
 
 Track grades in `~/epigenome/chromatin/retrospectives/_grades.md` (one line per session: date, grade, link to file). Trend matters more than any single grade.
 
+**Slot duration caveat (added 2026-04-28-1538).** For short slots (<30 min), grade against compounding-gain-per-minute, not absolute output. A 17-min slot that cleanly grafts 3 patterns + files 1 finding is high-leverage-density even though absolute substance is low. Rubric application: drop one tier from the substance bar and replace with a clean-execution-density bar. Failure mode this prevents: B+ default for any slot under the substance threshold regardless of how cleanly it executed, which mis-incentivises long-slot framings of small-but-clean work.
+
 ### 3. Route §2d findings to durable form (mandatory, BEFORE display)
 
 **§2d "What to Do Differently" items must be routed to durable artefacts the same turn — not left as text in the retrospective file requiring Terry to prompt.** A retrospective that surfaces "[Claude Code] do X" and stops there is a retrospective that did 50% of its job. The other 50% is making "do X" something a future session will actually encounter.

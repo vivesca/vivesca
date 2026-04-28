@@ -178,5 +178,15 @@ Default sweep covers:
 
 If user specifies a subdirectory or file, scope to that.
 
+### Step 0: env-var unexpansion check (run first)
+
+Before any naming check, scan for directories created with literal env-var names — caused by `$HOME`/`$PATH`/etc. unexpansion at write time. Symptom: directory called `$HOME`, `${HOME}`, etc. instead of `/home/vivesca`.
+
+```bash
+find ~/germline/membrane/receptors/ -maxdepth 1 -type d -name '$*' -o -name '${*' 2>/dev/null
+```
+
+If any hits: investigate the parent process that wrote there (likely a script using a shell-substituted path inside a Python `subprocess.run([...])` call, or an MCP tool passing a literal `"$HOME"` string). Move contents to the correct path, delete the literal-named directory, fix the source. Logged 2026-04-28-1538 retrospective: agent-browser-profile leaked into `germline/membrane/receptors/$HOME/.agent-browser-profile/` from some earlier slot — root not yet identified.
+
 ## Motifs
 - [audit-first](../motifs/audit-first.md)
