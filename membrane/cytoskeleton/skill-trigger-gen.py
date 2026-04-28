@@ -15,7 +15,7 @@ import json
 import re
 from pathlib import Path
 
-SKILLS_DIR = Path.home() / "skills"
+SKILLS_DIR = Path.home() / "germline" / "membrane" / "receptors"
 OUTPUT = Path.home() / ".claude" / "skill-triggers.json"
 
 

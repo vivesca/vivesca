@@ -467,3 +467,26 @@ Do **not** reach for this skill for:
 - Garden posts (use `expression` and the garden marks)
 - Networking outreach (use `message` and `cursus`)
 - Working group discussion papers where no decision is requested (different genre — those are inputs to deliberation, not outputs)
+
+## Triggers
+
+- induction
+- board paper
+- committee paper
+- executive paper
+- opco
+- aircco
+- airco
+- steering paper
+- decision paper
+- live link
+- live doc
+- live word doc
+- live document
+- O365 link
+- Google Docs share
+- while iterating
+- keep iterating
+- continuous link
+- O365 live
+- Word doc share

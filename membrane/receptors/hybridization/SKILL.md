@@ -98,3 +98,18 @@ Run `lysin` for every biological name in the hybridization. Read the mechanism. 
 - Stopping at the match (match = 10% of value; gap = 90%)
 - Forcing a mapping that doesn't hold — the naming test IS the design test
 - Running hybridization without committing to the output table — gaps not written down are gaps not closed
+
+## Triggers
+
+- hybridization
+- naming audit
+- naming check
+- analogy check
+- bio naming
+- bio name
+- rename component
+- design gap
+- naming smell
+- contrastive mechanism
+- cosplay check
+- name vs mechanism
