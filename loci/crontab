@@ -14,6 +14,11 @@
 # evergreen: update Python + deps daily at 12:00 HKT
 0 12 * * * soma-cron-wrap evergreen /home/vivesca/germline/effectors/evergreen /home/vivesca/germline
 
+# supervisor-drift-check: catch /etc <-> loci/ supervisor.conf drift early.
+# 28 Apr 2026 outage: tailscaled program missing in /etc, SSH-to-mac dead, no autorestart.
+# Daily at 09:00 HKT — supercronic logs non-zero exit to ~/.local/share/vivesca/cron-runs.jsonl.
+0 9 * * * soma-cron-wrap supervisor-drift-check /home/vivesca/germline/effectors/supervisor-drift-check
+
 # ── Phase 2 migrations (added one at a time after end-to-end test) ──
 # All added jobs were tested via `soma-cron-wrap <name> <cmd>` first.
 # Mac equivalents still run in parallel until Phase 3 (DR gating) lands.

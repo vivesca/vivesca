@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# supervisor-drift-check — diff live supervisor config against the git-tracked copy.
+#
+# Drift means someone edited /etc/supervisor/conf.d/gemmule.conf without
+# re-syncing ~/germline/loci/supervisor.conf, OR vice versa. Either direction
+# is a problem: the live one may be missing a program block (the 28 Apr 2026
+# tailscaled outage), or the git copy may be stale.
+#
+# Exit non-zero on drift so soma-cron-wrap logs to jobs.jsonl and the next
+# integrin/system-patrol surfaces it. No alerts — observation is the gate.
+
+set -u
+
+LIVE=/etc/supervisor/conf.d/gemmule.conf
+GIT=/home/vivesca/germline/loci/supervisor.conf
+
+if ! [ -r "$LIVE" ]; then
+    echo "FAIL: cannot read $LIVE" >&2
+    exit 2
+fi
+
+if ! [ -r "$GIT" ]; then
+    echo "FAIL: cannot read $GIT" >&2
+    exit 2
+fi
+
+if diff -q "$LIVE" "$GIT" > /dev/null; then
+    echo "OK: supervisor config in sync ($LIVE == $GIT)"
+    exit 0
+fi
+
+echo "DRIFT: $LIVE differs from $GIT"
+diff -u "$GIT" "$LIVE" | head -40
+echo ""
+echo "Fix: re-sync via 'sudo cp $LIVE $GIT && cd ~/germline && git add loci/supervisor.conf && git commit'"
+echo "See finding_supervisor_etc_vs_loci_drift.md for full sequence."
+exit 1
