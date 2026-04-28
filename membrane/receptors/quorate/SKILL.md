@@ -101,6 +101,27 @@ export OPENROUTER_API_KEY=$(security find-generic-password -s openrouter-api-key
 
 Check the routing table above. If it falls in "Skip", redirect.
 
+### Step 0.25: Rationale-companion check (mandatory for chromatin/immunity papers)
+
+Before running quorate on any deliverable in `chromatin/immunity/*.md` (Board papers, committee papers, stakeholder artefacts), check for a sibling `*-rationale-annotations*` file:
+
+```bash
+# stem = the deliverable's filename without -vN.NN.md
+ls /home/vivesca/epigenome/chromatin/immunity/<stem>*rationale-annotations*.md 2>/dev/null
+```
+
+If a rationale-annotations file exists, **load it as additional context**:
+- `quorate council --context <body>,<rationale> "..."` (multi-context if CLI supports)
+- OR explicitly summarise the rationale's "non-negotiable" / decision-log "reversal cost: zero" entries in the prompt: *"The following items survived prior knockout passes and are constitutionally defended — do not reverse without strong reason: [list]."*
+
+Also state the document's **register** in the prompt:
+- *"This is a constitutional Board endorsement paper — Recommendation grants authority abstractly, body should match the abstract level, operating-model paper handles concrete gates."*
+- vs. a regular committee paper, operating-model paper, or technical brief — different register, different anchoring discipline.
+
+**Why mandatory:** without the rationale layer, the council reads the surface text only and applies its default (regular committee paper) anchoring discipline. Three failure modes documented as of 2026-04-28: SOFTEN-the-power-claim against a constitutional grant; DELETE buyer-leverage as redundant when it carries Board-aspiration; ANCHOR a body sentence that preempts the reserved follow-up paper. All three are predictable artefacts of running quorate without the rationale companion. Per `feedback_council_without_rationale_file.md` (PROTECTED, confirmed=2 with n=3-doesn't-revisit + template-confusion extension).
+
+**N=3 doesn't revisit.** Three cold-read reviewers without rationale file proposing the same fix is the *predicted* output of diagnostic-only-consensus, not new evidence. Bar to revisit a chromatin-defended position: reviewer WITH rationale file, OR a rationale-layer-novel attack. Routine convergence-without-context = pattern, not signal.
+
 ### Step 0.5: Propose mode
 
 Tell the user which mode and why (one line), then confirm. Don't run until confirmed.
