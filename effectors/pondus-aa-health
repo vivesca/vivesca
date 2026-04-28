@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""pondus-aa-health — monthly probe verifying AA scraper still works.
+
+Checks:
+  (a) source status == "ok"
+  (b) score count >= 50
+  (c) GPT-5.5 (xhigh) intelligence_index in [55, 65]
+
+On failure, writes a finding mark to ~/epigenome/marks/ and prints summary.
+On success, prints one-line OK summary.
+
+Exits 0 always (cron-friendly); failure is signalled by mark file presence.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+PONDUS = Path.home() / ".cargo/bin/pondus"
+MARKS_DIR = Path.home() / "epigenome/marks"
+ANCHOR_MODEL = "gpt-5.5-(xhigh)"
+ANCHOR_RANGE = (55.0, 65.0)
+MIN_MODELS = 50
+
+
+def run_pondus() -> dict:
+    result = subprocess.run(
+        [str(PONDUS), "rank", "--source", "artificial-analysis", "--refresh", "--format", "json"],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"pondus exit {result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return json.loads(result.stdout)
+
+
+def evaluate(payload: dict) -> tuple[bool, list[str], dict]:
+    failures: list[str] = []
+    sources = payload.get("sources", [])
+    if not sources:
+        return False, ["no sources in payload"], {}
+
+    aa = next((s for s in sources if s.get("source") == "artificial-analysis"), None)
+    if aa is None:
+        return False, ["artificial-analysis source missing"], {}
+
+    status = aa.get("status")
+    status_kind = (
+        status
+        if isinstance(status, str)
+        else (next(iter(status), None) if isinstance(status, dict) else None)
+    )
+    if status_kind not in {"ok", "Ok", "cached", "Cached"}:
+        failures.append(f"status not ok: {status!r}")
+
+    scores = aa.get("scores", [])
+    if len(scores) < MIN_MODELS:
+        failures.append(f"only {len(scores)} models, expected >= {MIN_MODELS}")
+
+    anchor_score = None
+    for entry in scores:
+        if entry.get("model", "").lower() == ANCHOR_MODEL:
+            metrics = entry.get("metrics", {})
+            value = metrics.get("intelligence_index")
+            if isinstance(value, (int, float)):
+                anchor_score = float(value)
+            elif isinstance(value, dict) and "value" in value:
+                anchor_score = float(value["value"])
+            break
+    if anchor_score is None:
+        failures.append(f"anchor model {ANCHOR_MODEL} not found in scores")
+    elif not (ANCHOR_RANGE[0] <= anchor_score <= ANCHOR_RANGE[1]):
+        failures.append(
+            f"{ANCHOR_MODEL} score {anchor_score} outside expected range {ANCHOR_RANGE}"
+        )
+
+    summary = {
+        "model_count": len(scores),
+        "anchor_model": ANCHOR_MODEL,
+        "anchor_score": anchor_score,
+        "status": status,
+    }
+    return not failures, failures, summary
+
+
+def write_mark(failures: list[str], summary: dict, raw_status: object) -> Path:
+    today = datetime.now().strftime("%Y_%m")
+    path = MARKS_DIR / f"finding_pondus_aa_drift_{today}.md"
+    snapshot = subprocess.run(
+        ["agent-browser", "snapshot"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    sample = (
+        "\n".join(snapshot.stdout.splitlines()[:60])
+        if snapshot.returncode == 0
+        else f"(snapshot failed: {snapshot.stderr.strip()})"
+    )
+    body = f"""---
+name: pondus AA scraper drift {today}
+description: AA scraper health probe failed — likely AA layout changed again
+type: finding
+source: cc
+durability: methyl
+confirmed: 1
+---
+
+**Probe date**: {datetime.now().isoformat(timespec="seconds")}
+
+**Failures**:
+{chr(10).join(f"- {f}" for f in failures)}
+
+**Summary**: {json.dumps(summary, indent=2)}
+
+**Raw status**: {raw_status!r}
+
+**Snapshot sample (top 60 lines from agent-browser)**:
+
+```
+{sample}
+```
+
+**Action**: edit `~/code/pondus/src/sources/aa.rs::parse_scores_from_text` to handle
+new shape, bump version, publish. Last fix: 2026-04-28 (0.6.2) when AA changed
+`- row "..."` named-row format to bare `- row` lines.
+"""
+    path.write_text(body)
+    return path
+
+
+def main() -> int:
+    try:
+        payload = run_pondus()
+    except Exception as exc:
+        path = MARKS_DIR / f"finding_pondus_aa_drift_{datetime.now().strftime('%Y_%m')}.md"
+        MARKS_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f"---\nname: pondus invocation failure {datetime.now().strftime('%Y-%m')}\ntype: finding\nsource: cc\n---\n\n"
+            f"pondus rank invocation failed: {exc}\n"
+        )
+        print(f"FAIL: pondus invocation failed — {exc}; mark filed at {path}")
+        return 0
+
+    ok, failures, summary = evaluate(payload)
+    if ok:
+        print(
+            f"OK: AA scraper healthy — {summary['model_count']} models, {summary['anchor_model']} = {summary['anchor_score']}"
+        )
+        return 0
+
+    MARKS_DIR.mkdir(parents=True, exist_ok=True)
+    aa_status = next(
+        (
+            s.get("status")
+            for s in payload.get("sources", [])
+            if s.get("source") == "artificial-analysis"
+        ),
+        None,
+    )
+    path = write_mark(failures, summary, aa_status)
+    print(f"FAIL: {len(failures)} check(s) failed — mark filed at {path}")
+    print("\n".join(f"  - {f}" for f in failures))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
