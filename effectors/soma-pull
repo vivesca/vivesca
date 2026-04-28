@@ -28,23 +28,73 @@ REPOS = [
 LOG = Path.home() / "tmp" / "soma-pull.log"
 
 
+def _git(repo: Path, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
 def pull(repo: Path) -> tuple[str, bool]:
+    """Pull with --rebase --autostash so daemon writes don't block sync.
+
+    History: prior --ff-only version silently failed for weeks when daemons left
+    uncommitted writes in Tonus.md / loci/antisera/* (Mac germline went 116 commits
+    behind on 2026-04-28). Two-step stash-then-pull races with continuous writers
+    because the stash + pull aren't atomic. ``--rebase --autostash`` is git's
+    built-in atomic version of that pattern.
+
+    Safety: if local has commits ahead of origin (forked history), refuse and log
+    rather than silently rebase. Per genome rule: empty/forked merge-base → STOP,
+    investigate. We catch this BEFORE the pull so no rebase ever runs on forked
+    state.
+    """
     if not (repo / ".git").exists():
         return f"{repo.name}: not a git repo", False
     try:
-        result = subprocess.run(
-            ["git", "pull", "--ff-only", "--quiet"],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            timeout=30,
+        # Forked-history guard. Determine current branch + upstream, count divergence.
+        branch_proc = _git(repo, "rev-parse", "--abbrev-ref", "HEAD", timeout=10)
+        if branch_proc.returncode != 0:
+            return f"{repo.name}: ERROR cannot determine branch", False
+        branch = branch_proc.stdout.strip()
+
+        # Fetch first so divergence count is accurate against latest remote.
+        fetch_proc = _git(repo, "fetch", "--quiet", "origin", branch, timeout=30)
+        if fetch_proc.returncode != 0:
+            return f"{repo.name}: FAIL fetch: {fetch_proc.stderr.strip()[:80]}", False
+
+        ahead_proc = _git(
+            repo,
+            "rev-list",
+            "--left-right",
+            "--count",
+            f"origin/{branch}...HEAD",
+            timeout=10,
         )
+        if ahead_proc.returncode != 0:
+            return f"{repo.name}: ERROR rev-list: {ahead_proc.stderr.strip()[:80]}", False
+        try:
+            behind_str, ahead_str = ahead_proc.stdout.strip().split()
+            ahead = int(ahead_str)
+        except (ValueError, IndexError):
+            return f"{repo.name}: ERROR parsing rev-list output", False
+
+        if ahead > 0:
+            # Local has commits remote doesn't — refuse to rebase blindly.
+            return (
+                f"{repo.name}: SKIP {ahead} local commits ahead — manual merge needed",
+                False,
+            )
+
+        result = _git(repo, "pull", "--rebase", "--autostash", "--quiet")
         if result.returncode == 0:
             changed = "Already up to date" not in result.stdout
             status = "updated" if changed else "ok"
             return f"{repo.name}: {status}", True
-        else:
-            return f"{repo.name}: FAIL {result.stderr.strip()[:100]}", False
+        return f"{repo.name}: FAIL {result.stderr.strip()[:100]}", False
     except subprocess.TimeoutExpired:
         return f"{repo.name}: TIMEOUT", False
     except Exception as e:
