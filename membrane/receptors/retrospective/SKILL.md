@@ -119,17 +119,30 @@ Track grades in `~/epigenome/chromatin/retrospectives/_grades.md` (one line per 
 
 **§2d "What to Do Differently" items must be routed to durable artefacts the same turn — not left as text in the retrospective file requiring Terry to prompt.** A retrospective that surfaces "[CC] do X" and stops there is a retrospective that did 50% of its job. The other 50% is making "do X" something a future session will actually encounter.
 
-For each `[CC]` and `[Both]` item in §2d, route per the genome routing table:
+#### 3a. Walk the layer hierarchy BEFORE defaulting to a mark (mandatory)
 
-- **Recurring CC reflex miss** (verbosity, anomaly investigation, etc.) → `marks/feedback_*.md` immediately. Skill edit if it belongs in a specific skill's workflow (e.g., wrap-mode rules → `cytokinesis/SKILL.md`).
+Per genome **"Hooks > programs > skills > prompts"**, mark filing is the *lowest-leverage* enforcement layer — it's a prompt to remember. Marks alone do not deter; this is documented (`finding_assert_before_verifying_pattern_needs_gate_28apr.md` confirmed=3). For each `[CC]` and `[Both]` item in §2d, ask **explicitly and in order** before routing:
+
+1. **Could a hook (synapse/axon/dendrite) intercept this?** If the failure happens at a deterministic trigger point (specific tool call, specific user-message shape, specific session event), a hook can prevent it without LLM judgment. Highest leverage. Note: load-bearing hook edits need Terry's eyes per genome.
+2. **Could a CLI gate fire this deterministically?** If the failure is "CC didn't notice X at decision time", extend an existing CLI (`cytokinesis gather`, `proteome search`, etc.) to compute X and surface it as a PENDING gate. Cytokinesis Gate 8 (`recent_retrospective`, added 2026-04-28) is the canonical example — judgment moved to deterministic check.
+3. **Could a skill edit add a pre-flight check at the trigger?** If the failure is "the skill's instructions didn't account for case Y", edit the skill's SKILL.md to add the case explicitly with a deterministic check (read this gate, grep this file, count this thing) — not just narrative prose.
+4. **Otherwise → mark.** A mark is the right answer when (a) the trigger is genuinely fuzzy (no deterministic detection exists), (b) the failure is a judgment-call regression that needs surface activation, or (c) the lesson is too new to know what shape the deterministic gate would take.
+
+State the chosen layer inline in §2d as you display it: each item ends with `→ hook: <path>` / `→ CLI gate: <effector>:<gate>` / `→ skill edit: <path>` / `→ mark: <path>`. The hierarchy itself is the discriminator — Terry sees which layer absorbed the lesson, not just where it landed.
+
+**Failure mode this prevents (NEW, 2026-04-28-1450):** CC defaults to mark routing because marks are the cheapest write. The hierarchy walk is the meta-question Terry's "can we do something to make us more likely do differently?" forces; codifying it here means CC asks the question without Terry's prompt. The 11+ retrospectives in 24h flagging assert-before-verifying — all routed to marks first, then escalated to gate later — would have routed straight to gate had this hierarchy walk been mandatory at first capture.
+
+#### 3b. Concrete routing table (after hierarchy walk picks a layer)
+
+- **Recurring CC reflex miss** (verbosity, anomaly investigation, etc.) → first try CLI gate or skill edit per §3a; mark is the fallback.
 - **Cross-skill working method** → epistemics file in `~/epigenome/chromatin/euchromatin/epistemics/` with `situations:` tags + `skills:` bridge. Marks alone don't fire on grep across skills; epistemics do.
 - **Specific skill behavior change** → edit that skill's SKILL.md directly. Skills > marks for instructions that should fire by trigger.
-- **Workflow / hook candidate** → add to Tonus parked or file as a finding for the next maintenance cycle.
+- **Hook candidate detected via §3a #1** → propose to Terry (load-bearing hook edits need eyes); file as Tonus parked if not Terry-confirmed.
 - **Ops / tooling discovery** → `marks/finding_*.md`.
 
 `[Terry]` items go in the retrospective display only — Terry decides if they become anything more.
 
-**Failure mode this prevents:** CC produces §2d, displays it, files the retrospective, ends the wrap. Findings sit in a single file no future session reads. Next session repeats the same mistake; Terry has to point out the gap before CC routes the lessons. The 2026-04-27-1122 retrospective hit exactly this — three actionable findings sat as text until Terry asked "nothing we identified for improving future sessions?" The retrospective protocol must close this loop autonomously.
+**Original failure mode this prevents:** CC produces §2d, displays it, files the retrospective, ends the wrap. Findings sit in a single file no future session reads. Next session repeats the same mistake; Terry has to point out the gap before CC routes the lessons. The 2026-04-27-1122 retrospective hit exactly this — three actionable findings sat as text until Terry asked "nothing we identified for improving future sessions?" The retrospective protocol must close this loop autonomously.
 
 **Cap:** route the top 3 `[CC]`/`[Both]` items. Routing every minor observation creates noise; the top three are the ones that change behavior. Park the rest in the retrospective text only.
 
