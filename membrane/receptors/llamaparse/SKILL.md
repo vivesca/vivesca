@@ -266,6 +266,8 @@ op run --env-file=/tmp/llamaparse.env -- <command>
 - **Module resolution from `/tmp`** doesn't pick up globally-installed npm packages by default. Either install local (cd to a project dir with package.json), or set `NODE_PATH=$(npm root -g)` before invoking. Global install at `~/.local/npm/lib/node_modules` is NOT auto-discovered.
 - **Combined invocation pattern** that works on soma: `NODE_PATH=$(npm root -g) op run --env-file=/tmp/llamaparse.env -- npx tsx /path/to/script.ts`.
 
+**Source URL extension gotcha (filed 2026-04-28, see `finding_llamaparse_arxiv_pdf_suffix_required.md`).** LlamaParse `source_url=...` downloads to a temp file using the URL basename and rejects the file if no recognisable extension. arxiv `/pdf/<id>` URLs (no `.pdf` suffix) fail with "not of a supported file type." Append `.pdf` — arxiv serves the same bytes. Same trap for DOI redirects and regulator URLs with opaque IDs. Fallback: two-step upload via `client.files.create(...)` then `parse(file_id=...)`.
+
 **Config exploration findings (filed 2026-04-28, see `finding_llamaparse_config_exploration_2026-04-28.md`).**
 - **Custom prompts are the highest-leverage feature.** Use `agentic_options.custom_prompt` for table-heavy docs, multilingual extraction, or structured-data passes. Empirically the clearest win in the three tested configs.
 - **`agentic_plus` shows no clear delta over `agentic`** on prose + simple chart-box pages. Only worth the quota cost on dense financial tables; test before defaulting to it.
