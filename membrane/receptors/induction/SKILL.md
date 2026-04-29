@@ -24,7 +24,39 @@ The wording layer lives in marks (`feedback_executive_paper_style`, `feedback_pa
 
 ---
 
+## 0a. Lineage Pre-Flight (HARD, runs at session start before drafting any versioned paper artefact)
+
+**When the user references a versioned paper artefact** ("write v0.X", "iterate on v0.Y", "Board paper for Z", or any session-start framing implying paper iteration), STOP and run the lineage check before any drafting:
+
+1. **Identify the topic keyword(s).** What is this paper about? (e.g., "AI safety", "AI at scale", "capability spine", "Board paper", "[client name]")
+2. **Grep chromatin/immunity for adjacent filename patterns.** Run: `ls ~/epigenome/chromatin/immunity/*<keyword>* | tail -20` for each plausible keyword. Look for any filename pattern that could contain a related lineage. **Filename-namespace difference is not evidence of separate lineage** — the same artefact may have multiple naming conventions across iterations (e.g., `ai-at-scale-v0.X` and `hsbc-group-ai-safety-board-paper-capability-spine-v0.X` can be the same artefact lineage).
+3. **Read the highest-version file in any matching lineage.** Don't just list filenames — read the most recent version's frontmatter at minimum, body if architecture is unclear from frontmatter.
+4. **Decide explicitly:**
+   - **Refine on top of highest version** (default if mature lineage exists). Sub-version: v0.X.1 or v0.(X+1).
+   - **Fresh derivation** (only if the existing lineage is structurally wrong for the new ask). Document the rationale in the new file's frontmatter so future-you doesn't lose it.
+5. **State the decision in chat before drafting.** "Found existing v0.X at <path>; refining on top" or "Found v0.X but starting fresh because <reason>." This makes the decision auditable.
+
+**Why this gate exists.** Failure mode confirmed across 2 consecutive sessions (29 Apr, 30 Apr 2026): user references "v0.X of paper Y" or "Board paper for Z"; CC accepts framing literally and starts iterating without grepping for existing artefact lineage. Result on 30 Apr: eleven versions of an "ai-at-scale" series re-derived architecture already on disk in mature `hsbc-group-ai-safety-board-paper-capability-spine-v0.21.md` (sent to Doug+Beth+Simon 27 Apr, multiple knockouts done). Filename-namespace difference (new series vs spine series) didn't visually surface the lineage to CC. Mark-only routing (`finding_check_existing_mature_versions_before_iterating.md` PROTECTED, 30 Apr; `feedback_ask_what_user_wants_before_iterating_on_form.md` PROTECTED, 29 Apr) is the layer-4 fallback; this skill edit is the higher-leverage layer-3 answer per retrospective §3a layer-hierarchy walk.
+
+**Absolute ban — match and refuse:**
+
+If you find yourself about to write the first line of a new versioned paper artefact without having run the grep + read + explicit-decision steps above, STOP. Run them, log the decision inline, then proceed.
+
+**DO:**
+- Grep at the FIRST tool call after user references a paper artefact, before any drafting.
+- Read the highest-version file's frontmatter + recent commits (`git log -10 --oneline -- <filepath>`) to understand current state.
+- State the decision explicitly in chat: "Found existing v0.X at <path>; refining" or "No existing lineage; fresh derivation."
+
+**DO NOT:**
+- Trust filename-namespace separation as evidence of separate lineage. Two different naming conventions can describe the same artefact.
+- Skip the grep because "Terry would have mentioned if there's a prior version." 30 Apr session: Terry mentioned spine v0.21 only after eleven re-derivations.
+- Defer the grep to "first half-hour into work." First five minutes, not first half-hour.
+
+---
+
 ## 0. Body-Edit Gate (HARD, runs before applying ANY committee-paper body edit)
+
+
 
 **Before applying any edit to a committee-paper body — Board paper, satellite, cover note — you must pass five tests against the diff.** Same shape as `evaluate-ai-repo` §-1: deterministic gate at the trigger, not after-the-fact correction.
 
@@ -40,6 +72,7 @@ If any test fails, **do not apply or recommend** — revise or revert before wri
 | 6 | **Quantified-claim audience translation** — if importing a number from a source deck (sponsor's slide, internal report, AIRCo deck) into a paper for a *different* audience, the unit must mean the same thing in target register | "300 use cases delivered" reads as 300 production deployments to Board; in source-deck context = 300 task configurations within ONE approved capability container; **"if-true-headline test":** would this number, read literally in target register, be a headline-grade achievement? If yes but it's treated as routine in source context, the units don't match — DO NOT import the number, import the operating-model frame only | `finding_sponsor_slide_quantified_claim_audience_context.md` (PROTECTED) |
 | 7 | **Rationale-annotations companion check** — before proposing ANY edit (body, Recommendation, Ask, frontmatter) to a hardened paper artefact, check for and read the rationale-annotations companion file (`*-rationale-annotations.md` or any per-paragraph WHY/decision-log sibling alongside the paper). If present, the file marks load-bearing phrases as "non-negotiable" / "knockout-pass-survived" / "deliberate political design". An edit that contradicts a non-negotiable marker fails this gate. Applies most strictly when the proposed edit is a defensive fix (softening a claim, adding hedges, cross-referencing for safety) — multi-LLM panels and adversarial reviewers converge on defensive fixes regardless of whether the original was load-bearing; the companion file is the only ground truth for what's settled | proposing "soften 'carries independent authority to constrain deployment' to 'calibration input'" without first reading the companion file, which marks that exact sentence "Independent-authority sentence is non-negotiable... without it the paper is a soft-power memo. Reviewers tested its register weight in the v0.17 risk-knockout pass; it survived" | `finding_feed_rationale_layer_to_quorate.md` (PROTECTED), `finding_gating_authority_check_before_tactical_fix.md` (PROTECTED) |
 | 8 | **Diagnosis-validation against source paragraph** — when reviewer feedback (single reviewer, multi-LLM panel, or N-cold-read consensus) claims the body or Ask has a defect ("Ask under-specified", "X is too dense", "decision rights vague"), paste the cited source paragraph(s) verbatim from the *current* artefact into your analysis BEFORE evaluating whether the diagnosis is real. Convergence is not evidence; the source text is. Especially load-bearing for endorsement-register papers, where cold-read reviewers default to operating-model template (RACI/criteria/escalation belong inside the doc) and miss closing-loop commitments like "detailed implementation plan will follow within N weeks" — that IS the right structural answer for an endorsement Ask, not a gap | ratifying "n=3 reviewers say Ask is under-specified" across multiple turns without quoting `v0.20:66`, which already contains "A detailed implementation plan will follow within four weeks" — the closing-loop commitment that handles exactly what reviewers thought was missing; treating multi-LLM consensus on a hardened artefact as proof of a real gap | `feedback_read_the_target_before_recommending_additions.md` (PROTECTED, confirmed=2 — extended to ratifying-direction), `feedback_council_without_rationale_file.md` (PROTECTED, confirmed=2 — template-confusion extension), `finding_overnight_autonomy_on_converged_artefacts.md` (PROTECTED, confirmed=4) |
+| 9 | **Source-authority classification** — before asserting *any* institutional-weight characterisation of a cited source ("authoritative", "single-source", "private benchmark", "academic", "governmental", "weak", "strong", "canonical", "foreign", "domestic", "industry-led", "regulator-backed"), fetch the source's first page or About/Sponsor/Commissioning element and grep for the secretariat / commissioning body / sponsor / publishing institution. **No source-weight claim from training-data recall alone.** Especially load-bearing when recommending whether to accept, reject, or upgrade a citation — the institutional anchor changes the recommendation. The discriminator question Terry uses ("but is X authoritative?") fires reliably; preempt it by running this test before the recommendation lands | dismissing the International AI Safety Report as "Canadian-chaired UN-style synthesis" / "foreign-academic" without grepping the secretariat, then reversing the framing under Terry's "but is the report authoritative?" — DSIT-secretariat lineage was on page 1 of the parsed report; the dismissal would have flipped to "UK-Government-commissioned" if the verification had run before the recommendation | `feedback_verify_against_primary_source.md` (PROTECTED, confirmed=4 — source-authority extension, 2026-04-28), `finding_assert_before_verifying_pattern_needs_gate_28apr.md` (PROTECTED, confirmed=5+) |
 
 **Absolute ban — match and refuse:**
 
