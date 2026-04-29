@@ -224,6 +224,55 @@ def mod_anamnesis(data):
     except Exception:
         pass
 
+    # 24h retrospective-pattern frequency: when >=10 retrospectives filed in
+    # past 24h, surface count + dominant named pattern as a hard pause.
+    # Path-only mark/skill routing has not deterred recurrence (19+ instances
+    # of assert-before-verifying on 2026-04-28 alone). Codifies retrospective
+    # 2026-04-28-2300 §2d [Both] item 3 — load-bearing hook edit, Terry's
+    # eyes per genome AUTONOMY rule.
+    try:
+        grades_file = CHROMATIN_DIR / "retrospectives" / "_grades.md"
+        if grades_file.exists():
+            text = grades_file.read_text(encoding="utf-8", errors="replace")
+            cutoff = now - timedelta(hours=24)
+            recent_grade_lines = []
+            for grade_line in text.splitlines():
+                m = re.match(r"^- (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) — ", grade_line)
+                if not m:
+                    continue
+                try:
+                    line_dt = datetime.strptime(
+                        f"{m.group(1)} {m.group(2)}", "%Y-%m-%d %H:%M"
+                    ).replace(tzinfo=HKT)
+                except ValueError:
+                    continue
+                if line_dt >= cutoff:
+                    recent_grade_lines.append(grade_line)
+            if len(recent_grade_lines) >= 10:
+                pattern_counts: dict[str, int] = {}
+                for grade_line in recent_grade_lines:
+                    for keyword in (
+                        "assert-before-verifying",
+                        "verify-before",
+                        "self-context blindness",
+                        "premature dismissal",
+                        "premise miss",
+                    ):
+                        if keyword in grade_line.lower():
+                            pattern_counts[keyword] = pattern_counts.get(keyword, 0) + 1
+                if pattern_counts:
+                    top_pattern, top_count = max(pattern_counts.items(), key=lambda kv: kv[1])
+                    if top_count >= 5:
+                        lines.append(
+                            f"\n**24h pattern frequency:** {len(recent_grade_lines)} retrospectives filed in past 24h, "
+                            f"{top_count} flag '{top_pattern}'. "
+                            "BEFORE asserting any factual / institutional / authority / tool-existence claim, "
+                            "fetch the primary source (URL / file / artefact) and grep for the cited element. "
+                            "Marks/skills layer at this pattern have not deterred recurrence — the gate is on you, this turn."
+                        )
+    except Exception:
+        pass
+
     return lines
 
 

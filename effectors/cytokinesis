@@ -756,6 +756,27 @@ def gather(
     results["commits_since_retro"] = commits_since_retro
     results["new_marks_since_retro"] = new_marks_since_retro
     results["substantive_arc"] = substantive_arc
+    # Inject the most recent retrospective's §2b ("What Didn't Go Well") body inline.
+    # Path-only pointers don't deter — injected text does. Codifies retrospective
+    # 2026-04-28-2300 §2d [Claude Code] item 2 (CLI gate over mark/skill alone).
+    results["recent_retrospective_section_2b"] = ""
+    if most_recent_today:
+        try:
+            text = most_recent_today[0].read_text(encoding="utf-8", errors="replace")
+            # Match §2b header in either formal (`## §2b`) or numeric (`### 2b` / `## 2b`) form.
+            section_re = re.compile(
+                r"^(?:#{2,3})\s+(?:§?2b\b|2b\.\s)[^\n]*\n(.*?)"
+                r"(?=^(?:#{2,3})\s+(?:§?2[c-e]\b|2[c-e]\.\s|What|Terry|Session))",
+                re.MULTILINE | re.DOTALL,
+            )
+            m = section_re.search(text)
+            if m:
+                body = m.group(1).strip()
+                if len(body) > 2000:
+                    body = body[:2000].rsplit("\n", 1)[0] + "\n... [truncated]"
+                results["recent_retrospective_section_2b"] = body
+        except OSError:
+            pass
 
     results["gates"] = gates
 

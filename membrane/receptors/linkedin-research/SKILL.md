@@ -52,9 +52,11 @@ HSBC "Director" "Responsible AI" "Risk Solutions" site:linkedin.com
 
 - `WebFetch` → HTTP 999 (always blocked by LinkedIn)
 - **LinkedIn requires `--headed` mode always.** Headless is blocked even with valid cookies/profile. `porta inject` does NOT work — LinkedIn fingerprints the browser, not just cookies.
+- **From Linux soma → route via Mac SSH.** Soma has no display; `agent-browser --headed` fails immediately with "Missing X server or $DISPLAY" / "Failed to connect to the bus". Run `ssh mac 'agent-browser --headed open "<url>"'` then `ssh mac 'agent-browser snapshot'` and `ssh mac 'agent-browser get text body'`. Add `ssh mac 'agent-browser close'` first if daemon is already running with stale state.
 - `agent-browser --headed open <url>` → `snapshot` → grep for data
 - Scroll + re-snapshot for experience/education sections below the fold
 - Key fields: headline, location, current company, experience list, education
+- **Public-view fallback:** if logged-out and `agent-browser get text body | grep -i "<name>"` already surfaces enough headline/location/recent-posts text to answer the question, skip the login dance. Public profile pages reveal headline + location + recent posts + 1 recommendation testimonial — often sufficient for a quick "who is this person" check.
 
 ### Auto-Login Pattern (1Password)
 
