@@ -36,7 +36,7 @@ repos:
 
       - id: codespell
         name: codespell
-        entry: uv run --no-sync codespell --skip='*/huashu-nuwa/*,*/munger/*' src/ effectors/ assays/ membrane/
+        entry: uv run --no-sync codespell --skip='*/huashu-nuwa/*,*/huashu-extracts/*,*/munger/*' --ignore-words-list='pres' src/ effectors/ assays/ membrane/
         language: system
         pass_filenames: false
         stages: [pre-commit]
