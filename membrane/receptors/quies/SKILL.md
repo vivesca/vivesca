@@ -39,12 +39,12 @@ This is orientation only — no action, no planning. Just close the loop so your
 
 ### 2. Scan open items (30 seconds)
 
-Read `~/epigenome/chromatin/NOW.md` — look for anything unresolved that might race tonight.
+Read `~/epigenome/chromatin/Tonus.md` — look at the Progress section for `[next, blocking]` and `[parked]` items that might race tonight.
 
 - If anything is genuinely urgent for tomorrow → note it explicitly below
 - If it can wait → name it out loud and let it go
 
-**Fail clause:** If NOW.md is stale (>24h) or missing, skip and go to Step 2.
+**Fail clause:** If Tonus.md is stale (>24h, check the SESSION CLOSE date) or missing, skip and go to Step 3.
 
 ### 3. Brain dump
 
@@ -58,7 +58,7 @@ Ask Terry: *"What's on your mind right now? Anything you're worried about forget
 
 ### 4. Overnight agent queue
 
-Review the brain dump + NOW.md items. For anything that:
+Review the brain dump + Tonus.md `[next, blocking]` items. For anything that:
 - Requires research or analysis (not a quick action)
 - Terry would otherwise lie awake problem-solving
 
