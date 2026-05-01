@@ -182,8 +182,8 @@ _(no description)_
 _(no description)_
   Files: `mtor`
 
-### Standalone scripts (183 total, on PATH)
-  Recent: `cytokinesis`, `soma-pull`, `pondus-aa-health`, `supervisor-drift-check`, `m3-plist-retry`, `qmd-reindex.sh`, `evergreen`, `skill-trigger-stats`, `rhodopsin.py`, `rheotaxis`
+### Standalone scripts (184 total, on PATH)
+  Recent: `flush_processor.py`, `cytokinesis`, `soma-pull`, `pondus-aa-health`, `supervisor-drift-check`, `m3-plist-retry`, `qmd-reindex.sh`, `evergreen`, `skill-trigger-stats`, `rhodopsin.py`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -396,8 +396,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **78**
-- Most active: `endosomal` (40), `fetch` (19), `tonus` (6), `cytokinesis` (6), `pinocytosis` (3)
+- Signals (last 7 days): **58**
+- Most active: `endosomal` (33), `fetch` (19), `cytokinesis` (5), `lysozyme` (1)
 
 ## Known Lesions
 
