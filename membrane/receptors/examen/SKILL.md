@@ -24,6 +24,8 @@ Plans fail not because the logic is wrong, but because a premise was wrong. The 
 - Before a high-stakes decision where you're reasoning from "I think X is true"
 - When a plan feels right but you haven't explicitly listed what it depends on
 - When a previous judex/quorate result is being acted on — verify the premises haven't changed
+- **Proposal-stack trigger (added 2026-05-01):** when CC has produced 3+ alternative proposals in the same thread and the user has not endorsed any, run examen BEFORE generating proposal #4. The proposal-stack itself is the signal that scope is unverified. Codifies the failure caught in retrospective 2026-05-01 Slot 10: 6 architectural proposals generated under 5 "should we?" probes; correct move at probe 1 was a 10-line edit.
+- **Casual-register trigger (added 2026-05-01):** when the user's framing is casual ("wanna try X", "should we play with Y") AND CC's first instinct is an architectural answer (genome edit, new daemon, multi-step integration), run examen on the gap. Casual register is a content signal: the user is asking about *experiencing* something, not committing to it. Surface the smallest experiential next step before architectural framing.
 
 **Not needed for:**
 - Routine, reversible decisions
