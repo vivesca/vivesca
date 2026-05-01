@@ -2,7 +2,7 @@
 problem: Exa API returns 403 from Python urllib
 solution: Add User-Agent header — Cloudflare blocks Python-urllib default UA
 tags: [exa, search, http, urllib, cloudflare, 403]
-titer-hits: 127
+titer-hits: 128
 titer-last-seen: 2026-05-01
 ---
 

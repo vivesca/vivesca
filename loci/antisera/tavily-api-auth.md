@@ -2,7 +2,7 @@
 problem: Tavily API auth header format
 solution: Uses Authorization Bearer, not x-api-key
 tags: [tavily, search, http, auth, api-key]
-titer-hits: 127
+titer-hits: 128
 titer-last-seen: 2026-05-01
 ---
 
