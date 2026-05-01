@@ -10,10 +10,12 @@ import contextlib
 import json
 import subprocess
 import sys
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 HOME = Path.home()
+FLUSH_QUEUE = HOME / "germline" / "loci" / "flush-queue.jsonl"
 
 # Repo root: hooks → claude → vivesca
 _VIVESCA_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -63,6 +65,34 @@ def mod_log_compaction(data):
             f.write(f"\n**Compact ({ts}):** {custom or 'auto'}\n")
 
 
+def mod_queue_memory_flush(data):
+    """Queue a Hermes-style memory flush for async processing.
+
+    Inspired by Hermes Agent's pre-compression flush primitive: before context
+    compacts, give the model one chance to extract durable substance (preferences,
+    corrections, recurring patterns, env facts) into MEMORY.md / marks. Compaction
+    transcripts persist on disk, so we queue the flush rather than block compaction.
+
+    Processed by: ~/germline/effectors/flush_processor.py (cron).
+    """
+    transcript = data.get("transcript_path") or data.get("transcript")
+    session_id = data.get("session_id") or str(uuid.uuid4())
+    trigger = data.get("trigger") or data.get("hook_event_name", "unknown")
+    if not transcript:
+        return
+    entry = {
+        "queued_at": datetime.now().isoformat(timespec="seconds"),
+        "session_id": session_id,
+        "transcript_path": str(transcript),
+        "trigger": trigger,
+        "status": "pending",
+    }
+    FLUSH_QUEUE.parent.mkdir(parents=True, exist_ok=True)
+    with FLUSH_QUEUE.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+    print(f"[PreCompact] queued memory flush for session {session_id[:8]}", file=sys.stderr)
+
+
 def main():
     data = {}
     with contextlib.suppress(Exception):
@@ -72,6 +102,8 @@ def main():
         mod_auto_flush()
     with contextlib.suppress(Exception):
         mod_log_compaction(data)
+    with contextlib.suppress(Exception):
+        mod_queue_memory_flush(data)
 
 
 if __name__ == "__main__":
