@@ -7,8 +7,8 @@ skips when transcript missing, dry-run path, status transitions, and that the
 processor only touches pending entries.
 
 Inspiration:
-    Manthan Gupta, "Hermes Agent's Memory System" (2026-04). Translated via
-    宝玉: https://x.com/dotey/status/2049534755729707205
+    Manthan Gupta, "I Read Hermes Agent's Memory System, and It Fixes What
+    OpenClaw Got Wrong" (2026-04). https://manthanguptaa.in/posts/hermes_memory/
     Note: ~/epigenome/chromatin/euchromatin/hermes-memory-architecture-2026-04.md
     Spec: ~/epigenome/chromatin/loci/plans/memory-flush-pre-compression.md
 """
