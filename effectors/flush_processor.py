@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -128,12 +129,15 @@ def dispatch_flush(entry: dict, dry: bool = False) -> dict:
         "Read Write Edit Glob Grep",
         "--dangerously-skip-permissions",
     ]
+    # Strip ANTHROPIC_API_KEY so claude -p uses the Max OAuth session, not API billing.
+    env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SEC,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "timeout_sec": TIMEOUT_SEC}

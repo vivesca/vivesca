@@ -111,3 +111,7 @@ loci/plans/
 # OpenAI Codex auto-managed system skills — regenerated each session, not source-of-truth
 membrane/receptors/.system/
 membrane/receptors/huashu-nuwa/
+
+# memory-flush primitive runtime state
+loci/flush-queue.jsonl
+loci/flush-log.jsonl
