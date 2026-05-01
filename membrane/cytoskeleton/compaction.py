@@ -73,6 +73,10 @@ def mod_queue_memory_flush(data):
     corrections, recurring patterns, env facts) into MEMORY.md / marks. Compaction
     transcripts persist on disk, so we queue the flush rather than block compaction.
 
+    Source: Manthan Gupta, "Hermes Agent's Memory System" (2026-04), translated
+    via 宝玉: https://x.com/dotey/status/2049534755729707205
+    Note: ~/epigenome/chromatin/euchromatin/hermes-memory-architecture-2026-04.md
+
     Processed by: ~/germline/effectors/flush_processor.py (cron).
     """
     transcript = data.get("transcript_path") or data.get("transcript")
