@@ -79,6 +79,8 @@ When reviewing quorate output with multiple models disagreeing:
 
 **Skip:** Single correct answer, personal taste/physical (glasses, food), thinking out loud, already converged, speed matters (60-90s for full council).
 
+**Why cross-vendor, not multi-Claude:** spawning N Claude instances buys N× tokens, not N perspectives — same weights, same training distribution, thermodynamic noise produces minor variation, not genuine disagreement. The council's value is the training-data delta between Claude / Codex / Gemini / Grok / open-weights, not the instance count. If the reflex is "let's spawn more agents," the correct move is route to a different vendor. See [[../../../epigenome/chromatin/euchromatin/epistemics/cross-model-review]] for the full design principle and Naval's cross-vendor PR-review pattern that articulates this most sharply.
+
 ---
 
 ## Prerequisites
