@@ -53,32 +53,73 @@ Triage:
 - **Duplicate triggers** (multiple skills claim same phrase) — collisions create routing ambiguity. Resolve by tightening one skill's trigger or adding anti-triggers.
 - **User-invocable skills missing triggers** — `skill-trigger-gen.py` reports the gap; baseline at 28 Apr 2026 was 20 such skills. Add triggers (YAML `triggers:` list or `## Triggers` markdown section) when reviewing each.
 
-### 2. Usage Scan
+### 2. Usage Scan (merged-signal)
 
-Search recent chat history for skill invocations. **Important:** Count BOTH explicit `/name` invocations AND keyword triggers — most skills are triggered by natural language, not slash commands. Counting only slash invocations drastically undercounts usage (e.g. quorate showed 0 slash but ~300 keyword triggers).
+**Three signals must merge.** Single-signal counts mislead — slash-only skills look dormant in trigger logs; trigger-only skills look dormant in slash logs. Borrowed from Hermes Curator's `use_count` design (2026-05-01 review).
 
 ```python
-# Slash invocations
-import json, re, collections
-counts = collections.Counter()
-with open('/home/vivesca/.claude/anam.jsonl') as f:
-    for line in f:
-        data = json.loads(line)
-        msg = data.get('display', '').lower()
-        for m in re.findall(r'(?:^|\s)/([a-z][a-z0-9-]+)', msg):
+# Merged-signal skill usage scan
+import json, re
+from collections import Counter
+from datetime import datetime, timedelta
+from pathlib import Path
+
+WINDOW_DAYS = 90
+cutoff = datetime.now() - timedelta(days=WINDOW_DAYS)
+counts = Counter()
+last_used = {}
+
+# Signal 1: slash invocations from anam.jsonl
+ANAM = Path.home() / ".claude" / "anam.jsonl"
+if ANAM.exists():
+    for line in ANAM.read_text().splitlines():
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        msg = data.get("display", "").lower()
+        for m in re.findall(r"(?:^|\s)/([a-z][a-z0-9-]+)", msg):
             counts[m] += 1
 
-# Keyword triggers (add patterns for high-value skills)
+# Signal 2: trigger fires from skill-suggest-log.tsv
+LOG = Path.home() / ".claude" / "skill-suggest-log.tsv"
+if LOG.exists():
+    for line in LOG.read_text().splitlines():
+        parts = line.split("\t")
+        if len(parts) < 4:
+            continue
+        try:
+            ts = datetime.fromisoformat(parts[0])
+        except ValueError:
+            continue
+        if ts < cutoff:
+            continue
+        skill = parts[2]
+        counts[skill] += 1
+        if skill not in last_used or ts > last_used[skill]:
+            last_used[skill] = ts
+
+# Signal 3: keyword references in conversation history
+# (catches skills invoked by natural-language phrases that aren't registered triggers)
 keywords = {
-    'quorate': r'ask.llms|quorate|consilium|multi.llm|council',
-    'gmail': r'check.*email|inbox|gmail',
-    'whatsapp': r'whatsapp|check.*messages',
-    'todo': r'todo|add.*todo|check.*todo',
-    'oura': r'oura|sleep.*score|how.*sleep',
-    'message': r'draft.*reply|draft.*message',
-    'music': r'play.*music|spotify|sonos',
+    "quorate": r"ask.llms|consilium|multi.llm|council",
+    "endocrine": r"check.*email|inbox|gmail",
+    "keryx": r"whatsapp|check.*messages",
+    "todo": r"add.*todo|check.*todo",
+    "sopor": r"oura|sleep.*score|how.*sleep",
+    "message": r"draft.*reply|draft.*message",
 }
+# (extend keywords as drift in §4 surfaces new patterns)
+
+# Output: top-20 used + bottom-20 used (with triggers registered but zero count)
+TRIGGERS = Path.home() / ".claude" / "skill-triggers.json"
+registered = set(json.loads(TRIGGERS.read_text()).keys()) if TRIGGERS.exists() else set()
+zero_signal = sorted(registered - set(counts.keys()))
+print("Top 20:", counts.most_common(20))
+print(f"Zero-signal skills with triggers ({len(zero_signal)}):", zero_signal)
 ```
+
+**Read both lists.** Top-20 = working well, leave alone. Zero-signal = candidates for review (description tweak, deprecation, or — most often — they ARE used but via natural-language phrasing not in `keywords` above; extend the dict and re-run).
 
 Identify:
 - **Frequently used** — Working well, keep
