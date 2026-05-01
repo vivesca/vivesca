@@ -54,6 +54,8 @@ If a filed correction or learning invalidates a skill's instructions, edit the s
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal. Lowest hits + oldest last-seen → `~/epigenome/chromatin/immunity/memory-overflow.md`.
 
+**Demote-first protocol (mandatory, NOT advisory):** If you need to file a new MEMORY.md entry while the file is at ≥145 lines, **demote one stale entry to overflow first as a single atomic operation, then add the new line**. Budget-ceiling is not a valid skip rationale — the routing-table default is FILE-over-skip, and "skip the new entry" is the failure mode, not the policy. "Note-and-skip" (12:30 retro) and "note-and-add-anyway" (14:30 retro) are both compliance failures of the same rule. Concrete steps: (1) `wc -l ~/epigenome/marks/MEMORY.md` — confirm current line count, (2) pick lowest-recurrence stale entry from §Behavioral or §Operational sections, (3) move that line to `~/epigenome/chromatin/immunity/memory-overflow.md` with current date stamp, (4) add the new entry, (5) verify final line count ≤150. One commit, one logical change, atomic. **Codifies failure caught in retrospectives 2026-05-01-1230 §2b and 2026-05-01-1430 §2b** — 2 consecutive same-day retros flagging memory_budget compliance failure with mark-only routing not deterring.
+
 ### 1a. Substance-capture verification (six structured questions)
 
 The routing table catches obvious signals (corrections, surprises, state changes). It misses *substance that emerged from the session's working method*. Run these six questions explicitly — each maps to a destination already in the genome architecture:
