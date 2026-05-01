@@ -51,7 +51,7 @@
 
 # chromatin-reader: rebuild Quartz static site from vault (every 30 min)
 # Serves on port 6080 via supervisor. 9-min build time on soma — 30m interval is safe.
-*/30 * * * * cd /home/vivesca/quartz && npx quartz build >> /home/vivesca/tmp/chromatin-rebuild.log 2>&1
+# DISABLED 2026-05-01 (load spike) #*/30 * * * * cd /home/vivesca/quartz && npx quartz build >> /home/vivesca/tmp/chromatin-rebuild.log 2>&1
 
 # qmd-reindex: embed new/changed vault notes for semantic search (every 30 min)
 # Self-skips via pgrep guard if a qmd embed is already running. CPU-only on soma.
