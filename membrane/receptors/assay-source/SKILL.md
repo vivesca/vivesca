@@ -97,6 +97,27 @@ If the winner is clear:
 1. Add domain to `DOMAIN_HINTS` in `~/germline/effectors/pinocytosis`
 2. Note the result in `~/epigenome/marks/finding_web_extraction_benchmark_20260401.md`
 
+### Step 8: Primitive-harvest pass on framework rejections (mandatory)
+
+**If the verdict is "no uplift" / "reject the framework," do NOT close the file yet.** Run a primitive-harvest pass before stopping. The rejection is a verdict on the *framework*, not on its dependency tree.
+
+For each candidate framework that scores below adoption threshold:
+
+1. Read its `pyproject.toml` (or equivalent) and list every direct dep (~10-20 names typically).
+2. For each dep, ask: **does this primitive cover a gap in our existing stack?** Test by name first (`proteome search "<primitive>"`), then by capability (does any existing tool do TLS impersonation? fingerprint generation? binary-level webdriver patching?).
+3. Anything that fails *both* checks is a candidate steal. List them with the gap each closes.
+4. Recommend integration paths into existing organelles — NOT adoption of the framework. Each primitive enters as a tier or flag in the existing tool, not as a new skill or organelle.
+
+**Why this step exists:** the 2026-05-02 Scrapling assay (40k★) initially returned "no uplift." The reject was correct — the framework duplicated our organelle-split consolidation. But its dep tree contained 3 primitives we didn't have (`curl_cffi`, `browserforge`, `patchright`). Closing the file at "no uplift" would have left those gaps unfilled. The corrected outcome: framework rejected + 2 primitives kept (curl_cffi, browserforge) + 1 primitive surfaced and reverted (patchright) — net stronger stack, no framework lock-in.
+
+**A framework can be unworthy of adoption AND its dep tree can still hold gold.** This is the rule, not the exception, for any 10k+★ project that meaningfully moved a sub-domain.
+
+### Step 9: Verify combined-stack composition before any "swap" recommendation
+
+If the assay produces a swap candidate (replace component X in the stack with candidate Y), the deliverable MUST contain a combined-stack empirical run, not just component-isolation results. See `epistemics/component-vs-stack-composition.md` for the discipline. Two-component specs need three runs minimum: X alone, Y alone, X+Y composed.
+
+The 2026-05-02 patchright swap was reverted same-day because the head-to-head verdict ("patchright passes webdriver, our patches cover the rest, combined wins") was inferred from component-isolation results without testing the composition. Combined stack failed because patchright's `add_init_script` broke our injection model. Empirical combined-stack run before recommendation = preventable in 30 minutes.
+
 ## Key Lessons (from Evident benchmark)
 
 - **Char count lies.** Jina's 47K on HKMA was 90% nav junk vs Defuddle's clean 5K with identical signal.
