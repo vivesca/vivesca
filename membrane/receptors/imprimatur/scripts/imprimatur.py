@@ -165,13 +165,14 @@ def pull_images_to_local(remote_paths: list[str]) -> list[Path]:
 
 
 def render_hex_overlay(variant: str, output_width: int = 800) -> Image.Image:
-    """Render Open or Iconic Hexagon SVG to a PIL Image with transparency."""
+    """Render Open or Iconic Hexagon SVG to a PIL Image with transparency.
+
+    Both bundled SVGs have viewBox spanning the full hex (0 to 170.1
+    horizontally), so no crop needed — the rendered image IS the hex.
+    """
     svg_path = OPEN_HEX_SVG if variant == "open" else ICONIC_HEX_SVG
     png_data = cairosvg.svg2png(url=str(svg_path), output_width=output_width)
-    img = Image.open(io.BytesIO(png_data)).convert("RGBA")
-    # Trim to hexagon-only bounds (drop wordmark area on right; svg viewBox is 170.1 wide, hex is 0-127.6)
-    hex_only = img.crop((0, 0, int(output_width * 127.6 / 170.1), img.height))
-    return hex_only
+    return Image.open(io.BytesIO(png_data)).convert("RGBA")
 
 
 def composite_banner(
