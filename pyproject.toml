@@ -259,8 +259,11 @@ DEP003 = [ "mcp", "httpx", "google", "langchain_core", "pycookiecheat" ]
 testpaths = [ "assays" ]
 asyncio_mode = "auto"
 tmp_path_retention_policy = "none"
-addopts = "-m 'not slow'"
-markers = [ "slow: boots full MCP server (skip with default opts)" ]
+addopts = "-m 'not slow and not network'"
+markers = [
+  "slow: boots full MCP server (skip with default opts)",
+  "network: requires live internet (run explicitly with pytest -m network)",
+]
 
 [tool.coverage.run]
 source = [ "src/metabolon" ]
