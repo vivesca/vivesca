@@ -45,8 +45,8 @@ DOMAIN_HINTS = {
     # Substack — defuddle fails (returns audio tag only), skip to jina
     "latent.space": "jina",
     "substack.com": "jina",
-    # TLS-fingerprinting sites — impersonate required (placeholder; add real domains as discovered)
-    # "example-anti-scraping.com": "impersonate",
+    # TLS-fingerprinting sites — pin "impersonate" tier when discovered.
+    # No real domains pinned yet; auto-routing covers most cases.
 }
 
 
