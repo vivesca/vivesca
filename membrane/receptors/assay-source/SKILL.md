@@ -19,6 +19,19 @@ User provides a URL to one representative article from the source.
 
 ## Procedure
 
+### Step 0: Identify the framework's primary claim (mandatory pre-flight)
+
+**Before designing test cases, read the project's README / docs and identify what it actually claims to do.** The assay must test the *primary claim*, not adjacent functionality.
+
+Concrete failure mode caught 2026-05-02 (Scrapling): the initial assay tested Scrapling's `get_all_text()` output (raw text dump) against Defuddle's reader-mode markdown, and scored "noise" against an apples-to-oranges comparison. Scrapling never claimed to be a reader-mode tool — it claims to be a **fetcher framework with a parser**. Designed for `page.css('.article-body p::text').getall()` with selectors, not text-dumping. The verdict ("no uplift") was technically correct on the rigged test but tested the wrong thing.
+
+Pre-flight check (deterministic):
+1. Read the README's first paragraph, the GitHub description, and the docs index page.
+2. Write a one-sentence answer: "This project's primary claim is that it [verb + capability]."
+3. Then ask: "Does the assay design test that claim?" If the test plan tests something else (a derived feature, a syntactic side-effect, a reader-mode wrapper), the spec is wrong. Rewrite the test plan before fetching anything.
+
+If the framework has multiple legitimate primary claims (e.g. fetcher + parser + spider), pick the highest-leverage one for the comparison vs the existing stack — but state explicitly which is being tested and which are out of scope.
+
 ### Step 1: Fetch with all free tools first
 
 ```bash
