@@ -66,6 +66,15 @@ For `--name banner-x` and `--pick N`:
 - `banner-x-16x5-retina-1424x445.png` — recommended for Word paste
 - `banner-x-16x5-1x-712x222.png` — direct slot size if file size matters
 
+## Mandatory visual verification before declaring done
+
+**Always Read the source PNG before reporting "banner done" to Terry.** The 2 May 2026 session shipped 4 consecutive banner versions (v00.01-v00.04) with a missing right-pointing hex triangle because `render_hex_overlay` had a hardcoded crop that chopped one of the four polygons. The bug was discovered visually by Terry, not by the script — there was no error to surface. Composite pipelines have many silent failure modes (cropped overlay, wrong red shade, hex sized wrong, off-centre composition, MJ photo with text/people/logos that snuck through prompt) and ALL of them require a human-eye check.
+
+Procedure (mandatory, not advisory):
+1. After `imprimatur.py` returns, immediately `Read` the source `banner-x.png` (which Claude Code renders as image).
+2. Verify visually: (a) all 4 hex triangles present and pointing inward to a centre, (b) red shade matches variant (#B00010 dark for Open, #db0011 standard for Iconic), (c) hex centred and prominent without dominating, (d) no text/people/logos in the MJ background, (e) atmospheric register matches the paper's tone.
+3. If any check fails, regenerate before reporting. Do NOT report "banner done" then await Terry's visual review — that flips the verification cost onto Terry and recreates the right-triangle-missing failure mode.
+
 ## Pipeline
 
 1. **JWT freshness check** — if cached JWT in `/Users/terry/.limen/cookies.json` has <5 min remaining, drives Chrome on Mac to midjourney.com via osascript to refresh
