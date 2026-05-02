@@ -2,12 +2,14 @@
 """pinocytosis — deterministic web content extraction.
 
 Parallel fast tier (defuddle + jina + microlink) → firecrawl → agent-browser → error.
+Subcommand: impersonate — TLS-fingerprint fetch via curl_cffi.
 
 Usage:
-  pinocytosis <url>              # Extract text from URL
-  pinocytosis --screenshot <url> # Screenshot to ~/tmp/
-  pinocytosis --json <url>       # Structured output
-  pinocytosis --method jina <url> # Force specific method
+  pinocytosis <url>                          # Extract text from URL
+  pinocytosis --screenshot <url>             # Screenshot to ~/tmp/
+  pinocytosis --json <url>                   # Structured output
+  pinocytosis --method jina <url>            # Force specific method
+  pinocytosis impersonate <url> [--profile]  # curl_cffi browser impersonation
 """
 
 import argparse
@@ -43,6 +45,8 @@ DOMAIN_HINTS = {
     # Substack — defuddle fails (returns audio tag only), skip to jina
     "latent.space": "jina",
     "substack.com": "jina",
+    # TLS-fingerprinting sites — impersonate required (placeholder; add real domains as discovered)
+    # "example-anti-scraping.com": "impersonate",
 }
 
 
@@ -99,6 +103,20 @@ def _microlink(url: str) -> str:
             data.get("data", {}).get("markdown") or data.get("data", {}).get("description") or ""
         )
         if len(text) > 100:
+            return text
+    except Exception:
+        pass
+    return ""
+
+
+def _impersonate(url: str, profile: str = "chrome120") -> str:
+    """Fetch via curl_cffi with browser TLS/JA3 fingerprint impersonation."""
+    from curl_cffi import requests as cffi_requests
+
+    try:
+        resp = cffi_requests.get(url, impersonate=profile, timeout=20)
+        text = resp.text
+        if text and len(text) > 50:
             return text
     except Exception:
         pass
@@ -177,11 +195,13 @@ def fetch_url(url: str, method: str | None = None) -> dict:
     """Fetch URL content. Parallel fast tier, then serial slow tier."""
     from urllib.parse import urlparse
 
+    t0 = time.time()
     domain = urlparse(url).netloc.removeprefix("www.")
 
     all_methods = {
         "defuddle": _defuddle,
         "jina": _jina,
+        "impersonate": lambda u: _impersonate(u),
         "microlink": _microlink,
         "firecrawl": _firecrawl,
         "agent-browser": _agent_browser_eval,
@@ -195,16 +215,24 @@ def fetch_url(url: str, method: str | None = None) -> dict:
                 "text": "",
                 "method": "none",
                 "url": url,
+                "wall_time": round(time.time() - t0, 2),
                 "error": f"Unknown method: {method}",
             }
         text = all_methods[method](url)
         if text:
-            return {"success": True, "text": text, "method": method, "url": url}
+            return {
+                "success": True,
+                "text": text,
+                "method": method,
+                "url": url,
+                "wall_time": round(time.time() - t0, 2),
+            }
         return {
             "success": False,
             "text": "",
             "method": "none",
             "url": url,
+            "wall_time": round(time.time() - t0, 2),
             "error": f"{method} returned no content",
         }
 
@@ -215,13 +243,24 @@ def fetch_url(url: str, method: str | None = None) -> dict:
             hint = tool
             break
 
-    if hint and hint in ("firecrawl", "agent-browser"):
+    if hint and hint in ("firecrawl", "agent-browser", "impersonate"):
         text = all_methods[hint](url)
         if text:
-            return {"success": True, "text": text, "method": hint, "url": url}
+            return {
+                "success": True,
+                "text": text,
+                "method": hint,
+                "url": url,
+                "wall_time": round(time.time() - t0, 2),
+            }
 
     # Tier 1: parallel fast HTTP calls (free, no browser)
-    fast_tier = [("defuddle", _defuddle), ("jina", _jina), ("microlink", _microlink)]
+    fast_tier = [
+        ("jina", _jina),
+        ("impersonate", lambda u: _impersonate(u)),
+        ("defuddle", _defuddle),
+        ("microlink", _microlink),
+    ]
 
     # If hint is a fast-tier tool, prioritise it in results but still run all
     results = {}
@@ -241,28 +280,92 @@ def fetch_url(url: str, method: str | None = None) -> dict:
             best = next((name, text) for name, text in candidates if name == hint)
         else:
             best = max(candidates, key=lambda x: len(x[1]))
-        return {"success": True, "text": best[1], "method": best[0], "url": url}
+        return {
+            "success": True,
+            "text": best[1],
+            "method": best[0],
+            "url": url,
+            "wall_time": round(time.time() - t0, 2),
+        }
 
     # Tier 2: firecrawl (costs credits)
     text = _firecrawl(url)
     if text:
-        return {"success": True, "text": text, "method": "firecrawl", "url": url}
+        return {
+            "success": True,
+            "text": text,
+            "method": "firecrawl",
+            "url": url,
+            "wall_time": round(time.time() - t0, 2),
+        }
 
     # Tier 3: agent-browser (slow, last resort)
     text = _agent_browser_eval(url)
     if text:
-        return {"success": True, "text": text, "method": "agent-browser", "url": url}
+        return {
+            "success": True,
+            "text": text,
+            "method": "agent-browser",
+            "url": url,
+            "wall_time": round(time.time() - t0, 2),
+        }
 
     return {
         "success": False,
         "text": "",
         "method": "none",
         "url": url,
+        "wall_time": round(time.time() - t0, 2),
         "error": "All extraction methods failed",
     }
 
 
+def _impersonate_cli():
+    """CLI handler for the impersonate subcommand."""
+    parser = argparse.ArgumentParser(
+        prog="pinocytosis impersonate",
+        description="Fetch URL with browser TLS/JA3 fingerprint impersonation via curl_cffi",
+    )
+    parser.add_argument("url", help="URL to fetch")
+    parser.add_argument(
+        "--profile",
+        choices=["chrome120", "firefox133", "safari17_0"],
+        default="chrome120",
+        help="Browser profile to impersonate (default: chrome120)",
+    )
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    args = parser.parse_args(sys.argv[2:])
+
+    t0 = time.time()
+    text = _impersonate(args.url, profile=args.profile)
+    wall_time = round(time.time() - t0, 2)
+
+    result = {
+        "success": bool(text),
+        "text": text,
+        "method": "impersonate",
+        "url": args.url,
+        "status": 200 if text else None,
+        "wall_time": wall_time,
+    }
+    if not text:
+        result["error"] = "impersonate returned no content"
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        if result["success"]:
+            print(text)
+        else:
+            print(f"Error: {result.get('error', 'extraction failed')}", file=sys.stderr)
+            sys.exit(1)
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "impersonate":
+        _impersonate_cli()
+        return
+
     parser = argparse.ArgumentParser(description="Web content extraction")
     parser.add_argument("url", help="URL to fetch")
     parser.add_argument("--screenshot", action="store_true", help="Screenshot mode")
@@ -271,7 +374,7 @@ def main():
     parser.add_argument(
         "--method",
         "-m",
-        choices=["defuddle", "jina", "microlink", "firecrawl", "agent-browser"],
+        choices=["defuddle", "jina", "impersonate", "microlink", "firecrawl", "agent-browser"],
         help="Force specific extraction method",
     )
     args = parser.parse_args()

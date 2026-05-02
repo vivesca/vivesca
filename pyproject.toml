@@ -21,8 +21,10 @@ classifiers = [
 dependencies = [
   "acta",
   "beautifulsoup4>=4.12",
+  "browserforge>=1.2",
   "click>=8",
   "cryptography>=46.0.6",
+  "curl-cffi>=0.7",
   "fastmcp>=3.2",
   "feedparser>=6",
   "google-api-python-client>=2.193",
@@ -63,6 +65,7 @@ scripts.polarization-gather = "metabolon.pinocytosis.polarization:main"
 scripts.pondus = "metabolon.organelles.statolith:_cli"
 scripts.sarcio = "metabolon.organelles.golgi:_cli"
 scripts.sortase = "metabolon.sortase.cli:main"
+scripts.stealth-browser = "metabolon.organelles.browser_stealth_cli:main"
 scripts.ultradian-gather = "metabolon.pinocytosis.ultradian:main"
 scripts.vivesca = "metabolon.pore:cli"
 
