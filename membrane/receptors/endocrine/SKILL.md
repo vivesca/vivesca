@@ -334,6 +334,30 @@ Password: 1Password item `sge746vsbefyi6pojwwodzu3o4`, field `gog_keyring_passwo
 - Don't manage non-Gmail channels (WhatsApp, iMessage, Telegram) here.
 - No trash/delete command in gog — user deletes manually in Gmail.
 
+## Pre-flight (mandatory before first draft of any compose-mode email)
+
+**Grep email-drafting marks BEFORE writing the first draft, not just at session start.** Genome §How to Think requires marks-grep when entering a domain; CC's failure mode is to grep at session start, then drift through multiple email iterations without re-checking. The em-dash recurrence (5+ violations across one session, 2026-05-02) demonstrated this — rule loaded at session start, violated at every draft.
+
+```bash
+grep -l "email\|drafting\|writing style" ~/epigenome/marks/*.md | head -5
+```
+
+Read `feedback_email_drafting_style.md` (PROTECTED, confirmed=1+) at minimum: no em dashes, no en dashes, no filler closers, no exclamation marks by default. Re-read at each major draft revision, not just first-draft.
+
+## Polish iteration discipline (mandatory after cycle 2 on any micro-decision)
+
+When user iterates on a single micro-decision (preposition choice, single-phrase add/drop, one-word swap) and the same decision cycles 2+ times, **stop producing fresh "honest comparison" tables and declare taste-level**. This applies when both options work and the choice is preference, not analysis.
+
+Decision tree at cycle 2+:
+
+1. **Both options work?** → "This is taste-level. Both work. Pick whichever reads right to you." Stop generating new analytic frames.
+2. **Position genuinely held?** → "Same reasoning as before — [one sentence]. No new information changes the call." Don't generate fresh analysis to justify holding.
+3. **Genuinely flipped by new context?** → "What's new is X — that changes the call to Y." Name the new information explicitly.
+
+**Anti-pattern (filed as `finding_cc_polish_iteration_micro_edit_thrash.md`):** producing a fresh "honest comparison" table each cycle that conveniently lands where the user's question implies. Each cycle CC produces new tables/pros-cons/"honest reads" instead of recognizing taste-decision. This dilutes signal, costs tokens, and trains user to expect CC will flip on demand.
+
+The sibling-pattern epistemics file is `~/epigenome/chromatin/euchromatin/epistemics/reactive-flip-needs-independent-grounding.md` — that covers grounded-position pushback. Polish-iteration thrash is the taste-decision sub-case where there are no grounds to defend; the right move is naming the decision-type, not generating analysis.
+
 ---
 
 # Cora mode
