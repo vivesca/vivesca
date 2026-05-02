@@ -148,6 +148,10 @@ async def stealth_context(context: BrowserContext) -> BrowserContext:
 
 
 # ── browserforge fingerprint support ──────────────────────────────────────
+# Source: Scrapling (https://github.com/D4Vinci/Scrapling) assay 2026-05-02.
+# Stolen primitive only — framework rejected. browserforge is the upstream lib
+# Scrapling's StealthyFetcher uses underneath. See
+# marks/finding_scrapling_no_uplift_2026_05_02.md for re-evaluation triggers.
 
 _generator = _FingerprintGenerator()
 
