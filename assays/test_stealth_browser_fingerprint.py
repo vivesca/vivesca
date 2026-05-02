@@ -7,19 +7,25 @@ Covers:
   - CLI parser accepts --fingerprint-mode with all three choices
   - CLI _async_fetch composes generated+cookies modes correctly
   - Headless mode with generated fingerprint (integration with bot.sannysoft.com)
+
+Network tests (marked @pytest.mark.network) are excluded from default runs.
+Run explicitly: pytest -m network assays/test_stealth_browser_fingerprint.py -v
 """
 
 from __future__ import annotations
 
 import json
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from playwright.async_api import async_playwright
 
 from metabolon.organelles.browser_stealth import (
     _fingerprint_injection_js,
     apply_fingerprint,
     generate_fingerprint,
+    stealth_context,
 )
 from metabolon.organelles.browser_stealth_cli import (
     _async_fetch,
@@ -311,3 +317,98 @@ class TestMainCLI:
         ):
             code = main(["--fingerprint-mode", "generated", "https://example.com"])
         assert code == 0
+
+
+# ── Live integration tests against bot.sannysoft.com ─────────────────────
+# These require internet access and a local Chromium install (playwright install).
+# Run: pytest -m network assays/test_stealth_browser_fingerprint.py -v
+
+
+SANNYSOFT_URL = "https://bot.sannysoft.com/"
+
+
+def _parse_sannysoft_results(page_text: str) -> tuple[int, int]:
+    """Parse bot.sannysoft.com summary table, return (passed, total) counts.
+
+    The page renders a table where each row has a test name and a result cell.
+    Result cells use CSS classes: 'passed' (green) or 'failed' (red).
+    We count occurrences of each.
+    """
+    passed = len(re.findall(r'class="[^"]*passed[^"]*"', page_text))
+    failed = len(re.findall(r'class="[^"]*failed[^"]*"', page_text))
+    total = passed + failed
+    return passed, total
+
+
+async def _score_sannysoft_with_generated() -> tuple[int, int]:
+    """Navigate bot.sannysoft.com with browserforge generated fingerprint, return score."""
+    fp = generate_fingerprint()
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        scr = fp.get("screen", {})
+        viewport = {
+            "width": int(scr.get("width") or scr.get("innerWidth") or 1920),
+            "height": int(scr.get("height") or scr.get("innerHeight") or 1080),
+        }
+        context = await browser.new_context(viewport=viewport)
+        await apply_fingerprint(context, fp)
+        page = await context.new_page()
+        await page.goto(SANNYSOFT_URL, wait_until="networkidle", timeout=30000)
+        # Give the page a moment for any late JS updates
+        await page.wait_for_timeout(2000)
+        html = await page.content()
+        await browser.close()
+    return _parse_sannysoft_results(html)
+
+
+async def _score_sannysoft_with_cookies() -> tuple[int, int]:
+    """Navigate bot.sannysoft.com with cookies-mode stealth context, return score."""
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context()
+        await stealth_context(context)
+        page = await context.new_page()
+        await page.goto(SANNYSOFT_URL, wait_until="networkidle", timeout=30000)
+        await page.wait_for_timeout(2000)
+        html = await page.content()
+        await browser.close()
+    return _parse_sannysoft_results(html)
+
+
+class TestSannysoftIntegration:
+    @pytest.mark.network
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
+    async def test_generated_fingerprint_sannysoft(self) -> None:
+        """Verify browserforge generated fingerprint passes >=20/22 checks on bot.sannysoft.com.
+
+        Up to 2 failures are tolerated — known Chromium-headless leaks (SwiftShader
+        renderer, 16x16 broken image canvas) are inherent to headless mode and don't
+        reflect on the fingerprint quality itself.
+        """
+        passed, total = await _score_sannysoft_with_generated()
+        print(f"\n[generated mode] sannysoft score: {passed}/{total}")
+        assert total >= 20, f"Expected at least 20 checks, found {total}"
+        assert passed >= 20, (
+            f"Generated fingerprint passed {passed}/{total} checks — expected >=20. "
+            f"See reviewer notes in spec for filing a finding if this fails."
+        )
+
+    @pytest.mark.network
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
+    async def test_cookies_fingerprint_sannysoft(self) -> None:
+        """Regression baseline: cookies-mode (default) score on bot.sannysoft.com.
+
+        Cookies mode applies init-script patches (webdriver, chrome runtime, plugins,
+        permissions) and rotates the User-Agent but does not inject browserforge data.
+        It is expected to score lower than generated mode. This test records the
+        observed baseline so regressions are caught.
+        """
+        passed, total = await _score_sannysoft_with_cookies()
+        print(f"\n[cookies mode] sannysoft score: {passed}/{total}")
+        assert total >= 20, f"Expected at least 20 checks, found {total}"
+        assert passed >= 10, (
+            f"Cookies mode passed {passed}/{total} — expected >=10 baseline. "
+            f"This is a regression check; cookies mode is not expected to match generated."
+        )
