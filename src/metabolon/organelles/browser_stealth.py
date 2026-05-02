@@ -1,20 +1,25 @@
 """browser_stealth — make Playwright browser contexts undetectable.
 
-Provides four public functions:
+Provides six public functions:
   - patch_navigator:  override navigator.webdriver on a page
   - set_realistic_headers: rotate User-Agent from a curated Chrome list
   - human_delay: random pause between actions (simulates human cadence)
   - stealth_context: create a Playwright context with all patches applied
+  - generate_fingerprint: create a browserforge fingerprint (cacheable per session)
+  - apply_fingerprint: inject a generated fingerprint into a Playwright context
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import random
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from playwright.async_api import BrowserContext, Page
+
+from browserforge.fingerprints import FingerprintGenerator as _FingerprintGenerator
 
 # 20 real Chrome User-Agent strings (Chrome 120-131 across Win/Mac/Linux).
 CHROME_USER_AGENTS: list[str] = [
@@ -138,5 +143,164 @@ async def stealth_context(context: BrowserContext) -> BrowserContext:
     await context.add_init_script(_CHROME_RUNTIME_PATCH_JS)
     await context.add_init_script(_PLUGINS_PATCH_JS)
     await context.add_init_script(_PERMISSIONS_PATCH_JS)
+
+    return context
+
+
+# ── browserforge fingerprint support ──────────────────────────────────────
+
+_generator = _FingerprintGenerator()
+
+
+def generate_fingerprint() -> dict:
+    """Generate a realistic browser fingerprint via browserforge.
+
+    Returns a dict with keys: navigator, screen, videoCard, pluginsData,
+    fonts, headers, and the raw JS injection string under ``js``.
+    Thread-safe — each call produces a fresh fingerprint from the generator.
+    """
+    fp = _generator.generate()
+    raw: dict = json.loads(fp.dumps())
+    raw["js"] = fp.dumps()
+    return raw
+
+
+def _fingerprint_injection_js(fingerprint: dict) -> str:
+    """Build a JS init-script that overrides browser APIs with fingerprint data.
+
+    Overrides: navigator properties, screen dimensions, plugin/mimeType lists,
+    WebGL vendor/renderer, codec support strings.
+    """
+    nav = fingerprint.get("navigator", {})
+    scr = fingerprint.get("screen", {})
+    vc = fingerprint.get("videoCard", {})
+    plugins_data = fingerprint.get("pluginsData", {})
+    fonts = fingerprint.get("fonts", [])
+
+    plugins_js = "[]"
+    mime_types_js = "[]"
+    if plugins_data:
+        plugin_list = plugins_data.get("plugins", [])
+        if plugin_list:
+            plugins_js = json.dumps(plugin_list)
+        mt_list = plugins_data.get("mimeTypes", [])
+        if mt_list:
+            mime_types_js = json.dumps(mt_list)
+
+    fonts_js = json.dumps(fonts)
+
+    nav_props = {}
+    for key in (
+        "userAgent",
+        "appVersion",
+        "platform",
+        "language",
+        "languages",
+        "hardwareConcurrency",
+        "deviceMemory",
+        "maxTouchPoints",
+        "vendor",
+        "product",
+        "productSub",
+        "appCodeName",
+        "appName",
+        "doNotTrack",
+    ):
+        if key in nav:
+            nav_props[key] = nav[key]
+
+    nav_js = json.dumps(nav_props)
+    scr_js = json.dumps(scr)
+
+    vc_overrides = ""
+    if vc:
+        vc_overrides = f"""
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {{
+        value: function(type, attributes) {{
+            const ctx = origGetContext.apply(this, arguments);
+            if (ctx && type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {{
+                const getParam = ctx.getParameter;
+                const ext = ctx.getExtension('WEBGL_debug_renderer_info');
+                ctx.getParameter = function(param) {{
+                    if (ext && param === ext.UNMASKED_VENDOR_WEBGL) return {json.dumps(vc.get("vendor", ""))};
+                    if (ext && param === ext.UNMASKED_RENDERER_WEBGL) return {json.dumps(vc.get("renderer", ""))};
+                    return getParam.call(ctx, param);
+                }};
+            }}
+            return ctx;
+        }},
+        writable: true,
+        configurable: true,
+    }});
+    """
+
+    return f"""
+(function() {{
+    const origGetContext = HTMLCanvasElement.prototype.getContext;
+    const navProps = {nav_js};
+    const scrProps = {scr_js};
+    const plugins = {plugins_js};
+    const mimeTypes = {mime_types_js};
+    const fonts = {fonts_js};
+
+    for (const [key, value] of Object.entries(navProps)) {{
+        try {{
+            Object.defineProperty(navigator, key, {{
+                get: () => typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : value,
+            }});
+        }} catch (e) {{}}
+    }}
+
+    if (scrProps) {{
+        for (const [key, value] of Object.entries(scrProps)) {{
+            try {{
+                if (key in screen) {{
+                    Object.defineProperty(screen, key, {{ get: () => value }});
+                }}
+            }} catch (e) {{}}
+        }}
+    }}
+
+    Object.defineProperty(navigator, 'plugins', {{
+        get: () => plugins,
+    }});
+    Object.defineProperty(navigator, 'mimeTypes', {{
+        get: () => mimeTypes,
+    }});
+
+    Object.defineProperty(navigator, 'webdriver', {{
+        get: () => undefined,
+    }});
+
+    {vc_overrides}
+
+    if (fonts.length > 0) {{
+        Object.defineProperty(document, 'fonts', {{
+            get: () => ({{ check: () => true }}),
+        }});
+    }}
+}})();
+"""
+
+
+async def apply_fingerprint(
+    context: BrowserContext,
+    fingerprint: dict,
+) -> BrowserContext:
+    """Apply a generated browserforge fingerprint to a Playwright context.
+
+    Sets User-Agent and extra headers, then installs an init-script that
+    overrides navigator, screen, plugins, WebGL, and fonts for every page
+    created in this context.
+
+    Returns the same context for chaining.
+    """
+    headers = fingerprint.get("headers", {})
+    if headers:
+        filtered = {k: v for k, v in headers.items() if not k.lower().startswith("sec-fetch")}
+        await context.set_extra_http_headers(filtered)
+
+    js = _fingerprint_injection_js(fingerprint)
+    await context.add_init_script(js)
 
     return context
