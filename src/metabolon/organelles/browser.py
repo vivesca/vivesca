@@ -1,4 +1,4 @@
-"""browser — headless page fetcher using Playwright.
+"""browser — headless page fetcher using Patchright.
 
 Single public async function:
 
@@ -11,7 +11,7 @@ Returns dict with: text, title, url, status, cookies_loaded,
 import json
 from pathlib import Path
 
-from playwright.async_api import async_playwright
+from patchright.async_api import async_playwright
 
 
 async def fetch(

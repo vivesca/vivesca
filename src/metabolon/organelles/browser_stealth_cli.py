@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from playwright.async_api import async_playwright
+from patchright.async_api import async_playwright
 
 from metabolon.organelles.browser_stealth import (
     apply_fingerprint,

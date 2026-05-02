@@ -17,7 +17,7 @@ import random
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from playwright.async_api import BrowserContext, Page
+    from patchright.async_api import BrowserContext, Page
 
 from browserforge.fingerprints import FingerprintGenerator as _FingerprintGenerator
 

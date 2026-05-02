@@ -36,7 +36,7 @@ dependencies = [
   "langgraph-checkpoint>=4.0.1",
   "langgraph-checkpoint-sqlite>=3",
   "oghma",
-  "playwright>=1.58",
+  "patchright>=1.59",
   "pydantic>=2",
   "pygments>=2.20",
   "pypdf>=4",
@@ -244,7 +244,7 @@ skip = [
 ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin,opps,allo,ans,afile,crasher,te,graphis,pilon,unknow,grammers,coo,jus,trama,fpr,pre-emptive,ist,ather,iterm,cancelation,cyclin"
 
 [tool.deptry]
-# cryptography: used by telethon/playwright at runtime, not imported directly
+# cryptography: used by telethon/patchright at runtime, not imported directly
 # google-auth-oauthlib: used by circadian_clock at runtime via google.oauth2
 # hatchet-sdk: was effectors/polysome (removed)
 # hypothesis: used in tests, not src
