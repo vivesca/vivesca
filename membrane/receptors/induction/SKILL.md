@@ -1,6 +1,6 @@
 ---
 name: induction
-description: Committee-paper tradecraft — writing artifacts that move boards, OpCo, AIRCo, RMM, steering committees, board sub-committees, and partner panels to decide. Owns pre-conditions, recommendation-first sequence, dissent absorption, pre-circulation. Use directly when drafting a paper for a deciding committee, or as a reference consulted by expression, censor, secretion.
+description: Committee-paper tradecraft — both writing AND reviewing artifacts that move boards, OpCo, AIRCo, RMM, steering committees, board sub-committees, and partner panels to decide. Owns pre-conditions, recommendation-first sequence, dissent absorption, pre-circulation, multi-persona review, principal personas, iteration loop, rejection-rule capture. Use directly when drafting OR reviewing a committee paper, or as a reference consulted by expression, censor, secretion.
 user_invocable: true
 epistemics: [communicate, persuade, evaluate]
 triggers:
@@ -13,6 +13,12 @@ triggers:
   - airco
   - steering paper
   - decision paper
+  - review the paper
+  - review this paper
+  - knockout pass
+  - paper review
+  - red-team this paper
+  - critique this paper
   - live link
   - live doc
   - live word doc
@@ -28,7 +34,7 @@ triggers:
 
 In embryology, induction is the process where a signaling tissue secretes a diffusible factor that instructs the fate of a receiving tissue. A board paper is the same: a single artifact diffuses into a committee and patterns the decision that emerges. The paper does not argue in real time. It must arrive pre-loaded with everything required to convert pre-existing intent into a vote.
 
-**Two entry points.** (1) Direct invocation when sitting down to draft an artifact for a committee that *decides* — OpCo, AIRCo, RMM, steering committees, board sub-committees, partner reviews. (2) Reference consultation from `expression` (forging committee-targeted assets), `censor` (high-weight criteria spine for executive papers), and `secretion` (before packaging committee deliverables).
+**Three entry points.** (1) **Drafting** — sitting down to write an artifact for a committee that *decides* (OpCo, AIRCo, RMM, steering committees, board sub-committees, partner reviews). (2) **Reviewing** — running structured knockout / red-team / coherence passes on a committee paper before circulation, or critiquing a hardened artefact at any iteration round. The review tradecraft (multi-persona Pass A/B/C, named principal-lenses, the three-round iteration loop, pre-knockout grep discipline, rejection-rule capture) lives here, in `references/review-loop.md`. (3) **Reference consultation** — invoked by `expression` (forging committee-targeted assets), `censor` (high-weight criteria spine), `secretion` (before packaging committee deliverables).
 
 The wording layer lives in marks (`feedback_executive_paper_style`, `feedback_partner_message_density`, `feedback_assert_dont_ask_in_senior_comms`, `feedback_echo_sponsor_language`, `feedback_naming_is_strategy`). This skill owns the upstream tradecraft.
 
@@ -42,12 +48,16 @@ The wording layer lives in marks (`feedback_executive_paper_style`, `feedback_pa
 
 ## When to Reach for This Skill
 
-**Trigger when drafting:**
+**Trigger when drafting OR reviewing:**
 - HSBC executive papers (AIRCo, RMM, ExCo, OpCo, board sub-committee submissions)
 - Capco partner-level proposals where the decision sits with a panel, not an individual
 - Any client deliverable framed as "for endorsement" or "for approval"
 - Internal Capco escalations to a partner committee
 - Regulator-facing position papers where the regulator is a panel
+
+**Drafting-specific entry:** §1 Five Pre-Conditions and §2 Decision Sequence are the upstream gates. Draft from the top of the §0a + §0 + §1 + §2 stack.
+
+**Reviewing-specific entry:** §0 Body-Edit Gate (9 tests, fires before any proposed edit) is the deterministic discriminator at review time. The structured review machinery — multi-persona Pass A/B/C, the pre-knockout grep discipline, named principal-lenses, the three-round iteration loop with knockout-survival, and rejection-rule capture — lives in `references/review-loop.md`. Load it when running a knockout pass, red-team, or coherence review on an in-flight artefact.
 
 **Do NOT reach for this skill for:**
 - 1:1 senior emails (use `cursus` and the email marks)
