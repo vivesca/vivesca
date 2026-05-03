@@ -1,0 +1,205 @@
+# Review Loop — Pre-Circulation, Multi-Persona, Principal Personas, Iteration, Rejection Capture
+
+Loaded on demand by `induction` SKILL.md before circulating a paper.
+
+---
+
+## Pre-Circulation Tradecraft
+
+The paper is not done when written; it is done when it has been walked through. Sequence:
+
+1. **Sponsor read** — the senior who owns the agenda item reads first, in private, with permission to redirect. Their changes are not edits; they are alignment signals.
+2. **Dissent walk-through** — the one or two members most likely to push back receive the paper in person or 1-on-1, with the question "what would make you not block this?" Their concerns become bullets in the paper.
+3. **Adjacent stakeholder copy** — anyone whose territory the paper crosses gets a courtesy copy ahead of circulation, not in the meeting. Surprising a peer in committee earns a permanent enemy.
+4. **Read-ahead window** — circulate at least 48 hours before the meeting. Less than 24 hours signals either disorganisation or an attempt to suppress scrutiny; either reads badly.
+5. **Speak-to** — the in-meeting verbal frame. One minute. Not a re-read of the paper. The frame names the decision, names the sponsor, names the dissent absorbed, and yields. The paper does the rest.
+
+Pre-circulation is the work. The meeting is the receipt.
+
+**Cover note + Bertie heads-up + Doug coaching are correspondence-class artefacts.** They follow `endocrine` Compose-mode standalone-correspondence precondition: each gets its own `chromatin/immunity/YYYY-MM-DD-terry-<recipient>-<subject>.md` file with verbatim text + interlinks BEFORE send. Per `feedback_standalone_correspondence_notes.md` (PROTECTED), this catches the recurring asymmetry where outbound gets summarised in daily notes only and verbatim is later unrecoverable.
+
+---
+
+## Multi-Persona Review — Paper-as-Code
+
+Before the three pre-circulation steps, run two structured review passes in parallel. Single-pass review by the author misses different failure modes than what each pass surfaces; running them as named lenses with separate context exposes the artefact to the same scrutiny it will face in committee.
+
+**Pass A — Adversarial multi-persona (CE pipeline applied to paper).** Treat the paper as code. Dispatch four parallel review personas, each scoped to one lens:
+
+| Persona | Looks for | Ships findings as |
+|---|---|---|
+| Correctness | Every factual claim, citation, number, date, verbatim quote — does the source say what the paper claims? Internal consistency between Recommendation, body, and Ask. | Punch list, severity-tagged. URL verifications dispatched in parallel for any external citation; vendor-spec rule applies (never quote a fact without verifying the source). |
+| Coherence | Terminology drift between sections; Recommendation↔body alignment; register breaks; ambiguity where multiple readers would diverge on meaning; cross-section reference integrity. | Punch list, with the divergent readings spelled out. |
+| Maintainability | Cuttable paragraphs, redundant evidence, hedge accumulation, parenthetical asides, transitional fluff that announces what the next sentence proves. The "force the floor" principle applied externally. | Cuts only — never additions; the paper is at version N for a reason. |
+| Adversarial | Premise audit: what load-bearing assumption could a hostile reader challenge? Unstated assumptions; implementability hand-waves; territorial reads; weakest citation; the strongest argument against the Ask itself. **Drop overlap with existing verbal-coaching prep.** | Each finding as: ATTACK NAME / who would mount it / the move / paper's current defence / proposed reinforcement. |
+| Cross-Presenter | Receptor-class routing under hostile read. Read as a reader in attribution / blame / budget-contraction mode and ask: does this paper still route to the intended decision class (deliberation, capability investment), or does it cross-present onto a kill-pathway (accountability, budget cut, team replacement)? Triggers: individuals/teams named adjacent to the gap, passive-voice failure descriptions, gap-without-owner framings. Bio source: MHC-I cross-presentation of exogenous antigen — same content, opposite receptor class, opposite decision. See `~/epigenome/marks/finding_cross_presentation_wrong_receptor_routing.md`. | Each finding as: ROUTING ATTACK / which paragraph triggers cross-presentation / which decision class it routes to / proposed reframe to keep MHC-II routing fidelity. |
+
+Each persona gets the paper plus the project's tailored alignment checklists as constraints — so they don't propose changes that violate already-decided commitments. Outputs merge into a single deduped punch list.
+
+**Pass B — Tailored alignment checklists.** Run in parallel with Pass A. The checklists are project-specific (HSBC: P1-P8 public-commitments, A-F master-alignment, audience-fit). Each checklist is a static gate against authority alignment. Each item: PASS / FIX / BLOCKER, with paper location and proposed insert.
+
+**Why both passes.** They catch different failure classes. Adversarial multi-persona catches premise + factual issues a static checklist cannot — overclaim modifiers, underclaim modifiers, political-structural risk in a single sentence, citation hand-waves. Tailored checklists catch authority-alignment gaps multi-persona reviewers cannot — verbatim language the principal expects, named bodies, function placements, diction the audience uses. **Neither replaces the other.** Single-pass review ships papers with one of the two failure classes intact.
+
+**Convergence is the win.** When the two passes name the same finding (e.g., third-party scope appears in both adversarial premise audit and Principle-6 alignment), one insert satisfies both. Treat overlap as confirmation, not redundancy.
+
+**Pass C — Verbal coaching capture.** Findings that don't survive paper edits flow into per-stakeholder verbal-coaching notes. Adversarial findings about hostile-reader attacks become anticipated questions; uncomfortable nuances surfaced by URL verification (success rates, base-rate caveats, scope qualifiers) become Q&A lines. The paper carries the assertion; the coaching carries the defence.
+
+**Pre-knockout grep discipline (applies across Pass A/B/C and any review-pass formulation).** Before filing any "X is ungrounded / unverified / unsupported / missing primary source / not in chromatin" knockout, run the grep that would disprove it. The grep takes ~5 seconds; the wrong-knockout reversal in the next turn costs more. Specifically:
+
+- Numbers/figures flagged as ungrounded → grep `~/epigenome/chromatin/immunity/` and the paper's own `related:` frontmatter chain for the literal value plus its surrounding noun (e.g., `244` plus `Data Visa` or `cycle time`). Recognition cues for senior readers (committee deck slide numbers, year-to-date metrics, sponsor-quoted figures) frequently look ungrounded to a fresh review pass while being load-bearing recognition for the audience.
+- External URLs cited in body → grep `~/epigenome/chromatin/immunity/` for the URL slug or the underlying claim's noun phrases to confirm a verbatim primary-source capture exists. URL inserted ≠ verbatim captured. The Board v0.19+ FT/Bessent/Mythos URL was inserted weeks before the verbatim was filed; a "no primary source captured" knockout would have surfaced as missing only if the grep had run during review formulation, not after user prompt.
+- Terms or entities flagged as undefined or unauthored → grep both chromatin and the paper's own appendices/frontmatter before filing the knockout. The Stream-4 "Design Authority" reference in v00.01 was correctly identifiable as Project-100-Days substance only after grepping Tonus Stream-4 retraction context, not from semantic guessing.
+
+Output format: each "X is unverified" finding ships with the grep result inline — either `grepped chromatin/immunity/ for "X" → no hits, knockout stands` or `grepped → found at <path:line>, reframing knockout as <new framing>`. Reviewers who skip this step file knockouts that get reversed in the next turn. The grep is the deterministic discriminator between a real chromatin gap and a recognition cue the reviewer doesn't yet hold.
+
+**Source signal.** Filed 2026-05-03 retro Slot 22 (`2026-05-03-2210.md`) after two opening knockouts in a David paper review pass were reversed within 1-2 turns of user prompting — `244 ungrounded` (was AIRCo Slide 36 Data Visa year-to-date metric) and `FT verbatim missing` (the verbatim was missing, but the knockout fired only after user asked, not at review formulation). Same family as 31+ instances of assert-before-verifying / activation-not-capture; mark-only routing demonstrably plateaued at 22 consecutive B-band slots. Layer-3 skill edit per retro §3a hierarchy walk; layer-1 hook escalation parked for dedicated tooling slot.
+
+**Sequencing.** Pass A and Pass B run before sponsor read. Pass C output goes to the sponsor alongside the paper. By the time the sponsor reads, every reviewer-detectable failure mode has been merged or routed — sponsor-read is for alignment, not error-catching.
+
+**See also:** `avidity.md` (stakeholder-binding rules — three principles + corollaries), `tolerance.md` (regulator-defensibility rules), `finding_ce_pipeline_complements_alignment_checklists.md` (the empirical evidence behind the both-passes rule).
+
+---
+
+## Named Principal Personas — The Discriminator Half
+
+The adversarial multi-persona pass uses generic lenses (Correctness / Coherence / Maintainability / Adversarial). Those catch craft failures. They do NOT catch "Simon would never sign this" or "Doug would route this to OpCo not AIRCo." That requires named principal-lenses.
+
+For every paper, identify each principal in the read chain (sponsor, decision-maker, copy-list, downstream router) and dispatch the `principal-lens` agent once per principal in parallel. Each lens loads the principal's stakeholder profile from `~/epigenome/chromatin/immunity/<name>-profile.md` and returns the top-5 questions/objections that principal would raise on first read.
+
+Current HSBC AI Safety profile coverage (April 2026):
+
+| Principal | Profile path | Read-chain role |
+|---|---|---|
+| Simon Eltringham | `simon-eltringham-hsbc-profile.md` | Sponsor — Capco channel into HSBC RAI |
+| Doug Robertson | `doug-robertson-hsbc-profile.md` | Decision-router — owns Simon's agenda, routes upward |
+| David Rice | `david-rice-hsbc-profile.md` | First HSBC CAIO (eff. 1 Apr 2026), top of paper chain |
+| Jeff Valane | `jeff-valane-hsbc-profile.md` | Cross-functional reader (Risk) |
+| David Newby | `david-newby-hsbc-profile.md` | Cross-functional reader |
+
+When dispatching: pass `profile=<absolute path>`, `paper=<absolute path>`, optionally `ask=<one-line ask interpretation>`. Run all principals in parallel — each lens has its own context.
+
+**Profile-as-discriminator-training-data.** A principal-lens is only as good as the profile. Findings that surface a "PROFILE GAP" return value (the lens cannot determine whether the principal would defend a position) flow back into the profile as the next maintenance step. The profile improves monotonically over engagements; the discriminator improves with it.
+
+**Adding a new principal.** Before drafting any paper for a new audience, ensure each named reader has a profile in `chromatin/immunity/`. No profile = no principal-lens = the discriminator pass cannot model that reader. This is a precondition to the iteration loop.
+
+### Delivery-Vector Knockout — Principals Who Read the Send Sequence, Not the Content
+
+Some principals will never read the paper but will be politically affected by *how* it lands — who gets it when, in what order, whether they were briefed in advance. Bertie (Capco UK Partner with HSBC alignment ownership) is the canonical example: the paper itself is fine, but the send sequence violates a UK-clearance rule and that's a relationship breach independent of any body content.
+
+For every paper, identify each delivery-vector principal in addition to read-chain principals. Their `principal-lens` dispatch focuses on:
+
+- The send order (who first, who simultaneously, who told only after)
+- Pre-circulation of the send plan to anyone with a standing rule about being informed
+- Acknowledgement language for any rule the send sequence overrides ("we judged X for reason Y; ratify or override")
+- Cross-territorial sensitivities (UK office vs HK office, headquarter vs regional)
+- Visibility-map gaps (who isn't in the send list but should know it exists)
+
+**Findings format differs.** Body-readers return paper-edit findings. Delivery-vector readers return send-sequence findings: re-time, acknowledge, override, hold, add-to-list. These do NOT consolidate into v0.N+1 paper patches — they consolidate into pre-send decisions that the human must make before any send executes.
+
+**Trigger for adding a delivery-vector lens.** Any principal whose written rules govern the *channel* the paper travels through (UK-office clearance protocols, HRBP notification thresholds, regulator pre-notification expectations, Group Communications signoff for external-facing material). Memory file `feedback_*` of the form "always tell X before Y" = candidate.
+
+---
+
+## The Iteration Loop — Generator / Discriminator Convergence
+
+The drafting → review → patch cycle is GAN-shaped: the author (generator) produces a draft, the principal-lenses (discriminator) attack it, the author patches, the lenses attack again. Hard cap: three iterations. Knockout strategy across rounds: each round's draft must beat the prior round's draft *on each principal-lens's own terms*; the stronger draft survives. Inherits the loop shape from `affinity`; named-principal discriminators and knockout-survival are the induction-specific specialisations.
+
+**Round 0 — outline interrogation, not draft.** Front-load the personas at outline stage, not review stage. Lifted from STORM (arxiv 2402.14207): turn each principal-lens into an interrogator that grills a retrieval-grounded "topic expert" agent (the author with chromatin/epistemics access) about the paper's premise, scope, and ask. Build the outline from the Q&A logs, not from the author's first instinct. The principals' questions front-load what the paper must defend; the outline is the structure that lets it. Only THEN draft. Force the floor (300 words for a Board ask) on the actual prose pass.
+
+**Round 1, 2, 3 — review-and-patch.**
+
+1. Dispatch all principal-lenses in parallel (`principal-lens` agent, one call per profile).
+2. Dispatch Pass A (adversarial multi-persona — generic lenses) and Pass B (alignment checklists) in parallel WITH the principal-lenses, not after. They catch different failure classes.
+3. Merge findings into one deduped punch list. Tag each finding: NEW (this round), REPEAT (raised in a prior round, still unfixed), CONVERGED (raised previously, fix lands this round).
+4. Author patches the paper. Each NEW finding becomes a paper edit OR routes to verbal-coaching capture (Pass C) OR is explicitly accepted as residual gap.
+5. **Knockout test.** Re-dispatch each principal-lens with BOTH the new draft AND the prior round's draft as context. The lens picks which is stronger *for its principal*. If the new draft loses on any lens, revert that section to the prior round's wording — patches are not monotonically additive. Only knockout-winning patches carry forward. (PerFine, arxiv 2510.24469: knockout-survival across iterations beats last-edit-wins by 7-13% on profile-grounded GEval; plateaus at 3-5 iterations — empirical justification for the hard cap.)
+6. Carry the surviving draft to the next round.
+
+**Hard cap: three rounds.** Iter 1 catches major, iter 2 catches subtle, iter 3 catches edges. Iter 4+ catches nothing but burns tokens. If round 3 still leaves blocking findings, escalate to human (Terry) — do not run round 4. Cap is from Claude Forge's empirical observation; PerFine's plateau confirms.
+
+**Failure mode: source-bias-transfer.** When the generator quotes one source heavily (typically the principal's own approved corpus — the DQM-precedent move), the paper drifts into voicing that source even where the claim is the author's. Lens check at every round: which sources got cited >2x? Do their cadences leak into uncited paragraphs? If yes, rewrite in the author's voice or attribute. (Named in STORM as an outline-stage failure; persists at draft stage too.)
+
+**Failure mode: over-association.** Retrieval glues facts that sit near each other in source material but aren't actually causally or evidentially linked. The paper reads coherent and turns out to be claiming a relationship the sources don't support. Lens check: for every "X, therefore Y" or "X and Y" sentence, can both halves be sourced to the same evidence chain? If not, sever the conjunction. (STORM's second named failure.)
+
+**Failure mode: chasing every NEW finding to zero in one round.** If you patch every NEW finding immediately and dispatch again, you destroy round-to-round signal. Findings need to PERSIST across rounds for the lens to learn what is structurally fixable vs structurally residual. Run two rounds minimum before deciding which findings are residual.
+
+**Failure mode: convergence theatre.** A lens returning zero NEW findings on round 2 may mean the paper landed OR may mean the lens has nothing left to say from the profile. Cross-check: did the patches actually address the round 1 findings, or did the lens just exhaust its profile-grounded objections? If the latter, the profile needs more depth before the next paper.
+
+**Failure mode: same lens, different prompts.** Dispatching the same principal-lens twice with subtle prompt differences and treating the variance as signal is noise-mining. Keep the dispatch deterministic — same profile, same paper, same round number visible to the lens.
+
+**Convergence-as-confidence across principals.** When N principal-lenses independently surface the same finding, the finding is structurally true — single-principal findings are weaker than multi-principal ones. Triage in this order:
+
+1. **Convergent BLOCKINGGs** (≥3 principals agree) — patch immediately, no further deliberation. The paper has a structural failure.
+2. **Convergent NITs** (≥3 principals agree) — patch unless the cost is high; structural friction even if not blocking.
+3. **Single-principal BLOCKINGGs** — load-bearing only if that principal is in the decision chain; otherwise weight by political distance.
+4. **Conflicting findings** (two principals disagree on direction) — decision goes up to the author. A real disagreement between principals usually maps to a real political tension that the paper has to navigate, not paper-fix.
+
+The principal-lens output should annotate "overlaps with [other principal]" when detectable from prior knockout files in the same directory, to make convergence detection automatic at triage time.
+
+**Failure mode: GAN mode collapse / parallel-writer drift.** The author over-fits to the dominant lens (usually the sponsor) and the paper drifts away from the other principals. Counter: dictator pattern — sponsor has FINAL say, other lenses ADVISE. Weight findings by political distance from the author, not by frequency. Doug's one objection outweighs Simon's three when Doug is the route-decider. (AutoGen long-doc community observation: parallel writers drift on tone and re-litigate trivia; dictator + tree-of-files + hard round caps is the working pattern.)
+
+**Stopping early.** If ALL principal-lenses return Board-ask-grade findings on round 1 (no challenges, only clarifications), the paper is over-cooked — strip it to a shorter sibling. Convergence in one round is a sign of insufficient ambition, not of paper quality.
+
+**See also.** `affinity` skill (multi-round multi-model stress-test mechanics — induction inherits the loop shape from affinity, replaces generic personas with named principals). `avidity.md` (stakeholder-binding rules — the multi-principal generator side: gap-statement-not-pain-build, LOAD-restoration, fresh-reader corollary, cover-note-carries-extras, board-diction-is-constitutional). `tolerance.md` (regulator-defensibility rules — the supervisor selection pressure: cadence-coupling-is-red-flag, capability-without-RACI-is-unfinished, "extends not above" structural patch pattern, body-strips-Recommendation-carries-for-date-binding). `finding_paper_variants_as_sponsor_routing_optionality.md` (when one paper splits into siblings rather than converges to one artefact).
+
+**Prior art.** STORM (Shao et al. 2402.14207) — front-load personas at outline. Co-STORM (2408.15232) — dynamic mind map + user-as-steerer for longer loops. PerFine (2510.24469) — knockout-survival critique-refine, +7-13% over RAG baselines, 3-5 iter plateau. Claude Forge (freecodecamp Mar 2026) — rhetorical-question reviewers, architecturally separated review process, hard 3-iter cap. AutoGen long-doc thread (microsoft/autogen#67) — dictator pattern beats consensus.
+
+---
+
+## Rejection-Rule Capture — How the Discriminator Improves
+
+The `principal-lens` agents are only as good as the profile they load and the rules they apply. The most valuable training data the system produces is **what Terry rejects** — when the author judges a knockout-proposed patch is wrong, the *reason* for that rejection encodes taste that the lens did not yet have.
+
+Without capture, every paper's rejection knowledge dies with the session and the next paper's knockouts re-propose the same wrong patches. With capture, the discriminator gets sharper monotonically per paper cycle.
+
+**Critical caveat: Terry is not always right.** A rejection can be a one-off context-specific judgement, a tired pattern-match to the wrong situation, or correct-for-this-paper-but-wrong-as-a-general-rule. If the protocol methylates every rejection as a rule without a check, the discriminator profiles fill with frozen Terry-states that don't generalise. The fix: rejection capture is **two-step**, not one — the rejection generates a *candidate* rule; CC challenges; agreement methylates.
+
+**The protocol — applies at every triage point, not just at session end.**
+
+For every patch proposed by a principal-lens that Terry rejects (or directs CC to reject):
+
+1. **Capture the rejection text inline at triage time.** Don't defer to wrap. The reason is freshest in Terry's voice the moment the rejection is spoken: "no, that would have made Doug look like he's coopting Rice's commitment" or "that's a Capco-shape failure mode, Doug wouldn't write it that way."
+
+2. **CHALLENGE before filing.** Before routing the rejection to a destination file, ask one sharp question: "Is this reason load-bearing as a rule, or is it pattern-matching to this situation?" Construct one specific example of where the rule would over-fire — a future paper, principal, or context where applying this rule mechanically would produce a worse outcome. Present the candidate rule + the over-fire example. Three branches:
+   - **Terry agrees the rule is sharp** → file as written.
+   - **Terry refines** ("yes, but only when X / except when Y") → file the refined version with the conditions explicit.
+   - **Terry retracts** ("actually that was just this paper, not a rule") → don't file. The discussion itself was the calibration.
+
+   The challenge is not adversarial — it's calibration. Both halves apply: Terry's instinct is the source signal; CC's challenge tests whether it generalises. The rule lands only after agreement. Skipping the challenge means filing rules that will misfire on the next paper, which is worse than not capturing — over-fitting beats under-fitting only when there's no reset mechanism.
+
+3. **Capture three layers, not just the imperative.** Rules age better when their calibration boundaries travel with them. Future-CC reading the rule needs the *imperative* to act, AND the *source signal + discussion arc* to judge edge cases. Lossy capture (imperative-only) means future sessions re-discover the calibration; rich capture (three layers) lets calibration transfer.
+
+   Three layers per rule entry:
+   - **Layer 1 — Imperative.** "DO X / DO NOT Y / DO X when Z." This is what the lens fires on.
+   - **Layer 2 — Source signal.** What triggered the discussion: the rejected patch, the over-fire example, Terry's instinct phrased in his words. ("Terry rejected the AISI cite under Rice's voice because Rice publicly committed to no pre-formed plan; signing a six-capability proposal preempts that listening commitment.")
+   - **Layer 3 — Discussion arc + agreed framing.** What pressure-testing produced the final scope. Captures the calibration boundary — the rule's *limits* are encoded here. ("Considered: literal rule = 'cite all external methodology under principal voice = bad'. Refined to: 'don't cite under principal voice WITHOUT verifying principal has read it'. Reason: AR-routing is fine; direct citation under voice without principal-read is the actual hazard. Edge case: if principal HAS read the source, direct citation is acceptable.")
+
+   The three-layer capture is the **co-organism principle** applied to rule formation: two intelligences with different bases (CC's model + training; Terry's organism context + taste) converge on a position with higher confidence than either input alone. The discussion arc IS the asset — it's how the convergence path stays available for future application. Imperative-only capture loses the path; three-layer capture preserves it.
+
+4. **Route the three-layer rule to the right destination by content:**
+
+   | Rejection content | Destination file | Mark type |
+   |---|---|---|
+   | About a specific principal's preference, voice, or unstated rule | The principal's profile note in `chromatin/immunity/<name>-profile.md` | append to "Voice & Preferences" or "Unstated rules" section |
+   | About a generalisable craft rule (avoid X in any senior paper) | `avidity.md` (stakeholder-binding) or `tolerance.md` (regulator-defensibility) by content | new DO/DO NOT pair |
+   | About a regulatory-defensibility pattern | `tolerance.md` | new pattern entry |
+   | About a project-specific constraint (this engagement, not all engagements) | `~/epigenome/marks/project_<engagement>.md` | new fact entry |
+   | About a personal preference / judgment pattern | `~/epigenome/marks/feedback_*.md` (existing or new) | new feedback rule |
+
+5. **Format every captured rejection as a discriminator rule, not a description:**
+   - Bad: "Terry rejected the AISI mention because it would commit Rice to AISI methodology endorsement."
+   - Good: "DO NOT cite AISI evaluation methodology under Rice's voice without first verifying Rice has read the underlying AISI document. Cite via the Annual Report's own treatment instead. Reason: regulatory-defensibility — PRA reads CAIO endorsing external methodology as benchmark commitment."
+
+6. **The lens consumes this on the next dispatch.** When `principal-lens` is dispatched for the next paper, the agent reads the principal profile (now richer) and the relevant epistemics (now richer). The discriminator is sharper without any model retraining.
+
+**Test the loop is working.** After 3-5 paper cycles, the same class of finding should stop appearing in knockout outputs because the rules have been captured. If knockout #5 returns the same blocking finding as knockout #1, the rejection-rule capture failed somewhere — either the capture wasn't done, the capture went to the wrong destination, or the lens isn't reading the destination.
+
+**The taste-scaling thesis.** Terry is the bottleneck only as long as the rules live in his head. Every captured rejection is one rule that no longer needs his head to fire. The skill scales when rejection capture is treated as the most important output of the triage session — more important than the patches that survive, because those land once. The captured rules land forever.
+
+**Anti-pattern: capturing without routing.** Stockpiling rejections in a single learnings.md file fails — the next dispatch doesn't know to read that file. Capture must route to the file the lens already loads (profile note, avidity, tolerance, marks). If a rejection doesn't have an obvious destination, that's signal that a new file is needed, not that the capture should be deferred.
+
+**Anti-pattern: capturing only in Terry's voice, not as a rule.** "Terry didn't like X" is a description, not a rule. The lens cannot fire on description. Re-write as: "DO X / DO NOT X / DO X when Y / Reason Z." Discriminator rules are imperatives, not narrations.
+
+**Anti-pattern: skipping the challenge step.** If CC files every rejection without challenging, the rule library accumulates frozen Terry-states that misfire on the next paper. The challenge step is not optional — it's the calibration mechanism. Better to file fewer rules that survive the challenge than many rules that look like signal but aren't.
+
+**See also.** `affinity` skill (similar capture pattern for generic-deliverable iteration). The `feedback_*.md` mark family is the existing exemplar of rejection-rule capture done right (each entry is an imperative with a Reason and How-to-apply).
