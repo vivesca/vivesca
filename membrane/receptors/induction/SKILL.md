@@ -337,6 +337,28 @@ But the paper still needs to survive technical challenge from cross-functional r
 
 ---
 
+## 4d. Architectural Discipline — Five Patterns for Multi-Pillar Papers
+
+When a paper carries multiple workstreams, capabilities, or pillars, five patterns recur. Apply before the second iteration; the cost of fixing structure later compounds.
+
+**1. Single-spine architecture.** One north-star metric; every sub-structure ladders to it. If two pillars look like they have separate goals, they are masquerading as parallel objectives — find the shared metric. Eunomia case (May 2026): Pillar 1 looked like cycle compression, Pillar 2 looked like function buildout; rewriting around "cycle time 150 → <100" as the single spine, with Pillar 2 as substrate that makes Pillar 1 sustainable, collapsed the paper from two-paper-grafted-together to one disciplined argument.
+
+**2. Goal / mechanism / metric — separate the three.** Goal = strategic outcome (AI adoption at scale, safely). Mechanism = how (governance streamlining + safety capability). Metric = measurable proxy (cycle time). Senior register treats the metric as proxy, not as the destination. "100 days" reads as commitment; "the year-end north star is below 100" reads as ambition. Forward-looking work shouldn't claim the achieved state — "aims to cut" not "cuts"; "toward under 100" not "to under 100."
+
+**3. Drop numbered scaffolding once names carry.** "Pillar 1 — X" / "Cap 1 — Y" / "Stream 1 — Z" reads as Section 1, Section 2 — junior register. Keep the categorical noun only if it earns its keep; otherwise let the names carry. "Two pillars deliver the number" is filler that can be dropped if pillar paragraphs introduce themselves naturally. Test: if the reader can navigate the paper using names alone, the numbers are scaffolding.
+
+**4. Capability vs substrate — don't conflate practice with delivery mechanism.** What the function *does* (red-teaming, frontier scanning) is a capability; what the function *uses* (vendor tooling, consulting bridge, bench staff) is substrate. Capability paragraphs lead with the practice; tools and bench named as the delivery mechanism after the practice is established. Conflation makes the paper read as procurement-list rather than function-design.
+
+**5. Provenance lives in appendix, not body.** Date attributions ("set on 1 May 2026 by [team]"), source citations, and audit-trail mechanics are reference material — they tell the reader where claims come from, not what to think. Body for what the reader needs to form a position; appendix for what they might want to verify. Test: would a reader who skips this still grasp the recommendation? If yes, it can move.
+
+**Coherent terminology at every level.** When a paper has top-level halves and sub-level units, pick distinct terms — "tracks" + "streams" collide if "stream" and "workstream" are also used. Audit: grep for near-synonyms; eliminate or differentiate.
+
+**Order by importance, not chronology.** Body sections lead with the structural mechanism that does the work; foundation/prerequisite work goes last. Reader sees what Eunomia is for before they see what it cleans up. Timeline milestones can keep chronological order — body discussion follows importance.
+
+Related marks: `feedback_executive_paper_style`, `feedback_propose_concepts_not_edits`, `feedback_simplify_dont_engineer`.
+
+---
+
 ## 5. The 200-Word Test
 
 Before circulating any draft, write the 200-word version. If the 200-word version cannot stand alone as the paper, the longer version is hiding weakness behind length. The 200-word version contains:
