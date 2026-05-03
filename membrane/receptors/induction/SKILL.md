@@ -337,6 +337,24 @@ But the paper still needs to survive technical challenge from cross-functional r
 
 ---
 
+## 4e. Pre-flight Verification — Run Before Any Paper-Shaping Reasoning
+
+**The failure mode.** Within minutes of a paper-shaping session starting, CC forms a reasoning frame about audience, scope, named entities. Once formed, that frame justifies many downstream decisions (which arguments will land, which examples to use, which references to keep). When the frame is wrong, every downstream decision is wrong — and the corrections only surface when the principal user catches them, sometimes after 30+ turns. This pattern recurs across multiple sessions despite protected marks requiring profile reads at session start (`feedback_read_stakeholder_profiles_before_paper_strategy.md`); the marks are loaded but unactivated. Activation-not-capture, classic shape.
+
+**The fix.** Two deterministic pre-flight checks before forming any reasoning frame about the paper:
+
+**Pre-flight 1 — Stakeholder profile read.** For every named principal who will read the paper (audience) or who is positioned in the body (sponsor, named team), grep `~/epigenome/chromatin/immunity/` for `<principal>-profile.md` and read it before forming any voice / audience / register claim. Don't assume background, career, or familiarity — if profile exists, read it; if not, surface the gap. Eunomia case (May 2026): CC ran 30+ turns assuming David Rice was Anthropic-native (justifying technical model-cadence claims, classical-reference depth, Sonnet 4.5/4.6 fluency); profile recorded 18-year HSBC banking insider. All downstream "this lands for him" reasoning was wrong frame. Cost: paper had to be re-evaluated against the right reader profile after correction. Pre-flight cost: 2-minute grep + skim.
+
+**Pre-flight 2 — Named-entity existence check.** Before asserting that an entity (governance body, programme, role, framework) exists at the institution, grep chromatin for the entity name. If references show "proposed by", "to be established", or "Stage N of <plan>", the entity is not yet existing — the body should reflect that or reference the proposing plan. Eunomia case: Stream 4 (Tiering and parallel routing) was added to body with structural-compression-load claim, asserting the Group AI Design Authority as if it operated. Chromatin search after Terry's probe revealed DA is a Project 100 Days proposal, not an existing entity. Stream 4 dropped; substance moved to cutting-room-floor. Same family as stakeholder-profile failure: assert without verifying entity is real / current.
+
+**Trigger.** Both checks fire at paper-shaping session start, before forming any reasoning frame. State which profiles were read and which entities were verified inline at first turn. If a check returns "no profile" or "entity not yet existing", surface the gap before reasoning forward. The deterministic action is "grep + read + state finding"; the failure mode is "skip and assume."
+
+**Skill cross-reference.** This pre-flight is the same activation pattern as the `marks library skim` rule in genome.md ("when starting work on a tool, skill, or domain, grep marks for the tool/skill name and skim top 2-3 hits before proceeding"). Profile pre-flight is the principal-specific version; entity pre-flight is the institution-specific version. Both work the same way: not by remembering, but by looking.
+
+Related marks: `feedback_read_stakeholder_profiles_before_paper_strategy.md` (PROTECTED), `finding_activation_not_capture_is_the_session_gap.md` (PROTECTED, instance log).
+
+---
+
 ## 4d. Architectural Discipline — Five Patterns for Multi-Pillar Papers
 
 When a paper carries multiple workstreams, capabilities, or pillars, five patterns recur. Apply before the second iteration; the cost of fixing structure later compounds.
