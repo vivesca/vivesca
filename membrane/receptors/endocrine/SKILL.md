@@ -115,6 +115,9 @@ Categorise every email into one of four buckets:
 - **Health/appointment emails** (clinics, labs, hospitals) — confirmations, reminders, results. Never archive silently.
 - **SmarTone bill** — extract QR payment link: `endosomal action=thread thread_id=<id>` and grep body for `href="https://myaccount.smartone.com/QRBill[^"]*"`. Surface as clickable link with amount + due date.
 - **LinkedIn job alerts** (`jobalerts-noreply@linkedin.com`) — if a Cora brief mentions them, scan role titles Manager+ only. Speculor handles bulk job triage separately.
+- **Single payment/transfer ≥ HKD 10,000** — surface sender + amount even if categorized as routine (Cora "payments" bucket). Large transfers warrant verification regardless of likely-self-transfer prior. Codified after 2026-05-04 Slot 31: HKD 50K SC Pay receipt classified routine, caught only on Terry's "really nothing important?" probe.
+
+**Probe-question semantics (added 2026-05-04 Slot 31).** When Terry asks "really nothing?" / "anything else?" / "are we sure?" after a sweep that CC has marked complete, treat it as a forcing function for re-scan with higher gain — NOT as a request for confirmation of the prior pass. The probe means "test whether your default-to-finished is real." Re-scan the briefs/inbox at higher signal threshold (large transactions, off-hours senders, unfamiliar domains, anything you sorted as routine without explicit verification). Codified after the same 2026-05-04 Slot 31 instance — HKD 50K only surfaced on probe.
 
 **Cora Briefs emails — read before archiving.** Each brief email in inbox represents unread digest content. Read via `cora brief show <id>` first, extract action items, then archive the email. Never batch-archive briefs without reading them.
 
@@ -348,6 +351,8 @@ Read `feedback_email_drafting_style.md` (PROTECTED, confirmed=1+) at minimum: no
 
 When user iterates on a single micro-decision (preposition choice, single-phrase add/drop, one-word swap) and the same decision cycles 2+ times, **stop producing fresh "honest comparison" tables and declare taste-level**. This applies when both options work and the choice is preference, not analysis.
 
+**Stronger trigger (sharpened 2026-05-04 after 2nd instance):** the trigger is not "same micro-decision asked twice" — it's "user has questioned ANY aspect of the SAME draft 2 times via 'should we / what if / is it X?' framing." Even if the questions hop between micro-decisions (closer warmth, length-match, phrasing, filler), the cycle count is per-draft, not per-decision. After 2 such pushbacks on the same draft, the next response defaults to taste-level handling for whatever micro-decision arrives next — do not produce a fresh comparison.
+
 Decision tree at cycle 2+:
 
 1. **Both options work?** → "This is taste-level. Both work. Pick whichever reads right to you." Stop generating new analytic frames.
@@ -357,6 +362,8 @@ Decision tree at cycle 2+:
 **Anti-pattern (filed as `finding_cc_polish_iteration_micro_edit_thrash.md`):** producing a fresh "honest comparison" table each cycle that conveniently lands where the user's question implies. Each cycle CC produces new tables/pros-cons/"honest reads" instead of recognizing taste-decision. This dilutes signal, costs tokens, and trains user to expect CC will flip on demand.
 
 The sibling-pattern epistemics file is `~/epigenome/chromatin/euchromatin/epistemics/reactive-flip-needs-independent-grounding.md` — that covers grounded-position pushback. Polish-iteration thrash is the taste-decision sub-case where there are no grounds to defend; the right move is naming the decision-type, not generating analysis.
+
+**Recurrence note (2026-05-04 Slot 31):** 2nd instance — Cartier reply 6 cycles, BOCHK reply 3 cycles. Skill-edit-only enforcement is demonstrably not deterring. If 3rd instance occurs, escalate to mitosis cycle as deterministic-enforcement candidate (hook: count fresh comparison frames within last N turns, fire when ≥2 same-draft).
 
 ---
 
