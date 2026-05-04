@@ -62,6 +62,11 @@ anti_patterns:
     reject: false
     flag: "Replace 'in flight' with 'underway' or 'in progress'. Board register prefers institutional verbs over consulting idiom. Surfaced 28 Apr 2026 v0.20 diction-polish pass."
 
+  - name: availability_hedging
+    pattern: "Uses 'where available', 'where applicable', 'where possible', 'where published', 'if available', 'if applicable', 'subject to availability', 'as appropriate' to qualify a capability commitment"
+    reject: true
+    fix: "Drop the hedge or drop the named source. The hedge telegraphs uncertainty about delivery, which weakens senior register more than the bare claim overcommits. If the source is genuinely uncertain (e.g. AISI selective access), do not name it; cite only sources you can guarantee. Per feedback_senior_register_observes_doesnt_argue.md (PROTECTED): bare assertion outranks hedged assertion in board/CAIO comms. Surfaced 04 May 2026 slot 25 — Doug #8 knockout introduced 'where available' on AISI evals; reverted on Terry challenge."
+
 checks:
   - name: sponsor_co_signal
     question: "Does this version have explicit sponsor co-signal documented (not just on a prior version, not just on the topic)? Cover note / back-channel / verbal-coaching record present?"
