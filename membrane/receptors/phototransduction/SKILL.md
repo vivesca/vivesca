@@ -113,6 +113,8 @@ Read images in order. For each page:
 4. Note anything unclear with `[?]` markers
 5. If text is dense or hard to read, flag for Apple OCR verification
 
+**Time-zone label cluster (mandatory for invite/calendar/scheduling screenshots).** Outlook, Google Calendar, and similar tools display *both* the auto-adjusted local time AND a meta-line stating the original creation timezone (e.g., "This meeting has been adjusted to reflect your current time zone. It was initially created in the following time zone: (UTC+00:00) Dublin, Edinburgh, Lisbon, London"). The displayed time is the **viewer's local time**, NOT the creator's timezone. Single-pass label-skipping that asserts the displayed time is in the *original* timezone is the failure shape (Slot 29 instance, 2026-05-04). DO: read every timezone-related label in the field block — both the displayed time and any "auto-adjusted / originally created in / reflect your current time zone" hints — before asserting any time. DO NOT: derive timezone from one label when a sibling label flips the interpretation.
+
 **Key lesson:** Dense rotated text is where errors concentrate. If photos were taken at an angle or the document was displayed sideways on screen, even after rotation the text quality may be poor. Flag these pages for user verification via Apple Live Text (camera OCR on iPhone/iPad is more accurate than model vision on rotated photos).
 
 ### 5. Structure as markdown
