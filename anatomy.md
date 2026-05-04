@@ -396,8 +396,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **41**
-- Most active: `endosomal` (31), `fetch` (7), `pinocytosis` (2), `lysozyme` (1)
+- Signals (last 7 days): **42**
+- Most active: `endosomal` (31), `fetch` (7), `pinocytosis` (2), `lysozyme` (1), `cytokinesis` (1)
 
 ## Known Lesions
 
