@@ -160,6 +160,21 @@ State the chosen layer inline in §2d as you display it: each item ends with `�
 
 State the routing inline in §2d as you display it: each item ends with `→ filed: <path>` or `→ skill edit: <path>` or `→ epistemics: <path>`. Terry sees the action with the finding, not the finding alone.
 
+#### 3c. In-session action scan (mandatory)
+
+After §3a/§3b routing, scan §2d items for **in-session action implications** — situations where the lesson directly applies to a deferred question, current artefact state, or carry-forward note in this session's Tonus or daily.
+
+For each item ask: "Does this lesson apply to anything in *this* session's open state, not just future sessions?" Concrete shapes:
+
+- **§2d says "should have done X mid-session"** → if X is still doable now (a quick call, a skill edit, a Tonus refinement), do it now. Don't file "should have done X" as future-only learning if the action is still cheap and reversible.
+- **§2d says "ask Terry about Y when stuck"** → if a carry-forward in this session's Tonus is exactly the "stuck" situation Y describes, pre-load the specific Terry-question into Tonus so next session opens with the question already framed, not with the unsolved analytical loop.
+- **§2d says "propagate lesson to skill Z"** → if the routing applied the lesson to skill A but the same lesson applies to skill Z, propagate now in the same wrap turn.
+- **§2d says "test the new gate fires"** → if the gate is testable synthetically (CLI gate runnable, skill-edit grep-checkable), test now and confirm in §2d as `→ tested: <result>`.
+
+State each in-session action inline in §2d with `→ applied: <what>` or `→ pre-loaded into Tonus: <what>`.
+
+**Failure mode this prevents:** retrospective routes §2d to durable artefacts (Layer-3 enforcement) but treats them as future-only — future sessions will encounter the lesson when situations match. The current session's *open* state goes un-acted-on. The lesson sits as text in a file no future session reads until the trigger fires; meanwhile the carry-forward question that the lesson directly answers gets deferred to next session in vague form. Codifies failure caught in retrospective 2026-05-04-1955: Item 3's "ask Terry to state the arc when stuck on ordering" was filed as epistemics but not applied to the deferred safety-within-governance question, even though that question is exactly the "stuck on ordering" situation. The action gap was visible at wrap; only Terry's challenge surfaced it.
+
 ### 4. Display Final Output to Terry
 
 Display sections 2a–2e inline (don't make Terry open the file). Be honest, specific, brief. Each section <150 words. Total output ≤800 words. §2d items must show their routing destination per §3.
