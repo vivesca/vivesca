@@ -129,7 +129,7 @@ If a daily file already has earlier session blocks captured at compact, this ses
 
 **If you genuinely must skip a gate** (rare — e.g., `daily_note` when the session was <3 minutes of reversible chat), state the gate name and the reason explicitly in the wrap output so Terry can see what was bypassed.
 
-**Display order in wrap output:** state skipped gates with rationale, then the daily-note Arc paragraph (or a one-line pointer to the daily note path). Tonus is the next-session handoff, not the wrap display — the daily Arc is what Terry reads as the close.
+**Display order in wrap output:** state skipped gates with rationale, then a one-line pointer to the daily note path written as `Arc → ~/epigenome/chromatin/Daily/YYYY-MM-DD.md`. Do not restate the Arc paragraph in chat output — the daily note is the visible terminal artefact via its file diff, and re-displaying the prose duplicates content while violating `feedback_prose_forces_committed_thinking.md`'s rule against redundant gesture-at-completeness. Tonus is the next-session handoff, not the wrap display.
 
 ### 6. Prompt retrospective (final step)
 
