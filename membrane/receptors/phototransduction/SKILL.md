@@ -74,6 +74,19 @@ sips -r -90 image.jpg --out image_ccw.jpg
 
 # Batch fallback (Linux):
 for f in *.jpg; do convert "$f" -auto-orient "$f"; done
+
+# Soma fallback — neither sips nor ImageMagick (`convert`/`magick`) are
+# installed on the Fly host. Use Python + PIL (already in the germline venv):
+python3 -c "
+from PIL import Image
+for f in ['IMG_001.jpg', 'IMG_002.jpg']:
+    img = Image.open(f)
+    img.rotate(90, expand=True).save(f.replace('.jpg','_ccw.jpg'))
+    img.rotate(-90, expand=True).save(f.replace('.jpg','_cw.jpg'))
+"
+# Then Read both _cw and _ccw, pick whichever has upright text.
+# PIL's positive-degrees rotates COUNTER-clockwise; expand=True preserves
+# the rotated bounding box rather than cropping.
 ```
 
 **Stop rule:** if you cannot read the document text upright after EXIF rotation, do NOT transcribe. Rotate +90° and -90°, save both, pick the readable version. This is mandatory, not optional.
