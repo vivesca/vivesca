@@ -26,6 +26,7 @@
 - **Specs go to `~/epigenome/chromatin/loci/plans/`** (private repo) with status frontmatter. Never `germline/loci/plans/` (public repo — HSBC/Capco leak audit 2026-04-06 retired that path) and never `/tmp/`.
 - **PII boundary:** Memory files with `pii: true` in frontmatter (user_salary, user_insurance, user_health_*, user_financial) are CC-only. Never send to external LLM APIs. Non-PII marks (feedback, finding, reference) are safe for goose/droid via translocon coaching injection.
 - **Atomic commits:** Every sortase dispatch uses `--commit`. Each build = one commit with clear message. Don't accumulate uncommitted changes across builds.
+- **Agent-produced artefact provenance.** Any chromatin or epigenome artefact written by a non-Claude-Code agent (Hermes Agent, Codex, Gemini CLI, Goose, ribosome outputs elevated to chromatin, etc.) must declare provenance in frontmatter: `reviewer:` or `author:` field naming the agent and model (e.g. `Hermes Agent (anthropic/claude-opus-4.7)`), plus tags for the agent identity and model version (e.g. `hermes-agent`, `claude-opus-4-7`). Marks already carry `source:` — this extends the same discipline to chromatin artefacts. Filterable by agent lineage later; also makes model-version drift observable when reviewing old outputs.
 
 ## How to Think
 
