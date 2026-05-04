@@ -543,6 +543,47 @@ def guard_write(data):
                     "write-guard",
                 )
 
+    # Garden-post engagement fingerprint scan
+    # Per feedback_garden_sensitivity_scan.md (slot 23 activation gap, 2026-05-04).
+    # Mark-based enforcement failed twice; deterministic gate.
+    # Skip _parked-* files (sanitisation gate explicit in frontmatter).
+    if "/chromatin/secretome/" in fp and fp.endswith(".md"):
+        filename = fp.rsplit("/", 1)[-1]
+        if not filename.startswith("_"):
+            content = ti.get("content", "") or ti.get("new_string", "")
+            fingerprints = [
+                "Capco",
+                "HSBC",
+                "MRM ",
+                "Doug Robertson",
+                "David Rice",
+                "Beth Aleksander",
+                "Simon Eltringham",
+                "Julian Phillips",
+                "Tobin",
+                "Bing Zhu",
+                "Eunomia",
+                "Hermes Agent",
+                "AIRCo",
+                "Daniel Bradberry",
+                "Matt Cuffe",
+                "Oxana",
+                "SS1/23",
+                "Dynamo AI",
+                "Arize",
+                "AIMS",
+                "QMIO",
+                "Capability inheritance",
+            ]
+            matched = [s for s in fingerprints if s in content]
+            if matched:
+                deny(
+                    f"Garden draft fingerprint match: {matched}. "
+                    f"File as `_parked-*.md` for sanitisation, or remove "
+                    f"matched strings. Per feedback_garden_sensitivity_scan.md.",
+                    "write-guard",
+                )
+
 
 # ── guard_read: from nociceptor-read.js ────────────────────
 
