@@ -64,6 +64,7 @@ BEFORE attempting ANY fix:
 3. **Check recent changes** — git diff, new deps, config, environment. Include concurrent changes from parallel sessions — `git log --since="2 hours ago"` and `ls -la` on the suspect files.
 4. **Gather evidence at boundaries** — in multi-component systems, log what enters/exits each component. Run once. The failing boundary IS the root cause location
 5. **Trace data flow** — where does the bad value originate? Keep tracing up until you find the source. Fix at source, not symptom
+6. **Report root cause in evidence-vs-inference layers** — when answering "what was the root cause?", distinguish (a) **proximate failure** (what visibly broke, with log/observation evidence), (b) **probable trigger** (what set proximate failure in motion — often inferred from signature, not directly proven), (c) **definitive confirmation** (which may not be available without third-party logs). State explicitly which layer is evidenced and which is inferred. Don't collapse the chain into one sentence ("X died, restart fixed it"). Counter-example: "vsock died, restart fixed it" hides that the root question is *what killed vsock* — host event, OOM, supervisor batch — and the available evidence only proves the proximate failure, not the trigger. Codifies retrospective 2026-05-06-0700 — answering root-cause questions in honest layers makes the limits of the diagnosis visible to the user, who often has external context (host-side logs, vendor incidents) that can resolve the inferred layer.
 
 ### Phase 3: Pattern Analysis
 
