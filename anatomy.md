@@ -178,12 +178,8 @@ _(no description)_
 _(no description)_
   Files: `PROVENANCE.md`, `assets`, `references`, `scripts`
 
-### mtor
-_(no description)_
-  Files: `mtor`
-
-### Standalone scripts (184 total, on PATH)
-  Recent: `pinocytosis`, `flush_processor.py`, `cytokinesis`, `soma-pull`, `pondus-aa-health`, `supervisor-drift-check`, `m3-plist-retry`, `qmd-reindex.sh`, `evergreen`, `skill-trigger-stats`
+### Standalone scripts (183 total, on PATH)
+  Recent: `supervisor-env`, `tmux-workspace.py`, `transfection`, `soma-snapshot`, `start-chrome-debug.sh`, `vivesca-preflight`, `legatum`, `soma-wake`, `willison-scrape`, `synthase`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map

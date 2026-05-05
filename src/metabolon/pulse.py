@@ -666,6 +666,33 @@ def fire_systole(
 # ---------------------------------------------------------------------------
 
 
+def _commit_report(report_path: Path, ts: str):
+    """Auto-commit a pulse report into the epigenome repo."""
+    epigenome_dir = Path.home() / "epigenome"
+    try:
+        subprocess.run(
+            ["git", "add", str(report_path)],
+            cwd=str(epigenome_dir),
+            check=True,
+            capture_output=True,
+        )
+        diff_result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet", str(report_path)],
+            cwd=str(epigenome_dir),
+            capture_output=True,
+        )
+        if diff_result.returncode == 0:
+            return
+        subprocess.run(
+            ["git", "commit", "-m", f"auto: pulse report {ts}"],
+            cwd=str(epigenome_dir),
+            check=True,
+            capture_output=True,
+        )
+    except Exception as exc:
+        log(f"pulse auto-commit failed for {report_path.name}: {exc}")
+
+
 def record_vital_signs(total_systoles: int, stop_reason: str):
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
@@ -676,7 +703,8 @@ def record_vital_signs(total_systoles: int, stop_reason: str):
     report_path.write_text(f"""---
 title: "Pulse Report -- {ts}"
 date: {datetime.date.today().isoformat()}
-tags: [pulse, report]
+tags: [pulse, report, vivesca-pulse]
+author: vivesca-pulse
 systoles: {total_systoles}
 stop_reason: {stop_reason}
 ---
@@ -691,6 +719,8 @@ stop_reason: {stop_reason}
 {manifest_content}
 """)
     print(f"Report written to {report_path}")
+
+    _commit_report(report_path, ts)
 
 
 def cross_model_review(manifest_path: Path):
