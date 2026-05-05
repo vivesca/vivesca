@@ -932,6 +932,114 @@ def surface_epistemics(data):
     print(hint, file=sys.stderr)
 
 
+# ── guard_read_target_preflight: Sub-detector B ─────────────
+
+
+_CURATED_SEGMENTS = frozenset({"chromatin", "immunity", "marks", "drafts"})
+_STOPLIST_DIRS = (HOME / "tmp", Path("/tmp"))
+_SESSIONS_DIR = HOME / ".claude" / "projects" / "-home-vivesca"
+
+
+def _is_user_curated_path(target: Path) -> bool:
+    """True if target path contains a user-curated directory segment."""
+    return bool(_CURATED_SEGMENTS.intersection(target.parts))
+
+
+def _is_stoplisted_path(target: Path) -> bool:
+    """True if target is under ~/tmp or /tmp (scratch / dispatch output paths)."""
+    resolved = str(target)
+    for stop in _STOPLIST_DIRS:
+        stop_str = str(stop)
+        if resolved == stop_str or resolved.startswith(stop_str + os.sep):
+            return True
+    return False
+
+
+def _session_jsonl_path(session_id: str) -> Path | None:
+    """Resolve the session JSONL path for the given session ID.
+
+    Returns None when the session file does not exist on disk.
+    """
+    candidate = _SESSIONS_DIR / f"{session_id}.jsonl"
+    return candidate if candidate.exists() else None
+
+
+def _was_target_read(session_jsonl: Path, target_path: str) -> bool:
+    """Scan session JSONL for a prior Read tool-use on the given absolute path."""
+    try:
+        with session_jsonl.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                content = entry.get("message", {}).get("content", [])
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    if block.get("name") != "Read":
+                        continue
+                    read_path = block.get("input", {}).get("file_path", "")
+                    if not read_path:
+                        continue
+                    if str(Path(read_path).expanduser().resolve()) == target_path:
+                        return True
+        return False
+    except OSError:
+        return False
+
+
+def guard_read_target_preflight(data):
+    """Warn when editing a user-curated file not Read in the current session.
+
+    Sub-detector B of the reactive-not-proactive family.
+    Fires on Edit / Write / MultiEdit targeting chromatin / immunity / marks / drafts
+    paths that exist on disk but have no prior Read in this session's JSONL.
+    Emits an additionalContext nudge (allow_msg), never denies.
+    """
+    ti = data.get("tool_input", {})
+    fp = ti.get("file_path", "")
+    if not fp:
+        return
+
+    target = Path(fp).expanduser().resolve()
+    target_str = str(target)
+
+    if _is_stoplisted_path(target):
+        return
+
+    if not _is_user_curated_path(target):
+        return
+
+    if not target.exists():
+        return
+
+    session_id = data.get("session_id", "")
+    if not session_id:
+        return
+
+    session_jsonl = _session_jsonl_path(session_id)
+    if session_jsonl is None:
+        allow_msg(
+            f"About to edit `{fp}` without having Read it in this session. "
+            "Read first to verify current state, then proceed with edit."
+        )
+        return
+
+    if _was_target_read(session_jsonl, target_str):
+        return
+
+    allow_msg(
+        f"About to edit `{fp}` without having Read it in this session. "
+        "Read first to verify current state, then proceed with edit."
+    )
+
+
 # ── main ───────────────────────────────────────────────────
 
 
@@ -1035,6 +1143,7 @@ def main():
         elif tool in ("Write", "Edit", "MultiEdit"):
             guard_write(data)
             guard_efferent(data)
+            guard_read_target_preflight(data)
         elif tool == "Read":
             guard_read(data)
             guard_pipeline_bypass(data)
