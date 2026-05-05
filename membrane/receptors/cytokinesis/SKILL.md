@@ -80,6 +80,8 @@ The routing table catches obvious signals (corrections, surprises, state changes
 
 **These run AFTER §1's correction backstop and BEFORE §2's audit signal.** They catch substance that the routing table doesn't have a column for. If any return non-empty, do the routing now (skill edit, epistemics file, profile update, marks entry) before proceeding to §2.
 
+**Mark write-style — new marks default to prose.** When filing a new mark in this section's routing, default to prose paragraphs that name what they are doing in flowing sentences. Sub-headers and DO/DO NOT lists are reserved for cases where the contrast or section structure is the rule's load-bearing content rather than a default scaffold. See `feedback_marks_written_in_prose.md` (PROTECTED) for the convention and the priming-effect rationale. Existing structured marks are not retroactively rewritten; the convention applies only to marks created from this point forward.
+
 ### 2. Audit signal (proprioception)
 
 Count findings routed in this pass:
