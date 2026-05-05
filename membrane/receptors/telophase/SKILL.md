@@ -47,7 +47,7 @@ Why: the retrospective's value is judgment about *substantive* state — what wo
 
 **Deterministic pre-flight check (mandatory, replaces "when in doubt, ask"):** before invoking `/cytokinesis`, run `cytokinesis gather` and inspect the `recent_retrospective` gate **plus** the `substantive_arc` signal:
 
-- **`substantive_arc: true`** (commits ≥2 OR new marks ≥1 since prior retrospective) → **run full `/telophase`**. Substance signal overrides the time gate; the slot's work is non-trivial regardless of how recently the prior retrospective filed.
+- **`substantive_arc: true`** (commits ≥2 OR new marks ≥1 since prior retrospective) → **run full `/telophase`**. Substance signal overrides the time gate; the slot's work is non-trivial regardless of how recently the prior retrospective filed. **Do NOT override `substantive_arc: true` with chat-context judgment** ("but it feels like a thin polish slot", "21 min ago, two link tweaks"). The deterministic gate's job is precisely to overrule that vibe-based read; if you're tempted to override, default to trusting the gate. The 2026-05-05-1510 instance — recommended checkpoint when gate said full telophase, retrospective was warranted on substance grounds — codifies this. State the gate's reading verbatim when proposing the path; do not editorialise around it.
 - **`substantive_arc: false` AND recent retrospective <4h ago** → **default to `/cytokinesis checkpoint`** (skip retrospective) and confirm with Terry:
 
   > "Recent retrospective filed `<X>h` ago, no substantive arc since (`<C>` commits, `<M>` new marks). Defaulting to thin checkpoint mode (skip retrospective). Confirm: `checkpoint` or `full telophase`?"
