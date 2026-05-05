@@ -50,7 +50,7 @@ If `~/epigenome/TODO.md` exists, read it and collect unchecked items (`- [ ]`) t
 
 If current time is after 12:00 HKT, check `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`:
 - Count unchecked flagged roles (`- [ ]` lines)
-- If any exist, include in the menu as: "💼 Job alerts: X roles flagged — `/evaluate-job`"
+- If any exist, include in the menu as: "💼 Job alerts: X roles flagged — `/adhesion`"
 - Skip silently if file missing or all items checked
 
 ### 4. Inbox triage prompt (post-3pm only)

@@ -1,6 +1,6 @@
 ---
 name: summarize
-description: Fetch and summarize content from a URL, podcast, or local file. For "summarize this" queries. NOT for vault cataloguing (use analyze) or video transcripts (use video-digest).
+description: Fetch and summarize content from a URL, podcast, or local file. For "summarize this" queries. NOT for vault cataloguing (use phagocytosis) or video transcripts (use video-digest).
 user_invocable: true
 github_url: https://github.com/steipete/summarize
 ---

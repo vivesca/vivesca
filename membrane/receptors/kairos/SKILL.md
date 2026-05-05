@@ -73,7 +73,7 @@ Read `~/epigenome/chromatin/NOW.md`.
 
 If current time is after 12:00 HKT, check `~/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`:
 - Count unchecked flagged roles (`- [ ]` lines)
-- If any exist, surface briefly: "X job alerts flagged — `/evaluate-job` when you have a moment"
+- If any exist, surface briefly: "X job alerts flagged — `/adhesion` when you have a moment"
 - Skip silently if file missing or all items checked
 
 ### 5. Overdue and today's TODO items

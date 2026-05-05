@@ -174,7 +174,7 @@ This is simpler and more reliable than agents talking to each other.
 
 ## After the Research
 
-1. Write synthesis to vault: `analyze` skill or direct vault note
+1. Write synthesis to vault: `phagocytosis` skill or direct vault note
 2. If a clear winner emerged → feed into `rector` for implementation
 3. Update `karpathy-agent-research-org.md` with what worked/didn't
 4. Ask: *"did this agent org config produce results efficiently? what would I change?"* — this is the meta-benchmark

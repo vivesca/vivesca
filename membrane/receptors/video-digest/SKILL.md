@@ -18,7 +18,7 @@ source: Adapted from github.com/runesleo/x-reader (Feb 2026), rewritten for Gemi
 
 # Video & Podcast Digest
 
-Full transcription pipeline for video and podcast URLs. Called by `summarize` and `analyze` skills when media URLs are detected — not invoked directly.
+Full transcription pipeline for video and podcast URLs. Called by `summarize` and `phagocytosis` skills when media URLs are detected — not invoked directly.
 
 Uses **Gemini 3 Flash** for transcription + digest in a single API call. No Whisper, no segmentation, no second API key.
 
