@@ -52,7 +52,7 @@ checks:
       bad: "Wall of text, hard to scan"
 
   - name: sycophancy_phrases
-    question: "Does the output open with or contain validation/sycophancy phrases? (imported from pmarca anti-sycophancy prompt 2026-05-06)"
+    question: "Does the output open with or contain validation/sycophancy phrases? (imported from pmarca anti-sycophancy prompt 2026-05-06; phrase list extrapolated from three explicitly cited examples — verify against pmarca verbatim and prune/extend)"
     weight: high
     banned_phrases:
       - "great question"
