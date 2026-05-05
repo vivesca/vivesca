@@ -852,6 +852,84 @@ def mod_rheotaxis(data):
     return []
 
 
+# ── named-tool pushback: named-entity + pushback detection ──
+
+_PUSHBACK_PHRASES = [
+    r"\bbut\b",
+    r"\bactually\b",
+    "\\bdidn[\u2019']t you\\b",
+    r"\bhave you\b",
+    r"\bare you sure\b",
+    r"\breally\b",
+    r"\bis it\b",
+    r"\bdid you check\b",
+    r"\byou said\b",
+]
+_PUSHBACK_RE = [re.compile(p, re.IGNORECASE) for p in _PUSHBACK_PHRASES]
+
+_NAMED_STOPWORDS = frozenset(
+    {
+        "I",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+        "Group",
+        "Compliance",
+    }
+)
+
+
+def _sense_pushback(text: str) -> bool:
+    return any(pat.search(text) for pat in _PUSHBACK_RE)
+
+
+def _flag_named_antigens(text: str) -> list[str]:
+    tokens = [tok.strip(".,;:!?'\"\u2019()[]{}") for tok in text.split()]
+    entities: list[str] = []
+    for i, tok in enumerate(tokens):
+        if i == 0:
+            continue
+        if not tok or not tok[0].isupper():
+            continue
+        if tok in _NAMED_STOPWORDS:
+            continue
+        entities.append(tok)
+    return entities
+
+
+def mod_named_tool_pushback(data):
+    prompt = data.get("prompt", "")
+    if not prompt:
+        return []
+    if not _sense_pushback(prompt):
+        return []
+    antigens = _flag_named_antigens(prompt)
+    if not antigens:
+        return []
+    names = ", ".join(antigens)
+    return [
+        f"User named specific entity/entities ({names}). "
+        "Run rheotaxis on names BEFORE responding. "
+        "See `finding_run_empirical_check_on_named_tools_immediately.md`."
+    ]
+
+
 # ── context: parked item injection ───────────────────────
 
 DAILY_DIR = CHROMATIN_DIR / "Daily"
@@ -1066,6 +1144,7 @@ def main():
         mod_chemoreceptor,
         mod_priming,
         mod_rheotaxis,
+        mod_named_tool_pushback,
         mod_mitogen,
         mod_senescence,
         mod_circaseptan,
