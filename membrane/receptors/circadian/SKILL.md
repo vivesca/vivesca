@@ -1,6 +1,6 @@
 ---
 name: circadian
-description: Daily rhythm — morning brief, midday check, evening wrap. Auto-routes by time. "what now", "what's next", "morning brief", "evening routine"
+description: Daily rhythm — morning brief, midday check, evening wrap. Auto-routes by time. "morning brief", "midday check", "evening routine", "circadian". For any-time situational "what now" / "what's next", use kairos.
 effort: high
 user_invocable: true
 triggers:
