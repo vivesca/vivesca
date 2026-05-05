@@ -16,6 +16,7 @@ Commands:
   logs [opts]     Tail logs
   restart [svc]   Restart a supervisor service (or the whole machine)
   pull            Git pull germline + epigenome on soma
+  doctor [--fix]  Diagnose silent failures (vsock break, CONNMARK wedge, sshd dead). With --fix, auto-restart on confirmed silence.
   *               Pass through to fly -a soma
 
 Examples:
@@ -24,6 +25,8 @@ Examples:
   soma deploy --strategy immediate
   soma restart soma-watchdog
   soma pull
+  soma doctor          # when ssh soma hangs
+  soma doctor --fix    # diagnose + restart if silent
 EOF
 }
 
@@ -57,6 +60,51 @@ case "${1:-}" in
         ;;
     pull)
         fly ssh console -a "$APP" -C 'su - vivesca -c "cd ~/germline && git pull --ff-only; cd ~/epigenome && git pull --ff-only"'
+        ;;
+    doctor)
+        shift
+        fix=0
+        [ "${1:-}" = "--fix" ] && fix=1
+
+        echo "[1/4] external SSH probe (5s timeout)..."
+        if timeout 8 nc -z -G 5 soma 22 2>/dev/null; then
+            echo "  ssh:22 reachable via Tailscale — soma is healthy"
+            silent=0
+        else
+            echo "  ssh:22 UNREACHABLE via Tailscale"
+            silent=1
+        fi
+
+        echo "[2/4] fly machine status..."
+        fly status -a "$APP" 2>&1 | grep -E "started|critical|stopped|passing|failing" | head -3
+
+        echo "[3/4] recent logs — vsock/FATAL/SIGKILL signatures..."
+        fly logs -a "$APP" --no-tail 2>&1 | tail -200 | \
+            grep -iE "vsock.*broken pipe|fatal|sigkill|connmark|tailscaled.*entered FATAL|oom" | tail -10 || echo "  (no matches in last 200 lines)"
+
+        echo "[4/4] tailscale local view..."
+        tailscale status 2>/dev/null | grep -E "soma|^$" | head -2
+
+        if [ "$silent" = "1" ]; then
+            mid=$(fly machines list -a "$APP" --json | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')
+            echo ""
+            echo "VERDICT: soma silent (TCP:22 unreachable). Likely vsock-broken-pipe or host event."
+            echo "RECOVERY: fly machine restart $mid -a $APP"
+            if [ "$fix" = "1" ]; then
+                echo "Restarting (--fix flag set)..."
+                fly machine restart "$mid" -a "$APP"
+                sleep 5
+                if timeout 15 nc -z -G 10 soma 22 2>/dev/null; then
+                    echo "RESTORED: ssh:22 reachable post-restart"
+                else
+                    echo "WARN: still unreachable post-restart — escalate"
+                    exit 2
+                fi
+            else
+                echo "Run with --fix to restart, or: soma restart"
+                exit 1
+            fi
+        fi
         ;;
     *)
         fly "$@" -a "$APP"

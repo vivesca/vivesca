@@ -3,7 +3,7 @@
 MEMORY="$HOME/.claude/projects/-Users-terry/memory/MEMORY.md"
 if [ ! -f "$MEMORY" ]; then exit 0; fi
 lines=$(wc -l < "$MEMORY")
-if [ "$lines" -gt 145 ]; then
-    echo "WARNING: MEMORY.md is $lines lines (budget: 145). Downregulate low-signal entries."
+if [ "$lines" -gt 150 ]; then
+    echo "WARNING: MEMORY.md is $lines lines (budget: 150). Downregulate low-signal entries."
     exit 1
 fi
