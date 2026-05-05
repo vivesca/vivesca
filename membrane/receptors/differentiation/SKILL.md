@@ -63,7 +63,20 @@ type: session-log
 **Related:** [[Fitness Restart Plan - Scoliosis Safe - 2026-03]]
 ```
 
+## Engagement-failure protocol
+
+If athlete reports "can't feel the [target muscle]" during a set, the movement is failing its purpose — grinding more sets won't fix recruitment. Time-box the recovery: **one cue adjustment + one weight change**, then swap the movement. Don't iterate three+ cue/weight combinations chasing a feel that isn't coming.
+
+Common failure-mode triggers: pallof press at light weight (insufficient rotational pull to brace against), lateral raises at heavy weight (front shoulder + tricep take over), bench at low weight (chest doesn't get loaded). Substitution candidates ready in the log: pallof → suitcase carry / dead bug; lateral raise → cable lateral / leaning DB raise; bench → DB floor press / push-up loaded.
+
+Codifies failure caught in 2026-05-05 Slot 42: prescribed 5kg pallof, then bumped 8-10kg + cue stack, athlete still couldn't feel core. Should have swapped after first failed cue, not third.
+
+## Resistance scaling
+
+Core / accessory weight prescriptions must scale to the athlete's current compound working weights, not absolute floor numbers. If row working weight is 10kg/side, pallof at 5kg is under-prescribed by a factor of 2-4. Default starting point for unilateral / anti-rotation core work: ~50% of bilateral compound working weight.
+
 ## Safety
 
 - **Scoliosis**: no heavy axial loading, no barbell squats/deadlifts, no rotational resistance. DBs over barbells.
 - Pain → stop. Don't coach through it.
+- Engagement-failure → swap, don't grind. See engagement-failure protocol above.
