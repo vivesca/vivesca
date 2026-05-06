@@ -178,8 +178,12 @@ _(no description)_
 _(no description)_
   Files: `PROVENANCE.md`, `assets`, `references`, `scripts`
 
-### Standalone scripts (183 total, on PATH)
-  Recent: `supervisor-env`, `tmux-workspace.py`, `transfection`, `soma-snapshot`, `start-chrome-debug.sh`, `vivesca-preflight`, `legatum`, `soma-wake`, `willison-scrape`, `synthase`
+### mtor
+_(no description)_
+  Files: `mtor`
+
+### Standalone scripts (184 total, on PATH)
+  Recent: `evergreen`, `soma`, `pinocytosis`, `flush_processor.py`, `cytokinesis`, `soma-pull`, `pondus-aa-health`, `supervisor-drift-check`, `m3-plist-retry`, `qmd-reindex.sh`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -398,4 +402,4 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Known Lesions
 
 _(no plans directory)_
-- Tests: UNHEALTHY (0 passed, 0 failed, 23 errors)
+- Tests: UNHEALTHY (0 passed, 0 failed, 22 errors)
