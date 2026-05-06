@@ -301,12 +301,8 @@ else
   PROVIDER="$BACKEND"
 fi
 
-# Auto-route: complex tasks (--full) get strongest free provider;
-# simple/batch tasks get most unlimited. User --provider overrides both.
-if [[ "$BACKEND" == "zhipu" && -z "${RIBOSOME_PROVIDER:-}" && "$FULL_REQUESTED" == "true" && "$HARNESS" == "claude" ]]; then
-  BACKEND="infini"
-  PROVIDER="infini"
-fi
+# Auto-route disabled 2026-05-06: volcano + infini CodingPlans expired,
+# only zhipu (open.bigmodel.cn) is funded. Stay on zhipu regardless of --full.
 
 # Only configure backend when LLM may be needed (manifest mode is zero-LLM)
 if ! $MANIFEST_MODE; then
@@ -318,14 +314,10 @@ if [[ $_SUBCOMMAND == explore && $BACKEND == zhipu && "$HARNESS" == "claude" ]];
   _OPUS="GLM-4.5-air"; _SONNET="GLM-4.5-air"
 fi
 
-# Fallback priority: strongest model first, free before paid at same tier.
-# Iterates list, preflights API providers, returns first healthy one.
-# Gemini/codex skip preflight (no API endpoint to probe).
-# SWE-bench Verified (Apr 2026): Gemini 3.1 Pro 80.6%, M2.5 80.2%,
-#   GPT-5.4 ~80%, GLM-5 77.8%, Doubao Seed 2.0 ~Kilo#4.
-# Tier 1 (~80%): infini (free) > codex (paid) > gemini (paid)
-# Tier 2 (~78%): volcano (free) > zhipu (free)
-_FALLBACK_PRIORITY=(volcano infini codex gemini zhipu)
+# Fallback priority: zhipu (open.bigmodel.cn) is the only funded GLM route
+# as of 2026-05-06. volcano + infini CodingPlans expired; codex/gemini are
+# paid escape hatches. Restore volcano/infini here only after renewal.
+_FALLBACK_PRIORITY=(zhipu codex gemini)
 
 _find_fallback() {
   local failed="$1"
