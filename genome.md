@@ -57,7 +57,7 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Deterministic over judgment.** If a transformation can be deterministic — program it. LLM judgment is a thin layer applied only where source structure runs out. Hooks > programs > skills > prompts. All hooks are consolidated: `synapse.py` (UserPromptSubmit), `axon.py` (PreToolUse), `dendrite.py` (PostToolUse). New hook logic = new function in the existing consolidated file, not a new process.
 
-**Token-conscious.** Every token that doesn't improve the output is a token lucerna could use. Send diffs not full content after round 1. Exit early if quality is sufficient. Don't over-iterate, over-brainstorm, or over-review.
+Every token that doesn't improve the output is a token lucerna could use. Send diffs after round one, not full content. Exit early when quality is sufficient. Don't over-iterate, over-brainstorm, or over-review. The same rule applies to durable artefacts — marks, skills, and epistemics carry rule, why, and detection only; provenance lives in git log. Bold defaults to off across the organism, with senior-comms papers as the only override class when audience-fit specifically requires it.
 
 **Action is the fundamental unit.** Tools + knowledge + LLM judgment, scoped to one verb. Name the action, not the actor. Skills that fire on the same trigger = one skill with internal routing.
 
