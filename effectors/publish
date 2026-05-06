@@ -138,6 +138,31 @@ def strip_frontmatter(content: str) -> str:
         return content
 
 
+def validate_post_frontmatter(content: str) -> list[str]:
+    """Return list of missing-or-bad-field error messages for a post.
+
+    Astro's content collection schema requires `description` and `publishDate`.
+    Posts missing either field break the production build. Common drift modes:
+    `date` instead of `publishDate`, `status: draft` left from secretome convention,
+    or `description` empty / absent.
+    """
+    fm = parse_frontmatter(content)
+    if not fm:
+        return ["no frontmatter block"]
+    errors = []
+    if not fm.get("description"):
+        if "date" in fm and "publishDate" not in fm:
+            errors.append("missing 'description'; also 'date' should be 'publishDate'")
+        else:
+            errors.append("missing 'description'")
+    if not fm.get("publishDate"):
+        if "date" in fm:
+            errors.append("missing 'publishDate' (found legacy 'date' field)")
+        else:
+            errors.append("missing 'publishDate'")
+    return errors
+
+
 def cmd_new(args):
     VAULT_DIR.mkdir(parents=True, exist_ok=True)
     slug = to_slug(args.title)
@@ -329,17 +354,39 @@ def cmd_push(_args):
         print(f"Secretome dir not found: {VAULT_DIR}", file=sys.stderr)
         return 1
 
-    copied = 0
+    candidates = []
     for src in VAULT_DIR.glob("*.md"):
+        if src.name.startswith("_"):
+            continue
         dst = ASTRO_DIR / src.name
-        # Only copy if source is newer or dest doesn't exist
         if not dst.exists() or src.stat().st_mtime > dst.stat().st_mtime:
-            shutil.copy2(src, dst)
-            copied += 1
+            candidates.append((src, dst))
 
-    if copied == 0:
+    if not candidates:
         print("Nothing to sync")
         return 0
+
+    invalid = []
+    for src, _dst in candidates:
+        errors = validate_post_frontmatter(src.read_text())
+        if errors:
+            invalid.append((src, errors))
+    if invalid:
+        print("Refusing to sync — posts with invalid frontmatter:", file=sys.stderr)
+        for src, errors in invalid:
+            print(f"  {src.name}:", file=sys.stderr)
+            for err in errors:
+                print(f"    - {err}", file=sys.stderr)
+        print(
+            "\nFix in secretome, then re-run. Prefix filename with '_' to park.",
+            file=sys.stderr,
+        )
+        return 1
+
+    copied = 0
+    for src, dst in candidates:
+        shutil.copy2(src, dst)
+        copied += 1
 
     print(f"Synced {copied} file(s) to Astro")
 

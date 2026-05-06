@@ -249,3 +249,52 @@ class TestScanContentSanitization:
         if publish_module.STOPWORDS_PATH.exists():
             assert "HSBC" in block, "HSBC must be in block tier"
             assert "Capco" in block, "Capco must be in block tier"
+
+
+# ── push-time frontmatter validation ────────────────────────────────────────────
+
+
+class TestValidatePostFrontmatter:
+    """The push gate must refuse posts that would break the Astro build.
+
+    Regression: 2026-05-06 deploy failed because secretome posts with
+    `date`/`status: draft` (instead of `publishDate`/`description`) were
+    silently copied into the Astro repo.
+    """
+
+    @pytest.fixture
+    def publish_module(self):
+        return _load_publish_module()
+
+    def test_valid_post_passes(self, publish_module):
+        good = (
+            "---\n"
+            'title: "OK"\n'
+            'description: "A one-liner."\n'
+            "publishDate: 2026-05-06T09:00:00.000Z\n"
+            "tags: [garden]\n"
+            "---\n\nBody.\n"
+        )
+        assert publish_module.validate_post_frontmatter(good) == []
+
+    def test_legacy_date_field_blocks(self, publish_module):
+        bad = '---\ntitle: "Bad"\ndate: 2026-05-04\nstatus: draft\ntags: [garden]\n---\n\nBody.\n'
+        errors = publish_module.validate_post_frontmatter(bad)
+        assert errors, "must reject post with legacy `date` and no `publishDate`"
+        assert any("publishDate" in e for e in errors)
+        assert any("description" in e for e in errors)
+
+    def test_missing_description_blocks(self, publish_module):
+        bad = (
+            "---\n"
+            'title: "Bad"\n'
+            "publishDate: 2026-05-06T09:00:00.000Z\n"
+            "tags: [garden]\n"
+            "---\n\nBody.\n"
+        )
+        errors = publish_module.validate_post_frontmatter(bad)
+        assert any("description" in e for e in errors)
+
+    def test_no_frontmatter_blocks(self, publish_module):
+        errors = publish_module.validate_post_frontmatter("Just body, no frontmatter.\n")
+        assert errors, "must reject post with no frontmatter block"
