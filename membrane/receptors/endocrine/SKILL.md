@@ -179,6 +179,10 @@ After the session:
 - Note emails still pending a reply (waiting on others)
 - **Update `[[Email Threads Tracker]]`** — add new active threads, update status, move resolved to Resolved section
 
+## Step 6 — Close the inbox loop (mandatory if exiting triage mid-session)
+
+If Terry exits triage mode (says "done", moves to a different task, signals session-end) **before giving explicit batch calls on the noise list**, ask once before closing: "Archive the N noise items from the triage now, or leave the inbox as-is?" Do not assume "Done" on the action items implicitly authorises archiving the noise — they're separate decisions, and silent leave-as-is leaves the inbox in a stuck state where the same items resurface next triage. One question, then act on the answer. Codified after Slot 57 (2026-05-06): triage surfaced 18 noise items, Terry signalled "Done" after action items were resolved, noise was left un-archived because the agreement-IS-the-gate rule has no end-of-session prompt for unattended batches.
+
 ## Triage workflow conventions
 
 - **Inbox = action queue.** Archive = done. Don't leave resolved emails in inbox.
