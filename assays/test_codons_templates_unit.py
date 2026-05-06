@@ -153,9 +153,9 @@ class TestMorningBriefPrompt:
         assert "histone" in result.lower()
         assert "action=search" in result
 
-    def test_tonus_check(self):
+    def test_g1_check(self):
         result = morning_brief()
-        assert "Tonus.md" in result
+        assert "G1.md" in result
 
     def test_focus_included_when_provided(self):
         result = morning_brief(focus="Project Alpha")

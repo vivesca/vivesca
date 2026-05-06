@@ -54,7 +54,7 @@ If it fails, set `SOMA=false` and run everything locally where possible.
    - If none: skip silently
 
 6. **Work queue** — the core of this brief:
-   - Primary: read tonus.md (`~/epigenome/chromatin/tonus.md` or from session state) for `## Progress (active)` items marked `[next]`
+   - Primary: read g1.md (`~/epigenome/chromatin/g1.md` or from session state) for `## Progress (active)` items marked `[next]`
    - Secondary: check `~/epigenome/TODO.md` for items tagged with today's date
    - Surface all open items with their context. This is the work queue.
 

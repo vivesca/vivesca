@@ -73,13 +73,13 @@ def get_hebbian():
 
 # ── anamnesis: session-start context loading ───────────────
 
-ANAM_NOW = CHROMATIN_DIR / "Tonus.md"
+ANAM_NOW = CHROMATIN_DIR / "G1.md"
 
 
 def _inject_recent_git_log() -> str:
     """Cross-reference block: last 48h of commits in load-bearing repos.
 
-    Sits adjacent to Tonus injection so stale carry-forward claims are
+    Sits adjacent to G1 injection so stale carry-forward claims are
     visible against fresh commits in the same context window. Per
     finding_carry_forward_decay_without_verification.md (Option A).
 
@@ -117,13 +117,13 @@ def _inject_recent_git_log() -> str:
     if not sections:
         return ""
     return (
-        "\n\n## Recent git activity (cross-reference against Tonus carry-forward)\n\n"
+        "\n\n## Recent git activity (cross-reference against G1 carry-forward)\n\n"
         + "\n\n".join(sections)
     )
 
 
 def mod_anamnesis(data):
-    """Session-start context: Tonus + epigenome git pull. Lean.
+    """Session-start context: G1 + epigenome git pull. Lean.
 
     Domain context (anatomy, effectors, circadian, vitals, budget) removed —
     already available on-demand via MCP tools (circadian, interoception,
@@ -153,8 +153,8 @@ def mod_anamnesis(data):
     try:
         c = ANAM_NOW.read_text(encoding="utf-8").strip()
         if c:
-            lines.append(f"\nTonus.md (active session state):\n{c}")
-            # Staleness check: warn if tonus checkpoint is old
+            lines.append(f"\nG1.md (active session state):\n{c}")
+            # Staleness check: warn if g1 checkpoint is old
             checkpoint_match = re.search(
                 r"last checkpoint:\s*(\d{1,2}/\d{1,2}/\d{4})\s*~?\s*(\d{1,2}:\d{2})",
                 c,
@@ -167,7 +167,7 @@ def mod_anamnesis(data):
                     hours_stale = (now - checkpoint_time).total_seconds() / 3600
                     if hours_stale > 4:
                         lines.append(
-                            f"Tonus is {int(hours_stale)}h stale (last checkpoint: {checkpoint_match.group(0)}). "
+                            f"G1 is {int(hours_stale)}h stale (last checkpoint: {checkpoint_match.group(0)}). "
                             "Ask user for updates before giving prioritisation advice — "
                             "calls, schedule changes, and decisions may have happened since."
                         )
@@ -176,7 +176,7 @@ def mod_anamnesis(data):
     except Exception:
         pass
 
-    # Recent git activity — surfaces fresh commits next to Tonus so stale
+    # Recent git activity — surfaces fresh commits next to G1 so stale
     # carry-forward claims are visible against ground truth in the same
     # context window. Per finding_carry_forward_decay_without_verification.md.
     try:

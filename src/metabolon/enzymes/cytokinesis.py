@@ -2,7 +2,7 @@
 
 Actions: gather|verify|flush|wrap
 
-gather: deterministic pre-wrap checks (repos, skills, memory, tonus, gates)
+gather: deterministic pre-wrap checks (repos, skills, memory, g1, gates)
 verify: re-check all gates, report DONE/PENDING
 flush: commit dirty repos
 wrap: gather + verify, refuses to return success until all gates pass

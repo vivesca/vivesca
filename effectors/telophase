@@ -35,7 +35,7 @@ NOTES = HOME / "notes"
 PRAXIS = NOTES / "Praxis.md"
 PRAXIS_ARCHIVE = NOTES / "Praxis Archive.md"
 DAILY_DIR = NOTES / "Daily"
-NOW_MD = NOTES / "Tonus.md"
+NOW_MD = NOTES / "G1.md"
 SKILLS = HOME / "code" / "vivesca" / "receptors"
 CLAUDE_SKILLS = HOME / ".claude" / "skills"
 _CLAUDE_PROJECT = str(HOME).replace("/", "-")
@@ -79,7 +79,7 @@ def git_status(path: Path) -> str | None:
 
 
 def now_age() -> tuple[str, int]:
-    """Return (label, seconds) for Tonus.md age."""
+    """Return (label, seconds) for G1.md age."""
     try:
         mtime = os.path.getmtime(NOW_MD)
         age = int(time.time() - mtime)
@@ -269,7 +269,7 @@ def cmd_gather(args):
     lines = memory_lines()
     results["memory"]["lines"] = lines
 
-    # Tonus
+    # G1
     label, secs = now_age()
     results["now"]["age_label"] = label
     results["now"]["age_seconds"] = secs
@@ -349,10 +349,10 @@ def _print_human(results, sid):
     marker = WARN if mem["lines"] > MEMORY_LIMIT else OK
     print(f"  {marker}  MEMORY.md: {mem['lines']}/{MEMORY_LIMIT} lines")
 
-    # Tonus
+    # G1
     now = results["now"]
     marker = WARN if now["age_label"] in ("stale", "very stale", "missing") else OK
-    print(f"  {marker}  Tonus: {now['age_label']}")
+    print(f"  {marker}  G1: {now['age_label']}")
 
     # Deps
     if results["deps"]:

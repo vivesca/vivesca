@@ -66,13 +66,13 @@ Two skills, run sequentially. Each is a complete skill in its own right; telopha
 
 ### Step 1 — `/cytokinesis` (state consolidation)
 
-Invoke the cytokinesis skill via the Skill tool. It owns: outstanding work completion, verification pass, §1a six substance-capture questions, audit signal, publish check, housekeeping (anatomy refresh, TODO archive), Tonus rewrite, daily note append, hard gate verify.
+Invoke the cytokinesis skill via the Skill tool. It owns: outstanding work completion, verification pass, §1a six substance-capture questions, audit signal, publish check, housekeeping (anatomy refresh, TODO archive), G1 rewrite, daily note append, hard gate verify.
 
-Wait for cytokinesis to complete (Tonus + daily note written, all gates DONE except explicit bypasses).
+Wait for cytokinesis to complete (G1 + daily note written, all gates DONE except explicit bypasses).
 
 ### Step 2 — `/retrospective` (judgment about state)
 
-Invoke the retrospective skill via the Skill tool. It reads the canonical session artefacts (Tonus, daily note, recent commits, new marks) and produces the five-section structured output: What Went Well / What Didn't Go Well / Terry-Pattern Observations / What to Do Differently Next Time / Session Quality Grade.
+Invoke the retrospective skill via the Skill tool. It reads the canonical session artefacts (G1, daily note, recent commits, new marks) and produces the five-section structured output: What Went Well / What Didn't Go Well / Terry-Pattern Observations / What to Do Differently Next Time / Session Quality Grade.
 
 The retrospective writes its own file to `~/epigenome/chromatin/retrospectives/YYYY-MM-DD-HHMM.md` and appends a grade line to `_grades.md`.
 
@@ -91,15 +91,15 @@ The 10% case where you want only one:
 
 ## Wrap-as-Verification, Not Insulation
 
-Continuous capture during the session is the default per genome Session Capture rule. Telophase is verification of continuous capture, not insulation against next-session amnesia. The ideal telophase has nothing left to do — every signal has already been routed to its destination during the session, every correction filed, every state change in Tonus.
+Continuous capture during the session is the default per genome Session Capture rule. Telophase is verification of continuous capture, not insulation against next-session amnesia. The ideal telophase has nothing left to do — every signal has already been routed to its destination during the session, every correction filed, every state change in G1.
 
-If telophase is producing significant new work (filing many late marks, rewriting Tonus from scratch, finding many missed signals), that's a signal the *session* failed at continuous capture — not that the wrap saved you. Treat high telophase output as a session-quality concern, not a wrap-quality success.
+If telophase is producing significant new work (filing many late marks, rewriting G1 from scratch, finding many missed signals), that's a signal the *session* failed at continuous capture — not that the wrap saved you. Treat high telophase output as a session-quality concern, not a wrap-quality success.
 
-This reframes the failure mode: don't fear-drive the wrap. Continuous capture during the session means next session calibrates from Tonus + marks + skills + epistemics regardless of how thorough the wrap was.
+This reframes the failure mode: don't fear-drive the wrap. Continuous capture during the session means next session calibrates from G1 + marks + skills + epistemics regardless of how thorough the wrap was.
 
 ## Anti-Patterns
 
-- **Don't duplicate work between the two skills.** Cytokinesis writes Tonus + daily note. Retrospective READS them and judges. If retrospective is rewriting Tonus, something is wrong.
+- **Don't duplicate work between the two skills.** Cytokinesis writes G1 + daily note. Retrospective READS them and judges. If retrospective is rewriting G1, something is wrong.
 - **Don't skip the gate verification.** Cytokinesis has a hard gate (`cytokinesis verify` returns `all_passed`). Retrospective should not run if cytokinesis bypassed mandatory gates without rationale.
 - **Don't fear-drive the wrap.** Continuous capture is the default; telophase is verification. The ideal telophase has nothing left to do.
 

@@ -5,7 +5,7 @@
  * Before context is summarized:
  * 1. Auto-commits dirty key repos and pushes them
  * 2. Parses transcript for last meaningful user messages
- * 3. Stamps Tonus.md with compaction time + in-flight context
+ * 3. Stamps G1.md with compaction time + in-flight context
 */
 
 const fs = require('fs');
@@ -13,7 +13,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const HOME = process.env.HOME;
-const NOW_MD = path.join(HOME, 'notes', 'Tonus.md');
+const NOW_MD = path.join(HOME, 'notes', 'G1.md');
 
 // Auto-commit + push these repos
 const AUTO_COMMIT_REPOS = [
@@ -128,7 +128,7 @@ function main() {
     }
   }
 
-  // Tonus.md stamping removed — anam search --deep recovers context better than 4 truncated snippets
+  // G1.md stamping removed — anam search --deep recovers context better than 4 truncated snippets
 
 if (logMessages.length > 0) {
     console.error(`[PreCompact] ${logMessages.join('; ')}`);

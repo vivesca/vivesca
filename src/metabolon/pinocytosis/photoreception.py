@@ -1,7 +1,7 @@
 """Photoreception gather — morning brief context.
 
 Sensing light: first input of the day.
-Collects: sleep (Oura), calendar, todo, tonus, budget, weather (optional).
+Collects: sleep (Oura), calendar, todo, g1, budget, weather (optional).
 """
 
 import concurrent.futures

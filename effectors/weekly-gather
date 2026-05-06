@@ -6,7 +6,7 @@
 """
 weekly-gather — deterministic session-close gathering for the /weekly skill.
 
-Gathers context from Calendar, Praxis.md, Tonus.md, Quarterly notes,
+Gathers context from Calendar, Praxis.md, G1.md, Quarterly notes,
 Daily notes, Oura/sopor, Job alerts, and Garden posts.
 """
 
@@ -388,7 +388,7 @@ def render_text(results):
         "─── Weekly Context ──────────────────────────────",
         f"  Calendar:    {results['calendar']['summary']}",
         f"  Praxis:     {results['todo']['summary']}",
-        f"  Tonus:       {results['now']['summary']}",
+        f"  G1:       {results['now']['summary']}",
         f"  Quarterly:   {results['quarterly']['summary']}",
         f"  Last week:   {results['daily']['summary']}",
         f"  Health:      {results['oura']['summary']}",

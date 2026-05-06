@@ -16,7 +16,7 @@ Two modes: **suggest** (default) and **log**.
 4. Suggest based on:
    - Today's rotation slot (day -> restaurant + dish)
    - If same restaurant appears 2+ times in last 3 entries, suggest the alternate from rotation
-   - Gym vs rest day (check readiness from Tonus if available -- gym days favour protein + omega-3)
+   - Gym vs rest day (check readiness from G1 if available -- gym days favour protein + omega-3)
 5. Present: restaurant, dish, one line. Don't over-explain.
 
 ## Log

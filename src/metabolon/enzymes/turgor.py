@@ -1,4 +1,4 @@
-"""tonus tool — session state. Actions: mark|status"""
+"""g1 tool — session state. Actions: mark|status"""
 
 import re
 from datetime import datetime, timedelta, timezone
@@ -7,35 +7,35 @@ from pathlib import Path
 from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
-TONUS = Path.home() / "epigenome" / "chromatin" / "Tonus.md"
+G1 = Path.home() / "epigenome" / "chromatin" / "G1.md"
 HKT = timezone(timedelta(hours=8))
 
 # Pattern: - [status] **Label.** description
 ITEM_RE = re.compile(r"^- \[([^\]]+)\] \*\*(.+?)\*\*\s*(.*)", re.DOTALL)
 
 
-def _read_tonus() -> str:
-    return TONUS.read_text(encoding="utf-8")
+def _read_g1() -> str:
+    return G1.read_text(encoding="utf-8")
 
 
-def _write_tonus(content: str) -> None:
-    tmp = TONUS.with_suffix(".md.tmp")
+def _write_g1(content: str) -> None:
+    tmp = G1.with_suffix(".md.tmp")
     tmp.write_text(content, encoding="utf-8")
-    tmp.replace(TONUS)
+    tmp.replace(G1)
 
 
 @tool(
-    name="tonus",
+    name="g1",
     description="Session state. Actions: mark|status",
     annotations=ToolAnnotations(readOnlyHint=False),
 )
-def tonus(
+def g1(
     action: str,
     label: str = "",
     item_status: str = "",
     description: str = "",
 ) -> dict:
-    """Manage Tonus session state.
+    """Manage G1 session state.
 
     Args:
         action: mark (update a progress item) or status (list items)
@@ -50,7 +50,7 @@ def tonus(
                 "message": "Nothing to update — provide item_status or description",
             }
 
-        content = _read_tonus()
+        content = _read_g1()
         lines = content.splitlines()
         matched = False
         label_lower = label.lower()
@@ -94,11 +94,11 @@ def tonus(
                 lines[i] = f"<!-- last checkpoint: {now} -->"
                 break
 
-        _write_tonus("\n".join(lines) + "\n")
+        _write_g1("\n".join(lines) + "\n")
         return {"success": True, "message": f"Updated '{label}'"}
 
     elif action == "status":
-        content = _read_tonus()
+        content = _read_g1()
         items = []
         for line in content.splitlines():
             m = ITEM_RE.match(line)

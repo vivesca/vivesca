@@ -20,11 +20,11 @@ from typing import Any
 # HKT = UTC+8
 HKT = timezone(timedelta(hours=8))
 
+from metabolon.locus import g1 as _G1_PATH
 from metabolon.locus import praxis as _PRAXIS_PATH
-from metabolon.locus import tonus as _TONUS_PATH
 
 PRAXIS_PATH = str(_PRAXIS_PATH)
-TONUS_PATH = str(_TONUS_PATH)
+G1_PATH = str(_G1_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +248,7 @@ def recall_todo_today(date_iso: str | None = None) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# read_now (Tonus)
+# read_now (G1)
 # ---------------------------------------------------------------------------
 
 _H2_RE = re.compile(r"^##\s+(?P<title>.+)$")
@@ -257,8 +257,8 @@ _PROGRESS_ITEM_RE = re.compile(
 )
 
 
-def sense_tonus(path: str = TONUS_PATH) -> dict[str, Any]:
-    """Parse Tonus.md and return structured facts and progress items."""
+def sense_g1(path: str = G1_PATH) -> dict[str, Any]:
+    """Parse G1.md and return structured facts and progress items."""
     expanded = os.path.expanduser(path)
     raw = _read_file_raw(expanded)
 
@@ -468,7 +468,7 @@ def intake_context(
     calendar_date: str = "today",
     calendar_days: int = 1,
     todo_path: str = PRAXIS_PATH,
-    now_path: str = TONUS_PATH,
+    now_path: str = G1_PATH,
     todo_filter: str = "today",
 ) -> dict[str, Any]:
     """Gather context from all requested sources in parallel."""
@@ -489,7 +489,7 @@ def intake_context(
     dispatch = {
         "date": current_date,
         "todo": _gather_todo,
-        "now": lambda: sense_tonus(path=now_path),
+        "now": lambda: sense_g1(path=now_path),
         "calendar": lambda: sense_calendar(date=calendar_date, days=calendar_days),
         "budget": sense_budget,
     }
@@ -565,10 +565,10 @@ def transduce(ctx: dict[str, Any], calendar_keys: dict[str, str] | None = None) 
     now = ctx.get("now")
     if now and now.get("available"):
         content = now.get("raw", "").strip() or "(empty)"
-        sections["now"] = {"label": "Tonus (current state)", "ok": True, "content": content}
+        sections["now"] = {"label": "G1 (current state)", "ok": True, "content": content}
     else:
         err = now.get("error", "unavailable") if now else "unavailable"
-        sections["now"] = {"label": "Tonus (current state)", "ok": False, "content": f"[{err}]"}
+        sections["now"] = {"label": "G1 (current state)", "ok": False, "content": f"[{err}]"}
 
     budget = ctx.get("budget")
     if budget and budget.get("available"):

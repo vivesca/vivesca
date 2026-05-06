@@ -29,7 +29,7 @@ class TestGatherSuccess:
 
     @patch("metabolon.enzymes.cytokinesis._run_cli")
     def test_gather_all_passed(self, mock_cli):
-        gates = {"memory": "DONE", "repos": "DONE", "tonus": "DONE"}
+        gates = {"memory": "DONE", "repos": "DONE", "g1": "DONE"}
         mock_cli.return_value = (0, _gates_payload(gates))
 
         result = cytokinesis(action="gather")
@@ -43,7 +43,7 @@ class TestGatherSuccess:
 
     @patch("metabolon.enzymes.cytokinesis._run_cli")
     def test_gather_with_pending(self, mock_cli):
-        gates = {"memory": "DONE", "repos": "PENDING", "tonus": "PENDING"}
+        gates = {"memory": "DONE", "repos": "PENDING", "g1": "PENDING"}
         mock_cli.return_value = (0, _gates_payload(gates))
 
         result = cytokinesis(action="gather")

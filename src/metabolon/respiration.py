@@ -4,7 +4,7 @@ In biology, respiration is the conversion of fuel into usable energy,
 with waste expelled. In the organism:
 
 - Fuel in: tokens consumed (from vasomotor)
-- Energy out: outputs Terry acted on (from Praxis/Tonus completion signals)
+- Energy out: outputs Terry acted on (from Praxis/G1 completion signals)
 - Waste: tokens spent on saturated, duplicate, or ignored output
 
 The core metric is ejection fraction: what fraction of pulse output
@@ -22,7 +22,7 @@ from pathlib import Path
 from metabolon.vasomotor import log, record_event
 
 PRAXIS_FILE = Path.home() / "epigenome" / "chromatin" / "Praxis.md"
-TONUS_FILE = Path.home() / "epigenome" / "chromatin" / "Tonus.md"
+G1_FILE = Path.home() / "epigenome" / "chromatin" / "G1.md"
 RESPIRATION_STATE = Path.home() / "tmp" / "respiration-metrics.json"
 CARDIAC_LOG = Path.home() / "tmp" / "pulse-manifest.md"
 

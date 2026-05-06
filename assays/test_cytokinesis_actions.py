@@ -61,7 +61,7 @@ def test_gather_memory_over_limit_warning():
         assert "MEMORY.md" in result.message
 
 
-def test_gather_stale_tonus_warning():
+def test_gather_stale_g1_warning():
     from metabolon.enzymes.cytokinesis import cytokinesis_gather
 
     data = {
@@ -74,7 +74,7 @@ def test_gather_stale_tonus_warning():
         mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(data))
         result = cytokinesis_gather()
         assert result.status == "warning"
-        assert "tonus stale" in result.message
+        assert "g1 stale" in result.message
 
 
 def test_gather_nonzero_exit():

@@ -80,7 +80,7 @@ You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Us
 
 ## Steps
 
-1. **Load session state.** Read ~/tmp/pulse-manifest.md (memory of prior systoles), ~/epigenome/chromatin/North Star.md (includes meta goal), ~/epigenome/chromatin/Praxis.md (head 80), ~/epigenome/chromatin/Tonus.md. Run `date`.
+1. **Load session state.** Read ~/tmp/pulse-manifest.md (memory of prior systoles), ~/epigenome/chromatin/North Star.md (includes meta goal), ~/epigenome/chromatin/Praxis.md (head 80), ~/epigenome/chromatin/G1.md. Run `date`.
 2. **Scout.** What do the north stars need? What did prior systoles reveal? Any `agent:claude` items in TODO? Any deadlines within 14 days? Pick the north star with least coverage. Allocate ~{stroma_pct}% of agents to the meta goal (system improvement) while the system is young.{focus_line}
 3. **Dispatch 15-20 agents** with `run_in_background: true`, `mode: bypassPermissions`. Model routing: research/collection -> sonnet, synthesis/judgment -> opus. Each prompt starts: "Read ~/tmp/pulse-manifest.md. Do not duplicate completed work." When outputs naturally chain (research -> synthesis -> brief), dispatch as a pipeline.
 4. **Wait** for all agents. Process results.

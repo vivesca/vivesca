@@ -111,7 +111,7 @@ def morning_brief(
         f"1. Read vivesca://circadian — list today's events with times (HKT).\n"
         "2. Use histone with action=search for any pending items or "
         "open loops from recent sessions.\n"
-        f"3. Check ~/epigenome/chromatin/Tonus.md for active priorities.\n"
+        f"3. Check ~/epigenome/chromatin/G1.md for active priorities.\n"
         f"{focus_block}"
         f"4. Produce a brief (under 300 words) covering:\n"
         f"   a. Today's schedule (events + gaps)\n"

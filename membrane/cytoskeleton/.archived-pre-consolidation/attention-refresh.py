@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: re-inject Tonus.md every N mutating tool calls.
+"""PostToolUse hook: re-inject G1.md every N mutating tool calls.
 Combats 'lost in the middle' on long sessions. (Stolen from Manus todo.md pattern.)"""
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ import os
 
 MARKER = "/tmp/claude-attention-counter"
 INTERVAL = 25  # mutating tool calls between refreshes
-NOW_PATH = os.path.expanduser("~/epigenome/chromatin/Tonus.md")
+NOW_PATH = os.path.expanduser("~/epigenome/chromatin/G1.md")
 
 # Read current count
 try:

@@ -106,7 +106,7 @@ class TestNowAge:
     """Tests for now_age helper function."""
 
     def test_returns_missing_when_file_not_found(self, tmp_path):
-        """Missing Tonus.md returns ('missing', -1)."""
+        """Missing G1.md returns ('missing', -1)."""
         # Create a modified version of now_age that uses a custom path
         ns = {"__name__": "test", "NOW_MD": tmp_path / "nonexistent.md"}
         exec(
@@ -136,7 +136,7 @@ def now_age():
 
     def test_returns_fresh_when_recent(self, tmp_path):
         """File modified < 15 min ago returns ('fresh', seconds)."""
-        now_md = tmp_path / "Tonus.md"
+        now_md = tmp_path / "G1.md"
         now_md.write_text("test")
 
         ns = {"__name__": "test", "NOW_MD": now_md}
@@ -167,7 +167,7 @@ def now_age():
 
     def test_returns_recent_when_older(self, tmp_path):
         """File modified 15-60 min ago returns ('recent', seconds)."""
-        now_md = tmp_path / "Tonus.md"
+        now_md = tmp_path / "G1.md"
         now_md.write_text("test")
         old_time = time.time() - 1800  # 30 min ago
         os.utime(now_md, (old_time, old_time))
@@ -200,7 +200,7 @@ def now_age():
 
     def test_returns_stale_when_hour_old(self, tmp_path):
         """File modified 1-24 hours ago returns ('stale', seconds)."""
-        now_md = tmp_path / "Tonus.md"
+        now_md = tmp_path / "G1.md"
         now_md.write_text("test")
         old_time = time.time() - 7200  # 2 hours ago
         os.utime(now_md, (old_time, old_time))
@@ -233,7 +233,7 @@ def now_age():
 
     def test_returns_very_stale_when_day_old(self, tmp_path):
         """File modified > 24 hours ago returns ('very stale', seconds)."""
-        now_md = tmp_path / "Tonus.md"
+        now_md = tmp_path / "G1.md"
         now_md.write_text("test")
         old_time = time.time() - 172800  # 2 days ago
         os.utime(now_md, (old_time, old_time))
@@ -590,15 +590,15 @@ class TestCmdGather:
 
     def test_gather_syntactic_output(self, fake_home):
         """Gather with --syntactic outputs valid JSON."""
-        # Create Tonus.md
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        # Create G1.md
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         # Create namespace with patched paths
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -621,13 +621,13 @@ class TestCmdGather:
 
     def test_gather_compact_output(self, fake_home):
         """Gather without flags outputs compact text."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -651,13 +651,13 @@ class TestCmdGather:
         extra_repo.mkdir()
         subprocess.run(["git", "init"], cwd=extra_repo, capture_output=True)
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -682,13 +682,13 @@ class TestCmdGather:
         subprocess.run(["git", "init"], cwd=dirty_repo, capture_output=True)
         (dirty_repo / "untracked.txt").write_text("test")
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -712,13 +712,13 @@ class TestCmdGather:
         skills = fake_home / "code" / "vivesca" / "receptors"
         (skills / "gap_skill.md").write_text("# Gap")
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": skills,
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -738,13 +738,13 @@ class TestCmdGather:
 
     def test_gather_perceptual_output(self, fake_home):
         """Gather with --perceptual outputs human-readable format."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -761,17 +761,17 @@ class TestCmdGather:
 
         assert "Legatum Gather" in output
         assert "MEMORY.md" in output
-        assert "Tonus" in output
+        assert "G1" in output
 
     def test_gather_with_reflection(self, fake_home):
         """Gather includes reflection candidates when session found."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -799,7 +799,7 @@ class TestCmdGather:
 
     def test_gather_memory_over_limit(self, fake_home):
         """Gather reports memory line count correctly when over limit."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
         memory = fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md"
         memory.write_text("\n".join(["line"] * 200))  # Over limit of 150
 
@@ -807,7 +807,7 @@ class TestCmdGather:
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": memory,
@@ -828,13 +828,13 @@ class TestCmdGather:
 
     def test_gather_with_deps_warnings(self, fake_home):
         """Gather includes dependency warnings."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -857,13 +857,13 @@ class TestCmdGather:
 
     def test_gather_with_peira_status(self, fake_home):
         """Gather includes peira status when active."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1531,13 +1531,13 @@ class TestMainFunction:
 
     def test_main_gather_command(self, fake_home):
         """Main dispatches to cmd_gather."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1636,13 +1636,13 @@ class TestEdgeCases:
 
     def test_gather_unavailable_repo(self, fake_home):
         """Gather handles unavailable repos gracefully."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1664,13 +1664,13 @@ class TestEdgeCases:
 
     def test_now_age_syntactic_output(self, fake_home):
         """Gather outputs now age correctly in syntactic mode."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1696,13 +1696,13 @@ class TestEdgeCases:
         subprocess.run(["git", "init"], cwd=dirty_repo, capture_output=True)
         (dirty_repo / "untracked.txt").write_text("test")
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1724,13 +1724,13 @@ class TestEdgeCases:
         skills = fake_home / "code" / "vivesca" / "receptors"
         (skills / "missing.md").write_text("# Missing")
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": skills,
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1750,13 +1750,13 @@ class TestEdgeCases:
 
     def test_gather_compact_with_deps(self, fake_home):
         """Compact output includes deps warnings."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1776,13 +1776,13 @@ class TestEdgeCases:
 
     def test_gather_compact_with_peira(self, fake_home):
         """Compact output includes peira status."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1803,13 +1803,13 @@ class TestEdgeCases:
 
     def test_gather_compact_with_reflection(self, fake_home):
         """Compact output includes reflection candidates."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1839,13 +1839,13 @@ class TestEdgeCases:
         subprocess.run(["git", "init"], cwd=dirty_repo, capture_output=True)
         (dirty_repo / "untracked.txt").write_text("test")
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1867,13 +1867,13 @@ class TestEdgeCases:
         skills = fake_home / "code" / "vivesca" / "receptors"
         (skills / "missing.md").write_text("# Missing")
 
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": skills,
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1893,13 +1893,13 @@ class TestEdgeCases:
 
     def test_gather_perceptual_with_reflection(self, fake_home):
         """Perceptual output shows reflection candidates."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1923,13 +1923,13 @@ class TestEdgeCases:
 
     def test_gather_perceptual_with_deps(self, fake_home):
         """Perceptual output shows deps warnings."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1949,13 +1949,13 @@ class TestEdgeCases:
 
     def test_gather_perceptual_with_peira(self, fake_home):
         """Perceptual output shows peira status."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",
@@ -1975,13 +1975,13 @@ class TestEdgeCases:
 
     def test_gather_perceptual_no_reflection_with_session(self, fake_home):
         """Perceptual output shows 'nothing surfaced' when no reflection found."""
-        (fake_home / "notes" / "Tonus.md").write_text("test")
+        (fake_home / "notes" / "G1.md").write_text("test")
 
         ns = {
             "__name__": "test",
             "HOME": fake_home,
             "NOTES": fake_home / "notes",
-            "NOW_MD": fake_home / "notes" / "Tonus.md",
+            "NOW_MD": fake_home / "notes" / "G1.md",
             "SKILLS": fake_home / "code" / "vivesca" / "receptors",
             "CLAUDE_SKILLS": fake_home / ".claude" / "skills",
             "MEMORY": fake_home / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md",

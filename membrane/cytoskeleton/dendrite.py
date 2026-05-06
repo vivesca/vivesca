@@ -1079,7 +1079,7 @@ def mod_docima(data):
 
 
 # ── attention_refresh: REMOVED ──
-# Tonus.md already injected at session start via synapse anamnesis.
+# G1.md already injected at session start via synapse anamnesis.
 # Re-injecting every 25 tool calls was duplicate context burn.
 
 
@@ -1465,7 +1465,7 @@ def mod_receptome_sync(data):
         print(f"[receptome-sync] skipped: {exc}", file=sys.stderr)
 
 
-# ── session_trace: auto-log mark writes and tonus updates ────────────
+# ── session_trace: auto-log mark writes and g1 updates ────────────
 
 TRACE_FILE = HOME / "epigenome" / "chromatin" / "immunity" / "session-trace.md"
 
@@ -1515,7 +1515,7 @@ def _trace_append(entry):
 
 
 def mod_session_trace(data):
-    """Auto-append to session trace when marks are filed or tonus updated."""
+    """Auto-append to session trace when marks are filed or g1 updated."""
     fp = data.get("tool_input", {}).get("file_path", "")
     if not fp:
         return
@@ -1525,8 +1525,8 @@ def mod_session_trace(data):
     if "/epigenome/marks/" in fp and fp.endswith(".md") and p.name != "MEMORY.md":
         desc = _trace_extract_description(fp)
         entry = f"[mark] {p.name} -- {desc}" if desc else f"[mark] {p.name}"
-    elif "Tonus.md" in fp:
-        entry = "[tonus] checkpoint updated"
+    elif "G1.md" in fp:
+        entry = "[g1] checkpoint updated"
     else:
         return
 
@@ -1854,8 +1854,8 @@ def main():
     if tool in ("Edit", "Write") and "memory/" in fp:
         modules.append(mod_retrograde)
 
-    # Session trace (Edit/Write on marks or Tonus.md)
-    if tool in ("Edit", "Write") and ("/epigenome/marks/" in fp or "Tonus.md" in fp):
+    # Session trace (Edit/Write on marks or G1.md)
+    if tool in ("Edit", "Write") and ("/epigenome/marks/" in fp or "G1.md" in fp):
         modules.append(mod_session_trace)
 
     # Antisera discovery (Bash + any tool that can return errors)

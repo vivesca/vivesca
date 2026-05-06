@@ -25,7 +25,7 @@ epistemics: [evaluate, learn, judge]
 
 > Cytokinesis consolidates state. Retrospective consolidates *judgment about state* — what went well, what failed, what patterns emerged in the working mode, what to do differently next time. Two skills, two clean passes, run sequentially at session end.
 
-The genome's autopoiesis principle ("detection → self-repair → self-generation") needs a feedback loop FROM CC TO Terry, not just CC consolidating session outputs. Without retrospective, the session ends with files committed and Tonus updated, but the *quality of the session itself* — and any improvements either party could make — is unobserved. Over time, sessions plateau or drift in ways neither party notices.
+The genome's autopoiesis principle ("detection → self-repair → self-generation") needs a feedback loop FROM CC TO Terry, not just CC consolidating session outputs. Without retrospective, the session ends with files committed and G1 updated, but the *quality of the session itself* — and any improvements either party could make — is unobserved. Over time, sessions plateau or drift in ways neither party notices.
 
 This skill closes that loop.
 
@@ -40,9 +40,9 @@ This skill closes that loop.
 ### 1. Read the canonical session artefacts
 
 Don't try to re-derive everything from chat memory. Read:
-- `~/epigenome/chromatin/Tonus.md` — what's the post-session state?
-  - **PRE-FLIGHT (mandatory):** scan Tonus `<!-- light append YYYY-MM-DD ~HH:MM -->` blocks from the past 12 hours BEFORE forming any claim about workspace state. Synapse injection ≠ comprehension — appends are the freshest substance signal and live near the bottom of a long file; CC's failure mode is to skim past them. Run `grep -A3 "light append" ~/epigenome/chromatin/Tonus.md | tail -60` if needed. Codifies the failure caught in retrospective 2026-04-28-2145 §2b: v0.21 light-append at 22:30 was loaded, in context, unread — produced 18th-instance assert-before-verifying with NEW shape (self-context blindness, not external-source negligence).
-  - **Recent commits in active project domain:** before claiming what an in-flight artefact contains, run `git log --oneline -10 --since="12 hours ago"` in the relevant repo. Tonus loads substance; commits load *current state*. Both signals required at retrospective entry.
+- `~/epigenome/chromatin/G1.md` — what's the post-session state?
+  - **PRE-FLIGHT (mandatory):** scan G1 `<!-- light append YYYY-MM-DD ~HH:MM -->` blocks from the past 12 hours BEFORE forming any claim about workspace state. Synapse injection ≠ comprehension — appends are the freshest substance signal and live near the bottom of a long file; CC's failure mode is to skim past them. Run `grep -A3 "light append" ~/epigenome/chromatin/G1.md | tail -60` if needed. Codifies the failure caught in retrospective 2026-04-28-2145 §2b: v0.21 light-append at 22:30 was loaded, in context, unread — produced 18th-instance assert-before-verifying with NEW shape (self-context blindness, not external-source negligence).
+  - **Recent commits in active project domain:** before claiming what an in-flight artefact contains, run `git log --oneline -10 --since="12 hours ago"` in the relevant repo. G1 loads substance; commits load *current state*. Both signals required at retrospective entry.
 - Today's daily note (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`) — what cytokinesis already captured?
 - Recent commits in epigenome + germline (`git log --since=N hours`) — what landed?
 - Any new marks filed today (`ls -t ~/epigenome/marks/ | head`)
@@ -149,7 +149,7 @@ State the chosen layer inline in §2d as you display it: each item ends with `�
 - **Recurring CC reflex miss** (verbosity, anomaly investigation, etc.) → first try CLI gate or skill edit per §3a; mark is the fallback.
 - **Cross-skill working method** → epistemics file in `~/epigenome/chromatin/euchromatin/epistemics/` with `situations:` tags + `skills:` bridge. Marks alone don't fire on grep across skills; epistemics do.
 - **Specific skill behavior change** → edit that skill's SKILL.md directly. Skills > marks for instructions that should fire by trigger.
-- **Hook candidate detected via §3a #1** → propose to Terry (load-bearing hook edits need eyes); file as Tonus parked if not Terry-confirmed.
+- **Hook candidate detected via §3a #1** → propose to Terry (load-bearing hook edits need eyes); file as G1 parked if not Terry-confirmed.
 - **Ops / tooling discovery** → `marks/finding_*.md`.
 
 `[Terry]` items go in the retrospective display only — Terry decides if they become anything more.
@@ -162,16 +162,16 @@ State the routing inline in §2d as you display it: each item ends with `→ fil
 
 #### 3c. In-session action scan (mandatory)
 
-After §3a/§3b routing, scan §2d items for **in-session action implications** — situations where the lesson directly applies to a deferred question, current artefact state, or carry-forward note in this session's Tonus or daily.
+After §3a/§3b routing, scan §2d items for **in-session action implications** — situations where the lesson directly applies to a deferred question, current artefact state, or carry-forward note in this session's G1 or daily.
 
 For each item ask: "Does this lesson apply to anything in *this* session's open state, not just future sessions?" Concrete shapes:
 
-- **§2d says "should have done X mid-session"** → if X is still doable now (a quick call, a skill edit, a Tonus refinement), do it now. Don't file "should have done X" as future-only learning if the action is still cheap and reversible.
-- **§2d says "ask Terry about Y when stuck"** → if a carry-forward in this session's Tonus is exactly the "stuck" situation Y describes, pre-load the specific Terry-question into Tonus so next session opens with the question already framed, not with the unsolved analytical loop.
+- **§2d says "should have done X mid-session"** → if X is still doable now (a quick call, a skill edit, a G1 refinement), do it now. Don't file "should have done X" as future-only learning if the action is still cheap and reversible.
+- **§2d says "ask Terry about Y when stuck"** → if a carry-forward in this session's G1 is exactly the "stuck" situation Y describes, pre-load the specific Terry-question into G1 so next session opens with the question already framed, not with the unsolved analytical loop.
 - **§2d says "propagate lesson to skill Z"** → if the routing applied the lesson to skill A but the same lesson applies to skill Z, propagate now in the same wrap turn.
 - **§2d says "test the new gate fires"** → if the gate is testable synthetically (CLI gate runnable, skill-edit grep-checkable), test now and confirm in §2d as `→ tested: <result>`.
 
-State each in-session action inline in §2d with `→ applied: <what>` or `→ pre-loaded into Tonus: <what>`.
+State each in-session action inline in §2d with `→ applied: <what>` or `→ pre-loaded into G1: <what>`.
 
 **Failure mode this prevents:** retrospective routes §2d to durable artefacts (Layer-3 enforcement) but treats them as future-only — future sessions will encounter the lesson when situations match. The current session's *open* state goes un-acted-on. The lesson sits as text in a file no future session reads until the trigger fires; meanwhile the carry-forward question that the lesson directly answers gets deferred to next session in vague form. Codifies failure caught in retrospective 2026-05-04-1955: Item 3's "ask Terry to state the arc when stuck on ordering" was filed as epistemics but not applied to the deferred safety-within-governance question, even though that question is exactly the "stuck on ordering" situation. The action gap was visible at wrap; only Terry's challenge surfaced it.
 
@@ -181,13 +181,13 @@ After §3a/§3b/§3c, scan §2d items for **overdue-ship signals** — items nam
 
 For each item ask: "Has this exact item appeared in §2d or carry-forward across N+ prior retrospectives without shipping?" (Default N=5; tighten to N=3 for load-bearing items per genome.) Detection: grep `~/epigenome/chromatin/retrospectives/*.md` for the spec/artefact identifier (commit hash, file path, named hook).
 
-If yes → **escalate to Terry-prompt in the §2d display, not soft carry-forward**. The retrospective must explicitly ask Terry to either (a) ship now, (b) commit a specific ship date, or (c) explicitly retire the spec. Do not list "carry-forward to Tonus" as a standalone option — that's the failure mode being escalated against.
+If yes → **escalate to Terry-prompt in the §2d display, not soft carry-forward**. The retrospective must explicitly ask Terry to either (a) ship now, (b) commit a specific ship date, or (c) explicitly retire the spec. Do not list "carry-forward to G1" as a standalone option — that's the failure mode being escalated against.
 
 State the escalation inline in §2d as: `→ ESCALATION: <N>th retrospective recurrence, Terry-decision needed: (a) ship now, (b) commit ship date, (c) retire spec.` Display this as a separate question to Terry in §4 output, not buried in §2d prose.
 
 **Layer-bearing exception:** items requiring Terry's eyes per genome (load-bearing hook edits, `genome.md` edits) cannot be CC-shipped autonomously. The escalation answer for those items is (b) or (c), not (a). State the constraint inline.
 
-**Failure mode this prevents:** retrospective surfaces an overdue ship as carry-forward; Terry reads carry-forward as "noted, will get to it"; next retrospective surfaces the same item as carry-forward; loop continues. Layer-1 synapse hook spec at `1f878748` is the canonical example — 12+ retrospectives across 12+ days listing it as "next-session priority" without escalation. Soft-park doesn't deter Terry-bandwidth gap any more than mark routing deters CC-reflex gap; both layers need active escalation when the recurrence threshold breaches. Codifies failure caught in retrospective 2026-05-06-0921 (Slot 46): Item 2 listed Layer-1 hook as Tonus carry-forward — the same routing that has demonstrably failed across 11 prior retrospectives. Asked Terry's question ("should we update the skill?") only forced the §3d insertion; the routing should have happened at first 5+ recurrence, not at retrospective #12.
+**Failure mode this prevents:** retrospective surfaces an overdue ship as carry-forward; Terry reads carry-forward as "noted, will get to it"; next retrospective surfaces the same item as carry-forward; loop continues. Layer-1 synapse hook spec at `1f878748` is the canonical example — 12+ retrospectives across 12+ days listing it as "next-session priority" without escalation. Soft-park doesn't deter Terry-bandwidth gap any more than mark routing deters CC-reflex gap; both layers need active escalation when the recurrence threshold breaches. Codifies failure caught in retrospective 2026-05-06-0921 (Slot 46): Item 2 listed Layer-1 hook as G1 carry-forward — the same routing that has demonstrably failed across 11 prior retrospectives. Asked Terry's question ("should we update the skill?") only forced the §3d insertion; the routing should have happened at first 5+ recurrence, not at retrospective #12.
 
 ### 4. Display Final Output to Terry
 
@@ -209,7 +209,7 @@ Display sections 2a–2e inline (don't make Terry open the file). Be honest, spe
 ## Boundaries
 
 - **Not a postmortem of bugs.** Use `etiology` for root-cause-of-bug analysis. Retrospective is whole-session quality.
-- **Not a substitute for cytokinesis.** Retrospective doesn't write Tonus, doesn't append daily note, doesn't run housekeeping. Run `/cytokinesis` first.
+- **Not a substitute for cytokinesis.** Retrospective doesn't write G1, doesn't append daily note, doesn't run housekeeping. Run `/cytokinesis` first.
 - **Not for ongoing work.** Retrospective happens at *end* of session/phase. For mid-session quality checks, use `examen` (premise audit) or `redarguo` (one-line adversarial challenge).
 
 ## See Also

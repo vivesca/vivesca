@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-"""Tests for metabolon.enzymes.turgor — tonus session state management tool."""
+"""Tests for metabolon.enzymes.turgor — g1 session state management tool."""
 
 
 from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from metabolon.enzymes.turgor import ITEM_RE, tonus
+from metabolon.enzymes.turgor import ITEM_RE, g1
 
 # ── ITEM_RE regex tests ───────────────────────────────────────────────────────
 
@@ -39,18 +39,18 @@ class TestItemRe:
         assert ITEM_RE.match("- [ ] Unchecked checkbox") is None
 
 
-# ── tonus action tests ────────────────────────────────────────────────────────
+# ── g1 action tests ────────────────────────────────────────────────────────
 
 
-class TestTonusStatus:
+class TestG1Status:
     def test_status_empty_file(self):
         """Should return empty status when file has no items."""
-        mock_content = """# Tonus
+        mock_content = """# G1
 
 <!-- last checkpoint: 01/04/2024 ~10:00 HKT -->
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["count"] == 0
         assert result["done"] == 0
         assert result["turgor"] == "normal"
@@ -64,8 +64,8 @@ class TestTonusStatus:
 - [done] **Task 3.** Third task
 <!-- last checkpoint: ... -->
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["count"] == 3
         assert result["done"] == 2
         assert result["turgor"] == "normal"
@@ -78,8 +78,8 @@ class TestTonusStatus:
 - [done] **Task 4.**
 <!-- last checkpoint: ... -->
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["count"] == 4
         # 3/4 = 75% > 70%
         assert "HIGH" in result["turgor"]
@@ -93,8 +93,8 @@ class TestTonusStatus:
 - [done] **Task 5.**
 <!-- last checkpoint: ... -->
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["count"] == 5
         # 1/5 = 20%, so not low — only when <20%
         # Let's use 1/6 for test below, actually
@@ -110,8 +110,8 @@ class TestTonusStatus:
 - [done] **Task 6.**
 <!-- last checkpoint: ... -->
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["count"] == 6
         assert 1 / 6 < 0.2
         assert "LOW" in result["turgor"]
@@ -121,8 +121,8 @@ class TestTonusStatus:
         mock_content = """- [queued] **Write tests.** For turgor module
 - [done] **Cleanup.** Old files
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert len(result["items"]) == 2
         assert result["items"][0] == {
             "status": "queued",
@@ -132,7 +132,7 @@ class TestTonusStatus:
         assert result["items"][1]["label"] == "Cleanup"
 
 
-class TestTonusMark:
+class TestG1Mark:
     def test_mark_update_existing_item_status(self):
         """Should update status of existing matching item."""
         mock_content = """- [queued] **Write tests.** Add tests
@@ -144,9 +144,9 @@ class TestTonusMark:
             nonlocal wrote_content
             wrote_content = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=mock_write):
-                result = tonus(action="mark", label="Write", item_status="in-progress")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=mock_write):
+                result = g1(action="mark", label="Write", item_status="in-progress")
 
         assert result["success"] is True
         assert "- [in-progress] **Write tests.** Add tests" in wrote_content
@@ -162,9 +162,9 @@ class TestTonusMark:
             nonlocal wrote_content
             wrote_content = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=mock_write):
-                result = tonus(
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=mock_write):
+                result = g1(
                     action="mark",
                     label="Write",
                     description="Add comprehensive tests for turgor",
@@ -183,9 +183,9 @@ class TestTonusMark:
             nonlocal wrote_content
             wrote_content = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=mock_write):
-                result = tonus(
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=mock_write):
+                result = g1(
                     action="mark",
                     label="Old",
                     item_status="done",
@@ -197,7 +197,7 @@ class TestTonusMark:
 
     def test_mark_create_new_item_when_no_match(self):
         """Should create new item when no match found and both fields provided."""
-        mock_content = """# Tonus
+        mock_content = """# G1
 Some content
 <!-- last checkpoint: ... -->
 """
@@ -207,9 +207,9 @@ Some content
             nonlocal wrote_content
             wrote_content = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=mock_write):
-                result = tonus(
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=mock_write):
+                result = g1(
                     action="mark",
                     label="New task",
                     item_status="in-progress",
@@ -224,7 +224,7 @@ Some content
 
     def test_mark_create_new_item_appends_when_no_comment(self):
         """Should append new item when no comment found at end."""
-        mock_content = """# Tonus
+        mock_content = """# G1
 Some content
 """
         wrote_content = None
@@ -233,9 +233,9 @@ Some content
             nonlocal wrote_content
             wrote_content = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=mock_write):
-                result = tonus(
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=mock_write):
+                result = g1(
                     action="mark",
                     label="New task",
                     item_status="in-progress",
@@ -249,22 +249,22 @@ Some content
         """Should return error when no match and not both fields provided."""
         mock_content = """- [done] **Existing.** Item
 """
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="mark", label="Missing", item_status="in-progress")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="mark", label="Missing", item_status="in-progress")
         assert result["success"] is False
         assert "No item matching" in result["message"]
 
     def test_mark_fails_when_nothing_to_update(self):
         """Should return error when neither item_status nor description provided."""
-        result = tonus(action="mark", label="Anything")
+        result = g1(action="mark", label="Anything")
         assert result["success"] is False
         assert "Nothing to update" in result["message"]
 
 
-class TestTonusUnknownAction:
+class TestG1UnknownAction:
     def test_unknown_action_returns_error(self):
         """Should return error for unknown action."""
-        result = tonus(action="delete", label="test")
+        result = g1(action="delete", label="test")
         assert result["success"] is False
         assert "Unknown action" in result["message"]
 
@@ -272,42 +272,42 @@ class TestTonusUnknownAction:
 # ── Internal I/O helpers ─────────────────────────────────────────────────────
 
 
-class TestReadTonus:
+class TestReadG1:
     def test_reads_file_with_utf8(self, tmp_path):
-        """_read_tonus should read TONUS with utf-8 encoding."""
+        """_read_g1 should read G1 with utf-8 encoding."""
         from metabolon.enzymes import turgor
 
-        tonus_file = tmp_path / "Tonus.md"
-        tonus_file.write_text("hello ünïcödé", encoding="utf-8")
-        with patch.object(turgor, "TONUS", tonus_file):
-            result = turgor._read_tonus()
+        g1_file = tmp_path / "G1.md"
+        g1_file.write_text("hello ünïcödé", encoding="utf-8")
+        with patch.object(turgor, "G1", g1_file):
+            result = turgor._read_g1()
         assert result == "hello ünïcödé"
 
-    def test_tonus_path_points_to_epigenome(self):
-        """TONUS should live under ~/epigenome/chromatin/."""
-        from metabolon.enzymes.turgor import TONUS
+    def test_g1_path_points_to_epigenome(self):
+        """G1 should live under ~/epigenome/chromatin/."""
+        from metabolon.enzymes.turgor import G1
 
-        assert Path.home() / "epigenome" / "chromatin" / "Tonus.md" == TONUS
+        assert Path.home() / "epigenome" / "chromatin" / "G1.md" == G1
 
 
-class TestWriteTonus:
+class TestWriteG1:
     def test_atomic_write_uses_tmp_then_replace(self, tmp_path):
-        """_write_tonus should write to .md.tmp then rename (atomic)."""
+        """_write_g1 should write to .md.tmp then rename (atomic)."""
         from metabolon.enzymes import turgor
 
-        tonus_file = tmp_path / "Tonus.md"
-        tonus_file.write_text("old", encoding="utf-8")
-        with patch.object(turgor, "TONUS", tonus_file):
-            turgor._write_tonus("new content")
-        assert tonus_file.read_text(encoding="utf-8") == "new content"
+        g1_file = tmp_path / "G1.md"
+        g1_file.write_text("old", encoding="utf-8")
+        with patch.object(turgor, "G1", g1_file):
+            turgor._write_g1("new content")
+        assert g1_file.read_text(encoding="utf-8") == "new content"
         # tmp file should not linger
-        assert not tonus_file.with_suffix(".md.tmp").exists()
+        assert not g1_file.with_suffix(".md.tmp").exists()
 
 
 # ── Fuzzy matching edge cases ─────────────────────────────────────────────────
 
 
-class TestTonusMarkEdgeCases:
+class TestG1MarkEdgeCases:
     def test_case_insensitive_fuzzy_match(self):
         """Should match label case-insensitively."""
         mock_content = "- [queued] **Write Tests.** Add tests\n"
@@ -317,9 +317,9 @@ class TestTonusMarkEdgeCases:
             nonlocal wrote
             wrote = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
-                result = tonus(action="mark", label="write tests", item_status="in-progress")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=capture):
+                result = g1(action="mark", label="write tests", item_status="in-progress")
 
         assert result["success"] is True
         assert "- [in-progress] **Write Tests.** Add tests" in wrote
@@ -333,9 +333,9 @@ class TestTonusMarkEdgeCases:
             nonlocal wrote
             wrote = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
-                result = tonus(action="mark", label="production", item_status="done")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=capture):
+                result = g1(action="mark", label="production", item_status="done")
 
         assert result["success"] is True
         assert "- [done] **Deploy production services.** Go live" in wrote
@@ -353,9 +353,9 @@ class TestTonusMarkEdgeCases:
             nonlocal wrote
             wrote = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
-                result = tonus(action="mark", label="Task", item_status="in-progress")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=capture):
+                result = g1(action="mark", label="Task", item_status="in-progress")
 
         assert result["success"] is True
         lines = wrote.splitlines()
@@ -372,9 +372,9 @@ class TestTonusMarkEdgeCases:
             nonlocal wrote
             wrote = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
-                result = tonus(action="mark", label="Task A", item_status="done")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=capture):
+                result = g1(action="mark", label="Task A", item_status="done")
 
         assert result["success"] is True
         assert "- [done] **Task A.** Do it" in wrote
@@ -388,9 +388,9 @@ class TestTonusMarkEdgeCases:
             nonlocal wrote
             wrote = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
-                result = tonus(action="mark", label="Task", item_status="done")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=capture):
+                result = g1(action="mark", label="Task", item_status="done")
 
         assert result["success"] is True
         assert "Original description here" in wrote
@@ -405,9 +405,9 @@ class TestTonusMarkEdgeCases:
             nonlocal wrote
             wrote = content
 
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
-                result = tonus(action="mark", label="Task", description="New desc")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_g1", side_effect=capture):
+                result = g1(action="mark", label="Task", description="New desc")
 
         assert result["success"] is True
         assert "- [in-progress] **Task.** New desc" in wrote
@@ -416,28 +416,28 @@ class TestTonusMarkEdgeCases:
 # ── Status edge cases ─────────────────────────────────────────────────────────
 
 
-class TestTonusStatusEdgeCases:
+class TestG1StatusEdgeCases:
     def test_pressure_format_string(self):
         """Pressure string should show in-progress / total with percentage."""
         mock_content = (
             "- [in-progress] **A.** First\n- [in-progress] **B.** Second\n- [done] **C.** Third\n"
         )
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["pressure"] == "2 in-progress / 3 total (67%)"
 
     def test_status_ignores_non_item_lines(self):
         """Status should only count lines matching ITEM_RE."""
         mock_content = (
-            "# Tonus\n"
+            "# G1\n"
             "\n"
             "Some prose here\n"
             "- [done] **Real item.** A real task\n"
             "- [ ] Checkbox not counted\n"
             "More text\n"
         )
-        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
-            result = tonus(action="status")
+        with patch("metabolon.enzymes.turgor._read_g1", return_value=mock_content):
+            result = g1(action="status")
         assert result["count"] == 1
         assert result["done"] == 1
 

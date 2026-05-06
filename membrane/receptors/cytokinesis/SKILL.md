@@ -39,10 +39,10 @@ allowed-tools:
 
 **Pre-flight (mandatory) — read recent state signals BEFORE forming wrap claims:**
 
-1. **Tonus light-appends from past 12 hours.** Synapse injects Tonus at session start, but light-appends sit at the bottom of a long file and CC's failure mode is to skim past them. Run `grep -B0 -A3 "light append" ~/epigenome/chromatin/Tonus.md | tail -60` to surface them explicitly. These are the freshest substance signals and often contain in-flight artefact state (paper versions, decisions pending, open questions).
-2. **Recent commits in active project domain.** Before claiming what an in-flight artefact contains or whether work has shipped, run `cd ~/<repo> && git log --oneline -10 --since="12 hours ago"` in the relevant repo. Tonus loads substance; commits load *current state*. Both signals required at wrap entry.
+1. **G1 light-appends from past 12 hours.** Synapse injects G1 at session start, but light-appends sit at the bottom of a long file and CC's failure mode is to skim past them. Run `grep -B0 -A3 "light append" ~/epigenome/chromatin/G1.md | tail -60` to surface them explicitly. These are the freshest substance signals and often contain in-flight artefact state (paper versions, decisions pending, open questions).
+2. **Recent commits in active project domain.** Before claiming what an in-flight artefact contains or whether work has shipped, run `cd ~/<repo> && git log --oneline -10 --since="12 hours ago"` in the relevant repo. G1 loads substance; commits load *current state*. Both signals required at wrap entry.
 
-Codifies the failure caught in retrospective 2026-04-28-2145 §2b: NEW shape of assert-before-verifying — self-context blindness on own working repo's recent commits and Tonus light-appends, distinct from instances 1-17 which were external-source negligence. Tonus 22:30 v0.21 light-append was loaded into context at session start, unread, and CC produced incorrect claims about workspace state for three Terry push-backs before `git log` recovered the surface during housekeeping.
+Codifies the failure caught in retrospective 2026-04-28-2145 §2b: NEW shape of assert-before-verifying — self-context blindness on own working repo's recent commits and G1 light-appends, distinct from instances 1-17 which were external-source negligence. G1 22:30 v0.21 light-append was loaded into context at session start, unread, and CC produced incorrect claims about workspace state for three Terry push-backs before `git log` recovered the surface during housekeeping.
 
 **Correction backstop next:** scan the session for corrections you acknowledged but didn't route to a mark file. This is your dominant failure mode — you recognize corrections ("noted", "good point", "updated") but don't file them. Find those moments and file now. If any are found, set `late_correction=true`.
 
@@ -114,35 +114,35 @@ If yes: draft → `~/epigenome/chromatin/secretome/` → publish. "Client-adjace
 If `git status`, `cytokinesis gather`, or any tooling check surfaces weird state that **does not block the commit** — file showing untracked then tracked, stale lockfile, half-applied diff that resolves itself, ghost entries — **park as a one-line note. Do NOT investigate live during wrap.**
 
 - Anomaly blocks the wrap (won't commit, hook fails, real conflict) → resolve, since wrap can't complete otherwise.
-- Anomaly is just weird-looking state that the commit succeeds despite → one-line park in daily Residual or Tonus parked list. Move on.
+- Anomaly is just weird-looking state that the commit succeeds despite → one-line park in daily Residual or G1 parked list. Move on.
 - Park format: `Parked: <observed weirdness> at <timestamp> — investigate next session if it recurs.`
 - If the same anomaly appears across 2+ sessions → THEN investigate, file finding. First occurrence = park.
 - **Hook-failure attempt-cap (≥3):** if the same hook fails ≥3 times in a row on the same anomaly during a single wrap, fall back to `SKIP=<hookname> git commit ...` + park the underlying issue. Single-hook skip is a calibrated workaround, not a bypass-all (`--no-verify` remains genome-forbidden without explicit user instruction). Codifies the failure mode caught in retrospective 2026-04-28-1620 §2d item 3 (wrap mode investigated codespell-on-embedded-repo across 4 commit attempts; right move was SKIP=codespell + park in one step).
 
 Why: wrap mode has a different cost function than working mode. Every minute spent investigating non-blocking weirdness during wrap is a minute *not* spent on the next-session priority. CC's reflex to "understand the anomaly before moving on" fights against wrap's "ship the commit and close" mode. Different mode, different reflex.
 
-### 5. Tonus first, then daily note as the visible wrap artefact
+### 5. G1 first, then daily note as the visible wrap artefact
 
 Two writes, in this order:
 
-**5a. Write Tonus.** `~/epigenome/chromatin/Tonus.md` is the next session's handoff (synapse injects it at session start). Facts (established) + Progress (active), open items first (`[next]`, `[waiting]`, `[parked]`).
+**5a. Write G1.** `~/epigenome/chromatin/G1.md` is the next session's handoff (synapse injects it at session start). Facts (established) + Progress (active), open items first (`[next]`, `[waiting]`, `[parked]`).
 
 **Stakeholder timing claims require source citation OR explicit INFERRED tag.** When writing any sentence that pins a third party to a time-anchored verb (X reads / sends / decides / approves / meets / responds at time T), one of these formats is required:
 
 - `{claim} (per [[chromatin-file-name]])` — when a chromatin file contains the source correspondence (Teams thread, email, decision capture).
 - `{claim} — INFERRED from {anchor}, source TBD` — when CC reasoned from an upstream signal (e.g., "David has a meeting tomorrow" → "Simon must read before then"). The INFERRED tag is mandatory; downstream sessions re-verify before propagating.
 
-Why: inheritance-as-fact through Tonus is the failure mechanism. Each propagation hop loses provenance and gains weight. The INFERRED tag preserves provenance across hops. Codified after Slot 46 instance: "Simon reads ~3pm HKT" propagated through 4 carry-forwards as confirmed when it was Slot-42 timezone-math inference from Simon's "David has a meeting tomorrow" message. See `finding_inferred_stakeholder_timing_propagated_as_fact.md`.
+Why: inheritance-as-fact through G1 is the failure mechanism. Each propagation hop loses provenance and gains weight. The INFERRED tag preserves provenance across hops. Codified after Slot 46 instance: "Simon reads ~3pm HKT" propagated through 4 carry-forwards as confirmed when it was Slot-42 timezone-math inference from Simon's "David has a meeting tomorrow" message. See `finding_inferred_stakeholder_timing_propagated_as_fact.md`.
 
-**5b. Write the daily-note session block LAST.** Append a `## Session N — title` block to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` covering Outcomes / Filed / Published / Publishable? / Mechanised / Parked / Residual / Arc. Use `cytokinesis daily "title"` to insert a template, then Edit/Write to fill it. **The daily note is the visible terminal artefact** — Terry sees it as the diff in the UI when the wrap finishes, so writing it last preserves the session arc as the closing image. Gate enforces daily mtime > Tonus mtime; this ordering also satisfies the gate naturally without needing a separate `touch` to bump mtime.
+**5b. Write the daily-note session block LAST.** Append a `## Session N — title` block to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` covering Outcomes / Filed / Published / Publishable? / Mechanised / Parked / Residual / Arc. Use `cytokinesis daily "title"` to insert a template, then Edit/Write to fill it. **The daily note is the visible terminal artefact** — Terry sees it as the diff in the UI when the wrap finishes, so writing it last preserves the session arc as the closing image. Gate enforces daily mtime > G1 mtime; this ordering also satisfies the gate naturally without needing a separate `touch` to bump mtime.
 
 If a daily file already has earlier session blocks captured at compact, this session gets its own appended block — never overwrite.
 
-**HARD GATE before 5a.** Run `cytokinesis verify`. If `all_passed != true` (after housekeeping but before Tonus), stop and complete the PENDING gates — do NOT write Tonus. Recurring failure mode: CC sees PENDING in `gather`, notes it, then writes Tonus anyway. The gate is deterministic — use it.
+**HARD GATE before 5a.** Run `cytokinesis verify`. If `all_passed != true` (after housekeeping but before G1), stop and complete the PENDING gates — do NOT write G1. Recurring failure mode: CC sees PENDING in `gather`, notes it, then writes G1 anyway. The gate is deterministic — use it.
 
 **If you genuinely must skip a gate** (rare — e.g., `daily_note` when the session was <3 minutes of reversible chat), state the gate name and the reason explicitly in the wrap output so Terry can see what was bypassed.
 
-**Display order in wrap output:** state skipped gates with rationale, then a one-line pointer to the daily note path written as `Arc → ~/epigenome/chromatin/Daily/YYYY-MM-DD.md`. Do not restate the Arc paragraph in chat output — the daily note is the visible terminal artefact via its file diff, and re-displaying the prose duplicates content while violating `feedback_prose_forces_committed_thinking.md`'s rule against redundant gesture-at-completeness. Tonus is the next-session handoff, not the wrap display.
+**Display order in wrap output:** state skipped gates with rationale, then a one-line pointer to the daily note path written as `Arc → ~/epigenome/chromatin/Daily/YYYY-MM-DD.md`. Do not restate the Arc paragraph in chat output — the daily note is the visible terminal artefact via its file diff, and re-displaying the prose duplicates content while violating `feedback_prose_forces_committed_thinking.md`'s rule against redundant gesture-at-completeness. G1 is the next-session handoff, not the wrap display.
 
 ### 6. Prompt retrospective (final step)
 
@@ -160,7 +160,7 @@ Recurring failure mode this prevents: Terry types `/cytokinesis` directly (muscl
 
 | Subcommand | Purpose |
 |---|---|
-| `gather` | Deterministic checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age, gate status |
+| `gather` | Deterministic checks: dirty repos, skill gaps, MEMORY.md line count, G1 age, gate status |
 | `flush` | Warn about dirty repos |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |
@@ -169,7 +169,7 @@ Recurring failure mode this prevents: Terry types `/cytokinesis` directly (muscl
 
 ## Modes
 
-- **Full** (`/cytokinesis`) — finish work + verification + housekeeping + Tonus. Stop after Tonus.
+- **Full** (`/cytokinesis`) — finish work + verification + housekeeping + G1. Stop after G1.
 - **Checkpoint** (`/cytokinesis checkpoint`) — verification only. Continue after output.
 
 ## Boundaries

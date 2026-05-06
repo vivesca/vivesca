@@ -162,8 +162,8 @@ transposase — MCP tool for systematic codebase renames.
 - `transposase(action, old_name, new_name, scope, dry_run, name_map, exclude)` -- Systematic codebase rename engine.
 
 ### turgor
-tonus tool — session state. Actions: mark|status
-- `tonus(action, label, item_status, description)` -- Manage Tonus session state.
+g1 tool — session state. Actions: mark|status
+- `g1(action, label, item_status, description)` -- Manage G1 session state.
 
 ## Effectors
 
@@ -183,7 +183,7 @@ _(no description)_
   Files: `mtor`
 
 ### Standalone scripts (184 total, on PATH)
-  Recent: `evergreen`, `soma`, `pinocytosis`, `flush_processor.py`, `cytokinesis`, `soma-pull`, `pondus-aa-health`, `supervisor-drift-check`, `m3-plist-retry`, `qmd-reindex.sh`
+  Recent: `soma-pull`, `cytokinesis`, `legatum`, `telophase`, `weekly-gather`, `evergreen`, `soma`, `pinocytosis`, `flush_processor.py`, `pondus-aa-health`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
@@ -314,7 +314,7 @@ Architecture: signals -> fitness -> variants -> gates -> repair -> sweep
 - **telegram_receptor.py**: `telegram_receptor`
 - **thrombin.py**: `thrombin`
 - **transposase.py**: `transposase`
-- **turgor.py**: `tonus`
+- **turgor.py**: `g1`
 
 ## Registered Resources
 
@@ -396,8 +396,8 @@ Total: **17** operons (14 active, 3 dormant, 2 crystallised)
 ## Metabolism State
 
 - Variant store: **0** tool(s), **0** total variant(s)
-- Signals (last 7 days): **47**
-- Most active: `fetch` (22), `endosomal` (17), `cytokinesis` (5), `pinocytosis` (2), `lysozyme` (1)
+- Signals (last 7 days): **62**
+- Most active: `fetch` (22), `endosomal` (22), `transposase` (6), `cytokinesis` (5), `pinocytosis` (4)
 
 ## Known Lesions
 

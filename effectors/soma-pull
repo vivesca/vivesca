@@ -42,7 +42,7 @@ def pull(repo: Path) -> tuple[str, bool]:
     """Pull with --rebase --autostash so daemon writes don't block sync.
 
     History: prior --ff-only version silently failed for weeks when daemons left
-    uncommitted writes in Tonus.md / loci/antisera/* (Mac germline went 116 commits
+    uncommitted writes in G1.md / loci/antisera/* (Mac germline went 116 commits
     behind on 2026-04-28). Two-step stash-then-pull races with continuous writers
     because the stash + pull aren't atomic. ``--rebase --autostash`` is git's
     built-in atomic version of that pattern.

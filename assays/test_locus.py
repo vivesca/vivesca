@@ -9,13 +9,13 @@ from metabolon.locus import (
     claude_dir,
     effectors,
     epigenome,
+    g1,
     germline,
     home,
     marks,
     memory_index,
     phenotype_md,
     praxis,
-    tonus,
 )
 
 
@@ -39,8 +39,8 @@ def test_praxis_path():
     assert praxis == chromatin / "Praxis.md"
 
 
-def test_tonus_path():
-    assert tonus == chromatin / "Tonus.md"
+def test_g1_path():
+    assert g1 == chromatin / "G1.md"
 
 
 def test_marks_under_epigenome():

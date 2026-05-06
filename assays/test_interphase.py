@@ -302,7 +302,7 @@ def _fake_transduce(ctx, calendar_keys=None):
         "calendar_today": {"label": "Today's Calendar", "ok": True, "content": "Event at 10am"},
         "calendar_tomorrow": {"label": "Tomorrow's Calendar", "ok": True, "content": "No events"},
         "todo": {"label": "Praxis.md", "ok": True, "content": "- [ ] Task A"},
-        "now": {"label": "Tonus (current state)", "ok": True, "content": "state: active"},
+        "now": {"label": "G1 (current state)", "ok": True, "content": "state: active"},
         "budget": {"label": "Budget", "ok": True, "content": "spent: $5"},
     }
 

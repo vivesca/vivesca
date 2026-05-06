@@ -5,8 +5,8 @@ description: >
   Finishes outstanding work before consolidating — "wrap up" means complete then close.
 instructions: |
   Execute the cytokinesis skill per SKILL.md.
-  Key sequence: finish outstanding work → verification pass → audit signal → publish check → housekeeping → write Tonus as wrap summary.
-  Tonus IS the summary — single source, displayed as final output.
+  Key sequence: finish outstanding work → verification pass → audit signal → publish check → housekeeping → write G1 as wrap summary.
+  G1 IS the summary — single source, displayed as final output.
 prompt: "Execute the cytokinesis skill."
 extensions:
   - type: builtin

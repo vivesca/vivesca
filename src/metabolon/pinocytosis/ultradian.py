@@ -1,7 +1,7 @@
 """Ultradian gather — situational snapshot (situational snapshot).
 
 Sub-circadian rhythm: what's actionable right now?
-Collects: calendar, TODO, Tonus, alerts.
+Collects: calendar, TODO, G1, alerts.
 """
 
 

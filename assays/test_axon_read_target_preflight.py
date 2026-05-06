@@ -66,7 +66,7 @@ class TestWasTargetRead:
     """Unit tests for _was_target_read JSONL scanner."""
 
     def test_read_present(self):
-        target = "/home/vivesca/epigenome/chromatin/Tonus.md"
+        target = "/home/vivesca/epigenome/chromatin/G1.md"
         jsonl = _make_session_jsonl(reads=[target])
         assert axon._was_target_read(jsonl, target) is True
 
@@ -89,7 +89,7 @@ class TestWasTargetRead:
 
     def test_path_resolution_matches(self):
         """Read with relative-ish path still matches when resolved to same absolute."""
-        target = "/home/vivesca/epigenome/chromatin/Tonus.md"
+        target = "/home/vivesca/epigenome/chromatin/G1.md"
         jsonl = _make_session_jsonl(reads=[target])
         assert axon._was_target_read(jsonl, target) is True
 
@@ -98,9 +98,7 @@ class TestIsUserCurated:
     """Unit tests for _is_user_curated_path."""
 
     def test_chromatin(self):
-        assert (
-            axon._is_user_curated_path(Path("/home/vivesca/epigenome/chromatin/Tonus.md")) is True
-        )
+        assert axon._is_user_curated_path(Path("/home/vivesca/epigenome/chromatin/G1.md")) is True
 
     def test_immunity(self):
         assert (
@@ -139,9 +137,7 @@ class TestIsStoplisted:
         assert axon._is_stoplisted_path(Path("/tmp/build-output.log")) is True
 
     def test_normal_path(self):
-        assert (
-            axon._is_stoplisted_path(Path("/home/vivesca/epigenome/chromatin/Tonus.md")) is False
-        )
+        assert axon._is_stoplisted_path(Path("/home/vivesca/epigenome/chromatin/G1.md")) is False
 
     def test_tmp_as_prefix(self):
         """Path starting with /tmp prefix is stoplisted."""
@@ -193,9 +189,9 @@ class TestGuardReadTargetPreflight:
 
     def test_neg_edit_after_prior_read(self, capsys):
         """NEG: Edit on chromatin file after prior Read → no fire."""
-        target = _SESSIONS_DIR / "epigenome" / "chromatin" / "Tonus.md"
+        target = _SESSIONS_DIR / "epigenome" / "chromatin" / "G1.md"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("tonus content")
+        target.write_text("g1 content")
         jsonl = _make_session_jsonl(reads=[str(target)])
 
         data = _make_data("Edit", str(target))

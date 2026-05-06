@@ -4,7 +4,7 @@ from __future__ import annotations
 """UserPromptSubmit hook — selective anamnesis at session start.
 
 Fires once per session. Pulls ~/epigenome/chromatin, then injects all vivesca resources.
-Core context (Tonus, constitution) always loads first.
+Core context (G1, constitution) always loads first.
 Optional resources reordered by keyword relevance to the first prompt —
 primacy effect means relevant context gets attended to.
 Never blocks Claude Code.
@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 NOTES_DIR = Path.home() / "code" / "epigenome" / "chromatin"
-NOW_FILE = NOTES_DIR / "Tonus.md"
+NOW_FILE = NOTES_DIR / "G1.md"
 CONSTITUTION = Path.home() / "reticulum" / "constitution.md"
 TMP_DIR = Path(tempfile.gettempdir())
 
@@ -168,7 +168,7 @@ def main():
     try:
         now_content = NOW_FILE.read_text(encoding="utf-8").strip()
         if now_content:
-            print(f"\nTonus.md (active session state):\n{now_content}")
+            print(f"\nG1.md (active session state):\n{now_content}")
     except Exception:
         pass
 

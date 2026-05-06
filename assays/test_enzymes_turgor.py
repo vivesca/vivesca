@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for metabolon.enzymes.turgor — tonus tool (mark/status)."""
+"""Tests for metabolon.enzymes.turgor — g1 tool (mark/status)."""
 
 from unittest.mock import patch
 
@@ -8,14 +8,14 @@ from unittest.mock import patch
 # Import the module and access the wrapped function.
 from metabolon.enzymes.turgor import (
     ITEM_RE,
-    tonus,
+    g1,
 )
 
 # ---------------------------------------------------------------------------
-# Fixtures — sample Tonus.md content
+# Fixtures — sample G1.md content
 # ---------------------------------------------------------------------------
 
-SAMPLE_TONUS = """\
+SAMPLE_G1 = """\
 <!-- last checkpoint: 01/01/2026 ~12:00 HKT -->
 
 - [queued] **Write tests.** pending
@@ -23,23 +23,23 @@ SAMPLE_TONUS = """\
 - [done] **Setup project.** completed
 """
 
-TONUS_NO_CHECKPOINT = """\
+G1_NO_CHECKPOINT = """\
 - [queued] **Write tests.** pending
 """
 
-TONUS_EMPTY = ""
+G1_EMPTY = ""
 
 
 # ---------------------------------------------------------------------------
-# Helper — patch _read_tonus / _write_tonus so no real files are touched
+# Helper — patch _read_g1 / _write_g1 so no real files are touched
 # ---------------------------------------------------------------------------
 
 
 def _patch_io(read_return: str):
-    """Return a patcher that stubs _read_tonus and captures _write_tonus calls."""
+    """Return a patcher that stubs _read_g1 and captures _write_g1 calls."""
     return patch.object(
         __import__("metabolon.enzymes.turgor", fromlist=["turgor"]),
-        "_read_tonus",
+        "_read_g1",
         return_value=read_return,
     )
 
@@ -75,9 +75,9 @@ class TestItemRegex:
 
 
 class TestStatus:
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_returns_items_and_counts(self, mock_read):
-        result = tonus("status")
+        result = g1("status")
         assert result["count"] == 3
         assert result["done"] == 1
         labels = [i["label"] for i in result["items"]]
@@ -85,20 +85,20 @@ class TestStatus:
         assert "Refactor module" in labels
         assert "Setup project" in labels
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_pressure_calculation(self, mock_read):
-        result = tonus("status")
+        result = g1("status")
         # 1 in-progress / 3 total
         assert "1 in-progress / 3 total" in result["pressure"]
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_turgor_normal(self, mock_read):
-        result = tonus("status")
+        result = g1("status")
         assert result["turgor"] == "normal"
 
     @_patch_io("")
-    def test_empty_tonus(self, mock_read):
-        result = tonus("status")
+    def test_empty_g1(self, mock_read):
+        result = g1("status")
         assert result["count"] == 0
         assert result["items"] == []
         assert result["turgor"] == "normal"
@@ -111,7 +111,7 @@ class TestStatus:
             lines.append(f"- [done] **Done {i}.** desc")
         content = "\n".join(lines) + "\n"
         with _patch_io(content):
-            result = tonus("status")
+            result = g1("status")
         assert result["turgor"] == "HIGH — too many items in-progress, finish before starting"
 
     def test_low_turgor(self):
@@ -122,7 +122,7 @@ class TestStatus:
             lines.append(f"- [queued] **Queued {i}.** desc")
         content = "\n".join(lines) + "\n"
         with _patch_io(content):
-            result = tonus("status")
+            result = g1("status")
         assert result["turgor"] == "LOW — wilting, pick up pace or reduce scope"
 
 
@@ -132,80 +132,80 @@ class TestStatus:
 
 
 class TestMark:
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_nothing_to_update(self, mock_read):
-        result = tonus("mark", label="irrelevant")
+        result = g1("mark", label="irrelevant")
         assert result["success"] is False
         assert "Nothing to update" in result["message"]
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_update_status_existing_item(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
-            result = tonus("mark", label="Write tests", item_status="in-progress")
+        with patch("metabolon.enzymes.turgor._write_g1") as mock_write:
+            result = g1("mark", label="Write tests", item_status="in-progress")
         assert result["success"] is True
         written = mock_write.call_args[0][0]
         assert "- [in-progress] **Write tests.** pending" in written
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_update_description_existing_item(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
-            result = tonus("mark", label="Refactor module", description="now complete")
+        with patch("metabolon.enzymes.turgor._write_g1") as mock_write:
+            result = g1("mark", label="Refactor module", description="now complete")
         assert result["success"] is True
         written = mock_write.call_args[0][0]
         assert "- [in-progress] **Refactor module.** now complete" in written
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_update_both_fields(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
-            result = tonus("mark", label="Write tests", item_status="done", description="all done")
+        with patch("metabolon.enzymes.turgor._write_g1") as mock_write:
+            result = g1("mark", label="Write tests", item_status="done", description="all done")
         assert result["success"] is True
         written = mock_write.call_args[0][0]
         assert "- [done] **Write tests.** all done" in written
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_fuzzy_match_case_insensitive(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus"):
-            result = tonus("mark", label="write tests", item_status="done")
+        with patch("metabolon.enzymes.turgor._write_g1"):
+            result = g1("mark", label="write tests", item_status="done")
         assert result["success"] is True
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_partial_label_match(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus"):
-            result = tonus("mark", label="refactor", item_status="done")
+        with patch("metabolon.enzymes.turgor._write_g1"):
+            result = g1("mark", label="refactor", item_status="done")
         assert result["success"] is True
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_not_found_no_create(self, mock_read):
-        result = tonus("mark", label="nonexistent", item_status="in-progress")
+        result = g1("mark", label="nonexistent", item_status="in-progress")
         assert result["success"] is False
         assert "No item matching" in result["message"]
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_create_new_item_with_both_fields(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
-            result = tonus("mark", label="New task", item_status="queued", description="fresh")
+        with patch("metabolon.enzymes.turgor._write_g1") as mock_write:
+            result = g1("mark", label="New task", item_status="queued", description="fresh")
         assert result["success"] is True
         written = mock_write.call_args[0][0]
         assert "- [queued] **New task.** fresh" in written
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_checkpoint_updated(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
-            tonus("mark", label="Write tests", item_status="done")
+        with patch("metabolon.enzymes.turgor._write_g1") as mock_write:
+            g1("mark", label="Write tests", item_status="done")
         written = mock_write.call_args[0][0]
         assert "<!-- last checkpoint:" in written
 
-    @_patch_io(TONUS_NO_CHECKPOINT)
+    @_patch_io(G1_NO_CHECKPOINT)
     def test_mark_no_checkpoint_in_file(self, mock_read):
         """When there is no checkpoint comment, new item appended (no crash)."""
-        with patch("metabolon.enzymes.turgor._write_tonus"):
-            result = tonus("mark", label="Write tests", item_status="done", description="done")
+        with patch("metabolon.enzymes.turgor._write_g1"):
+            result = g1("mark", label="Write tests", item_status="done", description="done")
         assert result["success"] is True
 
-    @_patch_io(SAMPLE_TONUS)
+    @_patch_io(SAMPLE_G1)
     def test_new_item_inserted_before_comment(self, mock_read):
-        with patch("metabolon.enzymes.turgor._write_tonus") as mock_write:
-            tonus("mark", label="Brand new", item_status="queued", description="new thing")
+        with patch("metabolon.enzymes.turgor._write_g1") as mock_write:
+            g1("mark", label="Brand new", item_status="queued", description="new thing")
         written = mock_write.call_args[0][0]
         lines = written.splitlines()
         # The new item should appear BEFORE the <!-- comment
@@ -221,6 +221,6 @@ class TestMark:
 
 class TestUnknownAction:
     def test_unknown_action_returns_error(self):
-        result = tonus("foobar")
+        result = g1("foobar")
         assert result["success"] is False
         assert "Unknown action" in result["message"]

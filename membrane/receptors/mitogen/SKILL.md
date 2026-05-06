@@ -89,7 +89,7 @@ Don't build a 5-task campaign for a one-liner fix.
 ### Phase 1: What matters? (CC judgment — do this BEFORE dispatch)
 
 **Stop and think:** what is the most impactful work right now? Check:
-- **Tonus.md** — what's active, what's perishable, what deadline is next?
+- **G1.md** — what's active, what's perishable, what deadline is next?
 - **Calendar** — what's coming in 1-7 days that needs prep?
 - **Broken things** — what's failing that blocks real usage?
 - **User's last request** — did they ask for something specific?

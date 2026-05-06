@@ -45,11 +45,11 @@ from metabolon.locus import (
     praxis,
     praxis_archive,
     receptors,
-    tonus,
+    g1,
 )
 
 DAILY_DIR = daily
-NOW_MD = tonus
+NOW_MD = g1
 SKILLS = receptors
 MEMORY = memory_index
 MEMORY_LIMIT = 150
@@ -211,7 +211,7 @@ def git_status(path: Path) -> str | None:
 
 
 def now_age() -> tuple[str, int]:
-    """Return (label, seconds) for Tonus.md age."""
+    """Return (label, seconds) for G1.md age."""
     try:
         mtime = os.path.getmtime(NOW_MD)
         age = int(time.time() - mtime)
@@ -530,7 +530,7 @@ def gather(
     lines = memory_lines()
     results["memory"]["lines"] = lines
 
-    # Tonus
+    # G1
     label, secs = now_age()
     results["now"]["age_label"] = label
     results["now"]["age_seconds"] = secs
@@ -630,11 +630,11 @@ def gather(
             "PENDING — no feedback memories filed this session. Scan for corrections from Terry."
         )
 
-    # Gate 3: Tonus — check freshness (already computed above)
+    # Gate 3: G1 — check freshness (already computed above)
     if secs < 1800:  # updated in last 30 min
-        gates["tonus_updated"] = "DONE — updated within 30 min"
+        gates["g1_updated"] = "DONE — updated within 30 min"
     else:
-        gates["tonus_updated"] = f"PENDING — Tonus is {label} ({secs // 60}m old). Update now."
+        gates["g1_updated"] = f"PENDING — G1 is {label} ({secs // 60}m old). Update now."
 
     # Gate 4: Process audit — always requires LLM judgment
     gates["process_audit"] = (
@@ -655,11 +655,11 @@ def gather(
         gates["repos_flushed"] = "DONE — all repos clean"
 
     # Gate 6: Daily note — must have (a) today's file, (b) no unfilled [LLM:]
-    # template, AND (c) be touched AFTER Tonus (i.e. session block was the LAST
+    # template, AND (c) be touched AFTER G1 (i.e. session block was the LAST
     # thing written this wrap). Inverted from prior 5-min tolerance: that allowed
     # a daily auto-mtime-bump (compact marker at 21:44) to mask a missing
-    # session block when Tonus was written at 21:50. Now: daily mtime must be
-    # >= Tonus mtime, enforcing append-then-Tonus order.
+    # session block when G1 was written at 21:50. Now: daily mtime must be
+    # >= G1 mtime, enforcing append-then-G1 order.
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_file = DAILY_DIR / f"{today_str}.md"
     if daily_file.exists():
@@ -667,8 +667,8 @@ def gather(
         if "[LLM:" in daily_content:
             gates["daily_note"] = "PENDING — daily note has unfilled template. Run `cytokinesis daily` and fill sections."
         elif NOW_MD.exists() and daily_file.stat().st_mtime < NOW_MD.stat().st_mtime:
-            # Tonus newer than daily — session block not appended this wrap.
-            gates["daily_note"] = "PENDING — daily note older than Tonus. Append session block (## Session N — title) before writing Tonus."
+            # G1 newer than daily — session block not appended this wrap.
+            gates["daily_note"] = "PENDING — daily note older than G1. Append session block (## Session N — title) before writing G1."
         else:
             gates["daily_note"] = "DONE — daily note written"
     else:
@@ -1417,9 +1417,9 @@ def verify() -> None:
     )
     gates["corrections_filed"] = f"DONE ({recent_fb} filed)" if recent_fb else "PENDING"
 
-    # Tonus
+    # G1
     _, secs = now_age()
-    gates["tonus_updated"] = "DONE" if secs < 1800 else f"PENDING ({secs // 60}m stale)"
+    gates["g1_updated"] = "DONE" if secs < 1800 else f"PENDING ({secs // 60}m stale)"
 
     # Repos
     dirty = []
@@ -1432,7 +1432,7 @@ def verify() -> None:
     # Process audit — can't verify deterministically, trust CC
     gates["process_audit"] = "TRUST — requires LLM judgment"
 
-    # Daily note — existence + no unfilled template + appended AFTER Tonus
+    # Daily note — existence + no unfilled template + appended AFTER G1
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_file = DAILY_DIR / f"{today_str}.md"
     if daily_file.exists():
@@ -1440,7 +1440,7 @@ def verify() -> None:
         if "[LLM:" in daily_content:
             gates["daily_note"] = "PENDING — unfilled template"
         elif NOW_MD.exists() and daily_file.stat().st_mtime < NOW_MD.stat().st_mtime:
-            gates["daily_note"] = "PENDING — Tonus newer than daily note (session block not appended this wrap)"
+            gates["daily_note"] = "PENDING — G1 newer than daily note (session block not appended this wrap)"
         else:
             gates["daily_note"] = "DONE"
     else:
