@@ -1224,6 +1224,37 @@ def mod_telomere(data):
     return [msg]
 
 
+# ── recent git log injection ────────────────────────────────
+
+
+def _inject_recent_git_log() -> str:
+    """Last 48h of git activity from germline and epigenome repos."""
+    repos = [
+        ("germline", Path.home() / "germline"),
+        ("epigenome", Path.home() / "epigenome"),
+    ]
+    sections = []
+    for label, path in repos:
+        if not (path / ".git").exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(path), "log", "--since=48 hours ago",
+                 "--oneline", "--no-decorate", "-30"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                sections.append(f"### Recent {label} commits (last 48h)\n{result.stdout.strip()}")
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+    if not sections:
+        return ""
+    return (
+        "\n\n## Recent git activity (cross-reference against Tonus carry-forward)\n\n"
+        + "\n\n".join(sections)
+    )
+
+
 # ── main ───────────────────────────────────────────────────
 
 
