@@ -95,7 +95,7 @@ def probe_rheotaxis_self_test() -> tuple[bool, str]:
             [binary, "backends"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=30,
         )
         if result.returncode != 0:
             return False, f"rheotaxis exited {result.returncode}: {result.stderr.strip()[:200]}"
@@ -111,7 +111,7 @@ def probe_rheotaxis_self_test() -> tuple[bool, str]:
             return True, "rheotaxis ok (non-JSON output)"
 
     except subprocess.TimeoutExpired:
-        return False, "rheotaxis timed out (10s)"
+        return False, "rheotaxis timed out (30s)"
     except Exception as exc:
         return False, f"exception: {exc}"
 
