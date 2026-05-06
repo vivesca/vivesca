@@ -14,6 +14,11 @@ mkdir -p "$(dirname "$LOG")"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
+# Surface aborts in the log. Without this, set -e + pipefail can silently kill
+# the script (see e.g. `head -1` SIGPIPE'ing upstream commands). 25 days of
+# silent death from 2026-04 is what motivated this trap.
+trap 'log "ABORT: line $LINENO exit=$? cmd: $BASH_COMMAND"' ERR
+
 cd "$REPO_ROOT"
 log "=== evergreen start ==="
 
@@ -21,8 +26,10 @@ log "=== evergreen start ==="
 
 LATEST=$(uv python list 2>/dev/null \
     | grep -E '^cpython-[0-9]+\.[0-9]+\.[0-9]+-linux-x86_64-gnu' \
-    | grep -v freethreaded | grep -v 'a\|b\|rc' \
-    | head -1 | awk '{print $1}' | sed 's/cpython-//;s/-linux.*//')
+    | grep -v freethreaded \
+    | grep -vE '[0-9](a|b|rc)[0-9]' \
+    | awk 'NR==1{print $1}' \
+    | sed 's/cpython-//;s/-linux.*//')
 CURRENT=$(uv run python --version 2>/dev/null | awk '{print $2}')
 
 if [ -z "$LATEST" ]; then
@@ -148,7 +155,7 @@ done
 
 # ── 7. Update supercronic ─────────────────────────────────────────────────
 
-CRONIC_LATEST=$(curl -sf https://api.github.com/repos/aptible/supercronic/releases/latest 2>/dev/null | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+CRONIC_LATEST=$(curl -sf https://api.github.com/repos/aptible/supercronic/releases/latest 2>/dev/null | grep -m 1 -o '"tag_name":"[^"]*"' | cut -d'"' -f4)
 if [ -n "$CRONIC_LATEST" ]; then
     CRONIC_CURRENT=$(supercronic --version 2>/dev/null | awk '{print $NF}' || echo "unknown")
     if [ "$CRONIC_CURRENT" != "$CRONIC_LATEST" ]; then
