@@ -1,27 +1,55 @@
 ---
 name: metabolize
-description: Process articles through Capco consulting lens — extract, write insight cards. "metabolize", "process articles", "what came in today"
+description: Extract ideas, data, quotes, and cross-pollination from articles — Capco consulting lens. Handles single URLs and the daily endocytosis batch. "metabolize", "process articles", "what came in today", "extract from this article"
 model: opus
 triggers:
   - metabolize
   - process articles
   - what came in today
   - endocytosis
+  - extract from this article
+  - pull useful things out of
 ---
 
 # Metabolize — endosomal processing of raw articles
 
 **Biology:** Endosomal cargo processing + antigen presentation. Raw articles (antigens) are broken down and key fragments (epitopes) are presented for downstream consumption.
 
-**What this does:** Reads today's fetched articles, reads recent chromatin for context, extracts what matters through the Capco lens, writes cards.
+**What this does:** Extracts what matters from articles — ideas, data, quotes, cross-pollination — through the Capco lens. Two modes: single-article (URL or text handed in by user) and daily-batch (reads endocytosis cache).
 
 ## When this fires
 
-- "process today's articles", "metabolize", "what came in today"
-- After endocytosis fetch has run (daily 18:30)
-- When preparing for a client meeting and want fresh signal
+- **Single-article mode:** Terry shares a URL/text and asks to "extract", "metabolize", "pull useful things out of", or just hands me an article in a context where extraction is the obvious move (e.g. an AI/banking blog post relevant to current consulting work).
+- **Daily-batch mode:** "process today's articles", "metabolize", "what came in today" — runs after endocytosis fetch (daily 18:30), or before a client meeting when fresh signal is wanted.
 
-## Procedure
+## Procedure — single-article mode
+
+### 1. Fetch the article
+
+If Terry hands a URL: `pinocytosis "<url>" --json` (CLI, preferred) or `lysozyme "<url>"` for clean prose. If he hands raw text or a local file path, read it directly.
+
+### 2. Extract — through the Capco lens
+
+You are an AI Solution Lead at Capco Hong Kong advising large international banks on AI governance, risk tiering, and responsible AI deployment. Free-text extraction with these surfaces (skip what doesn't apply):
+
+- **Headline thesis** — what the article claims, in one sentence
+- **Ideas** — load-bearing concepts, framings, mental models worth borrowing
+- **Data** — names/numbers/dates/benchmarks that quantify the claim
+- **Quotes** — verbatim lines worth preserving (prefer over paraphrase)
+- **Cross-pollination** — where this resonates with the organism, current consulting work, or a known stakeholder concern. Be specific — name the skill/paper/person.
+- **What to DO** — brief a client? watch? build capability? draft a garden post? ignore?
+
+### 3. Report inline
+
+Default: report extraction inline in chat — Terry reads chromatin through CC, so the live response IS the deliverable for one-off articles. No card written unless Terry asks "save this" or the article is high-signal enough to warrant catalog (then route to `/phagocytosis`).
+
+### 4. Offer downstream routing
+
+If extraction surfaced something publishable, offer the next step (garden post via exocytosis, paper material, talking-point) — don't auto-execute.
+
+---
+
+## Procedure — daily-batch mode
 
 ### 1. Gather raw articles
 
