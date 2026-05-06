@@ -182,8 +182,8 @@ _(no description)_
 _(no description)_
   Files: `mtor`
 
-### Standalone scripts (184 total, on PATH)
-  Recent: `soma-pull`, `cytokinesis`, `legatum`, `telophase`, `weekly-gather`, `evergreen`, `soma`, `pinocytosis`, `flush_processor.py`, `pondus-aa-health`
+### Standalone scripts (185 total, on PATH)
+  Recent: `pushback-scan.py`, `soma-pull`, `cytokinesis`, `legatum`, `telophase`, `weekly-gather`, `evergreen`, `soma`, `pinocytosis`, `flush_processor.py`
   Discovery: `ls ~/germline/effectors/` or `which <name>`
 
 ## Substrate Map
