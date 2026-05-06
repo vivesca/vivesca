@@ -76,6 +76,52 @@ def get_hebbian():
 ANAM_NOW = CHROMATIN_DIR / "Tonus.md"
 
 
+def _inject_recent_git_log() -> str:
+    """Cross-reference block: last 48h of commits in load-bearing repos.
+
+    Sits adjacent to Tonus injection so stale carry-forward claims are
+    visible against fresh commits in the same context window. Per
+    finding_carry_forward_decay_without_verification.md (Option A).
+
+    Uses Path.home() (not module-level HOME) so assays can monkeypatch.
+    Hardcoded to germline + epigenome; resist the urge to auto-detect.
+    """
+    repos = [
+        ("germline", Path.home() / "germline"),
+        ("epigenome", Path.home() / "epigenome"),
+    ]
+    sections = []
+    for label, path in repos:
+        if not (path / ".git").exists():
+            continue
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(path),
+                    "log",
+                    "--since=48 hours ago",
+                    "--oneline",
+                    "--no-decorate",
+                    "-30",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+        if result.returncode == 0 and result.stdout.strip():
+            sections.append(f"### Recent {label} commits (last 48h)\n{result.stdout.strip()}")
+    if not sections:
+        return ""
+    return (
+        "\n\n## Recent git activity (cross-reference against Tonus carry-forward)\n\n"
+        + "\n\n".join(sections)
+    )
+
+
 def mod_anamnesis(data):
     """Session-start context: Tonus + epigenome git pull. Lean.
 
@@ -127,6 +173,16 @@ def mod_anamnesis(data):
                         )
                 except (ValueError, OverflowError):
                     pass
+    except Exception:
+        pass
+
+    # Recent git activity — surfaces fresh commits next to Tonus so stale
+    # carry-forward claims are visible against ground truth in the same
+    # context window. Per finding_carry_forward_decay_without_verification.md.
+    try:
+        git_log_block = _inject_recent_git_log()
+        if git_log_block:
+            lines.append(git_log_block)
     except Exception:
         pass
 
