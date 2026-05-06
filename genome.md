@@ -163,7 +163,3 @@ Mark frontmatter: `name`, `description`, `type` (user/feedback/project/reference
 Append recurring GLM failure patterns to `~/epigenome/marks/feedback_ribosome_coaching.md`. Prepended to every ribosome dispatch. Format: pattern name, what GLM does wrong, fix instruction.
 
 Coaching entries decay toward zero. Each entry either gets promoted to a deterministic gate check (grep in `chaperone`, pre-commit hook) or retired when the LLM stops violating it. A coaching file that only grows means the enforcement layer isn't working. At each addition, ask "can this be a grep?" — if yes, add it to the review gate and mark the coaching entry as promoted.
-
-## Codex Tool Mapping
-
-When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equivalents. Read becomes shell reads (`cat`/`sed`) or `rg`. Write becomes shell redirection or `apply_patch`. Edit and MultiEdit become `apply_patch`. Bash becomes `shell_command`. Grep becomes `rg`, falling back to `grep`. Glob becomes `rg --files` or `find`. WebFetch and WebSearch become `curl` or Context7. AskUserQuestion becomes a numbered list in chat, with the agent waiting for a reply. Task and Subagent run sequentially in the main thread, with `multi_tool_use.parallel` available for tool calls. Skill means open the referenced `SKILL.md` and follow it.
