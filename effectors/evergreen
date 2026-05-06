@@ -72,7 +72,7 @@ for skip in "${SKIP_TESTS[@]}"; do
     [ -f "$skip" ] && IGNORE_ARGS="$IGNORE_ARGS --ignore=$skip"
 done
 
-if uv run pytest assays/ -x -q $IGNORE_ARGS 2>>"$LOG"; then
+if uv run pytest assays/ -x -q $IGNORE_ARGS >>"$LOG" 2>&1; then
     log "Tests pass"
 else
     log "Tests FAILED — rolling back"
