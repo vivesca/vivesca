@@ -56,6 +56,8 @@ BEFORE attempting ANY fix:
    grep -rIl "<distinctive error phrase>" ~/epigenome/marks/ ~/epigenome/chromatin/immunity/ 2>/dev/null
    ```
    If hit → read the matching file, reconcile, don't re-diagnose. The 2026-04-05 `op CLI byte 848` incident burned ~15 tool calls because the parallel session had already filed `finding_typos_hook_rewrites_secrets.md` an hour earlier.
+
+   **Do NOT name culprit candidates in user-facing chat before evidence is gathered for the candidate.** "Likely culprit: X" / "probably Y is the issue" / "this looks like Z" — these are assertions that anchor user expectations and must be evidenced before they're chat-stated. The pattern-match reflex ("OOM hit a node process → ribosome dispatches CC which uses node → likely ribosome") is informal speculation that becomes a published claim the moment it's typed. Report what the logs show; report what's NOT yet known; gather the next evidence; THEN name the culprit if the evidence supports it. Codifies retrospective 2026-05-06-0950 — Slot 46 incident #2 OOM investigation, where "likely culprit: ribosome dispatch" was asserted before supervisor logs were checked; actual culprit (6 concurrent Blink+tmux Claude sessions) emerged one tool call later.
 1. **Gather context cheaply** — for unfamiliar components, use droid explore before burning CC tokens:
    ```bash
    ribosome -m "custom:glm-4.7" --cwd <project> "Read <files> and summarize: what it does, recent changes, dependencies, error handling patterns"
