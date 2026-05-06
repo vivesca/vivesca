@@ -1,6 +1,6 @@
 ---
 name: retrospective
-description: Post-session meta-critique. Run AFTER /cytokinesis to assess session quality, surface failure modes, observe Terry-pattern signals, and propose what to do differently next time. NOT for state consolidation (that's cytokinesis). Trigger on "/retrospective", "how did the session go", "session review", "self-assess this session", "what could we have done better".
+description: Session-quality meta-critique — five-section structured judgment about state. Step 2 of telophase. Invoke directly for solo phase-end review. NOT for state consolidation (use cytokinesis).
 cli: none
 user_invocable: true
 context: inline

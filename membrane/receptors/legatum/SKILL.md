@@ -1,6 +1,6 @@
 ---
 name: legatum
-description: Session state transfer — bequeath volatile context to durable storage before session death. Learning capture, TODO sweep, session log. Use at gear shifts (checkpoint mode) or before /clear (full mode). NOT a daily routine — use eow/daily for day-level closures. Aliases "wrap", "legatum".
+description: State-transfer for impending session death — bequeath context before /clear, or auto-fire at gear shifts (checkpoint mode). NOT for graceful session-end (use telophase) or day-level close (eow/daily).
 user_invocable: true
 ---
 

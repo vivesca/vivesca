@@ -1,8 +1,6 @@
 ---
 name: cytokinesis
-description: >
-  Use when ending a session or wrapping up work. "wrap up", "end of session", "cytokinesis".
-  Finishes outstanding work before consolidating — "wrap up" means complete then close.
+description: Session-state consolidation step — finishes outstanding work, verifies routing, writes G1 + daily note. Step 1 of telophase. Invoke directly for mid-session checkpoint. NOT for full session-end (use telophase).
 cli: cytokinesis
 user_invocable: true
 context: inline

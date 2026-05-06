@@ -6,7 +6,7 @@ triggers:
   - endosymbiosis
   - integrate
   - organelle
-  - wrap
+  - wrap tool
   - ingest
 user_invocable: true
 model: sonnet
