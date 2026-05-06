@@ -1,5 +1,5 @@
 {
-  "skillListingBudgetFraction": 0.02,
+  "skillListingBudgetFraction": 0.10,
   "env": {
     "AGENT_BROWSER_PROFILE": "/home/vivesca/.agent-browser-profile",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
