@@ -167,25 +167,3 @@ Coaching entries decay toward zero. Each entry either gets promoted to a determi
 ## Codex Tool Mapping
 
 When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equivalents. Read becomes shell reads (`cat`/`sed`) or `rg`. Write becomes shell redirection or `apply_patch`. Edit and MultiEdit become `apply_patch`. Bash becomes `shell_command`. Grep becomes `rg`, falling back to `grep`. Glob becomes `rg --files` or `find`. WebFetch and WebSearch become `curl` or Context7. AskUserQuestion becomes a numbered list in chat, with the agent waiting for a reply. Task and Subagent run sequentially in the main thread, with `multi_tool_use.parallel` available for tool calls. Skill means open the referenced `SKILL.md` and follow it.
-
-<!-- BEGIN COMPOUND CODEX TOOL MAP -->
-## Compound Codex Tool Mapping (Claude Compatibility)
-
-This section maps Claude Code plugin tool references to Codex behavior.
-Only this block is managed automatically.
-
-Tool mapping:
-- Read: use shell reads (cat/sed) or rg
-- Write: create files via shell redirection or apply_patch
-- Edit/MultiEdit: use apply_patch
-- Bash: use shell_command
-- Grep: use rg (fallback: grep)
-- Glob: use rg --files or find
-- LS: use ls via shell_command
-- WebFetch/WebSearch: use curl or Context7 for library docs
-- AskUserQuestion/Question: present choices as a numbered list in chat and wait for a reply number. For multi-select (multiSelect: true), accept comma-separated numbers. Never skip or auto-configure — always wait for the user's response before proceeding.
-- Task/Subagent/Parallel: run sequentially in main thread; use multi_tool_use.parallel for tool calls
-- TodoWrite/TodoRead: use file-based todos in todos/ with todo-create skill
-- Skill: open the referenced SKILL.md and follow it
-- ExitPlanMode: ignore
-<!-- END COMPOUND CODEX TOOL MAP -->
