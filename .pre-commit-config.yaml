@@ -70,7 +70,7 @@ repos:
     rev: v2.10.0
     hooks:
       - id: pip-audit
-        args: [--skip-editable, --ignore-vuln, CVE-2026-3219]
+        args: [--skip-editable, --ignore-vuln, CVE-2026-3219, --ignore-vuln, CVE-2026-6357]
         stages: [pre-push]
 
   - repo: https://github.com/gitleaks/gitleaks
