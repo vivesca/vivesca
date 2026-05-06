@@ -15,6 +15,10 @@ Periodic audit to catch skill drift, identify gaps, and prune unused skills.
 - When skills feel stale or routing seems off
 - After major vault reorganization
 
+## HARD RULE — Never propose drops from description alone
+
+Before forming any drop, demote, or merge hypothesis on a candidate skill, **read the full SKILL.md end-to-end** — including queues, completed-mines tables, cross-references, and "see also" sections. The catalog is intentionally rich; assume each skill is load-bearing until the SKILL.md proves otherwise. The recurring failure mode (codified 2026-05-06 Slot 54 retrospective, three retracted hypotheses in one session) is shallow description-match generating false-positive drops. The principled consolidation criteria are (a) trigger collisions (deterministic, run `python3 ~/germline/membrane/cytoskeleton/skill-trigger-gen.py` to surface), and (b) genuine semantic duplication confirmed by reading both SKILL.mds. "Low fire count", "bare-name listing", and "thematic similarity" are advisory-only signals — none produced a clean fix in the codifying instance. See `marks/feedback_dont_propose_skill_drops_from_descriptions.md` (PROTECTED).
+
 ## Workflow
 
 ### 1. Inventory Check
