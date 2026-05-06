@@ -15,6 +15,9 @@ from pathlib import Path
 VAULT_DIR = Path.home() / "epigenome" / "chromatin" / "secretome"
 ASTRO_DIR = Path.home() / "code" / "terryli-hm" / "src" / "content" / "post"
 INDEX_PATH = Path.home() / "notes" / "terryli.hm.md"
+STOPWORDS_PATH = (
+    Path.home() / "epigenome" / "chromatin" / "loci" / "config" / "garden_stopwords.md"
+)
 
 
 def now_iso() -> str:
@@ -54,13 +57,45 @@ def parse_frontmatter(content: str) -> dict | None:
     return fm
 
 
-def scan_content(content: str) -> list[str]:
-    warnings = []
+def load_stopwords() -> tuple[list[str], list[str]]:
+    """Parse block and warn term lists from the stopwords markdown file.
+
+    Returns (block_terms, warn_terms). Missing file returns empty lists.
+    """
+    if not STOPWORDS_PATH.exists():
+        return [], []
+    block: list[str] = []
+    warn: list[str] = []
+    section: str | None = None
+    for line in STOPWORDS_PATH.read_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## Block"):
+            section = "block"
+        elif stripped.startswith("## Warn"):
+            section = "warn"
+        elif stripped.startswith("## "):
+            section = None
+        elif stripped.startswith("- ") and section:
+            term = stripped[2:].strip()
+            if term:
+                (block if section == "block" else warn).append(term)
+    return block, warn
+
+
+def scan_content(content: str) -> tuple[list[str], list[str]]:
+    """Scan body for sensitive patterns.
+
+    Returns (warnings, blocks). Block-tier matches must abort publish;
+    warn-tier matches print and continue.
+    """
+    warnings: list[str] = []
+    blocks: list[str] = []
+
     patterns = [
         (r"\$[0-9]", "exact dollar figure"),
         (r"HKD\s*[0-9]", "exact HKD figure"),
         (r"[0-9]+\s*million\b", "exact million figure"),
-        (r"(?:Mr|Ms|Mrs|Dr|Prof)\.?\s+[A-Z][a-z]+", "named individual"),
+        (r"\b(?:Mr|Ms|Mrs|Dr|Prof)\.?\s+[A-Z][a-z]+", "named individual"),
         (
             r'(?i)(password|api.?key|secret|token)\s*[:=]\s*["\']?[A-Za-z0-9+/=_\-]{8,}',
             "possible credential",
@@ -71,7 +106,36 @@ def scan_content(content: str) -> list[str]:
         if m:
             snippet = content[m.start() : m.end() + 30].strip()
             warnings.append(f'[sensitive] {label} — "{snippet}..."')
-    return warnings
+
+    block_terms, warn_terms = load_stopwords()
+    body = strip_frontmatter(content)
+    for term in block_terms:
+        m = re.search(r"\b" + re.escape(term) + r"\b", body, re.IGNORECASE)
+        if m:
+            start = max(0, m.start() - 20)
+            end = min(len(body), m.end() + 20)
+            snippet = body[start:end].replace("\n", " ").strip()
+            blocks.append(f'[BLOCK] internal name "{term}" — "...{snippet}..."')
+    for term in warn_terms:
+        m = re.search(r"\b" + re.escape(term) + r"\b", body, re.IGNORECASE)
+        if m:
+            start = max(0, m.start() - 20)
+            end = min(len(body), m.end() + 20)
+            snippet = body[start:end].replace("\n", " ").strip()
+            warnings.append(f'[sensitive] stopword "{term}" — "...{snippet}..."')
+
+    return warnings, blocks
+
+
+def strip_frontmatter(content: str) -> str:
+    """Return body only, so stopwords in tags/frontmatter don't trigger."""
+    if not content.startswith("---\n"):
+        return content
+    try:
+        end = content.index("---", 4)
+        return content[end + 4 :]
+    except ValueError:
+        return content
 
 
 def cmd_new(args):
@@ -131,7 +195,17 @@ def cmd_publish(args):
     if not fm.get("draft"):
         print("Already published")
         return 0
-    warnings = scan_content(content)
+    warnings, blocks = scan_content(content)
+    if blocks:
+        print("\nContent scan BLOCKED publish:", file=sys.stderr)
+        for b in blocks:
+            print(f"  {b}", file=sys.stderr)
+        print(
+            "\nResolve block-tier matches before publishing. "
+            "Stopwords list: ~/epigenome/chromatin/loci/config/garden_stopwords.md",
+            file=sys.stderr,
+        )
+        return 1
     if warnings:
         print("\nContent scan warnings:", file=sys.stderr)
         for w in warnings:

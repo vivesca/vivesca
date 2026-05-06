@@ -137,3 +137,115 @@ class TestSarcioIntegration:
         )
         # Should produce some output
         assert result.stdout or result.stderr
+
+
+# ── scan_content sanitization gate ──────────────────────────────────────────────
+
+
+def _load_publish_module():
+    """Import the publish CLI as a module (it has no .py extension)."""
+    import importlib.machinery
+    import importlib.util
+
+    target = SARCIO_PATH.resolve()
+    if not target.exists():
+        pytest.skip("publish CLI not available")
+    loader = importlib.machinery.SourceFileLoader("publish_under_test", str(target))
+    spec = importlib.util.spec_from_loader("publish_under_test", loader)
+    if spec is None or spec.loader is None:
+        pytest.skip("could not load publish module")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TestScanContentSanitization:
+    """The block-tier gate must reject any post containing client-identifying terms.
+
+    If this assay flips green→red, either a real leak risk just landed or the
+    stopwords list at ~/epigenome/chromatin/loci/config/garden_stopwords.md needs
+    a new entry.
+    """
+
+    @pytest.fixture
+    def publish_module(self):
+        return _load_publish_module()
+
+    def test_clean_post_has_no_warnings_or_blocks(self, publish_module):
+        clean = (
+            "---\n"
+            "title: Test\n"
+            "draft: true\n"
+            "---\n\n"
+            "A post with no sensitive content. Just prose about ideas.\n"
+            "Items two through four are mentioned in passing.\n"
+        )
+        warnings, blocks = publish_module.scan_content(clean)
+        assert blocks == [], f"clean post must not block: {blocks}"
+        assert warnings == [], f"clean post must not warn: {warnings}"
+
+    def test_block_tier_catches_employer_name(self, publish_module):
+        bad = (
+            "---\ntitle: Bad\ndraft: true\n---\n\n"
+            "Working at HSBC has taught me a lot about governance.\n"
+        )
+        _, blocks = publish_module.scan_content(bad)
+        assert any("HSBC" in b for b in blocks), f"must block HSBC: {blocks}"
+
+    def test_block_tier_catches_consulting_firm_name(self, publish_module):
+        bad = (
+            "---\ntitle: Bad\ndraft: true\n---\n\n"
+            "My role at Capco involves consulting on AI governance.\n"
+        )
+        _, blocks = publish_module.scan_content(bad)
+        assert any("Capco" in b for b in blocks), f"must block Capco: {blocks}"
+
+    def test_block_tier_catches_internal_codename(self, publish_module):
+        bad = (
+            "---\ntitle: Bad\ndraft: true\n---\n\n"
+            "The Eunomia paper proposes a coordinator function.\n"
+        )
+        _, blocks = publish_module.scan_content(bad)
+        assert any("Eunomia" in b for b in blocks), f"must block Eunomia: {blocks}"
+
+    def test_word_boundary_avoids_substring_false_positive(self, publish_module):
+        """The honorific regex must not match 'items' as 'Ms ' mid-string.
+
+        Regression: published 2026-05-06 garden post triggered a spurious
+        warning on 'items two through four' because the original Mr|Ms|Mrs
+        pattern lacked a leading word boundary.
+        """
+        body = (
+            "---\ntitle: Test\ndraft: true\n---\n\n"
+            "Items two through four were named in the original Asks.\n"
+        )
+        warnings, blocks = publish_module.scan_content(body)
+        named = [w for w in warnings if "named individual" in w]
+        assert named == [], f"must not match 'items' as honorific: {named}"
+        assert blocks == []
+
+    def test_stopwords_only_match_body_not_frontmatter(self, publish_module):
+        """A stopword in tags or other frontmatter fields must not trigger.
+
+        Frontmatter is metadata, not published prose, so it should be excluded
+        from the scan.
+        """
+        body = (
+            "---\ntitle: Test\ntags: [hsbc-context]\ndraft: true\n---\n\n"
+            "A perfectly clean body without any sensitive terms.\n"
+        )
+        result = publish_module.scan_content(body)
+        blocks = result[1]
+        assert blocks == [], f"frontmatter tag must not block: {blocks}"
+
+    def test_stopwords_file_loads(self, publish_module):
+        """The garden_stopwords.md config must load without error.
+
+        If the file path moves or format breaks, both lists return empty
+        and the gate degrades silently — assert it loads non-empty.
+        """
+        result = publish_module.load_stopwords()
+        block = result[0]
+        if publish_module.STOPWORDS_PATH.exists():
+            assert "HSBC" in block, "HSBC must be in block tier"
+            assert "Capco" in block, "Capco must be in block tier"
