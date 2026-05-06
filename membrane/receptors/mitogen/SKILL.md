@@ -80,6 +80,7 @@ Don't build a 5-task campaign for a one-liner fix.
 
 ### Phase 0.75: Pre-flight (from rector)
 
+- **Already-shipped check (mandatory).** Before any `mtor --spec` or `ribosome` dispatch, verify the target feature has not already shipped. Recency-window git log (`git log -N`) is the wrong form — an active parallel session can push relevant commits below the visible window. Right form: `git log --all --grep="<feature_name>"` AND grep the target file directly for the named function. Both must come back empty before dispatch. If either has hits, READ the prior implementation and decide whether the dispatch is incremental change or no-op redundant. Codifies `finding_dispatch_self_context_blindness.md` (2026-05-06): A and B Layer-1 dispatches duplicated already-shipped Slot 47 commits because `git log -8` was too shallow.
 - **Data governance:** can this code leave the machine? No `.env`, secrets, proprietary code.
 - **Parallel sessions?** → `lucus new <branch>` first.
 - **Naming?** → HARD GATE: name before code. Check registry availability (PyPI/crates.io). See `organogenesis`.
@@ -106,15 +107,14 @@ Then prioritize:
 
 **CC writes specs and tests, ribosome implements to pass them.** This is the core loop.
 
-**Spec file:** `~/epigenome/chromatin/loci/plans/spec-<slug>.md` with YAML frontmatter:
+**Spec file:** `~/epigenome/chromatin/loci/plans/spec-<slug>.md` with YAML frontmatter. Only mtor-validated fields go in frontmatter; aspirational fields (`pipeline_stage`, `wave`, `parent_spec`) belong in body prose until mtor's validator accepts them. Get the current schema with `mtor schema` if unsure.
+
 ```yaml
 ---
 title: "One-line description"
 status: ready
-pipeline_stage: plan      # context | research | plan | execute | summary | verify — vivesca-original field for cytokinesis to detect stranded specs; phase enum loosely inspired by GSD/ce-work multi-phase pipelines
 repo: ~/code/<repo>
 depends_on: []
-wave: 1                   # parallel-safe group adapted from ce-work parallel-safety check; same wave = parallel, next wave waits
 scope:
   - path/to/file.py
 tests:
@@ -122,7 +122,7 @@ tests:
 ---
 ```
 
-`pipeline_stage` lets cytokinesis detect mid-pipeline state and refuse wrap if a plan is stranded between stages.
+If you need pipeline-stage tracking, wave grouping, or parent-spec linking, write them as prose paragraphs after the frontmatter (`**Wave:** 1 (parallel-safe with spec-bar.md)`, `**Parent spec:** ../foo.md`). The validator rejects unknown frontmatter fields and aborts dispatch — `2026-05-06` had a 2-min friction loop because /mitogen documented `pipeline_stage` / `wave` / `parent_spec` that mtor didn't honour.
 
 **Spec body:** Problem (2-3 sentences) → Solution (concrete: name the function, the approach) → Location (exact file, line numbers, paste current code if >200 lines) → Constraints (only modify X, do NOT modify Y) → Tests (exact function names + assertions + STOP condition).
 
