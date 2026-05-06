@@ -1,5 +1,6 @@
 [default.extend-identifiers]
 cyclin = "cyclin"
+Connecto = "Connecto"
 
 [default.extend-words]
 # Biology/domain terms

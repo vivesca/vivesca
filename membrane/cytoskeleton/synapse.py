@@ -1025,6 +1025,137 @@ def mod_named_tool_pushback(data):
     ]
 
 
+# ── stakeholder-grep: chromatin grep injection on stakeholder mention ──
+#
+# Layer-2 detector (parallel to Layer-1 pushback-shape detector). Triggers on
+# high-confidence stakeholder identifiers — full names, organisation programs,
+# internal codenames — regardless of pushback. Injects the most recent
+# chromatin file paths mentioning the entity so CC consults primary sources
+# before forming procedural claims about stakeholder state.
+#
+# Codifies failure caught in retrospective 2026-05-06-1555 (Slot 56): CC
+# asserted "AIMS pre-brief gate" without grepping chromatin for Jeff Valane's
+# own broadcast (which had already retired the gate). 4th instance of
+# self-context-blindness shape; mark-only routing has not deterred.
+#
+# False-positive control: only matches FULL names + program acronyms +
+# internal codenames. Single first names ("David", "Simon") are excluded
+# because they are too noisy. Update list as new entities appear in chromatin.
+
+_STAKEHOLDER_PATTERNS: tuple[str, ...] = (
+    # HSBC RAI / AIMS leadership
+    r"Jeff Valane",
+    r"Doug Robertson",
+    r"David Rice",
+    r"Simon Eltringham",
+    r"Tobin Joseph",
+    r"Mario Shamtani",
+    r"Shane Balfe",
+    r"Satbir Bhandal",
+    r"Marek Woloszyn",
+    r"Dan T Dixon",
+    r"James Richard Fisher",
+    # HSBC Risk / Cyber chain
+    r"Ian Royle",
+    r"Andrew Stalker",
+    r"Tanith Howard",
+    r"Richard M Blackburn",
+    r"Daria Leszczynska",
+    r"Lukasz Gasior",
+    r"Jadwiga Praznikow-Musiel",
+    # HSBC programs / committees / systems (unambiguous in HSBC context)
+    r"AIMS",
+    r"AIRCo",
+    r"GAIP",
+    r"GFMM",
+    r"GPRS",
+    r"ColPilot",
+    r"OBKYC-Connecto",
+    r"Promenade",
+    r"Eunomia",
+    r"Glasswing",
+    # Capco-side names
+    r"Matthew Cuffe",
+    r"Matt Cuffe",
+    r"Bertie Watson",
+    r"Mahesh Pancholi",
+)
+_STAKEHOLDER_RE = re.compile(
+    r"\b(?:" + "|".join(_STAKEHOLDER_PATTERNS) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _grep_chromatin_for_stakeholder(name: str, max_hits: int = 3) -> list[str]:
+    """Return up to max_hits most recent chromatin file paths mentioning name."""
+    immunity = CHROMATIN_DIR / "immunity"
+    if not immunity.exists():
+        return []
+    try:
+        result = subprocess.run(
+            ["grep", "-li", "-r", name, str(immunity)],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return []
+    if result.returncode not in (0, 1):
+        return []
+    paths = [p for p in result.stdout.splitlines() if p]
+    if not paths:
+        return []
+    paths.sort(
+        key=lambda p: Path(p).stat().st_mtime if Path(p).exists() else 0,
+        reverse=True,
+    )
+    return [str(Path(p).relative_to(EPIGENOME_DIR)) for p in paths[:max_hits]]
+
+
+def mod_stakeholder_chromatin_grep(data):
+    """Inject chromatin grep results when user prompt names a stakeholder.
+
+    Sub-detector D of the verify-before-asserting family. Layer-2 detector
+    parallel to Layer-1 pushback-shape (mod_named_tool_pushback). Targets
+    self-context blindness on chromatin contents BEFORE pushback fires.
+    """
+    prompt = data.get("prompt", "")
+    if not prompt:
+        return []
+    matches = _STAKEHOLDER_RE.findall(prompt)
+    if not matches:
+        return []
+    seen: set[str] = set()
+    unique_matches: list[str] = []
+    for match in matches:
+        canonical = match.strip()
+        key = canonical.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_matches.append(canonical)
+        if len(unique_matches) >= 3:
+            break
+    output_lines: list[str] = []
+    for name in unique_matches:
+        hits = _grep_chromatin_for_stakeholder(name)
+        if not hits:
+            continue
+        rel_paths = ", ".join(f"`{p}`" for p in hits)
+        output_lines.append(
+            f"Stakeholder/program named in prompt: **{name}**. "
+            f"Recent chromatin: {rel_paths}. "
+            "Read primary source BEFORE asserting any procedural claim about state."
+        )
+    if not output_lines:
+        return []
+    output_lines.append(
+        "See `finding_self_context_blindness_recurs_in_working_mode.md` + "
+        "epistemics `grep-chromatin-before-stakeholder-procedural-claim.md`."
+    )
+    return output_lines
+
+
 # ── context: parked item injection ───────────────────────
 
 DAILY_DIR = CHROMATIN_DIR / "Daily"
@@ -1239,9 +1370,19 @@ def _inject_recent_git_log() -> str:
             continue
         try:
             result = subprocess.run(
-                ["git", "-C", str(path), "log", "--since=48 hours ago",
-                 "--oneline", "--no-decorate", "-30"],
-                capture_output=True, text=True, timeout=5,
+                [
+                    "git",
+                    "-C",
+                    str(path),
+                    "log",
+                    "--since=48 hours ago",
+                    "--oneline",
+                    "--no-decorate",
+                    "-30",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0 and result.stdout.strip():
                 sections.append(f"### Recent {label} commits (last 48h)\n{result.stdout.strip()}")
@@ -1271,6 +1412,7 @@ def main():
         mod_priming,
         mod_rheotaxis,
         mod_named_tool_pushback,
+        mod_stakeholder_chromatin_grep,
         mod_oscillation_warning,
         mod_mitogen,
         mod_senescence,

@@ -241,7 +241,7 @@ skip = [
 #   wit         — "dry wit" in openclaw persona docs
 #   thats       — intentional informal-speech literals in synapse.py ("thats all", "thats it")
 #   stilus      — Latin stylus (original meaning preserved)
-ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin,opps,allo,ans,afile,crasher,te,graphis,pilon,unknow,grammers,coo,jus,trama,fpr,pre-emptive,ist,ather,iterm,cancelation,cyclin"
+ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats,pevents,sourc,cunt,resolvin,opps,allo,ans,afile,crasher,te,graphis,pilon,unknow,grammers,coo,jus,trama,fpr,pre-emptive,ist,ather,iterm,cancelation,cyclin,connecto"
 
 [tool.deptry]
 # cryptography: used by telethon/playwright at runtime, not imported directly
