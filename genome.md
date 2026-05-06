@@ -66,9 +66,7 @@ CLI plus skill by default; MCP only where it earns its keep. For every new tool,
 
 Pre-check for exceptional tools only: does the tool need to process intermediate data too large to fit in the main agent's remaining context, like retrieval plus semantic filtering where raw results exceed roughly 5K tokens, the Zilliz memsearch case? If yes, the answer is nested context architecture — a subagent dispatch via the Task tool, or an MCP tool with its own nested LLM call. This applies to fewer than five percent of tools. The skill is the interface for this pattern, the subagent is the mechanism — a skill alone doesn't isolate context because the main agent still reads the raw data. If the tool needs intermediate-data isolation, design it as a subagent dispatch wrapped in a skill, not as a skill with instructions the main agent follows. For the remaining ninety-five-plus percent, continue with the binary tree.
 
-1. Does the tool need cross-invocation mutable state that cannot live on the filesystem — in-memory session, persistent connection, push or streaming channel to the client, browser tabs, daemon or worker process? If yes, MCP as a stateful server.
-2. Does the input schema contain nested objects or arrays of structured records, not just strings or numbers or lists of primitives? If yes, MCP, because the typed schema earns its keep over flat CLI flags.
-3. Otherwise, CLI plus skill.
+First test: does the tool need cross-invocation mutable state that cannot live on the filesystem — in-memory session, persistent connection, push or streaming channel to the client, browser tabs, daemon or worker process? If yes, MCP as a stateful server. Otherwise, second test: does the input schema contain nested objects or arrays of structured records, not just strings or numbers or lists of primitives? If yes, MCP, because the typed schema earns its keep over flat CLI flags. Otherwise, CLI plus skill.
 
 Deployment caveat, not a step in the tree: if a target agent harness cannot spawn shell — hosted sandboxes without exec, web UIs, constrained environments — every CLI-plus-skill candidate becomes MCP by necessity. For the CC, Codex, Gemini CLI, and Goose stack this is dormant since all have shell, so it only matters in Capco-consulting contexts.
 
@@ -134,22 +132,9 @@ AFK signal triggers an autonomy mode shift. When Terry's message contains AFK si
 
 Route these signals the moment they appear — don't wait for `/cytokinesis`.
 
-| Signal | Route to | Gate |
-|---|---|---|
-| Correction from Terry | Memory (feedback, protected if architectural) | Always file |
-| Surprise / unexpected behavior | Memory (finding) | Always file |
-| Technical discovery (debugging, workarounds) | Memory (finding) | Would a fresh session hit the same wall? |
-| Resolution ("that worked") | Memory (finding) if non-trivial | Would a fresh session benefit? |
-| Repeated manual step (2+) | Hook candidate (methylation) | Always file |
-| Workflow improvement idea | Skill edit (now, not deferred) | Always file |
-| Taste / preference confirmed | Memory (feedback) | Non-obvious preference? File it |
-| State change | Tonus.md | Always update |
-| Session substance (concept defined, deliverable shaped, positioning decided, thesis reached) | Memory (project or finding) | "Could Terry reference this tomorrow?" If yes, file now — don't wait for wrap |
-| Working method / approach that emerged from the session | Epistemics (with `skills:` link) | "Would a fresh session default to a worse approach without this?" |
-| Pattern of judgment revealed (not a single preference) | User mark (rolling — update existing `user_judgment_patterns.md`) | "Would this change how Claude Code approaches work for Terry?" |
-| Outbound senior comms sent (Teams / WhatsApp / email / paper version) | Standalone correspondence note + interlinks | Always file — proactively offer when user signals "sent" / "replied", do not wait to be asked |
+A correction from Terry routes to memory as a feedback mark, protected if architectural — always file. A surprise or unexpected behaviour routes to memory as a finding — always file. A technical discovery (debugging, workarounds) routes to memory as a finding, gated by "would a fresh session hit the same wall?" A resolution ("that worked") routes to memory as a finding if non-trivial, gated by "would a fresh session benefit?" A repeated manual step at two-plus instances routes as a hook candidate via methylation — always file. A workflow improvement idea routes to a skill edit now, not deferred — always file. A taste or preference confirmed routes to memory as feedback when the preference is non-obvious — file it. A state change routes to Tonus.md — always update. Session substance (concept defined, deliverable shaped, positioning decided, thesis reached) routes to memory as a project or finding mark, gated by "could Terry reference this tomorrow?" — if yes, file now without waiting for wrap. A working method or approach that emerged from the session routes to epistemics with a `skills:` link, gated by "would a fresh session default to a worse approach without this?" A pattern of judgment revealed (not a single preference) routes to a user mark, rolling — update the existing `user_judgment_patterns.md` — gated by "would this change how Claude Code approaches work for Terry?" Outbound senior comms sent (Teams, WhatsApp, email, paper version) route to a standalone correspondence note plus interlinks — always file, proactively offered when the user signals "sent" or "replied" rather than waiting to be asked.
 
-Default: FILE. Over-filter is the LLM failure mode. Mark type: first match of feedback → finding → project → reference → user.
+The default is FILE — over-filter is the LLM failure mode. Mark type resolves by first match of feedback, finding, project, reference, user.
 
 ## Knowledge Architecture
 
