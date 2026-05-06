@@ -148,8 +148,36 @@ update_qmd() {
         2>>"$LOG" && log "Updated qmd on mac" || log "WARN: qmd update failed"
 }
 
+# ── E. tmux ──────────────────────────────────────────────────────────────
+# Debian bookworm freezes tmux at 3.3a (2022). Build latest from source so
+# Claude Code's ghost-text + extended terminal-features render in tmux.
+update_tmux() {
+    local latest current
+    latest=$(curl -sf https://api.github.com/repos/tmux/tmux/releases/latest 2>/dev/null \
+        | grep -m1 -o '"tag_name":"[^"]*"' | cut -d'"' -f4)
+    [ -z "$latest" ] && { log "WARN: tmux latest lookup failed"; return; }
+    current=$(/usr/local/bin/tmux -V 2>/dev/null | awk '{print $2}' || echo "none")
+    if [ "$current" = "$latest" ]; then
+        log "tmux: current=$current (latest)"
+        return
+    fi
+    log "tmux: current=$current latest=$latest, building"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    (
+        cd "$tmpdir"
+        curl -sfL "https://github.com/tmux/tmux/releases/download/${latest}/tmux-${latest}.tar.gz" -o tmux.tar.gz
+        tar xzf tmux.tar.gz
+        cd "tmux-${latest}"
+        ./configure --prefix=/usr/local >/dev/null
+        make -j"$(nproc)" >/dev/null
+        sudo make install >/dev/null
+    ) 2>>"$LOG" && log "tmux updated to $latest" || log "WARN: tmux build failed"
+    rm -rf "$tmpdir"
+}
+
 # ── Tool updates (fault-isolated) ────────────────────────────────────────
-for fn in update_cc update_uv update_rust update_npm update_qmd; do
+for fn in update_cc update_uv update_rust update_npm update_qmd update_tmux; do
     $fn || log "WARN: $fn failed, continuing"
 done
 
