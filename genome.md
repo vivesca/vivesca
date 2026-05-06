@@ -164,21 +164,9 @@ Append recurring GLM failure patterns to `~/epigenome/marks/feedback_ribosome_co
 
 Coaching entries decay toward zero. Each entry either gets promoted to a deterministic gate check (grep in `chaperone`, pre-commit hook) or retired when the LLM stops violating it. A coaching file that only grows means the enforcement layer isn't working. At each addition, ask "can this be a grep?" — if yes, add it to the review gate and mark the coaching entry as promoted.
 
-<!-- BEGIN CODEX TOOL MAP -->
 ## Codex Tool Mapping
 
-When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equivalents:
-- Read → shell reads (cat/sed) or rg
-- Write → shell redirection or apply_patch
-- Edit/MultiEdit → apply_patch
-- Bash → shell_command
-- Grep → rg (fallback: grep)
-- Glob → rg --files or find
-- WebFetch/WebSearch → curl or Context7
-- AskUserQuestion → numbered list in chat, wait for reply
-- Task/Subagent → sequential in main thread; multi_tool_use.parallel for tool calls
-- Skill → open the referenced SKILL.md and follow it
-<!-- END CODEX TOOL MAP -->
+When running as Codex (OpenAI Codex CLI), map CC tool references to Codex equivalents. Read becomes shell reads (`cat`/`sed`) or `rg`. Write becomes shell redirection or `apply_patch`. Edit and MultiEdit become `apply_patch`. Bash becomes `shell_command`. Grep becomes `rg`, falling back to `grep`. Glob becomes `rg --files` or `find`. WebFetch and WebSearch become `curl` or Context7. AskUserQuestion becomes a numbered list in chat, with the agent waiting for a reply. Task and Subagent run sequentially in the main thread, with `multi_tool_use.parallel` available for tool calls. Skill means open the referenced `SKILL.md` and follow it.
 
 <!-- BEGIN COMPOUND CODEX TOOL MAP -->
 ## Compound Codex Tool Mapping (Claude Compatibility)
