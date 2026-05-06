@@ -8,6 +8,7 @@ Routes by tool name and file path internally.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -809,6 +810,139 @@ def mod_ligation(data):
 # ── affinity: skill usage log ──────────────────────────────
 
 AFFINITY_LOG = HOME / ".claude" / "skill-usage.tsv"
+
+
+# ── oscillation: framing-driven edit reversal detector ──
+
+_OSCILLATION_SESSIONS_DIR = HOME / ".claude" / "projects" / "-home-vivesca"
+_OSCILLATION_REVERSAL_THRESHOLD = 3
+_OSCILLATION_LOOKBACK = 20
+_OSCILLATION_HASH_RE = re.compile(r"\s+")
+
+
+def _normalise_for_oscillation_hash(text: str) -> str:
+    """Strip whitespace, collapse internal whitespace, lowercase, fold smart quotes."""
+    if not text:
+        return ""
+    folded = (
+        text.replace("\u2019", "'")
+        .replace("\u2018", "'")
+        .replace("\u201c", '"')
+        .replace("\u201d", '"')
+    )
+    collapsed = _OSCILLATION_HASH_RE.sub(" ", folded).strip().lower()
+    return hashlib.sha256(collapsed.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
+def _oscillation_log_path(session_id: str) -> Path:
+    return _OSCILLATION_SESSIONS_DIR / f"{session_id}-edit-log.jsonl"
+
+
+def _oscillation_warning_flag_path(session_id: str) -> Path:
+    return _OSCILLATION_SESSIONS_DIR / f"{session_id}-oscillation-warning.flag"
+
+
+def _read_recent_edit_log(session_id: str) -> list[dict]:
+    log_path = _oscillation_log_path(session_id)
+    if not log_path.exists():
+        return []
+    entries: list[dict] = []
+    try:
+        with log_path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except (json.JSONDecodeError, ValueError):
+                    continue
+    except OSError:
+        return []
+    return entries[-_OSCILLATION_LOOKBACK:]
+
+
+def _count_oscillation_reversals(entries: list[dict], target_path: str) -> int:
+    """Count distinct (old_hash, new_hash) pairs that match a prior (new_hash, old_hash) on same path."""
+    same_path = [
+        (entry.get("old_hash", ""), entry.get("new_hash", ""))
+        for entry in entries
+        if entry.get("path") == target_path
+    ]
+    reversals = 0
+    seen_pairs: set[tuple[str, str]] = set()
+    for index, (old_hash, new_hash) in enumerate(same_path):
+        for prior_old, prior_new in same_path[:index]:
+            if old_hash == prior_new and new_hash == prior_old:
+                pair_signature = tuple(sorted([old_hash, new_hash]))
+                if pair_signature not in seen_pairs:
+                    reversals += 1
+                    seen_pairs.add(pair_signature)
+                break
+    return reversals
+
+
+def mod_oscillation_log(data):
+    """Log Edit/MultiEdit signatures and flag oscillation when 3+ reversals on same file."""
+    tool_name = data.get("tool_name", "")
+    if tool_name not in ("Edit", "MultiEdit"):
+        return
+    tool_input = data.get("tool_input", {})
+    file_path = tool_input.get("file_path", "")
+    if not file_path:
+        return
+    session_id = data.get("session_id", "")
+    if not session_id:
+        return
+
+    target_path = str(Path(file_path).expanduser().resolve())
+
+    if tool_name == "Edit":
+        old_text = tool_input.get("old_string", "")
+        new_text = tool_input.get("new_string", "")
+        old_hash = _normalise_for_oscillation_hash(old_text)
+        new_hash = _normalise_for_oscillation_hash(new_text)
+        signatures = [(old_hash, new_hash)]
+    else:  # MultiEdit
+        edits = tool_input.get("edits", [])
+        signatures = [
+            (
+                _normalise_for_oscillation_hash(edit.get("old_string", "")),
+                _normalise_for_oscillation_hash(edit.get("new_string", "")),
+            )
+            for edit in edits
+            if isinstance(edit, dict)
+        ]
+
+    if not signatures:
+        return
+
+    log_path = _oscillation_log_path(session_id)
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            for old_hash, new_hash in signatures:
+                fh.write(
+                    json.dumps(
+                        {
+                            "path": target_path,
+                            "old_hash": old_hash,
+                            "new_hash": new_hash,
+                            "ts": time.time(),
+                        }
+                    )
+                    + "\n"
+                )
+    except OSError:
+        return
+
+    entries = _read_recent_edit_log(session_id)
+    if _count_oscillation_reversals(entries, target_path) >= _OSCILLATION_REVERSAL_THRESHOLD:
+        flag_path = _oscillation_warning_flag_path(session_id)
+        try:
+            flag_path.write_text(target_path, encoding="utf-8")
+        except OSError:
+            return
 
 
 def mod_affinity(data):
@@ -1652,6 +1786,10 @@ def main():
     # Ligation (Edit/Write general)
     if tool in ("Edit", "Write"):
         modules.append(mod_ligation)
+
+    # Oscillation detector (Edit/MultiEdit) — sub-detector C
+    if tool in ("Edit", "MultiEdit"):
+        modules.append(mod_oscillation_log)
 
     # Excisor (Edit on chromatin/immunity papers — nudge to cutting room)
     if tool == "Edit" and "/chromatin/immunity/" in fp:

@@ -913,6 +913,45 @@ def _flag_named_antigens(text: str) -> list[str]:
     return entities
 
 
+# ── oscillation: deliver warning flagged by dendrite ──
+
+_OSCILLATION_SESSIONS_DIR = HOME / ".claude" / "projects" / "-home-vivesca"
+
+
+def _oscillation_flag_path(session_id: str) -> Path:
+    return _OSCILLATION_SESSIONS_DIR / f"{session_id}-oscillation-warning.flag"
+
+
+def mod_oscillation_warning(data):
+    """Deliver the oscillation warning dendrite raised, then consume the flag.
+
+    Sub-detector C of the reactive-not-proactive family. Dendrite logs hash
+    signatures on Edit/MultiEdit and writes a flag file when 3+ reversals
+    are detected on the same file. This mod reads the flag at the next
+    UserPromptSubmit and emits a non-blocking additionalContext warning.
+    """
+    session_id = data.get("session_id", "")
+    if not session_id:
+        return []
+    flag_path = _oscillation_flag_path(session_id)
+    if not flag_path.exists():
+        return []
+    try:
+        flagged_path = flag_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return []
+    with contextlib.suppress(OSError):
+        flag_path.unlink()
+    if not flagged_path:
+        return []
+    return [
+        f"3+ reversals detected on `{flagged_path}` this session — sub-shape 8a "
+        "(framing-driven oscillation). STOP and quorate this decision externally "
+        "rather than reversing again. "
+        "See `feedback_repeated_ask_signals_empirical_test.md`."
+    ]
+
+
 def mod_named_tool_pushback(data):
     prompt = data.get("prompt", "")
     if not prompt:
@@ -1145,6 +1184,7 @@ def main():
         mod_priming,
         mod_rheotaxis,
         mod_named_tool_pushback,
+        mod_oscillation_warning,
         mod_mitogen,
         mod_senescence,
         mod_circaseptan,
