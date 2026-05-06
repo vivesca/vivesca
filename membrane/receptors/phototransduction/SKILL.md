@@ -76,8 +76,11 @@ sips -r -90 image.jpg --out image_ccw.jpg
 for f in *.jpg; do convert "$f" -auto-orient "$f"; done
 
 # Soma fallback — neither sips nor ImageMagick (`convert`/`magick`) are
-# installed on the Fly host. Use Python + PIL (already in the germline venv):
-python3 -c "
+# installed on the Fly host. Use Python + PIL via the germline venv. PIL is
+# NOT preinstalled by default — first use on a fresh soma needs:
+#   ~/germline/.venv/bin/pip install pillow
+# Then invoke explicitly with the venv interpreter (system python3 has no PIL):
+~/germline/.venv/bin/python3 -c "
 from PIL import Image
 for f in ['IMG_001.jpg', 'IMG_002.jpg']:
     img = Image.open(f)
