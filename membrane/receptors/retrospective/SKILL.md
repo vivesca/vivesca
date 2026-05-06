@@ -175,6 +175,20 @@ State each in-session action inline in §2d with `→ applied: <what>` or `→ p
 
 **Failure mode this prevents:** retrospective routes §2d to durable artefacts (Layer-3 enforcement) but treats them as future-only — future sessions will encounter the lesson when situations match. The current session's *open* state goes un-acted-on. The lesson sits as text in a file no future session reads until the trigger fires; meanwhile the carry-forward question that the lesson directly answers gets deferred to next session in vague form. Codifies failure caught in retrospective 2026-05-04-1955: Item 3's "ask Terry to state the arc when stuck on ordering" was filed as epistemics but not applied to the deferred safety-within-governance question, even though that question is exactly the "stuck on ordering" situation. The action gap was visible at wrap; only Terry's challenge surfaced it.
 
+#### 3d. Overdue-ship escalation (mandatory)
+
+After §3a/§3b/§3c, scan §2d items for **overdue-ship signals** — items naming a spec/artefact/hook that exists but hasn't shipped, where the same item has appeared in N+ prior retrospectives. Soft-park ("carry-forward to next session") is the failure mode at this layer; X+ retrospective recurrence is the test.
+
+For each item ask: "Has this exact item appeared in §2d or carry-forward across N+ prior retrospectives without shipping?" (Default N=5; tighten to N=3 for load-bearing items per genome.) Detection: grep `~/epigenome/chromatin/retrospectives/*.md` for the spec/artefact identifier (commit hash, file path, named hook).
+
+If yes → **escalate to Terry-prompt in the §2d display, not soft carry-forward**. The retrospective must explicitly ask Terry to either (a) ship now, (b) commit a specific ship date, or (c) explicitly retire the spec. Do not list "carry-forward to Tonus" as a standalone option — that's the failure mode being escalated against.
+
+State the escalation inline in §2d as: `→ ESCALATION: <N>th retrospective recurrence, Terry-decision needed: (a) ship now, (b) commit ship date, (c) retire spec.` Display this as a separate question to Terry in §4 output, not buried in §2d prose.
+
+**Layer-bearing exception:** items requiring Terry's eyes per genome (load-bearing hook edits, `genome.md` edits) cannot be CC-shipped autonomously. The escalation answer for those items is (b) or (c), not (a). State the constraint inline.
+
+**Failure mode this prevents:** retrospective surfaces an overdue ship as carry-forward; Terry reads carry-forward as "noted, will get to it"; next retrospective surfaces the same item as carry-forward; loop continues. Layer-1 synapse hook spec at `1f878748` is the canonical example — 12+ retrospectives across 12+ days listing it as "next-session priority" without escalation. Soft-park doesn't deter Terry-bandwidth gap any more than mark routing deters CC-reflex gap; both layers need active escalation when the recurrence threshold breaches. Codifies failure caught in retrospective 2026-05-06-0921 (Slot 46): Item 2 listed Layer-1 hook as Tonus carry-forward — the same routing that has demonstrably failed across 11 prior retrospectives. Asked Terry's question ("should we update the skill?") only forced the §3d insertion; the routing should have happened at first 5+ recurrence, not at retrospective #12.
+
 ### 4. Display Final Output to Terry
 
 Display sections 2a–2e inline (don't make Terry open the file). Be honest, specific, brief. Each section <150 words. Total output ≤800 words. §2d items must show their routing destination per §3.
