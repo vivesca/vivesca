@@ -125,6 +125,13 @@ Two writes, in this order:
 
 **5a. Write Tonus.** `~/epigenome/chromatin/Tonus.md` is the next session's handoff (synapse injects it at session start). Facts (established) + Progress (active), open items first (`[next]`, `[waiting]`, `[parked]`).
 
+**Stakeholder timing claims require source citation OR explicit INFERRED tag.** When writing any sentence that pins a third party to a time-anchored verb (X reads / sends / decides / approves / meets / responds at time T), one of these formats is required:
+
+- `{claim} (per [[chromatin-file-name]])` — when a chromatin file contains the source correspondence (Teams thread, email, decision capture).
+- `{claim} — INFERRED from {anchor}, source TBD` — when CC reasoned from an upstream signal (e.g., "David has a meeting tomorrow" → "Simon must read before then"). The INFERRED tag is mandatory; downstream sessions re-verify before propagating.
+
+Why: inheritance-as-fact through Tonus is the failure mechanism. Each propagation hop loses provenance and gains weight. The INFERRED tag preserves provenance across hops. Codified after Slot 46 instance: "Simon reads ~3pm HKT" propagated through 4 carry-forwards as confirmed when it was Slot-42 timezone-math inference from Simon's "David has a meeting tomorrow" message. See `finding_inferred_stakeholder_timing_propagated_as_fact.md`.
+
 **5b. Write the daily-note session block LAST.** Append a `## Session N — title` block to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` covering Outcomes / Filed / Published / Publishable? / Mechanised / Parked / Residual / Arc. Use `cytokinesis daily "title"` to insert a template, then Edit/Write to fill it. **The daily note is the visible terminal artefact** — Terry sees it as the diff in the UI when the wrap finishes, so writing it last preserves the session arc as the closing image. Gate enforces daily mtime > Tonus mtime; this ordering also satisfies the gate naturally without needing a separate `touch` to bump mtime.
 
 If a daily file already has earlier session blocks captured at compact, this session gets its own appended block — never overwrite.
